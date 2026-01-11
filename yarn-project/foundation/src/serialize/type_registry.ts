@@ -1,3 +1,4 @@
+import { isBuffer } from '../buffer/index.js';
 import { mapValues } from '../collection/object.js';
 
 type Deserializable = { fromString(str: string): object };
@@ -50,7 +51,7 @@ export function resolver(_: any, value: any) {
   if (typeof value === 'object' && value) {
     if (Array.isArray(value)) {
       return value.map(replace);
-    } else if (Buffer.isBuffer(value)) {
+    } else if (isBuffer(value)) {
       return { type: 'buffer', value: value.toString('hex') };
     } else {
       return mapValues(value, replace);

@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
@@ -126,7 +127,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
     p2pEnabled: true,
-    peerIdPrivateKey: new SecretValue(Buffer.from(peerId.privateKey!).toString('hex')),
+    peerIdPrivateKey: new SecretValue(bufferFrom(peerId.privateKey!).toString('hex')),
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
@@ -186,12 +187,12 @@ export type ReqRespNode = {
 // Mock sub protocol handlers
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.PING]: pingHandler,
-  [ReqRespSubProtocol.STATUS]: (_msg: any) => Promise.resolve(Buffer.from('status')),
-  [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
-  [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
-  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
-  [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(Buffer.from('auth')),
-  [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
+  [ReqRespSubProtocol.STATUS]: (_msg: any) => Promise.resolve(bufferFrom('status')),
+  [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(bufferFrom('tx')),
+  [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(bufferFrom('goodbye')),
+  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(bufferFrom('block')),
+  [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(bufferFrom('auth')),
+  [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(bufferFrom('block_txs')),
 };
 
 // By default, all requests are valid
@@ -326,7 +327,7 @@ export async function createBootstrapNode(
   chainConfig: ChainConfig = emptyChainConfig,
 ): Promise<BootstrapNode> {
   const peerId = await createSecp256k1PeerId();
-  const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port, chainConfig);
+  const config = createBootstrapNodeConfig(bufferFrom(peerId.privateKey!).toString('hex'), port, chainConfig);
 
   return startBootstrapNode(config, telemetry);
 }

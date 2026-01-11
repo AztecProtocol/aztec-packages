@@ -1,11 +1,13 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
+
 /**
  * Secp256k1 elliptic curve operations.
  */
 export class Secp256k1 {
   // prettier-ignore
-  static generator = Buffer.from([
+  static generator = bufferFrom([
     0x79, 0xbe, 0x66, 0x7e, 0xf9, 0xdc, 0xbb, 0xac, 0x55, 0xa0, 0x62, 0x95, 0xce, 0x87, 0x0b, 0x07,
     0x02, 0x9b, 0xfc, 0xdb, 0x2d, 0xce, 0x28, 0xd9, 0x59, 0xf2, 0x81, 0x5b, 0x16, 0xf8, 0x17, 0x98,
     0x48, 0x3a, 0xda, 0x77, 0x26, 0xa3, 0xc4, 0x65, 0x5d, 0xa4, 0xfb, 0xfc, 0x0e, 0x11, 0x08, 0xa8,
@@ -33,7 +35,7 @@ export class Secp256k1 {
       point: { x: point.subarray(0, 32), y: point.subarray(32, 64) },
       scalar,
     });
-    return Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]);
+    return bufferConcat([bufferFrom(response.point.x), bufferFrom(response.point.y)]);
   }
 
   /**
@@ -44,7 +46,7 @@ export class Secp256k1 {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.secp256k1GetRandomFr({ dummy: 0 });
-    return Buffer.from(response.value);
+    return bufferFrom(response.value);
   }
 
   /**
@@ -56,6 +58,6 @@ export class Secp256k1 {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.secp256k1Reduce512({ input: uint512Buf });
-    return Buffer.from(response.value);
+    return bufferFrom(response.value);
   }
 }

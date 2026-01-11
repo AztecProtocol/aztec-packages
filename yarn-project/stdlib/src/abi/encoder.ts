@@ -1,3 +1,4 @@
+import { isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AbiType, FunctionAbi } from './abi.js';
@@ -57,7 +58,7 @@ class ArgumentEncoder {
         } else if (typeof arg === 'boolean') {
           this.flattened.push(new Fr(arg ? 1n : 0n));
         } else if (typeof arg === 'object') {
-          if (Buffer.isBuffer(arg)) {
+          if (isBuffer(arg)) {
             this.flattened.push(Fr.fromBuffer(arg));
           } else if (typeof arg.toField === 'function') {
             this.flattened.push(arg.toField());

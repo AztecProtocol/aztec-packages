@@ -1,4 +1,4 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -43,7 +43,7 @@ export class AuthRequest {
 
   getPayloadToSign(): Buffer32 {
     const fullChallenge = VALIDATOR_AUTH_DOMAIN_SEPARATOR + this.challenge.toString();
-    return Buffer32.fromBuffer(keccak256(Buffer.from(fullChallenge, 'utf-8')));
+    return Buffer32.fromBuffer(keccak256(bufferFrom(fullChallenge, 'utf-8')));
   }
 
   static random(): AuthRequest {

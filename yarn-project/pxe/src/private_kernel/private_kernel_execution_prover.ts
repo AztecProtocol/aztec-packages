@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -41,7 +42,7 @@ const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPubl
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
   verificationKey: VerificationKeyData.empty(),
   outputWitness: new Map(),
-  bytecode: Buffer.from([]),
+  bytecode: bufferFrom([]),
 };
 
 export interface PrivateKernelExecutionProverConfig {
@@ -333,7 +334,7 @@ export class PrivateKernelExecutionProver {
     if (profileMode === 'gates') {
       for (const entry of executionSteps) {
         // These buffers are often a few megabytes in size - prevent accidentally serializing them if not requested.
-        entry.bytecode = Buffer.from([]);
+        entry.bytecode = bufferFrom([]);
         entry.witness = new Map();
       }
     }

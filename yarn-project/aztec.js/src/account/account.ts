@@ -1,4 +1,5 @@
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -71,7 +72,7 @@ export class BaseAccount implements Account {
    */
   async createAuthWit(messageHashOrIntent: Fr | Buffer | CallIntent | IntentInnerHash): Promise<AuthWitness> {
     let messageHash: Fr;
-    if (Buffer.isBuffer(messageHashOrIntent)) {
+    if (isBuffer(messageHashOrIntent)) {
       messageHash = Fr.fromBuffer(messageHashOrIntent);
     } else if (messageHashOrIntent instanceof Fr) {
       messageHash = messageHashOrIntent;

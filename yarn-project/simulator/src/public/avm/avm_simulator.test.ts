@@ -1,5 +1,6 @@
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { keccak256, keccakf1600 } from '@aztec/foundation/crypto/keccak';
 import { pedersenCommit, pedersenHash } from '@aztec/foundation/crypto/pedersen';
@@ -346,7 +347,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     // This doesnt include infinites
-    const expectedResult = (await pedersenCommit([Buffer.from([100]), Buffer.from([1])], 20)).map(f => new Fr(f));
+    const expectedResult = (await pedersenCommit([bufferFrom([100]), bufferFrom([1])], 20)).map(f => new Fr(f));
     // TODO: Come back to the handling of infinities when we confirm how they're handled in bb
     const isInf = expectedResult[0] === new Fr(0) && expectedResult[1] === new Fr(0);
     expectedResult.push(new Fr(isInf));
@@ -752,7 +753,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const expectedCompressedString = [
           '\0A long time ago, in a galaxy fa',
           '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
-        ].map(s => new Fr(Buffer.from(s)));
+        ].map(s => new Fr(bufferFrom(s)));
         const expectedLargeLog = Array.from({ length: 42 }, (_, i) => new Fr(i + 1));
 
         expect(trace.tracePublicLog).toHaveBeenCalledTimes(4);
@@ -1516,11 +1517,11 @@ describe('AVM simulator: "unchecked" errors should NOT be caught', () => {
 });
 
 function sha256FromMemoryBytes(bytes: Uint8[]): Promise<Fr[]> {
-  return Promise.resolve([...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)));
+  return Promise.resolve([...sha256(bufferConcat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)));
 }
 
 function keccak256FromMemoryBytes(bytes: Uint8[]): Promise<Fr[]> {
-  return Promise.resolve([...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)));
+  return Promise.resolve([...keccak256(bufferConcat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)));
 }
 
 function keccakF1600FromMemoryUint64s(mem: Uint64[]): Promise<Fr[]> {

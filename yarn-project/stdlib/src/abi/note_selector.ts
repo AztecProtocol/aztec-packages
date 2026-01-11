@@ -1,4 +1,5 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
@@ -35,7 +36,7 @@ export class NoteSelector extends Selector {
 
   static fromString(buf: string) {
     const withoutPrefix = buf.replace(/^0x/i, '').slice(-8);
-    const buffer = Buffer.from(withoutPrefix, 'hex');
+    const buffer = bufferFrom(withoutPrefix, 'hex');
     return NoteSelector.fromBuffer(buffer);
   }
 

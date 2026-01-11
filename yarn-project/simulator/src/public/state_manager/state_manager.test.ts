@@ -1,4 +1,5 @@
 import { NOTE_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -162,7 +163,7 @@ describe('state_manager', () => {
 
   describe('Getting bytecode', () => {
     it('Should get bytecode', async () => {
-      const bytecode = Buffer.from('0xdeadbeef');
+      const bytecode = bufferFrom('0xdeadbeef');
       const bytecodeCommitment = await computePublicBytecodeCommitment(bytecode);
       const contractInstance = SerializableContractInstance.default();
       const contractClass = await makeContractClassPublic();
@@ -285,12 +286,12 @@ describe('state_manager', () => {
   //    new UnencryptedL2Log(
   //      AztecAddress.fromBigInt(log.address),
   //      new EventSelector(log.selector),
-  //      Buffer.concat(log.data.map(f => f.toBuffer())),
+  //      bufferConcat(log.data.map(f => f.toBuffer())),
   //    ),
   //    new UnencryptedL2Log(
   //      AztecAddress.fromBigInt(logT1.address),
   //      new EventSelector(logT1.selector),
-  //      Buffer.concat(logT1.data.map(f => f.toBuffer())),
+  //      bufferConcat(logT1.data.map(f => f.toBuffer())),
   //    ),
   //  ]);
   //  expect(journalUpdates.newL1Messages).toEqual([
@@ -439,7 +440,7 @@ describe('state_manager', () => {
   //    new UnencryptedL2Log(
   //      AztecAddress.fromBigInt(log.address),
   //      new EventSelector(log.selector),
-  //      Buffer.concat(log.data.map(f => f.toBuffer())),
+  //      bufferConcat(log.data.map(f => f.toBuffer())),
   //    ),
   //  ]);
   //  expect(journalUpdates.newL1Messages).toEqual([expect.objectContaining({ recipient, content: commitment })]);

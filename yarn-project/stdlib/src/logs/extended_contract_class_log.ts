@@ -1,3 +1,4 @@
+import { bufferConcat } from '@aztec/foundation/buffer';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -42,7 +43,7 @@ export class ExtendedContractClassLog {
    * @returns A buffer containing the serialized log.
    */
   public toBuffer(): Buffer {
-    return Buffer.concat([this.id.toBuffer(), this.log.toBuffer()]);
+    return bufferConcat([this.id.toBuffer(), this.log.toBuffer()]);
   }
 
   /**

@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import type { AuthWitness } from '@aztec/aztec.js/authorization';
 import { type TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import type { LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
@@ -43,7 +44,7 @@ export class PlaygroundDB {
       version,
       nodeVersion,
     };
-    await this.networks.set(alias, Buffer.from(JSON.stringify(networkData)));
+    await this.networks.set(alias, bufferFrom(JSON.stringify(networkData)));
   }
 
   async retrieveNetwork(network: string) {
@@ -94,16 +95,16 @@ export class PlaygroundDB {
     }
 
     if (alias) {
-      await this.aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
-      await this.aliases.set(`artifacts:${alias}`, Buffer.from(stringify(artifact)));
+      await this.aliases.set(`contracts:${alias}`, bufferFrom(address.toString()));
+      await this.aliases.set(`artifacts:${alias}`, bufferFrom(stringify(artifact)));
     }
-    await this.aliases.set(`artifacts:${address.toString()}`, Buffer.from(stringify(artifact)));
+    await this.aliases.set(`artifacts:${address.toString()}`, bufferFrom(stringify(artifact)));
     log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
   async storeAuthwitness(authWit: AuthWitness, log: LogFn = this.userLog, alias?: string) {
     if (alias) {
-      await this.aliases.set(`authwits:${alias}`, Buffer.from(authWit.toString()));
+      await this.aliases.set(`authwits:${alias}`, bufferFrom(authWit.toString()));
     }
     log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
@@ -124,19 +125,19 @@ export class PlaygroundDB {
     alias?: string,
   ) {
     if (alias) {
-      await this.aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
+      await this.aliases.set(`transactions:${alias}`, bufferFrom(txHash.toString()));
     }
-    await this.transactionsPerContract.set(`${contractAddress.toString()}`, Buffer.from(txHash.toString()));
+    await this.transactionsPerContract.set(`${contractAddress.toString()}`, bufferFrom(txHash.toString()));
 
-    await this.transactions.set(`${txHash.toString()}:hash`, Buffer.from(txHash.toString()));
-    await this.transactions.set(`${txHash.toString()}:name`, Buffer.from(name));
-    await this.transactions.set(`${txHash.toString()}:status`, Buffer.from(receipt.status.toString()));
-    await this.transactions.set(`${txHash.toString()}:date`, Buffer.from(Date.now().toString()));
+    await this.transactions.set(`${txHash.toString()}:hash`, bufferFrom(txHash.toString()));
+    await this.transactions.set(`${txHash.toString()}:name`, bufferFrom(name));
+    await this.transactions.set(`${txHash.toString()}:status`, bufferFrom(receipt.status.toString()));
+    await this.transactions.set(`${txHash.toString()}:date`, bufferFrom(Date.now().toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
   async updateTxStatus(txHash: TxHash, status: TxStatus) {
-    await this.transactions.set(`${txHash.toString()}:status`, Buffer.from(status.toString()));
+    await this.transactions.set(`${txHash.toString()}:status`, bufferFrom(status.toString()));
   }
 
   async retrieveAllTx() {

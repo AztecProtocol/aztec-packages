@@ -5,6 +5,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -80,7 +81,7 @@ describe('Private Kernel Sequencer', () => {
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
     publicInputs.callContext.contractAddress = contractAddress;
     return new PrivateCallExecutionResult(
-      Buffer.alloc(0),
+      bufferAlloc(0),
       VerificationKey.makeFakeMegaHonk(),
       new Map(),
       publicInputs,
@@ -114,7 +115,7 @@ describe('Private Kernel Sequencer', () => {
       publicInputs,
       verificationKey: VerificationKeyData.empty(),
       outputWitness: new Map(),
-      bytecode: Buffer.from([]),
+      bytecode: bufferFrom([]),
     };
   };
 
@@ -130,7 +131,7 @@ describe('Private Kernel Sequencer', () => {
       publicInputs,
       outputWitness: new Map(),
       verificationKey: VerificationKeyData.empty(),
-      bytecode: Buffer.from([]),
+      bytecode: bufferFrom([]),
     };
   };
 

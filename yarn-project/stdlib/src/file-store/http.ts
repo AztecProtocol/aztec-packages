@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
@@ -34,7 +35,7 @@ export class HttpFileStore implements ReadOnlyFileStore {
     const url = this.getUrl(pathOrUrl);
     try {
       const response = await this.fetch<ArrayBuffer>({ url, method: 'GET', responseType: 'arraybuffer' });
-      return Buffer.from(response.data);
+      return bufferFrom(response.data);
     } catch (error) {
       throw new Error(`Error fetching file from ${url}: ${error instanceof Error ? error.message : String(error)}`);
     }

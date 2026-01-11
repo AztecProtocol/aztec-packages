@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -41,7 +42,7 @@ describe('ForwarderL1TxUtils', () => {
     if (!privKeyRaw) {
       throw new Error('Failed to get private key');
     }
-    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const privKey = bufferFrom(privKeyRaw).toString('hex');
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);

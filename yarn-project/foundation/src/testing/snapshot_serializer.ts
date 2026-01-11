@@ -1,6 +1,8 @@
 import type { NewPlugin } from 'pretty-format';
 import { inspect } from 'util';
 
+import { isBuffer } from '../buffer/index.js';
+
 function makeSerializerForCustomInspect(prefix: string): NewPlugin {
   return {
     serialize(val: any): string {
@@ -19,7 +21,7 @@ const bufferSerializer: NewPlugin = {
   },
 
   test(arg: any): boolean {
-    return Buffer.isBuffer(arg);
+    return isBuffer(arg);
   },
 };
 

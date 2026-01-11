@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat } from '../../buffer/index.js';
 import { EcdsaSignature } from './signature.js';
 
 describe('ecdsa_signature', () => {
@@ -5,7 +6,7 @@ describe('ecdsa_signature', () => {
     const signature = EcdsaSignature.random();
     const asFields = signature.toFields(true);
     const parts = asFields.map(fr => fr.toBuffer().subarray(1));
-    const reassembled = EcdsaSignature.fromBuffer(Buffer.concat(parts));
+    const reassembled = EcdsaSignature.fromBuffer(bufferConcat(parts));
     expect(reassembled).toEqual(signature);
   });
 
@@ -13,9 +14,9 @@ describe('ecdsa_signature', () => {
     const signature = EcdsaSignature.random();
     const asFields = signature.toFields(false);
     const parts = asFields.map(fr => fr.toBuffer().subarray(1));
-    const reassembled = EcdsaSignature.fromBuffer(Buffer.concat(parts));
+    const reassembled = EcdsaSignature.fromBuffer(bufferConcat(parts));
     expect(reassembled.r).toEqual(signature.r);
     expect(reassembled.s).toEqual(signature.s);
-    expect(reassembled.v).toEqual(Buffer.alloc(1));
+    expect(reassembled.v).toEqual(bufferAlloc(1));
   });
 });

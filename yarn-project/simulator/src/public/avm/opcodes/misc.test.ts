@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { LogLevels } from '@aztec/foundation/log';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 
@@ -13,14 +14,14 @@ import { DebugLog } from './misc.js';
 describe('Misc Instructions', () => {
   describe('DebugLog', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.DEBUGLOG, // opcode
         0x01, // indirect
-        ...Buffer.from('0002', 'hex'), // level
-        ...Buffer.from('1234', 'hex'), // messageOffset
-        ...Buffer.from('2345', 'hex'), // fieldsOffset
-        ...Buffer.from('3456', 'hex'), // fieldsSizeOffset
-        ...Buffer.from('0010', 'hex'), // messageSize
+        ...bufferFrom('0002', 'hex'), // level
+        ...bufferFrom('1234', 'hex'), // messageOffset
+        ...bufferFrom('2345', 'hex'), // fieldsOffset
+        ...bufferFrom('3456', 'hex'), // fieldsSizeOffset
+        ...bufferFrom('0010', 'hex'), // messageSize
       ]);
       const inst = new DebugLog(
         /*indirect=*/ 0x01,

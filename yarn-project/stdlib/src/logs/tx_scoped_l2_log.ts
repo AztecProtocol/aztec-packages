@@ -1,4 +1,5 @@
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas as foundationSchemas } from '@aztec/foundation/schemas';
 import {
@@ -61,7 +62,7 @@ export class TxScopedL2Log {
   }
 
   toBuffer() {
-    return Buffer.concat([
+    return bufferConcat([
       this.txHash.toBuffer(),
       numToUInt32BE(this.blockNumber),
       bigintToUInt64BE(this.blockTimestamp),

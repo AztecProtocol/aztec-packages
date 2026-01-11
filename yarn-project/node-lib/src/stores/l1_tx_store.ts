@@ -1,4 +1,5 @@
 import type { IL1TxStore, L1BlobInputs, L1TxConfig, L1TxState } from '@aztec/ethereum/l1-tx-utils';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
@@ -373,7 +374,7 @@ export class L1TxStore implements IL1TxStore {
    */
   private serializeBlobInputs(blobInputs: L1BlobInputs): SerializableBlobInputs {
     return {
-      blobs: blobInputs.blobs.map(b => Buffer.from(b).toString('base64')),
+      blobs: blobInputs.blobs.map(b => bufferFrom(b).toString('base64')),
       kzg: jsonStringify(blobInputs.kzg),
     };
   }
@@ -383,7 +384,7 @@ export class L1TxStore implements IL1TxStore {
    */
   private deserializeBlobInputs(stored: SerializableBlobInputs, metadata?: SerializableBlobMetadata): L1BlobInputs {
     const blobInputs: L1BlobInputs = {
-      blobs: stored.blobs.map(b => new Uint8Array(Buffer.from(b, 'base64'))),
+      blobs: stored.blobs.map(b => new Uint8Array(bufferFrom(b, 'base64'))),
       kzg: JSON.parse(stored.kzg),
     };
 

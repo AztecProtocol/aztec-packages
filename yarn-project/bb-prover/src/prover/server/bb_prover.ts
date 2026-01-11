@@ -6,6 +6,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
@@ -494,7 +495,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.config.bbBinaryPath,
       workingDirectory,
       circuitType,
-      Buffer.from(artifact.bytecode, 'base64'),
+      bufferFrom(artifact.bytecode, 'base64'),
       this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),

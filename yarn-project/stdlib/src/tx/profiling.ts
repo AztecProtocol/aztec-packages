@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
@@ -95,9 +96,9 @@ export class TxProfileResult {
       [
         {
           functionName: 'random',
-          bytecode: Buffer.from('random'),
+          bytecode: bufferFrom('random'),
           witness: new Map([[1, 'random']]),
-          vk: Buffer.from('random'),
+          vk: bufferFrom('random'),
           timings: {
             witgen: 1,
             gateCount: 1,

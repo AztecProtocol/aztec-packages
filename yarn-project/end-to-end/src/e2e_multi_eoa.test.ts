@@ -6,6 +6,7 @@ import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import type { ViemClient } from '@aztec/ethereum/types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -32,7 +33,7 @@ const createPublisherKeysAndAddresses = () => {
   return times(NUM_PUBLISHERS + 1, i => {
     const account = mnemonicToAccount(MNEMONIC, { addressIndex: i });
     const key = account.getHdKey().privateKey;
-    const publisherPrivKey = key === null ? null : Buffer.from(key);
+    const publisherPrivKey = key === null ? null : bufferFrom(key);
     if (publisherPrivKey === null) {
       throw new Error('Failed to create private key');
     }

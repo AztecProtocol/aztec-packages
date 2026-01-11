@@ -2,10 +2,11 @@ import { pedersenHash as pedersenHashArray } from '@aztec/foundation/crypto/pede
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 
+import { bufferConcat } from '../buffer/index.js';
 import type { AsyncHasher, Hasher } from './hasher.js';
 
 export const shaMerkleHash: Hasher['hash'] = (left: Buffer, right: Buffer) =>
-  sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>;
+  sha256Trunc(bufferConcat([left, right])) as Buffer<ArrayBuffer>;
 
 export const pedersenMerkleHash: AsyncHasher['hash'] = async (left: Buffer, right: Buffer) =>
   (await pedersenHashArray([left, right])).toBuffer() as Buffer<ArrayBuffer>;

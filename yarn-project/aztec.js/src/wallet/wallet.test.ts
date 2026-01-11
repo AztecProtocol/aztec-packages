@@ -1,5 +1,6 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
@@ -311,7 +312,7 @@ class MockWallet implements Wallet {
         privateFunctions: [],
         publicBytecodeCommitment: Fr.random(),
         unconstrainedFunctionsArtifactTreeRoot: Fr.random(),
-        packedBytecode: Buffer.from('1234', 'hex'),
+        packedBytecode: bufferFrom('1234', 'hex'),
       },
       isContractClassPubliclyRegistered: true,
       artifact: {

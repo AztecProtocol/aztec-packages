@@ -1,3 +1,4 @@
+import { bufferAlloc } from '../../buffer/index.js';
 import { createLogger } from '../../log/pino-logger.js';
 
 /**
@@ -48,7 +49,7 @@ export class RandomnessSingleton {
       // the singleton within randomBytes func is fine.
       throw new Error('RandomnessSingleton is not implemented for non-deterministic mode');
     }
-    const result = Buffer.alloc(length);
+    const result = bufferAlloc(length);
     for (let i = 0; i < length; i++) {
       // Each byte of the buffer is set to a 1 byte of this.counter's value. 0xff is 255 in decimal and it's used as
       // a mask to get the last 8 bits of the shifted counter.

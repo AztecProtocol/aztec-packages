@@ -5,6 +5,7 @@ import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundat
 import { inspect } from 'util';
 
 import { bufferToHex } from '../string/index.js';
+import { bufferAlloc, bufferConcat, bufferFrom } from './utils.js';
 
 /**
  * A class representing a 32 byte Buffer.
@@ -18,7 +19,7 @@ export class Buffer32 {
   /**
    * Buffer32 with value zero.
    */
-  public static ZERO = new Buffer32(Buffer.alloc(Buffer32.SIZE));
+  public static ZERO = new Buffer32(bufferAlloc(Buffer32.SIZE));
 
   constructor(
     /**
@@ -63,7 +64,7 @@ export class Buffer32 {
    * @returns True if this hash is zero.
    */
   public isZero(): boolean {
-    return this.buffer.equals(Buffer.alloc(32, 0));
+    return this.buffer.equals(bufferAlloc(32, 0));
   }
 
   /**
@@ -110,7 +111,7 @@ export class Buffer32 {
     if (buffer.length != 28) {
       throw new Error(`Expected Buffer32 input buffer to be 28 bytes`);
     }
-    const padded = Buffer.concat([Buffer.alloc(this.SIZE - 28), buffer]);
+    const padded = bufferConcat([bufferAlloc(this.SIZE - 28), buffer]);
     return new Buffer32(padded);
   }
 
@@ -124,7 +125,7 @@ export class Buffer32 {
     if (str.length !== this.SIZE * 2) {
       throw new Error(`Expected string to be ${this.SIZE * 2} characters long, but was ${str.length}`);
     }
-    return new Buffer32(Buffer.from(str, 'hex'));
+    return new Buffer32(bufferFrom(str, 'hex'));
   }
 
   /**
@@ -141,6 +142,6 @@ export class Buffer32 {
    * @returns A new Buffer32 object.
    */
   public static random(): Buffer32 {
-    return new Buffer32(Buffer.from(randomBytes(Buffer32.SIZE)));
+    return new Buffer32(bufferFrom(randomBytes(Buffer32.SIZE)));
   }
 }

@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
@@ -179,7 +180,7 @@ export async function getPeerIdPrivateKey(
 
   // Generate and persist a new private key
   const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-  const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+  const privateKeyString = bufferFrom(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
   if (peerIdPrivateKeyFilePath) {
     logger.verbose(`Creating new peer ID private key and persisting it to ${peerIdPrivateKeyFilePath}`);
     await writePrivateKeyToFile(peerIdPrivateKeyFilePath, privateKeyString);
@@ -204,7 +205,7 @@ export async function createLibP2PPeerIdFromPrivateKey(privateKey: string): Prom
   }
 
   const asLibp2pPrivateKey: PrivateKey<'secp256k1'> = await unmarshalPrivateKey(
-    new Uint8Array(Buffer.from(privateKey, 'hex')),
+    new Uint8Array(bufferFrom(privateKey, 'hex')),
   );
   return await createFromPrivKey(asLibp2pPrivateKey);
 }

@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -21,7 +22,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
   protected readonly maxIndex: bigint;
 
   protected hasher: HasherWithStats;
-  root: Buffer = Buffer.alloc(32);
+  root: Buffer = bufferAlloc(32);
 
   public constructor(
     hasher: Hasher,
@@ -190,7 +191,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
     let [layerWidth, nodeToShift] =
       _leaves.length & 1
         ? [_leaves.length - 1, serializeToBuffer(_leaves[_leaves.length - 1])]
-        : [_leaves.length, Buffer.alloc(0)];
+        : [_leaves.length, bufferAlloc(0)];
     // Allocate this layer's leaves and init the next layer up
     let thisLayer = _leaves.slice(0, layerWidth).map(l => serializeToBuffer(l));
     let nextLayer = [];
@@ -209,7 +210,7 @@ export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree
           nextLayer.push(serializeToBuffer(nodeToShift));
           this.storeNode(nodeToShift, this.maxDepth - i - 1, BigInt((layerWidth * 2) >> 1));
           layerWidth += 1;
-          nodeToShift = Buffer.alloc(0);
+          nodeToShift = bufferAlloc(0);
         } else {
           // If we don't have a node waiting to be shifted, store the next layer's final node to be shifted
           layerWidth -= 1;

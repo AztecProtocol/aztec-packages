@@ -1,3 +1,4 @@
+import { isBuffer } from '../buffer/index.js';
 import { Fr } from '../curves/bn254/index.js';
 import { assertLength } from '../serialize/index.js';
 import type { IndexedTreeLeafPreimage } from './indexed_tree_leaf.js';
@@ -29,7 +30,7 @@ export class IndexedMerkleTree<T extends IndexedTreeLeafPreimage, N extends numb
   }
 
   public getMembershipWitness(leafIndexOrLeaf: number | Buffer): MembershipWitness<N> {
-    const index = Buffer.isBuffer(leafIndexOrLeaf) ? this.getIndex(leafIndexOrLeaf) : leafIndexOrLeaf;
+    const index = isBuffer(leafIndexOrLeaf) ? this.getIndex(leafIndexOrLeaf) : leafIndexOrLeaf;
     const siblingPath = this.getSiblingPath(index);
     return new MembershipWitness<N>(
       this.height as N,

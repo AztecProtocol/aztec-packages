@@ -1,13 +1,14 @@
 /* eslint-disable camelcase */
 import { default as hash } from 'hash.js';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
 import { Fr } from '../../curves/bn254/field.js';
 import { truncateAndPad } from '../../serialize/free_funcs.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
 import type { Hasher } from '../../trees/hasher.js';
 
 export function sha256(data: Buffer) {
-  return Buffer.from(hash.sha256().update(data).digest());
+  return bufferFrom(hash.sha256().update(data).digest());
 }
 
 export function sha256Trunc(data: Buffer) {
@@ -158,7 +159,7 @@ export class SHA256 implements Hasher {
    * purposes.
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array) {
-    return sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)])) as Buffer<ArrayBuffer>;
+    return sha256(bufferConcat([bufferFrom(lhs), bufferFrom(rhs)])) as Buffer<ArrayBuffer>;
   }
 
   /*
@@ -166,7 +167,7 @@ export class SHA256 implements Hasher {
    * purposes.
    */
   public hashInputs(inputs: Buffer[]) {
-    return sha256(Buffer.concat(inputs)) as Buffer<ArrayBuffer>;
+    return sha256(bufferConcat(inputs)) as Buffer<ArrayBuffer>;
   }
 }
 
@@ -181,7 +182,7 @@ export class SHA256Trunc implements Hasher {
    * purposes.
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array) {
-    return truncateAndPad(sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)]))) as Buffer<ArrayBuffer>;
+    return truncateAndPad(sha256(bufferConcat([bufferFrom(lhs), bufferFrom(rhs)]))) as Buffer<ArrayBuffer>;
   }
 
   /*
@@ -189,6 +190,6 @@ export class SHA256Trunc implements Hasher {
    * purposes.
    */
   public hashInputs(inputs: Buffer[]) {
-    return truncateAndPad(sha256(Buffer.concat(inputs))) as Buffer<ArrayBuffer>;
+    return truncateAndPad(sha256(bufferConcat(inputs))) as Buffer<ArrayBuffer>;
   }
 }

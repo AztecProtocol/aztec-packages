@@ -1,3 +1,4 @@
+import { bufferAlloc, isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -10,7 +11,7 @@ import type { ACVMField } from './acvm_types.js';
  * @returns The adapted buffer.
  */
 function adaptBufferSize(originalBuf: Buffer) {
-  const buffer = Buffer.alloc(Fr.SIZE_IN_BYTES);
+  const buffer = bufferAlloc(Fr.SIZE_IN_BYTES);
   if (originalBuf.length > buffer.length) {
     throw new Error('Buffer does not fit in field');
   }
@@ -27,7 +28,7 @@ export function toACVMField(
   value: AztecAddress | EthAddress | Fr | Buffer | boolean | number | bigint | ACVMField,
 ): ACVMField {
   let buffer;
-  if (Buffer.isBuffer(value)) {
+  if (isBuffer(value)) {
     buffer = value;
   } else if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
     buffer = new Fr(value).toBuffer();

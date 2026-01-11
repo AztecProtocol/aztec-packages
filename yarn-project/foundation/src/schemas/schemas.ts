@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EpochNumber, EpochNumberSchema } from '../branded-types/epoch.js';
 import { SlotNumber, SlotNumberSchema } from '../branded-types/slot.js';
 import { Buffer32 } from '../buffer/buffer32.js';
+import { bufferFrom } from '../buffer/index.js';
 import { SecretValue } from '../config/secret_value.js';
 import { Fq, Fr } from '../curves/bn254/field.js';
 import { Point } from '../curves/grumpkin/point.js';
@@ -77,7 +78,7 @@ export const schemas = {
     .string()
     .refine(isHex, 'Not a valid hex string')
     .transform(withoutHexPrefix)
-    .transform(data => Buffer.from(data, 'hex')),
+    .transform(data => bufferFrom(data, 'hex')),
 
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,

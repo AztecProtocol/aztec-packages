@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
@@ -31,7 +32,7 @@ import {
  * @returns A buffer.
  */
 export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
-  return Buffer.from(jsonStringify(artifact), 'utf-8');
+  return bufferFrom(jsonStringify(artifact), 'utf-8');
 }
 
 /**

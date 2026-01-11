@@ -1,6 +1,7 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
 
 import { Buffer32 } from '../../buffer/buffer32.js';
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
 import { EthAddress } from '../../eth-address/index.js';
 import { Signature } from '../../eth-signature/eth_signature.js';
 import { keccak256 } from '../keccak/index.js';
@@ -30,8 +31,8 @@ export class Secp256k1Error extends Error {
 
 // We just hash the message to make it easier to work with in the smart contract.
 export function makeEthSignDigest(message: Buffer32): Buffer32 {
-  const prefix = Buffer.from(ETH_SIGN_PREFIX);
-  return Buffer32.fromBuffer(keccak256(Buffer.concat([prefix, message.buffer])));
+  const prefix = bufferFrom(ETH_SIGN_PREFIX);
+  return Buffer32.fromBuffer(keccak256(bufferConcat([prefix, message.buffer])));
 }
 
 /**
@@ -50,7 +51,7 @@ function publicKeyToAddress(publicKey: Buffer): EthAddress {
  * @returns The public key.
  */
 export function publicKeyFromPrivateKey(privateKey: Buffer): Buffer {
-  return Buffer.from(secp256k1.getPublicKey(privateKey, false));
+  return bufferFrom(secp256k1.getPublicKey(privateKey, false));
 }
 
 /**
@@ -208,5 +209,5 @@ export function recoverPublicKey(hash: Buffer32, signature: Signature, opts: Rec
     throw new Secp256k1Error('Signature has high s-value (malleable signature)');
   }
   const publicKey = sig.recoverPublicKey(hash.buffer).toHex(false);
-  return Buffer.from(publicKey, 'hex');
+  return bufferFrom(publicKey, 'hex');
 }

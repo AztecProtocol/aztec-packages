@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -47,7 +48,7 @@ export class FinalBlobAccumulator {
     // We prepend 32 bytes for the (unused) 'blobHash' slot. This is not read or required by getEpochProofPublicInputs() on L1, but
     // is expected since we usually pass the full precompile inputs via verifyEpochRootProof() to getEpochProofPublicInputs() to ensure
     // we use calldata rather than a slice in memory:
-    const buf = Buffer.concat([Buffer.alloc(32), this.z.toBuffer(), this.y.toBuffer(), this.c.compress()]);
+    const buf = bufferConcat([bufferAlloc(32), this.z.toBuffer(), this.y.toBuffer(), this.c.compress()]);
     return buf.toString('hex');
   }
 

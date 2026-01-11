@@ -1,4 +1,5 @@
 import { PAIRING_POINTS_SIZE } from '@aztec/constants';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -119,5 +120,5 @@ export class Proof {
  * @returns The empty "proof".
  */
 export function makeEmptyProof() {
-  return new Proof(Buffer.alloc(EMPTY_PROOF_SIZE, 0), 0);
+  return new Proof(bufferAlloc(EMPTY_PROOF_SIZE, 0), 0);
 }

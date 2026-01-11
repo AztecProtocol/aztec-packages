@@ -1,3 +1,4 @@
+import { bufferConcat } from '@aztec/foundation/buffer';
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
@@ -488,7 +489,7 @@ export class ReqResp implements ReqRespInterface {
         }
       }
 
-      const messageData = Buffer.concat(chunks);
+      const messageData = bufferConcat(chunks);
       const message: Buffer = this.snappyTransform.inboundTransformData(messageData);
 
       return {

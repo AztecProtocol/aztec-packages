@@ -1,5 +1,6 @@
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
@@ -165,7 +166,7 @@ export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
   });
   // Pad to AZTEC_MAX_EPOCH_DURATION with zeros.
   checkpointOutHashes = checkpointOutHashes.concat(
-    Array.from({ length: AZTEC_MAX_EPOCH_DURATION - messagesInEpoch.length }, () => Buffer.alloc(32)),
+    Array.from({ length: AZTEC_MAX_EPOCH_DURATION - messagesInEpoch.length }, () => bufferAlloc(32)),
   );
 
   // Build the epoch tree with all the checkpoint out hashes, including the padded zeros
@@ -216,8 +217,8 @@ function buildBlockTree(messagesInBlock: Fr[][]) {
 }
 
 function buildCompressedTree(leaves: Buffer[]) {
-  // Note: If a block or tx has no messages (i.e. leaf == Buffer.alloc(32)), we ignore that branch and only accumulate
+  // Note: If a block or tx has no messages (i.e. leaf == bufferAlloc(32)), we ignore that branch and only accumulate
   // the non-zero hashes to match what the circuits do.
-  const valueToCompress = Buffer.alloc(32);
+  const valueToCompress = bufferAlloc(32);
   return UnbalancedMerkleTreeCalculator.create(leaves, valueToCompress);
 }

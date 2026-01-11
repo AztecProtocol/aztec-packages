@@ -12,6 +12,7 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodes } from '@aztec/ethereum/test';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
@@ -110,11 +111,11 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
   ) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
+    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${bufferFrom(privKey!).toString('hex')}` as const)];
   }
   if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
+    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${bufferFrom(privKey!).toString('hex')}`]);
   }
   aztecNodeConfig.coinbase = EthAddress.fromString(
     privateKeyToAddress(aztecNodeConfig.validatorPrivateKeys.getValue()[0]),

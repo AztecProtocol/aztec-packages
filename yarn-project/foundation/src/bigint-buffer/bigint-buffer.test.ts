@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferFrom } from '../buffer/index.js';
 import { fromHex, toHex } from './index.js';
 
 describe('bigint-buffer', () => {
@@ -22,14 +23,14 @@ describe('bigint-buffer', () => {
   describe('fromHex', () => {
     it('should convert a valid hex string to a Buffer', () => {
       const hexString = '0x1234567890abcdef';
-      const expectedBuffer = Buffer.from('1234567890abcdef', 'hex');
+      const expectedBuffer = bufferFrom('1234567890abcdef', 'hex');
       const result = fromHex(hexString);
       expect(result).toEqual(expectedBuffer);
     });
 
     it('should convert a valid hex string without prefix to a Buffer', () => {
       const hexString = '1234567890abcdef';
-      const expectedBuffer = Buffer.from('1234567890abcdef', 'hex');
+      const expectedBuffer = bufferFrom('1234567890abcdef', 'hex');
       const result = fromHex(hexString);
       expect(result).toEqual(expectedBuffer);
     });
@@ -45,8 +46,8 @@ describe('bigint-buffer', () => {
     });
 
     it('should handle an empty hex string', () => {
-      expect(fromHex('')).toEqual(Buffer.alloc(0));
-      expect(fromHex('0x')).toEqual(Buffer.alloc(0));
+      expect(fromHex('')).toEqual(bufferAlloc(0));
+      expect(fromHex('0x')).toEqual(bufferAlloc(0));
     });
   });
 });

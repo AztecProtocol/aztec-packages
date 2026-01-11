@@ -2,6 +2,7 @@ import { BarretenbergSync } from '@aztec/bb.js';
 import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
 import { SchnorrSignature } from './signature.js';
 
 export * from './signature.js';
@@ -19,7 +20,7 @@ export class Schnorr {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrComputePublicKey({ privateKey: privateKey.toBuffer() });
-    return Point.fromBuffer(Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]));
+    return Point.fromBuffer(bufferConcat([bufferFrom(response.publicKey.x), bufferFrom(response.publicKey.y)]));
   }
 
   /**
@@ -35,7 +36,7 @@ export class Schnorr {
       message: msg,
       privateKey: privateKey.toBuffer(),
     });
-    return new SchnorrSignature(Buffer.from([...response.s, ...response.e]));
+    return new SchnorrSignature(bufferFrom([...response.s, ...response.e]));
   }
 
   /**

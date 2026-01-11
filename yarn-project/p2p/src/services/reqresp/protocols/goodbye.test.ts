@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import { GoodByeReason, decodeGoodbyeReason, encodeGoodbyeReason } from './goodbye.js';
 
 describe('goodbye', () => {
@@ -9,7 +11,7 @@ describe('goodbye', () => {
   });
 
   it('should return unknown if the goodbye reason buffer length is invalid', () => {
-    const invalidBuffer = Buffer.from([0x1, 0x2]);
+    const invalidBuffer = bufferFrom([0x1, 0x2]);
     expect(decodeGoodbyeReason(invalidBuffer)).toBe(GoodByeReason.UNKNOWN);
   });
 });

@@ -1,3 +1,4 @@
+import { bufferAlloc } from '../buffer/index.js';
 import { computeBalancedMerkleTreeRoot, shaMerkleHash } from './balanced_merkle_tree.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 import { SiblingPath } from './sibling_path.js';
@@ -8,7 +9,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
   let leaves: Buffer[];
 
   const leaf = (leafValue: number) => {
-    const buf = Buffer.alloc(32);
+    const buf = bufferAlloc(32);
     buf.writeUInt32LE(leafValue, 0);
     return buf;
   };
@@ -26,7 +27,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
   const createBalancedTree = async (leaves: Buffer[]) => {
     const tree = await MerkleTreeCalculator.create(
       Math.log2(leaves.length),
-      Buffer.alloc(32, 0),
+      bufferAlloc(32, 0),
       (lhs: Buffer, rhs: Buffer) => Promise.resolve(hasher(lhs, rhs) as Buffer<ArrayBuffer>),
     );
     return tree.computeTree(leaves);
@@ -41,7 +42,7 @@ describe('UnbalancedMerkleTreeCalculator', () => {
 
     it('0 leaves', () => {
       createAndFillTree(0);
-      expect(tree.getRoot()).toEqual(Buffer.alloc(32));
+      expect(tree.getRoot()).toEqual(bufferAlloc(32));
     });
 
     it('1 leaf', () => {

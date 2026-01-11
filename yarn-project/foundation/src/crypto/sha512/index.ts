@@ -1,9 +1,10 @@
 import { default as hash } from 'hash.js';
 
+import { bufferFrom } from '../../buffer/index.js';
 import { GrumpkinScalar } from '../../curves/grumpkin/index.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
 
-export const sha512 = (data: Buffer) => Buffer.from(hash.sha512().update(data).digest());
+export const sha512 = (data: Buffer) => bufferFrom(hash.sha512().update(data).digest());
 
 /**
  * @dev We don't truncate in this function (unlike in sha256ToField) because this function is used in situations where

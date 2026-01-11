@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat, isBuffer } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { strict as assert } from 'assert';
@@ -192,7 +193,7 @@ function writeUint128BE(this: Buffer, value: bigint): void {
  */
 export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): DeserializedValue[] {
   const argValues: DeserializedValue[] = [];
-  if (Buffer.isBuffer(cursor)) {
+  if (isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 
@@ -240,10 +241,10 @@ export function serializeAs(operands: OperandType[], opcode: Opcode, cls: any): 
   for (let i = 0; i < operands.length; i++) {
     const opType = operands[i];
     const [sizeBytes, _reader, writer] = OPERAND_SPEC.get(opType)!;
-    const buf = Buffer.alloc(sizeBytes);
+    const buf = bufferAlloc(sizeBytes);
     writer.call(buf, classValues[i]);
     chunks.push(buf);
   }
 
-  return Buffer.concat(chunks);
+  return bufferConcat(chunks);
 }

@@ -3,6 +3,7 @@ import { bls12_381 } from '@noble/curves/bls12-381';
 import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
+import { bufferAlloc, bufferConcat, bufferFrom, isBuffer } from '../../buffer/index.js';
 import { randomBytes } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader } from '../../serialize/buffer_reader.js';
@@ -29,12 +30,12 @@ export abstract class BLS12Field {
   private asBigInt?: bigint;
 
   protected constructor(value: number | bigint | Buffer) {
-    if (Buffer.isBuffer(value)) {
+    if (isBuffer(value)) {
       if (value.length > this.size()) {
         throw new Error(`Value length ${value.length} exceeds ${this.size()}`);
       }
       this.asBuffer =
-        value.length === this.size() ? value : Buffer.concat([Buffer.alloc(this.size() - value.length), value]);
+        value.length === this.size() ? value : bufferConcat([bufferAlloc(this.size() - value.length), value]);
       this.toBigInt();
     } else if (typeof value === 'bigint' || typeof value === 'number') {
       this.asBigInt = BigInt(value);
@@ -57,7 +58,7 @@ export abstract class BLS12Field {
     if (!this.asBuffer) {
       this.asBuffer = toBufferBE(this.asBigInt!, this.size());
     }
-    return Buffer.from(this.asBuffer);
+    return bufferFrom(this.asBuffer);
   }
 
   toString(): `0x${string}` {
@@ -162,7 +163,7 @@ function bufferFromHexString(str: string) {
   if (checked === undefined) {
     throw new Error(`Invalid hex-encoded string: "${str}"`);
   }
-  return Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
+  return bufferFrom(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
 }
 
 /**

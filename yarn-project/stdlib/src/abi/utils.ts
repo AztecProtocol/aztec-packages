@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import type { AbiType } from './abi.js';
 
 /**
@@ -70,7 +72,7 @@ export function isBoundedVecStruct(abiType: AbiType) {
  * @returns - a deserialized bigint
  */
 export function parseSignedInt(b: Buffer, width?: number) {
-  const buf = Buffer.from(b);
+  const buf = bufferFrom(b);
 
   // We get the last (width / 8) bytes where width = bits of type (i64, i32 etc)
   const slicedBuf = width !== undefined ? buf.subarray(-(width / 8)) : buf;

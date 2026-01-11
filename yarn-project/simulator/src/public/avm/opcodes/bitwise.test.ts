@@ -1,4 +1,5 @@
 import { AVM_AND_BASE_L2_GAS, AVM_BITWISE_DYN_L2_GAS, AVM_OR_BASE_L2_GAS, AVM_XOR_BASE_L2_GAS } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 
 import type { AvmContext } from '../avm_context.js';
 import { getBitwiseDynamicGasMultiplier } from '../avm_gas.js';
@@ -16,12 +17,12 @@ describe('Bitwise instructions', () => {
 
   describe('AND', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.AND_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('2345', 'hex'), // bOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('2345', 'hex'), // bOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new And(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
         Opcode.AND_16,
@@ -57,12 +58,12 @@ describe('Bitwise instructions', () => {
 
   describe('OR', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.OR_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('2345', 'hex'), // bOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('2345', 'hex'), // bOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new Or(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
         Opcode.OR_16,
@@ -105,12 +106,12 @@ describe('Bitwise instructions', () => {
 
   describe('XOR', () => {
     it('Should deserialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.XOR_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('2345', 'hex'), // bOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('2345', 'hex'), // bOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new Xor(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
         Opcode.XOR_16,
@@ -153,11 +154,11 @@ describe('Bitwise instructions', () => {
 
   describe('NOT', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         Opcode.NOT_16, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // aOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // aOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new Not(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*dstOffset=*/ 0x3456).as(
         Opcode.NOT_16,

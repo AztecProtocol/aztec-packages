@@ -1,5 +1,6 @@
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -105,7 +106,7 @@ export async function executePrivateFunction(
 
   return new PrivateCallExecutionResult(
     artifact.bytecode,
-    Buffer.from(artifact.verificationKey!, 'base64'),
+    bufferFrom(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
     noteHashLeafIndexMap,

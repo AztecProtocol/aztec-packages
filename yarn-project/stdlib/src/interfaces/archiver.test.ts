@@ -1,4 +1,5 @@
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -149,12 +150,12 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getTxEffect', async () => {
-    const result = await context.client.getTxEffect(TxHash.fromBuffer(Buffer.alloc(32, BlockNumber(1))));
+    const result = await context.client.getTxEffect(TxHash.fromBuffer(bufferAlloc(32, BlockNumber(1))));
     expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getSettledTxReceipt', async () => {
-    const result = await context.client.getSettledTxReceipt(TxHash.fromBuffer(Buffer.alloc(32, BlockNumber(1))));
+    const result = await context.client.getSettledTxReceipt(TxHash.fromBuffer(bufferAlloc(32, BlockNumber(1))));
     expect(result).toBeInstanceOf(TxReceipt);
   });
 

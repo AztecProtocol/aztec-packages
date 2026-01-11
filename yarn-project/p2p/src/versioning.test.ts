@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ChainConfig } from '@aztec/stdlib/config';
 
@@ -16,7 +17,7 @@ describe('versioning', () => {
     enr = mock<SignableENR>({
       set: (key, value) => {
         expect(key).toEqual(AZTEC_ENR_KEY);
-        versionSet = Buffer.from(value);
+        versionSet = bufferFrom(value);
       },
     });
 

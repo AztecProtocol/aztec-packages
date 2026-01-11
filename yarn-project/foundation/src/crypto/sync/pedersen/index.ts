@@ -1,5 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
+import { bufferAlloc, bufferConcat, bufferFrom } from '../../../buffer/index.js';
 import { Fr } from '../../../curves/bn254/field.js';
 import { type Fieldable, serializeToFields } from '../../../serialize/serialize.js';
 
@@ -11,12 +12,12 @@ export function pedersenCommit(input: Buffer[], offset = 0) {
   if (!input.every(i => i.length <= 32)) {
     throw new Error('All Pedersen Commit input buffers must be <= 32 bytes.');
   }
-  input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
+  input = input.map(i => (i.length < 32 ? bufferConcat([bufferAlloc(32 - i.length, 0), i]) : i));
   const response = BarretenbergSync.getSingleton().pedersenCommit({
     inputs: input,
     hashIndex: offset,
   });
-  return [Buffer.from(response.point.x), Buffer.from(response.point.y)];
+  return [bufferFrom(response.point.x), bufferFrom(response.point.y)];
 }
 
 /**
@@ -31,7 +32,7 @@ export function pedersenHash(input: Fieldable[], index = 0): Fr {
     inputs: inputFields.map(i => i.toBuffer()),
     hashIndex: index,
   });
-  return Fr.fromBuffer(Buffer.from(response.hash));
+  return Fr.fromBuffer(bufferFrom(response.hash));
 }
 
 /**
@@ -42,5 +43,5 @@ export function pedersenHashBuffer(input: Buffer, index = 0) {
     input,
     hashIndex: index,
   });
-  return Buffer.from(response.hash);
+  return bufferFrom(response.hash);
 }

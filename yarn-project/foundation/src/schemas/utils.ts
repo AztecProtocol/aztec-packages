@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import {
   OK,
   type ParseInput,
@@ -12,6 +13,7 @@ import {
   z,
 } from 'zod';
 
+import { bufferFrom } from '../buffer/index.js';
 import { pick } from '../collection/object.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import type { ZodFor } from './types.js';
@@ -29,14 +31,14 @@ export const bufferSchema: ZodFor<Buffer> = z.union([
     // We only test the str for base64 if it's shorter than 1024 bytes, otherwise we've run into maximum
     // stack size exceeded errors when trying to validate excessively long strings (such as contract bytecode).
     .refine(str => str.length > 1024 || base64Regex.test(str), 'Not a valid base64 string')
-    .transform(data => Buffer.from(data, 'base64')),
+    .transform(data => bufferFrom(data, 'base64')),
   // Serialization from Buffer-annotated object.
   z
     .object({
       type: z.literal('Buffer'),
       data: z.array(z.number().int().min(0).max(255)),
     })
-    .transform(({ data }) => Buffer.from(data)),
+    .transform(({ data }) => bufferFrom(data)),
   // Serialization from Buffer
   z.instanceof(Buffer),
 ]);
@@ -90,7 +92,7 @@ export function hexSchemaFor<TClass extends { fromString(str: string): any } | {
   const hexSchema = stringSchema.refine(isHex, 'Not a valid hex string');
   return 'fromString' in klazz
     ? hexSchema.transform(klazz.fromString.bind(klazz))
-    : hexSchema.transform(str => Buffer.from(withoutHexPrefix(str), 'hex')).transform(klazz.fromBuffer.bind(klazz));
+    : hexSchema.transform(str => bufferFrom(withoutHexPrefix(str), 'hex')).transform(klazz.fromBuffer.bind(klazz));
 }
 
 /**

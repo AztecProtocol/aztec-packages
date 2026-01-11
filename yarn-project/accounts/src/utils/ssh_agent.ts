@@ -1,3 +1,5 @@
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
+
 import { Buffer } from 'buffer';
 import net from 'net';
 
@@ -42,10 +44,10 @@ export function getIdentities(): Promise<StoredKey[]> {
   return new Promise((resolve, reject) => {
     const stream = connectToAgent();
     stream.on('connect', () => {
-      const request = Buffer.concat([
-        Buffer.from([0, 0, 0, 5 + 4]), // length
-        Buffer.from([SSH_AGENT_IDENTITIES_REQUEST]),
-        Buffer.from([0, 0, 0, 0]), // flags
+      const request = bufferConcat([
+        bufferFrom([0, 0, 0, 5 + 4]), // length
+        bufferFrom([SSH_AGENT_IDENTITIES_REQUEST]),
+        bufferFrom([0, 0, 0, 0]), // flags
       ]);
 
       stream.write(request);
@@ -98,22 +100,22 @@ export function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buf
     const stream = connectToAgent();
     stream.on('connect', () => {
       // Construct the key blob
-      const keyBlob = Buffer.concat([
-        Buffer.from([0, 0, 0, keyType.length]),
+      const keyBlob = bufferConcat([
+        bufferFrom([0, 0, 0, keyType.length]),
         keyType,
-        Buffer.from([0, 0, 0, curveName.length]),
+        bufferFrom([0, 0, 0, curveName.length]),
         curveName,
-        Buffer.from([0, 0, 0, publicKey.length + 1, 4]),
+        bufferFrom([0, 0, 0, publicKey.length + 1, 4]),
         publicKey,
       ]);
-      const request = Buffer.concat([
-        Buffer.from([0, 0, 0, 5 + keyBlob.length + 4 + data.length + 4]), // length
-        Buffer.from([SSH_AGENT_SIGN_REQUEST]),
-        Buffer.from([0, 0, 0, keyBlob.length]), // key blob length
+      const request = bufferConcat([
+        bufferFrom([0, 0, 0, 5 + keyBlob.length + 4 + data.length + 4]), // length
+        bufferFrom([SSH_AGENT_SIGN_REQUEST]),
+        bufferFrom([0, 0, 0, keyBlob.length]), // key blob length
         keyBlob,
-        Buffer.from([0, 0, 0, data.length]), // data length
+        bufferFrom([0, 0, 0, data.length]), // data length
         data,
-        Buffer.from([0, 0, 0, 0]), // flags
+        bufferFrom([0, 0, 0, 0]), // flags
       ]);
 
       stream.write(request);

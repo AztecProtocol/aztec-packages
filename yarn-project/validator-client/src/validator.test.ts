@@ -2,7 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferAlloc } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -616,7 +616,7 @@ describe('ValidatorClient', () => {
       const peerId = await createSecp256k1PeerId();
       const msg = AuthRequest.random().toBuffer();
       const res = await callHandler(validatorClient, peerId, msg);
-      expect(res).toEqual(Buffer.alloc(0));
+      expect(res).toEqual(bufferAlloc(0));
     });
 
     it('should return empty buffer if validator is not registered', async () => {
@@ -627,7 +627,7 @@ describe('ValidatorClient', () => {
       const peerId = await createSecp256k1PeerId();
       const msg = AuthRequest.random().toBuffer();
       const res = await callHandler(validatorClient, peerId, msg);
-      expect(res).toEqual(Buffer.alloc(0));
+      expect(res).toEqual(bufferAlloc(0));
     });
 
     it('should return serialised auth response if we are responding to auth request', async () => {

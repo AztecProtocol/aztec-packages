@@ -1,4 +1,5 @@
 import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
@@ -97,25 +98,25 @@ export class CommitteeAttestationsAndSigners implements Signable {
         dataIndex++;
 
         // Pack r (32 bytes)
-        const rBytes = Buffer.from(signature.r.slice(2), 'hex');
+        const rBytes = bufferFrom(signature.r.slice(2), 'hex');
         signaturesOrAddresses.set(rBytes, dataIndex);
         dataIndex += 32;
 
         // Pack s (32 bytes)
-        const sBytes = Buffer.from(signature.s.slice(2), 'hex');
+        const sBytes = bufferFrom(signature.s.slice(2), 'hex');
         signaturesOrAddresses.set(sBytes, dataIndex);
         dataIndex += 32;
       } else {
         // Pack address only (20 bytes)
-        const addrBytes = Buffer.from(attestation.addr.slice(2), 'hex');
+        const addrBytes = bufferFrom(attestation.addr.slice(2), 'hex');
         signaturesOrAddresses.set(addrBytes, dataIndex);
         dataIndex += 20;
       }
     }
 
     return {
-      signatureIndices: `0x${Buffer.from(signatureIndices).toString('hex')}`,
-      signaturesOrAddresses: `0x${Buffer.from(signaturesOrAddresses).toString('hex')}`,
+      signatureIndices: `0x${bufferFrom(signatureIndices).toString('hex')}`,
+      signaturesOrAddresses: `0x${bufferFrom(signaturesOrAddresses).toString('hex')}`,
     };
   }
 }

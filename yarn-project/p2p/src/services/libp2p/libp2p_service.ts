@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
@@ -689,7 +690,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   private safelyDeserializeP2PMessage(msgId: string, source: PeerId, data: Uint8Array): P2PMessage | undefined {
     try {
-      return P2PMessage.fromMessageData(Buffer.from(data), this.config.debugP2PInstrumentMessages);
+      return P2PMessage.fromMessageData(bufferFrom(data), this.config.debugP2PInstrumentMessages);
     } catch (err) {
       this.logger.error(`Error deserializing P2PMessage`, err, {
         msgId,

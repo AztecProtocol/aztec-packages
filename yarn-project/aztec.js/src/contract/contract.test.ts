@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -61,8 +62,8 @@ describe('Contract Class', () => {
         ],
         returnTypes: [],
         errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        bytecode: bufferAlloc(8, 0xfa),
+        verificationKey: bufferAlloc(4064).toString('base64'),
       },
       {
         name: 'public_dispatch',
@@ -81,7 +82,7 @@ describe('Contract Class', () => {
         ],
         returnTypes: [],
         errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfb),
+        bytecode: bufferAlloc(8, 0xfb),
         debugSymbols: '',
       },
       {
@@ -106,7 +107,7 @@ describe('Contract Class', () => {
             width: 32,
           },
         ],
-        bytecode: Buffer.alloc(8, 0xfc),
+        bytecode: bufferAlloc(8, 0xfc),
         debugSymbols: '',
         errorTypes: {},
       },

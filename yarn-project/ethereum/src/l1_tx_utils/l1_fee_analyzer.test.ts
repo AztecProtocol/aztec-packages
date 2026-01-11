@@ -1,5 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
@@ -39,7 +40,7 @@ describe('L1FeeAnalyzer', () => {
     if (!privKeyRaw) {
       throw new Error('Failed to get private key');
     }
-    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const privKey = bufferFrom(privKeyRaw).toString('hex');
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);

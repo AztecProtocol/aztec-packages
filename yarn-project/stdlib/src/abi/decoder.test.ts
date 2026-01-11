@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { AztecAddress } from '../aztec-address/index.js';
@@ -89,7 +90,7 @@ describe('decoder', () => {
           width: 8,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('00000000000000000000000000000000000000000000000000000000000000ff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('00000000000000000000000000000000000000000000000000000000000000ff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
@@ -101,7 +102,7 @@ describe('decoder', () => {
           width: 8,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000007f', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('000000000000000000000000000000000000000000000000000000000000007f', 'hex'))],
     );
     expect(decoded).toBe(2n ** 7n - 1n);
   });
@@ -115,7 +116,7 @@ describe('decoder', () => {
           width: 16,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000ffff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('000000000000000000000000000000000000000000000000000000000000ffff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
@@ -127,7 +128,7 @@ describe('decoder', () => {
           width: 16,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000007fff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000007fff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 15n - 1n);
   });
@@ -141,7 +142,7 @@ describe('decoder', () => {
           width: 32,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('00000000000000000000000000000000000000000000000000000000ffffffff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('00000000000000000000000000000000000000000000000000000000ffffffff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
@@ -153,7 +154,7 @@ describe('decoder', () => {
           width: 32,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000007fffffff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('000000000000000000000000000000000000000000000000000000007fffffff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 31n - 1n);
   });
@@ -167,7 +168,7 @@ describe('decoder', () => {
           width: 64,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000ffffffffffffffff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('000000000000000000000000000000000000000000000000ffffffffffffffff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
@@ -179,7 +180,7 @@ describe('decoder', () => {
           width: 64,
         },
       ],
-      [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000007fffffffffffffff', 'hex'))],
+      [Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000007fffffffffffffff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 63n - 1n);
   });
@@ -246,16 +247,16 @@ describe('decoder', () => {
         },
       ],
       [
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // field
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // u128
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // bool
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000078', 'hex')), // "x"
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000079', 'hex')), // "y"
-        Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000007a', 'hex')), // "z"
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // address
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // point.x
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // point.y
-        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // point.is_infinite
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // field
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // u128
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // bool
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000078', 'hex')), // "x"
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000079', 'hex')), // "y"
+        Fr.fromBuffer(bufferFrom('000000000000000000000000000000000000000000000000000000000000007a', 'hex')), // "z"
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // address
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // point.x
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // point.y
+        Fr.fromBuffer(bufferFrom('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // point.is_infinite
       ],
     );
 

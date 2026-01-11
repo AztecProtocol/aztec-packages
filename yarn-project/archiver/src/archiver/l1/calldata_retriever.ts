@@ -1,6 +1,7 @@
 import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -428,7 +429,7 @@ export class CalldataRetriever {
 
     const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
     const header = CheckpointHeader.fromViem(decodedArgs.header);
-    const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
+    const archiveRoot = new Fr(bufferFrom(hexToBytes(decodedArgs.archive)));
 
     // Validate attestationsHash if provided (skip for backwards compatibility with older events)
     if (expectedHashes.attestationsHash) {
@@ -438,8 +439,8 @@ export class CalldataRetriever {
       );
 
       // Compare as buffers to avoid case-sensitivity and string comparison issues
-      const computedBuffer = Buffer.from(hexToBytes(computedAttestationsHash));
-      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.attestationsHash));
+      const computedBuffer = bufferFrom(hexToBytes(computedAttestationsHash));
+      const expectedBuffer = bufferFrom(hexToBytes(expectedHashes.attestationsHash));
 
       if (!computedBuffer.equals(expectedBuffer)) {
         throw new Error(
@@ -463,8 +464,8 @@ export class CalldataRetriever {
       const computedPayloadDigest = keccak256(payloadToSign);
 
       // Compare as buffers to avoid case-sensitivity and string comparison issues
-      const computedBuffer = Buffer.from(hexToBytes(computedPayloadDigest));
-      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.payloadDigest));
+      const computedBuffer = bufferFrom(hexToBytes(computedPayloadDigest));
+      const expectedBuffer = bufferFrom(hexToBytes(expectedHashes.payloadDigest));
 
       if (!computedBuffer.equals(expectedBuffer)) {
         throw new Error(

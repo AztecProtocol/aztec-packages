@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -56,7 +57,7 @@ describe('snapshots', () => {
   describe('download', () => {
     it('gets latest snapshot metadata', async () => {
       store.exists.mockResolvedValue(true);
-      store.read.mockResolvedValue(Buffer.from(jsonStringify(index), 'utf-8'));
+      store.read.mockResolvedValue(bufferFrom(jsonStringify(index), 'utf-8'));
       await expect(getLatestSnapshotMetadata(metadata, store)).resolves.toEqual(snapshots[4]);
       expect(store.read).toHaveBeenCalledWith(`aztec-1-2-${rollup.toString()}/index.json`);
     });
@@ -104,7 +105,7 @@ describe('snapshots', () => {
 
     it('updates an existing index', async () => {
       store.exists.mockResolvedValue(true);
-      store.read.mockResolvedValue(Buffer.from(jsonStringify(index), 'utf-8'));
+      store.read.mockResolvedValue(bufferFrom(jsonStringify(index), 'utf-8'));
 
       let uploadedIndex: string;
       store.save.mockImplementation((_path, data) => {

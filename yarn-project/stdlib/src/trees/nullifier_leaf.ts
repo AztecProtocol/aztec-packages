@@ -1,4 +1,5 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -75,14 +76,14 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   toBuffer(): Buffer {
-    return Buffer.concat(this.toHashInputs());
+    return bufferConcat(this.toHashInputs());
   }
 
   toHashInputs(): Buffer[] {
     return [
       ...this.leaf.toHashInputs(),
-      Buffer.from(this.nextKey.toBuffer()),
-      Buffer.from(toBufferBE(this.nextIndex, 32)),
+      bufferFrom(this.nextKey.toBuffer()),
+      bufferFrom(toBufferBE(this.nextIndex, 32)),
     ];
   }
 
@@ -144,7 +145,7 @@ export class NullifierLeaf implements IndexedTreeLeaf {
   }
 
   toHashInputs(): Buffer[] {
-    return [Buffer.from(this.nullifier.toBuffer())];
+    return [bufferFrom(this.nullifier.toBuffer())];
   }
 
   static empty(): NullifierLeaf {

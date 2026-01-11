@@ -1,4 +1,5 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
 import { createBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { computeBn254G1PublicKeyCompressed } from '@aztec/foundation/crypto/bn254';
@@ -73,7 +74,7 @@ export function deriveEthAttester(
   const acct = mnemonicToAccount(mnemonic, { accountIndex: baseAccountIndex, addressIndex });
   return remoteSigner
     ? ({ address: acct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
-    : (('0x' + Buffer.from(acct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
+    : (('0x' + bufferFrom(acct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
 }
 
 export async function buildValidatorEntries(input: BuildValidatorsInput) {
@@ -121,7 +122,7 @@ export async function buildValidatorEntries(input: BuildValidatorsInput) {
           publisherAddresses.push(pubAcct.address as unknown as string);
           return remoteSigner
             ? ({ address: pubAcct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
-            : (('0x' + Buffer.from(pubAcct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
+            : (('0x' + bufferFrom(pubAcct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
         });
         publisherField = publisherCount === 1 ? publisherAccounts[0] : publisherAccounts;
       }

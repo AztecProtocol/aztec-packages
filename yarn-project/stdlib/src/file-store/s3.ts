@@ -1,3 +1,4 @@
+import { bufferConcat, bufferFrom, isBuffer } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import {
@@ -132,9 +133,9 @@ export class S3FileStore implements FileStore {
     const stream = out.Body as Readable;
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      chunks.push(isBuffer(chunk) ? chunk : bufferFrom(chunk));
     }
-    return Buffer.concat(chunks);
+    return bufferConcat(chunks);
   }
 
   public async download(pathOrUrlStr: string, destPath: string): Promise<void> {

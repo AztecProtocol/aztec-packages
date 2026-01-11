@@ -1,4 +1,5 @@
 import { AVM_TORADIXBE_BASE_L2_GAS, AVM_TORADIXBE_DYN_L2_GAS } from '@aztec/constants';
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AvmContext } from '../avm_context.js';
@@ -17,14 +18,14 @@ describe('Conversion Opcodes', () => {
 
   describe('To Radix BE', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         ToRadixBE.opcode, // opcode
-        ...Buffer.from('0001', 'hex'), // indirect
-        ...Buffer.from('1234', 'hex'), // inputStateOffset
-        ...Buffer.from('2345', 'hex'), // radixOffset
-        ...Buffer.from('3456', 'hex'), // numLimbsOffset
-        ...Buffer.from('4567', 'hex'), // outputBitsOffset
-        ...Buffer.from('5678', 'hex'), // outputStateOffset
+        ...bufferFrom('0001', 'hex'), // indirect
+        ...bufferFrom('1234', 'hex'), // inputStateOffset
+        ...bufferFrom('2345', 'hex'), // radixOffset
+        ...bufferFrom('3456', 'hex'), // numLimbsOffset
+        ...bufferFrom('4567', 'hex'), // outputBitsOffset
+        ...bufferFrom('5678', 'hex'), // outputStateOffset
       ]);
       const inst = new ToRadixBE(
         /*indirect=*/ 0x0001,
@@ -59,7 +60,7 @@ describe('Conversion Opcodes', () => {
         context,
       );
 
-      const resultBuffer: Buffer = Buffer.concat(
+      const resultBuffer: Buffer = bufferConcat(
         context.machineState.memory.getSliceAs<Uint8>(dstOffset, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
       // The expected result is the first 10 bits of the input
@@ -91,7 +92,7 @@ describe('Conversion Opcodes', () => {
         context,
       );
 
-      const resultBuffer: Buffer = Buffer.concat(
+      const resultBuffer: Buffer = bufferConcat(
         context.machineState.memory.getSliceAs<Uint1>(dstOffset, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
       // The expected result is the first 10 bits of the input
@@ -123,7 +124,7 @@ describe('Conversion Opcodes', () => {
         context,
       );
 
-      const resultBuffer: Buffer = Buffer.concat(
+      const resultBuffer: Buffer = bufferConcat(
         context.machineState.memory.getSliceAs<Uint1>(dstOffset, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
 
@@ -134,7 +135,7 @@ describe('Conversion Opcodes', () => {
     });
 
     it('Should decompose correctly - indirect', async () => {
-      const arg = new Field(Buffer.from('1234567890abcdef', 'hex'));
+      const arg = new Field(bufferFrom('1234567890abcdef', 'hex'));
       const indirect = Addressing.fromModes([
         /*srcOffset=*/ AddressingMode.INDIRECT,
         /*radixOffset*/ AddressingMode.INDIRECT,
@@ -170,7 +171,7 @@ describe('Conversion Opcodes', () => {
         context,
       );
 
-      const resultBuffer: Buffer = Buffer.concat(
+      const resultBuffer: Buffer = bufferConcat(
         context.machineState.memory.getSliceAs<Uint8>(dstOffsetReal, numLimbs.toNumber()).map(byte => byte.toBuffer()),
       );
       // The expected result is the input (padded to 256 bits)

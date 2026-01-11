@@ -3,12 +3,14 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
+
 /**
  * Grumpkin elliptic curve operations.
  */
 export class Grumpkin {
   // prettier-ignore
-  static readonly generator = Point.fromBuffer(Buffer.from([
+  static readonly generator = Point.fromBuffer(bufferFrom([
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xcf, 0x13, 0x5e, 0x75, 0x06, 0xa4, 0x5d, 0x63,
@@ -28,7 +30,7 @@ export class Grumpkin {
       point: { x: point.x.toBuffer(), y: point.y.toBuffer() },
       scalar: scalar.toBuffer(),
     });
-    return Point.fromBuffer(Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]));
+    return Point.fromBuffer(bufferConcat([bufferFrom(response.point.x), bufferFrom(response.point.y)]));
   }
 
   /**
@@ -44,7 +46,7 @@ export class Grumpkin {
       pointA: { x: a.x.toBuffer(), y: a.y.toBuffer() },
       pointB: { x: b.x.toBuffer(), y: b.y.toBuffer() },
     });
-    return Point.fromBuffer(Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]));
+    return Point.fromBuffer(bufferConcat([bufferFrom(response.point.x), bufferFrom(response.point.y)]));
   }
 
   /**
@@ -61,7 +63,7 @@ export class Grumpkin {
       scalar: scalar.toBuffer(),
     });
 
-    return response.points.map(p => Point.fromBuffer(Buffer.concat([Buffer.from(p.x), Buffer.from(p.y)])));
+    return response.points.map(p => Point.fromBuffer(bufferConcat([bufferFrom(p.x), bufferFrom(p.y)])));
   }
 
   /**
@@ -72,7 +74,7 @@ export class Grumpkin {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinGetRandomFr({ dummy: 0 });
-    return Fr.fromBuffer(Buffer.from(response.value));
+    return Fr.fromBuffer(bufferFrom(response.value));
   }
 
   /**
@@ -84,6 +86,6 @@ export class Grumpkin {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.grumpkinReduce512({ input: uint512Buf });
-    return Fr.fromBuffer(Buffer.from(response.value));
+    return Fr.fromBuffer(bufferFrom(response.value));
   }
 }

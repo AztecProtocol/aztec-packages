@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -77,7 +78,7 @@ describe('StandardTree_batchAppend', () => {
   it('should be able to find indexes of leaves', async () => {
     const db = openTmpStore();
     const tree = await createDb(db, pedersen, 'test', 3);
-    const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
+    const values = [bufferAlloc(32, 1), bufferAlloc(32, 2)];
 
     tree.appendLeaves([values[0]]);
 

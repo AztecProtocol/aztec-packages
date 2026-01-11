@@ -1,4 +1,5 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -60,7 +61,7 @@ export class Blob {
       throw new Error(`Attempted to overfill blob with ${fields.length} fields. The maximum is ${FIELDS_PER_BLOB}.`);
     }
 
-    const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
+    const data = bufferConcat([serializeToBuffer(fields)], BYTES_PER_BLOB);
     const commitment = computeBlobCommitment(data);
     return new Blob(data, commitment);
   }
@@ -89,7 +90,7 @@ export class Blob {
    * @returns A Blob created from the JSON object.
    */
   static fromJson(json: BlobJson): Blob {
-    const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
+    const blobBuffer = bufferFrom(json.blob.slice(2), 'hex');
     const blob = Blob.fromBlobBuffer(blobBuffer);
 
     if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
@@ -106,7 +107,7 @@ export class Blob {
    */
   toJSON(): BlobJson {
     return {
-      blob: `0x${Buffer.from(this.data).toString('hex')}`,
+      blob: `0x${bufferFrom(this.data).toString('hex')}`,
       // eslint-disable-next-line camelcase
       kzg_commitment: `0x${this.commitment.toString('hex')}`,
     };
@@ -141,8 +142,8 @@ export class Blob {
       throw new Error(`KZG proof did not verify.`);
     }
 
-    const proof = Buffer.from(res[0]);
-    const y = BLS12Fr.fromBuffer(Buffer.from(res[1]));
+    const proof = bufferFrom(res[0]);
+    const y = BLS12Fr.fromBuffer(bufferFrom(res[1]));
     return { y, proof };
   }
 
@@ -154,7 +155,7 @@ export class Blob {
    * @returns The buffer representation of the blob.
    */
   toBuffer(): Buffer {
-    return Buffer.from(serializeToBuffer(this.data.length, this.data, this.commitment.length, this.commitment));
+    return bufferFrom(serializeToBuffer(this.data.length, this.data, this.commitment.length, this.commitment));
   }
 
   /**

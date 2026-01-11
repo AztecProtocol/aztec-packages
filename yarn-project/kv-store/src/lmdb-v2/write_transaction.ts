@@ -7,6 +7,7 @@ import {
   removeAnyOf,
   removeFromSortedArray,
 } from '@aztec/foundation/array';
+import { bufferCompare } from '@aztec/foundation/buffer';
 
 import { type Batch, Database, LMDBMessageType } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
@@ -79,7 +80,7 @@ export class WriteTransaction extends ReadTransaction {
     if (removeEntries) {
       if (removeEntries[1]) {
         // check if we were deleting these values and update
-        removeAnyOf(removeEntries[1], values, Buffer.compare);
+        removeAnyOf(removeEntries[1], values, bufferCompare);
       }
 
       if (!removeEntries[1] || removeEntries[1].length === 0) {
@@ -90,8 +91,8 @@ export class WriteTransaction extends ReadTransaction {
     }
 
     if (addEntries) {
-      merge(addEntries[1], values, Buffer.compare);
-      dedupeSortedArray(addEntries[1], Buffer.compare);
+      merge(addEntries[1], values, bufferCompare);
+      dedupeSortedArray(addEntries[1], bufferCompare);
     } else {
       insertIntoSortedArray(this.indexBatch.addEntries, [key, values], keyCmp);
     }
@@ -121,7 +122,7 @@ export class WriteTransaction extends ReadTransaction {
     }
 
     if (addEntries) {
-      removeAnyOf(addEntries[1], values, Buffer.compare);
+      removeAnyOf(addEntries[1], values, bufferCompare);
       if (addEntries[1].length === 0) {
         removeFromSortedArray(this.indexBatch.addEntries, addEntries, keyCmp);
       }
@@ -129,8 +130,8 @@ export class WriteTransaction extends ReadTransaction {
 
     if (removeEntries) {
       removeEntries[1] ??= [];
-      merge(removeEntries[1], values, Buffer.compare);
-      dedupeSortedArray(removeEntries[1], Buffer.compare);
+      merge(removeEntries[1], values, bufferCompare);
+      dedupeSortedArray(removeEntries[1], bufferCompare);
     } else {
       insertIntoSortedArray(this.indexBatch.removeEntries, [key, values], keyCmp);
     }
@@ -150,12 +151,12 @@ export class WriteTransaction extends ReadTransaction {
     const results = await super.getIndex(key);
 
     if (addEntries) {
-      merge(results, addEntries[1], Buffer.compare);
-      dedupeSortedArray(results, Buffer.compare);
+      merge(results, addEntries[1], bufferCompare);
+      dedupeSortedArray(results, bufferCompare);
     }
 
     if (removeEntries && Array.isArray(removeEntries[1])) {
-      removeAnyOf(results, removeEntries[1], Buffer.compare);
+      removeAnyOf(results, removeEntries[1], bufferCompare);
     }
 
     return results;
@@ -194,11 +195,11 @@ export class WriteTransaction extends ReadTransaction {
       limit,
       (committed, toAdd, toRemove) => {
         if (toAdd.length > 0) {
-          merge(committed, toAdd, Buffer.compare);
-          dedupeSortedArray(committed, Buffer.compare);
+          merge(committed, toAdd, bufferCompare);
+          dedupeSortedArray(committed, bufferCompare);
         }
         if (toRemove.length > 0) {
-          removeAnyOf(committed, toRemove, Buffer.compare);
+          removeAnyOf(committed, toRemove, bufferCompare);
         }
         return committed;
       },
@@ -232,7 +233,7 @@ export class WriteTransaction extends ReadTransaction {
     while (uncommittedEntriesIdx < uncommittedEntries.length) {
       const entry = uncommittedEntries[uncommittedEntriesIdx];
       // go to the first key in our cache that would be captured by the iterator
-      if (Buffer.compare(entry[0], startKey) !== cmpDirection) {
+      if (bufferCompare(entry[0], startKey) !== cmpDirection) {
         break;
       }
       uncommittedEntriesIdx++;
@@ -245,11 +246,11 @@ export class WriteTransaction extends ReadTransaction {
       // yield every key that we have cached that's captured by the iterator
       while (uncommittedEntriesIdx < uncommittedEntries.length && checkLimit()) {
         const entry = uncommittedEntries[uncommittedEntriesIdx];
-        if (endKey && Buffer.compare(entry[0], endKey) !== cmpDirection) {
+        if (endKey && bufferCompare(entry[0], endKey) !== cmpDirection) {
           break;
         }
 
-        if (Buffer.compare(entry[0], key) === cmpDirection) {
+        if (bufferCompare(entry[0], key) === cmpDirection) {
           count++;
           yield [entry[0], map(entry[1])];
         } else {
@@ -272,7 +273,7 @@ export class WriteTransaction extends ReadTransaction {
       let toAdd: Uint8Array[] = [];
       if (
         uncommittedEntriesIdx < uncommittedEntries.length &&
-        Buffer.compare(uncommittedEntries[uncommittedEntriesIdx][0], key) === 0
+        bufferCompare(uncommittedEntries[uncommittedEntriesIdx][0], key) === 0
       ) {
         toAdd = uncommittedEntries[uncommittedEntriesIdx][1];
         uncommittedEntriesIdx++;
@@ -293,7 +294,7 @@ export class WriteTransaction extends ReadTransaction {
     // emit all the uncommitted data that would be captured by this iterator
     while (uncommittedEntriesIdx < uncommittedEntries.length && checkLimit()) {
       const entry = uncommittedEntries[uncommittedEntriesIdx];
-      if (endKey && Buffer.compare(entry[0], endKey) !== cmpDirection) {
+      if (endKey && bufferCompare(entry[0], endKey) !== cmpDirection) {
         break;
       }
       count++;

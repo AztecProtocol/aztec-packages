@@ -2,6 +2,8 @@ import { BarretenbergSync } from '@aztec/bb.js';
 
 import { Buffer } from 'buffer';
 
+import { bufferAlloc, bufferConcat, bufferFrom } from '../../buffer/index.js';
+
 /**
  * AES-128-CBC encryption/decryption.
  */
@@ -16,11 +18,11 @@ export class Aes128 {
   public async encryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
     const rawLength = data.length;
     const numPaddingBytes = 16 - (rawLength % 16);
-    const paddingBuffer = Buffer.alloc(numPaddingBytes);
+    const paddingBuffer = bufferAlloc(numPaddingBytes);
     // input num bytes needs to be a multiple of 16 and at least 1 byte
     // node uses PKCS#7-Padding scheme, where padding byte value = the number of padding bytes
     paddingBuffer.fill(numPaddingBytes);
-    const input = Buffer.concat([data, paddingBuffer]);
+    const input = bufferConcat([data, paddingBuffer]);
 
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
@@ -30,7 +32,7 @@ export class Aes128 {
       key,
       length: input.length,
     });
-    return Buffer.from(response.ciphertext);
+    return bufferFrom(response.ciphertext);
   }
 
   /**
@@ -50,7 +52,7 @@ export class Aes128 {
       key,
       length: data.length,
     });
-    return Buffer.from(response.plaintext);
+    return bufferFrom(response.plaintext);
   }
 
   /**

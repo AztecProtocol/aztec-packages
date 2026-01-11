@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas, zodFor } from '@aztec/foundation/schemas';
 
@@ -181,6 +182,6 @@ export function contractClassPublicFromPlainObject(obj: any): ContractClassPubli
     privateFunctionsRoot: Fr.fromPlainObject(obj.privateFunctionsRoot),
     privateFunctions: [],
     utilityFunctions: [],
-    packedBytecode: obj.packedBytecode instanceof Buffer ? obj.packedBytecode : Buffer.from(obj.packedBytecode),
+    packedBytecode: obj.packedBytecode instanceof Buffer ? obj.packedBytecode : bufferFrom(obj.packedBytecode),
   };
 }

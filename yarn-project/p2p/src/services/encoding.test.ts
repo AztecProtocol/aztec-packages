@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferCompare, bufferFrom } from '@aztec/foundation/buffer';
 import { TopicType } from '@aztec/stdlib/p2p';
 
 import { compressSync, uncompressSync } from 'snappy';
@@ -61,7 +62,7 @@ describe('readSnappyPreamble', () => {
     it('should correctly read preamble from compressed data (small)', () => {
       // Create uncompressed data of known size
       const originalSize = 100;
-      const uncompressed = Buffer.alloc(originalSize, 'a');
+      const uncompressed = bufferAlloc(originalSize, 'a');
 
       // Compress it
       const compressed = compressSync(uncompressed);
@@ -79,7 +80,7 @@ describe('readSnappyPreamble', () => {
 
     it('should correctly read preamble from compressed data (1KB)', () => {
       const originalSize = 1024;
-      const uncompressed = Buffer.alloc(originalSize, 'b');
+      const uncompressed = bufferAlloc(originalSize, 'b');
       const compressed = compressSync(uncompressed);
 
       const result = readSnappyPreamble(compressed);
@@ -91,7 +92,7 @@ describe('readSnappyPreamble', () => {
 
     it('should correctly read preamble from compressed data (64KB)', () => {
       const originalSize = 65536;
-      const uncompressed = Buffer.alloc(originalSize, 'c');
+      const uncompressed = bufferAlloc(originalSize, 'c');
       const compressed = compressSync(uncompressed);
 
       const result = readSnappyPreamble(compressed);
@@ -103,7 +104,7 @@ describe('readSnappyPreamble', () => {
 
     it('should correctly read preamble from compressed data (1MB)', () => {
       const originalSize = 1024 * 1024;
-      const uncompressed = Buffer.alloc(originalSize, 'd');
+      const uncompressed = bufferAlloc(originalSize, 'd');
       const compressed = compressSync(uncompressed);
 
       const result = readSnappyPreamble(compressed);
@@ -116,7 +117,7 @@ describe('readSnappyPreamble', () => {
     it('should correctly read preamble from compressed random data', () => {
       // Random data compresses differently than repeated bytes
       const originalSize = 10000;
-      const uncompressed = Buffer.alloc(originalSize);
+      const uncompressed = bufferAlloc(originalSize);
       for (let i = 0; i < originalSize; i++) {
         uncompressed[i] = Math.floor(Math.random() * 256);
       }
@@ -126,9 +127,9 @@ describe('readSnappyPreamble', () => {
 
       expect(result.decompressedSize).toBe(originalSize);
 
-      const decompressed = Buffer.from(uncompressSync(compressed, { asBuffer: true }));
+      const decompressed = bufferFrom(uncompressSync(compressed, { asBuffer: true }));
       expect(decompressed.length).toBe(originalSize);
-      expect(Buffer.compare(decompressed, uncompressed)).toBe(0);
+      expect(bufferCompare(decompressed, uncompressed)).toBe(0);
     });
 
     it('should correctly read preamble from compressed structured data', () => {
@@ -140,7 +141,7 @@ describe('readSnappyPreamble', () => {
           email: `user${i}@example.com`,
         })),
       };
-      const uncompressed = Buffer.from(JSON.stringify(data));
+      const uncompressed = bufferFrom(JSON.stringify(data));
       const originalSize = uncompressed.length;
 
       const compressed = compressSync(uncompressed);
@@ -205,7 +206,7 @@ describe('readSnappyPreamble', () => {
 
     testSizes.forEach(({ size, expectedBytes }) => {
       it(`should read preamble for size ${size} (${expectedBytes} bytes)`, () => {
-        const uncompressed = Buffer.alloc(size, 'x');
+        const uncompressed = bufferAlloc(size, 'x');
         const compressed = compressSync(uncompressed);
 
         const result = readSnappyPreamble(compressed);
@@ -227,7 +228,7 @@ describe('SnappyTransform', () => {
 
       it('should accept tx payload within 512kb limit', () => {
         const size = 400 * 1024; // 400kb
-        const data = Buffer.alloc(size, 'a');
+        const data = bufferAlloc(size, 'a');
         const compressed = compressSync(data);
 
         const result = transform.inboundTransformData(compressed, TopicType.tx);
@@ -236,7 +237,7 @@ describe('SnappyTransform', () => {
 
       it('should reject tx payload exceeding 512kb limit', () => {
         const size = 600 * 1024; // 600kb (exceeds 512kb limit)
-        const data = Buffer.alloc(size, 'a');
+        const data = bufferAlloc(size, 'a');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, TopicType.tx)).toThrow(
@@ -246,7 +247,7 @@ describe('SnappyTransform', () => {
 
       it('should accept block_attestation payload within 5kb limit', () => {
         const size = 4 * 1024; // 4kb
-        const data = Buffer.alloc(size, 'b');
+        const data = bufferAlloc(size, 'b');
         const compressed = compressSync(data);
 
         const result = transform.inboundTransformData(compressed, TopicType.block_attestation);
@@ -255,7 +256,7 @@ describe('SnappyTransform', () => {
 
       it('should reject block_attestation payload exceeding 5kb limit', () => {
         const size = 6 * 1024; // 6kb (exceeds 5kb limit)
-        const data = Buffer.alloc(size, 'b');
+        const data = bufferAlloc(size, 'b');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, TopicType.block_attestation)).toThrow(
@@ -265,7 +266,7 @@ describe('SnappyTransform', () => {
 
       it('should accept block_proposal payload within 10MB limit', () => {
         const size = 8 * 1024 * 1024; // 8MB
-        const data = Buffer.alloc(size, 'c');
+        const data = bufferAlloc(size, 'c');
         const compressed = compressSync(data);
 
         const result = transform.inboundTransformData(compressed, TopicType.block_proposal);
@@ -274,7 +275,7 @@ describe('SnappyTransform', () => {
 
       it('should reject block_proposal payload exceeding 10MB limit', () => {
         const size = 11 * 1024 * 1024; // 11MB (exceeds 10MB limit)
-        const data = Buffer.alloc(size, 'c');
+        const data = bufferAlloc(size, 'c');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, TopicType.block_proposal)).toThrow(
@@ -284,7 +285,7 @@ describe('SnappyTransform', () => {
 
       it('should use default max size (10MB) for undefined topic', () => {
         const size = 9 * 1024 * 1024; // 9MB
-        const data = Buffer.alloc(size, 'd');
+        const data = bufferAlloc(size, 'd');
         const compressed = compressSync(data);
 
         const result = transform.inboundTransformData(compressed, undefined);
@@ -293,7 +294,7 @@ describe('SnappyTransform', () => {
 
       it('should reject payload exceeding default max size (10MB) for undefined topic', () => {
         const size = 11 * 1024 * 1024; // 11MB
-        const data = Buffer.alloc(size, 'd');
+        const data = bufferAlloc(size, 'd');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, undefined)).toThrow(
@@ -312,12 +313,12 @@ describe('SnappyTransform', () => {
         const transform = new SnappyTransform(customMaxSizes);
 
         // Test tx at boundary
-        const txData = Buffer.alloc(90 * 1024, 'a'); // 90kb
+        const txData = bufferAlloc(90 * 1024, 'a'); // 90kb
         const txCompressed = compressSync(txData);
         expect(() => transform.inboundTransformData(txCompressed, TopicType.tx)).not.toThrow();
 
         // Test tx exceeding limit
-        const txDataLarge = Buffer.alloc(110 * 1024, 'a'); // 110kb
+        const txDataLarge = bufferAlloc(110 * 1024, 'a'); // 110kb
         const txCompressedLarge = compressSync(txDataLarge);
         expect(() => transform.inboundTransformData(txCompressedLarge, TopicType.tx)).toThrow(
           'exceeds maximum allowed size of 100kb',
@@ -334,12 +335,12 @@ describe('SnappyTransform', () => {
         const transform = new SnappyTransform(customMaxSizes, customDefaultMaxSize);
 
         // Test undefined topic with custom default
-        const data = Buffer.alloc(150 * 1024, 'a'); // 150kb
+        const data = bufferAlloc(150 * 1024, 'a'); // 150kb
         const compressed = compressSync(data);
         expect(() => transform.inboundTransformData(compressed, undefined)).not.toThrow();
 
         // Test undefined topic exceeding custom default
-        const dataLarge = Buffer.alloc(250 * 1024, 'a'); // 250kb
+        const dataLarge = bufferAlloc(250 * 1024, 'a'); // 250kb
         const compressedLarge = compressSync(dataLarge);
         expect(() => transform.inboundTransformData(compressedLarge, undefined)).toThrow(
           'exceeds maximum allowed size of 200kb',
@@ -356,7 +357,7 @@ describe('SnappyTransform', () => {
 
       it('should accept payload at exact limit (512kb for tx)', () => {
         const size = 512 * 1024; // Exactly 512kb
-        const data = Buffer.alloc(size, 'a');
+        const data = bufferAlloc(size, 'a');
         const compressed = compressSync(data);
 
         const result = transform.inboundTransformData(compressed, TopicType.tx);
@@ -365,7 +366,7 @@ describe('SnappyTransform', () => {
 
       it('should reject payload one byte over limit', () => {
         const size = 512 * 1024 + 1; // 512kb + 1 byte
-        const data = Buffer.alloc(size, 'a');
+        const data = bufferAlloc(size, 'a');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, TopicType.tx)).toThrow(
@@ -375,7 +376,7 @@ describe('SnappyTransform', () => {
 
       it('should accept payload one byte under limit', () => {
         const size = 512 * 1024 - 1; // 512kb - 1 byte
-        const data = Buffer.alloc(size, 'a');
+        const data = bufferAlloc(size, 'a');
         const compressed = compressSync(data);
 
         const result = transform.inboundTransformData(compressed, TopicType.tx);
@@ -392,15 +393,15 @@ describe('SnappyTransform', () => {
     });
 
     it('should compress and decompress data correctly', () => {
-      const original = Buffer.from('Hello, World! This is a test message.');
+      const original = bufferFrom('Hello, World! This is a test message.');
       const compressed = transform.outboundTransformData(original);
       const decompressed = transform.inboundTransformData(compressed, TopicType.tx);
 
-      expect(Buffer.compare(decompressed, original)).toBe(0);
+      expect(bufferCompare(decompressed, original)).toBe(0);
     });
 
     it('should handle empty data', () => {
-      const empty = Buffer.alloc(0);
+      const empty = bufferAlloc(0);
       const compressed = transform.outboundTransformData(empty);
       const decompressed = transform.inboundTransformData(compressed, TopicType.tx);
 
@@ -410,19 +411,19 @@ describe('SnappyTransform', () => {
 
     it('should compress large repetitive data efficiently', () => {
       const size = 100 * 1024; // 100kb of repeated data
-      const original = Buffer.alloc(size, 'a');
+      const original = bufferAlloc(size, 'a');
       const compressed = transform.outboundTransformData(original);
 
       // Compressed size should be significantly smaller
       expect(compressed.length).toBeLessThan(original.length / 10);
 
       const decompressed = transform.inboundTransformData(compressed, TopicType.tx);
-      expect(Buffer.compare(decompressed, original)).toBe(0);
+      expect(bufferCompare(decompressed, original)).toBe(0);
     });
 
     it('should handle random data (less compressible)', () => {
       const size = 10 * 1024; // 10kb
-      const original = Buffer.alloc(size);
+      const original = bufferAlloc(size);
       for (let i = 0; i < size; i++) {
         original[i] = Math.floor(Math.random() * 256);
       }
@@ -430,7 +431,7 @@ describe('SnappyTransform', () => {
       const compressed = transform.outboundTransformData(original);
       const decompressed = transform.inboundTransformData(compressed, TopicType.tx);
 
-      expect(Buffer.compare(decompressed, original)).toBe(0);
+      expect(bufferCompare(decompressed, original)).toBe(0);
     });
   });
 
@@ -443,7 +444,7 @@ describe('SnappyTransform', () => {
 
     it('should parse topic string and apply correct size limit', () => {
       const size = 400 * 1024; // 400kb
-      const data = Buffer.alloc(size, 'a');
+      const data = bufferAlloc(size, 'a');
       const compressed = compressSync(data);
 
       // Should work with valid tx topic string
@@ -453,7 +454,7 @@ describe('SnappyTransform', () => {
 
     it('should reject payload when topic string indicates size limit exceeded', () => {
       const size = 6 * 1024; // 6kb (exceeds block_attestation limit of 5kb)
-      const data = Buffer.alloc(size, 'a');
+      const data = bufferAlloc(size, 'a');
       const compressed = compressSync(data);
 
       expect(() => transform.inboundTransform('/aztec/block_attestation/0.1.0', compressed)).toThrow(
@@ -463,7 +464,7 @@ describe('SnappyTransform', () => {
 
     it('should use default max size for invalid topic string', () => {
       const size = 9 * 1024 * 1024; // 9MB (under default 10MB)
-      const data = Buffer.alloc(size, 'a');
+      const data = bufferAlloc(size, 'a');
       const compressed = compressSync(data);
 
       // Invalid topic string should fall back to default limit
@@ -473,7 +474,7 @@ describe('SnappyTransform', () => {
 
     it('should reject when invalid topic string and exceeds default limit', () => {
       const size = 11 * 1024 * 1024; // 11MB (exceeds default 10MB)
-      const data = Buffer.alloc(size, 'a');
+      const data = bufferAlloc(size, 'a');
       const compressed = compressSync(data);
 
       expect(() => transform.inboundTransform('/invalid/topic/string', compressed)).toThrow(
@@ -490,7 +491,7 @@ describe('SnappyTransform', () => {
     });
 
     it('should compress data via outboundTransform', () => {
-      const original = new Uint8Array(Buffer.from('Test data for compression'));
+      const original = new Uint8Array(bufferFrom('Test data for compression'));
       const compressed = transform.outboundTransform('/aztec/tx/0.1.0', original);
 
       expect(compressed.length).toBeGreaterThan(0);

@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -79,7 +80,7 @@ describe('L1TxUtils', () => {
     if (!privKeyRaw) {
       throw new Error('Failed to get private key');
     }
-    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const privKey = bufferFrom(privKeyRaw).toString('hex');
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);

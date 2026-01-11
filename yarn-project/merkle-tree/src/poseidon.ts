@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { poseidon2Hash } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -14,8 +15,8 @@ export class Poseidon implements Hasher {
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array) {
     return poseidon2Hash([
-      Fr.fromBuffer(Buffer.from(lhs)),
-      Fr.fromBuffer(Buffer.from(rhs)),
+      Fr.fromBuffer(bufferFrom(lhs)),
+      Fr.fromBuffer(bufferFrom(rhs)),
     ]).toBuffer() as Buffer<ArrayBuffer>;
   }
 

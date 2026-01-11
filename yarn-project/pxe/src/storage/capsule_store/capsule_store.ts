@@ -1,3 +1,4 @@
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -30,7 +31,7 @@ export class CapsuleStore {
    * network state it's backed by local PXE db.
    */
   async storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
-    await this.#capsules.set(dbSlotToKey(contractAddress, slot), Buffer.concat(capsule.map(value => value.toBuffer())));
+    await this.#capsules.set(dbSlotToKey(contractAddress, slot), bufferConcat(capsule.map(value => value.toBuffer())));
   }
 
   /**

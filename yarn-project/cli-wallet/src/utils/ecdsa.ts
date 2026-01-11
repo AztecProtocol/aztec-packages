@@ -1,5 +1,7 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 export function extractECDSAPublicKeyFromBase64String(base64PublicKey: string): Buffer {
-  const buffer = Buffer.from(base64PublicKey, 'base64');
+  const buffer = bufferFrom(base64PublicKey, 'base64');
   let keyOffset = 0;
   const typeLen = buffer.readUInt32BE(keyOffset);
   keyOffset += 4;

@@ -1,4 +1,5 @@
 import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -69,7 +70,7 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
         MockPrivateKernelTailCircuit.bytecode,
         MockHidingCircuit.bytecode,
       ]
-        .map(base64 => Buffer.from(base64, 'base64'))
+        .map(base64 => bufferFrom(base64, 'base64'))
         .map((arr: Uint8Array) => ungzip(arr));
 
       // Initialize AztecClientBackend with the given bytecodes

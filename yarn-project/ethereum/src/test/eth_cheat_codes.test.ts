@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -39,7 +40,7 @@ describe('EthCheatCodes', () => {
 
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey!;
-    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const privKey = bufferFrom(privKeyRaw).toString('hex');
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);

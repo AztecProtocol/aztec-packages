@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { fromEntries, getEntries, maxBy } from '@aztec/foundation/collection';
 import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import type { ReadOnlyFileStore } from '@aztec/stdlib/file-store';
@@ -80,7 +81,7 @@ async function detectGzip(localFilePathToPeek: string): Promise<boolean> {
   try {
     const fd = await fs.open(localFilePathToPeek, 'r');
     try {
-      const header = Buffer.alloc(2);
+      const header = bufferAlloc(2);
       const { bytesRead } = await fd.read(header, 0, 2, 0);
       return bytesRead >= 2 && isGzipMagic(header);
     } finally {

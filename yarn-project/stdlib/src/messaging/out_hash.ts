@@ -1,4 +1,5 @@
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { computeCompressedUnbalancedShaRoot, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
@@ -27,11 +28,11 @@ export function computeEpochOutHash(messagesInEpoch: Fr[][][][]): Fr {
   const checkpointOutHashes = messagesInEpoch
     .map(checkpoint => computeCheckpointOutHash(checkpoint))
     .map(hash => hash.toBuffer());
-  if (checkpointOutHashes.every(hash => hash.equals(Buffer.alloc(32)))) {
+  if (checkpointOutHashes.every(hash => hash.equals(bufferAlloc(32)))) {
     return Fr.ZERO;
   }
 
-  const paddedOutHashes = padArrayEnd(checkpointOutHashes, Buffer.alloc(32), AZTEC_MAX_EPOCH_DURATION);
+  const paddedOutHashes = padArrayEnd(checkpointOutHashes, bufferAlloc(32), AZTEC_MAX_EPOCH_DURATION);
   return Fr.fromBuffer(computeUnbalancedShaRoot(paddedOutHashes));
 }
 

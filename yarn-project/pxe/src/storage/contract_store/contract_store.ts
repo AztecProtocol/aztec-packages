@@ -1,4 +1,5 @@
 import type { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
@@ -138,7 +139,7 @@ export class ContractStore {
   public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact | undefined> {
     const contract = await this.#contractArtifacts.getAsync(contractClassId.toString());
     // TODO(@spalladino): AztecAsyncMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
-    return contract && contractArtifactFromBuffer(Buffer.from(contract));
+    return contract && contractArtifactFromBuffer(bufferFrom(contract));
   }
 
   /** Returns a contract class for a given class id. Throws if not found. */

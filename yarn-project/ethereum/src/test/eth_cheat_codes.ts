@@ -1,4 +1,5 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -320,7 +321,7 @@ export class EthCheatCodes {
   public keccak256(baseSlot: bigint, key: bigint): bigint {
     // abi encode (removing the 0x) - concat key and baseSlot (both padded to 32 bytes)
     const abiEncoded = toHex(key, true).substring(2) + toHex(baseSlot, true).substring(2);
-    return toBigIntBE(keccak256(Buffer.from(abiEncoded, 'hex')));
+    return toBigIntBE(keccak256(bufferFrom(abiEncoded, 'hex')));
   }
 
   /**

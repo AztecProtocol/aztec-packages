@@ -1,5 +1,6 @@
 import request from 'supertest';
 
+import { bufferFrom } from '../../buffer/index.js';
 import { times } from '../../collection/array.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import {
@@ -41,7 +42,7 @@ describe('SafeJsonRpcServer', () => {
       [JSON.stringify({ method: 'getNote', params: [1] }), 'text/javascript'],
       [new URLSearchParams({ method: 'count' }).toString(), 'application/x-www-formurlencoded'],
       ['foo', 'text/plain'],
-      [Buffer.from([0x42]), 'application/octet-stream'],
+      [bufferFrom([0x42]), 'application/octet-stream'],
     ])('rejects non json request bodies', async (body, contentType) => {
       const response = await send(body, contentType);
       expect(response.text).toContain('Invalid request');

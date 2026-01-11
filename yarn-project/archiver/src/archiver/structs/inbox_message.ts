@@ -1,5 +1,5 @@
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer16, Buffer32, bufferConcat } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, bigintToUInt64BE, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -14,7 +14,7 @@ export type InboxMessage = {
 };
 
 export function updateRollingHash(currentRollingHash: Buffer16, leaf: Fr): Buffer16 {
-  const input = Buffer.concat([currentRollingHash.toBuffer(), leaf.toBuffer()]);
+  const input = bufferConcat([currentRollingHash.toBuffer(), leaf.toBuffer()]);
   return Buffer16.fromBuffer(keccak256(input));
 }
 

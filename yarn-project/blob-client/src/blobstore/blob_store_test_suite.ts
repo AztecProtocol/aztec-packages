@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { BlobStore } from './interface.js';
@@ -48,7 +49,7 @@ export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
 
   it('should return empty array for non-existent blob hash', async () => {
     // Create a random hash that doesn't exist
-    const nonExistentHash = Buffer.alloc(32);
+    const nonExistentHash = bufferAlloc(32);
     nonExistentHash.fill(0xff);
 
     const retrievedBlobs = await blobStore.getBlobsByHashes([nonExistentHash]);

@@ -1,3 +1,5 @@
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
+
 import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/avm_memory_types.js';
@@ -132,7 +134,7 @@ export async function invalidOpcodeTest(tester: PublicTxSimulationTester) {
 
   const offsetReturnOpcodeByte = bytecode.length;
 
-  bytecode = Buffer.concat([
+  bytecode = bufferConcat([
     bytecode,
     encodeToBytecode([new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0)]),
   ]);
@@ -148,7 +150,7 @@ export async function invalidOpcodeTest(tester: PublicTxSimulationTester) {
 export async function invalidByteTest(tester: PublicTxSimulationTester) {
   const invalidOpcode = MAX_OPCODE_VALUE + 7;
   assert(invalidOpcode < 256, 'Invalid opcode must fit in a single byte');
-  const bytecode = Buffer.from([invalidOpcode]);
+  const bytecode = bufferFrom([invalidOpcode]);
 
   const txLabel = 'InvalidByte';
   return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);

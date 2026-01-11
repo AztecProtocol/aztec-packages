@@ -21,6 +21,7 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferConcat } from '@aztec/foundation/buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
@@ -235,7 +236,7 @@ export function getChonkProofFromTx(tx: Tx | ProcessedTx) {
   const publicInputs = tx.data.publicInputs().toFields();
 
   const binaryProof = new Proof(
-    Buffer.concat(tx.chonkProof.attachPublicInputs(publicInputs).fieldsWithPublicInputs.map(field => field.toBuffer())),
+    bufferConcat(tx.chonkProof.attachPublicInputs(publicInputs).fieldsWithPublicInputs.map(field => field.toBuffer())),
     publicInputs.length,
   );
   return new RecursiveProof(tx.chonkProof.fields, binaryProof, true, CHONK_PROOF_LENGTH);

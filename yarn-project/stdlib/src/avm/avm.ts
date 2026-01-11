@@ -1,4 +1,5 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -80,7 +81,7 @@ export class AvmContractClassHint {
       Fr.fromPlainObject(obj.classId),
       Fr.fromPlainObject(obj.artifactHash),
       Fr.fromPlainObject(obj.privateFunctionsRoot),
-      obj.packedBytecode instanceof Buffer ? obj.packedBytecode : Buffer.from(obj.packedBytecode),
+      obj.packedBytecode instanceof Buffer ? obj.packedBytecode : bufferFrom(obj.packedBytecode),
     );
   }
 }
@@ -1039,7 +1040,7 @@ export class AvmCircuitInputs {
 
   // These are used by the prover to generate an id, and also gcs_proof_store.ts.
   public toBuffer(): Buffer {
-    return Buffer.from(jsonStringify(this));
+    return bufferFrom(jsonStringify(this));
   }
   static fromBuffer(buf: Buffer) {
     return jsonParseWithSchema(buf.toString(), this.schema);

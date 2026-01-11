@@ -1,5 +1,6 @@
 import { BBApiException, BarretenbergSync } from '@aztec/bb.js';
 
+import { bufferAlloc } from '../../buffer/index.js';
 import { Fq, Fr } from './field.js';
 import { Bn254G1Point, Bn254G2Point } from './index.js';
 
@@ -114,7 +115,7 @@ describe('Bn254 Point Classes', () => {
 
     it('should throw error when decompressing invalid compressed data', async () => {
       // Create invalid compressed data (random bytes that don't represent a valid point)
-      const invalidCompressed = Buffer.alloc(32);
+      const invalidCompressed = bufferAlloc(32);
       // Set some arbitrary invalid values
       invalidCompressed.writeUInt32BE(0x12345678, 0);
       invalidCompressed.writeUInt32BE(0x9abcdef0, 4);

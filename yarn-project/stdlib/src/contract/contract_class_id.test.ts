@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { FunctionSelector } from '../abi/function_selector.js';
@@ -10,7 +11,7 @@ describe('ContractClass', () => {
       const contractClass: ContractClass = {
         version: 1,
         artifactHash: Fr.fromHexString('0x1234'),
-        packedBytecode: Buffer.from('123456789012345678901234567890', 'hex'),
+        packedBytecode: bufferFrom('123456789012345678901234567890', 'hex'),
         privateFunctions: [{ selector: FunctionSelector.fromString('0x12345678'), vkHash: Fr.fromHexString('0x1234') }],
       };
       const contractClassId = await computeContractClassId(contractClass);

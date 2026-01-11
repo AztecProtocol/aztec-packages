@@ -17,6 +17,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
+import { bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -33,16 +34,16 @@ export async function proofBytesToRecursiveProof(
   proofAsFields: Uint8Array[],
   vkBytes: Uint8Array,
 ): Promise<RecursiveProof<typeof CHONK_PROOF_LENGTH>> {
-  const vk = await VerificationKeyAsFields.fromFrBuffer(Buffer.from(vkBytes));
+  const vk = await VerificationKeyAsFields.fromFrBuffer(bufferFrom(vkBytes));
   const numCustomPublicInputs = vk.numPublicInputs - HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE;
   // Convert Uint8Array fields to Fr instances
-  const fields = proofAsFields.map(f => Fr.fromBuffer(Buffer.from(f)));
+  const fields = proofAsFields.map(f => Fr.fromBuffer(bufferFrom(f)));
 
   // Slice off custom public inputs from the beginning.
   const fieldsWithoutPublicInputs = fields.slice(numCustomPublicInputs);
 
   // Convert fields to binary buffer
-  const proofBuffer = Buffer.concat(proofAsFields.slice(numCustomPublicInputs));
+  const proofBuffer = bufferConcat(proofAsFields.slice(numCustomPublicInputs));
 
   // Create Proof directly (not using fromBuffer which expects different format)
   const proof = new Proof(proofBuffer, numCustomPublicInputs);
@@ -83,12 +84,12 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
   proofLength: ProofLength,
 ) {
   await fs.writeFile(path.join(workingDirectory, 'witness.gz'), witness);
-  const vkBuffer = Buffer.from(circuit.verificationKey.bytes, 'hex');
+  const vkBuffer = bufferFrom(circuit.verificationKey.bytes, 'hex');
   const proofResult = await generateProof(
     pathToBB,
     workingDirectory,
     name,
-    Buffer.from(circuit.bytecode, 'base64'),
+    bufferFrom(circuit.bytecode, 'base64'),
     vkBuffer,
     path.join(workingDirectory, 'witness.gz'),
     flavor,

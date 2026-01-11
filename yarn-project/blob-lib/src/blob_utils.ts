@@ -1,4 +1,5 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -15,12 +16,12 @@ import { computeBlobsHash, computeEthVersionedBlobHash } from './hash.js';
  */
 export function getPrefixedEthBlobCommitments(blobs: Blob[]): `0x${string}` {
   // Prefix the number of blobs.
-  const lenBuf = Buffer.alloc(1);
+  const lenBuf = bufferAlloc(1);
   lenBuf.writeUint8(blobs.length);
 
-  const blobBuf = Buffer.concat(blobs.map(blob => blob.commitment));
+  const blobBuf = bufferConcat(blobs.map(blob => blob.commitment));
 
-  const buf = Buffer.concat([lenBuf, blobBuf]);
+  const buf = bufferConcat([lenBuf, blobBuf]);
   return `0x${buf.toString('hex')}`;
 }
 
@@ -47,7 +48,7 @@ export function getBlobsPerL1Block(fields: Fr[]): Blob[] {
  * @returns The encoded data of the checkpoint.
  */
 export function decodeCheckpointBlobDataFromBlobs(blobs: Blob[]): CheckpointBlobData {
-  const buf = Buffer.concat(blobs.map(b => b.data));
+  const buf = bufferConcat(blobs.map(b => b.data));
   return decodeCheckpointBlobDataFromBuffer(buf);
 }
 
@@ -71,7 +72,7 @@ export function getBlobCommitmentsFromBlobs(blobs: Blob[]): BLS12Point[] {
  * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
  */
 export function getEthBlobEvaluationInputs(batchedBlob: BatchedBlob): `0x${string}` {
-  const buf = Buffer.concat([
+  const buf = bufferConcat([
     computeEthVersionedBlobHash(batchedBlob.commitment.compress()),
     batchedBlob.z.toBuffer(),
     batchedBlob.y.toBuffer(),

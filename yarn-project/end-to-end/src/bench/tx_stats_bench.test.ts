@@ -1,5 +1,6 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
@@ -127,8 +128,8 @@ describe('transaction benchmarks', () => {
         const proofSizeCompressed = compressedProof.length;
         const txAsBuffer = tx.toBuffer();
         const numIterations = 50;
-        const uncompressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
-        const compressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
+        const uncompressed: Buffer[] = Array.from({ length: numIterations }, () => bufferAlloc(0));
+        const compressed: Buffer[] = Array.from({ length: numIterations }, () => bufferAlloc(0));
         const compressionTimer = new Timer();
         for (let i = 0; i < numIterations; i++) {
           compressed[i] = compress(txAsBuffer);

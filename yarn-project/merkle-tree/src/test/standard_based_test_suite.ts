@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -28,7 +29,7 @@ export const standardBasedTreeTestSuite = (
       pedersen = new Pedersen();
 
       for (let i = 0; i < 4; ++i) {
-        const v = Buffer.alloc(32, i + 1);
+        const v = bufferAlloc(32, i + 1);
         v.writeUInt32BE(i, 28);
         values[i] = v;
       }

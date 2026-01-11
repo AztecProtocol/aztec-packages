@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -14,7 +15,7 @@ describe('NullifierCache', () => {
   beforeEach(() => {
     db = mock<MerkleTreeReadOperations>();
     nullifierCache = new NullifierCache(db);
-    nullifiers = [Buffer.alloc(1, 1), Buffer.alloc(1, 2), Buffer.alloc(1, 3)];
+    nullifiers = [bufferAlloc(1, 1), bufferAlloc(1, 2), bufferAlloc(1, 3)];
   });
 
   it('checks nullifier existence against cache', async () => {
@@ -38,7 +39,7 @@ describe('NullifierCache', () => {
 
   it('checks existence with several nullifiers', async () => {
     // Split 60 nullifiers evenly across db, cache, or not found
-    const nullifiers = times(60, i => Buffer.alloc(1, i));
+    const nullifiers = times(60, i => bufferAlloc(1, i));
     const where = nullifiers.map((_, i) =>
       i % 3 === 0 ? ('db' as const) : i % 3 === 1 ? ('cache' as const) : ('none' as const),
     );

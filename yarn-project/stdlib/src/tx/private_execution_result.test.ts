@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -12,8 +13,8 @@ import {
 
 function emptyCallExecutionResult(): PrivateCallExecutionResult {
   return new PrivateCallExecutionResult(
-    Buffer.from(''),
-    Buffer.from(''),
+    bufferFrom(''),
+    bufferFrom(''),
     new Map(),
     PrivateCircuitPublicInputs.empty(),
     new Map(),

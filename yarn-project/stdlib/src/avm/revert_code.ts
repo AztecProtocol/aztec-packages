@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
@@ -96,13 +97,13 @@ export class RevertCode {
 
   private static readonly PREIMAGE_SIZE_IN_BYTES = 32;
   public toHashPreimage(): Buffer {
-    const padding = Buffer.alloc(RevertCode.PREIMAGE_SIZE_IN_BYTES - RevertCode.PACKED_SIZE_IN_BYTES);
-    return Buffer.concat([padding, this.toBuffer()]);
+    const padding = bufferAlloc(RevertCode.PREIMAGE_SIZE_IN_BYTES - RevertCode.PACKED_SIZE_IN_BYTES);
+    return bufferConcat([padding, this.toBuffer()]);
   }
 
   private static readonly PACKED_SIZE_IN_BYTES = 1;
   public toBuffer(): Buffer {
-    const b = Buffer.alloc(RevertCode.PACKED_SIZE_IN_BYTES);
+    const b = bufferAlloc(RevertCode.PACKED_SIZE_IN_BYTES);
     b.writeUInt8(this.code, 0);
     return b;
   }

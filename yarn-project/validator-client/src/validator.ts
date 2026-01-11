@@ -2,6 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -566,7 +567,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const authRequest = AuthRequest.fromBuffer(msg);
     const statusMessage = await this.p2pClient.handleAuthRequestFromPeer(authRequest, peer).catch(_ => undefined);
     if (statusMessage === undefined) {
-      return Buffer.alloc(0);
+      return bufferAlloc(0);
     }
 
     // Find a validator address that is in the set
@@ -576,7 +577,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
     if (addressToUse === undefined) {
       // We don't have a registered address
-      return Buffer.alloc(0);
+      return bufferAlloc(0);
     }
 
     const payloadToSign = authRequest.getPayloadToSign();

@@ -3,6 +3,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { mapTuple } from '@aztec/foundation/serialize';
 
+import { bufferAlloc, bufferConcat, bufferFrom } from '../../buffer/index.js';
 import type { Signature } from '../signature/index.js';
 
 /**
@@ -40,7 +41,7 @@ export class EcdsaSignature implements Signature {
    * @returns A buffer.
    */
   toBuffer() {
-    return Buffer.concat([this.r, this.s, this.v]);
+    return bufferConcat([this.r, this.s, this.v]);
   }
 
   /**
@@ -60,7 +61,7 @@ export class EcdsaSignature implements Signature {
    * @returns The resulting signature.
    */
   public static fromBigInts(r: bigint, s: bigint, v: number) {
-    return new EcdsaSignature(toBufferBE(r, 32), toBufferBE(s, 32), Buffer.from([v]));
+    return new EcdsaSignature(toBufferBE(r, 32), toBufferBE(s, 32), bufferFrom([v]));
   }
 
   /**
@@ -68,7 +69,7 @@ export class EcdsaSignature implements Signature {
    * @returns A randomly generated ECDSA signature (not a valid one).
    */
   public static random() {
-    return new EcdsaSignature(randomBytes(32), randomBytes(32), Buffer.from([27]));
+    return new EcdsaSignature(randomBytes(32), randomBytes(32), bufferFrom([27]));
   }
 
   /**
@@ -87,9 +88,9 @@ export class EcdsaSignature implements Signature {
   toFields(includeV = false): Fr[] {
     const sig = this.toBuffer();
 
-    const buf1 = Buffer.alloc(32);
-    const buf2 = Buffer.alloc(32);
-    const buf3 = Buffer.alloc(32);
+    const buf1 = bufferAlloc(32);
+    const buf2 = bufferAlloc(32);
+    const buf3 = bufferAlloc(32);
 
     sig.copy(buf1, 1, 0, 31);
     sig.copy(buf2, 1, 31, 62);

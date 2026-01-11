@@ -12,6 +12,7 @@ import { type GasPrice, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from '@az
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -88,7 +89,7 @@ describe('SequencerPublisher', () => {
     header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();
 
-    proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
+    proposeTxHash = `0x${bufferFrom('txHashPropose').toString('hex')}`; // random tx hash
 
     proposeTxReceipt = {
       blockNumber: 1n,
@@ -274,7 +275,7 @@ describe('SequencerPublisher', () => {
     const actualBlobConfig = forwardSpy.mock.calls[0][3];
     expect(actualBlobConfig!.blobs).toHaveLength(expectedBlobs.length);
     expectedBlobs.forEach((expectedBlob, i) => {
-      expect(Buffer.from(actualBlobConfig!.blobs[i]).equals(expectedBlob.data)).toBe(true);
+      expect(bufferFrom(actualBlobConfig!.blobs[i]).equals(expectedBlob.data)).toBe(true);
     });
   });
 

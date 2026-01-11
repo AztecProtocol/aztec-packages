@@ -1,3 +1,4 @@
+import { bufferAlloc, isBuffer } from '@aztec/foundation/buffer';
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -42,7 +43,7 @@ export class AztecAddress {
 
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
 
-  static ZERO = new AztecAddress(Buffer.alloc(32, 0));
+  static ZERO = new AztecAddress(bufferAlloc(32, 0));
 
   static zero(): AztecAddress {
     return AztecAddress.ZERO;
@@ -85,7 +86,7 @@ export class AztecAddress {
     if (obj instanceof AztecAddress) {
       return obj;
     }
-    if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
+    if (obj instanceof Buffer || isBuffer(obj)) {
       return new AztecAddress(obj);
     }
     return AztecAddress.fromString(obj);

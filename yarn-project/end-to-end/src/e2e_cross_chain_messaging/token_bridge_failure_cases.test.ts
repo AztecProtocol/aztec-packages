@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/aztec.js/messaging';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 
 import { toFunctionSelector } from 'viem';
@@ -55,7 +56,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     // Wrong message hash
     const wrongBridgeAmount = bridgeAmount + 1n;
     const wrongMessageContent = sha256ToField([
-      Buffer.from(toFunctionSelector('mint_to_private(uint256)').substring(2), 'hex'),
+      bufferFrom(toFunctionSelector('mint_to_private(uint256)').substring(2), 'hex'),
       new Fr(wrongBridgeAmount),
     ]);
 

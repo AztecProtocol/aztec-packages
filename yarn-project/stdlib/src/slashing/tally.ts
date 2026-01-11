@@ -1,4 +1,5 @@
 import { sumBigint } from '@aztec/foundation/bigint';
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { PartialBy } from '@aztec/foundation/types';
 
@@ -73,7 +74,7 @@ export function encodeSlashConsensusVotes(votes: ValidatorSlashVote[]): Buffer {
   if (votes.length % 4 !== 0) {
     throw new Error('Votes array must have a length that is a multiple of 4');
   }
-  const buffer = Buffer.alloc(votes.length / 4);
+  const buffer = bufferAlloc(votes.length / 4);
   for (let i = 0; i < votes.length; i += 4) {
     // Encode votes to match Solidity's bit order (LSB to MSB)
     // Bits 0-1: validator at index i

@@ -4,6 +4,8 @@ import { createCipheriv, createDecipheriv, createHash, pbkdf2Sync, randomUUID } 
 import { readFileSync } from 'fs';
 import { z } from 'zod';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
+
 /**
  * BN254 Keystore Format
  *
@@ -127,15 +129,15 @@ export function createBn254Keystore(
 
   const salt = randomBytes(32);
   const iv = randomBytes(16);
-  const dk = pbkdf2Sync(Buffer.from(password.normalize('NFKD'), 'utf8'), salt, 262144, 32, 'sha256');
+  const dk = pbkdf2Sync(bufferFrom(password.normalize('NFKD'), 'utf8'), salt, 262144, 32, 'sha256');
   const cipherKey = dk.subarray(0, 16);
 
   const cipher = createCipheriv('aes-128-ctr', cipherKey, iv);
-  const plaintext = Buffer.from(privHex, 'hex');
-  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const plaintext = bufferFrom(privHex, 'hex');
+  const ciphertext = bufferConcat([cipher.update(plaintext), cipher.final()]);
 
   const checksum = createHash('sha256')
-    .update(Buffer.concat([dk.subarray(16, 32), ciphertext]))
+    .update(bufferConcat([dk.subarray(16, 32), ciphertext]))
     .digest();
 
   const uuid = randomUUID();
@@ -225,9 +227,9 @@ export function decryptBn254KeystoreFromObject(keystore: Bn254Keystore, password
     }
 
     // Derive decryption key using PBKDF2
-    const salt = Buffer.from(crypto.kdf.params.salt, 'hex');
+    const salt = bufferFrom(crypto.kdf.params.salt, 'hex');
     const dk = pbkdf2Sync(
-      Buffer.from(password.normalize('NFKD'), 'utf8'),
+      bufferFrom(password.normalize('NFKD'), 'utf8'),
       salt,
       crypto.kdf.params.c,
       crypto.kdf.params.dklen,
@@ -238,16 +240,16 @@ export function decryptBn254KeystoreFromObject(keystore: Bn254Keystore, password
     const checksumKey = dk.subarray(16, 32);
 
     // Decrypt the ciphertext
-    const iv = Buffer.from(crypto.cipher.params.iv, 'hex');
-    const ciphertext = Buffer.from(crypto.cipher.message, 'hex');
+    const iv = bufferFrom(crypto.cipher.params.iv, 'hex');
+    const ciphertext = bufferFrom(crypto.cipher.message, 'hex');
     const decipher = createDecipheriv('aes-128-ctr', cipherKey, iv);
-    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const decrypted = bufferConcat([decipher.update(ciphertext), decipher.final()]);
 
     // Verify checksum
     const computedChecksum = createHash('sha256')
-      .update(Buffer.concat([checksumKey, ciphertext]))
+      .update(bufferConcat([checksumKey, ciphertext]))
       .digest();
-    const expectedChecksum = Buffer.from(crypto.checksum.message, 'hex');
+    const expectedChecksum = bufferFrom(crypto.checksum.message, 'hex');
 
     if (!computedChecksum.equals(expectedChecksum)) {
       throw new Bn254KeystoreError('Checksum verification failed - incorrect password or corrupted keystore');

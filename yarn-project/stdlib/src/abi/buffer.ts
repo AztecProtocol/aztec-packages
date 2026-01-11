@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import chunk from 'lodash.chunk';
@@ -13,8 +14,8 @@ export function bufferAsFields(input: Buffer, targetLength: number): Fr[] {
   const encoded = [
     new Fr(input.length),
     ...chunk(input, Fr.SIZE_IN_BYTES - 1).map(c => {
-      const fieldBytes = Buffer.alloc(Fr.SIZE_IN_BYTES);
-      Buffer.from(c).copy(fieldBytes, 1);
+      const fieldBytes = bufferAlloc(Fr.SIZE_IN_BYTES);
+      bufferFrom(c).copy(fieldBytes, 1);
       return Fr.fromBuffer(fieldBytes);
     }),
   ];
@@ -32,5 +33,5 @@ export function bufferAsFields(input: Buffer, targetLength: number): Fr[] {
  */
 export function bufferFromFields(fields: Fr[]): Buffer {
   const [length, ...payload] = fields;
-  return Buffer.concat(payload.map(f => f.toBuffer().subarray(1))).subarray(0, length.toNumber());
+  return bufferConcat(payload.map(f => f.toBuffer().subarray(1))).subarray(0, length.toNumber());
 }

@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { BatchedBlob, Blob, getEthBlobEvaluationInputs, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
+import { isBuffer } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { writeFile } from 'fs/promises';
@@ -28,7 +29,7 @@ export async function writeJson(
   const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
 
   const asHex = (value: Fr | Buffer | EthAddress | AztecAddress, size = 64) => {
-    const buffer = Buffer.isBuffer(value) ? value : value.toBuffer();
+    const buffer = isBuffer(value) ? value : value.toBuffer();
     return `0x${buffer.toString('hex').padStart(size, '0')}`;
   };
 

@@ -1,5 +1,5 @@
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32, bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -199,7 +199,7 @@ export class RollupContract {
   }
 
   static get stfStorageSlot(): Hex {
-    return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
+    return (RollupContract.cachedStfStorageSlot ??= keccak256(bufferFrom('aztec.stf.storage', 'utf-8')));
   }
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployAztecL1ContractsReturnType) {

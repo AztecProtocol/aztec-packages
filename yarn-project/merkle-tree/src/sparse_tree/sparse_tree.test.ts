@@ -1,3 +1,4 @@
+import { bufferAlloc } from '@aztec/foundation/buffer';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -58,7 +59,7 @@ describe('SparseTreeSpecific', () => {
     const tree = await createDb(db, pedersen, 'test', depth);
 
     const index = 2n ** BigInt(depth);
-    expect(() => tree.updateLeaf(Buffer.alloc(32), index)).toThrow();
+    expect(() => tree.updateLeaf(bufferAlloc(32), index)).toThrow();
   });
 
   it('updating non-empty leaf does not change tree size', async () => {

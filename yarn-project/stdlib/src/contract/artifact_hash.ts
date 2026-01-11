@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferConcat, bufferFrom } from '@aztec/foundation/buffer';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fr, reduceFn } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
@@ -43,7 +44,7 @@ export async function computeArtifactHash(
   if ('privateFunctionRoot' in artifact && 'utilityFunctionRoot' in artifact && 'metadataHash' in artifact) {
     const { privateFunctionRoot, utilityFunctionRoot, metadataHash } = artifact;
     const preimage = [privateFunctionRoot, utilityFunctionRoot, metadataHash].map(x => x.toBuffer());
-    return sha256Fr(Buffer.concat([numToUInt8(VERSION), ...preimage]));
+    return sha256Fr(bufferConcat([numToUInt8(VERSION), ...preimage]));
   }
 
   const preimage = await computeArtifactHashPreimage(artifact);
@@ -60,7 +61,7 @@ export async function computeArtifactHashPreimage(artifact: ContractArtifact) {
 }
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
-  return sha256Fr(Buffer.from(deterministicStringify({ name: artifact.name, outputs: artifact.outputs }), 'utf-8'));
+  return sha256Fr(bufferFrom(deterministicStringify({ name: artifact.name, outputs: artifact.outputs }), 'utf-8'));
 }
 
 export async function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {
@@ -78,7 +79,7 @@ export async function computeArtifactFunctionTree(
     return undefined;
   }
   const height = Math.ceil(Math.log2(leaves.length));
-  const calculator = await MerkleTreeCalculator.create(height, Buffer.alloc(32), getArtifactMerkleTreeHasher());
+  const calculator = await MerkleTreeCalculator.create(height, bufferAlloc(32), getArtifactMerkleTreeHasher());
   return calculator.computeTree(leaves.map(x => x.toBuffer()));
 }
 
@@ -101,11 +102,11 @@ export async function computeFunctionArtifactHash(
 
   const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
   const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  return sha256Fr(bufferConcat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
-  return sha256Fr(Buffer.from(deterministicStringify(fn.returnTypes), 'utf8'));
+  return sha256Fr(bufferFrom(deterministicStringify(fn.returnTypes), 'utf8'));
 }
 
 function getLogger() {
@@ -113,5 +114,5 @@ function getLogger() {
 }
 
 export function getArtifactMerkleTreeHasher() {
-  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(Buffer.concat([l, r])).toBuffer() as Buffer<ArrayBuffer>);
+  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(bufferConcat([l, r])).toBuffer() as Buffer<ArrayBuffer>);
 }

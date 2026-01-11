@@ -1,4 +1,5 @@
 import { ARCHIVER_DB_VERSION, type Archiver } from '@aztec/archiver';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
@@ -82,7 +83,7 @@ async function uploadJobData(jobData: EpochProvingJobData, store: FileStore, bas
 }
 
 async function uploadSnapshotMetadata(metadata: UploadSnapshotMetadata, store: FileStore, basePath: string) {
-  const data = Buffer.from(jsonStringify(metadata), 'utf-8');
+  const data = bufferFrom(jsonStringify(metadata), 'utf-8');
   const path = `${basePath}/metadata.json`;
   return await store.save(path, data, { compress: false, public: PUBLIC_UPLOADS });
 }

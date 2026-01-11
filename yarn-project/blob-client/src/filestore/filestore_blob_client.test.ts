@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
@@ -96,7 +97,7 @@ describe('FileStoreBlobClient', () => {
 
       // Modify the stored data to detect if it gets overwritten
       const modifiedJson = JSON.stringify({ modified: true });
-      await mockStore.save(`${basePath}/blobs/${versionedHash}.data`, Buffer.from(modifiedJson));
+      await mockStore.save(`${basePath}/blobs/${versionedHash}.data`, bufferFrom(modifiedJson));
 
       // Save again with skipIfExists=true (default)
       await client.saveBlob(blob);
@@ -115,7 +116,7 @@ describe('FileStoreBlobClient', () => {
 
       // Modify the stored data
       const modifiedJson = JSON.stringify({ modified: true });
-      await mockStore.save(`${basePath}/blobs/${versionedHash}.data`, Buffer.from(modifiedJson));
+      await mockStore.save(`${basePath}/blobs/${versionedHash}.data`, bufferFrom(modifiedJson));
 
       // Save again with skipIfExists=false
       await client.saveBlob(blob, false);
@@ -181,7 +182,7 @@ describe('FileStoreBlobClient', () => {
       const hash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       // Save invalid JSON
-      await mockStore.save(`${basePath}/blobs/${hash}.data`, Buffer.from('invalid json'));
+      await mockStore.save(`${basePath}/blobs/${hash}.data`, bufferFrom('invalid json'));
 
       const blobs = await client.getBlobsByHashes([hash]);
 
@@ -251,7 +252,7 @@ describe('FileStoreBlobClient', () => {
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
       const path = `${basePath}/blobs/${versionedHash}.data`;
 
-      files.set(path, outboundTransform(Buffer.from(JSON.stringify(blob.toJSON()))));
+      files.set(path, outboundTransform(bufferFrom(JSON.stringify(blob.toJSON()))));
 
       const readOnlyStore = new MockReadOnlyFileStore(files);
       const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath);

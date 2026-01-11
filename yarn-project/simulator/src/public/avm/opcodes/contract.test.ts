@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
@@ -32,11 +33,11 @@ describe('Contract opcodes', () => {
 
   describe('GETCONTRACTINSTANCE', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         GetContractInstance.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // addressOffset
-        ...Buffer.from('a234', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // addressOffset
+        ...bufferFrom('a234', 'hex'), // dstOffset
         0x02, // memberEnum (immediate)
       ]);
       const inst = new GetContractInstance(

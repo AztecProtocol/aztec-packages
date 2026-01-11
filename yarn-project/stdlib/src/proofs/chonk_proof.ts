@@ -1,4 +1,5 @@
 import { CHONK_PROOF_LENGTH } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -112,7 +113,7 @@ export class ChonkProofWithPublicInputs {
 
   // Called when constructing from bb proving results.
   static fromBufferArray(fields: Uint8Array[]): ChonkProofWithPublicInputs {
-    const proof = fields.map(field => Fr.fromBuffer(Buffer.from(field)));
+    const proof = fields.map(field => Fr.fromBuffer(bufferFrom(field)));
     return new ChonkProofWithPublicInputs(proof);
   }
 }

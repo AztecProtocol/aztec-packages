@@ -1,4 +1,5 @@
 import { AVM_SSTORE_DYN_DA_GAS } from '@aztec/constants';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -27,11 +28,11 @@ describe('Storage Instructions', () => {
 
   describe('SSTORE', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         SStore.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // srcOffset
-        ...Buffer.from('3456', 'hex'), // slotOffset
+        ...bufferFrom('1234', 'hex'), // srcOffset
+        ...bufferFrom('3456', 'hex'), // slotOffset
       ]);
       const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x1234, /*slotOffset=*/ 0x3456);
 
@@ -100,11 +101,11 @@ describe('Storage Instructions', () => {
 
   describe('SLOAD', () => {
     it('Should (de)serialize correctly', () => {
-      const buf = Buffer.from([
+      const buf = bufferFrom([
         SLoad.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // slotOffset
-        ...Buffer.from('3456', 'hex'), // dstOffset
+        ...bufferFrom('1234', 'hex'), // slotOffset
+        ...bufferFrom('3456', 'hex'), // dstOffset
       ]);
       const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x1234, /*dstOffset=*/ 0x3456);
 

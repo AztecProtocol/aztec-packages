@@ -1,6 +1,7 @@
 import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -470,7 +471,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     const version = await this.outbox.read.VERSION();
 
     const content = sha256ToField([
-      Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+      bufferFrom(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
       recipient.toBuffer32(),
       new Fr(amount).toBuffer(),
       callerOnL1.toBuffer32(),

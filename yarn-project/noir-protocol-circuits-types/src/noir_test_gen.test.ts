@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
@@ -25,7 +26,7 @@ describe('Data generation for noir tests', () => {
 
   const defaultContract: FixtureContractData = {
     artifactHash: new Fr(12345),
-    packedBytecode: Buffer.from([3, 4, 5, 6, 7]),
+    packedBytecode: bufferFrom([3, 4, 5, 6, 7]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(56789),
     privateFunctions: [
@@ -37,7 +38,7 @@ describe('Data generation for noir tests', () => {
 
   const parentContract: FixtureContractData = {
     artifactHash: new Fr(1212),
-    packedBytecode: Buffer.from([3, 4, 3, 4]),
+    packedBytecode: bufferFrom([3, 4, 3, 4]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(5656),
     privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(789789) }],
@@ -46,7 +47,7 @@ describe('Data generation for noir tests', () => {
 
   const updatedContract: FixtureContractData = {
     artifactHash: new Fr(345345),
-    packedBytecode: Buffer.from([5, 6, 7, 8, 9, 0]),
+    packedBytecode: bufferFrom([5, 6, 7, 8, 9, 0]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(789),
     privateFunctions: [

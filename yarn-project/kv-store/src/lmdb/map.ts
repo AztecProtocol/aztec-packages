@@ -1,3 +1,5 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
+
 import type { Database, RangeOptions } from 'lmdb';
 
 import type { Key, Range, Value } from '../interfaces/common.js';
@@ -23,8 +25,8 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
     // sentinels are used to define the start and end of the map
     // with LMDB's key encoding, no _primitive value_ can be "less than" an empty buffer or greater than Byte 255
     // these will be used later to answer range queries
-    this.startSentinel = ['map', this.name, 'slot', Buffer.from([])];
-    this.endSentinel = ['map', this.name, 'slot', Buffer.from([255])];
+    this.startSentinel = ['map', this.name, 'slot', bufferFrom([])];
+    this.endSentinel = ['map', this.name, 'slot', bufferFrom([255])];
   }
 
   close(): Promise<void> {

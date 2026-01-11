@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -140,7 +141,7 @@ export class CompleteAddress {
    * @returns A Point instance.
    */
   static fromString(address: string): Promise<CompleteAddress> {
-    return CompleteAddress.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+    return CompleteAddress.fromBuffer(bufferFrom(address.replace(/^0x/i, ''), 'hex'));
   }
 
   /**

@@ -1,3 +1,4 @@
+import { bufferAlloc, bufferFrom } from '@aztec/foundation/buffer';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -26,7 +27,7 @@ export async function getContractClassFromArtifact(
     );
   }
 
-  const packedBytecode = publicFunctions[0]?.bytecode ?? Buffer.alloc(0);
+  const packedBytecode = publicFunctions[0]?.bytecode ?? bufferAlloc(0);
 
   const privateFunctions = artifact.functions.filter(f => f.functionType === FunctionType.PRIVATE);
   const privateArtifactFunctions: ContractClass['privateFunctions'] = await Promise.all(
@@ -60,5 +61,5 @@ export async function computeVerificationKeyHash(f: FunctionArtifact) {
   if (!f.verificationKey) {
     throw new Error(`Private function ${f.name} must have a verification key`);
   }
-  return hashVK(await vkAsFieldsMegaHonk(Buffer.from(f.verificationKey, 'base64')));
+  return hashVK(await vkAsFieldsMegaHonk(bufferFrom(f.verificationKey, 'base64')));
 }

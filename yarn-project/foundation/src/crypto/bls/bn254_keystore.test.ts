@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { bufferConcat, bufferFrom } from '../../buffer/index.js';
 import {
   Bn254KeystoreError,
   createBn254Keystore,
@@ -54,9 +55,9 @@ describe('BN254 Keystore', () => {
       const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
 
       // Derive the decryption key using the same KDF
-      const salt = Buffer.from(keystore.crypto.kdf.params.salt, 'hex');
+      const salt = bufferFrom(keystore.crypto.kdf.params.salt, 'hex');
       const dk = pbkdf2Sync(
-        Buffer.from(testPassword.normalize('NFKD'), 'utf8'),
+        bufferFrom(testPassword.normalize('NFKD'), 'utf8'),
         salt,
         keystore.crypto.kdf.params.c,
         keystore.crypto.kdf.params.dklen,
@@ -65,10 +66,10 @@ describe('BN254 Keystore', () => {
       const cipherKey = dk.subarray(0, 16);
 
       // Decrypt the ciphertext
-      const iv = Buffer.from(keystore.crypto.cipher.params.iv, 'hex');
-      const ciphertext = Buffer.from(keystore.crypto.cipher.message, 'hex');
+      const iv = bufferFrom(keystore.crypto.cipher.params.iv, 'hex');
+      const ciphertext = bufferFrom(keystore.crypto.cipher.message, 'hex');
       const decipher = createDecipheriv('aes-128-ctr', cipherKey, iv);
-      const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+      const decrypted = bufferConcat([decipher.update(ciphertext), decipher.final()]);
 
       // Verify it matches the original private key (without 0x prefix)
       expect('0x' + decrypted.toString('hex')).toBe(testPrivateKey);

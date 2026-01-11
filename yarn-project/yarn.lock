@@ -1416,6 +1416,7 @@ __metadata:
     "@types/supertest": "npm:^2.0.12"
     "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
     bn.js: "npm:^5.2.1"
+    buffer: "npm:^6.0.3"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
     detect-node: "npm:^2.1.0"

@@ -4,6 +4,7 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 import type { PXEConfig } from '@aztec/pxe/config';
@@ -63,8 +64,8 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
       const value = Fr.random();
       const hash = await computeSecretHash(value);
 
-      await db.storeAlias('secrets', alias, Buffer.from(value.toString()), log);
-      await db.storeAlias('secrets', `${alias}:hash`, Buffer.from(hash.toString()), log);
+      await db.storeAlias('secrets', alias, bufferFrom(value.toString()), log);
+      await db.storeAlias('secrets', `${alias}:hash`, bufferFrom(hash.toString()), log);
     });
 
   return program;
@@ -131,11 +132,11 @@ async function main() {
       if (!protocolContractsRegistered) {
         userLog('Registering protocol contract aliases...');
         for (const [name, address] of Object.entries(ProtocolContractAddress)) {
-          await db.storeAlias('contracts', name, Buffer.from(address.toString()), userLog);
+          await db.storeAlias('contracts', name, bufferFrom(address.toString()), userLog);
           await db.storeAlias(
             'artifacts',
             address.toString(),
-            Buffer.from(`${name.slice(0, 1).toUpperCase()}${name.slice(1)}`),
+            bufferFrom(`${name.slice(0, 1).toUpperCase()}${name.slice(1)}`),
             userLog,
           );
         }

@@ -129,6 +129,7 @@
     "@noble/hashes": "^1.6.1",
     "@scure/bip39": "^2.0.1",
     "bn.js": "^5.2.1",
+    "buffer": "^6.0.3",
     "colorette": "^2.0.20",
     "detect-node": "^2.1.0",
     "hash.js": "^1.1.7",

@@ -7,6 +7,7 @@ import {
   PAIRING_POINTS_SIZE,
   ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
+import { bufferAlloc, bufferConcat } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { ChonkProofWithPublicInputs, Proof, RecursiveProof } from '@aztec/stdlib/proofs';
@@ -39,7 +40,7 @@ export async function readChonkProofFromOutputDirectory(directory: string) {
  */
 export async function writeChonkProofToPath(chonkProof: ChonkProofWithPublicInputs, outputPath: string) {
   // NB: Don't use chonkProof.toBuffer here because it will include the proof length.
-  const fieldsBuf = Buffer.concat(chonkProof.fieldsWithPublicInputs.map(field => field.toBuffer()));
+  const fieldsBuf = bufferConcat(chonkProof.fieldsWithPublicInputs.map(field => field.toBuffer()));
   await fs.writeFile(outputPath, fieldsBuf);
 }
 
@@ -85,7 +86,7 @@ export async function readProofsFromOutputDirectory<PROOF_LENGTH extends number>
   const isChonk = proofLength == CHONK_PROOF_LENGTH;
 
   const [binaryPublicInputs, binaryProof] = await Promise.all([
-    isChonk ? Buffer.alloc(0) : fs.readFile(publicInputsFilename),
+    isChonk ? bufferAlloc(0) : fs.readFile(publicInputsFilename),
     fs.readFile(proofFilename),
   ]);
 
@@ -102,7 +103,7 @@ export async function readProofsFromOutputDirectory<PROOF_LENGTH extends number>
 
   // Concat binary public inputs and binary proof
   // This buffer will have the form: [binary public inputs, binary proof]
-  const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
+  const binaryProofWithPublicInputs = bufferConcat([binaryPublicInputs, binaryProof]);
   logger.debug(
     `Circuit path: ${directory}, proof fields length: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}`,
   );

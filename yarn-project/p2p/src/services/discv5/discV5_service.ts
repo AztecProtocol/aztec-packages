@@ -1,3 +1,4 @@
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
@@ -167,7 +168,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
             if (!value) {
               throw new Error('ENR does not contain aztec key');
             }
-            checkCompressedComponentVersion(Buffer.from(value).toString(), this.versions);
+            checkCompressedComponentVersion(bufferFrom(value).toString(), this.versions);
           }
           this.discv5.addEnr(enr);
         } catch (e) {
@@ -284,7 +285,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // And check it has the correct version
     let compressedVersion;
     try {
-      compressedVersion = Buffer.from(value).toString();
+      compressedVersion = bufferFrom(value).toString();
       checkCompressedComponentVersion(compressedVersion, this.versions);
       return true;
     } catch (err: any) {

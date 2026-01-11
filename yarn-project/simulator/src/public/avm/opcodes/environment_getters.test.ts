@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { bufferFrom } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -42,10 +43,10 @@ describe('Environment getters', () => {
   });
 
   it(`Should (de)serialize correctly`, () => {
-    const buf = Buffer.from([
+    const buf = bufferFrom([
       Opcode.GETENVVAR_16, // opcode
       0x01, // indirect
-      ...Buffer.from('1234', 'hex'), // dstOffset
+      ...bufferFrom('1234', 'hex'), // dstOffset
       0x05, // var idx
     ]);
     const instr = new GetEnvVar(/*indirect=*/ 0x01, /*dstOffset=*/ 0x1234, 5).as(
