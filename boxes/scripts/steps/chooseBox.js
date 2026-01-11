@@ -6,11 +6,18 @@ import {
   replacePaths,
   clone,
 } from "../utils.js";
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import { getPlaceholders } from "../config.js";
 
 async function initGit({ dir }) {
-  execSync(`yes | git -C ${dir} init`);
+  const { status, stderr } = spawnSync("git", ["-C", dir, "init"], {
+    stdio: "inherit",
+  });
+  if (status !== 0) {
+    throw new Error(
+      `Failed to initialize git repository in ${dir}: ${stderr?.toString()}`,
+    );
+  }
 }
 
 async function chooseAndCloneBox({ projectName }) {
