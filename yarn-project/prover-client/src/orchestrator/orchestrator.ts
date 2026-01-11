@@ -500,7 +500,9 @@ export class ProvingOrchestrator implements EpochProver {
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
     // but have to make sure it only runs once all operations are completed, otherwise some function here
     // will attempt to access the fork after it was closed.
-    logger.debug(`[FORK] Cleaning up world state fork for block ${blockNumber}. Open forks before close: ${this.dbs.size}`);
+    logger.debug(
+      `[FORK] Cleaning up world state fork for block ${blockNumber}. Open forks before close: ${this.dbs.size}`,
+    );
     void this.dbs
       .get(blockNumber)
       ?.close()
