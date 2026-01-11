@@ -23,6 +23,11 @@ node:
   replicaCount: 1
 
   node:
+    # Enable --expose-gc for heap snapshots
+    nodeJsOptions:
+      - --no-warnings
+      - --max-old-space-size=4096
+      - --expose-gc
     env:
       OTEL_SERVICE_NAME: "prover-node"
       PROVER_AGENT_COUNT: 0
@@ -31,6 +36,11 @@ node:
       # Derivation for publisher addresses when using web3signer
       PUBLISHERS_PER_PROVER: "1"
       PUBLISHER_KEY_INDEX_START: "8000"
+      # Memory debugging - set to track memory leaks
+      PROVER_NODE_MEMORY_DEBUG: "1"
+      PROVER_NODE_HEAP_SNAPSHOT_GCS: "gs://aztec-develop/heap-snapshots"
+      PROVER_NODE_HEAP_SNAPSHOT_INTERVAL: "1"
+      PROVER_NODE_HEAP_SNAPSHOT_DELETE_LOCAL: "1"
     web3signerUrl: ""
 
     preStartScript: |

@@ -4,6 +4,13 @@ node:
     enableInspector: true
     nodeJsOptions:
       - "--max-old-space-size=65536"
+      - "--expose-gc"
+    env:
+      # Memory debugging - set to track memory leaks
+      PROVER_NODE_MEMORY_DEBUG: "1"
+      PROVER_NODE_HEAP_SNAPSHOT_GCS: "gs://aztec-develop/heap-snapshots"
+      PROVER_NODE_HEAP_SNAPSHOT_INTERVAL: "1"
+      PROVER_NODE_HEAP_SNAPSHOT_DELETE_LOCAL: "1"
     resources:
       requests:
         cpu: "6"

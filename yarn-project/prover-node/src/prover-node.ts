@@ -40,6 +40,7 @@ import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js
 import type { SpecificProverNodeConfig } from './config.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
+import { getMemoryDebugger } from './memory-debug.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
@@ -61,6 +62,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
+  private memoryDebugger = getMemoryDebugger();
 
   public readonly tracer: Tracer;
 
@@ -193,7 +195,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   private async runJob(job: EpochProvingJob) {
     const epochNumber = job.getEpochNumber();
-    const ctx = { id: job.getId(), epochNumber, state: undefined as EpochProvingJobState | undefined };
+    const jobId = job.getId();
+    const ctx = { id: jobId, epochNumber, state: undefined as EpochProvingJobState | undefined };
+
+    // Memory tracking: log at job start
+    this.memoryDebugger.onJobStart(epochNumber, jobId);
 
     try {
       await job.run();
@@ -212,7 +218,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     } catch (err) {
       this.log.error(`Error proving epoch ${epochNumber}`, err, ctx);
     } finally {
-      this.jobs.delete(job.getId());
+      this.jobs.delete(jobId);
+
+      // Memory tracking: log at job end
+      this.memoryDebugger.onJobEnd(epochNumber, jobId, ctx.state ?? 'error');
     }
   }
 

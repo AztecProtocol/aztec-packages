@@ -1930,6 +1930,7 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
+    "@google-cloud/storage": "npm:^7.15.0"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"

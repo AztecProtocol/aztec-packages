@@ -115,7 +115,19 @@ export class ProvingOrchestrator implements EpochProver {
 
   public stop(): Promise<void> {
     this.cancel();
+    // Log any forks that weren't closed on the happy path
+    if (this.dbs.size > 0) {
+      logger.warn(`[FORK] Orchestrator stopping with ${this.dbs.size} unclosed forks - potential memory leak!`);
+      for (const blockNumber of this.dbs.keys()) {
+        logger.warn(`[FORK]   Unclosed fork for block ${blockNumber}`);
+      }
+    }
     return Promise.resolve();
+  }
+
+  /** Returns the number of open merkle tree forks (for memory debugging) */
+  public getOpenForkCount(): number {
+    return this.dbs.size;
   }
 
   public startNewEpoch(
@@ -164,6 +176,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const firstBlockNumber = BlockNumber(lastBlockNumber + 1);
     this.dbs.set(firstBlockNumber, db);
+    logger.debug(`[FORK] Created fork for block ${firstBlockNumber}. Open forks: ${this.dbs.size}`);
 
     // Get archive sibling path before any block in this checkpoint lands.
     const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
@@ -222,6 +235,7 @@ export class ProvingOrchestrator implements EpochProver {
       // Fork world state at the end of the immediately previous block
       const db = await this.dbProvider.fork(BlockNumber(blockNumber - 1));
       this.dbs.set(blockNumber, db);
+      logger.debug(`[FORK] Created fork for block ${blockNumber}. Open forks: ${this.dbs.size}`);
     }
     const db = this.dbs.get(blockNumber)!;
 
@@ -486,12 +500,15 @@ export class ProvingOrchestrator implements EpochProver {
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
     // but have to make sure it only runs once all operations are completed, otherwise some function here
     // will attempt to access the fork after it was closed.
-    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
+    logger.debug(`[FORK] Cleaning up world state fork for block ${blockNumber}. Open forks before close: ${this.dbs.size}`);
     void this.dbs
       .get(blockNumber)
       ?.close()
-      .then(() => this.dbs.delete(blockNumber))
-      .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
+      .then(() => {
+        this.dbs.delete(blockNumber);
+        logger.debug(`[FORK] Closed fork for block ${blockNumber}. Open forks: ${this.dbs.size}`);
+      })
+      .catch(err => logger.error(`[FORK] Error closing db for block ${blockNumber}`, err));
   }
 
   /**
