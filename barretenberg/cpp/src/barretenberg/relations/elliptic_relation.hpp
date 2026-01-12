@@ -59,7 +59,6 @@ template <typename FF_> class EllipticRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_elliptic.is_zero(); }
 
-    // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
     {
         if constexpr (FF::modulus == bb::fq::modulus) {
@@ -67,7 +66,7 @@ template <typename FF_> class EllipticRelationImpl {
         } else if constexpr (FF::modulus == grumpkin::fq::modulus) {
             return grumpkin::g1::curve_b;
         } else {
-            return 0;
+            static_assert(!std::is_same_v<FF, FF>, "Unsupported field type for elliptic relation");
         }
     }
 
