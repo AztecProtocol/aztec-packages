@@ -21,99 +21,109 @@ Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../a
 - Contract with authwit validation (see [smart contract authwits](../aztec-nr/framework-description/how_to_use_authwit.md))
 - Understanding of [authwit concepts](../foundational-topics/advanced/authwit.md)
 
-## AuthWits
+## Intent types
 
-Let's also assume we have a contract with functions `some_public_function` and `some_private_function` with the macro `#[authorize_once("from", "authwit_nonce")]`, meaning it will check if:
+The authwit system supports different intent types depending on your use case:
 
-- `from` is `msg_sender`, or
-- there's an authwitness allowing `from` to call this function
-
-Regardless of its type, you'll want to define what is being delegated (let's call it "action") and the intent ("who intends to act"). For example:
-
-```typescript
-const nonce = Fr.random()
-
-// bob creates an authwit that authorizes alice to call the function on his behalf
-const action = contract.methods.some_private_function(bob, 10n, nonce)
-const intent = {
-    caller: alice.address, // alice "intends" to call the function on bob's behalf
-    action
-};
-```
-
-:::tip
-
-The nonce is necessary to avoid replay attacks. However, the contract is smart enough to allow bob to call the function himself by setting the nonce to `0`.
-
-:::
+- **`CallIntent`**: Use when authorizing a specific contract function call. Contains `{ caller, action }` where `action` is a `ContractFunctionInteraction`.
+- **`IntentInnerHash`**: Use when authorizing arbitrary data. Contains `{ consumer, innerHash }` where `consumer` is the contract that will verify the authwit.
 
 ## Create private authwits
 
-Private AuthWits mean that some action is authorized in private. No specific transaction is made, the authorization is just sent as part of the actual transaction:
+Private authwits authorize actions in the private domain. The authorization is included directly in the transaction that uses it.
+
+Let's say Alice wants to allow Bob to transfer tokens from her account. Alice is the **authorizer** (she owns the tokens) and Bob is the **caller** (he will execute the transfer):
 
 ```typescript
-const authWit = await wallet.createAuthWit(bob.address, intent);
+import { Fr } from "@aztec/aztec.js/fields";
+
+const nonce = Fr.random();
+
+// Define the action Bob will execute
+const action = tokenContract.methods.transfer_in_private(
+  alice.address, // from
+  bob.address, // to
+  100n, // amount
+  nonce // authwit nonce for replay protection
+);
+
+// Alice creates an authwit authorizing Bob to call this function
+const witness = await wallet.createAuthWit(alice.address, {
+  caller: bob.address,
+  action,
+});
+
+// Bob executes the transfer, providing the authwit
+await action.send({ from: bob.address, authWitnesses: [witness] }).wait();
 ```
 
-Now alice can call the function by providing the authwit:
-
-```typescript
-await action.send({ from: alice.address, authWitnesses: [authWit] }).wait();
-```
+:::tip
+The nonce prevents replay attacks. When `from` and `msg_sender` are the same (self-transfer), set the nonce to `0`.
+:::
 
 ## Create public authwits
 
-Public authwits mean the authorization is public, so it requires a transaction. You create the authwit just as above, but the wallet needs to authorize it in the canonical `AuthRegistry` contract:
+Public authwits require a transaction to store the authorization in the `AuthRegistry` contract before the authorized action can be executed:
 
 ```typescript
-// "true" is specific here... because you may want to revoke it later!
-const authwit = await wallet.setPublicAuthWit(bob.address, intent, true);
-await authwit.send({ from: bob.address }).wait()
-```
+const nonce = Fr.random();
 
-Now that everyone knows about the public authorization, alice can call the function normally:
+// Define the action Bob will execute
+const action = tokenContract.methods.transfer_in_public(
+  alice.address, // from
+  bob.address, // to
+  100n, // amount
+  nonce // authwit nonce
+);
 
-```typescript
-await action.send({ from: alice.address }).wait()
+// Alice sets the public authwit (this requires a transaction)
+const authwit = await wallet.setPublicAuthWit(
+  alice.address,
+  { caller: bob.address, action },
+  true // authorized
+);
+await authwit.send().wait();
+
+// Now Bob can execute the transfer
+await action.send({ from: bob.address }).wait();
 ```
 
 ## Create arbitrary message authwits
 
-This is useful when you need to authorize arbitrary data rather than a specific contract function call. For example, authorizing a signature over a message for offchain verification.
-
-### Step 1: Create inner hash
-
-You can use `computeInnerAuthWitHash` to get yourself a hash of arbitrary hash you can use in an authwit:
+Use this when authorizing arbitrary data rather than a specific contract function call:
 
 ```typescript
-import { computeInnerAuthWitHash, computeAuthWitMessageHash } from "@aztec/aztec.js";
+import { computeInnerAuthWitHash } from "@aztec/aztec.js/authorization";
 
 // Create hash of arbitrary data
-const innerHash = computeInnerAuthWitHash([
-    field1,
-    field2,
-    field3
+const innerHash = await computeInnerAuthWitHash([
+  Fr.fromHexString("0xcafe"),
+  Fr.fromHexString("0xbeef"),
 ]);
 
-// Create full authwit message hash
-const messageHash = computeAuthWitMessageHash(
-    executorAddress,
-    chainId,
-    version,
-    innerHash
-);
+// Create an intent with the consumer contract address
+const intent = {
+  consumer: targetContract.address,
+  innerHash,
+};
+
+// Create the authwit
+const witness = await wallet.createAuthWit(alice.address, intent);
 ```
+
+The `consumer` is the contract address that will verify this authwit.
 
 ## Revoke public authwits
 
-Because public authwits are... well, public, that means you should be able to revoke them. Just set the last parameter to `false` and send the transaction:
+Public authwits can be revoked by setting `authorized` to `false`:
 
 ```typescript
-// Set authorized to false to revoke
-const revoked = await authorizerWallet.setPublicAuthWit({
-    caller: executorAddress,
-    action: action
-}, false).send({ from: account.address });
+const revokeInteraction = await wallet.setPublicAuthWit(
+  alice.address,
+  { caller: bob.address, action },
+  false // revoke authorization
+);
+await revokeInteraction.send().wait();
 ```
 
 ## Next steps
@@ -121,4 +131,3 @@ const revoked = await authorizerWallet.setPublicAuthWit({
 - Learn about [authwits in smart contracts](../aztec-nr/framework-description/how_to_use_authwit.md)
 - Understand [authwit concepts](../foundational-topics/advanced/authwit.md)
 - Explore [account abstraction](../foundational-topics/accounts/index.md)
-- Implement [cross-chain messaging](../aztec-nr/framework-description/how_to_communicate_cross_chain.md)

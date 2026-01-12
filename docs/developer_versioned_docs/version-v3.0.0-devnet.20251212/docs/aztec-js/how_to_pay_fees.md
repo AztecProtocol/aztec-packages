@@ -19,6 +19,16 @@ This guide walks you through paying transaction fees on Aztec using various paym
 <Fees.FeeAsset_NonTransferrable />
 :::
 
+## Payment methods overview
+
+| Method              | Use Case                      | Privacy | Requirements               |
+| ------------------- | ----------------------------- | ------- | -------------------------- |
+| Fee Juice (default) | Account already has Fee Juice | Public  | Funded account             |
+| Sponsored FPC       | Testing, free transactions    | Public  | None                       |
+| Private FPC         | Pay with tokens privately     | Private | Token balance, FPC address |
+| Public FPC          | Pay with tokens publicly      | Public  | Token balance, FPC address |
+| Bridge + Claim      | Bootstrap from L1             | Public  | L1 ETH for gas             |
+
 ## Pay with Fee Juice
 
 Fee Juice is the native fee token on Aztec.
@@ -49,8 +59,9 @@ You can derive the Sponsored FPC address from its deployment parameters and salt
 
 ```typescript
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contracts";
+import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
+import { Fr } from "@aztec/aztec.js/fields";
 
 const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(
   SponsoredFPCContract.artifact,
@@ -60,22 +71,26 @@ const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(
 );
 ```
 
-Register the contract with your wallet before deploying and using it:
+Register the contract with your wallet before using it:
 
 ```typescript
 await wallet.registerContract(
   sponsoredFPCInstance,
   SponsoredFPCContract.artifact
 );
+```
+
+Then use it to pay for transactions:
+
+```typescript
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
   sponsoredFPCInstance.address
 );
 
-// deploy account for free
-const deployMethod = await yourAccount.getDeployMethod();
-const txHash = await deployMethod
+const tx = await contract.methods
+  .myFunction(param1)
   .send({
-    from: AztecAddress.ZERO,
+    from: sender.address,
     fee: { paymentMethod: sponsoredPaymentMethod },
   })
   .wait();
@@ -99,6 +114,11 @@ Private FPCs enable fee payments without revealing the payer's identity onchain:
 ```typescript
 import { PrivateFeePaymentMethod } from "@aztec/aztec.js/fee";
 
+// The private fee paying method assembled on the app side requires knowledge of the maximum
+// fee the user is willing to pay
+const maxFeesPerGas = (await node.getCurrentBaseFees()).mul(1.5);
+const gasSettings = GasSettings.default({ maxFeesPerGas });
+
 const paymentMethod = new PrivateFeePaymentMethod(
   fpcAddress,
   senderAddress,
@@ -109,10 +129,8 @@ const paymentMethod = new PrivateFeePaymentMethod(
 const tx = await contract.methods
   .myFunction(param1)
   .send({
-    from: wallet.address,
-    fee: {
-      paymentMethod,
-    },
+    from: sender.address,
+    fee: { paymentMethod },
   })
   .wait();
 ```
@@ -175,42 +193,14 @@ After this transaction is minted on L1 and a few blocks pass, you can claim the 
 
 ```typescript
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
-const feeJuiceWithClaim = new FeeJuicePaymentMethodWithClaim(
-  acc.address,
-  claim
-); // the l2 address and the claim
 
-yourContract.methods
-  .some_method(acc.address)
-  .send({ from: acc.address, fee: { paymentMethod: feeJuiceWithClaim } })
+// Use the claim from bridgeTokensPublic to pay for a transaction
+const paymentMethod = new FeeJuicePaymentMethodWithClaim(acc.address, claim);
+const receipt = await contract.methods
+  .myFunction()
+  .send({ from: acc.address, fee: { gasSettings, paymentMethod } })
   .wait();
 ```
-
-:::tip Creating blocks
-
-To advance time quickly, send a couple of dummy transactions and `.wait()` for them. For example:
-
-```typescript
-// using the `sponsoredFeePaymentMethod` so the network has transactions to build blocks with!
-await contract.methods
-  .some_other_method(acc.address)
-  .send({
-    from: acc.address,
-    fee: { paymentMethod: sponsoredFeePaymentMethod },
-  })
-  .wait();
-await contract.methods
-  .some_other_method(acc.address)
-  .send({
-    from: acc.address,
-    fee: { paymentMethod: sponsoredFeePaymentMethod },
-  })
-  .wait();
-```
-
-This will add a transaction to each block!
-
-:::
 
 ## Configure gas settings
 
@@ -219,19 +209,19 @@ This will add a transaction to each block!
 Set custom gas limits by importing from `stdlib`:
 
 ```typescript
-import { GasSettings, Gas, GasFees } from "@aztec/stdlib/gas";
+import { GasSettings } from "@aztec/stdlib/gas";
 
-const gasSettings = new GasSettings(
-  new Gas(100000, 100000), // gasLimits (DA, L2)
-  new Gas(10000, 10000), // teardownGasLimits
-  new GasFees(10, 10), // maxFeesPerGas
-  new GasFees(1, 1) // maxPriorityFeesPerGas
-);
+const gasSettings = GasSettings.from({
+  gasLimits: { daGas: 100000, l2Gas: 100000 },
+  teardownGasLimits: { daGas: 10000, l2Gas: 10000 },
+  maxFeesPerGas: { daGas: 10, l2Gas: 10 },
+  maxPriorityFeesPerGas: { daGas: 1, l2Gas: 1 },
+});
 
 const tx = await contract.methods
   .myFunction()
   .send({
-    from: wallet.address,
+    from: sender.address,
     fee: {
       paymentMethod,
       gasSettings,
@@ -246,7 +236,7 @@ const tx = await contract.methods
 const tx = await contract.methods
   .myFunction()
   .send({
-    from: wallet.address,
+    from: sender.address,
     fee: {
       paymentMethod,
       estimateGas: true,
@@ -257,7 +247,7 @@ const tx = await contract.methods
 ```
 
 :::tip
-Gas estimation runs a simulation first to determine actual gas usage, then adds padding for safety.
+Gas estimation runs a simulation first to determine actual gas usage, then adds padding for safety. This works with all payment methods, including FPCs.
 :::
 
 ## Next steps
