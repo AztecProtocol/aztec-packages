@@ -109,10 +109,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (FF(1) - static_cast<View>(in.get(C::instr_fetching_pc_out_of_range))));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
-    { // INDIRECT_BYTES_DECOMPOSITION
+    { // ADDRESSING_MODE_BYTES_DECOMPOSITION
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp =
-            (static_cast<View>(in.get(C::instr_fetching_indirect)) -
+            (static_cast<View>(in.get(C::instr_fetching_addressing_mode)) -
              (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                  (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(256) +

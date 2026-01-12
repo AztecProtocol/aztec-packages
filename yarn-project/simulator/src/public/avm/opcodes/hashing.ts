@@ -22,7 +22,7 @@ export class Poseidon2 extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private inputStateOffset: number,
     private outputStateOffset: number,
   ) {
@@ -31,7 +31,7 @@ export class Poseidon2 extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -65,7 +65,7 @@ export class KeccakF1600 extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
     private inputOffset: number,
   ) {
@@ -76,7 +76,7 @@ export class KeccakF1600 extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const inputSize = 25;
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -109,7 +109,7 @@ export class Sha256Compression extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private outputOffset: number,
     private stateOffset: number,
     private inputsOffset: number,
@@ -122,7 +122,7 @@ export class Sha256Compression extends Instruction {
     const INPUTS_SIZE = 16;
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

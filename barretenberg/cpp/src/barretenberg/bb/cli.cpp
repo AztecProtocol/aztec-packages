@@ -749,8 +749,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
-    debug_logging = flags.debug;
-    verbose_logging = debug_logging || flags.verbose;
+    if (flags.debug) {
+        bb_log_level = LogLevel::DEBUG;
+    } else if (flags.verbose) {
+        bb_log_level = LogLevel::VERBOSE;
+    }
     slow_low_memory = flags.slow_low_memory;
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {

@@ -113,6 +113,7 @@ class ProgramBlock {
     void process_sha256compression_instruction(SHA256COMPRESSION_Instruction instruction);
     void process_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction instruction);
     void process_toradixbe_instruction(TORADIXBE_Instruction instruction);
+    void process_debuglog_instruction(DEBUGLOG_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;

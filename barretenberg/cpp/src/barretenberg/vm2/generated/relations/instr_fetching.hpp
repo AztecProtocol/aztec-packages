@@ -39,7 +39,7 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 7;
     static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 9;
     static constexpr size_t SR_TAG_VALUE = 10;
-    static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 12;
+    static constexpr size_t SR_ADDRESSING_MODE_BYTES_DECOMPOSITION = 12;
     static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 13;
     static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 14;
     static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 15;
@@ -57,8 +57,8 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
             return "INSTR_OUT_OF_RANGE_TOGGLE";
         case SR_TAG_VALUE:
             return "TAG_VALUE";
-        case SR_INDIRECT_BYTES_DECOMPOSITION:
-            return "INDIRECT_BYTES_DECOMPOSITION";
+        case SR_ADDRESSING_MODE_BYTES_DECOMPOSITION:
+            return "ADDRESSING_MODE_BYTES_DECOMPOSITION";
         case SR_OP1_BYTES_DECOMPOSITION:
             return "OP1_BYTES_DECOMPOSITION";
         case SR_OP2_BYTES_DECOMPOSITION:

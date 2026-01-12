@@ -47,11 +47,11 @@ void sstoreImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
-                   ((FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))) -
-                    static_cast<View>(in.get(C::execution_sel_write_public_data)));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_write_public_data)) -
+                    static_cast<View>(in.get(C::execution_sel_execute_sstore)) *
+                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     { // SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED

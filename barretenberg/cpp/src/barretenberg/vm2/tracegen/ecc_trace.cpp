@@ -62,7 +62,10 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         bool y_match = p.y() == q.y();
 
         bool double_predicate = (x_match && y_match);
-        bool add_predicate = (!x_match && !y_match);
+        // add_predicate is true when x-coordinates differ (regardless of y-coordinates).
+        // PIL constraint: sel = double_op + add_op + INFINITY_PRED, where INFINITY_PRED = x_match * (1 - y_match).
+        // When x_match=0: double_op=0, INFINITY_PRED=0, so add_op must be 1.
+        bool add_predicate = !x_match;
         // If x match but the y's don't, the result is the infinity point when adding;
         bool infinity_predicate = (x_match && !y_match);
         // The result is also the infinity point if

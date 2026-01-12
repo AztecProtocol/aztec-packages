@@ -12,6 +12,8 @@ use_optimized = []
 num-bigint = "0.4.3"
 
 powdr-number = { path = "../powdr/number" }
+powdr-parser-util = { path = "../powdr/parser-util" }
+powdr-pil-analyzer = { path = "../powdr/pil-analyzer" }
 num-traits = "0.2.15"
 num-integer = "0.1.45"
 itertools = "^0.10"

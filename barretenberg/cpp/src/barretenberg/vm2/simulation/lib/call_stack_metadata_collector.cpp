@@ -41,16 +41,14 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
     call_stack_metadata.top().num_nested_calls++;
     total_call_stack_items++;
 
-    // Use configured limit or default.
-    uint32_t max_calldata_size = limits.max_calldata_size_in_fields > 0 ? limits.max_calldata_size_in_fields : 1024;
-    std::vector<FF> calldata = calldata_provider(max_calldata_size);
+    std::vector<FF> calldata = calldata_provider(limits.max_calldata_size_in_fields);
 
     call_stack_metadata.push({
         .timestamp = timestamp++,
         .phase = current_phase,
         .contract_address = contract_address,
         .caller_pc = caller_pc,
-        .calldata = calldata,
+        .calldata = std::move(calldata),
         .is_static_call = is_static_call,
         .gas_limit = gas_limit,
         // To be filled in by the exit call or further nested calls.
@@ -72,10 +70,7 @@ void CallStackMetadataCollector::notify_exit_call(bool success,
         return;
     }
 
-    // Use configured limit or default.
-    uint32_t max_return_data_size =
-        limits.max_returndata_size_in_fields > 0 ? limits.max_returndata_size_in_fields : 1024;
-    std::vector<FF> return_data = return_data_provider(max_return_data_size);
+    std::vector<FF> return_data = return_data_provider(limits.max_returndata_size_in_fields);
     std::vector<PC> internal_call_stack = internal_call_stack_provider();
     internal_call_stack.push_back(pc);
 
@@ -125,21 +120,27 @@ CalldataProvider make_calldata_provider(const ContextInterface& context)
     auto cd_size = context.get_parent_cd_size();
     return [&context, cd_size](uint32_t max_size) -> std::vector<FF> {
         // NOTE: get_calldata will handle offsetting into parent memory for nested contexts
-        // TODO(AVM-186): check if this will pad to size. We don't want that.
+        // In principle, get_calldata would pad, but this shouldn't happen since we always ask for less than cd_size.
         auto data = context.get_calldata(0, std::min(max_size, cd_size));
+        // Convert MemoryValue to FF.
         return std::vector<FF>(data.begin(), data.end());
     };
 }
 
-ReturnDataProvider make_return_data_provider(const ContextInterface& context, uint32_t rd_offset, uint32_t rd_size)
+ReturnDataProvider make_return_data_provider(const ContextInterface& context,
+                                             uint32_t rd_mem_offset_in_child,
+                                             uint32_t rd_size)
 {
-    return [&context, rd_offset, rd_size](uint32_t max_size) -> std::vector<FF> {
-        // TODO(AVM-187): Consider using get_returndata instead.
+    return [&context, rd_mem_offset_in_child, rd_size](uint32_t max_size) -> std::vector<FF> {
+        // NOTE: We can't use get_returndata here because that needs the parent and not the child context.
+        // Passing the parent context to this method gives other problems like handling top-level returns.
         const auto& memory = context.get_memory();
         std::vector<FF> data;
-        data.reserve(std::min(max_size, rd_size));
-        for (uint32_t i = 0; i < std::min(max_size, rd_size); i++) {
-            data.push_back(memory.get(rd_offset + i).as_ff());
+        uint32_t effective_rd_size = std::min(max_size, rd_size);
+        data.reserve(effective_rd_size);
+        // This will copy effective_rd_size elements from returndata and will not pad.
+        for (uint32_t i = 0; i < effective_rd_size; i++) {
+            data.push_back(memory.get(rd_mem_offset_in_child + i).as_ff());
         }
         return data;
     };
