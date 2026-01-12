@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -21,58 +21,65 @@ namespace acir_format {
 using namespace bb;
 
 /**
- * @brief Create an IVC object with mocked state corresponding to a set of IVC recursion constraints
- * @details Construction of a kernel circuit requires two inputs: kernel prgram acir constraints and an IVC instance
- * containing state needed to complete the kernel logic, e.g. proofs for input to recursive verifiers. To construct
- * verification keys for kernel circuits without running a full IVC, we mock the IVC state corresponding to a provided
- * set of IVC recurson constraints. For example, if the constraints contain a single HN recursive verification, we
- * initialize an IVC with mocked data for the verifier accumulator, the folding proof, the circuit verification key,
- * and a merge proof.
- * @note There are only three valid combinations of IVC recursion constraints for a kernel program. See below for
- * details.
+ * @brief Create a Chonk instance with mocked state corresponding to a set of IVC recursion constraints
  *
- * @param constraints IVC recursion constraints from a kernel circuit
- * @return Chonk
+ * @details Aztec kernel circuits require a Chonk (IVC) instance containing proofs and VKs for recursive
+ * verification. During VK generation, we don't have real proofs, so we create mock data with the correct
+ * structure. This function analyzes the recursion constraints to determine the appropriate mock state.
+ *
+ * Valid constraint combinations for Aztec kernels:
+ * - INIT kernel: Single OINK constraint (verifies first app, no prior accumulator)
+ * - INNER kernel: Two HN constraints (verifies previous kernel + new app)
+ * - RESET kernel: Single HN constraint (verifies kernel only, resets accumulation)
+ * - TAIL kernel: Single HN_TAIL constraint (final kernel before tube proof)
+ * - HIDING kernel: Single HN_FINAL constraint (adds ZK hiding)
+ *
+ * @param constraints The IVC recursion constraints extracted from an Aztec kernel's ACIR
+ * @return Chonk instance with mock verification queue entries matching the constraint pattern
  */
-
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
     auto ivc = std::make_shared<Chonk>(constraints.size());
 
-    uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
-    uint32_t hn_type = static_cast<uint32_t>(PROOF_TYPE::HN);
-    uint32_t hn_final_type = static_cast<uint32_t>(PROOF_TYPE::HN_FINAL);
-    uint32_t hn_tail_type = static_cast<uint32_t>(PROOF_TYPE::HN_TAIL);
+    // Helper to check constraint proof type using centralized conversion
+    // Throws if proof_type is not a valid HyperNova type
+    auto constraint_has_type = [](const RecursionConstraint& c, Chonk::QUEUE_TYPE expected) {
+        return proof_type_to_queue_type(c.proof_type) == expected;
+    };
 
-    // There is a fixed set of valid combinations of IVC recursion constraints for Aztec kernel circuits:
+    // Match constraint patterns to kernel types and populate appropriate mock data:
 
-    // Case: INIT kernel; single Oink recursive verification of an app
-    if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
+    // INIT kernel: Verifies first app circuit (no prior accumulator exists)
+    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::OINK)) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
         return ivc;
     }
 
-    // Case: RESET kernel; single HN recursive verification of a kernel
-    if (constraints.size() == 1 && constraints[0].proof_type == hn_type) {
+    // RESET kernel: Verifies only a previous kernel (resets the IVC accumulation)
+    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN)) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         return ivc;
     }
 
-    // Case: TAIL kernel; single HN recursive verification of a kernel
-    if (constraints.size() == 1 && constraints[0].proof_type == hn_tail_type) {
+    // TAIL kernel: Final kernel in the chain before generating tube proof
+    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_TAIL)) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         return ivc;
     }
+
+    // INNER kernel: Verifies previous kernel + new app circuit
     if (constraints.size() == 2) {
-        BB_ASSERT_EQ(constraints[0].proof_type, hn_type);
-        BB_ASSERT_EQ(constraints[1].proof_type, hn_type);
+        BB_ASSERT(constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN),
+                  "Inner kernel first constraint must be HN type");
+        BB_ASSERT(constraint_has_type(constraints[1], Chonk::QUEUE_TYPE::HN),
+                  "Inner kernel second constraint must be HN type");
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
         return ivc;
     }
 
-    // Case: HIDING kernel; single HN_FINAL recursive verification of a kernel
-    if (constraints.size() == 1 && constraints[0].proof_type == hn_final_type) {
+    // HIDING kernel: Adds zero-knowledge hiding to the final proof
+    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_FINAL)) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
         return ivc;
     }
@@ -82,9 +89,19 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
 }
 
 /**
- * @brief Create a mock verification queue entry with proof and VK that have the correct structure but are not
- * necessarily valid
+ * @brief Create a mock verification queue entry with structurally correct proof and VK
  *
+ * @details Constructs a VerifierInputs entry containing:
+ * - A mock HyperNova proof with the correct field count for the proof type
+ * - A mock MegaHonk verification key with the correct commitment count
+ *
+ * The proof structure depends on:
+ * - Whether it's a kernel (always includes folding proof) or app circuit
+ * - For apps: OINK proofs don't include folding data, HN proofs do
+ *
+ * @param verification_type The queue type (OINK, HN, HN_TAIL, HN_FINAL)
+ * @param is_kernel True for kernel circuits, false for app circuits
+ * @return VerifierInputs with mock proof, VK, and metadata
  */
 Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TYPE verification_type,
                                                            const bool is_kernel)
@@ -94,10 +111,10 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
     using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
 
-    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;         // maybe doesnt need to be correct
-    size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0; // always 1
+    // VK metadata: dyadic circuit size and public inputs offset (always 1 due to zero row)
+    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;
+    size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
 
-    // Construct a mock Oink or HN proof and a mock MegaHonk verification key
     std::vector<FF> proof;
     std::shared_ptr<MegaVerificationKey> verification_key;
 
@@ -107,19 +124,17 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
-        // kernel circuits are always folded, thus the proof always includes the nova fold proof
-        bool include_fold = true;
+        // Kernel circuits always have a prior accumulator, so fold proof is always included
+        constexpr bool include_fold = true;
         proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
-
         verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
 
-        // The first app is not folded thus the proof does not include the nova fold proof
-        bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
+        // First app (OINK) has no prior accumulator; subsequent apps (HN) do
+        bool include_fold = (verification_type != Chonk::QUEUE_TYPE::OINK);
         proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
-
         verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
     }
 
@@ -127,41 +142,60 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
 }
 
 /**
- * @brief Populate an IVC instance with data that mimics the state after a single IVC accumulation
- * @details Mock state consists of a mock verification queue entry (proof, VK) and a mocked merge proof.
- * Also initializes the recursive verifier accumulator since it is hashed in circuit.
+ * @brief Add mock accumulation state to a Chonk instance for a single circuit
  *
- * @param ivc
- * @param type The type of verification (OINK, HN, HN_TAIL, HN_FINAL)
- * @param is_kernel Whether this is a kernel circuit accumulation
+ * @details Populates the IVC with mock data representing one circuit accumulation:
+ * 1. Initializes the recursive verifier accumulator (challenge vector, evaluations, commitments)
+ *    - This is hashed in-circuit to bind the accumulator state
+ * 2. Adds a mock verification queue entry (proof + VK) for the accumulated circuit
+ * 3. Adds a mock merge proof for the Goblin ECCVM accumulation
+ * 4. For HN_FINAL: also adds a mock decider/PCS proof
+ *
+ * @param ivc The Chonk instance to populate
+ * @param type Verification queue type determining proof structure
+ * @param is_kernel True for kernel circuits (different public inputs layout)
  */
 void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel)
 {
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
 
-    // Initialize verifier accumulator with proper structure
+    // Initialize verifier accumulator with zero/identity values
+    // The accumulator state is hashed into the circuit, so it must have valid structure
     ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
     ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
 
+    // Add mock proof and VK to the verification queue
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
+
+    // Add mock merge proof for Goblin ECCVM accumulation
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
+
+    // HN_FINAL additionally requires a decider proof for the final PCS opening
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
     }
+
     ivc->num_circuits_accumulated++;
 }
 
 /**
- * @brief Populate VK witness fields from a recursion constraint from a provided VerificationKey
+ * @brief Write mock VK field values to witness indices specified by a recursion constraint
  *
- * @param builder
- * @param mock_verification_key
- * @param key_witness_indices
+ * @details When an ACIR program contains a recursive verification constraint, the constraint
+ * specifies witness indices where the VK fields should be stored. This function serializes
+ * a mock VK to field elements and writes them to those witness locations.
+ *
+ * The witness indices come from the ACIR constraint's `key` field, which lists indices
+ * in the order expected by the recursive verifier circuit.
+ *
+ * @param builder The circuit builder whose witness will be populated
+ * @param mock_verification_key The VK to serialize and write
+ * @param key_witness_indices Witness indices from the recursion constraint's key field
  */
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
@@ -169,11 +203,11 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
 {
     using FF = Chonk::FF;
 
-    // Convert the VerificationKey to fields
+    // Serialize VK to field elements (metadata + commitments)
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
     BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
 
-    // Add the fields to the witness and set the key witness indices accordingly
+    // Write each field value to its corresponding witness index
     for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
         builder.set_variable(witness_idx, value);
     }

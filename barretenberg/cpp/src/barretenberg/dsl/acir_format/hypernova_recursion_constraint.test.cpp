@@ -163,24 +163,8 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      */
     static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, std::vector<FF>& witness)
     {
-        // The proof type can be either Oink or HN or PG_FINAL
-        PROOF_TYPE proof_type;
-        switch (input.type) {
-        case QUEUE_TYPE::OINK:
-            proof_type = OINK;
-            break;
-        case QUEUE_TYPE::HN:
-            proof_type = HN;
-            break;
-        case QUEUE_TYPE::HN_FINAL:
-            proof_type = HN_FINAL;
-            break;
-        case QUEUE_TYPE::HN_TAIL:
-            proof_type = HN_TAIL;
-            break;
-        default:
-            throw std::runtime_error("Invalid proof type");
-        }
+        // Use centralized conversion from QUEUE_TYPE to PROOF_TYPE
+        PROOF_TYPE proof_type = queue_type_to_proof_type(input.type);
 
         RecursionConstraint constraint =
             recursion_data_to_recursion_constraint(witness,

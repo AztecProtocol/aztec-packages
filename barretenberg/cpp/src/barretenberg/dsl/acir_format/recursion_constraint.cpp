@@ -192,6 +192,10 @@ void process_hn_recursion_constraints(
         // acir are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
         // verifications).
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
+            // Validate ACIR constraint proof_type matches IVC queue type
+            BB_ASSERT(proof_type_to_queue_type(constraint.proof_type) == queue_entry.type,
+                      "ACIR constraint proof_type does not match IVC queue type");
+
             std::vector<StdlibFF> public_inputs_from_proof(queue_entry.proof.begin(),
                                                            queue_entry.proof.begin() +
                                                                static_cast<ptrdiff_t>(constraint.public_inputs.size()));
@@ -218,8 +222,8 @@ void process_hn_recursion_constraints(
         auto mock_ivc = create_mock_chonk_from_constraints(hn_recursion_data.first);
         process_with_ivc(mock_ivc);
     } else {
-        auto sumcheck_ivc = std::static_pointer_cast<Chonk>(ivc_base);
-        process_with_ivc(sumcheck_ivc);
+        auto chonk = std::static_pointer_cast<Chonk>(ivc_base);
+        process_with_ivc(chonk);
     }
 }
 
