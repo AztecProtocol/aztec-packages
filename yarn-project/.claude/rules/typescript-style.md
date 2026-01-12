@@ -174,6 +174,30 @@ export class CheckpointProposal { ... }
 - Prefer `undefined` over `null`
 - Use `compactArray()` from foundation to filter undefined values
 
+## Resource Management
+
+Prefer `using`/`await using` over `try`/`finally` for cleanup of disposable resources:
+
+```typescript
+// Good: using statement ensures cleanup even on exceptions
+using fork = await this.worldState.fork(blockNumber);
+const result = await processWithFork(fork);
+return result;
+
+// Bad: try/finally is more verbose and error-prone
+const fork = await this.worldState.fork(blockNumber);
+try {
+  const result = await processWithFork(fork);
+  return result;
+} finally {
+  await fork.close();
+}
+```
+
+- Use `using` for `Disposable` resources (implements `[Symbol.dispose](): void`)
+- Use `await using` for `AsyncDisposable` resources (implements `[Symbol.asyncDispose](): Promise<void>`)
+- When the resource is obtained asynchronously but disposed synchronously, use `using x = await getResource()`
+
 ## General Style
 
 - Prefer `const` over `let`

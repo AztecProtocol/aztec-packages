@@ -47,13 +47,14 @@ import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-co
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import {
+  CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   type L2Tips,
   PublishedL2Block,
   Signature,
 } from '@aztec/stdlib/block';
-import { L1PublishedData } from '@aztec/stdlib/checkpoint';
+import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -62,7 +63,7 @@ import { orderAttestations } from '@aztec/stdlib/p2p';
 import {
   fr,
   makeAndSignCommitteeAttestationsAndSigners,
-  makeBlockAttestationFromBlock,
+  makeCheckpointAttestationFromBlock,
   mockProcessedTx,
 } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
@@ -199,6 +200,35 @@ describe('L1Publisher integration', () => {
             }),
           ),
         );
+      },
+      // Methods needed by L2BlockStream for world state sync
+      getCheckpointedBlocks(from, limit, _proven) {
+        return Promise.resolve(
+          blocks
+            .slice(from - 1, from - 1 + limit)
+            .map(
+              block =>
+                new CheckpointedL2Block(
+                  CheckpointNumber(block.number),
+                  block.toL2Block(),
+                  new L1PublishedData(BigInt(block.number), BigInt(block.number), block.hash.toString()),
+                  [],
+                ),
+            ),
+        );
+      },
+      getPublishedCheckpoints(checkpointNumber, _limit) {
+        const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
+        if (!block) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([
+          new PublishedCheckpoint(
+            block.toCheckpoint(),
+            new L1PublishedData(BigInt(block.number), BigInt(block.number), block.hash.toString()),
+            [],
+          ),
+        ]);
       },
       getL2Tips(): Promise<L2Tips> {
         const latestBlock = blocks.at(-1);
@@ -540,7 +570,7 @@ describe('L1Publisher integration', () => {
     it('publishes a block with attestations', async () => {
       const block = await buildSingleBlock();
 
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -560,7 +590,7 @@ describe('L1Publisher integration', () => {
 
     it('fails to publish a block without the proposer attestation', async () => {
       const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
 
       // Reverse attestations to break proposer attestation
       const attestations = orderAttestations(blockAttestations, committee!).reverse();
@@ -577,7 +607,7 @@ describe('L1Publisher integration', () => {
 
     it('rejects flipped proposer signature', async () => {
       const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -601,7 +631,7 @@ describe('L1Publisher integration', () => {
 
     it('rejects signature with invalid recovery value', async () => {
       const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -631,7 +661,7 @@ describe('L1Publisher integration', () => {
       // Publish the first invalid block
       const badBlockAttestations = validators
         .filter(v => v.address.equals(proposer!))
-        .map(v => makeBlockAttestationFromBlock(badBlock, v));
+        .map(v => makeCheckpointAttestationFromBlock(badBlock, v));
       const badAttestations = orderAttestations(badBlockAttestations, committee!);
 
       const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations);
@@ -651,15 +681,15 @@ describe('L1Publisher integration', () => {
       // Prepare for invalidating the previous one and publish the same block with proper attestations
       const block = await buildSingleBlock({ blockNumber: BlockNumber(1) });
       expect(block.number).toEqual(badBlock.number);
-      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
       const attestations = orderAttestations(blockAttestations, committee!);
 
-      // Check we can invalidate the block
-      logger.warn('Checking simulate invalidate block');
-      const invalidateRequest = await publisher.simulateInvalidateBlock({
+      // Check we can invalidate the checkpoint
+      logger.warn('Checking simulate invalidate checkpoint');
+      const invalidateRequest = await publisher.simulateInvalidateCheckpoint({
         valid: false,
         committee: committee!,
-        block: block.toBlockInfo(),
+        checkpoint: block.toCheckpoint().toCheckpointInfo(),
         attestors: [],
         attestations: badAttestations,
         epoch: EpochNumber(1),
@@ -667,14 +697,14 @@ describe('L1Publisher integration', () => {
         reason: 'insufficient-attestations',
       });
       expect(invalidateRequest).toBeDefined();
-      const forcePendingBlockNumber = invalidateRequest?.forcePendingBlockNumber;
-      expect(forcePendingBlockNumber).toEqual(0);
+      const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
+      expect(forcePendingCheckpointNumber).toEqual(0);
 
-      // We cannot propose directly, we need to assume the previous block is invalidated
+      // We cannot propose directly, we need to assume the previous checkpoint is invalidated
       const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
       logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
       expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
-      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingBlockNumber });
+      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingCheckpointNumber });
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation
@@ -683,7 +713,7 @@ describe('L1Publisher integration', () => {
         /Rollup__InvalidArchive/,
       );
       await publisher.validateBlockHeader(block.getCheckpointHeader(), {
-        forcePendingBlockNumber: forcePendingBlockNumber ?? BlockNumber.ZERO,
+        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
       });
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
@@ -694,14 +724,14 @@ describe('L1Publisher integration', () => {
       );
 
       // Invalidate and propose
-      logger.warn('Enqueuing requests to invalidate and propose the block');
-      publisher.enqueueInvalidateBlock(invalidateRequest);
+      logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
+      publisher.enqueueInvalidateCheckpoint(invalidateRequest);
       await publisher.enqueueProposeCheckpoint(
         block.toCheckpoint(),
         attestationsAndSigners,
         attestationsAndSignersSignature,
         {
-          forcePendingBlockNumber: forcePendingBlockNumber ?? BlockNumber.ZERO,
+          forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
         },
       );
       const result = await publisher.sendRequests();

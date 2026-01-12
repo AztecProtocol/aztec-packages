@@ -8,7 +8,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
 import { type MakeConsensusPayloadOptions, makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -19,7 +19,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import { mockAttestation } from '../../mem_pools/attestation_pool/mocks.js';
+import { mockCheckpointAttestation } from '../../mem_pools/attestation_pool/mocks.js';
 import type { TxPool } from '../../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../../services/libp2p/libp2p_service.js';
 import {
@@ -136,19 +136,22 @@ describe('p2p client integration message propagation', () => {
     return handleGossipedProposalSpy;
   };
 
-  // Replace the block attestation handler on a client
-  const replaceBlockAttestationHandler = (client: P2PClient, promise: PromiseWithResolvers<BlockAttestation>) => {
+  // Replace the checkpoint attestation handler on a client
+  const replaceCheckpointAttestationHandler = (
+    client: P2PClient,
+    promise: PromiseWithResolvers<CheckpointAttestation>,
+  ) => {
     const p2pService = (client as any).p2pService as LibP2PService;
     // @ts-expect-error - we want to spy on received attestation handler
-    const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
+    const oldAttestationHandler = p2pService.processCheckpointAttestationFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
     const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
-      promise.resolve(BlockAttestation.fromBuffer(payload));
+      promise.resolve(CheckpointAttestation.fromBuffer(payload));
       await oldAttestationHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
-    p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
+    p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
 
     return handleGossipedAttestationSpy;
   };
@@ -158,20 +161,20 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a tx a block proposal and an attestation and both clients 2 and 3 should receive them
     const client2TxPromise = promiseWithResolvers<Tx>();
     const client2ProposalPromise = promiseWithResolvers<BlockProposal>();
-    const client2AttestationPromise = promiseWithResolvers<BlockAttestation>();
+    const client2AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
     const client3TxPromise = promiseWithResolvers<Tx>();
     const client3ProposalPromise = promiseWithResolvers<BlockProposal>();
-    const client3AttestationPromise = promiseWithResolvers<BlockAttestation>();
+    const client3AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
     // Replace the handlers on clients 2 and 3 so we can detect when they receive messages
     const client2HandleGossipedTxSpy = replaceTxHandler(client2, client2TxPromise);
     const client2HandleGossipedProposalSpy = replaceBlockProposalHandler(client2, client2ProposalPromise);
-    const client2HandleGossipedAttestationSpy = replaceBlockAttestationHandler(client2, client2AttestationPromise);
+    const client2HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(client2, client2AttestationPromise);
 
     const client3HandleGossipedTxSpy = replaceTxHandler(client3, client3TxPromise);
     const client3HandleGossipedProposalSpy = replaceBlockProposalHandler(client3, client3ProposalPromise);
-    const client3HandleGossipedAttestationSpy = replaceBlockAttestationHandler(client3, client3AttestationPromise);
+    const client3HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(client3, client3AttestationPromise);
 
     // Client 1 sends a transaction, it should propagate to clients 2 and 3
     const tx = await createMockTxWithMetadata(config);
@@ -184,16 +187,16 @@ describe('p2p client integration message propagation', () => {
       archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
-    const blockProposal = makeBlockProposal(dummyPayload);
+    const blockProposal = await makeBlockProposal(dummyPayload);
     await client1.broadcastProposal(blockProposal);
 
-    // client 1 sends an attestation
-    const attestation = mockAttestation(
+    // client 1 sends a checkpoint attestation
+    const attestation = mockCheckpointAttestation(
       Secp256k1Signer.random(),
       Number(dummyPayload.header!.getSlot()),
       dummyPayload.archive,
     );
-    await (client1 as any).p2pService.broadcastAttestation(attestation);
+    await client1.broadcastCheckpointAttestations([attestation]);
 
     // Clients 2 and 3 should receive all messages
     const messagesPromise = [
@@ -220,8 +223,8 @@ describe('p2p client integration message propagation', () => {
       expect(hashes[0].toString()).toEqual(hashes[1].toString());
       expect(hashes[0].toString()).toEqual(hashes[2].toString());
 
-      expect(messages[2].payload.toString()).toEqual(blockProposal.payload.toString());
-      expect(messages[3].payload.toString()).toEqual(blockProposal.payload.toString());
+      expect(messages[2].archive.toString()).toEqual(blockProposal.archive.toString());
+      expect(messages[3].archive.toString()).toEqual(blockProposal.archive.toString());
       expect(messages[4].payload.toString()).toEqual(attestation.payload.toString());
       expect(messages[5].payload.toString()).toEqual(attestation.payload.toString());
     }
@@ -304,23 +307,23 @@ describe('p2p client integration message propagation', () => {
       {
         const client2TxPromise = promiseWithResolvers<Tx>();
         const client2ProposalPromise = promiseWithResolvers<BlockProposal>();
-        const client2AttestationPromise = promiseWithResolvers<BlockAttestation>();
+        const client2AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
         const client3TxPromise = promiseWithResolvers<Tx>();
         const client3ProposalPromise = promiseWithResolvers<BlockProposal>();
-        const client3AttestationPromise = promiseWithResolvers<BlockAttestation>();
+        const client3AttestationPromise = promiseWithResolvers<CheckpointAttestation>();
 
         // Replace the handlers on clients 2 and 3 so we can detect when they receive messages
         const client2HandleGossipedTxSpy = replaceTxHandler(newClient2, client2TxPromise);
         const client2HandleGossipedProposalSpy = replaceBlockProposalHandler(newClient2, client2ProposalPromise);
-        const client2HandleGossipedAttestationSpy = replaceBlockAttestationHandler(
+        const client2HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(
           newClient2,
           client2AttestationPromise,
         );
 
         const client3HandleGossipedTxSpy = replaceTxHandler(newClient3, client3TxPromise);
         const client3HandleGossipedProposalSpy = replaceBlockProposalHandler(newClient3, client3ProposalPromise);
-        const client3HandleGossipedAttestationSpy = replaceBlockAttestationHandler(
+        const client3HandleGossipedAttestationSpy = replaceCheckpointAttestationHandler(
           newClient3,
           client3AttestationPromise,
         );
@@ -336,16 +339,16 @@ describe('p2p client integration message propagation', () => {
           archive: Fr.random(),
           txHashes: [TxHash.random()],
         };
-        const blockProposal = makeBlockProposal(dummyPayload);
+        const blockProposal = await makeBlockProposal(dummyPayload);
         await client1.client.broadcastProposal(blockProposal);
 
-        // client 1 sends an attestation
-        const attestation = mockAttestation(
+        // client 1 sends a checkpoint attestation
+        const attestation = mockCheckpointAttestation(
           Secp256k1Signer.random(),
           Number(dummyPayload.header!.getSlot()),
           dummyPayload.archive,
         );
-        await (client1.client as any).p2pService.broadcastAttestation(attestation);
+        await client1.client.broadcastCheckpointAttestations([attestation]);
 
         // Only client 2 should receive the messages
         const client2Messages = await retryUntil(
@@ -374,7 +377,7 @@ describe('p2p client integration message propagation', () => {
 
         const hashes = await Promise.all([tx, client2Messages![0]].map(tx => tx!.getTxHash()));
         expect(hashes[0].toString()).toEqual(hashes[1].toString());
-        expect(client2Messages![1].payload.toString()).toEqual(blockProposal.payload.toString());
+        expect(client2Messages![1].archive.toString()).toEqual(blockProposal.archive.toString());
         expect(client2Messages![2].payload.toString()).toEqual(attestation.payload.toString());
 
         // We expect that no messages were received by client 3

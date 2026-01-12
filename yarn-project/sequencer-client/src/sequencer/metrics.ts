@@ -43,7 +43,7 @@ export class SequencerMetrics {
   private blockProposalPrecheckFailed: UpDownCounter;
   private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
-  private blockAttestationDelay: Histogram;
+  private checkpointAttestationDelay: Histogram;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -75,7 +75,7 @@ export class SequencerMetrics {
 
     this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
 
-    this.blockAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_ATTESTATION_DELAY);
+    this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
 
     // Init gauges and counters
     this.blockCounter.add(0, {
@@ -156,8 +156,8 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(0);
   }
 
-  public recordBlockAttestationDelay(duration: number) {
-    this.blockAttestationDelay.record(duration);
+  public recordCheckpointAttestationDelay(duration: number) {
+    this.checkpointAttestationDelay.record(duration);
   }
 
   public recordCollectedAttestations(count: number, durationMs: number) {

@@ -13,7 +13,7 @@ import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_
 import { CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import type { ValidateBlockResult } from '../block/validate_block_result.js';
+import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -353,7 +353,7 @@ class MockArchiver implements ArchiverApi {
   isPendingChainInvalid(): Promise<boolean> {
     return Promise.resolve(false);
   }
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
   }
   syncImmediate() {

@@ -16,7 +16,12 @@ import {
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
+import {
+  type BlockProposal,
+  CheckpointAttestation,
+  type CheckpointProposal,
+  type P2PClientType,
+} from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -34,7 +39,7 @@ import {
   type ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
-import type { P2PBlockReceivedCallback, P2PService } from '../services/service.js';
+import type { P2PBlockReceivedCallback, P2PCheckpointReceivedCallback, P2PService } from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { TxProvider } from '../services/tx_provider.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
@@ -105,7 +110,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     );
 
     // Default to collecting all txs when we see a valid proposal
-    // This can be overridden by the validator client to attest, and it will call getTxsForBlockProposal on its own
+    // This can be overridden by the validator client to validate, and it will call getTxsForBlockProposal on its own
+    // Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
     // TODO(palla/txs): We should not trigger a request for txs on a proposal before fully validating it. We need to bring
     // validator-client code into here so we can validate a proposal is reasonable.
     this.registerBlockProposalHandler(async (block, sender) => {
@@ -114,14 +120,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       const constants = this.txCollection.getConstants();
       const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(block.slotNumber + 1), constants));
       const deadline = new Date(nextSlotTimestampSeconds * 1000);
-      const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.payload.header.lastArchiveRoot);
+      const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.blockHeader.lastArchive.root);
       if (!parentBlock) {
         this.log.debug(`Cannot collect txs for proposal as parent block not found`);
-        return;
+        return false;
       }
       const blockNumber = BlockNumber(parentBlock.getBlockNumber() + 1);
       await this.txProvider.getTxsForBlockProposal(block, blockNumber, { pinnedPeer: sender, deadline });
-      return undefined;
+      return true;
     });
 
     this.l2Tips = new L2TipsKVStore(store, 'p2p_client');
@@ -325,29 +331,42 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.p2pService.propagate(proposal);
   }
 
-  public async broadcastAttestations(attestations: BlockAttestation[]): Promise<void> {
-    this.log.verbose(`Broadcasting ${attestations.length} attestations to peers`);
+  @trackSpan('p2pClient.broadcastCheckpointProposal', async proposal => ({
+    [Attributes.SLOT_NUMBER]: proposal.slotNumber,
+    [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
+    [Attributes.P2P_ID]: (await proposal.p2pMessageLoggingIdentifier()).toString(),
+  }))
+  public broadcastCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
+    this.log.verbose(`Broadcasting checkpoint proposal for slot ${proposal.slotNumber} to peers`);
+    return this.p2pService.propagate(proposal);
+  }
+
+  public async broadcastCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
+    this.log.verbose(`Broadcasting ${attestations.length} checkpoint attestations to peers`);
     await Promise.all(attestations.map(att => this.p2pService.propagate(att)));
   }
 
-  public async getAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<BlockAttestation[]> {
+  public async getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalId?: string,
+  ): Promise<CheckpointAttestation[]> {
     return await (proposalId
-      ? this.attestationPool.getAttestationsForSlotAndProposal(slot, proposalId)
-      : this.attestationPool.getAttestationsForSlot(slot));
+      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalId)
+      : this.attestationPool.getCheckpointAttestationsForSlot(slot));
   }
 
-  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
-    return this.attestationPool.addAttestations(attestations);
-  }
-
-  public deleteAttestation(attestation: BlockAttestation): Promise<void> {
-    return this.attestationPool.deleteAttestations([attestation]);
+  public addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
+    return this.attestationPool.addCheckpointAttestations(attestations);
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
     this.p2pService.registerBlockReceivedCallback(handler);
+  }
+
+  public registerCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
+    this.p2pService.registerCheckpointReceivedCallback(handler);
   }
 
   /**
@@ -714,7 +733,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.txPool.deleteTxs(txHashes, { permanently: true });
     await this.txPool.cleanupDeletedMinedTxs(lastBlockNum);
 
-    await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlot);
+    await this.attestationPool.deleteCheckpointAttestationsOlderThan(lastBlockSlot);
 
     this.log.debug(`Synched to finalized block ${lastBlockNum} at slot ${lastBlockSlot}`);
   }

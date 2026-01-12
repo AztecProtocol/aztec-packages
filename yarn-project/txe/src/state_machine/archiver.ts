@@ -16,7 +16,7 @@ import {
   type L2TipId,
   type L2Tips,
   PublishedL2Block,
-  type ValidateBlockResult,
+  type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -50,7 +50,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
   public override async addCheckpoints(
     checkpoints: PublishedCheckpoint[],
-    _result?: ValidateBlockResult,
+    _result?: ValidateCheckpointResult,
   ): Promise<boolean> {
     const allBlocks = checkpoints.flatMap(ch => ch.checkpoint.blocks);
     const opResults = await Promise.all([this.store.addLogs(allBlocks), this.store.addCheckpoints(checkpoints)]);
@@ -277,7 +277,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     return Promise.resolve(false);
   }
 
-  public override getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  public override getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
   }
 

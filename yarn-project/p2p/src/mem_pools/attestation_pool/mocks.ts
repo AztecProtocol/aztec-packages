@@ -1,7 +1,7 @@
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import {
-  BlockAttestation,
+  CheckpointAttestation,
   ConsensusPayload,
   SignatureDomainSeparator,
   getHashedSignaturePayloadEthSignedMessage,
@@ -20,26 +20,30 @@ export const generateAccount = (): LocalAccount => {
   return privateKeyToAccount(privateKey);
 };
 
-/** Mock Attestation
+/** Mock Checkpoint Attestation
  *
- * @param signer A viem signer to create a signature
+ * @param signer A Secp256k1Signer to create a signature
  * @param slot The slot number the attestation is for
- * @returns A Block Attestation
+ * @param archive The archive root (defaults to random)
+ * @returns A Checkpoint Attestation
  */
-export const mockAttestation = (
+export const mockCheckpointAttestation = (
   signer: Secp256k1Signer,
   slot: number = 0,
   archive: Fr = Fr.random(),
-): BlockAttestation => {
+): CheckpointAttestation => {
   // Use arbitrary numbers for all other than slot
   const header = makeL2BlockHeader(1, 2, slot);
   const payload = new ConsensusPayload(header.toCheckpointHeader(), archive);
 
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
+    payload,
+    SignatureDomainSeparator.checkpointAttestation,
+  );
   const attestationSignature = signer.sign(attestationHash);
 
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
   const proposerSignature = signer.sign(proposalHash);
 
-  return new BlockAttestation(payload, attestationSignature, proposerSignature);
+  return new CheckpointAttestation(payload, attestationSignature, proposerSignature);
 };

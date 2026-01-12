@@ -44,7 +44,10 @@ export function getAttestationInfoFromPayload(
   payload: ConsensusPayload,
   attestations: CommitteeAttestation[],
 ): AttestationInfo[] {
-  const hashedPayload = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const hashedPayload = getHashedSignaturePayloadEthSignedMessage(
+    payload,
+    SignatureDomainSeparator.checkpointAttestation,
+  );
 
   return attestations.map(attestation => {
     // If signature is empty, check if we have an address directly
