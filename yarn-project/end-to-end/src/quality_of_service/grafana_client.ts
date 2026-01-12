@@ -25,7 +25,7 @@ const DEFAULT_CONFIG: AlertCheckerConfig = {
   grafanaCredentials: 'admin:admin',
 };
 
-export class AlertChecker {
+export class GrafanaClient {
   private config: AlertCheckerConfig;
   private logger: Logger;
 
