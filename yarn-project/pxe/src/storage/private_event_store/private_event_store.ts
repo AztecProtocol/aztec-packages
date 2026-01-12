@@ -174,43 +174,43 @@ export class PrivateEventStore {
   /**
    * Rolls back private events that were stored after a given `blockNumber` and up to `synchedBlockNumber` (the block
    * number up to which PXE managed to sync before the reorg happened).
+   *
+   * IMPORTANT: This method must be called within a transaction to ensure atomicity.
    */
-  public async rollbackEventsAfterBlock(blockNumber: number, synchedBlockNumber: number): Promise<void> {
-    await this.#store.transactionAsync(async () => {
-      let removedCount = 0;
+  public async rollback(blockNumber: number, synchedBlockNumber: number): Promise<void> {
+    let removedCount = 0;
 
-      for (let block = blockNumber + 1; block <= synchedBlockNumber; block++) {
-        const indices = await this.#eventsByBlockNumber.getAsync(block);
-        if (indices) {
-          await this.#eventsByBlockNumber.delete(block);
+    for (let block = blockNumber + 1; block <= synchedBlockNumber; block++) {
+      const indices = await this.#eventsByBlockNumber.getAsync(block);
+      if (indices) {
+        await this.#eventsByBlockNumber.delete(block);
 
-          for (const eventCommitmentIndex of indices) {
-            const entry = await this.#eventLogs.getAsync(eventCommitmentIndex);
-            if (!entry) {
-              throw new Error(`Event log not found for eventCommitmentIndex ${eventCommitmentIndex}`);
-            }
-
-            await this.#eventLogs.delete(eventCommitmentIndex);
-            await this.#seenLogs.delete(eventCommitmentIndex);
-
-            // Update #eventsByContractScopeSelector using the stored lookupKey
-            const existingIndices = await this.#eventsByContractScopeSelector.getAsync(entry.lookupKey);
-            if (!existingIndices || existingIndices.length === 0) {
-              throw new Error(`No indices found in #eventsByContractScopeSelector for key ${entry.lookupKey}`);
-            }
-            const filteredIndices = existingIndices.filter(idx => idx !== eventCommitmentIndex);
-            if (filteredIndices.length === 0) {
-              await this.#eventsByContractScopeSelector.delete(entry.lookupKey);
-            } else {
-              await this.#eventsByContractScopeSelector.set(entry.lookupKey, filteredIndices);
-            }
-
-            removedCount++;
+        for (const eventCommitmentIndex of indices) {
+          const entry = await this.#eventLogs.getAsync(eventCommitmentIndex);
+          if (!entry) {
+            throw new Error(`Event log not found for eventCommitmentIndex ${eventCommitmentIndex}`);
           }
+
+          await this.#eventLogs.delete(eventCommitmentIndex);
+          await this.#seenLogs.delete(eventCommitmentIndex);
+
+          // Update #eventsByContractScopeSelector using the stored lookupKey
+          const existingIndices = await this.#eventsByContractScopeSelector.getAsync(entry.lookupKey);
+          if (!existingIndices || existingIndices.length === 0) {
+            throw new Error(`No indices found in #eventsByContractScopeSelector for key ${entry.lookupKey}`);
+          }
+          const filteredIndices = existingIndices.filter(idx => idx !== eventCommitmentIndex);
+          if (filteredIndices.length === 0) {
+            await this.#eventsByContractScopeSelector.delete(entry.lookupKey);
+          } else {
+            await this.#eventsByContractScopeSelector.set(entry.lookupKey, filteredIndices);
+          }
+
+          removedCount++;
         }
       }
+    }
 
-      this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
-    });
+    this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
   }
 }
