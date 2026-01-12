@@ -10,6 +10,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -169,19 +170,8 @@ class MultilinearBatchingFlavor {
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
-        {
-            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                // After the initial sumcheck round, the new size is CEIL(size/2).
-                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    using PartiallyEvaluatedMultivariates =
+        PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
 
     /**
      * @brief A container for univariates used in sumcheck.
