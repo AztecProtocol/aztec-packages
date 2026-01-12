@@ -79,6 +79,7 @@
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
+#include "barretenberg/vm2/simulation/standalone/noop_calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/standalone/noop_update_check.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
@@ -404,7 +405,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<RangeCheckEvent> range_check_emitter;
     NoopEventEmitter<ContextStackEvent> context_stack_emitter;
     NoopEventEmitter<TxEvent> tx_event_emitter;
-    NoopEventEmitter<CalldataEvent> calldata_emitter;
     NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
@@ -455,7 +455,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
 
     PureMemoryProvider memory_provider;
-    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    NoopCalldataHashingProvider calldata_hashing_provider;
     InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
     ContextProvider context_provider(tx_bytecode_manager,
                                      memory_provider,
