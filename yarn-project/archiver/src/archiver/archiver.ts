@@ -11,7 +11,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { merge, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
@@ -19,7 +19,6 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined } from '@aztec/foundation/types';
 import type { CustomRange } from '@aztec/kv-store';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassPublishedEvent,
   PrivateFunctionBroadcastedEvent,
@@ -90,7 +89,7 @@ import {
 
 import { EventEmitter } from 'events';
 import groupBy from 'lodash.groupby';
-import { type GetContractReturnType, type Hex, createPublicClient, fallback, http } from 'viem';
+import { type Hex, createPublicClient, fallback, http } from 'viem';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
@@ -158,9 +157,6 @@ export class Archiver
   /** A loop in which we will be continually fetching new checkpoints. */
   private runningPromise: RunningPromise;
 
-  private rollup: RollupContract;
-  private inbox: InboxContract;
-
   private store: ArchiverStoreHelper;
 
   private l1BlockNumber: bigint | undefined;
@@ -177,19 +173,26 @@ export class Archiver
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
-   * @param rollupAddress - Ethereum address of the rollup contract.
-   * @param inboxAddress - Ethereum address of the inbox contract.
-   * @param registryAddress - Ethereum address of the registry contract.
-   * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
-   * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
+   * @param rollup - Rollup contract instance.
+   * @param inbox - Inbox contract instance.
+   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slash factory, slashing proposer).
+   * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
+   * @param config - Archiver configuration options.
+   * @param blobClient - Client for retrieving blob data.
+   * @param epochCache - Cache for epoch-related data.
+   * @param dateProvider - Provider for current date/time.
+   * @param instrumentation - Instrumentation for metrics and tracing.
+   * @param l1constants - L1 rollup constants.
    * @param log - A logger.
    */
   constructor(
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
+    private readonly rollup: RollupContract,
+    private readonly inbox: InboxContract,
     private readonly l1Addresses: Pick<
       L1ContractAddresses,
-      'rollupAddress' | 'inboxAddress' | 'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
+      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
     > & { slashingProposerAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private config: {
@@ -210,9 +213,6 @@ export class Archiver
 
     this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
-
-    this.rollup = new RollupContract(publicClient, l1Addresses.rollupAddress);
-    this.inbox = new InboxContract(publicClient, l1Addresses.inboxAddress);
     this.initialSyncPromise = promiseWithResolvers();
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
@@ -254,6 +254,7 @@ export class Archiver
     }) as ViemPublicDebugClient;
 
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
+    const inbox = new InboxContract(publicClient, config.l1Contracts.inboxAddress);
 
     const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot, slashingProposerAddress] =
       await Promise.all([
@@ -297,6 +298,8 @@ export class Archiver
     const archiver = new Archiver(
       publicClient,
       debugClient,
+      rollup,
+      inbox,
       { ...config.l1Contracts, slashingProposerAddress },
       archiverStore,
       opts,
@@ -333,7 +336,7 @@ export class Archiver
     const { blocksSynchedTo = l1StartBlock, messagesSynchedTo = l1StartBlock } = await this.store.getSynchPoint();
     const currentL2Checkpoint = await this.getSynchedCheckpointNumber();
     this.log.info(
-      `Starting archiver sync to rollup contract ${this.l1Addresses.rollupAddress.toString()} from L1 block ${blocksSynchedTo} and L2 checkpoint ${currentL2Checkpoint}`,
+      `Starting archiver sync to rollup contract ${this.rollup.address} from L1 block ${blocksSynchedTo} and L2 checkpoint ${currentL2Checkpoint}`,
       { blocksSynchedTo, messagesSynchedTo, currentL2Checkpoint },
     );
 
@@ -519,9 +522,16 @@ export class Archiver
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
 
+    const l1BlockNumberAtEnd = await this.publicClient.getBlockNumber();
+    this.log.trace(`Archiver sync iteration complete`, {
+      l1BlockNumberAtStart: currentL1BlockNumber,
+      l1TimestampAtStart: currentL1Timestamp,
+      l1BlockNumberAtEnd,
+    });
+
     // We resolve the initial sync only once we've caught up with the latest L1 block number (with 1 block grace)
     // so if the initial sync took too long, we still go for another iteration.
-    if (!this.initialSyncComplete && currentL1BlockNumber + 1n >= (await this.publicClient.getBlockNumber())) {
+    if (!this.initialSyncComplete && currentL1BlockNumber + 1n >= l1BlockNumberAtEnd) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete`, {
         l1BlockNumber: currentL1BlockNumber,
         syncPoint: await this.store.getSynchPoint(),
@@ -693,7 +703,7 @@ export class Archiver
     do {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
       this.log.trace(`Retrieving L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`);
-      const messages = await retrieveL1ToL2Messages(this.inbox.getContract(), searchStartBlock, searchEndBlock);
+      const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
       this.log.verbose(
         `Retrieved ${messages.length} new L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`,
       );
@@ -733,7 +743,7 @@ export class Archiver
     do {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
 
-      const message = await retrieveL1ToL2Message(this.inbox.getContract(), leaf, searchStartBlock, searchEndBlock);
+      const message = await retrieveL1ToL2Message(this.inbox, leaf, searchStartBlock, searchEndBlock);
 
       if (message) {
         return message;
@@ -975,7 +985,7 @@ export class Archiver
       // TODO(md): Retrieve from blob client then from consensus client, then from peers
       const retrievedCheckpoints = await execInSpan(this.tracer, 'Archiver.retrieveCheckpointsFromRollup', () =>
         retrieveCheckpointsFromRollup(
-          this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+          this.rollup,
           this.publicClient,
           this.debugClient,
           this.blobClient,
@@ -1209,7 +1219,7 @@ export class Archiver
   }
 
   public getRollupAddress(): Promise<EthAddress> {
-    return Promise.resolve(this.l1Addresses.rollupAddress);
+    return Promise.resolve(EthAddress.fromString(this.rollup.address));
   }
 
   public getRegistryAddress(): Promise<EthAddress> {
