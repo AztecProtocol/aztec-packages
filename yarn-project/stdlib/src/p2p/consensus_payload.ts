@@ -10,8 +10,10 @@ import { z } from 'zod';
 import type { L2Block } from '../block/l2_block.js';
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import type { CheckpointProposal, CheckpointProposalCore } from './checkpoint_proposal.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
+/** Checkpoint consensus payload as signed by validators and verified on L1. */
 export class ConsensusPayload implements Signable {
   private size: number | undefined;
 
@@ -59,8 +61,9 @@ export class ConsensusPayload implements Signable {
     return serializeToBuffer([this.header, this.archive]);
   }
 
-  public equals(other: ConsensusPayload): boolean {
-    return this.header.equals(other.header) && this.archive.equals(other.archive);
+  public equals(other: ConsensusPayload | CheckpointProposal | CheckpointProposalCore): boolean {
+    const otherHeader = 'checkpointHeader' in other ? other.checkpointHeader : other.header;
+    return this.header.equals(otherHeader) && this.archive.equals(other.archive);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {

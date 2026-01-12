@@ -23,6 +23,7 @@ import type { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { ReqRespStatus } from './reqresp/status.js';
 import {
   type P2PBlockReceivedCallback,
+  type P2PCheckpointReceivedCallback,
   type P2PService,
   type PeerDiscoveryService,
   PeerDiscoveryState,
@@ -73,6 +74,11 @@ export class DummyP2PService implements P2PService {
    * Register a callback into the validator client for when a block proposal is received
    */
   public registerBlockReceivedCallback(_callback: P2PBlockReceivedCallback) {}
+
+  /**
+   * Register a callback into the validator client for when a checkpoint proposal is received
+   */
+  public registerCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
 
   /**
    * Sends a request to a peer.

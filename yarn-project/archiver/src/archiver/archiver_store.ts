@@ -4,7 +4,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CheckpointedL2Block, L2BlockNew, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { CheckpointedL2Block, L2BlockNew, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -84,6 +84,14 @@ export interface ArchiverDataStore {
    * @param number - The block number to return.
    */
   getCheckpointedBlock(number: number): Promise<CheckpointedL2Block | undefined>;
+
+  /**
+   * Gets up to `limit` amount of checkpointed L2 blocks starting from `from`.
+   * @param from - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested checkpointed L2 blocks.
+   */
+  getCheckpointedBlocks(from: number, limit: number): Promise<CheckpointedL2Block[]>;
 
   /**
    * Returns the block for the given hash, or undefined if not exists.
@@ -365,8 +373,8 @@ export interface ArchiverDataStore {
   getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
 
   /** Returns the last synced validation status of the pending chain. */
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined>;
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined>;
 
   /** Sets the last synced validation status of the pending chain. */
-  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void>;
+  setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void>;
 }

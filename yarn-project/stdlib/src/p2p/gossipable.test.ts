@@ -26,7 +26,7 @@ describe('p2p message', () => {
 
   it('Should serialize / deserialize', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const proposal = makeBlockProposal({ txs });
+    const proposal = await makeBlockProposal({ txs });
     const proposalAsBuffer = proposal.toBuffer();
 
     const p2pMessage = P2PMessage.fromGossipable(proposal, true);

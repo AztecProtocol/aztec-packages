@@ -1,8 +1,9 @@
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { L2BlockNew, type L2BlockSource, type L2BlockStream, type PublishedL2Block } from '@aztec/stdlib/block';
+import { L2BlockNew, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -93,15 +94,7 @@ describe('ServerWorldStateSynchronizer', () => {
   });
 
   const pushBlocks = async (from: number, to: number) => {
-    const blocks = checkpoints
-      .flatMap(c => c.checkpoint.blocks)
-      .filter(b => b.number >= from && b.number <= to)
-      .map(
-        b =>
-          ({
-            block: { toL2Block: () => b },
-          }) as any as PublishedL2Block,
-      );
+    const blocks = checkpoints.flatMap(c => c.checkpoint.blocks).filter(b => b.number >= from && b.number <= to);
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
       blocks,
@@ -252,9 +245,9 @@ describe('ServerWorldStateSynchronizer', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  public latest = { number: BlockNumber.ZERO, hash: '' };
-  public finalized = { number: BlockNumber.ZERO, hash: '' };
-  public proven = { number: BlockNumber.ZERO, hash: '' };
+  public latest = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+  public finalized = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+  public proven = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
 
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,
@@ -270,6 +263,15 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   }
 
   public override getL2Tips() {
-    return Promise.resolve({ latest: this.latest, proven: this.proven, finalized: this.finalized });
+    const makeTipId = (blockId: typeof this.latest) => ({
+      block: blockId,
+      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+    });
+    return Promise.resolve({
+      proposed: this.latest,
+      checkpointed: makeTipId(this.latest),
+      proven: makeTipId(this.proven),
+      finalized: makeTipId(this.finalized),
+    });
   }
 }

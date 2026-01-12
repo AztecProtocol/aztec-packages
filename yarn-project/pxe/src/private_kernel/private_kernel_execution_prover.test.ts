@@ -84,7 +84,6 @@ describe('Private Kernel Sequencer', () => {
       VerificationKey.makeFakeMegaHonk(),
       new Map(),
       publicInputs,
-      new Map(),
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],

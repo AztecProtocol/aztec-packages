@@ -157,6 +157,22 @@ function check_toolchains {
   done
 }
 
+function versions {
+  if semver check $REF_NAME; then
+    echo "aztec: ${REF_NAME#v}"
+  else
+    echo "aztec: $(jq -r '."."' .release-please-manifest.json | tr -d v)"
+  fi
+  echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
+  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
+  echo "node: $(node --version | cut -d 'v' -f 2)"
+  echo "cmake: $(cmake --version | head -n1 | cut -d' ' -f3)"
+  echo "clang: $(clang++-20 --version | head -n1 | cut -d' ' -f4)"
+  echo "zig: $(zig version)"
+  echo "rustc: $(rustc --version | cut -d' ' -f2)"
+  echo "wasi-sdk: $(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)"
+}
+
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
@@ -203,7 +219,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -332,7 +348,7 @@ function pull_submodules {
     echo "Removing old noir clone..."
     rm -rf noir/noir-repo
   fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
 }
 
 function build {

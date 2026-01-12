@@ -48,7 +48,7 @@ import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeBlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeL2Tips } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -341,9 +341,7 @@ describe('Private Execution test suite', () => {
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
     // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
-    aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: anchorBlockHeader.globalVariables.blockNumber },
-    } as any);
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
       if (blockNumber === 'latest') {
         return Promise.resolve(anchorBlockHeader);

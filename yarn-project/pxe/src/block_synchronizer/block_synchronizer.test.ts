@@ -1,10 +1,9 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { L2Block, type L2BlockStream } from '@aztec/stdlib/block';
+import { GENESIS_CHECKPOINT_HEADER_HASH, L2Block, L2BlockNew, type L2BlockStream } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { randomPublishedL2Block } from '@aztec/stdlib/testing';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -41,11 +40,11 @@ describe('BlockSynchronizer', () => {
   });
 
   it('sets header from latest block', async () => {
-    const block = await randomPublishedL2Block(1);
+    const block = await L2BlockNew.random(BlockNumber(1));
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
-    expect(obtainedHeader).toEqual(block.block.getBlockHeader());
+    expect(obtainedHeader.equals(block.header)).toBe(true);
   });
 
   it('removes notes from db on a reorg', async () => {
@@ -58,9 +57,14 @@ describe('BlockSynchronizer', () => {
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await timesParallel(5, randomPublishedL2Block),
+      blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
+    await synchronizer.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(3), hash: '0x3' },
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+    });
 
     expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
   });
@@ -75,9 +79,14 @@ describe('BlockSynchronizer', () => {
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await timesParallel(5, randomPublishedL2Block),
+      blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: BlockNumber(3), hash: '0x3' } });
+    await synchronizer.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(3), hash: '0x3' },
+      reason: 'unproven',
+      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+    });
 
     expect(rollbackEventsAfterBlock).toHaveBeenCalledWith(3, 4);
   });

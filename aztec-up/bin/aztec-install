@@ -9,22 +9,21 @@ p="\033[35m" # Purple
 r="\033[0m"  # Reset
 bold="\033[1m"
 
-export DOCKER_CLI_HINTS=false
-
 if [ ! -t 0 ]; then
   NON_INTERACTIVE=1
 else
   NON_INTERACTIVE=${NON_INTERACTIVE:-0}
 fi
 
-AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
-BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
+aztec_path=$HOME/.aztec
+bin_path=$aztec_path/bin
 
-# Define version if specified, otherwise set to "latest".
-VERSION=${VERSION:-"latest"}
-INSTALL_URI=${INSTALL_URI:-https://install.aztec.network}
-if [ "$VERSION" != "latest" ]; then
-  INSTALL_URI+="/$VERSION"
+# For testing you can override the INSTALL_URI to point to a file uri e.g. file:///home/user/aztec-packages/aztec-up/bin
+if [ -z "${INSTALL_URI:-}" ]; then
+  INSTALL_URI=https://install.aztec.network
+  if [ -n "${VERSION:-}" ]; then
+    INSTALL_URI+="/$VERSION"
+  fi
 fi
 
 # Add color to the AZTEC ascii art.
@@ -36,6 +35,7 @@ function print_colored() {
 }
 
 function title() {
+  clear
   echo
   print_colored " █████╗ ███████╗████████╗███████╗ ██████╗"
   print_colored "██╔══██╗╚══███╔╝╚══██╔══╝██╔════╝██╔════╝"
@@ -45,43 +45,78 @@ function title() {
   print_colored "╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝ ╚═════╝"
   echo -e "${r}"
   echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
-  echo -e "We provide a docker image that works on any modern system (specifically: x64 or ARM64)."
-  echo -e "Please ensure docker is installed for your platform: https://docs.docker.com/engine/install"
   echo
-  if [ "$(uname -s)" == "Darwin" ]; then
-    echo -e "${y}WARNING: For best performance we recommend adjusting your default docker settings:"
-    echo -e "         - Under general, enable VirtioFS."
-    echo -e "         - Under resources, set CPUs to ~80% your maximum."
-    echo -e "         - Under resources, set Memory to ~80% your maximum."
-    echo -e "You may receive a warning about your home directory being mounted into a container."
-    echo -e "This is requested so we can read and write project files, that is all."
-    echo -e "${r}"
-  fi
-  echo -e "This will install the following scripts and update your PATH if necessary:"
-  echo -e "  ${bold}${g}aztec${r}                      - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
-  echo -e "  ${bold}${g}aztec-up${r}                   - a tool to upgrade the aztec toolchain to the latest, or specific versions."
-  echo -e "  ${bold}${g}aztec-wallet${r}               - our minimalistic CLI wallet"
+  echo -e "This install script will install the following and update your PATH if necessary:"
+  echo -e "  ${bold}${g}nargo${r}        - the version of the noir programming language compatible with this version of aztec."
+  echo -e "  ${bold}${g}bb${r}           - the version of the barretenberg proving backend compatible with this version of aztec."
+  echo -e "  ${bold}${g}aztec${r}        - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
+  echo -e "  ${bold}${g}aztec-up${r}     - a tool to upgrade the aztec toolchain to the latest, or specific versions."
+  echo -e "  ${bold}${g}aztec-wallet${r} - our minimalistic CLI wallet"
   echo
-  read -p "Do you wish to continue? (y/n)" -n 1 -r
+  read -p "Do you wish to continue? (y/n) " -n 1 -r
+  echo
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 0
+    exit 1
   fi
 }
 
-# Print text in green.
-function info {
+function echo_green {
   echo -e "${g}$1${r}"
 }
 
-# Print text in yellow.
-function warn {
+function echo_yellow {
   echo -e "${y}$1${r}"
+}
+
+function echo_purple {
+  echo -e "${p}$1${r}"
+}
+
+function dump_fail {
+  output=$(mktemp)
+
+  set +e
+  ($1) &>$output
+  status=$?
+  set -e
+
+  # 0 or SIGTERM considered a success.
+  if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
+    {
+      echo
+      echo -e "${y}command failed${r}: $1 (exit: $status)"
+      echo -e "${b}--- output ---${r}"
+      cat $output
+    } >&2
+  fi
+
+  rm $output
+
+  return $status
+}
+
+function check_toolchains {
+  # Check Node.js version.
+  local versions=$(curl -fsSL "$INSTALL_URI/versions")
+  local node_min_version=$(echo "$versions" | grep node | cut -d' ' -f2)
+  local node_installed_version=$(node --version | cut -d 'v' -f 2 || echo "none")
+  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install --lts && nvm alias default lts/*"
+    exit 1
+  fi
+}
+
+function install_file {
+  local dest="$aztec_path/$1"
+  curl -fsSL "$INSTALL_URI/$1" -o "$dest"
+  echo "Installed: $dest"
 }
 
 # Copy a file from the install source path to the bin path and make it executable.
 function install_bin {
-  local dest="$BIN_PATH/$1"
+  local dest="$bin_path/$1"
   curl -fsSL "$INSTALL_URI/$1" -o "$dest"
   chmod +x "$dest"
   echo "Installed: $dest"
@@ -89,79 +124,128 @@ function install_bin {
 
 # Updates appropriate shell script to ensure the bin path is in the PATH.
 function update_path_env_var {
-  TARGET_DIR="${1}"
+  local target_dir=$bin_path
   # Check if the target directory is in the user's PATH.
-  if [[ ":$PATH:" != *":$TARGET_DIR:"* ]]; then
-    # Determine the user's shell.
-    SHELL_PROFILE=""
-    case $SHELL in
-    */bash)
-      SHELL_PROFILE="$HOME/.bash_profile"
+  if [[ ":$PATH:" == *":$target_dir:"* ]]; then
+    return
+  fi
+
+  # Determine the user's shell.
+  local shell_profile=""
+  case $SHELL in
+  */bash)
+    shell_profile="$HOME/.bashrc"
+    ;;
+  */zsh)
+    shell_profile="$HOME/.zshrc"
+    ;;
+  *)
+    echo "Unsupported shell: $SHELL"
+    return
+    ;;
+  esac
+
+  # Add the target directory to the user's PATH in their profile.
+  echo "export PATH=\"\$PATH:$target_dir\"" >>"$shell_profile"
+}
+
+function install_jq {
+  set -euo pipefail
+  url_base="https://github.com/jqlang/jq/releases/download/jq-1.8.1"
+  arch="$(uname -m)"
+  os="$(uname -s)"
+
+  case "$os" in
+    Linux)
+      case "$arch" in
+        x86_64|amd64) bin="jq-linux-amd64" ;;
+        aarch64|arm64) bin="jq-linux-arm64" ;;
+        *) echo "unsupported arch"; return 1 ;;
+      esac
       ;;
-    */zsh)
-      SHELL_PROFILE="$HOME/.zshrc"
+    Darwin)
+      case "$arch" in
+        x86_64|amd64) bin="jq-macos-amd64" ;;
+        aarch64|arm64) bin="jq-macos-arm64" ;;
+        *) echo "unsupported arch"; return 1 ;;
+      esac
       ;;
-    # Add other shells as needed
     *)
-      echo "Unsupported shell: $SHELL"
-      return
+      echo "unsupported OS"
+      return 1
       ;;
-    esac
+  esac
 
-    if [ "$NON_INTERACTIVE" -eq 0 ]; then
-      # Inform the user about the change and ask for confirmation
-      warn "The directory $TARGET_DIR is not in your PATH."
-      read -p "Add it to $SHELL_PROFILE to make the aztec binaries accessible? (y/n)" -n 1 -r
-      echo
-      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        warn "Skipped updating PATH. You might need to add $TARGET_DIR to your PATH manually to use the binary."
-        return
-      fi
-    fi
+  curl -Ls "$url_base/$bin" -o $bin_path/jq || return 1
+  chmod +x $bin_path/jq
+}
 
-    # Add the target directory to the user's PATH in their profile.
-    echo "export PATH=\"\$PATH:$TARGET_DIR\"" >>"$SHELL_PROFILE"
+function install_aztec_up {
+  set -euo pipefail
+  mkdir -p $bin_path
+  rm -f $bin_path/*
+  install_bin aztec-up
+  install_file versions
+  update_path_env_var
+}
 
-    if [ "$NON_INTERACTIVE" -eq 0 ] && [ "${NO_NEW_SHELL:-0}" -eq 0 ]; then
-      info "Done! Starting fresh shell..."
-      exec $SHELL
-    fi
+function install_noir {
+  set -euo pipefail
+  curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+  $HOME/.nargo/bin/noirup -v $(cat $aztec_path/versions | grep noir | cut -d' ' -f2)
+}
+
+function install_foundry {
+  set -euo pipefail
+  curl -L https://foundry.paradigm.xyz | bash
+  $HOME/.foundry/bin/foundryup -i $(cat $aztec_path/versions | grep foundry | cut -d' ' -f2)
+}
+
+function install_aztec_packages {
+  set -euo pipefail
+  local version=$(cat $aztec_path/versions | grep aztec | cut -d' ' -f2)
+  npm i -g @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
+}
+
+function main {
+  # Show title if we're in a terminal.
+  [ "$NON_INTERACTIVE" -eq 0 ] && title
+
+  check_toolchains
+
+  # Install aztec-up
+  echo -n "Installing aztec-up... "
+  dump_fail install_aztec_up
+  echo_green "done."
+
+  # Install jq
+  echo -n "Installing jq... "
+  dump_fail install_jq
+  echo_green "done."
+
+  # Install noir
+  echo -n "Installing nargo... "
+  dump_fail install_noir
+  echo_green "done."
+
+  # Install foundry
+  echo -n "Installing foundry... "
+  dump_fail install_foundry
+  echo_green "done."
+
+  # Install aztec
+  echo -n "Installing aztec packages... "
+  dump_fail install_aztec_packages
+  echo_green "done."
+
+  if [ "$NON_INTERACTIVE" -eq 0 ] && [ "${NO_NEW_SHELL:-0}" -eq 0 ]; then
+    echo_green "Done! Starting fresh shell..."
+    exec $SHELL
+  else
+    echo
+    echo -e "${g}Done!${r} You'll need to start a fresh shell to see PATH updates."
   fi
 }
 
-# Show title if we're in a terminal.
-[ "$NON_INTERACTIVE" -eq 0 ] && title
-
-# Check if Docker is available.
-if ! command -v docker &>/dev/null; then
-  warn "Docker is not installed. Please install Docker and try again."
-  exit 1
-fi
-
-# Check if Docker is running.
-if ! docker info &>/dev/null; then
-  warn "Docker is not running. Please start Docker and try again."
-  exit 1
-fi
-
-mkdir -p "$AZTEC_PATH"
-TMP_VERSION_FILE="$(mktemp)"
-echo "$VERSION" > "$TMP_VERSION_FILE"
-
-# Pull the aztec container.
-if [ -z "${SKIP_PULL:-}" ]; then
-  info "Pulling aztec version $VERSION..."
-  docker pull aztecprotocol/aztec:$VERSION
-fi
-
-info "Installing scripts in $BIN_PATH..."
-rm -rf $BIN_PATH && mkdir -p $BIN_PATH
-install_bin .aztec-run
-install_bin aztec
-install_bin aztec-up
-install_bin aztec-wallet
-mv "$TMP_VERSION_FILE" "$AZTEC_PATH/default_version"
-
-update_path_env_var $BIN_PATH
-
-info "Done!"
+cmd="${1:-main}";
+$cmd

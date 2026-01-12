@@ -8,7 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { orderAttestations } from '@aztec/stdlib/p2p';
-import { makeAttestationFromCheckpoint } from '@aztec/stdlib/testing';
+import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
@@ -25,7 +25,7 @@ describe('validateCheckpointAttestations', () => {
 
   const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
     const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
-    const attestations = signers.map(signer => makeAttestationFromCheckpoint(checkpoint, signer));
+    const attestations = signers.map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer));
     const committeeAttestations = orderAttestations(attestations, committee);
     return new PublishedCheckpoint(checkpoint, L1PublishedData.random(), committeeAttestations);
   };
@@ -84,9 +84,8 @@ describe('validateCheckpointAttestations', () => {
       const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
-      const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
-      expect(result.block.blockNumber).toEqual(lastBlock.number);
-      expect(result.block.archive.toString()).toEqual(lastBlock.archive.root.toString());
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
       expect(result.invalidIndex).toBe(5); // The bad signer is at index 5
     });
@@ -97,9 +96,8 @@ describe('validateCheckpointAttestations', () => {
       const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
-      const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
-      expect(result.block.blockNumber).toEqual(lastBlock.number);
-      expect(result.block.archive.toString()).toEqual(lastBlock.archive.root.toString());
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
       expect(result.invalidIndex).toBe(1); // The empty attestation is at index 1
     });
@@ -124,9 +122,8 @@ describe('validateCheckpointAttestations', () => {
       const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
-      const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
-      expect(result.block.blockNumber).toEqual(lastBlock.number);
-      expect(result.block.archive.toString()).toEqual(lastBlock.archive.root.toString());
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
       expect(result.invalidIndex).toBe(0);
     });
@@ -153,9 +150,8 @@ describe('validateCheckpointAttestations', () => {
       const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
       assert(!result.valid);
       expect(result.reason).toBe('insufficient-attestations');
-      const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
-      expect(result.block.blockNumber).toEqual(lastBlock.number);
-      expect(result.block.archive.toString()).toEqual(lastBlock.archive.root.toString());
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
     });
 
@@ -178,9 +174,8 @@ describe('validateCheckpointAttestations', () => {
       const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
-      const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
-      expect(result.block.blockNumber).toEqual(lastBlock.number);
-      expect(result.block.archive.toString()).toEqual(lastBlock.archive.root.toString());
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
       // The first mismatched attestation should be at index 1
       expect(result.invalidIndex).toBe(1);

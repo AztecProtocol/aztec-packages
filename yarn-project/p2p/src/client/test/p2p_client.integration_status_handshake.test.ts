@@ -48,6 +48,9 @@ describe('p2p client integration status handshake', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
+    attestationPool.isEmpty.mockResolvedValue(true);
+
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {

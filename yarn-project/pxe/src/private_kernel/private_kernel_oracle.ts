@@ -43,7 +43,8 @@ export interface PrivateKernelOracle {
 
   /**
    * Returns a membership witness with the sibling path and leaf index in our private function indexed merkle tree.
-   */ getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
+   */
+  getNoteHashMembershipWitness(noteHash: Fr): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
 
   /**
    * Returns a membership witness with the sibling path and leaf index in our nullifier indexed merkle tree.
