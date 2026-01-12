@@ -76,14 +76,20 @@ describe('Bytecode Serialization', () => {
 
   it('Should deserialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
-      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
-      new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 1, EnvironmentVariable.ADDRESS).as(
+      new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
+      new Sub(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.SUB_8,
+        Sub.wireFormat8,
+      ),
+      new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, EnvironmentVariable.ADDRESS).as(
         Opcode.GETENVVAR_16,
         GetEnvVar.wireFormat16,
       ),
       new Call(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
@@ -91,7 +97,7 @@ describe('Bytecode Serialization', () => {
         /*argsOffset=*/ 0xb234,
       ),
       new StaticCall(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
@@ -108,14 +114,20 @@ describe('Bytecode Serialization', () => {
 
   it('Should serialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
-      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.SUB_8, Sub.wireFormat8),
-      new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 1, EnvironmentVariable.ADDRESS).as(
+      new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
+      new Sub(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.SUB_8,
+        Sub.wireFormat8,
+      ),
+      new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, EnvironmentVariable.ADDRESS).as(
         Opcode.GETENVVAR_16,
         GetEnvVar.wireFormat16,
       ),
       new Call(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
@@ -123,7 +135,7 @@ describe('Bytecode Serialization', () => {
         /*argsOffset=*/ 0xb234,
       ),
       new StaticCall(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
@@ -149,7 +161,7 @@ describe('Bytecode Serialization', () => {
 
     const actual = decodeFromBytecode(buf);
     expect(actual).toEqual([
-      new Set(/*indirect=*/ 0x02, /*dstOffset=*/ 0x3456, /*inTag=*/ 0x02, /*value=*/ 245n).as(
+      new Set(/*addressing_mode=*/ 0x02, /*dstOffset=*/ 0x3456, /*inTag=*/ 0x02, /*value=*/ 245n).as(
         Opcode.SET_FF,
         Set.wireFormatFF,
       ),
@@ -188,7 +200,7 @@ describe('Bytecode Serialization', () => {
 
     const instructions = [
       new Call(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,

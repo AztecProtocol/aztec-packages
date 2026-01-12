@@ -12,7 +12,7 @@ export class ToRadixBE extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // Opcode
-    OperandType.UINT16, // Indirect
+    OperandType.UINT16, // addressing_mode
     OperandType.UINT16, // src memory address
     OperandType.UINT16, // radix memory address
     OperandType.UINT16, // number of limbs address
@@ -21,7 +21,7 @@ export class ToRadixBE extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private srcOffset: number,
     private radixOffset: number,
     private numLimbsOffset: number,
@@ -33,7 +33,7 @@ export class ToRadixBE extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

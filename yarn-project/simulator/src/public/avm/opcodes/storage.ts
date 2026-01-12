@@ -15,7 +15,7 @@ abstract class BaseStorageInstruction extends Instruction {
   ];
 
   constructor(
-    protected indirect: number,
+    protected addressingMode: number,
     protected aOffset: number,
     protected bOffset: number,
   ) {
@@ -27,8 +27,8 @@ export class SStore extends BaseStorageInstruction {
   static readonly type: string = 'SSTORE';
   static readonly opcode = Opcode.SSTORE;
 
-  constructor(indirect: number, srcOffset: number, slotOffset: number) {
-    super(indirect, srcOffset, slotOffset);
+  constructor(addressingMode: number, srcOffset: number, slotOffset: number) {
+    super(addressingMode, srcOffset, slotOffset);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -37,7 +37,7 @@ export class SStore extends BaseStorageInstruction {
     }
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -64,13 +64,13 @@ export class SLoad extends BaseStorageInstruction {
   static readonly type: string = 'SLOAD';
   static readonly opcode = Opcode.SLOAD;
 
-  constructor(indirect: number, slotOffset: number, dstOffset: number) {
-    super(indirect, slotOffset, dstOffset);
+  constructor(addressingMode: number, slotOffset: number, dstOffset: number) {
+    super(addressingMode, slotOffset, dstOffset);
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
