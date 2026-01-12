@@ -148,6 +148,7 @@ export class PXE {
     const tipsStore = new L2TipsKVStore(store, 'pxe');
     const synchronizer = new BlockSynchronizer(
       node,
+      store,
       anchorBlockStore,
       noteStore,
       privateEventStore,
