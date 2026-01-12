@@ -5,7 +5,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder_utils.hpp"
 
@@ -131,19 +130,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapXorAndCase)
     RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
     AcirFormat constraint_system{
-        .varnum = 6,
+        .max_witness_index = 5,
         .num_acir_opcodes = 6,
         .public_inputs = {},
         .logic_constraints = { xor_constraint, and_constraint },
         .range_constraints = { range_0, range_1, range_3, range_4 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1 },
+                                                                    .range_constraints = { 2, 3, 4, 5 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 6u);
 
     size_t xor_count = 0;
     size_t and_count = 0;
@@ -186,19 +185,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap64BitXorCase)
     RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
 
     AcirFormat constraint_system{
-        .varnum = 3,
+        .max_witness_index = 2,
         .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1, 2 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "64-bit XOR should be processed correctly";
@@ -221,19 +220,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
     RangeConstraint range_1{ .witness = 1, .num_bits = 1 };
 
     AcirFormat constraint_system{
-        .varnum = 3,
+        .max_witness_index = 2,
         .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1, 2 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "1-bit XOR should be processed correctly";
@@ -256,19 +255,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
     RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
 
     AcirFormat constraint_system{
-        .varnum = 3,
+        .max_witness_index = 2,
         .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = { and_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1, 2 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "8-bit AND should be processed correctly";
@@ -291,19 +290,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
     RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
 
     AcirFormat constraint_system{
-        .varnum = 3,
+        .max_witness_index = 2,
         .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1, 2 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0);
@@ -346,19 +345,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapMixedBitWidths)
     RangeConstraint range_7{ .witness = 7, .num_bits = 64 };
 
     AcirFormat constraint_system{
-        .varnum = 9,
+        .max_witness_index = 8,
         .num_acir_opcodes = 9,
         .public_inputs = {},
         .logic_constraints = { xor_8, and_32, xor_64 },
         .range_constraints = { range_0, range_1, range_3, range_4, range_6, range_7 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1, 2 },
+                                                                    .range_constraints = { 3, 4, 5, 6, 7, 8 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 9u);
 
     size_t logic_count = 0;
     size_t range_count = 0;
@@ -393,19 +392,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand32Bit)
     RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
 
     AcirFormat constraint_system{
-        .varnum = 2,
+        .max_witness_index = 1,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "32-bit XOR with constant operand should be processed correctly";
@@ -427,19 +426,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand1Bit)
     RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
 
     AcirFormat constraint_system{
-        .varnum = 2,
+        .max_witness_index = 1,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "1-bit XOR with constant operand should be processed correctly";
@@ -461,19 +460,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand8Bit)
     RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
 
     AcirFormat constraint_system{
-        .varnum = 2,
+        .max_witness_index = 1,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = { and_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "8-bit AND with constant operand should be processed correctly";
@@ -495,19 +494,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand64Bit)
     RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
 
     AcirFormat constraint_system{
-        .varnum = 2,
+        .max_witness_index = 1,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "64-bit XOR with constant operand should be processed correctly";
@@ -529,19 +528,19 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand128Bit)
     RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
 
     AcirFormat constraint_system{
-        .varnum = 2,
+        .max_witness_index = 1,
         .num_acir_opcodes = 2,
         .public_inputs = {},
         .logic_constraints = { and_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
+        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
+                                                                    .range_constraints = { 1 } },
     };
-    mock_opcode_indices(constraint_system);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+    EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_EQ(opcodes.size(), 0) << "128-bit AND with constant operand should be processed correctly";

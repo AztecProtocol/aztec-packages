@@ -12,7 +12,7 @@ template <typename FF, typename CircuitBuilder>
 StaticAnalyzerAcir_<FF, CircuitBuilder>::StaticAnalyzerAcir_(std::vector<uint8_t>& acir_program_buf)
     : constraint_system(circuit_buf_to_acir_format(std::move(acir_program_buf)))
     , program(constraint_system)
-    , builder(create_circuit(program))
+    , builder(create_circuit<CircuitBuilder>(program))
     , analyzer(builder)
 {}
 
@@ -20,7 +20,7 @@ template <typename FF, typename CircuitBuilder>
 StaticAnalyzerAcir_<FF, CircuitBuilder>::StaticAnalyzerAcir_(AcirFormat constraint_system_in)
     : constraint_system(std::move(constraint_system_in))
     , program(constraint_system)
-    , builder(create_circuit(program))
+    , builder(create_circuit<CircuitBuilder>(program))
     , analyzer(builder)
 {}
 
@@ -271,18 +271,14 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::collect_wi
     }
     case AcirConstraintType::BLOCK: {
         const auto* constraint = std::get<const BlockConstraint*>(constraint_info.ptr);
-        for (const auto& init_elem : constraint->init) {
-            witness_indices.insert(init_elem.a);
-            witness_indices.insert(init_elem.b);
-            witness_indices.insert(init_elem.c);
+        // init is now a vector of uint32_t witness indices
+        for (const auto& init_idx : constraint->init) {
+            witness_indices.insert(init_idx);
         }
+        // MemOp now has WitnessOrConstant for index and value
         for (const auto& mem_op : constraint->trace) {
-            witness_indices.insert(mem_op.index.a);
-            witness_indices.insert(mem_op.index.b);
-            witness_indices.insert(mem_op.index.c);
-            witness_indices.insert(mem_op.value.a);
-            witness_indices.insert(mem_op.value.b);
-            witness_indices.insert(mem_op.value.c);
+            add_witness_if_not_constant(mem_op.index, witness_indices);
+            add_witness_if_not_constant(mem_op.value, witness_indices);
         }
         break;
     }
