@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -117,9 +118,9 @@ class Execution : public ExecutionInterface {
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
-    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag);
-    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
-    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value);
+    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, MemoryTag dst_tag);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, EnvironmentVariable var_enum);
+    void set(ContextInterface& context, MemoryAddress dst_addr, MemoryTag tag, const FF& value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
