@@ -359,7 +359,6 @@ const emptyPrivateCallExecutionResult = () =>
     Buffer.from(''),
     new Map(),
     PrivateCircuitPublicInputs.empty(),
-    new Map(),
     [],
     new Map(),
     [],

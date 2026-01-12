@@ -2,7 +2,6 @@ import { NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
-import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -70,13 +69,8 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
     return Promise.resolve(new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)));
   }
 
-  async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
-    const path = await this.node.getNoteHashSiblingPath(this.blockNumber, leafIndex);
-    return new MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>(
-      path.pathSize,
-      leafIndex,
-      path.toFields() as Tuple<Fr, typeof NOTE_HASH_TREE_HEIGHT>,
-    );
+  getNoteHashMembershipWitness(noteHash: Fr): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    return this.node.getNoteHashMembershipWitness(this.blockNumber, noteHash);
   }
 
   getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
