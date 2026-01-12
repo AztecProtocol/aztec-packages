@@ -101,7 +101,7 @@ The receipt includes:
 
 ## Next steps
 
-- Learn to [simulate functions](./how_to_simulate_function.md) before sending
+- Learn to [read contract data](./how_to_read_data.md) including simulating functions before sending
 - Understand [authentication witnesses](./how_to_use_authwit.md) for delegated transactions
 - Configure [gas and fees](./how_to_pay_fees.md) for transaction costs
 - Set up [transaction testing](./how_to_test.md) in your development workflow
