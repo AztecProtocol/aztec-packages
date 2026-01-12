@@ -267,6 +267,9 @@ namespace to_radix_mem;
     // On following rows, we propagate sel_should_write_mem.
     #[SEL_SHOULD_WRITE_MEM_CONTINUITY]
     NOT_LAST * (sel_should_write_mem' - sel_should_write_mem) = 0;
+    // Force sel_should_write_mem to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[SEL_SHOULD_WRITE_MEM_REQUIRES_SEL]
+    sel_should_write_mem * (1 - sel) = 0;
 
     pol commit output_tag;
     // Conditional Assignment: is_output_bits ? U1 : U8
