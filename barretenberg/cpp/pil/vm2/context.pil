@@ -501,21 +501,33 @@ namespace execution;
     #[PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
+    // =============================
+    //    PARENT L2 GAS USED
+    // =============================
+
+    // Note: parent_l2_gas_used is not constrained in an enqueued call. It is ok because
+    //       it is only used to compute prev_l2_gas_used' while exiting a nested call (#[L2_GAS_USED_INGEST_AFTER_EXIT])
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> parent_l2_gas_used' = l2_gas_used
-    // otherwise        = 0 ==> parent_l2_gas_used' = parent_l2_gas_used
-    #[PARENT_L2_GAS_USED_NEXT_ROW]
-    DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
+    // default row          ==> parent_l2_gas_used' = parent_l2_gas_used
     #[PARENT_L2_GAS_USED_STORE_ON_ENTER]
     sel_enter_call * (parent_l2_gas_used' - l2_gas_used) = 0;
+    #[PARENT_L2_GAS_USED_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
 
-    // NESTED_EXIT_CALL = 1 ==> constraints come from lookup
+    // =============================
+    //    PARENT DA GAS USED
+    // =============================
+
+    // Note: parent_da_gas_used is not constrained in an enqueued call. It is ok because
+    //       it is only used to compute prev_da_gas_used' while exiting a nested call (#[DA_GAS_USED_INGEST_AFTER_EXIT])
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // sel_enter_call   = 1 ==> parent_da_gas_used' = da_gas_used
-    // otherwise        = 0 ==> parent_da_gas_used' = parent_da_gas_used
-    #[PARENT_DA_GAS_USED_NEXT_ROW]
-    DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
+    // default row          ==> parent_da_gas_used' = parent_da_gas_used
     #[PARENT_DA_GAS_USED_STORE_ON_ENTER]
     sel_enter_call * (parent_da_gas_used' - da_gas_used) = 0;
+    #[PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT]
+    DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
 
     // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call
     // The tx trace looks up the tree state at the start and end of an enqueued call
