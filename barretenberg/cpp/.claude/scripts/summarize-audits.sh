@@ -90,10 +90,18 @@ fi
 echo -e "${GREEN}Found ${#audit_files[@]} audit result files${NC}"
 
 # ============================================================================
-# PHASE 1: Extract JSON findings from each audit result
+# PHASE 1: Collect JSON findings from separate .json files
 # ============================================================================
 
-echo -e "${YELLOW}Extracting JSON findings...${NC}"
+echo -e "${YELLOW}Collecting JSON findings from separate files...${NC}"
+
+# Find all JSON files (one per skill)
+json_files=()
+for f in "$OUTPUT_DIR"/*.json; do
+    [[ -f "$f" ]] || continue
+    [[ "$(basename "$f")" == "findings.json" ]] && continue  # Skip combined output
+    json_files+=("$f")
+done
 
 # Start the combined JSON structure
 echo '{' > "$JSON_FINDINGS_FILE"
@@ -113,24 +121,11 @@ skills_error=0
 
 for f in "${audit_files[@]}"; do
     skill_name=$(basename "$f" .md)
+    json_file="$OUTPUT_DIR/${skill_name}.json"
 
-    # Extract JSON block between markers
-    # Look for: <!-- MACHINE-READABLE FINDINGS ... --> ```json ... ``` <!-- END -->
-    json_block=$(sed -n '/<!-- MACHINE-READABLE FINDINGS/,/<!-- END MACHINE-READABLE FINDINGS -->/p' "$f" | \
-                 sed -n '/```json/,/```/p' | \
-                 sed '1d;$d' 2>/dev/null || echo "")
-
-    if [[ -z "$json_block" ]]; then
-        # No JSON block found - skill didn't produce standardized output
-        echo -e "${YELLOW}  WARN: $skill_name - no JSON findings block${NC}"
-        json_block='{
-  "skill": "'$skill_name'",
-  "status": "NO_STANDARDIZED_OUTPUT",
-  "findings": []
-}'
-        ((skills_error++)) || true
-    else
-        echo -e "${GREEN}  OK: $skill_name${NC}"
+    if [[ -f "$json_file" ]]; then
+        json_block=$(cat "$json_file")
+        echo -e "${GREEN}  OK: $skill_name (from ${skill_name}.json)${NC}"
 
         # Count findings by severity from the JSON
         status=$(echo "$json_block" | grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | cut -d'"' -f4 || echo "UNKNOWN")
@@ -144,7 +139,6 @@ for f in "${audit_files[@]}"; do
         fi
 
         # Count by severity (rough grep-based count)
-        # Note: grep -c outputs "0" when no matches but returns exit code 1, so use || true
         skill_critical=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"critical"' || true)
         skill_high=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"high"' || true)
         skill_medium=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"medium"' || true)
@@ -155,6 +149,15 @@ for f in "${audit_files[@]}"; do
         ((medium_count += skill_medium)) || true
         ((low_count += skill_low)) || true
         ((total_findings += skill_critical + skill_high + skill_medium + skill_low)) || true
+    else
+        # No JSON file found - skill didn't produce JSON output
+        echo -e "${YELLOW}  WARN: $skill_name - no JSON file found${NC}"
+        json_block='{
+  "skill": "'$skill_name'",
+  "status": "NO_JSON_OUTPUT",
+  "findings": []
+}'
+        ((skills_error++)) || true
     fi
 
     # Add to combined JSON
@@ -182,6 +185,7 @@ echo '  }' >> "$JSON_FINDINGS_FILE"
 echo '}' >> "$JSON_FINDINGS_FILE"
 
 echo -e "${GREEN}JSON findings written to: $JSON_FINDINGS_FILE${NC}"
+echo -e "${BLUE}  (Merged from ${#json_files[@]} individual JSON files)${NC}"
 
 # ============================================================================
 # PHASE 2: Generate statistics file
