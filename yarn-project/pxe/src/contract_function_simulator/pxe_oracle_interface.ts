@@ -1017,7 +1017,22 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This
   // was not done yet as we were unsure about the API and we didn't want to introduce a breaking change.
   async #getPrivateLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    const allLogs = await this.aztecNode.getLogsByTags(tags);
+    // Batch tags to avoid exceeding MAX_RPC_LEN
+    const tagBatches = tags.reduce(
+      (acc, tag) => {
+        if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+          acc[acc.length - 1].push(tag);
+        } else {
+          acc.push([tag]);
+        }
+        return acc;
+      },
+      [[]] as Fr[][],
+    );
+
+    const allLogsBatched = await Promise.all(tagBatches.map(batch => this.aztecNode.getLogsByTags(batch)));
+
+    const allLogs = allLogsBatched.flat();
     return allLogs.map(logs => logs.filter(log => !log.isFromPublic));
   }
 
