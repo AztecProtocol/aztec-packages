@@ -152,32 +152,61 @@ class MultilinearBatchingFlavor {
     };
 
     /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @details Constructed from two MultilinearBatchingProverClaims (accumulator and instance).
-     * The key owns all polynomial data needed for sumcheck - after construction, the original
-     * claims are no longer needed.
+     * @brief The proving key for multilinear batching sumcheck.
+     *
+     * @details In HyperNova folding, we reduce two polynomial evaluation claims to one via sumcheck.
+     *
+     * Each claim asserts: "polynomial P evaluated at point r equals v", i.e., P(r) = v.
+     * - Accumulator claim: P_acc(r_acc) = v_acc  (from previous folding rounds)
+     * - Instance claim:    P_inst(r_inst) = v_inst (from the incoming circuit)
+     *
+     * The multilinear batching sumcheck proves both claims simultaneously by checking:
+     *   sum_x [ P_acc(x) * eq(x, r_acc) ] = v_acc
+     *   sum_x [ P_inst(x) * eq(x, r_inst) ] = v_inst
+     *
+     * where eq(x, r) is the equality polynomial that is 1 when x = r and 0 elsewhere on the hypercube.
+     *
+     * After sumcheck, both claims are reduced to evaluations at a new random point u, producing a
+     * single combined claim that can be verified with one polynomial opening.
+     *
+     * Field mapping from MultilinearBatchingProverClaim to ProvingKey:
+     * - non_shifted_polynomial → polynomials.batched_unshifted_{accumulator,instance}
+     * - shifted_polynomial     → polynomials.batched_shifted_{accumulator,instance} (via .shifted())
+     * - challenge              → {accumulator,instance}_challenge + polynomials.eq_{accumulator,instance}
+     * - {non_shifted,shifted}_evaluation → {accumulator,instance}_evaluations
+     * - {non_shifted,shifted}_commitment → {non_shifted,shifted}_{accumulator,instance}_commitment
+     * - shifted_polynomial     → preshifted_{accumulator,instance} (for new claim computation)
      */
     class ProvingKey {
       public:
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        // Polynomials for sumcheck: batched witnesses + eq selectors
+        ProverPolynomials polynomials;
+
+        // Evaluation points r_acc and r_inst (sent to verifier for eq polynomial construction)
         std::vector<FF> accumulator_challenge;
         std::vector<FF> instance_challenge;
+
+        // Claimed evaluations v_acc = P_acc(r_acc) and v_inst = P_inst(r_inst)
         std::vector<FF> accumulator_evaluations;
         std::vector<FF> instance_evaluations;
+
         size_t circuit_size;
+
+        // Commitments [P_acc] and [P_inst] - combined into output claim's commitment
         Commitment non_shifted_accumulator_commitment;
         Commitment shifted_accumulator_commitment;
         Commitment non_shifted_instance_commitment;
         Commitment shifted_instance_commitment;
+
+        // Pre-shifted polynomials for computing new claim's shifted polynomial
         Polynomial preshifted_accumulator;
         Polynomial preshifted_instance;
 
         ProvingKey() = default;
 
         /**
-         * @brief Construct a ProvingKey by moving in accumulator and instance claims.
-         * @details Takes ownership of the claims' polynomial data via move semantics.
-         * After construction, the original claims are in a moved-from state.
+         * @brief Construct from accumulator and instance claims.
+         * @details Takes ownership via move semantics. After construction, the claims are consumed.
          */
         ProvingKey(MultilinearBatchingProverClaim&& accumulator_claim, MultilinearBatchingProverClaim&& instance_claim);
     };
