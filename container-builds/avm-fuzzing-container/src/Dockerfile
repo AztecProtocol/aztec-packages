@@ -57,6 +57,13 @@ RUN apt-get update && apt-get install -y \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN useradd -m fuzzer -G sudo
+
+# Create a dummy sudo wrapper that just executes the command
+# (Node.js 24 nodesource script calls sudo which isn't installed)
+RUN mkdir -p /usr/local/bin && \
+    printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/sudo && \
+    chmod +x /usr/local/bin/sudo
+
 WORKDIR /home/fuzzer
 
 # Copy fuzzer binary
