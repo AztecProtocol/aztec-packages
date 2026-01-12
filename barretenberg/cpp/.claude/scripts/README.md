@@ -15,10 +15,8 @@ A tooling suite to run all VM2/AVM security audit skills in parallel and aggrega
 - **PAL MCP Server** - Enables cross-validation with multiple AI models
   - Provides `mcp__pal__consensus` tool for multi-model consensus
   - Configure in Claude Code's MCP settings
-
-When PAL MCP is configured, it can access:
-- **Gemini CLI** (`gemini`) - Google's Gemini models
-- **Codex CLI** (`codex`) - OpenAI's models
+  - **Requires API keys** (GEMINI_API_KEY, OPENAI_API_KEY, etc.) in the PAL MCP configuration - NOT the Gemini/Codex CLI tools
+  - The CLIs (gemini, codex) are only needed for PAL's optional `clink` tool which spawns CLI subagents
 
 The `--multi-model-summary` feature uses PAL MCP to have Gemini and GPT review Claude's findings, providing an additional validation layer.
 
@@ -49,7 +47,7 @@ This tooling orchestrates 25+ specialized audit skills, each designed to detect 
            ▼                            ▼                            ▼
    ┌────────────────┐           ┌────────────────┐           ┌────────────────┐
    │ skill-1.md     │           │ skill-2.md     │           │ skill-N.md     │
-   │ (audit output) │           │ (audit output) │           │ (audit output) │
+   │ skill-1.json   │           │ skill-2.json   │           │ skill-N.json   │
    └────────────────┘           └────────────────┘           └────────────────┘
             │                            │                            │
             └─────────────────────────────┼─────────────────────────────┘
@@ -61,8 +59,8 @@ This tooling orchestrates 25+ specialized audit skills, each designed to detect 
                     │           (Aggregation Script)                       │
                     └─────────────────────┬───────────────────────────────┘
                                           │
-                                          │ 1. Combines all .md files
-                                          │ 2. Sends to Claude for analysis
+                                          │ 1. Merges all .json files → findings.json
+                                          │ 2. Sends .md files to Claude for analysis
                                           │ 3. Generates summary report
                                           │
                                           ▼
@@ -70,8 +68,9 @@ This tooling orchestrates 25+ specialized audit skills, each designed to detect 
                     │                 Output Files                         │
                     │  ┌──────────────────────────────────────────────┐   │
                     │  │ SUMMARY.md    - Executive summary + findings │   │
+                    │  │ findings.json - Merged machine-readable data │   │
                     │  │ STATS.txt     - Quick statistics             │   │
-                    │  │ *.md          - Individual skill outputs     │   │
+                    │  │ *.md + *.json - Individual skill outputs     │   │
                     │  └──────────────────────────────────────────────┘   │
                     └───────────────────────┬─────────────────────────────┘
                                             │
@@ -163,16 +162,18 @@ Each audit skill is invoked as a non-interactive Claude Code session:
                     │                  ▼                  │
                     │  ┌───────────────────────────────┐  │
                     │  │  Generate findings report     │  │
+                    │  │  + Write JSON file            │  │
                     │  └───────────────────────────────┘  │
                     └──────────────────┬──────────────────┘
                                        │
-                                       ▼
-                    ┌─────────────────────────────────────┐
-                    │         Output: skill-name.md       │
-                    │  - Findings by severity             │
-                    │  - File locations + line numbers    │
-                    │  - Recommendations                  │
-                    └─────────────────────────────────────┘
+                         ┌─────────────┴─────────────┐
+                         ▼                           ▼
+          ┌─────────────────────────┐  ┌─────────────────────────┐
+          │   skill-name.md         │  │   skill-name.json       │
+          │  - Findings by severity │  │  - Machine-readable     │
+          │  - File locations       │  │  - Structured findings  │
+          │  - Recommendations      │  │  - For aggregation      │
+          └─────────────────────────┘  └─────────────────────────┘
 ```
 
 ## Output Directory Structure
@@ -185,9 +186,10 @@ audit-results/
 ├── STATS.txt                           # Quick statistics
 ├── audit-run.log                       # Execution log
 │
-├── vm2-audit-missing-boolean.md        # Individual skill results
+├── vm2-audit-missing-boolean.md        # Individual skill markdown reports
+├── vm2-audit-missing-boolean.json      # Individual skill JSON (machine-readable)
 ├── vm2-audit-zero-check.md             #   ↓
-├── vm2-audit-range-check-overflow.md   #   ↓
+├── vm2-audit-zero-check.json           #   ↓
 ├── vm2-audit-...                       #   ...
 │
 ├── .vm2-audit-missing-boolean.status   # Status files (success/failed + time)
@@ -198,12 +200,11 @@ audit-results/
 
 ## Standardized Output Format
 
-All skills reference a shared output format: `.claude/skills/_shared/OUTPUT_FORMAT.md`
+Each skill produces TWO output files:
+- **{skill-name}.md** - Human-readable markdown report with summary table and findings
+- **{skill-name}.json** - Machine-readable JSON for automated parsing/aggregation
 
-The format includes:
-- Summary table (skill, target, files scanned, findings count, status)
-- Finding entries with unique IDs
-- Machine-readable JSON block for automated parsing
+The combined `findings.json` is created by merging individual JSON files: `jq -s '.' *.json`
 
 ## Finding ID Convention
 
@@ -318,10 +319,11 @@ The skill's `SKILL.md` file provides:
 ### 3. Summarizer (summarize-audits.sh)
 
 The summarizer:
-1. Combines all `*.md` results into one file
-2. Sends to Claude with a structured prompt
-3. Extracts findings by severity
-4. Generates actionable recommendations
+1. Merges all `*.json` files into `findings.json` (`jq -s '.' *.json`)
+2. Combines all `*.md` results for Claude analysis
+3. Sends to Claude with a structured prompt
+4. Extracts findings by severity
+5. Generates actionable recommendations
 
 ## Configuration
 

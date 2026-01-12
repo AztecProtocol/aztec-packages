@@ -109,7 +109,7 @@ Check for:
 - Does it handle consecutive operations (end followed by start)?
 - Does it handle the last row of the trace?
 
-### Step 6: Watch for Propagation Gaps
+### Step 6: Watch for Propagation Gaps (Check for False Positives)
 
 Special conditions can create gaps where propagation breaks:
 
@@ -120,10 +120,21 @@ grep -rn "is_.*\*.*propagate\|phase.*\*.*propagate" barretenberg/cpp/pil/vm2/ --
 
 Example gap:
 ```pil
-// VULNERABLE: Gap before special phase
+// POTENTIALLY VULNERABLE: Gap before special phase
 (1 - is_special_phase') * (value' - value) = 0;
-// Row before special_phase has unconstrained value!
 ```
+
+**BEFORE flagging as a vulnerability**, check for the "propagate-until-reset" pattern:
+
+1. **Check if the value is re-constrained when the selector fires**:
+   - Look for lookups/permutations gated by the selector that constrain the value
+   - Look for initialization constraints that fire when the selector is active
+
+2. **Verify complete constraint coverage**:
+   - If `selector' = 0`: value' must equal value (propagation)
+   - If `selector' = 1`: value' must be constrained by another source (e.g., public inputs)
+
+3. **If both paths constrain the value**: This is NOT a vulnerability - mark as false positive
 
 ### Step 7: Cross-Reference with Tracegen
 
@@ -152,12 +163,37 @@ pol LATCH = end;  // Missing: + precomputed.first_row
 (1 - LATCH) * (value' - value) = 0;
 ```
 
-### Vulnerable Pattern: Conditional Gap
+### Vulnerable Pattern: Conditional Gap (Requires Analysis)
 
 ```pil
-// VULNERABLE: Gap in propagation
+// POTENTIALLY VULNERABLE: Gap in propagation
 (1 - is_teardown') * (gas_limit' - gas_limit) = 0;
 ```
+
+**IMPORTANT**: This pattern is NOT always a vulnerability. Before flagging, check for the "propagate-until-reset" pattern (see below).
+
+### Safe Pattern: Propagate-Until-Reset
+
+When propagation is intentionally disabled at a state boundary because the value is freshly constrained from another source, this is safe:
+
+```pil
+// SAFE: Propagation disabled before teardown, but value is re-read from public inputs
+#[PROPAGATE_L2_GAS_LIMIT]
+NOT_LAST_ROW * (1 - is_teardown') * (l2_gas_limit - l2_gas_limit') = 0;
+
+// On teardown row, gas_limit is constrained by public inputs lookup
+#[PUBLIC_INPUTS_READ_GAS_LIMIT]
+should_read_gas_limit {  // should_read_gas_limit = start_tx + is_teardown
+    gas_limit_pi_offset,
+    da_gas_limit,
+    l2_gas_limit
+} in public_inputs.sel { ... };
+```
+
+**How to verify this is safe**:
+1. The pre-gap value IS constrained - propagated from initialization (e.g., `start_tx`)
+2. The post-gap value IS constrained - by a counterpart constraint when the selector fires
+3. Both paths constrain the value, so there is no exploitable gap
 
 ### Secure Pattern: Complete Propagation
 
@@ -200,20 +236,13 @@ pol commit clk;
 ```
 **Impact**: Could change context or timing mid-copy.
 
-### Example 3: TX Context Gas Limits (PR #18606)
-
-```pil
-// Gas limit propagation gap at teardown
-// Propagation constraint breaks on is_teardown', leaving gap
-#[GAS_LIMIT_PROPAGATE]
-(1 - is_teardown') * (gas_limit' - gas_limit) = 0;
-// Row before teardown has unconstrained gas_limit!
-```
-**Impact**: Arbitrary gas limits before teardown.
-
 ## REQUIRED OUTPUT FORMAT
 
-### Summary Table
+You MUST produce TWO output files:
+
+### 1. Markdown Report (stdout)
+
+#### Summary Table
 
 | Item | Value |
 |------|-------|
@@ -223,7 +252,7 @@ pol commit clk;
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings Format
+#### Findings Format
 
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
@@ -231,9 +260,10 @@ pol commit clk;
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### Machine-Readable JSON (REQUIRED)
+### 2. JSON File (REQUIRED - separate file)
 
-<!-- MACHINE-READABLE FINDINGS -->
+Write a `{skill-name}.json` file to the output directory with:
+
 ```json
 {
   "skill": "{skill-name}",
@@ -251,10 +281,8 @@ pol commit clk;
   ]
 }
 ```
-<!-- END MACHINE-READABLE FINDINGS -->
 
 For no findings:
-<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
   "skill": "{skill-name}",
@@ -262,4 +290,5 @@ For no findings:
   "findings": []
 }
 ```
-<!-- END MACHINE-READABLE FINDINGS -->
+
+**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.
