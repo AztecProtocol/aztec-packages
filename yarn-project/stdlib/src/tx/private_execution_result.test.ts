@@ -5,7 +5,6 @@ import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inp
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-  collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from './private_execution_result.js';
@@ -16,7 +15,6 @@ function emptyCallExecutionResult(): PrivateCallExecutionResult {
     Buffer.from(''),
     new Map(),
     PrivateCircuitPublicInputs.empty(),
-    new Map(),
     [],
     new Map(),
     [],
@@ -42,42 +40,6 @@ describe('execution_result', () => {
     it('serializes and deserializes correctly', async () => {
       const instance = await PrivateExecutionResult.random();
       expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
-    });
-  });
-
-  describe('collectNoteHashLeafIndexMap', () => {
-    it('returns a map for note hash leaf indexes', () => {
-      executionResult.entrypoint.noteHashLeafIndexMap = new Map();
-      executionResult.entrypoint.noteHashLeafIndexMap.set(12n, 99n);
-      executionResult.entrypoint.noteHashLeafIndexMap.set(34n, 88n);
-      const res = collectNoteHashLeafIndexMap(executionResult);
-      expect(res.size).toBe(2);
-      expect(res.get(12n)).toBe(99n);
-      expect(res.get(34n)).toBe(88n);
-    });
-
-    it('returns a map containing note hash leaf indexes for nested executions', () => {
-      executionResult.entrypoint.noteHashLeafIndexMap.set(12n, 99n);
-      executionResult.entrypoint.noteHashLeafIndexMap.set(34n, 88n);
-
-      const childExecution0 = emptyCallExecutionResult();
-      childExecution0.noteHashLeafIndexMap.set(56n, 77n);
-
-      const childExecution1 = emptyCallExecutionResult();
-      childExecution1.noteHashLeafIndexMap.set(78n, 66n);
-      const grandchildExecution = emptyCallExecutionResult();
-      grandchildExecution.noteHashLeafIndexMap.set(90n, 55n);
-      childExecution1.nestedExecutionResults = [grandchildExecution];
-
-      executionResult.entrypoint.nestedExecutionResults = [childExecution0, childExecution1];
-
-      const res = collectNoteHashLeafIndexMap(executionResult);
-      expect(res.size).toBe(5);
-      expect(res.get(12n)).toBe(99n);
-      expect(res.get(34n)).toBe(88n);
-      expect(res.get(56n)).toBe(77n);
-      expect(res.get(78n)).toBe(66n);
-      expect(res.get(90n)).toBe(55n);
     });
   });
 
