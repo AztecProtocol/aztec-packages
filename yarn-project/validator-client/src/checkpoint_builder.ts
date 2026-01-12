@@ -1,4 +1,3 @@
-import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,10 +22,11 @@ import {
   type MerkleTreeWriteOperations,
   type PublicProcessorLimits,
 } from '@aztec/stdlib/interfaces/server';
-import { type CheckpointGlobalVariables, type FailedTx, GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type CheckpointGlobalVariables, type FailedTx, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
+import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_factory.js';
 
 const log = createLogger('checkpoint-builder');
 
@@ -65,7 +65,7 @@ export class CheckpointBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits,
+    opts: PublicProcessorLimits & { expectedEndState?: StateReference },
   ): Promise<BuildBlockInCheckpointResult> {
     const blockBuildingTimer = new Timer();
     const slot = this.checkpointBuilder.constants.slotNumber;
@@ -90,7 +90,9 @@ export class CheckpointBuilder {
     );
 
     // Add block to checkpoint
-    const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs);
+    const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+      expectedEndState: opts.expectedEndState,
+    });
 
     // How much public gas was processed
     const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
@@ -174,6 +176,10 @@ export class FullNodeCheckpointsBuilder {
     private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
+  public getConfig(): FullNodeBlockBuilderConfig {
+    return this.config;
+  }
+
   public updateConfig(config: Partial<FullNodeBlockBuilderConfig>) {
     this.config = merge(this.config, pick(config, ...FullNodeBlockBuilderConfigKeys));
   }
@@ -190,7 +196,7 @@ export class FullNodeCheckpointsBuilder {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-    log.verbose(`Building checkpoint ${checkpointNumber}`, {
+    log.verbose(`Building new checkpoint ${checkpointNumber}`, {
       checkpointNumber,
       msgCount: l1ToL2Messages.length,
       initialStateReference: stateReference.toInspect(),
@@ -203,6 +209,50 @@ export class FullNodeCheckpointsBuilder {
       constants,
       l1ToL2Messages,
       fork,
+    );
+
+    return new CheckpointBuilder(
+      lightweightBuilder,
+      fork,
+      this.config,
+      this.contractDataSource,
+      this.dateProvider,
+      this.telemetryClient,
+    );
+  }
+
+  /**
+   * Opens a checkpoint, either starting fresh or resuming from existing blocks.
+   */
+  async openCheckpoint(
+    checkpointNumber: CheckpointNumber,
+    constants: CheckpointGlobalVariables,
+    l1ToL2Messages: Fr[],
+    fork: MerkleTreeWriteOperations,
+    existingBlocks: L2BlockNew[] = [],
+  ): Promise<CheckpointBuilder> {
+    const stateReference = await fork.getStateReference();
+    const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
+
+    if (existingBlocks.length === 0) {
+      return this.startCheckpoint(checkpointNumber, constants, l1ToL2Messages, fork);
+    }
+
+    log.verbose(`Resuming checkpoint ${checkpointNumber} with ${existingBlocks.length} existing blocks`, {
+      checkpointNumber,
+      msgCount: l1ToL2Messages.length,
+      existingBlockCount: existingBlocks.length,
+      initialStateReference: stateReference.toInspect(),
+      initialArchiveRoot: bufferToHex(archiveTree.root),
+      constants,
+    });
+
+    const lightweightBuilder = await LightweightCheckpointBuilder.resumeCheckpoint(
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      fork,
+      existingBlocks,
     );
 
     return new CheckpointBuilder(

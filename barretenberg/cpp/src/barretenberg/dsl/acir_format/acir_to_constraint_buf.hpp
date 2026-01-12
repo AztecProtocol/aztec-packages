@@ -64,18 +64,12 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
-/// The functions below handle the transition from serialized ACIR formats (msgpack and bincode), which is the output of
+/// The functions below handle the transition from serialized ACIR formats (msgpack-compact), which is the output of
 /// compiling a Noir program, to Barretenberg's internal formats.
 ///
 /// The flow is as follows:
-/// - A buffer of bytes is deserialised according to either msgpack or bincode into an Acir::Circuit, which is just the
-///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. As of now (Nov 2025)
-///   only bincode is supported.
-/// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
-///   constraints that have to be added to the Builder.
-/// - A buffer of bytes is deserialized according to either msgpack or bincode into an Acir::Circuit, which is just the
-///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs. Currently only
-///   bincode is supported.
+/// - A buffer of bytes is deserialized according to msgpack-compact into an Acir::Circuit, which is just the
+///   representation of a function in terms of Acir::Opcodes, Acir::Witness, Acir::PublicInputs.
 /// - The Acir::Circuit is transformed into AcirFormat, which is Barretenberg's internal representation of the Acir
 ///   constraints that have to be added to the Builder.
 /// - A buffer of bytes is deserialized into a WitnessVector, which is the list of witness values known at the time of
@@ -88,18 +82,13 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 ///   which constructs a barretenberg circuit by adding the relevant constraints and witnesses to a Builder
 
 /**
- * @brief Deserialize `buf` either based on the first byte interpreted as a Noir serialization format byte, or
- * falling back to `bincode` if the format cannot be recognized. Currently only `bincode` is expected.
+ * @brief Deserialize `buf` containing msgpack-compact format data.
  *
- * @note The function is written so that it can deserialize either `msgpack` or `bincode` depending on the first byte
- * of the buffer. However, currently only `bincode` is supported, so we fail in case `msgpack` is encountered. Note
- * that due to the lack of exception handling available in Wasm, the code cannot be structured to try `bincode` and
- * fall back to `msgpack` if that fails. Therefore, we look at the first byte and commit to a format based on that.
+ * @note The function expects the first byte to be a format marker (2 for msgpack, 3 for msgpack-compact).
+ * The data must be in msgpack array format (compact format), not map format.
  */
 template <typename T>
-T deserialize_any_format(std::vector<uint8_t>&& buf,
-                         std::function<T(msgpack::object const&)> decode_msgpack,
-                         std::function<T(std::vector<uint8_t>)> decode_bincode);
+T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack);
 
 /**
  * @brief Convert an Acir::Circuit into an AcirFormat by processing all the opcodes.

@@ -105,7 +105,7 @@ import {
 } from './l1/data_retrieval.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import type { InboxMessage } from './structs/inbox_message.js';
-import { type ValidateBlockResult, validateCheckpointAttestations } from './validation.js';
+import { type ValidateCheckpointResult, validateCheckpointAttestations } from './validation.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -130,7 +130,7 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
   return {
     pollingIntervalMs: config.archiverPollingIntervalMS,
     batchSize: config.archiverBatchSize,
-    skipValidateBlockAttestations: config.skipValidateBlockAttestations,
+    skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
   };
@@ -141,7 +141,7 @@ type RollupStatus = {
   provenArchive: Hex;
   pendingCheckpointNumber: CheckpointNumber;
   pendingArchive: Hex;
-  validationResult: ValidateBlockResult | undefined;
+  validationResult: ValidateCheckpointResult | undefined;
   lastRetrievedCheckpoint?: PublishedCheckpoint;
   lastL1BlockWithCheckpoint?: bigint;
 };
@@ -195,7 +195,7 @@ export class Archiver
     private config: {
       pollingIntervalMs: number;
       batchSize: number;
-      skipValidateBlockAttestations?: boolean;
+      skipValidateCheckpointAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
     },
@@ -792,7 +792,8 @@ export class Archiver
   @trackSpan('Archiver.handleCheckpoints')
   private async handleCheckpoints(blocksSynchedTo: bigint, currentL1BlockNumber: bigint): Promise<RollupStatus> {
     const localPendingCheckpointNumber = await this.getSynchedCheckpointNumber();
-    const initialValidationResult: ValidateBlockResult | undefined = await this.store.getPendingChainValidationStatus();
+    const initialValidationResult: ValidateCheckpointResult | undefined =
+      await this.store.getPendingChainValidationStatus();
     const {
       provenCheckpointNumber,
       provenArchive,
@@ -1007,7 +1008,7 @@ export class Archiver
       const validCheckpoints: PublishedCheckpoint[] = [];
 
       for (const published of publishedCheckpoints) {
-        const validationResult = this.config.skipValidateBlockAttestations
+        const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
           : await validateCheckpointAttestations(published, this.epochCache, this.l1constants, this.log);
 
@@ -1020,7 +1021,7 @@ export class Archiver
           rollupStatus.validationResult?.valid !== validationResult.valid ||
           (!rollupStatus.validationResult.valid &&
             !validationResult.valid &&
-            rollupStatus.validationResult.block.blockNumber === validationResult.block.blockNumber)
+            rollupStatus.validationResult.checkpoint.checkpointNumber === validationResult.checkpoint.checkpointNumber)
         ) {
           rollupStatus.validationResult = validationResult;
         }
@@ -1032,9 +1033,9 @@ export class Archiver
             ...pick(validationResult, 'reason'),
           });
 
-          // Emit event for invalid block detection
-          this.emit(L2BlockSourceEvents.InvalidAttestationsBlockDetected, {
-            type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+          // Emit event for invalid checkpoint detection
+          this.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, {
+            type: L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
             validationResult,
           });
 
@@ -1361,7 +1362,7 @@ export class Archiver
 
   public addCheckpoints(
     checkpoints: PublishedCheckpoint[],
-    pendingChainValidationStatus?: ValidateBlockResult,
+    pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     return this.store.addCheckpoints(checkpoints, pendingChainValidationStatus);
   }
@@ -1541,7 +1542,7 @@ export class Archiver
     return this.store.getDebugFunctionName(address, selector);
   }
 
-  async getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  async getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
@@ -2031,7 +2032,7 @@ export class ArchiverStoreHelper
     ).every(Boolean);
   }
 
-  public addBlocks(blocks: L2BlockNew[], pendingChainValidationStatus?: ValidateBlockResult): Promise<boolean> {
+  public addBlocks(blocks: L2BlockNew[], pendingChainValidationStatus?: ValidateCheckpointResult): Promise<boolean> {
     // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
     // or if the previous block is not in the store.
     return this.store.transactionAsync(async () => {
@@ -2054,7 +2055,7 @@ export class ArchiverStoreHelper
 
   public addCheckpoints(
     checkpoints: PublishedCheckpoint[],
-    pendingChainValidationStatus?: ValidateBlockResult,
+    pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
     // or if the previous block is not in the store.
@@ -2198,7 +2199,7 @@ export class ArchiverStoreHelper
     return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<BlockNumber> {
-    return this.store.getCheckpointedL2BlockNumber();
+    return this.store.getLatestBlockNumber();
   }
   getProvenCheckpointNumber(): Promise<CheckpointNumber> {
     return this.store.getProvenCheckpointNumber();
@@ -2254,10 +2255,10 @@ export class ArchiverStoreHelper
   getLastL1ToL2Message(): Promise<InboxMessage | undefined> {
     return this.store.getLastL1ToL2Message();
   }
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined> {
     return this.store.getPendingChainValidationStatus();
   }
-  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+  setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     this.#log.debug(`Setting pending chain validation status to valid ${status?.valid}`, status);
     return this.store.setPendingChainValidationStatus(status);
   }

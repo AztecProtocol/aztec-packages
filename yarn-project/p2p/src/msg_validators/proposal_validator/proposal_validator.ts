@@ -1,63 +1,60 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockProposal, CheckpointProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
-export class BlockProposalValidator implements P2PValidator<BlockProposal> {
-  private epochCache: EpochCacheInterface;
-  private logger: Logger;
-  private txsPermitted: boolean;
+export abstract class ProposalValidator<TProposal extends BlockProposal | CheckpointProposal> {
+  protected epochCache: EpochCacheInterface;
+  protected logger: Logger;
+  protected txsPermitted: boolean;
 
-  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }) {
+  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }, loggerName: string) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
-    this.logger = createLogger('p2p:block_proposal_validator');
+    this.logger = createLogger(loggerName);
   }
 
-  async validate(block: BlockProposal): Promise<PeerErrorSeverity | undefined> {
+  public async validate(proposal: TProposal): Promise<PeerErrorSeverity | undefined> {
     try {
-      // Check signature validity first - invalid signatures are a high-severity issue
-      const proposer = block.getSender();
+      // Signature validity
+      const proposer = proposal.getSender();
       if (!proposer) {
-        this.logger.debug(`Penalizing peer for block proposal with invalid signature`);
+        this.logger.debug(`Penalizing peer for proposal with invalid signature`);
         return PeerErrorSeverity.MidToleranceError;
       }
 
-      // Check if transactions are permitted when the proposal contains transaction hashes
-      const embeddedTxCount = block.txs?.length ?? 0;
-      if (!this.txsPermitted && (block.txHashes.length > 0 || embeddedTxCount > 0)) {
+      // Transactions permitted check
+      const embeddedTxCount = proposal.txs?.length ?? 0;
+      if (!this.txsPermitted && (proposal.txHashes.length > 0 || embeddedTxCount > 0)) {
         this.logger.debug(
-          `Penalizing peer for block proposal with ${block.txHashes.length} transaction(s) when transactions are not permitted`,
+          `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when transactions are not permitted`,
         );
         return PeerErrorSeverity.MidToleranceError;
       }
 
-      // If there are embedded txs, they must be listed in txHashes; if there are no txHashes, there must be no txs
-      const hashSet = new Set(block.txHashes.map(h => h.toString()));
+      // Embedded txs must be listed in txHashes
+      const hashSet = new Set(proposal.txHashes.map(h => h.toString()));
       const missingTxHashes =
         embeddedTxCount > 0
-          ? block.txs!.filter(tx => !hashSet.has(tx.getTxHash().toString())).map(tx => tx.getTxHash().toString())
+          ? proposal.txs!.filter(tx => !hashSet.has(tx.getTxHash().toString())).map(tx => tx.getTxHash().toString())
           : [];
       if (embeddedTxCount > 0 && missingTxHashes.length > 0) {
         this.logger.warn('Penalizing peer for embedded transaction(s) not included in txHashes', {
           embeddedTxCount,
-          txHashesLength: block.txHashes.length,
+          txHashesLength: proposal.txHashes.length,
           missingTxHashes,
         });
         return PeerErrorSeverity.MidToleranceError;
       }
 
+      // Slot and proposer checks
       const { currentProposer, nextProposer, currentSlot, nextSlot } =
         await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
-
-      // Check that the attestation is for the current or next slot
-      const slotNumber = block.payload.header.slotNumber;
+      const slotNumber = proposal.slotNumber;
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
         return PeerErrorSeverity.HighToleranceError;
       }
-
-      // Check that the block proposal is from the current or next proposer
       if (slotNumber === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
         this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           currentProposer,
@@ -66,7 +63,6 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         });
         return PeerErrorSeverity.MidToleranceError;
       }
-
       if (slotNumber === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
         this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumber}`, {
           currentProposer,
@@ -77,8 +73,8 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       }
 
       // Validate tx hashes for all txs embedded in the proposal
-      if (!(await Promise.all(block.txs?.map(tx => tx.validateTxHash()) ?? [])).every(v => v)) {
-        this.logger.warn(`Penalizing peer for invalid tx hashes in block proposal`, {
+      if (!(await Promise.all(proposal.txs?.map(tx => tx.validateTxHash()) ?? [])).every(v => v)) {
+        this.logger.warn(`Penalizing peer for invalid tx hashes in proposal`, {
           proposer,
           slotNumber,
         });
@@ -87,7 +83,6 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
 
       return undefined;
     } catch (e) {
-      // People shouldn't be sending us block proposals if the committee doesn't exist
       if (e instanceof NoCommitteeError) {
         return PeerErrorSeverity.LowToleranceError;
       }

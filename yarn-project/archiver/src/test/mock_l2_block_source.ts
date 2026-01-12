@@ -15,7 +15,7 @@ import {
   type L2BlockSource,
   type L2Tips,
   PublishedL2Block,
-  type ValidateBlockResult,
+  type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { type Checkpoint, L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -421,7 +421,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(false);
   }
 
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
   }
 }

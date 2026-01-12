@@ -23,7 +23,7 @@ import type { TxReceipt } from '../tx/tx_receipt.js';
 import { type CheckpointedL2Block, PublishedL2Block } from './checkpointed_l2_block.js';
 import type { L2Block } from './l2_block.js';
 import type { L2BlockNew } from './l2_block_new.js';
-import type { ValidateBlockNegativeResult, ValidateBlockResult } from './validate_block_result.js';
+import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -165,10 +165,10 @@ export interface L2BlockSource {
   isPendingChainInvalid(): Promise<boolean>;
 
   /**
-   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive block
-   * that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
+   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive
+   * checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
    */
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult>;
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;
@@ -240,7 +240,7 @@ export interface L2BlockSink {
 export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
-  [L2BlockSourceEvents.InvalidAttestationsBlockDetected]: (args: InvalidBlockDetectedEvent) => void;
+  [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
@@ -317,7 +317,7 @@ export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
-  InvalidAttestationsBlockDetected = 'invalidBlockDetected',
+  InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -338,7 +338,7 @@ export type L2CheckpointEvent = {
   checkpoint: PublishedCheckpoint;
 };
 
-export type InvalidBlockDetectedEvent = {
-  type: 'invalidBlockDetected';
-  validationResult: ValidateBlockNegativeResult;
+export type InvalidCheckpointDetectedEvent = {
+  type: 'invalidCheckpointDetected';
+  validationResult: ValidateCheckpointNegativeResult;
 };

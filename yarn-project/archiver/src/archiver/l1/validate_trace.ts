@@ -165,7 +165,7 @@ export async function validateAndLogTraceAvailability(
   client: ViemPublicDebugClient,
   ethereumAllowNoDebugHosts: boolean,
 ): Promise<void> {
-  logger.info('Validating trace/debug method availability...');
+  logger.debug('Validating trace/debug method availability...');
 
   const availability = await validateTraceAvailability(client);
 

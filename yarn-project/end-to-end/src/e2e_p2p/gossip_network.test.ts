@@ -7,7 +7,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -150,6 +150,21 @@ describe('e2e_p2p_network', () => {
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
 
+    // Wait until the other nodes sync to the block from which we sent the tx
+    const targetBlock = await t.ctx.aztecNode.getBlockNumber();
+    t.logger.warn(`Waiting for all nodes to sync to block number ${targetBlock}`);
+    await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        const checkpointNumber = (await t.monitor.run()).checkpointNumber;
+        t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
+        return blockNumbers.every(bn => bn >= targetBlock);
+      },
+      `nodes to sync to block number ${targetBlock}`,
+      30,
+      0.5,
+    );
+
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
       const context = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
@@ -172,10 +187,10 @@ describe('e2e_p2p_network', () => {
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
+    const payload = new ConsensusPayload(block.block.header.toCheckpointHeader(), block.block.archive.root);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

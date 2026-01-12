@@ -1,28 +1,28 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { randomBlockInfo } from './l2_block_info.js';
+import { randomCheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 import {
-  type ValidateBlockResult,
-  deserializeValidateBlockResult,
-  serializeValidateBlockResult,
+  type ValidateCheckpointResult,
+  deserializeValidateCheckpointResult,
+  serializeValidateCheckpointResult,
 } from './validate_block_result.js';
 
-describe('ValidateBlockResult', () => {
+describe('ValidateCheckpointResult', () => {
   describe('serialization to buffer', () => {
     it('valid result', () => {
-      const result: ValidateBlockResult = { valid: true };
-      const serialized = serializeValidateBlockResult(result);
-      const deserialized = deserializeValidateBlockResult(serialized);
+      const result: ValidateCheckpointResult = { valid: true };
+      const serialized = serializeValidateCheckpointResult(result);
+      const deserialized = deserializeValidateCheckpointResult(serialized);
       expect(deserialized).toEqual(result);
     });
 
     it('invalid-attestation result', () => {
-      const result: ValidateBlockResult = {
+      const result: ValidateCheckpointResult = {
         valid: false,
         reason: 'invalid-attestation',
-        block: randomBlockInfo(),
+        checkpoint: randomCheckpointInfo(),
         committee: [EthAddress.random(), EthAddress.random()],
         epoch: EpochNumber(1),
         seed: 2n,
@@ -30,24 +30,24 @@ describe('ValidateBlockResult', () => {
         invalidIndex: 4,
         attestations: [CommitteeAttestation.random(), CommitteeAttestation.random()],
       };
-      const serialized = serializeValidateBlockResult(result);
-      const deserialized = deserializeValidateBlockResult(serialized);
+      const serialized = serializeValidateCheckpointResult(result);
+      const deserialized = deserializeValidateCheckpointResult(serialized);
       expect(deserialized).toEqual(result);
     });
 
     it('insufficient-attestations result', () => {
-      const result: ValidateBlockResult = {
+      const result: ValidateCheckpointResult = {
         valid: false,
         reason: 'insufficient-attestations',
-        block: randomBlockInfo(),
+        checkpoint: randomCheckpointInfo(),
         committee: [EthAddress.random(), EthAddress.random()],
         epoch: EpochNumber(1),
         seed: 2n,
         attestors: [EthAddress.random(), EthAddress.random()],
         attestations: [CommitteeAttestation.random(), CommitteeAttestation.random()],
       };
-      const serialized = serializeValidateBlockResult(result);
-      const deserialized = deserializeValidateBlockResult(serialized);
+      const serialized = serializeValidateCheckpointResult(result);
+      const deserialized = deserializeValidateCheckpointResult(serialized);
       expect(deserialized).toEqual(result);
     });
   });

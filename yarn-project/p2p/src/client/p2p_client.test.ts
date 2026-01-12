@@ -415,22 +415,25 @@ describe('P2P Client', () => {
 
   describe('Attestation pool pruning', () => {
     it('deletes attestations for finalized blocks', async () => {
-      const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
+      const deleteCheckpointAttestationsOlderThanSpy = jest.spyOn(
+        attestationPool,
+        'deleteCheckpointAttestationsOlderThan',
+      );
 
       blockSource.setProvenBlockNumber(0);
       await client.start();
-      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
+      expect(deleteCheckpointAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToProvenBlock(BlockNumber(10));
-      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
+      expect(deleteCheckpointAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToFinalizedBlock(BlockNumber(10));
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
 
       await advanceToFinalizedBlock(BlockNumber(15));
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
     });
   });
 

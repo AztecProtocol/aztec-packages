@@ -8,7 +8,7 @@ import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_
 import { L2Block } from '../block/l2_block.js';
 import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
+import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
@@ -52,14 +52,14 @@ export type ArchiverSpecificConfig = {
   /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb. */
   archiverStoreMapSizeKb?: number;
 
-  /** Whether to skip validating block attestations (use only for testing). */
-  skipValidateBlockAttestations?: boolean;
-
   /** Maximum allowed drift in seconds between the Ethereum client and current time. */
   maxAllowedEthClientDriftSeconds?: number;
 
   /** Whether to allow starting the archiver without debug/trace method support on Ethereum hosts */
   ethereumAllowNoDebugHosts?: boolean;
+
+  /** Skip validating checkpoint attestations (for testing purposes only) */
+  skipValidateCheckpointAttestations?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -68,9 +68,9 @@ export const ArchiverSpecificConfigSchema = z.object({
   viemPollingIntervalMS: schemas.Integer.optional(),
   maxLogs: schemas.Integer.optional(),
   archiverStoreMapSizeKb: schemas.Integer.optional(),
-  skipValidateBlockAttestations: z.boolean().optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
   ethereumAllowNoDebugHosts: z.boolean().optional(),
+  skipValidateCheckpointAttestations: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -152,5 +152,5 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
-  getPendingChainValidationStatus: z.function().args().returns(ValidateBlockResultSchema),
+  getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),
 };
