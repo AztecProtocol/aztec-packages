@@ -677,19 +677,19 @@ TEST(Sha256MemoryConstrainingTest, Complex)
 }
 
 //////////////////////////////////////////
-/// Vulnerability Exploit Tests
+/// Negative Tests - Constraint Verification
 //////////////////////////////////////////
 
-// This test demonstrates a vulnerability: input_addr is not constrained on non-start rows.
+// This test verifies that input_addr IS properly constrained on non-start rows.
 //
-// The sha256_mem.pil file propagates execution_clk, space_id, and output_addr across all 65 rows
-// using CONTINUITY_* constraints. However, input_addr is only set at start (line 162) and has
-// no propagation/increment constraint. This allows a malicious prover to set arbitrary input_addr
-// values on rows 2-16 (the input loading rounds), potentially reading from arbitrary memory.
+// The sha256_mem.pil file propagates execution_clk, space_id, output_addr, and input_addr
+// using CONTINUITY_* constraints. The CONTINUITY_INPUT_ADDR constraint ensures that
+// input_addr increments by 1 during input rounds (when sel_is_input_round=1) and stays
+// constant otherwise. This prevents malicious provers from reading arbitrary memory.
 //
 // APPROACH: Generate a valid SHA256 trace, then tamper with input_addr on a non-start row.
-// If the constraint were correct, this should fail. Since it passes, the vulnerability exists.
-TEST(Sha256MemoryConstrainingTest, VulnerabilityExploitInputAddrNotConstrained)
+// The CONTINUITY_INPUT_ADDR constraint should catch this tampering and cause relation check to fail.
+TEST(Sha256MemoryConstrainingTest, InputAddrTamperingIsCaughtByConstraint)
 {
     // Step 1: Generate a valid SHA256 compression trace using the actual simulation
     MemoryStore mem;
@@ -727,60 +727,15 @@ TEST(Sha256MemoryConstrainingTest, VulnerabilityExploitInputAddrNotConstrained)
     // Step 2: Verify the trace is valid BEFORE tampering
     ASSERT_NO_THROW(check_relation<sha256_mem>(trace)) << "Trace should be valid before tampering";
 
-    // Step 3: Find a row in the input loading phase (rows 1-15) where:
-    //   - sel = 1
-    //   - start = 0
-    //   - sel_is_input_round = 1
-    // This is where input_addr should be constrained but isn't.
-    uint32_t tamper_row = 0;
-    FF original_input_addr;
-    for (uint32_t r = 1; r < 16; ++r) {
-        FF sel = trace.get(C::sha256_sel, r);
-        FF start = trace.get(C::sha256_start, r);
-        FF sel_is_input_round = trace.get(C::sha256_sel_is_input_round, r);
+    // Step 3: Tamper with input_addr on row 1 (a non-start input round)
+    // The constraint should catch this because input_addr[1] must equal input_addr[0] + 1
+    constexpr uint32_t MALICIOUS_ADDR = 9999;
+    trace.set(C::sha256_input_addr, 1, MALICIOUS_ADDR);
 
-        if (sel == FF(1) && start == FF(0) && sel_is_input_round == FF(1)) {
-            tamper_row = r;
-            original_input_addr = trace.get(C::sha256_input_addr, r);
-            break;
-        }
-    }
-    ASSERT_NE(tamper_row, 0u) << "Could not find a suitable row for tampering";
-
-    // Step 4: TAMPER with input_addr on the found row to an arbitrary malicious value
-    // If properly constrained, this should cause check_relation to fail.
-    constexpr uint32_t MALICIOUS_ADDR = 9999; // Arbitrary malicious address
-    trace.set(C::sha256_input_addr, tamper_row, MALICIOUS_ADDR);
-
-    // Step 5: Check if the relation still passes (it shouldn't if properly constrained!)
-    //
-    // EXPECTED if vulnerability is FIXED: check_relation throws because input_addr
-    //   on row 1 doesn't match the constrained increment from row 0.
-    //
-    // ACTUAL (vulnerability exists): check_relation PASSES because there's no
-    //   constraint enforcing input_addr propagation/increment.
-    //
-    // SECURITY IMPACT: A malicious prover can read from arbitrary memory during
-    //   SHA256 input loading, corrupting the hash or leaking sensitive data.
-
-    try {
-        check_relation<sha256_mem>(trace);
-        // If we get here, the vulnerability exists - no constraint caught the tampered input_addr
-        SUCCEED() << "VULNERABILITY CONFIRMED: input_addr on non-start rows is NOT constrained!\n"
-                  << "  Tampered row: " << tamper_row << "\n"
-                  << "  Original input_addr: " << original_input_addr << "\n"
-                  << "  Malicious input_addr: " << MALICIOUS_ADDR << "\n"
-                  << "  All sha256_mem relations passed despite the tampering.\n"
-                  << "  A malicious prover can read from arbitrary memory addresses during SHA256 input loading.";
-    } catch (const std::runtime_error& e) {
-        // If an exception is thrown, a constraint caught the tampered value
-        // This means the vulnerability does NOT exist (constraint is working)
-        FAIL() << "Vulnerability NOT confirmed - constraint caught the tampered input_addr.\n"
-               << "  Tampered row: " << tamper_row << "\n"
-               << "  Original input_addr: " << original_input_addr << "\n"
-               << "  Malicious input_addr: " << MALICIOUS_ADDR << "\n"
-               << "  Exception: " << e.what();
-    }
+    // Step 4: Verify the CONTINUITY_INPUT_ADDR constraint catches the tampering
+    // The constraint enforces: input_addr' = input_addr + sel_is_input_round
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256_mem>(trace, sha256_mem::SR_CONTINUITY_INPUT_ADDR),
+                              "CONTINUITY_INPUT_ADDR");
 }
 
 } // namespace
