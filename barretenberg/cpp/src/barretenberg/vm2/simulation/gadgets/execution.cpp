@@ -534,7 +534,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     BB_BENCH_NAME("Execution::mov");
     constexpr auto opcode = ExecutionOpCode::MOV;
     auto& memory = context.get_memory();
-    const auto v = memory.get(src_addr);
+    const MemoryValue v = memory.get(src_addr);
     set_and_validate_inputs(opcode, { v });
 
     get_gas_tracker().consume_gas();
