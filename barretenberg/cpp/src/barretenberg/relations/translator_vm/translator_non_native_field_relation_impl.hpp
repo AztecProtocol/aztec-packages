@@ -85,9 +85,9 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     using View = typename Accumulator::View;
 
     static constexpr size_t NUM_LIMB_BITS = 68;
-    static FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
-    static FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
-    static FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
+    static const FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
+    static const FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+    static const FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
     static constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
     static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
