@@ -307,7 +307,11 @@ The key question for permutations: **Can the attacker create legitimate destinat
 
 ## REQUIRED OUTPUT FORMAT
 
-### Summary Table
+You MUST produce TWO output files:
+
+### 1. Markdown Report (stdout)
+
+#### Summary Table
 
 | Item | Value |
 |------|-------|
@@ -317,7 +321,7 @@ The key question for permutations: **Can the attacker create legitimate destinat
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings Format
+#### Findings Format
 
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
@@ -325,9 +329,10 @@ The key question for permutations: **Can the attacker create legitimate destinat
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### Machine-Readable JSON (REQUIRED)
+### 2. JSON File (REQUIRED - separate file)
 
-<!-- MACHINE-READABLE FINDINGS -->
+Write a `{skill-name}.json` file to the output directory with:
+
 ```json
 {
   "skill": "{skill-name}",
@@ -345,10 +350,8 @@ The key question for permutations: **Can the attacker create legitimate destinat
   ]
 }
 ```
-<!-- END MACHINE-READABLE FINDINGS -->
 
 For no findings:
-<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
   "skill": "{skill-name}",
@@ -356,4 +359,5 @@ For no findings:
   "findings": []
 }
 ```
-<!-- END MACHINE-READABLE FINDINGS -->
+
+**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

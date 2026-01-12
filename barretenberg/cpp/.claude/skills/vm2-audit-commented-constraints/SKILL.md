@@ -62,7 +62,11 @@ sel_parsing_err * (1 - sel_parsing_err) = 0;  // Only this exists!
 
 ## REQUIRED OUTPUT FORMAT
 
-### Summary Table
+You MUST produce TWO output files:
+
+### 1. Markdown Report (stdout)
+
+#### Summary Table
 
 | Item | Value |
 |------|-------|
@@ -72,7 +76,7 @@ sel_parsing_err * (1 - sel_parsing_err) = 0;  // Only this exists!
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-### Findings Format
+#### Findings Format
 
 - **ID**: `{skill-name}-{file}-{line}-{subtype}`
 - **Severity**: Critical / High / Medium / Low
@@ -80,9 +84,10 @@ sel_parsing_err * (1 - sel_parsing_err) = 0;  // Only this exists!
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### Machine-Readable JSON (REQUIRED)
+### 2. JSON File (REQUIRED - separate file)
 
-<!-- MACHINE-READABLE FINDINGS -->
+Write a `{skill-name}.json` file to the output directory with:
+
 ```json
 {
   "skill": "{skill-name}",
@@ -100,10 +105,8 @@ sel_parsing_err * (1 - sel_parsing_err) = 0;  // Only this exists!
   ]
 }
 ```
-<!-- END MACHINE-READABLE FINDINGS -->
 
 For no findings:
-<!-- MACHINE-READABLE FINDINGS -->
 ```json
 {
   "skill": "{skill-name}",
@@ -111,4 +114,5 @@ For no findings:
   "findings": []
 }
 ```
-<!-- END MACHINE-READABLE FINDINGS -->
+
+**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.
