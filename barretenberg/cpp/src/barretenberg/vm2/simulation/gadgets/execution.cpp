@@ -76,8 +76,8 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::add");
     constexpr auto opcode = ExecutionOpCode::ADD;
     auto& memory = context.get_memory();
-    const MemoryValue& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -107,8 +107,8 @@ void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::sub");
     constexpr auto opcode = ExecutionOpCode::SUB;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -138,8 +138,8 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::mul");
     constexpr auto opcode = ExecutionOpCode::MUL;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -172,8 +172,8 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::div");
     constexpr auto opcode = ExecutionOpCode::DIV;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -206,8 +206,8 @@ void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddr
     BB_BENCH_NAME("Execution::fdiv");
     constexpr auto opcode = ExecutionOpCode::FDIV;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -237,8 +237,8 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     BB_BENCH_NAME("Execution::eq");
     constexpr auto opcode = ExecutionOpCode::EQ;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -268,8 +268,8 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     BB_BENCH_NAME("Execution::lt");
     constexpr auto opcode = ExecutionOpCode::LT;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -299,8 +299,8 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::lte");
     constexpr auto opcode = ExecutionOpCode::LT;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -329,7 +329,7 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     BB_BENCH_NAME("Execution::op_not");
     constexpr auto opcode = ExecutionOpCode::NOT;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(src_addr);
+    const MemoryValue a = memory.get(src_addr);
     set_and_validate_inputs(opcode, { a });
 
     get_gas_tracker().consume_gas();
@@ -361,8 +361,8 @@ void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::shl");
     constexpr auto opcode = ExecutionOpCode::SHL;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -394,8 +394,8 @@ void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::shr");
     constexpr auto opcode = ExecutionOpCode::SHR;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -1017,8 +1017,8 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     BB_BENCH_NAME("Execution::and_op");
     constexpr auto opcode = ExecutionOpCode::AND;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -1054,8 +1054,8 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     BB_BENCH_NAME("Execution::or_op");
     constexpr auto opcode = ExecutionOpCode::OR;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -1089,8 +1089,8 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     BB_BENCH_NAME("Execution::xor_op");
     constexpr auto opcode = ExecutionOpCode::XOR;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
