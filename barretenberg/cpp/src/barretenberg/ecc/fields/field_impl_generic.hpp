@@ -188,7 +188,10 @@ constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
 /**
  * @brief reduce once, i.e., if the value is bigger than the modulus, subtract off the modulus once.
  *
- * @note the output may be greater than the modulus.
+ * @note the output will be smaller than the modulus. If we are in the 256-bit prime range, then this follows from the
+ * fact that 2p > 2^256. If we are in the 254-bit prime range, this follows from the fact that we guarantee that the
+ * `data` is always in _coarse representation_, meaning that the underlying uint256_t derived from the limbs is in [0,
+ * 2p)
  * @note when the modulus is < 2^254 (i.e., for the BN-254 fields), the algorithm is constant-time: it has no
  * branching.
  */
@@ -243,10 +246,10 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
             r1 = sbb(r1, modulus.data[1], b, b);
             r2 = sbb(r2, modulus.data[2], b, b);
             r3 = sbb(r3, modulus.data[3], b, b);
-            // Since both values are in [0, p) and p < 2^256, the result is in [0, 2^257-2). Subtracting one p might not
+            // Since both values are in [0, 2^256), the result is in [0, 2^257-2). Subtracting one p might not
             // be enough. We need to ensure that we've underflown the 0 and that might require subtracting an additional
-            // AUDITTODO: The inputs are assumed to be in [0, p) (non-coarse representation), hence a single subtraction
-            // must be enough. Local tests pass.
+            // p. This can only happen if at least one of the two arguments has uint256_t-element (derived from limbs)
+            // LARGER than p (i.e., non-reduced).
             if (!b) {
                 b = 0;
                 r0 = sbb(r0, modulus.data[0], b, b);
@@ -255,6 +258,8 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
                 r3 = sbb(r3, modulus.data[3], b, b);
             }
         }
+        // if c != 0, i.e., if there was no carry, we do no additional processing. Note that this means that the output
+        // might be larger than p, even if the original self and other were in the range [0, p).
         return { r0, r1, r2, r3 };
     } else {
         uint64_t r0 = data[0] + other.data[0];
@@ -263,7 +268,7 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
         auto r2 = addc(data[2], other.data[2], c, c);
         uint64_t r3 = data[3] + other.data[3] +
                       c; // in the small modulus branch so this will satisfy the right size bounds: both self
-                         // and other are in the range [0, 2*p), which means their sum is in [0, 4p-1).
+                         // and other are in the range [0, 2p), which means their sum is in [0, 4p-1).
 
         uint64_t t0 = r0 + twice_not_modulus.data[0];
         c = t0 < twice_not_modulus.data[0];
@@ -292,14 +297,19 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
     uint64_t r2 = sbb(data[2], other.data[2], borrow, borrow);
     uint64_t r3 = sbb(data[3], other.data[3], borrow, borrow);
 
+    // recall that borrow is in the size-2 set {0, 2^64 - 1}.
     if constexpr (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        // add the modulus if borrow != 0, i.e., if other > self as uint256_t.
         r0 += (modulus.data[0] & borrow);
         uint64_t carry = r0 < (modulus.data[0] & borrow);
         r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
         r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
         r3 = addc(r3, modulus.data[3] & borrow, carry, carry);
-        // The value being subtracted is in [0, 2**256), if we subtract 0 - 2*255 and then add p, the value will stay
-        // negative. If we are adding p, we need to check that we've overflown 2**256. If not, we should add p again
+        // The value being subtracted is in [0, 2^256); it is possible that adding one copy of p still leaves us with a
+        // negative number. To check if we might need to add another copy of p, we check if `carry == 0`; this means
+        // that (if we are "in the borrow branch"), the addition did not 2^256-overflow, which means we are still
+        // negative. If we not in the borrow branch (i.e., if `borrow == 0`), `carry == 0` and we add nothing using the
+        // `& borrow` trick for the `addc` argument.
         if (!carry) {
             r0 += (modulus.data[0] & borrow);
             uint64_t carry = r0 < (modulus.data[0] & borrow);
@@ -309,7 +319,10 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
         }
         return { r0, r1, r2, r3 };
     }
-
+    // Recall that in this constexpr branch, we use _coarse representation_, meaning the underlying limbs of both self
+    // and other yield uint256_t are in [0, 2p) . If there is a borrow, then it is possible that adding one copy of p
+    // is insufficient to make the result positive (and adding two copies both preserves the residue mod p and keeps us
+    // in the coarse-range).
     r0 += (twice_modulus.data[0] & borrow);
     uint64_t carry = r0 < (twice_modulus.data[0] & borrow);
     r1 = addc(r1, twice_modulus.data[1] & borrow, carry, carry);
