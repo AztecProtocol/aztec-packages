@@ -529,12 +529,23 @@ namespace execution;
     #[PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
 
-    // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call
-    // The tx trace looks up the tree state at the start and end of an enqueued call
+    // =============================
+    //    RETRIEVED BYTECODES TREE
+    // =============================
+
+    // Here, we constrain the transition `retrieved_bytecodes_tree_root` to `prev_retrieved_bytecodes_tree_size`
+    // for the next row. In execution.pil, the two constraints #[BYTECODE_RETRIEVAL_RESULT] and
+    //#[RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root`
+    // to `retrieved_bytecodes_tree_root` in the same row.
+
+    // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call.
+    // `prev_retrieved_bytecodes_tree_root` and `prev_retrieved_bytecodes_tree_size` are initialized
+    // on `enqueued_call_start == 1` as part of the permutation (#[DISPATCH_EXEC_START] in tx.pil).
+    // The final values at the end of an enqueued call are sent back to the tx trace in the lookup #[DISPATCH_EXEC_END].
     #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
-    sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
+    (sel - enqueued_call_end) * (retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
-    sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
+    (sel - enqueued_call_end) * (retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
 
     // Push a new context onto the context stack.
     #[CTX_STACK_CALL]
