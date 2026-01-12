@@ -18,14 +18,8 @@ static std::string common_preffix =
 void test_acir(std::vector<uint8_t>& bytecode)
 {
     auto tool = StaticAnalyzerAcir(bytecode);
-    auto [variables_in_one_gate, unconstrained_vars] = tool.analyze_acir();
+    auto variables_in_one_gate= tool.analyze_acir();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-    if (unconstrained_vars.size() > 0) {
-        info("print variables that weren't constrained properly");
-        for (const auto& elem : unconstrained_vars) {
-            info("elem == ", elem);
-        }
-    }
     if (variables_in_one_gate.size() > 0) {
         info("print variables in one gate");
         for (const auto& elem : variables_in_one_gate) {

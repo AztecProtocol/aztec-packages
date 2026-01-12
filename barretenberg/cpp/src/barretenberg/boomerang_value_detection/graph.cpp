@@ -69,6 +69,7 @@ template <typename FF, typename CircuitBuilder>
 std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(
     uint32_t var_idx) const
 {
+    var_idx = to_real(var_idx);
     std::unordered_map<size_t, std::vector<size_t>> result;
     auto search = variable_gate_count.find(var_idx);
     if (search != variable_gate_count.end() && search->second != 0) {
@@ -1161,6 +1162,122 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_decompose_va
 }
 
 /**
+ * @brief Validate that a decompose chain was correctly created for a range constraint
+ * @details When num_bits > DEFAULT_PLOOKUP_RANGE_BITNUM (14), the circuit builder calls
+ *          decompose_into_default_range which creates:
+ *          1. Sublimb variables, each range-constrained to 14 bits (or fewer for the last limb)
+ *          2. Big add gates that reconstruct the original value from sublimbs
+ *          The gates have selectors q_1, q_2, q_3 that are powers of 2 with property q_2² == q_1 * q_3
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzer_<FF, CircuitBuilder>::validate_decompose_chain(uint32_t witness, uint64_t num_bits)
+{
+    constexpr uint64_t target_range_bitnum = CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM; // 14
+    const bool has_remainder = (num_bits % target_range_bitnum != 0);
+    const uint64_t num_limbs = (num_bits / target_range_bitnum) + has_remainder;
+    const uint64_t num_limb_triples = (num_limbs / 3) + ((num_limbs % 3) != 0);
+
+    auto is_power_two = [&](const uint256_t& number) { return number > 0 && ((number & (number - 1)) == 0); };
+
+    const auto witness_gates = get_variable_gates(witness);
+    std::optional<size_t> arith_block_idx_opt = find_block_index(circuit_builder.blocks.arithmetic);
+    if (!arith_block_idx_opt.has_value()) {
+        return false;
+    }
+    auto it = witness_gates.find(*arith_block_idx_opt);
+    if (it == witness_gates.end()) {
+        return false; // Witness not in arithmetic block
+    }
+    auto& block = circuit_builder.blocks.get()[*arith_block_idx_opt];
+    const auto zero_idx = circuit_builder.zero_idx();
+    std::optional<size_t> start_gate_idx;
+    for (size_t gate_idx : it->second) {
+        uint32_t fourth_idx = block.w_4()[gate_idx];
+        if (circuit_builder.real_variable_index[fourth_idx] == circuit_builder.real_variable_index[witness]) {
+            auto q_1 = block.q_1()[gate_idx];
+            auto q_2 = block.q_2()[gate_idx];
+            auto q_3 = block.q_3()[gate_idx];
+            if (is_power_two(q_1) && is_power_two(q_2) && is_power_two(q_3) && (q_2 * q_2 == q_1 * q_3)) {
+                start_gate_idx = gate_idx;
+                break;
+            }
+        }
+    }
+    if (!start_gate_idx.has_value()) {
+        return false;
+    }
+    std::vector<uint32_t> collected_sublimbs;
+    size_t current_index = *start_gate_idx;
+    size_t gates_traversed = 0;
+
+    while (gates_traversed < num_limb_triples && current_index < block.size()) {
+        auto q_1 = block.q_1()[current_index];
+        auto q_2 = block.q_2()[current_index];
+        auto q_3 = block.q_3()[current_index];
+
+        if (!is_power_two(q_1) || !is_power_two(q_2) || !is_power_two(q_3) || (q_2 * q_2 != q_1 * q_3)) {
+            break;
+        }
+
+        auto left_idx = block.w_l()[current_index];
+        auto right_idx = block.w_r()[current_index];
+        auto out_idx = block.w_o()[current_index];
+
+        if (left_idx != zero_idx) {
+            collected_sublimbs.push_back(to_real(left_idx));
+        }
+        if (right_idx != zero_idx) {
+            collected_sublimbs.push_back(to_real(right_idx));
+        }
+        if (out_idx != zero_idx) {
+            collected_sublimbs.push_back(to_real(out_idx));
+        }
+
+        auto q_arith = block.q_arith()[current_index];
+        if (q_arith == FF::one()) {
+            gates_traversed++;
+            break;
+        }
+
+        current_index++;
+        gates_traversed++;
+    }
+
+    if (collected_sublimbs.size() != num_limbs) {
+        return false;
+    }
+
+    const auto& range_lists = circuit_builder.range_lists;
+    const uint64_t default_sublimb_range = (1ULL << target_range_bitnum) - 1;
+    const uint64_t last_limb_bits = num_bits - ((num_bits / target_range_bitnum) * target_range_bitnum);
+    const uint64_t last_limb_range = has_remainder ? ((1ULL << last_limb_bits) - 1) : default_sublimb_range;
+
+    for (size_t i = 0; i < collected_sublimbs.size(); ++i) {
+        uint64_t expected_range =
+            (i == collected_sublimbs.size() - 1 && has_remainder) ? last_limb_range : default_sublimb_range;
+
+        auto range_it = range_lists.find(expected_range);
+        if (range_it == range_lists.end()) {
+            return false;
+        }
+
+        const auto& range_list = range_it->second;
+        bool found = false;
+        if (std::find(range_list.variable_indices.begin(),
+                      range_list.variable_indices.end(),
+                      collected_sublimbs[i]) != range_list.variable_indices.end()) {
+            found = true;
+            break;
+        }
+        if (!found) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * @brief this method removes variables from range constraints that are not security critical
  * @tparam FF field type
  * @tparam CircuitBuilder
@@ -1837,5 +1954,13 @@ std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> StaticA
 
 template class StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
 template class StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
+
+// Explicit instantiations for find_block_index with specific block types used by StaticAnalyzerAcir
+template std::optional<size_t>
+StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<bb::UltraTraceLookupBlock>(
+    bb::UltraTraceLookupBlock const&);
+template std::optional<size_t>
+StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<bb::UltraTraceArithmeticBlock>(
+    bb::UltraTraceArithmeticBlock const&);
 
 } // namespace cdg

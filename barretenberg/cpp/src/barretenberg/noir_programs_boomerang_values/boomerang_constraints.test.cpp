@@ -1,15 +1,17 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+#include "barretenberg/boomerang_value_detection/graph_description_acir.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder_utils.hpp"
 
 using namespace bb;
 using namespace acir_format;
+using namespace cdg;
 
 class BoomerangConstraintsTests : public ::testing::Test {
   protected:
@@ -103,183 +105,444 @@ void update_aes_witness_vector(const AES128TestData& test_data, WitnessVector& w
 }
 
 /**
- * @brief Test single logic constraint - verify witness tracking
+ * @brief Test that build_opcode_type_map correctly maps opcode indices to constraint pointers
+ * @details Creates a constraint system with XOR and AND logic constraints, then verifies
+ *          the reverse mapping from opcode index to constraint pointer works correctly
  */
-TEST_F(BoomerangConstraintsTests, TestSingleLogicConstraint)
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapXorAndCase)
 {
-    LogicConstraint logic_constraint{
+    LogicConstraint xor_constraint{
         .a = witness_from_index(0),
         .b = witness_from_index(1),
         .result = 2,
         .num_bits = 32,
         .is_xor_gate = 1,
     };
-
-    RangeConstraint range_a{ .witness = 0, .num_bits = 32 };
-    RangeConstraint range_b{ .witness = 1, .num_bits = 32 };
-
-    AcirFormat constraint_system{
-        .varnum = 3,
-        .num_acir_opcodes = 3,
-        .public_inputs = {},
-        .logic_constraints = { logic_constraint },
-        .range_constraints = { range_a, range_b },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(constraint_system);
-
-    WitnessVector witness{ 5, 10, 15 };
-    AcirProgram program{ constraint_system, witness };
-    UltraCircuitBuilder builder = create_circuit(program);
-
-    const auto& logic_witnesses = builder.get_all_logic_witnesses();
-    EXPECT_EQ(logic_witnesses.size(), constraint_system.logic_constraints.size());
-    EXPECT_EQ(logic_witnesses.size(), 1);
-}
-
-/**
- * @brief Test single AES128 constraint - verify automatic witness marking
- */
-TEST_F(BoomerangConstraintsTests, TestSingleAES128Constraint)
-{
-    auto test_data = create_aes128_test_data();
-    uint32_t witness_idx = 0;
-    WitnessVector witness;
-    AES128Constraint aes_constraint = create_aes_constraint(witness_idx, test_data);
-    update_aes_witness_vector(test_data, witness);
-
-    UltraCircuitBuilder builder{ 0, witness, {}, witness_idx };
-    auto before_aes = get_real_variable_indices_set(builder);
-    create_aes128_constraints(builder, aes_constraint);
-    auto aes_created_variables = get_difference_real_variable_indices_states(before_aes, builder);
-    auto expected_witnesses = aes_created_variables;
-
-    builder.update_constraint_witnesses(aes_created_variables);
-    builder.save_and_clear_aes128_witnesses();
-
-    // Verify what was stored
-    const auto& aes_witnesses = builder.get_all_aes128_witnesses();
-    EXPECT_EQ(aes_witnesses.size(), 1);
-    EXPECT_GT(aes_witnesses[0].size(), 0) << "AES witnesses should not be empty";
-
-    // Verify that captured witnesses match what we computed
-    EXPECT_EQ(aes_witnesses[0], expected_witnesses) << "Stored AES witnesses should match computed difference";
-
-    info("AES128 constraint captured ", aes_witnesses[0].size(), " witnesses");
-}
-
-/**
- * @brief Test multiple AES128 constraints - verify each gets its own witness set
- */
-TEST_F(BoomerangConstraintsTests, TestMultipleAES128Constraints)
-{
-    auto test_data = create_aes128_test_data();
-    uint32_t witness_idx = 0;
-    std::vector<AES128Constraint> aes_constraints;
-    WitnessVector witness;
-
-    for (int constraint_num = 0; constraint_num < 2; constraint_num++) {
-        std::vector<WitnessOrConstant<fr>> inputs;
-        AES128Constraint constraint = create_aes_constraint(witness_idx, test_data);
-        aes_constraints.push_back(constraint);
-        update_aes_witness_vector(test_data, witness);
-    }
-
-    AcirFormat constraint_system{
-        .varnum = witness_idx,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .aes128_constraints = aes_constraints,
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(constraint_system);
-
-    AcirProgram program{ constraint_system, witness };
-    UltraCircuitBuilder builder = create_circuit(program);
-
-    const auto& combined_aes_witnesses = builder.get_all_aes128_witnesses();
-    EXPECT_EQ(combined_aes_witnesses.size(), constraint_system.aes128_constraints.size());
-    EXPECT_EQ(combined_aes_witnesses[0].size(), combined_aes_witnesses[1].size());
-}
-
-/**
- * @brief Test multiple logic constraints - verify each gets its own witness set
- */
-TEST_F(BoomerangConstraintsTests, TestMultipleLogicConstraints)
-{
-    LogicConstraint logic_constraint1{
-        .a = witness_from_index(0),
-        .b = witness_from_index(1),
-        .result = 2,
-        .num_bits = 32,
-        .is_xor_gate = 1,
-    };
-
-    LogicConstraint logic_constraint2{
+    LogicConstraint and_constraint{
         .a = witness_from_index(3),
         .b = witness_from_index(4),
         .result = 5,
         .num_bits = 32,
         .is_xor_gate = 0,
     };
-
-    RangeConstraint range_a{ .witness = 0, .num_bits = 32 };
-    RangeConstraint range_b{ .witness = 1, .num_bits = 32 };
-    RangeConstraint range_c{ .witness = 3, .num_bits = 32 };
-    RangeConstraint range_d{ .witness = 4, .num_bits = 32 };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 32 };
+    RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
+    RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
 
     AcirFormat constraint_system{
         .varnum = 6,
         .num_acir_opcodes = 6,
         .public_inputs = {},
-        .logic_constraints = { logic_constraint1, logic_constraint2 },
-        .range_constraints = { range_a, range_b, range_c, range_d },
+        .logic_constraints = { xor_constraint, and_constraint },
+        .range_constraints = { range_0, range_1, range_3, range_4 },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
 
-    WitnessVector witness{ 5, 10, 15, 7, 3, 3 };
-    AcirProgram program{ constraint_system, witness };
-    UltraCircuitBuilder builder = create_circuit(program);
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    const auto& logic_witnesses = builder.get_all_logic_witnesses();
-    EXPECT_EQ(logic_witnesses.size(), constraint_system.logic_constraints.size());
-    EXPECT_EQ(logic_witnesses.size(), 2);
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    size_t xor_count = 0;
+    size_t and_count = 0;
+    size_t range_count = 0;
+    for (const auto& [opcode_idx, constraint_info] : opcode_map) {
+        if (constraint_info.type == AcirConstraintType::LOGIC) {
+            const auto* logic = std::get<const LogicConstraint*>(constraint_info.ptr);
+            if (logic->is_xor_gate) {
+                xor_count++;
+            } else {
+                and_count++;
+            }
+        } else if (constraint_info.type == AcirConstraintType::RANGE) {
+            range_count++;
+        }
+    }
+
+    EXPECT_EQ(xor_count, 1) << "Should have exactly one XOR constraint";
+    EXPECT_EQ(and_count, 1) << "Should have exactly one AND constraint";
+    EXPECT_EQ(range_count, 4) << "Should have exactly four RANGE constraints";
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0);
 }
 
 /**
- * @brief Test logic constraint with constant operand
+ * @brief Test 64-bit logic constraint - verifies accumulation chain with 2 chunks
+ * @details 64-bit XOR requires 2 32-bit chunks, testing the accumulation chain tracing
  */
-TEST_F(BoomerangConstraintsTests, TestLogicConstraintWithConstant)
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMap64BitXorCase)
 {
-    LogicConstraint logic_constraint{
+    LogicConstraint xor_constraint{
         .a = witness_from_index(0),
-        .b = constant_from_value(10), // Constant operand
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 64,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 64 };
+
+    AcirFormat constraint_system{
+        .varnum = 3,
+        .num_acir_opcodes = 3,
+        .public_inputs = {},
+        .logic_constraints = { xor_constraint },
+        .range_constraints = { range_0, range_1 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "64-bit XOR should be processed correctly";
+}
+
+/**
+ * @brief Test 1-bit logic constraint (boolean XOR)
+ * @details 1-bit is the smallest valid num_bits for logic constraints
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 1,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 1 };
+
+    AcirFormat constraint_system{
+        .varnum = 3,
+        .num_acir_opcodes = 3,
+        .public_inputs = {},
+        .logic_constraints = { xor_constraint },
+        .range_constraints = { range_0, range_1 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "1-bit XOR should be processed correctly";
+}
+
+/**
+ * @brief Test 8-bit logic constraint
+ * @details 8-bit AND operation - common for byte-level operations
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
+{
+    LogicConstraint and_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 8,
+        .is_xor_gate = 0,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
+
+    AcirFormat constraint_system{
+        .varnum = 3,
+        .num_acir_opcodes = 3,
+        .public_inputs = {},
+        .logic_constraints = { and_constraint },
+        .range_constraints = { range_0, range_1 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "8-bit AND should be processed correctly";
+}
+
+/**
+ * @brief Test 128-bit logic constraint - verifies 4 chunk accumulation
+ * @details 128 bits = 4 full 32-bit chunks, tests longer accumulation chains
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 128,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 128 };
+
+    AcirFormat constraint_system{
+        .varnum = 3,
+        .num_acir_opcodes = 3,
+        .public_inputs = {},
+        .logic_constraints = { xor_constraint },
+        .range_constraints = { range_0, range_1 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0);
+}
+
+/**
+ * @brief Test mixed logic constraints with different valid bit widths
+ * @details Combines 8-bit XOR, 32-bit AND, and 64-bit XOR to verify independent processing
+ *          Valid num_bits: 1, 8, 32, 64, 128
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapMixedBitWidths)
+{
+    LogicConstraint xor_8{
+        .a = witness_from_index(0),
+        .b = witness_from_index(1),
+        .result = 2,
+        .num_bits = 8,
+        .is_xor_gate = 1,
+    };
+    LogicConstraint and_32{
+        .a = witness_from_index(3),
+        .b = witness_from_index(4),
+        .result = 5,
+        .num_bits = 32,
+        .is_xor_gate = 0,
+    };
+    LogicConstraint xor_64{
+        .a = witness_from_index(6),
+        .b = witness_from_index(7),
+        .result = 8,
+        .num_bits = 64,
+        .is_xor_gate = 1,
+    };
+
+    RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
+    RangeConstraint range_1{ .witness = 1, .num_bits = 8 };
+    RangeConstraint range_3{ .witness = 3, .num_bits = 32 };
+    RangeConstraint range_4{ .witness = 4, .num_bits = 32 };
+    RangeConstraint range_6{ .witness = 6, .num_bits = 64 };
+    RangeConstraint range_7{ .witness = 7, .num_bits = 64 };
+
+    AcirFormat constraint_system{
+        .varnum = 9,
+        .num_acir_opcodes = 9,
+        .public_inputs = {},
+        .logic_constraints = { xor_8, and_32, xor_64 },
+        .range_constraints = { range_0, range_1, range_3, range_4, range_6, range_7 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    size_t logic_count = 0;
+    size_t range_count = 0;
+    for (const auto& [opcode_idx, constraint_info] : opcode_map) {
+        if (constraint_info.type == AcirConstraintType::LOGIC) {
+            logic_count++;
+        } else if (constraint_info.type == AcirConstraintType::RANGE) {
+            range_count++;
+        }
+    }
+
+    EXPECT_EQ(logic_count, 3);
+    EXPECT_EQ(range_count, 6);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0);
+}
+
+/**
+ * @brief Test logic constraint with one constant operand (32-bit)
+ * @details When b is constant, chunks are still witness variables but derived from constant
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand32Bit)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = constant_from_value(42), // Constant operand
         .result = 1,
         .num_bits = 32,
         .is_xor_gate = 1,
     };
-
-    RangeConstraint range_a{ .witness = 0, .num_bits = 32 };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 32 };
 
     AcirFormat constraint_system{
         .varnum = 2,
         .num_acir_opcodes = 2,
         .public_inputs = {},
-        .logic_constraints = { logic_constraint },
-        .range_constraints = { range_a },
+        .logic_constraints = { xor_constraint },
+        .range_constraints = { range_0 },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
 
-    WitnessVector witness{ 5, 15 }; // 5 XOR 10 = 15
-    AcirProgram program{ constraint_system, witness };
-    UltraCircuitBuilder builder = create_circuit(program);
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    // Verify logic witness tracking
-    const auto& logic_witnesses = builder.get_all_logic_witnesses();
-    EXPECT_EQ(logic_witnesses.size(), constraint_system.logic_constraints.size());
-    EXPECT_EQ(logic_witnesses.size(), 1);
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "32-bit XOR with constant operand should be processed correctly";
+}
+
+/**
+ * @brief Test 1-bit logic constraint with one constant operand
+ * @details Boolean XOR with one constant operand
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand1Bit)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = constant_from_value(1), // Constant operand
+        .result = 1,
+        .num_bits = 1,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 1 };
+
+    AcirFormat constraint_system{
+        .varnum = 2,
+        .num_acir_opcodes = 2,
+        .public_inputs = {},
+        .logic_constraints = { xor_constraint },
+        .range_constraints = { range_0 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "1-bit XOR with constant operand should be processed correctly";
+}
+
+/**
+ * @brief Test 8-bit logic constraint with one constant operand
+ * @details Byte-level AND with one constant operand
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand8Bit)
+{
+    LogicConstraint and_constraint{
+        .a = witness_from_index(0),
+        .b = constant_from_value(0xFF), // Constant operand (all bits set)
+        .result = 1,
+        .num_bits = 8,
+        .is_xor_gate = 0,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 8 };
+
+    AcirFormat constraint_system{
+        .varnum = 2,
+        .num_acir_opcodes = 2,
+        .public_inputs = {},
+        .logic_constraints = { and_constraint },
+        .range_constraints = { range_0 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "8-bit AND with constant operand should be processed correctly";
+}
+
+/**
+ * @brief Test 64-bit logic constraint with one constant operand
+ * @details 64-bit XOR with one constant, tests multi-chunk with constant
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand64Bit)
+{
+    LogicConstraint xor_constraint{
+        .a = witness_from_index(0),
+        .b = constant_from_value(123), // Constant operand
+        .result = 1,
+        .num_bits = 64,
+        .is_xor_gate = 1,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 64 };
+
+    AcirFormat constraint_system{
+        .varnum = 2,
+        .num_acir_opcodes = 2,
+        .public_inputs = {},
+        .logic_constraints = { xor_constraint },
+        .range_constraints = { range_0 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "64-bit XOR with constant operand should be processed correctly";
+}
+
+/**
+ * @brief Test 128-bit logic constraint with one constant operand
+ * @details 128-bit AND with one constant, tests 4-chunk accumulation with constant
+ */
+TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand128Bit)
+{
+    LogicConstraint and_constraint{
+        .a = witness_from_index(0),
+        .b = constant_from_value(255), // Constant operand
+        .result = 1,
+        .num_bits = 128,
+        .is_xor_gate = 0,
+    };
+    RangeConstraint range_0{ .witness = 0, .num_bits = 128 };
+
+    AcirFormat constraint_system{
+        .varnum = 2,
+        .num_acir_opcodes = 2,
+        .public_inputs = {},
+        .logic_constraints = { and_constraint },
+        .range_constraints = { range_0 },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    const auto& opcode_map = analyzer.build_opcode_type_map();
+
+    EXPECT_EQ(opcode_map.size(), constraint_system.num_acir_opcodes);
+
+    std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_EQ(opcodes.size(), 0) << "128-bit AND with constant operand should be processed correctly";
 }
