@@ -8,9 +8,8 @@ Files requiring internal audit (status: Planned)
 
 | File | Status | Auditor |
 |------|--------|---------|
-| `hypernova/hypernova_prover.cpp` | Planned | |
-| `hypernova/hypernova_prover.hpp` | Planned | |
-| `hypernova/types.hpp` | Planned | |
+| `hypernova/hypernova_prover.cpp` | Complete| |
+| `hypernova/hypernova_prover.hpp` | Complete | |
 
 ## Multilinear Batching Components
 
