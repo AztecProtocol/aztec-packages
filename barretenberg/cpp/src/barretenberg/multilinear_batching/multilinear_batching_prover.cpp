@@ -1,16 +1,10 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "multilinear_batching_prover.hpp"
-#include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -28,6 +22,7 @@ void MultilinearBatchingProver::execute_commitments_round()
     transcript->send_to_verifier("non_shifted_accumulator_commitment", key.non_shifted_accumulator_commitment);
     transcript->send_to_verifier("shifted_accumulator_commitment", key.shifted_accumulator_commitment);
 }
+
 void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
 {
     BB_BENCH();
@@ -39,10 +34,6 @@ void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
     }
 }
 
-/**
- * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
- *
- */
 void MultilinearBatchingProver::execute_relation_check_rounds()
 {
     BB_BENCH();
@@ -69,17 +60,12 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 {
     BB_BENCH();
 
-    // Batching challenge: the new claim is computed as instance + challenge * accumulator
-    auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
+    const FF claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
 
-    // New polynomials
-    auto new_non_shifted_polynomial = Polynomial(key.circuit_size);
-    new_non_shifted_polynomial += key.polynomials.batched_unshifted_instance;
-    new_non_shifted_polynomial.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
-
-    auto new_shifted_polynomial = Polynomial::shiftable(key.circuit_size);
-    new_shifted_polynomial += key.preshifted_instance;
-    new_shifted_polynomial.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+    // Update polynomials in place: instance += challenge * accumulator
+    key.polynomials.batched_unshifted_instance.add_scaled(key.polynomials.batched_unshifted_accumulator,
+                                                          claim_batching_challenge);
+    key.preshifted_instance.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
 
     // New commitments
     auto new_non_shifted_commitment =
@@ -95,16 +81,15 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
         sumcheck_output.claimed_evaluations.batched_shifted_instance +
         sumcheck_output.claimed_evaluations.batched_shifted_accumulator * claim_batching_challenge;
 
-    return MultilinearBatchingProverClaim{ .challenge = sumcheck_output.challenge,
+    return MultilinearBatchingProverClaim{ .challenge = std::move(sumcheck_output.challenge),
                                            .non_shifted_evaluation = new_non_shifted_evaluation,
                                            .shifted_evaluation = new_shifted_evaluation,
-                                           .non_shifted_polynomial = new_non_shifted_polynomial,
-                                           .shifted_polynomial = new_shifted_polynomial,
+                                           .non_shifted_polynomial =
+                                               std::move(key.polynomials.batched_unshifted_instance),
+                                           .shifted_polynomial = std::move(key.preshifted_instance),
                                            .non_shifted_commitment = new_non_shifted_commitment,
                                            .shifted_commitment = new_shifted_commitment,
-                                           .dyadic_size = key.circuit_size
-
-    };
+                                           .dyadic_size = key.circuit_size };
 }
 
 HonkProof MultilinearBatchingProver::export_proof()
@@ -116,13 +101,8 @@ HonkProof MultilinearBatchingProver::construct_proof()
 {
     BB_BENCH_NAME("MultilinearBatchingProver::construct_proof");
 
-    // Add circuit size public input size and public inputs to transcript.
     execute_commitments_round();
-
-    // Fiat-Shamir: challenges and evaluations
     execute_challenges_and_evaluations_round();
-    // Fiat-Shamir: alpha
-    // Run sumcheck subprotocol.
     execute_relation_check_rounds();
 
     vinfo("MultilinearBatchingProver:: Computed batching proof");
