@@ -813,12 +813,26 @@ describe('Archiver', () => {
     await archiver.syncImmediate();
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
 
+    // Verify L2Tips after syncing checkpoint 2
+    const lastBlockInCheckpoint2 = allCheckpoints[1].blocks[allCheckpoints[1].blocks.length - 1].number;
+    const tipsAtCheckpoint2 = await archiver.getL2Tips();
+    expect(tipsAtCheckpoint2.proposed.number).toEqual(lastBlockInCheckpoint2);
+    expect(tipsAtCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
+    expect(tipsAtCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+
     logger.warn(`Expecting prune back to checkpoint 1`);
     publicClient.getBlockNumber.mockResolvedValue(95n);
     checkpoints = checkpoints.slice(0, 1); // Keep only checkpoint 1 as the valid checkpoint
     await archiver.syncImmediate();
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`L2 prune has been detected`), expect.anything());
     expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+    // Verify L2Tips after pruning back to checkpoint 1
+    const lastBlockInCheckpoint1 = allCheckpoints[0].blocks[allCheckpoints[0].blocks.length - 1].number;
+    const tipsAfterPrune = await archiver.getL2Tips();
+    expect(tipsAfterPrune.proposed.number).toEqual(lastBlockInCheckpoint1);
+    expect(tipsAfterPrune.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+    expect(tipsAfterPrune.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
     const txHash = allCheckpoints[1].blocks[0].body.txEffects[0].txHash;
     expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
@@ -1678,6 +1692,83 @@ describe('Archiver', () => {
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
     });
 
+    it('retrieves multiple blocks with getL2BlocksNew', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+      await archiver.addBlock(block3);
+
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 3);
+      expect(blocks.length).toEqual(3);
+      expect(await blocks[0].hash()).toEqual(await block1.hash());
+      expect(await blocks[1].hash()).toEqual(await block2.hash());
+      expect(await blocks[2].hash()).toEqual(await block3.hash());
+    });
+
+    it('retrieves blocks with limit in getL2BlocksNew', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+      await archiver.addBlock(block3);
+
+      // Request only 2 blocks starting from block 1
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 2);
+      expect(blocks.length).toEqual(2);
+      expect(await blocks[0].hash()).toEqual(await block1.hash());
+      expect(await blocks[1].hash()).toEqual(await block2.hash());
+    });
+
+    it('retrieves blocks starting from middle with getL2BlocksNew', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+      await archiver.addBlock(block3);
+
+      // Start from block 2
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(2), 2);
+      expect(blocks.length).toEqual(2);
+      expect(await blocks[0].hash()).toEqual(await block2.hash());
+      expect(await blocks[1].hash()).toEqual(await block3.hash());
+    });
+
+    it('returns empty array when requesting blocks beyond available range', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+
+      await archiver.addBlock(block1);
+
+      // Request blocks starting from block 5 (which doesn't exist)
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(5), 3);
+      expect(blocks).toEqual([]);
+    });
+
+    it('returns partial results when limit exceeds available blocks', async () => {
+      setupMinimalL1Mocks();
+      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+
+      await archiver.addBlock(block1);
+      await archiver.addBlock(block2);
+
+      // Request 10 blocks but only 2 are available
+      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 10);
+      expect(blocks.length).toEqual(2);
+      expect(await blocks[0].hash()).toEqual(await block1.hash());
+      expect(await blocks[1].hash()).toEqual(await block2.hash());
+    });
+
     it('blocks added via addBlock become checkpointed when checkpoint syncs from L1', async () => {
       // First, sync checkpoint 1 from L1 to establish a baseline
       const checkpoint1 = checkpoints[0];
@@ -1710,6 +1801,12 @@ describe('Archiver', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = checkpoint1.blocks[checkpoint1.blocks.length - 1].number;
 
+      // Verify L2Tips after syncing checkpoint 1: proposed and checkpointed should both be at checkpoint 1
+      const tipsAfterCheckpoint1 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint1.proposed.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+
       // Now add blocks for checkpoint 2 via addBlock (simulating local block production)
       const checkpoint2 = checkpoints[1];
       for (const block of checkpoint2.blocks) {
@@ -1720,6 +1817,12 @@ describe('Archiver', () => {
       const lastBlockInCheckpoint2 = checkpoint2.blocks[checkpoint2.blocks.length - 1].number;
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Verify L2Tips after adding blocks: proposed advances but checkpointed stays at checkpoint 1
+      const tipsAfterAddBlock = await archiver.getL2Tips();
+      expect(tipsAfterAddBlock.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterAddBlock.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterAddBlock.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
       // getCheckpointedBlock should return undefined for the new blocks since checkpoint 2 hasn't synced
       const firstNewBlockNumber = lastBlockInCheckpoint1 + 1;
@@ -1748,6 +1851,12 @@ describe('Archiver', () => {
 
       // Now the blocks should be checkpointed
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Verify L2Tips after syncing checkpoint 2: proposed and checkpointed should both be at checkpoint 2
+      const tipsAfterCheckpoint2 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint2.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
 
       // getCheckpointedBlock should now work for the new blocks
       const checkpointedBlock = await archiver.getCheckpointedBlock(BlockNumber(firstNewBlockNumber));
@@ -1825,6 +1934,12 @@ describe('Archiver', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = checkpoint1.blocks[checkpoint1.blocks.length - 1].number;
 
+      // Verify L2Tips after syncing checkpoint 1: proposed and checkpointed at checkpoint 1
+      const tipsAfterCheckpoint1 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint1.proposed.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterCheckpoint1.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+
       // Now add more blocks via addBlock (simulating local block production ahead of L1)
       const checkpoint2 = checkpoints[1];
       for (const block of checkpoint2.blocks) {
@@ -1837,6 +1952,12 @@ describe('Archiver', () => {
 
       // But checkpoint number should still be 1
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Verify L2Tips after adding blocks: proposed advances, checkpointed stays at checkpoint 1
+      const tipsAfterAddBlock = await archiver.getL2Tips();
+      expect(tipsAfterAddBlock.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterAddBlock.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
+      expect(tipsAfterAddBlock.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
       // New blocks should not be checkpointed yet
       const firstNewBlockNumber = lastBlockInCheckpoint1 + 1;
@@ -1862,6 +1983,12 @@ describe('Archiver', () => {
       // Now all blocks should be checkpointed
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
 
+      // Verify L2Tips after syncing checkpoint 2: both proposed and checkpointed at checkpoint 2
+      const tipsAfterCheckpoint2 = await archiver.getL2Tips();
+      expect(tipsAfterCheckpoint2.proposed.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
+      expect(tipsAfterCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+
       const checkpointedBlock = await archiver.getCheckpointedBlock(BlockNumber(firstNewBlockNumber));
       expect(checkpointedBlock).toBeDefined();
       expect(checkpointedBlock!.checkpointNumber).toEqual(2);
@@ -1870,6 +1997,371 @@ describe('Archiver', () => {
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
+
+  describe('getCheckpointedBlocks', () => {
+    it('returns checkpointed blocks with checkpoint info', async () => {
+      const rollupTxs = checkpoints.map(c => makeRollupTx(c));
+      const blobHashes = checkpoints.map(makeVersionedBlobHashes);
+
+      mockL1BlockNumbers(100n);
+
+      mockRollup.read.status.mockResolvedValue([
+        0n,
+        GENESIS_ROOT,
+        3n,
+        checkpoints[2].archive.root.toString(),
+        GENESIS_ROOT,
+      ]);
+
+      checkpoints.forEach((c, i) =>
+        makeCheckpointProposedEvent(70n + BigInt(i) * 10n, c.number, c.archive.root.toString(), blobHashes[i]),
+      );
+      messagesPerCheckpoint.forEach((messages, i) =>
+        makeMessageSentEvents(60n + BigInt(i) * 5n, checkpoints[i].number, messages),
+      );
+      mockInbox.read.getState.mockResolvedValue(
+        makeInboxStateFromMsgCount(messagesPerCheckpoint.reduce((acc, curr) => acc + curr.length, 0)),
+      );
+
+      rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+      const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+      await archiver.start(false);
+      await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+
+      // Get checkpointed blocks starting from block 1
+      const checkpointedBlocks = await archiver.getCheckpointedBlocks(BlockNumber(1), 100);
+
+      // Should return all blocks from all checkpoints
+      const expectedBlocks = checkpoints.flatMap(c => c.blocks);
+      expect(checkpointedBlocks.length).toBe(expectedBlocks.length);
+
+      // Verify blocks are returned in correct order and have correct checkpoint info
+      let blockIndex = 0;
+      for (let cpIdx = 0; cpIdx < checkpoints.length; cpIdx++) {
+        const checkpoint = checkpoints[cpIdx];
+        for (let i = 0; i < checkpoint.blocks.length; i++) {
+          const cb = checkpointedBlocks[blockIndex];
+          const expectedBlock = checkpoint.blocks[i];
+
+          // Verify block number matches
+          expect(cb.block.number).toBe(expectedBlock.number);
+
+          // Verify checkpoint number is correct
+          expect(cb.checkpointNumber).toBe(checkpoint.number);
+
+          // Verify archive root matches (more reliable than hash which depends on L1-to-L2 messages)
+          expect(cb.block.archive.root.toString()).toBe(expectedBlock.archive.root.toString());
+
+          // Verify L1 published data is present
+          expect(cb.l1).toBeDefined();
+          expect(cb.l1.blockNumber).toBeGreaterThan(0n);
+
+          blockIndex++;
+        }
+      }
+    }, 10_000);
+
+    it('respects the limit parameter', async () => {
+      const rollupTxs = checkpoints.map(c => makeRollupTx(c));
+      const blobHashes = checkpoints.map(makeVersionedBlobHashes);
+
+      mockL1BlockNumbers(100n);
+
+      mockRollup.read.status.mockResolvedValue([
+        0n,
+        GENESIS_ROOT,
+        3n,
+        checkpoints[2].archive.root.toString(),
+        GENESIS_ROOT,
+      ]);
+
+      checkpoints.forEach((c, i) =>
+        makeCheckpointProposedEvent(70n + BigInt(i) * 10n, c.number, c.archive.root.toString(), blobHashes[i]),
+      );
+      messagesPerCheckpoint.forEach((messages, i) =>
+        makeMessageSentEvents(60n + BigInt(i) * 5n, checkpoints[i].number, messages),
+      );
+      mockInbox.read.getState.mockResolvedValue(
+        makeInboxStateFromMsgCount(messagesPerCheckpoint.reduce((acc, curr) => acc + curr.length, 0)),
+      );
+
+      rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+      const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+      await archiver.start(false);
+      await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+
+      // Get only 2 checkpointed blocks starting from block 1 (out of 3 total)
+      const checkpointedBlocks = await archiver.getCheckpointedBlocks(BlockNumber(1), 2);
+      expect(checkpointedBlocks.length).toBe(2);
+
+      // Verify exact block numbers (blocks 1 and 2)
+      expect(checkpointedBlocks[0].block.number).toBe(BlockNumber(1));
+      expect(checkpointedBlocks[1].block.number).toBe(BlockNumber(2));
+
+      // Verify archive roots match original checkpoint blocks
+      expect(checkpointedBlocks[0].block.archive.root.toString()).toBe(
+        checkpoints[0].blocks[0].archive.root.toString(),
+      );
+      expect(checkpointedBlocks[1].block.archive.root.toString()).toBe(
+        checkpoints[1].blocks[0].archive.root.toString(),
+      );
+
+      // Verify checkpoint numbers (block 1 is from checkpoint 1, block 2 is from checkpoint 2)
+      expect(checkpointedBlocks[0].checkpointNumber).toBe(1);
+      expect(checkpointedBlocks[1].checkpointNumber).toBe(2);
+    }, 10_000);
+
+    it('returns blocks starting from specified block number', async () => {
+      const rollupTxs = checkpoints.map(c => makeRollupTx(c));
+      const blobHashes = checkpoints.map(makeVersionedBlobHashes);
+
+      mockL1BlockNumbers(100n);
+
+      mockRollup.read.status.mockResolvedValue([
+        0n,
+        GENESIS_ROOT,
+        3n,
+        checkpoints[2].archive.root.toString(),
+        GENESIS_ROOT,
+      ]);
+
+      checkpoints.forEach((c, i) =>
+        makeCheckpointProposedEvent(70n + BigInt(i) * 10n, c.number, c.archive.root.toString(), blobHashes[i]),
+      );
+      messagesPerCheckpoint.forEach((messages, i) =>
+        makeMessageSentEvents(60n + BigInt(i) * 5n, checkpoints[i].number, messages),
+      );
+      mockInbox.read.getState.mockResolvedValue(
+        makeInboxStateFromMsgCount(messagesPerCheckpoint.reduce((acc, curr) => acc + curr.length, 0)),
+      );
+
+      rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+      const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+      await archiver.start(false);
+      await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+
+      // Get blocks starting from block 2 (skip block 1, get blocks 2 and 3)
+      const checkpointedBlocks = await archiver.getCheckpointedBlocks(BlockNumber(2), 10);
+
+      // Should return 2 blocks (blocks 2 and 3 - since there are only 3 blocks total, 1 per checkpoint)
+      expect(checkpointedBlocks.length).toBe(2);
+
+      // Verify block numbers are sequential starting from 2
+      expect(checkpointedBlocks[0].block.number).toBe(BlockNumber(2));
+      expect(checkpointedBlocks[1].block.number).toBe(BlockNumber(3));
+
+      // Verify checkpoint numbers (block 2 is from checkpoint 2, block 3 is from checkpoint 3)
+      expect(checkpointedBlocks[0].checkpointNumber).toBe(2);
+      expect(checkpointedBlocks[1].checkpointNumber).toBe(3);
+
+      // Verify archive roots match expected blocks from checkpoints
+      expect(checkpointedBlocks[0].block.archive.root.toString()).toBe(
+        checkpoints[1].blocks[0].archive.root.toString(),
+      );
+      expect(checkpointedBlocks[1].block.archive.root.toString()).toBe(
+        checkpoints[2].blocks[0].archive.root.toString(),
+      );
+    }, 10_000);
+
+    it('returns empty array when no checkpointed blocks exist', async () => {
+      mockL1BlockNumbers(100n);
+      mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
+      mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(0));
+
+      await archiver.start(false);
+
+      const checkpointedBlocks = await archiver.getCheckpointedBlocks(BlockNumber(1), 10);
+      expect(checkpointedBlocks).toEqual([]);
+    }, 10_000);
+
+    it('filters by proven status when proven=true', async () => {
+      const rollupTxs = checkpoints.map(c => makeRollupTx(c));
+      const blobHashes = checkpoints.map(makeVersionedBlobHashes);
+
+      mockL1BlockNumbers(100n);
+
+      // Set checkpoint 1 as proven (provenCheckpointNumber = 1)
+      mockRollup.read.status.mockResolvedValue([
+        1n, // provenCheckpointNumber
+        checkpoints[0].archive.root.toString(), // provenArchive
+        3n, // pendingCheckpointNumber
+        checkpoints[2].archive.root.toString(), // pendingArchive
+        checkpoints[0].archive.root.toString(), // archiveForLocalPendingCheckpointNumber
+      ]);
+
+      checkpoints.forEach((c, i) =>
+        makeCheckpointProposedEvent(70n + BigInt(i) * 10n, c.number, c.archive.root.toString(), blobHashes[i]),
+      );
+      messagesPerCheckpoint.forEach((messages, i) =>
+        makeMessageSentEvents(60n + BigInt(i) * 5n, checkpoints[i].number, messages),
+      );
+      mockInbox.read.getState.mockResolvedValue(
+        makeInboxStateFromMsgCount(messagesPerCheckpoint.reduce((acc, curr) => acc + curr.length, 0)),
+      );
+
+      rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+      const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+      await archiver.start(false);
+      await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+
+      // Get all checkpointed blocks without proven filter
+      const allBlocks = await archiver.getCheckpointedBlocks(BlockNumber(1), 100);
+      const totalBlocks = checkpoints.reduce((acc, c) => acc + c.blocks.length, 0);
+      expect(allBlocks.length).toBe(totalBlocks);
+
+      // Get only proven checkpointed blocks (should only include blocks from checkpoint 1)
+      const provenBlocks = await archiver.getCheckpointedBlocks(BlockNumber(1), 100, true);
+      const checkpoint1Blocks = checkpoints[0].blocks;
+      expect(provenBlocks.length).toBe(checkpoint1Blocks.length);
+
+      // Verify all proven blocks are from checkpoint 1 and match expected blocks
+      for (let i = 0; i < provenBlocks.length; i++) {
+        const cb = provenBlocks[i];
+        expect(cb.checkpointNumber).toBe(1);
+        expect(cb.block.number).toBe(checkpoint1Blocks[i].number);
+
+        // Verify archive root matches (more reliable than hash which depends on L1-to-L2 messages)
+        expect(cb.block.archive.root.toString()).toBe(checkpoint1Blocks[i].archive.root.toString());
+      }
+
+      // Verify the last proven block number matches the last block of checkpoint 1
+      const lastProvenBlock = provenBlocks[provenBlocks.length - 1];
+      const lastCheckpoint1Block = checkpoint1Blocks[checkpoint1Blocks.length - 1];
+      expect(lastProvenBlock.block.number).toBe(lastCheckpoint1Block.number);
+    }, 10_000);
+  });
+
+  describe('getL2BlocksNew with proven filter', () => {
+    it('filters by proven status when proven=true', async () => {
+      const rollupTxs = checkpoints.map(c => makeRollupTx(c));
+      const blobHashes = checkpoints.map(makeVersionedBlobHashes);
+
+      mockL1BlockNumbers(100n);
+
+      // Set checkpoint 1 as proven (provenCheckpointNumber = 1)
+      mockRollup.read.status.mockResolvedValue([
+        1n, // provenCheckpointNumber
+        checkpoints[0].archive.root.toString(), // provenArchive
+        3n, // pendingCheckpointNumber
+        checkpoints[2].archive.root.toString(), // pendingArchive
+        checkpoints[0].archive.root.toString(), // archiveForLocalPendingCheckpointNumber
+      ]);
+
+      checkpoints.forEach((c, i) =>
+        makeCheckpointProposedEvent(70n + BigInt(i) * 10n, c.number, c.archive.root.toString(), blobHashes[i]),
+      );
+      messagesPerCheckpoint.forEach((messages, i) =>
+        makeMessageSentEvents(60n + BigInt(i) * 5n, checkpoints[i].number, messages),
+      );
+      mockInbox.read.getState.mockResolvedValue(
+        makeInboxStateFromMsgCount(messagesPerCheckpoint.reduce((acc, curr) => acc + curr.length, 0)),
+      );
+
+      rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+      const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+      await archiver.start(false);
+      await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+
+      // Get all blocks without proven filter
+      const allBlocks = await archiver.getL2BlocksNew(BlockNumber(1), 100);
+      const totalBlocks = checkpoints.reduce((acc, c) => acc + c.blocks.length, 0);
+      expect(allBlocks.length).toBe(totalBlocks);
+
+      // Get only proven blocks (should only include blocks from checkpoint 1)
+      const provenBlocks = await archiver.getL2BlocksNew(BlockNumber(1), 100, true);
+      const checkpoint1Blocks = checkpoints[0].blocks;
+      expect(provenBlocks.length).toBe(checkpoint1Blocks.length);
+
+      // Verify block numbers match checkpoint 1 blocks
+      for (let i = 0; i < provenBlocks.length; i++) {
+        expect(provenBlocks[i].number).toBe(checkpoint1Blocks[i].number);
+
+        // Verify archive root matches (more reliable than hash which depends on L1-to-L2 messages)
+        expect(provenBlocks[i].archive.root.toString()).toBe(checkpoint1Blocks[i].archive.root.toString());
+      }
+
+      // Verify the last proven block is the last block of checkpoint 1
+      const lastProvenBlockNumber = checkpoint1Blocks[checkpoint1Blocks.length - 1].number;
+      expect(provenBlocks[provenBlocks.length - 1].number).toBe(lastProvenBlockNumber);
+
+      // Verify no unproven blocks are included
+      const unprovenBlockNumbers = checkpoints.slice(1).flatMap(c => c.blocks.map(b => b.number));
+      provenBlocks.forEach(b => {
+        expect(unprovenBlockNumbers).not.toContain(b.number);
+      });
+    }, 10_000);
+
+    it('returns all blocks when proven=false or undefined', async () => {
+      const rollupTxs = checkpoints.map(c => makeRollupTx(c));
+      const blobHashes = checkpoints.map(makeVersionedBlobHashes);
+
+      mockL1BlockNumbers(100n);
+
+      // Set checkpoint 1 as proven
+      mockRollup.read.status.mockResolvedValue([
+        1n,
+        checkpoints[0].archive.root.toString(),
+        3n,
+        checkpoints[2].archive.root.toString(),
+        checkpoints[0].archive.root.toString(),
+      ]);
+
+      checkpoints.forEach((c, i) =>
+        makeCheckpointProposedEvent(70n + BigInt(i) * 10n, c.number, c.archive.root.toString(), blobHashes[i]),
+      );
+      messagesPerCheckpoint.forEach((messages, i) =>
+        makeMessageSentEvents(60n + BigInt(i) * 5n, checkpoints[i].number, messages),
+      );
+      mockInbox.read.getState.mockResolvedValue(
+        makeInboxStateFromMsgCount(messagesPerCheckpoint.reduce((acc, curr) => acc + curr.length, 0)),
+      );
+
+      rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+      const blobsFromCheckpoints = checkpoints.map(c => makeBlobsFromCheckpoint(c));
+      blobsFromCheckpoints.forEach(blobs => blobClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+      await archiver.start(false);
+      await waitUntilArchiverCheckpoint(CheckpointNumber(3));
+
+      const expectedBlocks = checkpoints.flatMap(c => c.blocks);
+      const totalBlocks = expectedBlocks.length;
+
+      // Get blocks with proven=false - should include all blocks
+      const blocksProvenFalse = await archiver.getL2BlocksNew(BlockNumber(1), 100, false);
+      expect(blocksProvenFalse.length).toBe(totalBlocks);
+
+      // Verify all block numbers are present
+      for (let i = 0; i < blocksProvenFalse.length; i++) {
+        expect(blocksProvenFalse[i].number).toBe(expectedBlocks[i].number);
+      }
+
+      // Get blocks with proven=undefined - should include all blocks
+      const blocksProvenUndefined = await archiver.getL2BlocksNew(BlockNumber(1), 100);
+      expect(blocksProvenUndefined.length).toBe(totalBlocks);
+
+      // Verify all block numbers match
+      for (let i = 0; i < blocksProvenUndefined.length; i++) {
+        expect(blocksProvenUndefined[i].number).toBe(expectedBlocks[i].number);
+      }
+
+      // Verify blocks include unproven blocks (from checkpoints 2 and 3)
+      const unprovenBlockNumbers = checkpoints.slice(1).flatMap(c => c.blocks.map(b => b.number));
+      const returnedBlockNumbers = blocksProvenFalse.map(b => b.number);
+      unprovenBlockNumbers.forEach(unprovenNum => {
+        expect(returnedBlockNumbers).toContain(unprovenNum);
+      });
+    }, 10_000);
+  });
 
   const waitUntilArchiverCheckpoint = async (checkpointNumber: CheckpointNumber) => {
     logger.info(`Waiting for archiver to sync to checkpoint ${checkpointNumber}`);

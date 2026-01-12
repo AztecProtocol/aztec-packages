@@ -7,11 +7,13 @@ import { isDefined } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type CheckpointId,
   CommitteeAttestation,
   L2Block,
   type L2BlockId,
   type L2BlockNew,
   type L2BlockSource,
+  type L2TipId,
   type L2Tips,
   PublishedL2Block,
   type ValidateBlockResult,
@@ -91,6 +93,16 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
   getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
     return this.retrievePublishedBlocks(from, limit, proven);
+  }
+
+  async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+    const blocks = await this.store.getBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.number <= provenBlockNumber);
+    }
+    return blocks;
   }
 
   private async retrievePublishedBlocks(
@@ -211,10 +223,25 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
     const number = blockHeader.globalVariables.blockNumber;
     const hash = (await blockHeader.hash()).toString();
+    const checkpointedBlock = await this.getCheckpointedBlock(number);
+    if (!checkpointedBlock) {
+      throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
+    }
+    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber(number), 1);
+    if (checkpoint.length === 0) {
+      throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
+    }
+    const blockId: L2BlockId = { number, hash };
+    const checkpointId: CheckpointId = {
+      number: checkpoint[0].checkpointNumber,
+      hash: checkpoint[0].header.hash().toString(),
+    };
+    const tipId: L2TipId = { block: blockId, checkpoint: checkpointId };
     return {
-      latest: { number, hash } as L2BlockId,
-      proven: { number, hash } as L2BlockId,
-      finalized: { number, hash } as L2BlockId,
+      proposed: blockId,
+      proven: tipId,
+      finalized: tipId,
+      checkpointed: tipId,
     };
   }
 
@@ -259,5 +286,9 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
   }
   getPublishedBlockByArchive(_archive: Fr): Promise<PublishedL2Block | undefined> {
     throw new Error('Method not implemented.');
+  }
+
+  getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean): Promise<never[]> {
+    throw new Error('TXE Archiver does not implement "getCheckpointedBlocks"');
   }
 }

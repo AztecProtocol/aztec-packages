@@ -1,9 +1,10 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import { type L2BlockId, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
+import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
+import { type L2BlockId, type L2BlockPruneReason, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
@@ -13,7 +14,10 @@ export class L2BlockStream {
   private hasStarted = false;
 
   constructor(
-    private l2BlockSource: Pick<L2BlockSource, 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'>,
+    private l2BlockSource: Pick<
+      L2BlockSource,
+      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints' | 'getCheckpointedBlocks'
+    >,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
@@ -24,6 +28,8 @@ export class L2BlockStream {
       startingBlock?: number;
       /** Instead of downloading all blocks, only fetch the smallest subset that results in reliable reorg detection. */
       skipFinalized?: boolean;
+      /** When true, checkpoint events will not be emitted. Blocks are still fetched via checkpoints but only blocks-added events are emitted. */
+      ignoreCheckpoints?: boolean;
     } = {},
   ) {
     // Note that RunningPromise is in stopped state by default. This promise won't run until someone invokes `start`,
@@ -62,35 +68,50 @@ export class L2BlockStream {
       const sourceTips = await this.l2BlockSource.getL2Tips();
       const localTips = await this.localData.getL2Tips();
       this.log.trace(`Running L2 block stream`, {
-        sourceLatest: sourceTips.latest.number,
-        localLatest: localTips.latest.number,
-        sourceFinalized: sourceTips.finalized.number,
-        localFinalized: localTips.finalized.number,
-        sourceProven: sourceTips.proven.number,
-        localProven: localTips.proven.number,
-        sourceLatestHash: sourceTips.latest.hash,
-        localLatestHash: localTips.latest.hash,
-        sourceProvenHash: sourceTips.proven.hash,
-        localProvenHash: localTips.proven.hash,
-        sourceFinalizedHash: sourceTips.finalized.hash,
-        localFinalizedHash: localTips.finalized.hash,
+        sourceLatest: sourceTips.proposed.number,
+        localLatest: localTips.proposed.number,
+        sourceFinalized: sourceTips.finalized.block.number,
+        localFinalized: localTips.finalized.block.number,
+        sourceProven: sourceTips.proven.block.number,
+        localProven: localTips.proven.block.number,
+        sourceLatestHash: sourceTips.proposed.hash,
+        localLatestHash: localTips.proposed.hash,
+        sourceProvenHash: sourceTips.proven.block.hash,
+        localProvenHash: localTips.proven.block.hash,
+        sourceFinalizedHash: sourceTips.finalized.block.hash,
+        localFinalizedHash: localTips.finalized.block.hash,
       });
 
       // Check if there was a reorg and emit a chain-pruned event if so.
-      let latestBlockNumber = localTips.latest.number;
-      const sourceCache = new BlockHashCache([sourceTips.latest]);
+      let latestBlockNumber = localTips.proposed.number;
+      const sourceCache = new BlockHashCache([sourceTips.proposed]);
       while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
         latestBlockNumber--;
       }
 
-      if (latestBlockNumber < localTips.latest.number) {
-        latestBlockNumber = BlockNumber(Math.min(latestBlockNumber, sourceTips.latest.number)); // see #13471
+      if (latestBlockNumber < localTips.proposed.number) {
+        latestBlockNumber = BlockNumber(Math.min(latestBlockNumber, sourceTips.proposed.number)); // see #13471
         const hash = sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber));
         if (latestBlockNumber !== 0 && !hash) {
           throw new Error(`Block hash not found in block source for block number ${latestBlockNumber}`);
         }
-        this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
-        await this.emitEvent({ type: 'chain-pruned', block: makeL2BlockId(latestBlockNumber, hash) });
+        this.log.verbose(
+          `Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.proposed.number}.`,
+        );
+        // This check is not 100% accurate
+        // If the local tips are sufficiently behind the source tips, such that we are missing at least one checkpoint
+        // that has now been re-orged due to a proof failure then this will indicate a failure to checkpoint rather than a failure to prove
+        // TODO: (mbps/PhilWindle): Improve re-org detection accuracy when we come to do re-orgs
+        let reason: L2BlockPruneReason = 'unproven';
+        if (latestBlockNumber === localTips.checkpointed.block.number && !this.opts.ignoreCheckpoints) {
+          reason = 'uncheckpointed';
+        }
+        await this.emitEvent({
+          type: 'chain-pruned',
+          block: makeL2BlockId(latestBlockNumber, hash),
+          reason,
+          checkpoint: sourceTips.checkpointed.checkpoint,
+        });
       }
 
       // If we are just starting, use the starting block number from the options.
@@ -105,40 +126,115 @@ export class L2BlockStream {
       }
 
       let nextBlockNumber = latestBlockNumber + 1;
+      let nextCheckpointToEmit = CheckpointNumber(localTips.checkpointed.checkpoint.number + 1);
       if (this.opts.skipFinalized) {
         // When skipping finalized blocks we need to provide reliable reorg detection while fetching as few blocks as
         // possible. Finalized blocks cannot be reorged by definition, so we can skip most of them. We do need the very
         // last finalized block however in order to guarantee that we will eventually find a block in which our local
         // store matches the source.
         // If the last finalized block is behind our local tip, there is nothing to skip.
-        nextBlockNumber = Math.max(sourceTips.finalized.number, nextBlockNumber);
+        nextBlockNumber = Math.max(sourceTips.finalized.block.number, nextBlockNumber);
+        // If the next checkpoint to emit is behind the finalized tip then skip forward
+        nextCheckpointToEmit = CheckpointNumber(Math.max(nextCheckpointToEmit, sourceTips.finalized.checkpoint.number));
       }
 
-      // Request new blocks from the source.
-      while (nextBlockNumber <= sourceTips.latest.number) {
-        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.latest.number - nextBlockNumber + 1);
+      // Loop 1: Emit checkpoint events for checkpoints whose blocks are already in local storage.
+      // This handles the case where blocks were synced as uncheckpointed and later became checkpointed.
+      // The guard `lastBlockInCheckpoint.number > localTips.proposed.number` ensures we don't emit
+      // checkpoints for blocks we don't have (e.g., when startingBlock skips earlier blocks).
+      // Since only one checkpoint can ever be uncheckpointed, this loop should iterate at most once.
+      if (!this.opts.ignoreCheckpoints) {
+        let loop1Iterations = 0;
+        while (nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number) {
+          const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(nextCheckpointToEmit, 1);
+          if (checkpoints.length === 0) {
+            break;
+          }
+          const lastBlockInCheckpoint = checkpoints[0].checkpoint.blocks.at(-1)!;
+          // If this checkpoint has blocks we haven't seen yet, stop - they need to be fetched first
+          if (lastBlockInCheckpoint.number > localTips.proposed.number) {
+            break;
+          }
+          loop1Iterations++;
+          if (loop1Iterations > 1) {
+            this.log.warn(
+              `Emitting multiple checkpoints (${loop1Iterations}) for already-local blocks. ` +
+                `Next checkpoint: ${nextCheckpointToEmit}, source checkpointed: ${sourceTips.checkpointed.checkpoint.number}`,
+            );
+          }
+          const lastBlockHash = await lastBlockInCheckpoint.hash();
+          await this.emitEvent({
+            type: 'chain-checkpointed',
+            checkpoint: checkpoints[0],
+            block: makeL2BlockId(lastBlockInCheckpoint.number, lastBlockHash.toString()),
+          });
+          nextCheckpointToEmit = CheckpointNumber(nextCheckpointToEmit + 1);
+        }
+      }
+
+      // Loop 2: Fetch new checkpointed blocks. For each block, get its checkpoint, emit all blocks
+      // from that checkpoint that we need, then emit the checkpoint event.
+      // We cache the current checkpoint to avoid redundant fetches when batchSize < checkpoint size.
+      let checkpoint: PublishedCheckpoint | undefined;
+      while (nextBlockNumber <= sourceTips.checkpointed.block.number) {
+        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.checkpointed.block.number - nextBlockNumber + 1);
+
+        // Check if we need to fetch a new checkpoint (nextBlockNumber is beyond the cached one)
+        if (!checkpoint || nextBlockNumber > checkpoint.checkpoint.blocks.at(-1)!.number) {
+          const blocks = await this.l2BlockSource.getCheckpointedBlocks(BlockNumber(nextBlockNumber), 1);
+          if (blocks.length === 0) {
+            break;
+          }
+          const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(blocks[0].checkpointNumber, 1);
+          if (checkpoints.length === 0) {
+            break;
+          }
+          checkpoint = checkpoints[0];
+        }
+
+        // Get all blocks from this checkpoint that we need, respecting batchSize
+        const blocksForCheckpoint = checkpoint.checkpoint.blocks
+          .filter(b => b.number >= nextBlockNumber)
+          .slice(0, limit);
+        if (blocksForCheckpoint.length === 0) {
+          break;
+        }
+        await this.emitEvent({ type: 'blocks-added', blocks: blocksForCheckpoint });
+        nextBlockNumber = blocksForCheckpoint.at(-1)!.number + 1;
+
+        // If we've reached the end of this checkpoint, emit the checkpoint event
+        const lastBlockInCheckpoint = checkpoint.checkpoint.blocks.at(-1)!;
+        if (!this.opts.ignoreCheckpoints && nextBlockNumber > lastBlockInCheckpoint.number) {
+          const lastBlockHash = await lastBlockInCheckpoint.hash();
+          await this.emitEvent({
+            type: 'chain-checkpointed',
+            checkpoint,
+            block: makeL2BlockId(lastBlockInCheckpoint.number, lastBlockHash.toString()),
+          });
+        }
+      }
+
+      // Loop 3: Fetch any remaining uncheckpointed (proposed) blocks.
+      while (nextBlockNumber <= sourceTips.proposed.number) {
+        const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getPublishedBlocks(
-          BlockNumber(nextBlockNumber),
-          limit,
-          this.opts.proven,
-        );
+        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit, this.opts.proven);
         if (blocks.length === 0) {
           break;
         }
         await this.emitEvent({ type: 'blocks-added', blocks });
-        nextBlockNumber = blocks.at(-1)!.block.number + 1;
+        nextBlockNumber = blocks.at(-1)!.number + 1;
       }
 
       // Update the proven and finalized tips.
-      if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven.number) {
+      if (localTips.proven !== undefined && sourceTips.proven.block.number !== localTips.proven.block.number) {
         await this.emitEvent({
           type: 'chain-proven',
-          block: sourceTips.proven,
+          block: sourceTips.proven.block,
         });
       }
-      if (localTips.finalized !== undefined && sourceTips.finalized.number !== localTips.finalized.number) {
-        await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized });
+      if (localTips.finalized !== undefined && sourceTips.finalized.block.number !== localTips.finalized.block.number) {
+        await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized.block });
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -186,7 +282,7 @@ export class L2BlockStream {
 
   private async emitEvent(event: L2BlockStreamEvent) {
     this.log.debug(
-      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.block.number})`,
+      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.type === 'chain-checkpointed' ? event.checkpoint.checkpoint.number : event.block.number})`,
     );
     await this.handler.handleBlockStreamEvent(event);
     if (!this.isRunning() && !this.isSyncing) {

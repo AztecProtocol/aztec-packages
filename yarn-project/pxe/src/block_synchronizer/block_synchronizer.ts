@@ -50,13 +50,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const lastBlock = event.blocks.at(-1)!.block;
+        const lastBlock = event.blocks.at(-1)!;
         this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
           blockHash: lastBlock.hash(),
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.anchorBlockStore.setHeader(lastBlock.getBlockHeader());
+        await this.anchorBlockStore.setHeader(lastBlock.header);
         break;
       }
       case 'chain-pruned': {

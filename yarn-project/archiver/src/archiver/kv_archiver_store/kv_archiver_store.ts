@@ -234,6 +234,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return toArray(this.#blockStore.getBlocks(from, limit));
   }
 
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
+    return toArray(this.#blockStore.getCheckpointedBlocks(from, limit));
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks headers starting from `from`.
    *

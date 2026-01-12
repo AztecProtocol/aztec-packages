@@ -94,7 +94,21 @@ CheckpointNumber.ZERO = CheckpointNumber(0);
  * Zod schema for parsing and validating CheckpointNumber values.
  * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
  */
-export const CheckpointNumberSchema = z
-  .union([z.number(), z.bigint(), z.string()])
-  .pipe(z.coerce.number().int().min(0))
-  .transform(value => CheckpointNumber(value));
+function makeCheckpointNumberSchema(minValue: number) {
+  return z
+    .union([z.number(), z.bigint(), z.string()])
+    .pipe(z.coerce.number().int().min(minValue))
+    .transform(value => CheckpointNumber(value));
+}
+
+/**
+ * Zod schema for parsing and validating Checkpoint values.
+ * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
+ */
+export const CheckpointNumberSchema = makeCheckpointNumberSchema(0);
+
+/**
+ * Zod schema for parsing and validating CheckpointNumber values that are strictly positive.
+ * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
+ */
+export const CheckpointNumberPositiveSchema = makeCheckpointNumberSchema(1);
