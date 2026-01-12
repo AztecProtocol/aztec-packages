@@ -749,7 +749,7 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
               { {
                   { C::execution_sel_instruction_fetching_success, 1 },
                   { C::execution_ex_opcode, static_cast<uint8_t>(instruction.get_exec_opcode()) },
-                  { C::execution_indirect, instruction.indirect },
+                  { C::execution_indirect, instruction.addressing_mode },
                   { C::execution_instr_length, instruction.size_in_bytes() },
               } });
 
@@ -881,8 +881,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        is_relative[i] = is_operand_relative(instruction.indirect, i);
-        is_indirect[i] = is_operand_indirect(instruction.indirect, i);
+        is_relative[i] = is_operand_relative(instruction.addressing_mode, i);
+        is_indirect[i] = is_operand_indirect(instruction.addressing_mode, i);
         is_relative_effective[i] = op_is_address && is_relative[i];
         is_indirect_effective[i] = op_is_address && is_indirect[i];
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
@@ -916,8 +916,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     // We need to compute relative and indirect over the whole 16 bits of the indirect flag.
     // See comment in PIL file about indirect upper bits.
     for (size_t i = AVM_MAX_OPERANDS; i < TOTAL_INDIRECT_BITS / 2; i++) {
-        bool is_relative = is_operand_relative(instruction.indirect, i);
-        bool is_indirect = is_operand_indirect(instruction.indirect, i);
+        bool is_relative = is_operand_relative(instruction.addressing_mode, i);
+        bool is_indirect = is_operand_indirect(instruction.addressing_mode, i);
         trace.set(row,
                   { {
                       { OPERAND_IS_RELATIVE_WIRE_COLUMNS[i], is_relative ? 1 : 0 },

@@ -449,7 +449,7 @@ export const EXTERNAL_CALL_CONFIG: SpamConfig = {
     { offset: CONST_MAX_U32_OFFSET, value: new Uint32(MAX_U32) }, // l2Gas/daGas - MAX_U32 gets capped to remaining gas
     () => [
       new CalldataCopy(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         /*copySizeOffset=*/ CALL_COPY_SIZE_OFFSET,
         /*cdStartOffset=*/ CALL_CALLDATA_INDEX_OFFSET,
         /*dstOffset=*/ CALL_ADDR_OFFSET,
@@ -458,7 +458,7 @@ export const EXTERNAL_CALL_CONFIG: SpamConfig = {
   ],
   targetInstructions: () => [
     new Call(
-      /*indirect=*/ 0,
+      /*addressing_mode=*/ 0,
       /*l2GasOffset=*/ CALL_L2_GAS_OFFSET,
       /*daGasOffset=*/ CALL_DA_GAS_OFFSET,
       /*addrOffset=*/ CALL_ADDR_OFFSET,
@@ -477,7 +477,7 @@ const STATIC_CALL_CONFIG: SpamConfig = {
     { offset: CONST_MAX_U32_OFFSET, value: new Uint32(MAX_U32) }, // l2Gas/daGas - MAX_U32 gets capped to remaining gas
     () => [
       new CalldataCopy(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         /*copySizeOffset=*/ CALL_COPY_SIZE_OFFSET,
         /*cdStartOffset=*/ CALL_CALLDATA_INDEX_OFFSET,
         /*dstOffset=*/ CALL_ADDR_OFFSET,
@@ -486,7 +486,7 @@ const STATIC_CALL_CONFIG: SpamConfig = {
   ],
   targetInstructions: () => [
     new StaticCall(
-      /*indirect=*/ 0,
+      /*addressing_mode=*/ 0,
       /*l2GasOffset=*/ CALL_L2_GAS_OFFSET,
       /*daGasOffset=*/ CALL_DA_GAS_OFFSET,
       /*addrOffset=*/ CALL_ADDR_OFFSET,
@@ -517,7 +517,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random addend
     ],
     targetInstructions: () => [
-      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.ADD_8, Add.wireFormat8),
+      new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
     ],
   })),
 
@@ -528,7 +531,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random subtrahend
     ],
     targetInstructions: () => [
-      new Sub(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.SUB_8, Sub.wireFormat8),
+      new Sub(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.SUB_8,
+        Sub.wireFormat8,
+      ),
     ],
   })),
 
@@ -539,7 +545,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random multiplier
     ],
     targetInstructions: () => [
-      new Mul(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.MUL_8, Mul.wireFormat8),
+      new Mul(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.MUL_8,
+        Mul.wireFormat8,
+      ),
     ],
   })),
 
@@ -551,7 +560,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomNonZeroWithTag(tag) }, // random non-zero divisor
     ],
     targetInstructions: () => [
-      new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.DIV_8, Div.wireFormat8),
+      new Div(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.DIV_8,
+        Div.wireFormat8,
+      ),
     ],
   })),
 
@@ -563,7 +575,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: randomNonZeroField() }, // random non-zero divisor
       ],
       targetInstructions: () => [
-        new FieldDiv(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        new FieldDiv(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
           Opcode.FDIV_8,
           FieldDiv.wireFormat8,
         ),
@@ -581,7 +593,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random value b
     ],
     targetInstructions: () => [
-      new Eq(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.EQ_8, Eq.wireFormat8),
+      new Eq(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.EQ_8, Eq.wireFormat8),
     ],
   })),
 
@@ -592,7 +604,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random value b
     ],
     targetInstructions: () => [
-      new Lt(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.LT_8, Lt.wireFormat8),
+      new Lt(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.LT_8, Lt.wireFormat8),
     ],
   })),
 
@@ -603,7 +615,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random value b
     ],
     targetInstructions: () => [
-      new Lte(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.LTE_8, Lte.wireFormat8),
+      new Lte(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.LTE_8,
+        Lte.wireFormat8,
+      ),
     ],
   })),
 
@@ -617,7 +632,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random value b
     ],
     targetInstructions: () => [
-      new And(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.AND_8, And.wireFormat8),
+      new And(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.AND_8,
+        And.wireFormat8,
+      ),
     ],
   })),
 
@@ -628,7 +646,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random value b
     ],
     targetInstructions: () => [
-      new Or(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.OR_8, Or.wireFormat8),
+      new Or(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.OR_8, Or.wireFormat8),
     ],
   })),
 
@@ -639,7 +657,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: randomWithTag(tag) }, // random value b
     ],
     targetInstructions: () => [
-      new Xor(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.XOR_8, Xor.wireFormat8),
+      new Xor(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.XOR_8,
+        Xor.wireFormat8,
+      ),
     ],
   })),
 
@@ -647,7 +668,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     label: TypeTag[tag],
     setup: [{ offset: 0, value: randomWithTag(tag) }], // random value
     targetInstructions: () => [
-      new Not(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 0).as(Opcode.NOT_8, Not.wireFormat8),
+      new Not(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 0).as(Opcode.NOT_8, Not.wireFormat8),
     ],
   })),
 
@@ -658,7 +679,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: withTag(1n, tag) }, // shift by 1 (small fixed amount to avoid overflow)
     ],
     targetInstructions: () => [
-      new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.SHL_8, Shl.wireFormat8),
+      new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.SHL_8,
+        Shl.wireFormat8,
+      ),
     ],
   })),
 
@@ -669,7 +693,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       { offset: 1, value: withTag(1n, tag) }, // shift by 1 (small fixed amount)
     ],
     targetInstructions: () => [
-      new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.SHR_8, Shr.wireFormat8),
+      new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+        Opcode.SHR_8,
+        Shr.wireFormat8,
+      ),
     ],
   })),
 
@@ -680,7 +707,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     label: TypeTag[tag],
     setup: [{ offset: 0, value: randomWithTag(tag) }], // random value to cast
     targetInstructions: () => [
-      new Cast(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1, /*dstTag=*/ TypeTag.UINT32).as(
+      new Cast(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1, /*dstTag=*/ TypeTag.UINT32).as(
         Opcode.CAST_8,
         Cast.wireFormat8,
       ),
@@ -691,7 +718,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     label: TypeTag[tag],
     setup: [{ offset: 0, value: randomWithTag(tag) }], // random value to move
     targetInstructions: () => [
-      new Mov(/*indirect=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1).as(Opcode.MOV_8, Mov.wireFormat8),
+      new Mov(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*dstOffset=*/ 1).as(Opcode.MOV_8, Mov.wireFormat8),
     ],
   })),
 
@@ -732,7 +759,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     {
       setup: [],
       targetInstructions: () => [
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ 4242424242424242n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ 4242424242424242n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
@@ -761,7 +788,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
   [Opcode.JUMPI_32]: [
     {
       setup: [{ offset: 0, value: new Uint1(0n) }], // Always false
-      targetInstructions: () => [new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, /*loc=*/ 0)],
+      targetInstructions: () => [new JumpI(/*addressing_mode=*/ 0, /*condOffset=*/ 0, /*loc=*/ 0)],
     },
   ],
 
@@ -801,7 +828,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 0, value: new Uint32(0) }, // returnSize = 0
       ],
       targetInstructions: () => [
-        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 0, /*returnOffset=*/ 0), // return nothing (size=0)
+        new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 0, /*returnOffset=*/ 0), // return nothing (size=0)
       ],
       // Use the side-effect-limit pattern (even though it's not a side-effect) as it fits
       // this case (we want to CALL, RETURN, then CALL again back in parent). We omit "cleanup"
@@ -818,7 +845,10 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 0, value: new Uint32(0) }, // retSize = 0
       ],
       targetInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 0, /*returnOffset=*/ 1).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 0, /*returnOffset=*/ 1).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ],
       limit: 1, // REVERT can only execute once per call
     },
@@ -831,7 +861,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     {
       setup: [],
       targetInstructions: () => [
-        new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*varEnum=*/ 0).as(
+        new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*varEnum=*/ 0).as(
           Opcode.GETENVVAR_16,
           GetEnvVar.wireFormat16,
         ),
@@ -849,7 +879,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint32(0n) }, // cdStart = 0
       ],
       targetInstructions: () => [
-        new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*cdStartOffset=*/ 1, /*dstOffset=*/ 2),
+        new CalldataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*cdStartOffset=*/ 1, /*dstOffset=*/ 2),
       ],
     },
     {
@@ -862,7 +892,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint32(0n) }, // cdStart = 0
       ],
       targetInstructions: () => [
-        new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*cdStartOffset=*/ 1, /*dstOffset=*/ 2),
+        new CalldataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*cdStartOffset=*/ 1, /*dstOffset=*/ 2),
       ],
     },
     {
@@ -873,7 +903,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint32(0n) }, // cdStart = 0
       ],
       targetInstructions: () => [
-        new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*cdStartOffset=*/ 1, /*dstOffset=*/ 2),
+        new CalldataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*cdStartOffset=*/ 1, /*dstOffset=*/ 2),
       ],
     },
   ],
@@ -881,14 +911,14 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
   [Opcode.SUCCESSCOPY]: [
     {
       setup: [],
-      targetInstructions: () => [new SuccessCopy(/*indirect=*/ 0, /*dstOffset=*/ 0)],
+      targetInstructions: () => [new SuccessCopy(/*addressing_mode=*/ 0, /*dstOffset=*/ 0)],
     },
   ],
 
   [Opcode.RETURNDATASIZE]: [
     {
       setup: [],
-      targetInstructions: () => [new ReturndataSize(/*indirect=*/ 0, /*dstOffset=*/ 0)],
+      targetInstructions: () => [new ReturndataSize(/*addressing_mode=*/ 0, /*dstOffset=*/ 0)],
     },
   ],
 
@@ -901,7 +931,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint32(0n) }, // rdOffset
       ],
       targetInstructions: () => [
-        new ReturndataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*rdStartOffset=*/ 1, /*dstOffset=*/ 2),
+        new ReturndataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*rdStartOffset=*/ 1, /*dstOffset=*/ 2),
       ],
     },
     {
@@ -914,7 +944,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint32(0n) }, // rdOffset
       ],
       targetInstructions: () => [
-        new ReturndataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*rdStartOffset=*/ 1, /*dstOffset=*/ 2),
+        new ReturndataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*rdStartOffset=*/ 1, /*dstOffset=*/ 2),
       ],
     },
     {
@@ -925,7 +955,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint32(0n) }, // rdOffset
       ],
       targetInstructions: () => [
-        new ReturndataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*rdStartOffset=*/ 1, /*dstOffset=*/ 2),
+        new ReturndataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*rdStartOffset=*/ 1, /*dstOffset=*/ 2),
       ],
     },
   ],
@@ -937,13 +967,13 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     {
       label: 'Cold read (slot not written)',
       setup: [{ offset: 0, value: new Field(Fr.random()) }], // random slot
-      targetInstructions: () => [new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
+      targetInstructions: () => [new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
     },
     {
       label: 'Warm read (from tree)',
       // Uses pre-inserted storage from insertWarmTreeEntries() which is called after contract deployment
       setup: [{ offset: 0, value: new Field(WARM_STORAGE_SLOT) }], // pre-inserted slot
-      targetInstructions: () => [new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
+      targetInstructions: () => [new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
     },
     {
       label: 'Warm read (SSTORE first, unique slot per SLOAD)',
@@ -955,12 +985,18 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 3, value: new Uint32(0n) }, // revertSize
       ],
       targetInstructions: () => [
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0),
-        new SLoad(/*indirect=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 4),
-        new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 0).as(Opcode.ADD_8, Add.wireFormat8), // slot++
+        new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0),
+        new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 4),
+        new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 0).as(
+          Opcode.ADD_8,
+          Add.wireFormat8,
+        ), // slot++
       ],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ],
       limit: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
@@ -976,7 +1012,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: randomWithTag(TypeTag.UINT64) }, // random leafIndex
       ],
       targetInstructions: () => [
-        new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffset=*/ 1, /*existsOffset=*/ 2),
+        new NoteHashExists(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffset=*/ 1, /*existsOffset=*/ 2),
       ],
     },
     {
@@ -987,7 +1023,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint64(WARM_NOTE_HASH_LEAF_INDEX) }, // known leafIndex
       ],
       targetInstructions: () => [
-        new NoteHashExists(/*indirect=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffset=*/ 1, /*existsOffset=*/ 2),
+        new NoteHashExists(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0, /*leafIndexOffset=*/ 1, /*existsOffset=*/ 2),
       ],
     },
   ],
@@ -1000,7 +1036,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Field(Fr.random()) }, // random address
       ],
       targetInstructions: () => [
-        new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
+        new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
       ],
     },
     {
@@ -1011,7 +1047,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Field(WARM_NULLIFIER_ADDRESS.toField()) }, // address it was siloed with
       ],
       targetInstructions: () => [
-        new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
+        new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 1, /*existsOffset=*/ 2),
       ],
     },
     {
@@ -1022,7 +1058,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Field(1n) }, // constant 1 for ADD
         () => [
           // Get current contract address into offset 2
-          new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 2, /*varEnum=*/ 0).as(
+          new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*varEnum=*/ 0).as(
             Opcode.GETENVVAR_16,
             GetEnvVar.wireFormat16,
           ),
@@ -1030,12 +1066,18 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 3, value: new Uint32(0n) }, // revertSize
       ],
       targetInstructions: () => [
-        new EmitNullifier(/*indirect=*/ 0, /*nullifierOffset=*/ 0),
-        new NullifierExists(/*indirect=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 2, /*existsOffset=*/ 4),
-        new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.ADD_8, Add.wireFormat8), // nullifier++
+        new EmitNullifier(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0),
+        new NullifierExists(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0, /*addressOffset=*/ 2, /*existsOffset=*/ 4),
+        new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+          Opcode.ADD_8,
+          Add.wireFormat8,
+        ), // nullifier++
       ],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ],
       limit: MAX_NULLIFIERS_PER_TX - 1,
     },
@@ -1049,7 +1091,12 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: randomWithTag(TypeTag.UINT64) }, // random msgLeafIndex
       ],
       targetInstructions: () => [
-        new L1ToL2MessageExists(/*indirect=*/ 0, /*msgHashOffset=*/ 0, /*msgLeafIndexOffset=*/ 1, /*existsOffset=*/ 2),
+        new L1ToL2MessageExists(
+          /*addressing_mode=*/ 0,
+          /*msgHashOffset=*/ 0,
+          /*msgLeafIndexOffset=*/ 1,
+          /*existsOffset=*/ 2,
+        ),
       ],
     },
     {
@@ -1060,7 +1107,12 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Uint64(WARM_L1_TO_L2_MSG_LEAF_INDEX) }, // known msgLeafIndex
       ],
       targetInstructions: () => [
-        new L1ToL2MessageExists(/*indirect=*/ 0, /*msgHashOffset=*/ 0, /*msgLeafIndexOffset=*/ 1, /*existsOffset=*/ 2),
+        new L1ToL2MessageExists(
+          /*addressing_mode=*/ 0,
+          /*msgHashOffset=*/ 0,
+          /*msgLeafIndexOffset=*/ 1,
+          /*existsOffset=*/ 2,
+        ),
       ],
     },
   ],
@@ -1071,7 +1123,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       // This ensures we're querying a valid deployed contract
       setup: [
         () => [
-          new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*varEnum=*/ 0).as(
+          new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*varEnum=*/ 0).as(
             Opcode.GETENVVAR_16,
             GetEnvVar.wireFormat16,
           ),
@@ -1079,7 +1131,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       ],
       // memberEnum 0 = DEPLOYER
       targetInstructions: () => [
-        new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, /*dstOffset=*/ 1, /*memberEnum=*/ 0),
+        new GetContractInstance(/*addressing_mode=*/ 0, /*addressOffset=*/ 0, /*dstOffset=*/ 1, /*memberEnum=*/ 0),
       ],
     },
   ],
@@ -1093,9 +1145,12 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 0, value: new Field(Fr.random()) }, // random noteHash
         { offset: 1, value: new Uint32(0n) }, // revertSize
       ],
-      targetInstructions: () => [new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
+      targetInstructions: () => [new EmitNoteHash(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0)],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
       limit: MAX_NOTE_HASHES_PER_TX,
     },
@@ -1111,11 +1166,17 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 2, value: new Uint32(0n) }, // revertSize
       ],
       targetInstructions: () => [
-        new EmitNullifier(/*indirect=*/ 0, /*nullifierOffset=*/ 0),
-        new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(Opcode.ADD_8, Add.wireFormat8), // nullifier++
+        new EmitNullifier(/*addressing_mode=*/ 0, /*nullifierOffset=*/ 0),
+        new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 0).as(
+          Opcode.ADD_8,
+          Add.wireFormat8,
+        ), // nullifier++
       ],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 2, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 2, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
       limit: MAX_NULLIFIERS_PER_TX - 1, // minus 1 because a TX will always have 1 "TX nullifier" from private
     },
@@ -1128,9 +1189,14 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Field(Fr.random()) }, // random content
         { offset: 2, value: new Uint32(0n) }, // revertSize
       ],
-      targetInstructions: () => [new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1)],
+      targetInstructions: () => [
+        new SendL2ToL1Message(/*addressing_mode=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
+      ],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 2, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 2, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
       limit: MAX_L2_TO_L1_MSGS_PER_TX,
     },
@@ -1147,9 +1213,12 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 1, value: new Field(Fr.random()) }, // random slot (same slot each iteration)
         { offset: 2, value: new Uint32(0n) }, // revertSize
       ],
-      targetInstructions: () => [new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1)],
+      targetInstructions: () => [new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1)],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 2, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 2, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
     },
     {
@@ -1161,11 +1230,17 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 3, value: new Uint32(0n) }, // revertSize
       ],
       targetInstructions: () => [
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1),
-        new Add(/*indirect=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 1).as(Opcode.ADD_8, Add.wireFormat8), // slot++
+        new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1),
+        new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 1).as(
+          Opcode.ADD_8,
+          Add.wireFormat8,
+        ), // slot++
       ],
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
       limit: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
@@ -1179,9 +1254,14 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         { offset: 0, value: new Uint32(0n) }, // logSize = 0 fields (minimal)
         { offset: 1, value: new Uint32(0n) }, // revertSize
       ],
-      targetInstructions: () => [new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 1)], // logOffset doesn't matter when size is 0
+      targetInstructions: () => [
+        new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 1),
+      ], // logOffset doesn't matter when size is 0
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
       // Max logs with 0-field content: floor(4096 / 2) = 2048
       limit: Math.floor(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH / PUBLIC_LOG_HEADER_LENGTH),
@@ -1200,9 +1280,14 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         //  value: new Field(0n),
         //})),
       ],
-      targetInstructions: () => [new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 2)], // uses logOffset 2 (uninitialized Field(0))
+      targetInstructions: () => [
+        new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffset=*/ 0, /*logOffset=*/ 2),
+      ], // uses logOffset 2 (uninitialized Field(0))
       cleanupInstructions: () => [
-        new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(Opcode.REVERT_8, Revert.wireFormat8),
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 1, /*returnOffset=*/ 0).as(
+          Opcode.REVERT_8,
+          Revert.wireFormat8,
+        ),
       ], // revert with empty
       limit: 1, // Only 1 max-size log fits
     },
@@ -1219,7 +1304,9 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         value: new Field(Fr.random()), // random field element
       })),
       // Poseidon hash data at M[0..3], write result to M[0:3] (reuse results as next inputs)
-      targetInstructions: () => [new Poseidon2(/*indirect=*/ 0, /*inputStateOffset=*/ 0, /*outputStateOffset=*/ 0)],
+      targetInstructions: () => [
+        new Poseidon2(/*addressing_mode=*/ 0, /*inputStateOffset=*/ 0, /*outputStateOffset=*/ 0),
+      ],
     },
   ],
 
@@ -1238,7 +1325,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         })),
       ],
       targetInstructions: () => [
-        new Sha256Compression(/*indirect=*/ 0, /*outputOffset=*/ 0, /*stateOffset=*/ 0, /*inputsOffset=*/ 8),
+        new Sha256Compression(/*addressing_mode=*/ 0, /*outputOffset=*/ 0, /*stateOffset=*/ 0, /*inputsOffset=*/ 8),
       ],
     },
   ],
@@ -1250,7 +1337,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
         offset: i,
         value: randomWithTag(TypeTag.UINT64),
       })),
-      targetInstructions: () => [new KeccakF1600(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inputOffset=*/ 0)],
+      targetInstructions: () => [new KeccakF1600(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inputOffset=*/ 0)],
     },
   ],
 
@@ -1267,7 +1354,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       ],
       targetInstructions: () => [
         new EcAdd(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*p1XOffset=*/ 0,
           /*p1YOffset=*/ 1,
           /*p1IsInfiniteOffset=*/ 2,
@@ -1292,7 +1379,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       ],
       targetInstructions: () => [
         new ToRadixBE(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*srcOffset=*/ 0,
           /*radixOffset=*/ 1,
           /*numLimbsOffset=*/ 2,
@@ -1311,7 +1398,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       ],
       targetInstructions: () => [
         new ToRadixBE(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*srcOffset=*/ 0,
           /*radixOffset=*/ 1,
           /*numLimbsOffset=*/ 2,
@@ -1332,7 +1419,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       ],
       targetInstructions: () => [
         new ToRadixBE(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*srcOffset=*/ 0,
           /*radixOffset=*/ 1,
           /*numLimbsOffset=*/ 2,
@@ -1359,7 +1446,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       // messageSize = 0
       targetInstructions: () => [
         new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ 0,
           /*messageOffset=*/ 1,
           /*fieldsOffset=*/ 2,
@@ -1381,7 +1468,7 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
     //   // messageSize = 1000 (large enough to show scaling)
     //   targetInstructions: () => [
     //     new DebugLog(
-    //       /*indirect=*/ 0,
+    //       /*addressing_mode=*/ 0,
     //       /*levelOffset=*/ 0,
     //       /*messageOffset=*/ 1,
     //       /*fieldsOffset=*/ 2,
