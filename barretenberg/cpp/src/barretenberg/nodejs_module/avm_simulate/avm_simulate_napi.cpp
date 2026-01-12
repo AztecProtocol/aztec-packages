@@ -71,7 +71,8 @@ LogFunction create_log_function_from_tsfn(const std::shared_ptr<Napi::ThreadSafe
         // Call TypeScript logger function on the JS main thread
         // Using BlockingCall to ensure synchronous execution
         // Ignore errors - logging failures shouldn't crash the simulation
-        logger_tsfn->BlockingCall([ts_level, &msg](Napi::Env env, Napi::Function js_logger) {
+        // NOTE: We copy the string because it might be destroyed before the callback is called.
+        logger_tsfn->BlockingCall([ts_level, msg](Napi::Env env, Napi::Function js_logger) {
             // Create arguments: (level: string, msg: string)
             auto level_js = Napi::String::New(env, ts_level);
             auto msg_js = Napi::String::New(env, msg);
