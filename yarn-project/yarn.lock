@@ -948,7 +948,7 @@ __metadata:
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
   bin:
-    aztec: ./dest/bin/index.js
+    aztec: ./scripts/aztec.sh
   languageName: unknown
   linkType: soft
 

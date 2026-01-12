@@ -1,6 +1,12 @@
 ########################################################################################################################
-# A pure ubuntu + docker install. Used for testing releases.
-FROM ubuntu:noble AS dind
-RUN apt-get update && apt-get install -y curl
-RUN curl -fsSL https://raw.githubusercontent.com/devcontainers/features/refs/heads/main/src/docker-in-docker/install.sh | bash
+# A minimal ubuntu setup. Used for testing releases.
+FROM ubuntu:noble
+RUN apt update && apt install -y \
+      curl \
+      git \
+      build-essential \
+      python3 \
+      netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+COPY --chown=1000:1000 verdaccio-storage /home/ubuntu/verdaccio-storage
 RUN touch /aztec_release_test_container
