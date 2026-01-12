@@ -77,7 +77,7 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
                          static_cast<View>(in.get(C::get_contract_instance_retrieved_init_hash))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // MEMBER_WRITE_OFFSET
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::get_contract_instance_member_write_offset)) -
                     static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *

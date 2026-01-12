@@ -485,5 +485,199 @@ TEST(GetContractInstanceConstrainingTest, NegativeGhostRowInjectionBlocked)
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_contract_instance>(trace), "IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL");
 }
 
+// =====================================================================
+// Tracegen-PIL Alignment Vulnerability Tests
+// =====================================================================
+// M-1: GetContractInstance `member_write_offset` Misalignment
+// Severity: Medium (Completeness)
+//
+// The tracegen sets member_write_offset unconditionally to `dst_offset + 1`,
+// but PIL constraint (line 192) defines:
+//   member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+//
+// When is_valid_writes_in_bounds = 0, PIL expects member_write_offset = 0,
+// but tracegen produces dst_offset + 1.
+//
+// Note: In the current implementation, is_valid_writes_in_bounds = 0 only
+// when dst_offset = AVM_HIGHEST_MEM_ADDRESS, and uint32_t overflow causes
+// dst_offset + 1 = 0, accidentally masking the bug. This test demonstrates
+// the constraint relationship explicitly using field arithmetic.
+
+TEST(GetContractInstanceConstrainingTest, MemberWriteOffsetConstraintPositive)
+{
+    // Test that member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+    // Case 1: is_valid_writes_in_bounds = 1, member_write_offset = dst_offset + 1
+    const FF dst_offset = FF(100);
+    const FF member_write_offset = dst_offset + FF(1); // = 101
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        { { C::get_contract_instance_sel, 1 },
+          { C::get_contract_instance_dst_offset, dst_offset },
+          { C::get_contract_instance_is_valid_writes_in_bounds, 1 },
+          { C::get_contract_instance_member_write_offset, member_write_offset } },
+    });
+
+    check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET);
+}
+
+TEST(GetContractInstanceConstrainingTest, MemberWriteOffsetConstraintOutOfBoundsPositive)
+{
+    // Test that member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+    // Case 2: is_valid_writes_in_bounds = 0, member_write_offset MUST be 0
+    const FF dst_offset = FF(AVM_HIGHEST_MEM_ADDRESS);
+    const FF correct_member_write_offset = FF(0); // is_valid_writes_in_bounds * (dst_offset + 1) = 0 * X = 0
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        { { C::get_contract_instance_sel, 1 },
+          { C::get_contract_instance_dst_offset, dst_offset },
+          { C::get_contract_instance_is_valid_writes_in_bounds, 0 },
+          { C::get_contract_instance_member_write_offset, correct_member_write_offset } },
+    });
+
+    check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET);
+}
+
+TEST(GetContractInstanceConstrainingTest, NegativeMemberWriteOffsetMisalignment)
+{
+    // VULNERABILITY TEST: M-1 GetContractInstance member_write_offset Misalignment
+    //
+    // This test demonstrates the tracegen-PIL misalignment vulnerability.
+    // Tracegen (line 89) sets: member_write_offset = dst_offset + 1 (unconditionally)
+    // PIL (line 192) expects: member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+    //
+    // When is_valid_writes_in_bounds = 0, PIL expects member_write_offset = 0,
+    // but tracegen would produce dst_offset + 1.
+    //
+    // Note: In practice, uint32_t overflow masks this bug when dst_offset = AVM_HIGHEST_MEM_ADDRESS.
+    // Here we use field arithmetic to demonstrate the constraint violation explicitly.
+
+    const FF dst_offset = FF(AVM_HIGHEST_MEM_ADDRESS);
+    // Buggy value: what tracegen produces (dst_offset + 1 in field arithmetic)
+    const FF buggy_member_write_offset = dst_offset + FF(1); // = 0x100000000 (no overflow in field)
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        { { C::get_contract_instance_sel, 1 },
+          { C::get_contract_instance_dst_offset, dst_offset },
+          { C::get_contract_instance_is_valid_writes_in_bounds, 0 }, // Out of bounds
+          { C::get_contract_instance_member_write_offset, buggy_member_write_offset } },
+    });
+
+    // The constraint member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+    // evaluates to: buggy_value - 0 * (dst_offset + 1) = buggy_value != 0
+    // This should fail because PIL expects member_write_offset = 0 when is_valid_writes_in_bounds = 0
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET),
+        "MEMBER_WRITE_OFFSET");
+}
+
+TEST(GetContractInstanceConstrainingTest, NegativeMemberWriteOffsetMisalignmentNonBoundaryOffset)
+{
+    // Additional test: demonstrate the constraint with a non-boundary dst_offset
+    // This shows the constraint works correctly regardless of the specific offset value
+
+    const FF dst_offset = FF(500);
+    // Correct value when is_valid_writes_in_bounds = 1
+    const FF correct_value = dst_offset + FF(1); // = 501
+    // Wrong value
+    const FF wrong_value = FF(999);
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        { { C::get_contract_instance_sel, 1 },
+          { C::get_contract_instance_dst_offset, dst_offset },
+          { C::get_contract_instance_is_valid_writes_in_bounds, 1 },
+          { C::get_contract_instance_member_write_offset, wrong_value } }, // Wrong!
+    });
+
+    // Should fail because member_write_offset != is_valid_writes_in_bounds * (dst_offset + 1)
+    // Expected: 501, Actual: 999
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET),
+        "MEMBER_WRITE_OFFSET");
+
+    // Fix it and verify it passes
+    trace.set(C::get_contract_instance_member_write_offset, 1, correct_value);
+    check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET);
+}
+
+TEST(GetContractInstanceConstrainingTest, TracegenMemberWriteOffsetBugReproduction)
+{
+    // INTEGRATION TEST: Reproduce the exact bug using tracegen
+    //
+    // This test uses the actual tracegen code to demonstrate that when
+    // dst_offset = AVM_HIGHEST_MEM_ADDRESS, the tracegen produces a value
+    // that happens to pass due to uint32_t overflow, but the logic is wrong.
+    //
+    // The tracegen code (line 89):
+    //   { C::get_contract_instance_member_write_offset, event.dst_offset + 1 }
+    //
+    // When event.dst_offset = 0xFFFFFFFF (uint32_t max):
+    //   event.dst_offset + 1 overflows to 0 in uint32_t arithmetic
+    //   This accidentally matches PIL's expected value of 0
+    //
+    // The fix should be:
+    //   { C::get_contract_instance_member_write_offset, writes_are_in_bounds ? (event.dst_offset + 1) : 0 }
+
+    EventEmitter<GetContractInstanceEvent> emitter;
+
+    GetContractInstanceEvent event{
+        .execution_clk = 42,
+        .contract_address = 0x1234,
+        .dst_offset = AVM_HIGHEST_MEM_ADDRESS, // Boundary case
+        .member_enum = static_cast<uint8_t>(ContractInstanceMember::DEPLOYER),
+        .space_id = 1,
+        .nullifier_tree_root = 0x5678,
+        .public_data_tree_root = 0x9ABC,
+        .instance_exists = true,
+        .retrieved_deployer_addr = 0xDEAD,
+        .retrieved_class_id = 0xBEEF,
+        .retrieved_init_hash = 0xCAFE,
+    };
+
+    emitter.emit(std::move(event));
+    auto events = emitter.dump_events();
+
+    TestTraceContainer trace;
+    GetContractInstanceTraceBuilder builder;
+    builder.process(events, trace);
+
+    PrecomputedTraceBuilder precomputed_builder;
+    precomputed_builder.process_get_contract_instance_table(trace);
+
+    // Verify tracegen produces the expected values
+    // Row 1 is where the actual data is (row 0 is the skippable setup)
+    uint32_t data_row = 1;
+
+    // Check that is_valid_writes_in_bounds = 0 (since dst_offset = AVM_HIGHEST_MEM_ADDRESS)
+    EXPECT_EQ(trace.get(C::get_contract_instance_is_valid_writes_in_bounds, data_row), FF(0));
+
+    // Check that member_write_offset was set
+    // Due to uint32_t overflow: (uint32_t)0xFFFFFFFF + 1 = 0
+    // So tracegen produces 0, which accidentally matches PIL's expected value
+    FF actual_member_write_offset = trace.get(C::get_contract_instance_member_write_offset, data_row);
+
+    // The tracegen produces 0 due to overflow, which is the "correct" value
+    // but only by accident. The proper fix would make this explicit.
+    EXPECT_EQ(actual_member_write_offset, FF(0))
+        << "Due to uint32_t overflow, tracegen produces 0 which accidentally matches PIL expectation";
+
+    // The relation check should pass (because of the accidental overflow behavior)
+    check_relation<get_contract_instance>(trace);
+
+    // Now demonstrate what would happen if there was no overflow
+    // (i.e., if the arithmetic was done in field or 64-bit)
+    // Set member_write_offset to the "wrong" value that tracegen would produce without overflow
+    FF wrong_value_without_overflow = FF(AVM_HIGHEST_MEM_ADDRESS) + FF(1);
+    trace.set(C::get_contract_instance_member_write_offset, data_row, wrong_value_without_overflow);
+
+    // This should now fail the member_write_offset constraint
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET),
+        "MEMBER_WRITE_OFFSET");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
