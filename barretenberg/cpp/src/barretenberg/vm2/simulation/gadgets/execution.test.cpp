@@ -518,7 +518,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(addr)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    execution.get_env_var(context, 1, EnvironmentVariable::ADDRESS);
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ADDRESS));
 }
 
 TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
@@ -530,7 +530,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    execution.get_env_var(context, 1, EnvironmentVariable::CHAINID);
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::CHAINID));
 }
 
 TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
@@ -540,7 +540,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
     EXPECT_CALL(memory, set(1, MemoryValue::from<uint1_t>(1)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    execution.get_env_var(context, 1, EnvironmentVariable::ISSTATICCALL);
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
 }
 
 TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
@@ -548,7 +548,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
     EXPECT_CALL(context, get_memory());
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_THROW(execution.get_env_var(context, 1, static_cast<EnvironmentVariable>(255)), std::runtime_error);
+    EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
 }
 
 // Trivial test at the moment.

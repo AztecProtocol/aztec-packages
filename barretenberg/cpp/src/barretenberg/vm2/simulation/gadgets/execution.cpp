@@ -438,12 +438,13 @@ void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAd
  *
  * @param context The context.
  * @param dst_addr The resolved address of the output value.
- * @param var_enum The enum value of the environment variable to get.
+ * @param env_var The enum value of the environment variable to get (as an uint8_t).
+ *                We need to use uint8_t here to manually perform validation.
  *
  * @throws OutOfGasException if the gas limit is exceeded.
  * @throws OpcodeExecutionException if the enum value is invalid.
  */
-void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, EnvironmentVariable env_var)
+void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t env_var_value)
 {
     BB_BENCH_NAME("Execution::get_env_var");
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -451,9 +452,14 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, E
 
     get_gas_tracker().consume_gas();
 
+    // If env_var_value is not a valid EnvironmentVariable enum value, throw an OpcodeExecutionException.
+    if (env_var_value > static_cast<uint8_t>(EnvironmentVariable::MAX)) {
+        throw OpcodeExecutionException("Invalid environment variable enum value");
+    }
+
     MemoryValue result;
 
-    switch (env_var) {
+    switch (static_cast<EnvironmentVariable>(env_var_value)) {
     case EnvironmentVariable::ADDRESS:
         result = MemoryValue::from<FF>(context.get_address());
         break;
@@ -491,6 +497,7 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, E
         result = MemoryValue::from<uint32_t>(context.gas_left().da_gas);
         break;
     default:
+        // We leave this here defensively.
         throw OpcodeExecutionException("Invalid environment variable enum value");
     }
 

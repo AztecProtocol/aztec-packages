@@ -119,7 +119,7 @@ class Execution : public ExecutionInterface {
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, MemoryTag dst_tag);
-    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, EnvironmentVariable var_enum);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t env_var_value);
     void set(ContextInterface& context, MemoryAddress dst_addr, MemoryTag tag, const FF& value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
