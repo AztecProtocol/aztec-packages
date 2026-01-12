@@ -195,6 +195,19 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 - **Backport**: Fix in release branch -> forward-port to `next`
 - **Forward-port**: Fix in `next` -> backport if needed
 
+### Determining the Base Branch
+
+**Never assume the base branch is `master`**. Most branches are based on `next`, not `master`. When you need to compare commits or understand changes on a branch:
+
+```bash
+# If there's an open PR, check its base branch
+gh pr view --json baseRefName -q '.baseRefName'
+
+# Compare against the correct base
+git log origin/<base-branch>..HEAD   # commits on this branch
+git diff origin/<base-branch>...HEAD  # changes on this branch
+```
+
 ### Port Commits
 
 When porting PRs between branches, include reference to original PR(s) in the PR body. Use the exact same commit message with the original PR number.

@@ -11,7 +11,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { CommitteeAttestation, type L2BlockSink } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -20,11 +20,11 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { expect, jest } from '@jest/globals';
 import EventEmitter from 'events';
@@ -37,14 +37,13 @@ import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import {
   MockCheckpointBuilder,
   MockCheckpointsBuilder,
-  createBlockAttestation,
+  createCheckpointAttestation,
   makeBlock,
   makeTx,
   mockPendingTxs,
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
-import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
@@ -60,6 +59,7 @@ describe('CheckpointProposalJob', () => {
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let blockSink: MockProxy<L2BlockSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
@@ -95,7 +95,7 @@ describe('CheckpointProposalJob', () => {
   const getSignatures = () => [mockedAttestation];
 
   const getAttestations = (block: any) => {
-    const attestation = createBlockAttestation(block, mockedSig, committee[0]);
+    const attestation = createCheckpointAttestation(block, mockedSig, committee[0]);
     return [attestation];
   };
 
@@ -193,31 +193,32 @@ describe('CheckpointProposalJob', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
+    blockSink = mock<L2BlockSink>();
+    blockSink.addBlock.mockResolvedValue(undefined);
+
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
-    validatorClient.createBlockProposal.mockImplementation((_blockNumber, checkpointHeader, archiveRoot, txs) => {
-      // Create a block proposal directly with the checkpoint header instead of using fromBlock
-      // which would require a full L2Block with toCheckpointHeader method
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
-      return Promise.resolve(
-        new BlockProposal(
-          consensusPayload,
-          mockedSig,
-          (txs ?? []).map((tx: any) => tx.txHash),
-        ),
-      );
-    });
-    validatorClient.createCheckpointProposal.mockImplementation((checkpointHeader, archiveRoot, txs) => {
-      // Create a minimal BlockProposal for the checkpoint
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot);
-      return Promise.resolve(
-        new BlockProposal(
-          consensusPayload,
-          mockedSig,
-          (txs ?? []).map(tx => tx.txHash),
-        ),
-      );
-    });
+    validatorClient.createBlockProposal.mockImplementation(
+      async (blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txs) => {
+        const txHashes = await Promise.all((txs ?? []).map((tx: Tx) => tx.getTxHash()));
+        return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, mockedSig);
+      },
+    );
+    validatorClient.createCheckpointProposal.mockImplementation(
+      async (checkpointHeader, archiveRoot, lastBlockInfo) => {
+        if (!lastBlockInfo) {
+          return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig);
+        }
+        const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
+        return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig, {
+          blockHeader: lastBlockInfo.blockHeader,
+          indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+          txHashes,
+          signature: mockedSig,
+          // Note: signedTxs omitted since publishTxsWithProposals is false in tests
+        });
+      },
+    );
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(feeRecipient);
@@ -358,6 +359,7 @@ describe('CheckpointProposalJob', () => {
       worldState,
       l1ToL2MessageSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
+      blockSink,
       l1Constants,
       config,
       timetable,

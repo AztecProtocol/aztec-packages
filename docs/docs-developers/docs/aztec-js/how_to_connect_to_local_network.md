@@ -1,5 +1,5 @@
 ---
-title: Getting Started
+title: Connect to Local Network
 tags: [local_network, connection, wallet]
 sidebar_position: 1
 description: Connect your application to the Aztec local network and interact with accounts.
@@ -13,71 +13,66 @@ This guide shows you how to connect your application to the Aztec local network 
 - Node.js installed
 - TypeScript project set up
 
-## Install Aztec.js
-
-### Install the Aztec.js package
+## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
 ```
 
-## Create a Node Client
+## Connect to the network
 
-The local network is essentially a one-node network. Just like on a real network, you need to interface with it:
+Create a node client and TestWallet to interact with the local network:
 
 ```typescript
-const node = createAztecNodeClient("http://localhost:8080");
-const l1Contracts = await node.getL1ContractAddresses();
+import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
+import {
+  TestWallet,
+  registerInitialLocalNetworkAccountsInWallet,
+} from "@aztec/test-wallet/server";
+
+const nodeUrl = "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
+
+// Wait for the network to be ready
+await waitForNode(node);
+
+// Create a TestWallet connected to the node
+const wallet = await TestWallet.create(node);
 ```
 
-As the name implies, we want to know the L1 Contracts addresses for our wallet.
-
-## Create a TestWallet
-
-You will need to create your own TestWallet to connect to local network accounts. Let's create a TestWallet:
-
-```typescript
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TestWallet } from "@aztec/test-wallet/server";
-
-export async function setupWallet(): Promise<TestWallet> {
-  const nodeUrl = "http://localhost:8080";
-  const node = createAztecNodeClient(nodeUrl);
-  const wallet = await TestWallet.create(node);
-  return wallet;
-}
-```
+`TestWallet` is a development wallet that handles account management and transaction signing locally, suitable for testing and development.
 
 ### Verify the connection
 
 Get node information to confirm your connection:
 
 ```typescript
-const nodeInfo = await pxe.getNodeInfo();
+const nodeInfo = await node.getNodeInfo();
 console.log("Connected to local network version:", nodeInfo.nodeVersion);
 console.log("Chain ID:", nodeInfo.l1ChainId);
 ```
 
-### Get local network accounts
+### Load pre-funded accounts
 
-The local network has some accounts pre-funded with fee-juice to pay for gas. You can import them and create accounts:
+The local network has accounts pre-funded with fee juice to pay for gas. Register them in your wallet:
 
 ```typescript
-import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
-const [aliceAccount, bobAccount] = await getInitialTestAccountsData();
-await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
-await wallet.createSchnorrAccount(bobAccount.secret, bobAccount.salt);
+console.log(`Alice's address: ${alice.toString()}`);
+console.log(`Bob's address: ${bob.toString()}`);
 ```
 
-### Check account balances
+These accounts are pre-funded with fee juice (the native gas token) at genesis, so you can immediately send transactions without needing to bridge funds from L1.
 
-Verify that the accounts have fee juice for transactions:
+### Check fee juice balance
+
+Verify that an account has fee juice for transactions:
 
 ```typescript
 import { getFeeJuiceBalance } from "@aztec/aztec.js/utils";
 
-const aliceBalance = await getFeeJuiceBalance(aliceAccount.address, node);
+const aliceBalance = await getFeeJuiceBalance(alice, node);
 console.log(`Alice's fee juice balance: ${aliceBalance}`);
 ```
 

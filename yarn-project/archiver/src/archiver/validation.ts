@@ -4,15 +4,15 @@ import { compactArray } from '@aztec/foundation/collection';
 import type { Logger } from '@aztec/foundation/log';
 import {
   type AttestationInfo,
-  type ValidateBlockNegativeResult,
-  type ValidateBlockResult,
+  type ValidateCheckpointNegativeResult,
+  type ValidateCheckpointResult,
   getAttestationInfoFromPayload,
 } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { ConsensusPayload } from '@aztec/stdlib/p2p';
 
-export type { ValidateBlockResult };
+export type { ValidateCheckpointResult };
 
 /**
  * Extracts attestation information from a published checkpoint.
@@ -35,7 +35,7 @@ export async function validateCheckpointAttestations(
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
   logger?: Logger,
-): Promise<ValidateBlockResult> {
+): Promise<ValidateCheckpointResult> {
   const attestorInfos = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint);
   const attestors = compactArray(attestorInfos.map(info => ('address' in info ? info.address : undefined)));
   const { checkpoint, attestations } = publishedCheckpoint;
@@ -63,10 +63,10 @@ export async function validateCheckpointAttestations(
 
   const requiredAttestationCount = Math.floor((committee.length * 2) / 3) + 1;
 
-  const failedValidationResult = <TReason extends ValidateBlockNegativeResult['reason']>(reason: TReason) => ({
+  const failedValidationResult = <TReason extends ValidateCheckpointNegativeResult['reason']>(reason: TReason) => ({
     valid: false as const,
     reason,
-    block: checkpoint.blocks[0].toBlockInfo(),
+    checkpoint: checkpoint.toCheckpointInfo(),
     committee,
     seed,
     epoch,

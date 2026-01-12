@@ -72,7 +72,7 @@ export class CalldataRetriever {
    */
   async getCheckpointFromRollupTx(
     txHash: `0x${string}`,
-    blobHashes: Buffer[],
+    _blobHashes: Buffer[],
     checkpointNumber: CheckpointNumber,
     expectedHashes: {
       attestationsHash?: Hex;
@@ -459,7 +459,7 @@ export class CalldataRetriever {
       // Use ConsensusPayload to compute the digest - this ensures we match the exact logic
       // used by the network for signing and verification
       const consensusPayload = new ConsensusPayload(header, archiveRoot);
-      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
+      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
       const computedPayloadDigest = keccak256(payloadToSign);
 
       // Compare as buffers to avoid case-sensitivity and string comparison issues

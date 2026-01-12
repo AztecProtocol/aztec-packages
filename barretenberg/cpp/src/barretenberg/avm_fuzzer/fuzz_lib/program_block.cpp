@@ -1,6 +1,5 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction_settings.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"

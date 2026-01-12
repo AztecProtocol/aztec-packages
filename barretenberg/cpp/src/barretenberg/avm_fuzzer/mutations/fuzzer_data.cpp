@@ -10,9 +10,11 @@
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 
+namespace bb::avm2::fuzzer {
+
 using ValueTag = bb::avm2::ValueTag;
 
-void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
+void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng, const FuzzerContext& context)
 {
     auto num_of_mutation = std::uniform_int_distribution<uint8_t>(0, MAX_MUTATION_NUM)(rng);
     for (uint8_t i = 0; i < num_of_mutation; i++) {
@@ -20,11 +22,14 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
         auto mutation_config = BASIC_FUZZER_DATA_MUTATION_CONFIGURATION.select(rng);
         switch (mutation_config) {
         case FuzzerDataMutationOptions::InstructionMutation:
-            mutate_vec<std::vector<FuzzInstruction>>(fuzzer_data.instruction_blocks,
-                                                     rng,
-                                                     mutate_instruction_block,
-                                                     generate_instruction_block,
-                                                     BASIC_VEC_MUTATION_CONFIGURATION);
+            mutate_vec<std::vector<FuzzInstruction>>(
+                fuzzer_data.instruction_blocks,
+                rng,
+                [&context](std::vector<FuzzInstruction>& block, std::mt19937_64& r) {
+                    mutate_instruction_block(block, r, context);
+                },
+                [&context](std::mt19937_64& r) { return generate_instruction_block(r, context); },
+                BASIC_VEC_MUTATION_CONFIGURATION);
             break;
         case FuzzerDataMutationOptions::ControlFlowCommandMutation:
             mutate_control_flow_vec(fuzzer_data.cfg_instructions, rng);
@@ -44,7 +49,7 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
     }
 }
 
-void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt19937_64& rng)
+void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt19937_64& rng, const FuzzerContext& context)
 {
     if (fuzzer_data.instruction_blocks.empty()) {
         std::vector<FuzzInstruction> instruction_block;
@@ -63,16 +68,18 @@ void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt1993
                 .value = 1,
             });
         }
-        auto preamble = generate_instruction_block(rng);
+        auto preamble = generate_instruction_block(rng, context);
         instruction_block.insert(instruction_block.end(), preamble.begin(), preamble.end());
         fuzzer_data.instruction_blocks.push_back(instruction_block);
         fuzzer_data.cfg_instructions.push_back(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     }
 }
 
-FuzzerData generate_fuzzer_data(std::mt19937_64& rng)
+FuzzerData generate_fuzzer_data(std::mt19937_64& rng, const FuzzerContext& context)
 {
     FuzzerData fuzzer_data = FuzzerData();
-    add_default_instruction_block_if_empty(fuzzer_data, rng);
+    add_default_instruction_block_if_empty(fuzzer_data, rng, context);
     return fuzzer_data;
 }
+
+} // namespace bb::avm2::fuzzer

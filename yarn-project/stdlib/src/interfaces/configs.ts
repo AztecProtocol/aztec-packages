@@ -67,6 +67,10 @@ export interface SequencerConfig {
   blockDurationMs?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
+
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  /** Skip pushing proposed blocks to archiver (default: true) */
+  skipPushProposedBlocksToArchiver?: boolean;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -100,6 +104,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     shuffleAttestationOrdering: z.boolean().optional(),
     blockDurationMs: z.number().positive().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
+    skipPushProposedBlocksToArchiver: z.boolean().optional(),
   }),
 );
 

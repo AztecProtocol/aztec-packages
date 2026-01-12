@@ -63,6 +63,59 @@ export class LightweightCheckpointBuilder {
   }
 
   /**
+   * Resumes building a checkpoint from existing blocks. This is used for validator re-execution
+   * where blocks have already been built and their effects are already in the database.
+   * Unlike startNewCheckpoint, this does NOT append l1ToL2Messages to the tree since they
+   * were already added when the blocks were originally built.
+   */
+  static async resumeCheckpoint(
+    checkpointNumber: CheckpointNumber,
+    constants: CheckpointGlobalVariables,
+    l1ToL2Messages: Fr[],
+    db: MerkleTreeWriteOperations,
+    existingBlocks: L2BlockNew[],
+  ): Promise<LightweightCheckpointBuilder> {
+    const builder = new LightweightCheckpointBuilder(checkpointNumber, constants, l1ToL2Messages, db);
+
+    builder.logger.debug('Resuming checkpoint from existing blocks', {
+      checkpointNumber,
+      numExistingBlocks: existingBlocks.length,
+      blockNumbers: existingBlocks.map(b => b.header.getBlockNumber()),
+    });
+
+    // Validate block order and consistency
+    for (let i = 1; i < existingBlocks.length; i++) {
+      const prev = existingBlocks[i - 1];
+      const curr = existingBlocks[i];
+      if (curr.number !== prev.number + 1) {
+        throw new Error(`Non-sequential block numbers in resumeCheckpoint: ${prev.number} -> ${curr.number}`);
+      }
+      if (!prev.archive.root.equals(curr.header.lastArchive.root)) {
+        throw new Error(`Archive root mismatch between blocks ${prev.number} and ${curr.number}`);
+      }
+    }
+
+    for (let i = 0; i < existingBlocks.length; i++) {
+      const block = existingBlocks[i];
+      const isFirstBlock = i === 0;
+
+      if (isFirstBlock) {
+        builder.lastArchives.push(block.header.lastArchive);
+      }
+
+      builder.lastArchives.push(block.archive);
+
+      const blockBlobFields = block.toBlobFields();
+      await builder.spongeBlob.absorb(blockBlobFields);
+      builder.blobFields.push(...blockBlobFields);
+
+      builder.blocks.push(block);
+    }
+
+    return builder;
+  }
+
+  /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
    */

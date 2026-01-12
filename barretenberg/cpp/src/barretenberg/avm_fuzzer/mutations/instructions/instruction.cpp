@@ -1,6 +1,6 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 
-#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
@@ -448,7 +448,8 @@ std::vector<FuzzInstruction> generate_emitunencryptedlog_instruction(std::mt1993
     return instructions;
 }
 
-std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng)
+std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng,
+                                                       const bb::avm2::fuzzer::FuzzerContext& context)
 {
     // 80% chance to use backfill (4 out of 5) to increase success rate
     bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
@@ -468,11 +469,9 @@ std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng)
     instructions.reserve(5);
 
     auto contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    instructions.push_back(SET_FF_Instruction{
-        .value_tag = bb::avm2::MemoryTag::FF,
-        .result_address = contract_address_address,
-        .value =
-            bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(generate_random_uint16(rng)) });
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = contract_address_address,
+                                               .value = context.get_contract_address(generate_random_uint16(rng)) });
 
     auto l2_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
     instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
@@ -504,7 +503,8 @@ std::vector<FuzzInstruction> generate_call_instruction(std::mt19937_64& rng)
     return instructions;
 }
 
-std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt19937_64& rng)
+std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt19937_64& rng,
+                                                                      const bb::avm2::fuzzer::FuzzerContext& context)
 {
     bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
     if (!use_backfill) {
@@ -519,11 +519,9 @@ std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt199
     instructions.reserve(2);
 
     auto contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    instructions.push_back(SET_FF_Instruction{
-        .value_tag = bb::avm2::MemoryTag::FF,
-        .result_address = contract_address_address,
-        .value =
-            bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(generate_random_uint16(rng)) });
+    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                               .result_address = contract_address_address,
+                                               .value = context.get_contract_address(generate_random_uint16(rng)) });
     uint8_t member_enum = std::uniform_int_distribution<uint8_t>(0, 2)(rng);
 
     instructions.push_back(GETCONTRACTINSTANCE_Instruction{
@@ -535,7 +533,8 @@ std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt199
     return instructions;
 }
 
-std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
+namespace bb::avm2::fuzzer {
+std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng, const FuzzerContext& context)
 {
     InstructionGenerationOptions option = BASIC_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
     // forgive me
@@ -705,13 +704,13 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng)
     case InstructionGenerationOptions::EMITUNENCRYPTEDLOG:
         return generate_emitunencryptedlog_instruction(rng);
     case InstructionGenerationOptions::CALL:
-        return generate_call_instruction(rng);
+        return generate_call_instruction(rng, context);
     case InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY:
         return { RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
                                                                  .dst_address = generate_random_uint16(rng),
                                                                  .rd_start_offset = generate_random_uint16(rng) } };
     case InstructionGenerationOptions::GETCONTRACTINSTANCE:
-        return generate_getcontractinstance_instruction(rng);
+        return generate_getcontractinstance_instruction(rng, context);
     case InstructionGenerationOptions::SUCCESSCOPY:
         return { SUCCESSCOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     case InstructionGenerationOptions::ECADD:
@@ -1358,7 +1357,9 @@ void mutate_toradixbe_instruction(TORADIXBE_Instruction& instruction, std::mt199
     }
 }
 
-void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
+void mutate_instruction(FuzzInstruction& instruction,
+                        std::mt19937_64& rng,
+                        [[maybe_unused]] const FuzzerContext& context)
 {
     std::visit(
         overloaded{
@@ -1425,3 +1426,5 @@ void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
             [](auto&) { throw std::runtime_error("Unknown instruction"); } },
         instruction);
 }
+
+} // namespace bb::avm2::fuzzer

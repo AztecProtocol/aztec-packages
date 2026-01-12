@@ -28,7 +28,6 @@ import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
-  collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
@@ -101,7 +100,6 @@ export class PrivateKernelExecutionProver {
 
     const executionSteps: PrivateExecutionStep[] = [];
 
-    const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
     const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
     const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
@@ -116,7 +114,7 @@ export class PrivateKernelExecutionProver {
         );
         while (resetBuilder.needsReset()) {
           const witgenTimer = new Timer();
-          const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+          const privateInputs = await resetBuilder.build(this.oracle);
           output = generateWitnesses
             ? await this.proofCreator.generateResetOutput(privateInputs)
             : await this.proofCreator.simulateReset(privateInputs);
@@ -224,7 +222,7 @@ export class PrivateKernelExecutionProver {
     );
     while (resetBuilder.needsReset()) {
       const witgenTimer = new Timer();
-      const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+      const privateInputs = await resetBuilder.build(this.oracle);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);

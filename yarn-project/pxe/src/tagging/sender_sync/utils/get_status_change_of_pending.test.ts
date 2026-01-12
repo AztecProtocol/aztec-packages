@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { makeL2Tips } from '@aztec/stdlib/testing';
 import { TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -55,9 +56,7 @@ describe('getStatusChangeOfPending', () => {
       }
     });
 
-    aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
-    } as any);
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
 
     const result = await getStatusChangeOfPending(
       [
@@ -89,9 +88,7 @@ describe('getStatusChangeOfPending', () => {
       blockNumber: BlockNumber(finalizedBlockNumber),
     } as any);
 
-    aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: BlockNumber(finalizedBlockNumber) },
-    } as any);
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
 
     const result = await getStatusChangeOfPending([txHash], aztecNode);
 

@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -234,6 +234,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return toArray(this.#blockStore.getBlocks(from, limit));
   }
 
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
+    return toArray(this.#blockStore.getCheckpointedBlocks(from, limit));
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks headers starting from `from`.
    *
@@ -410,11 +414,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#messageStore.removeL1ToL2Messages(startIndex);
   }
 
-  public getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+  public getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined> {
     return this.#blockStore.getPendingChainValidationStatus();
   }
 
-  public setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+  public setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     return this.#blockStore.setPendingChainValidationStatus(status);
   }
 
