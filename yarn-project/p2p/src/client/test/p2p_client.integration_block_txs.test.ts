@@ -58,6 +58,7 @@ describe('p2p client integration block txs protocol ', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
@@ -66,6 +67,8 @@ describe('p2p client integration block txs protocol ', () => {
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
+
+    attestationPool.isEmpty.mockResolvedValue(true);
 
     worldState.status.mockResolvedValue({
       state: mock(),

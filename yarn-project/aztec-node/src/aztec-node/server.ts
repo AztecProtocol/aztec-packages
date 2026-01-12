@@ -14,7 +14,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -54,9 +54,11 @@ import {
   type DataInBlock,
   type L2Block,
   L2BlockHash,
+  L2BlockNew,
   type L2BlockSource,
   type PublishedL2Block,
 } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -612,6 +614,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
+  }
+
+  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
+  }
+
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit, proven)) ?? [];
   }
 
   /**
@@ -1316,7 +1330,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // And it has an L2 block hash
-    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.proposed.hash);
     if (!l2BlockHash) {
       this.metrics.recordSnapshotError();
       throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
@@ -1350,7 +1364,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error('Archiver implementation does not support rollbacks.');
     }
 
-    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.number);
+    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.block.number);
     if (targetBlock < finalizedBlock) {
       if (force) {
         this.log.warn(`Clearing world state database to allow rolling back behind finalized block ${finalizedBlock}`);

@@ -68,7 +68,10 @@ export async function loadPrivateLogsForSenderRecipientPair(
       throw new Error('Node failed to return latest block header when syncing logs');
     }
 
-    [finalizedBlockNumber, currentTimestamp] = [l2Tips.finalized.number, latestBlockHeader.globalVariables.timestamp];
+    [finalizedBlockNumber, currentTimestamp] = [
+      l2Tips.finalized.block.number,
+      latestBlockHeader.globalVariables.timestamp,
+    ];
   }
 
   let start: number, end: number;

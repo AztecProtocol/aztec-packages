@@ -43,7 +43,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
@@ -88,6 +88,7 @@ import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { L2BlockHeader } from '../block/l2_block_header.js';
+import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
   ContractDeploymentData,
@@ -1735,4 +1736,44 @@ export async function randomTxScopedPublicL2Log(opts?: {
     opts?.noteHashes ?? [Fr.random(), Fr.random()],
     opts?.firstNullifier ?? Fr.random(),
   );
+}
+
+/**
+ * Creates L2Tips with all tips pointing to the same block number.
+ * Useful for mocking aztecNode.getL2Tips() in tests.
+ * @param blockNumber - The block number to use for all tips.
+ * @param hash - Optional hash for the block (defaults to empty string).
+ * @param checkpointNumber - Optional checkpoint number (defaults to blockNumber).
+ * @param checkpointHash - Optional checkpoint hash (defaults to block hash).
+ * @returns L2Tips object with all tips at the same block.
+ */
+export function makeL2Tips(
+  blockNumber: number | BlockNumber,
+  hash = '',
+  checkpointNumber?: number | CheckpointNumber,
+  checkpointHash?: string,
+): L2Tips {
+  const bn = typeof blockNumber === 'number' ? BlockNumber(blockNumber) : blockNumber;
+  const cpn =
+    checkpointNumber !== undefined
+      ? typeof checkpointNumber === 'number'
+        ? CheckpointNumber(checkpointNumber)
+        : checkpointNumber
+      : CheckpointNumber(bn);
+  const cph = checkpointHash ?? hash;
+  return {
+    proposed: { number: bn, hash },
+    checkpointed: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    proven: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    finalized: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+  };
 }

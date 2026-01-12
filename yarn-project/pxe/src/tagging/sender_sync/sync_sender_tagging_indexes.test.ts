@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { makeL2Tips, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -82,9 +82,7 @@ describe('syncSenderTaggingIndexes', () => {
       } as any);
 
       // Mock getL2Tips to return a finalized block number >= the tx block number
-      aztecNode.getL2Tips.mockResolvedValue({
-        finalized: { number: finalizedBlockNumberStep1 },
-      } as any);
+      aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumberStep1));
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore);
 
@@ -111,9 +109,7 @@ describe('syncSenderTaggingIndexes', () => {
         blockNumber: finalizedBlockNumberStep1 + 1,
       } as any);
 
-      aztecNode.getL2Tips.mockResolvedValue({
-        finalized: { number: finalizedBlockNumberStep1 },
-      } as any);
+      aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumberStep1));
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore);
 
@@ -180,9 +176,7 @@ describe('syncSenderTaggingIndexes', () => {
       });
 
       // Mock getL2Tips with the new finalized block number
-      aztecNode.getL2Tips.mockResolvedValue({
-        finalized: { number: newFinalizedBlockNumber },
-      } as any);
+      aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(newFinalizedBlockNumber));
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore);
 
@@ -233,9 +227,7 @@ describe('syncSenderTaggingIndexes', () => {
       }
     });
 
-    aztecNode.getL2Tips.mockResolvedValue({
-      finalized: { number: finalizedBlockNumber },
-    } as any);
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
 
     // Sync tagged logs
     await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore);

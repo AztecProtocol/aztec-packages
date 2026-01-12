@@ -202,11 +202,15 @@ describe('L1Publisher integration', () => {
       },
       getL2Tips(): Promise<L2Tips> {
         const latestBlock = blocks.at(-1);
-        const res = latestBlock
+        const blockId = latestBlock
           ? { number: latestBlock.number, hash: latestBlock.hash.toString() }
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+        const tipId = {
+          block: blockId,
+          checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+        };
 
-        return Promise.resolve({ latest: res, proven: res, finalized: res });
+        return Promise.resolve({ proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId });
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));

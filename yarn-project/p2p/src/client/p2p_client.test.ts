@@ -321,15 +321,19 @@ describe('P2P Client', () => {
 
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
+      // Set checkpointed before starting so blocks are synced as checkpointed
+      blockSource.setCheckpointedBlockNumber(100);
       await client.start();
 
       await advanceToProvenBlock(BlockNumber(90));
       await advanceToFinalizedBlock(BlockNumber(50));
 
+      const anyCheckpoint = { number: expect.any(Number), hash: expect.any(String) };
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(100), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        proposed: { number: BlockNumber(100), hash: expect.any(String) },
+        checkpointed: { block: { number: BlockNumber(100), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
 
       blockSource.removeBlocks(10);
@@ -337,19 +341,22 @@ describe('P2P Client', () => {
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(90), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        proposed: { number: BlockNumber(90), hash: expect.any(String) },
+        checkpointed: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
 
       blockSource.addBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
+      blockSource.setCheckpointedBlockNumber(92);
 
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(92), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        proposed: { number: BlockNumber(92), hash: expect.any(String) },
+        checkpointed: { block: { number: BlockNumber(92), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
     });
 
