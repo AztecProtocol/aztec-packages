@@ -50,6 +50,7 @@ describe('LogService', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         addressStore,
+        'test',
       );
 
       aztecNode.getPrivateLogsByTags.mockReset();

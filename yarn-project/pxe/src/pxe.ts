@@ -157,6 +157,7 @@ export class PXE {
     );
 
     const jobCoordinator = new JobCoordinator(store);
+    jobCoordinator.registerStores([capsuleStore]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
