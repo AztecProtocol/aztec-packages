@@ -119,7 +119,11 @@ namespace execution;
     pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = sel - nested_failure - enqueued_call_end;
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call.
     // Note that DEFAULT_CTX_ROW selects also the first row of an enqueued call (when `enqueued_call_start == 1`).
-    pol DEFAULT_CTX_ROW = sel' * (sel - (sel_enter_call + sel_exit_call)); // sel_enter_call and sel_exit_call are mutually exclusive
+    // We stress that the last active row of the execution trace is not a default context row (`enqueued_call_end == 1`
+    // which means that `sel_exit_call == 1`) so that all the propagation relations gated by DEFAULT_CTX_ROW
+    // do not need to be gated by `sel'`. Furthermore, a malicious prover cannot activate `DEFAULT_CTX_ROW` outside of the
+    // active rows of the execution trace because `sel == 0` ==> `sel_exit_call == 0` and `sel_enter_call == 0` (explanations in execution.pil).
+    pol DEFAULT_CTX_ROW = sel - sel_enter_call - sel_exit_call; // sel_enter_call and sel_exit_call are mutually exclusive
 
     pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
 

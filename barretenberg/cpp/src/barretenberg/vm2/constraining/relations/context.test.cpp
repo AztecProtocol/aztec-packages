@@ -145,6 +145,10 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
               { C::execution_parent_da_gas_used, 1500 },
+              // End of enqueued call (last active row)
+              { C::execution_sel_exit_call, 1 },
+              { C::execution_sel_execute_return, 1 },
+              { C::execution_enqueued_call_end, 1 },
           },
           {
               { C::execution_sel, 0 },
@@ -274,6 +278,10 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
               { C::execution_parent_da_gas_used, 1500 },
+              // End of enqueued call (last active row)
+              { C::execution_sel_exit_call, 1 },
+              { C::execution_sel_execute_return, 1 },
+              { C::execution_enqueued_call_end, 1 },
           },
           {
               { C::execution_sel, 0 },
@@ -330,6 +338,10 @@ TEST(ContextConstrainingTest, GasNextRow)
                                    { C::execution_da_gas_limit, 2000 },
                                    { C::execution_parent_l2_gas_limit, 2000 },
                                    { C::execution_parent_da_gas_limit, 4000 },
+                                   // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                },
                                {
                                    { C::execution_sel, 0 },
@@ -431,6 +443,10 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                                    { C::execution_da_gas_used, 260 },
                                    { C::execution_prev_l2_gas_used, 160 }, // 110 + 50
                                    { C::execution_prev_da_gas_used, 260 }, // 200 + 60
+                                                                           // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                },
                                {
                                    { C::execution_sel, 0 },
@@ -528,6 +544,10 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                                    { C::execution_l1_l2_tree_root, 27 },
                                    { C::execution_prev_retrieved_bytecodes_tree_root, 260 },
                                    { C::execution_prev_retrieved_bytecodes_tree_size, 250 },
+                                   // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                } });
 
     check_relation<context>(trace,
@@ -661,6 +681,11 @@ TEST(ContextConstrainingTest, BytecodeIdPropagation)
                                    { C::execution_context_id, 1 },
                                    { C::execution_next_context_id, 1 },
                                    { C::execution_bytecode_id, 42 }, // Same bytecode_id (propagated)
+
+                                   // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                } });
 
     check_relation<context>(trace);
@@ -788,6 +813,11 @@ TEST(ContextConstrainingTest, IsStaticPropagationWithoutCalls)
             { C::execution_context_id, 1 },
             { C::execution_next_context_id, 1 },
             { C::execution_is_static, 1 }, // Should propagate
+
+            // End of enqueued call (last active row)
+            { C::execution_sel_exit_call, 1 },
+            { C::execution_sel_execute_return, 1 },
+            { C::execution_enqueued_call_end, 1 },
         },
     });
     check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW_DEFAULT);
@@ -992,6 +1022,10 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
             { C::execution_sel, 1 },
             { C::execution_context_id, 1 },
             { C::execution_next_context_id, 3 },
+            // End of enqueued call (last active row)
+            { C::execution_sel_exit_call, 1 },
+            { C::execution_sel_execute_return, 1 },
+            { C::execution_enqueued_call_end, 1 },
         },
     });
     check_relation<context>(trace,
