@@ -37,6 +37,8 @@ class MultilinearBatchingRecursiveFlavor {
 
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
+    // Number of accumulator evaluations sent in the proof (non_shifted + shifted)
+    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = NativeFlavor::NUM_ACCUMULATOR_EVALUATIONS;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = NativeFlavor::Relations_<FF>;

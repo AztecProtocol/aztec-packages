@@ -50,6 +50,8 @@ class MultilinearBatchingFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = 4;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_ENTITIES = 2;
+    // Number of accumulator evaluations sent in the proof (non_shifted + shifted)
+    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = 2;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.

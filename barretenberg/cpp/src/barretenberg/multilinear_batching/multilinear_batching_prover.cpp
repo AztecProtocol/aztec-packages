@@ -29,7 +29,7 @@ void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
         transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i), key.accumulator_challenge[i]);
     }
-    for (size_t i = 0; i < 2; i++) {
+    for (size_t i = 0; i < Flavor::NUM_ACCUMULATOR_EVALUATIONS; i++) {
         transcript->send_to_verifier("accumulator_evaluation_" + std::to_string(i), key.accumulator_evaluations[i]);
     }
 }
@@ -62,10 +62,18 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 
     const FF claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
 
-    // Update polynomials in place: instance += challenge * accumulator
-    key.polynomials.batched_unshifted_instance.add_scaled(key.polynomials.batched_unshifted_accumulator,
-                                                          claim_batching_challenge);
-    key.preshifted_instance.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+    // Accumulate into instance polynomial, extending only if accumulator is larger
+    auto& unshifted = key.polynomials.batched_unshifted_instance;
+    if (unshifted.end_index() < key.circuit_size) {
+        unshifted = Polynomial<FF>(unshifted, key.circuit_size);
+    }
+    unshifted.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
+
+    auto& shifted = key.preshifted_instance;
+    if (shifted.end_index() < key.circuit_size) {
+        shifted = Polynomial<FF>(shifted, key.circuit_size - 1);
+    }
+    shifted.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
 
     // New commitments
     auto new_non_shifted_commitment =
@@ -84,9 +92,8 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
     return MultilinearBatchingProverClaim{ .challenge = std::move(sumcheck_output.challenge),
                                            .non_shifted_evaluation = new_non_shifted_evaluation,
                                            .shifted_evaluation = new_shifted_evaluation,
-                                           .non_shifted_polynomial =
-                                               std::move(key.polynomials.batched_unshifted_instance),
-                                           .shifted_polynomial = std::move(key.preshifted_instance),
+                                           .non_shifted_polynomial = std::move(unshifted),
+                                           .shifted_polynomial = std::move(shifted),
                                            .non_shifted_commitment = new_non_shifted_commitment,
                                            .shifted_commitment = new_shifted_commitment,
                                            .dyadic_size = key.circuit_size };

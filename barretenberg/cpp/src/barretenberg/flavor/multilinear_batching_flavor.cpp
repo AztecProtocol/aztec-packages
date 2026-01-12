@@ -55,7 +55,7 @@ bool MultilinearBatchingFlavor::ProverClaim::compare_with_verifier_claim(
     const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim)
 {
     bool is_a_match = true;
-    CommitmentKey<curve::BN254> bn254_commitment_key(dyadic_size);
+    CommitmentKey bn254_commitment_key(dyadic_size);
 
     for (size_t idx = 0; auto [prover_challenge, verifier_challenge] : zip_view(challenge, verifier_claim.challenge)) {
         if (prover_challenge != verifier_challenge) {

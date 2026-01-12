@@ -52,10 +52,8 @@ class HypernovaFoldingProver {
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
 
-    std::shared_ptr<Transcript> transcript;
-
-    HypernovaFoldingProver(std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript) {};
+    HypernovaFoldingProver(std::shared_ptr<Transcript> transcript)
+        : transcript(std::move(transcript)) {};
 
     /**
      * @brief Turn an instance into an accumulator by running Sumcheck.
@@ -87,6 +85,8 @@ class HypernovaFoldingProver {
     HonkProof export_proof() { return transcript->export_proof(); };
 
   private:
+    std::shared_ptr<Transcript> transcript;
+
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
      */
