@@ -993,7 +993,6 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
 #ifdef DISABLE_GETENVVAR_INSTRUCTION
     return;
 #endif
-    auto instruction_type = static_cast<uint8_t>(instruction.type % 12);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!result_address_operand.has_value()) {
         return;
@@ -1001,11 +1000,11 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
     preprocess_memory_addresses(result_address_operand.value().first);
     auto getenvvar_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETENVVAR_16)
                                      .operand(result_address_operand.value().second)
-                                     .operand(instruction_type)
+                                     .operand(instruction.type)
                                      .build();
     instructions.push_back(getenvvar_instruction);
     // special case for timestamp, it returns a 64-bit value
-    if (instruction_type == 6) {
+    if (instruction.type == 6) {
         memory_manager.set_memory_address(bb::avm2::MemoryTag::U64,
                                           result_address_operand.value().first.absolute_address);
     } else {
@@ -1511,6 +1510,34 @@ void ProgramBlock::process_toradixbe_instruction(TORADIXBE_Instruction instructi
     memory_manager.set_memory_address(output_tag, dst_operand.value().first.absolute_address);
 }
 
+void ProgramBlock::process_debuglog_instruction(DEBUGLOG_Instruction instruction)
+{
+    auto level_operand = memory_manager.get_resolved_address_and_operand_16(instruction.level_offset);
+    auto message_operand = memory_manager.get_resolved_address_and_operand_16(instruction.message_offset);
+    auto fields_operand = memory_manager.get_resolved_address_and_operand_16(instruction.fields_offset);
+    auto fields_size_operand = memory_manager.get_resolved_address_and_operand_16(instruction.fields_size_offset);
+    auto message_size = instruction.message_size;
+
+    if (!level_operand.has_value() || !message_operand.has_value() || !fields_operand.has_value() ||
+        !fields_size_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(level_operand.value().first);
+    preprocess_memory_addresses(message_operand.value().first);
+    preprocess_memory_addresses(fields_operand.value().first);
+    preprocess_memory_addresses(fields_size_operand.value().first);
+
+    auto debuglog_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::DEBUGLOG)
+                                    .operand(level_operand.value().second)
+                                    .operand(message_operand.value().second)
+                                    .operand(fields_operand.value().second)
+                                    .operand(fields_size_operand.value().second)
+                                    .operand(message_size)
+                                    .build();
+    instructions.push_back(debuglog_instruction);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1731,6 +1758,7 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 return this->process_l1tol2msgexists_instruction(instruction);
             },
             [this](TORADIXBE_Instruction instruction) { return this->process_toradixbe_instruction(instruction); },
+            [this](DEBUGLOG_Instruction instruction) { return this->process_debuglog_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);
