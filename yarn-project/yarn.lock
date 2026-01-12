@@ -1160,6 +1160,8 @@ __metadata:
     "@aztec/node-lib": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/test-wallet": "workspace:^"

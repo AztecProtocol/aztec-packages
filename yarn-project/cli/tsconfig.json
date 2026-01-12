@@ -43,6 +43,12 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../sequencer-client"
+    },
+    {
+      "path": "../slasher"
+    },
+    {
       "path": "../stdlib"
     },
     {

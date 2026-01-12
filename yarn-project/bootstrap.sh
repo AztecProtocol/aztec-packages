@@ -94,6 +94,9 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    cli \
+    ethereum \
+    slasher \
     stdlib \
     ivc-integration \
     l1-artifacts \
