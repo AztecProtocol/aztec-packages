@@ -173,9 +173,9 @@ std::string render_pil(
 {
     std::string pil_equations;
     for (uint8_t i = 0; i < NUM_OF_OPERANDS; i++) {
-        pil_equations += (i == 0) ? "#[INDIRECT_BYTES_DECOMPOSITION]\n"
+        pil_equations += (i == 0) ? "#[ADDRESSING_MODE_BYTES_DECOMPOSITION]\n"
                                   : format("#[OP", static_cast<uint32_t>(i), "_BYTES_DECOMPOSITION]\n");
-        pil_equations += (i == 0) ? "indirect = " : format(OPERAND_PREFIX, static_cast<uint32_t>(i), " = ");
+        pil_equations += (i == 0) ? "addressing_mode = " : format(OPERAND_PREFIX, static_cast<uint32_t>(i), " = ");
 
         pil_equations += "(1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * ("; // Error gating multiplicative term
 

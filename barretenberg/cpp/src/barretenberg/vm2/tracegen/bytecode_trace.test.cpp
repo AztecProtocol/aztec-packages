@@ -456,7 +456,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
                   trace.get(C::instr_fetching_exec_opcode, i + 1));
 
         // Check indirect
-        EXPECT_EQ(FF(instr.addressing_mode), trace.get(C::instr_fetching_indirect, i + 1));
+        EXPECT_EQ(FF(instr.addressing_mode), trace.get(C::instr_fetching_addressing_mode, i + 1));
 
         // Check PCs
         EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i + 1));

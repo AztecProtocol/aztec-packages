@@ -160,15 +160,25 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 
     std::vector<WireOpCode> opcodes = { WireOpCode::REVERT_16, WireOpCode::CAST_8, WireOpCode::TORADIXBE };
     std::vector<size_t> sub_relations = {
-        instr_fetching::SR_INDIRECT_BYTES_DECOMPOSITION, instr_fetching::SR_OP1_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP2_BYTES_DECOMPOSITION,      instr_fetching::SR_OP3_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP4_BYTES_DECOMPOSITION,      instr_fetching::SR_OP5_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP6_BYTES_DECOMPOSITION,      instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
+        instr_fetching::SR_ADDRESSING_MODE_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP1_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP2_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP3_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP4_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP5_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP6_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
     };
 
     constexpr std::array<C, 8> operand_cols = {
-        C::instr_fetching_indirect, C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3,
-        C::instr_fetching_op4,      C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
+        C::instr_fetching_addressing_mode,
+        C::instr_fetching_op1,
+        C::instr_fetching_op2,
+        C::instr_fetching_op3,
+        C::instr_fetching_op4,
+        C::instr_fetching_op5,
+        C::instr_fetching_op6,
+        C::instr_fetching_op7,
     };
 
     for (const auto& opcode : opcodes) {
