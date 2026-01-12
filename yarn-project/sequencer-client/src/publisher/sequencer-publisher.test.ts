@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
   type GovernanceProposerContract,
@@ -112,7 +112,7 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-      ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
+      ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
 
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &

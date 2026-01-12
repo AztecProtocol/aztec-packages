@@ -102,9 +102,9 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     view
     returns (RollupConfigInput memory)
   {
-    uint256 aztecSlotDuration = vm.envOr("AZTEC_SLOT_DURATION", uint256(36));
-    uint256 aztecEpochDuration = vm.envOr("AZTEC_EPOCH_DURATION", uint256(32));
-    uint256 roundSizeInEpochs = vm.envOr("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", uint256(4));
+    uint256 aztecSlotDuration = vm.envUint("AZTEC_SLOT_DURATION");
+    uint256 aztecEpochDuration = vm.envUint("AZTEC_EPOCH_DURATION");
+    uint256 roundSizeInEpochs = vm.envUint("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS");
     uint256 slashingRoundSize = roundSizeInEpochs * aztecEpochDuration;
     // The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to
     // the Slasher (defaults to slashRoundSize / 2 + 1)
@@ -114,25 +114,25 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     RollupConfigInput memory config = RollupConfigInput({
       aztecSlotDuration: aztecSlotDuration,
       aztecEpochDuration: aztecEpochDuration,
-      targetCommitteeSize: vm.envOr("AZTEC_TARGET_COMMITTEE_SIZE", uint256(48)),
-      lagInEpochsForValidatorSet: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET", uint256(2)),
-      lagInEpochsForRandao: vm.envOr("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", uint256(2)),
-      inboxLag: vm.envOr("AZTEC_INBOX_LAG", uint256(1)),
-      aztecProofSubmissionEpochs: vm.envOr("AZTEC_PROOF_SUBMISSION_EPOCHS", uint256(1)),
-      localEjectionThreshold: vm.envOr("AZTEC_LOCAL_EJECTION_THRESHOLD", uint256(198e18)),
+      targetCommitteeSize: vm.envUint("AZTEC_TARGET_COMMITTEE_SIZE"),
+      lagInEpochsForValidatorSet: vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET"),
+      lagInEpochsForRandao: vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO"),
+      inboxLag: vm.envUint("AZTEC_INBOX_LAG"),
+      aztecProofSubmissionEpochs: vm.envUint("AZTEC_PROOF_SUBMISSION_EPOCHS"),
+      localEjectionThreshold: vm.envUint("AZTEC_LOCAL_EJECTION_THRESHOLD"),
       slashingQuorum: slashingQuorum,
       slashingRoundSize: slashingRoundSize,
-      slashingLifetimeInRounds: vm.envOr("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", uint256(5)),
-      slashingExecutionDelayInRounds: vm.envOr("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS", uint256(0)),
+      slashingLifetimeInRounds: vm.envUint("AZTEC_SLASHING_LIFETIME_IN_ROUNDS"),
+      slashingExecutionDelayInRounds: vm.envUint("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS"),
       slashAmounts: _getSlashAmounts(),
       slashingOffsetInRounds: _getSlashingOffset(),
       slasherFlavor: _getSlasherFlavor(),
-      slashingVetoer: vm.envOr("AZTEC_SLASHING_VETOER", address(0)),
-      slashingDisableDuration: vm.envOr("AZTEC_SLASHING_DISABLE_DURATION", uint256(5 days)),
-      manaTarget: vm.envOr("AZTEC_MANA_TARGET", uint256(100_000_000)),
-      exitDelaySeconds: vm.envOr("AZTEC_EXIT_DELAY_SECONDS", uint256(2 days)),
+      slashingVetoer: vm.envAddress("AZTEC_SLASHING_VETOER"),
+      slashingDisableDuration: vm.envUint("AZTEC_SLASHING_DISABLE_DURATION"),
+      manaTarget: vm.envUint("AZTEC_MANA_TARGET"),
+      exitDelaySeconds: vm.envUint("AZTEC_EXIT_DELAY_SECONDS"),
       version: 0, // Computed below
-      provingCostPerMana: EthValue.wrap(vm.envOr("AZTEC_PROVING_COST_PER_MANA", uint256(100))),
+      provingCostPerMana: EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA")),
       rewardConfig: this.getRewardConfiguration(_rewardDistributor),
       rewardBoostConfig: this.getRewardBoostConfiguration(),
       stakingQueueConfig: this.getStakingQueueConfiguration(),
@@ -159,19 +159,18 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   }
 
   function _getSlasherFlavor() private view returns (SlasherFlavor) {
-    return _parseSlasherFlavor(vm.envOr("AZTEC_SLASHER_FLAVOR", string("tally")));
+    return _parseSlasherFlavor(vm.envString("AZTEC_SLASHER_FLAVOR"));
   }
 
   function _getSlashingOffset() private view returns (uint256) {
-    SlasherFlavor flavor = _getSlasherFlavor();
-    return vm.envOr("AZTEC_SLASHING_OFFSET_IN_ROUNDS", flavor == SlasherFlavor.TALLY ? uint256(2) : uint256(0));
+    return vm.envUint("AZTEC_SLASHING_OFFSET_IN_ROUNDS");
   }
 
   function _getSlashAmounts() private view returns (uint256[3] memory) {
     return [
-      vm.envOr("AZTEC_SLASH_AMOUNT_SMALL", uint256(10e18)),
-      vm.envOr("AZTEC_SLASH_AMOUNT_MEDIUM", uint256(20e18)),
-      vm.envOr("AZTEC_SLASH_AMOUNT_LARGE", uint256(50e18))
+      vm.envUint("AZTEC_SLASH_AMOUNT_SMALL"),
+      vm.envUint("AZTEC_SLASH_AMOUNT_MEDIUM"),
+      vm.envUint("AZTEC_SLASH_AMOUNT_LARGE")
     ];
   }
 
