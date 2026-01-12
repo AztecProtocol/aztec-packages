@@ -488,7 +488,7 @@ describe('NoteStore', () => {
     });
   });
 
-  describe('NoteStore.rollbackNotesAndNullifiers', () => {
+  describe('NoteStore.rollback', () => {
     let provider: NoteStore;
     let store: AztecLMDBStoreV2;
 
@@ -521,7 +521,7 @@ describe('NoteStore', () => {
         // Apply nullifiers and rollback to block 3
         // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
         await provider.applyNullifiers(nullifiers);
-        await provider.rollbackNotesAndNullifiers(3, 6);
+        await provider.rollback(3, 6);
       }
 
       beforeEach(async () => {
@@ -584,7 +584,7 @@ describe('NoteStore', () => {
 
         // Since nullification happened at block 5 (not after), it should stay nullified
         // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
-        await provider.rollbackNotesAndNullifiers(5, 5);
+        await provider.rollback(5, 5);
 
         const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
         expect(activeNotes).toHaveLength(0);
@@ -610,7 +610,7 @@ describe('NoteStore', () => {
         await provider.applyNullifiers(nullifiers);
 
         // blockNumber=6, synchedBlockNumber=4 therefore no nullifications to rewind
-        await provider.rollbackNotesAndNullifiers(6, 4);
+        await provider.rollback(6, 4);
 
         const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
         expect(activeNotes).toHaveLength(0);
@@ -635,7 +635,7 @@ describe('NoteStore', () => {
           },
         ];
         await provider.applyNullifiers(nullifiers);
-        await provider.rollbackNotesAndNullifiers(5, 100);
+        await provider.rollback(5, 100);
 
         // note1 should be restored (nullified at block 7 > rollback block 5)
         // note2 should be deleted (created at block 10 > rollback block 5)
@@ -644,7 +644,7 @@ describe('NoteStore', () => {
       });
 
       it('handles rollback on empty PXE database gracefully', async () => {
-        await expect(provider.rollbackNotesAndNullifiers(10, 20)).resolves.not.toThrow();
+        await expect(provider.rollback(10, 20)).resolves.not.toThrow();
         const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
         expect(notes).toHaveLength(0);
       });

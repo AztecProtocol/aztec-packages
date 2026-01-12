@@ -151,13 +151,13 @@ export class L2Block {
     return this.header.toBlockHeader();
   }
 
-  public toL2Block() {
+  public toL2Block(args: { checkpointNumber?: CheckpointNumber; indexWithinCheckpoint?: number } = {}): L2BlockNew {
     return new L2BlockNew(
       this.archive,
       this.getBlockHeader(),
       this.body,
-      CheckpointNumber.fromBlockNumber(this.number),
-      0, // indexWithinCheckpoint
+      args?.checkpointNumber ?? CheckpointNumber.fromBlockNumber(this.number),
+      args?.indexWithinCheckpoint ?? 0,
     );
   }
 

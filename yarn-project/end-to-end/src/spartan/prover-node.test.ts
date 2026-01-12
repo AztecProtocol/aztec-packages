@@ -3,7 +3,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import type { ChildProcess } from 'child_process';
 
-import { AlertChecker, AlertTriggeredError } from '../quality_of_service/alert_checker.js';
+import { AlertTriggeredError, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
   applyProverBrokerKill,
   applyProverKill,
@@ -55,7 +55,7 @@ const enqueuedRootRollupJobs = {
 
 describe('prover node recovery', () => {
   const forwardProcesses: ChildProcess[] = [];
-  let alertChecker: AlertChecker;
+  let alertChecker: GrafanaClient;
   let spartanDir: string;
   beforeAll(async () => {
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
@@ -91,7 +91,7 @@ describe('prover node recovery', () => {
     forwardProcesses.push(promProc);
     const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
     const grafanaCredentials = '';
-    alertChecker = new AlertChecker(logger, { grafanaEndpoint, grafanaCredentials });
+    alertChecker = new GrafanaClient(logger, { grafanaEndpoint, grafanaCredentials });
 
     spartanDir = `${getGitProjectRoot()}/spartan`;
   });

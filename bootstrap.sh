@@ -130,13 +130,21 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="22.15.0"
+  local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    encourage_dev_container
-    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
-    echo "Installation: nvm install $node_min_version"
-    exit 1
+    # Temporary measure: Install Node 24 until AMI includes the updated docker image with Node 24.
+    # This can be removed once the AMI is updated.
+    echo -e "${bold}${yellow}WARN: Node.js $node_min_version not found (got $node_installed_version). Installing temporarily...${reset}"
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    node_installed_version=$(node --version | cut -d 'v' -f 2)
+    if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
+      encourage_dev_container
+      echo "Failed to install Node.js $node_min_version."
+      exit 1
+    fi
+    echo -e "${bold}${green}Node.js $(node --version) installed successfully.${reset}"
   fi
   # Check for required npm globals.
   for util in corepack solhint; do
@@ -147,6 +155,22 @@ function check_toolchains {
       exit 1
     fi
   done
+}
+
+function versions {
+  if semver check $REF_NAME; then
+    echo "aztec: ${REF_NAME#v}"
+  else
+    echo "aztec: $(jq -r '."."' .release-please-manifest.json | tr -d v)"
+  fi
+  echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
+  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
+  echo "node: $(node --version | cut -d 'v' -f 2)"
+  echo "cmake: $(cmake --version | head -n1 | cut -d' ' -f3)"
+  echo "clang: $(clang++-20 --version | head -n1 | cut -d' ' -f4)"
+  echo "zig: $(zig version)"
+  echo "rustc: $(rustc --version | cut -d' ' -f2)"
+  echo "wasi-sdk: $(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)"
 }
 
 # Install pre-commit git hooks.
@@ -195,7 +219,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -324,7 +348,7 @@ function pull_submodules {
     echo "Removing old noir clone..."
     rm -rf noir/noir-repo
   fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
 }
 
 function build {

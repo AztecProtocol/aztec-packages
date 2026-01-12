@@ -1,12 +1,12 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { insertIntoSortedArray, shuffle } from '@aztec/foundation/array';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import { GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -157,12 +157,18 @@ describe('TxPool: Benchmarks', () => {
       syncImmediate: () => Promise.resolve(),
       getProvenBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
       getBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
-      getL2Tips: () =>
-        Promise.resolve({
-          latest: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-          finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        }),
+      getL2Tips: () => {
+        const tipId = {
+          block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        };
+        return Promise.resolve({
+          proposed: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+          checkpointed: tipId,
+          proven: tipId,
+          finalized: tipId,
+        });
+      },
     });
     wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings));
     await wsSync.start();

@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { BlockTagTooOldError, InboxContract, RollupContract } from '@aztec/ethereum/contracts';
@@ -33,8 +33,10 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ArchiverEmitter,
+  type CheckpointId,
   CheckpointedL2Block,
   CommitteeAttestation,
+  GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
   L2BlockNew,
   type L2BlockSink,
@@ -103,7 +105,7 @@ import {
 } from './l1/data_retrieval.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import type { InboxMessage } from './structs/inbox_message.js';
-import { type ValidateBlockResult, validateCheckpointAttestations } from './validation.js';
+import { type ValidateCheckpointResult, validateCheckpointAttestations } from './validation.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -128,7 +130,7 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
   return {
     pollingIntervalMs: config.archiverPollingIntervalMS,
     batchSize: config.archiverBatchSize,
-    skipValidateBlockAttestations: config.skipValidateBlockAttestations,
+    skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
   };
@@ -139,7 +141,7 @@ type RollupStatus = {
   provenArchive: Hex;
   pendingCheckpointNumber: CheckpointNumber;
   pendingArchive: Hex;
-  validationResult: ValidateBlockResult | undefined;
+  validationResult: ValidateCheckpointResult | undefined;
   lastRetrievedCheckpoint?: PublishedCheckpoint;
   lastL1BlockWithCheckpoint?: bigint;
 };
@@ -193,7 +195,7 @@ export class Archiver
     private config: {
       pollingIntervalMs: number;
       batchSize: number;
-      skipValidateBlockAttestations?: boolean;
+      skipValidateCheckpointAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
     },
@@ -593,14 +595,11 @@ export class Archiver
       );
       const newBlocks = blockPromises.filter(isDefined).flat();
 
-      // TODO(pw/mbps): Don't convert to legacy blocks here
-      const blocks: L2Block[] = (await Promise.all(newBlocks.map(x => this.getBlock(x.number)))).filter(isDefined);
-
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
         epochNumber: pruneFromEpochNumber,
-        blocks,
+        blocks: newBlocks,
       });
 
       this.log.debug(
@@ -793,7 +792,8 @@ export class Archiver
   @trackSpan('Archiver.handleCheckpoints')
   private async handleCheckpoints(blocksSynchedTo: bigint, currentL1BlockNumber: bigint): Promise<RollupStatus> {
     const localPendingCheckpointNumber = await this.getSynchedCheckpointNumber();
-    const initialValidationResult: ValidateBlockResult | undefined = await this.store.getPendingChainValidationStatus();
+    const initialValidationResult: ValidateCheckpointResult | undefined =
+      await this.store.getPendingChainValidationStatus();
     const {
       provenCheckpointNumber,
       provenArchive,
@@ -1008,7 +1008,7 @@ export class Archiver
       const validCheckpoints: PublishedCheckpoint[] = [];
 
       for (const published of publishedCheckpoints) {
-        const validationResult = this.config.skipValidateBlockAttestations
+        const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
           : await validateCheckpointAttestations(published, this.epochCache, this.l1constants, this.log);
 
@@ -1021,7 +1021,7 @@ export class Archiver
           rollupStatus.validationResult?.valid !== validationResult.valid ||
           (!rollupStatus.validationResult.valid &&
             !validationResult.valid &&
-            rollupStatus.validationResult.block.blockNumber === validationResult.block.blockNumber)
+            rollupStatus.validationResult.checkpoint.checkpointNumber === validationResult.checkpoint.checkpointNumber)
         ) {
           rollupStatus.validationResult = validationResult;
         }
@@ -1033,9 +1033,9 @@ export class Archiver
             ...pick(validationResult, 'reason'),
           });
 
-          // Emit event for invalid block detection
-          this.emit(L2BlockSourceEvents.InvalidAttestationsBlockDetected, {
-            type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+          // Emit event for invalid checkpoint detection
+          this.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, {
+            type: L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
             validationResult,
           });
 
@@ -1362,7 +1362,7 @@ export class Archiver
 
   public addCheckpoints(
     checkpoints: PublishedCheckpoint[],
-    pendingChainValidationStatus?: ValidateBlockResult,
+    pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     return this.store.addCheckpoints(checkpoints, pendingChainValidationStatus);
   }
@@ -1392,6 +1392,16 @@ export class Archiver
     return publishedBlock;
   }
 
+  public async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+    const blocks = await this.store.store.getBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.number <= provenBlockNumber);
+    }
+    return blocks;
+  }
+
   public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
     if (number === 'latest') {
       number = await this.store.getSynchedL2BlockNumber();
@@ -1407,12 +1417,29 @@ export class Archiver
     return this.store.getCheckpointedBlock(number);
   }
 
+  public async getCheckpointedBlocks(
+    from: BlockNumber,
+    limit: number,
+    proven?: boolean,
+  ): Promise<CheckpointedL2Block[]> {
+    const blocks = await this.store.store.getCheckpointedBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.block.number <= provenBlockNumber);
+    }
+    return blocks;
+  }
+
   getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
     return this.store.getCheckpointedBlockByHash(blockHash);
   }
 
   getProvenBlockNumber(): Promise<BlockNumber> {
     return this.store.getProvenBlockNumber();
+  }
+  getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return this.store.getCheckpointedL2BlockNumber();
   }
   getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
     return this.store.getCheckpointedBlockByArchive(archive);
@@ -1515,7 +1542,7 @@ export class Archiver
     return this.store.getDebugFunctionName(address, selector);
   }
 
-  async getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  async getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
@@ -1524,9 +1551,10 @@ export class Archiver
   }
 
   async getL2Tips(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber] = await Promise.all([
       this.getBlockNumber(),
       this.getProvenBlockNumber(),
+      this.getCheckpointedBlockNumber(),
     ] as const);
 
     // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
@@ -1534,44 +1562,112 @@ export class Archiver
     // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
     const finalizedBlockNumber = BlockNumber(Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0));
 
-    const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
-      latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
-      provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
-      finalizedBlockNumber > 0 ? this.getBlockHeader(finalizedBlockNumber) : undefined,
-    ] as const);
+    const beforeInitialblockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 
-    if (latestBlockNumber > 0 && !latestBlockHeader) {
+    // Get the latest block header and checkpointed blocks for proven, finalised and checkpointed blocks
+    const [latestBlockHeader, provenCheckpointedBlock, finalizedCheckpointedBlock, checkpointedBlock] =
+      await Promise.all([
+        latestBlockNumber > beforeInitialblockNumber ? this.getBlockHeader(latestBlockNumber) : undefined,
+        provenBlockNumber > beforeInitialblockNumber ? this.getCheckpointedBlock(provenBlockNumber) : undefined,
+        finalizedBlockNumber > beforeInitialblockNumber ? this.getCheckpointedBlock(finalizedBlockNumber) : undefined,
+        checkpointedBlockNumber > beforeInitialblockNumber
+          ? this.getCheckpointedBlock(checkpointedBlockNumber)
+          : undefined,
+      ] as const);
+
+    if (latestBlockNumber > beforeInitialblockNumber && !latestBlockHeader) {
       throw new Error(`Failed to retrieve latest block header for block ${latestBlockNumber}`);
     }
 
-    if (provenBlockNumber > 0 && !provenBlockHeader) {
+    // Checkpointed blocks must exist for proven, finalized and checkpointed tips if they are beyond the initial block number.
+    if (checkpointedBlockNumber > beforeInitialblockNumber && !checkpointedBlock?.block.header) {
       throw new Error(
-        `Failed to retrieve proven block header for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+        `Failed to retrieve checkpointed block header for block ${checkpointedBlockNumber} (latest block is ${latestBlockNumber})`,
       );
     }
 
-    if (finalizedBlockNumber > 0 && !finalizedBlockHeader) {
+    if (provenBlockNumber > beforeInitialblockNumber && !provenCheckpointedBlock?.block.header) {
+      throw new Error(
+        `Failed to retrieve proven checkpointed for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
+    }
+
+    if (finalizedBlockNumber > beforeInitialblockNumber && !finalizedCheckpointedBlock?.block.header) {
       throw new Error(
         `Failed to retrieve finalized block header for block ${finalizedBlockNumber} (latest block is ${latestBlockNumber})`,
       );
     }
 
     const latestBlockHeaderHash = (await latestBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const provenBlockHeaderHash = (await provenBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const finalizedBlockHeaderHash = (await finalizedBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const provenBlockHeaderHash = (await provenCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const finalizedBlockHeaderHash =
+      (await finalizedCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
+    const checkpointedBlockHeaderHash = (await checkpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
 
-    return {
-      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash.toString() },
-      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash.toString() },
-      finalized: { number: finalizedBlockNumber, hash: finalizedBlockHeaderHash.toString() },
+    // Now attempt to retrieve checkpoints for proven, finalised and checkpointed blocks
+    const [[provenBlockCheckpoint], [finalizedBlockCheckpoint], [checkpointedBlockCheckpoint]] = await Promise.all([
+      provenCheckpointedBlock !== undefined
+        ? await this.getPublishedCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
+        : [undefined],
+      finalizedCheckpointedBlock !== undefined
+        ? await this.getPublishedCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
+        : [undefined],
+      checkpointedBlock !== undefined
+        ? await this.getPublishedCheckpoints(checkpointedBlock?.checkpointNumber, 1)
+        : [undefined],
+    ]);
+
+    const initialcheckpointId: CheckpointId = {
+      number: CheckpointNumber.ZERO,
+      hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
     };
+
+    const makeCheckpointId = (checkpoint: PublishedCheckpoint | undefined) => {
+      if (checkpoint === undefined) {
+        return initialcheckpointId;
+      }
+      return {
+        number: checkpoint.checkpoint.number,
+        hash: checkpoint.checkpoint.hash().toString(),
+      };
+    };
+
+    const l2Tips: L2Tips = {
+      proposed: {
+        number: latestBlockNumber,
+        hash: latestBlockHeaderHash.toString(),
+      },
+      proven: {
+        block: {
+          number: provenBlockNumber,
+          hash: provenBlockHeaderHash.toString(),
+        },
+        checkpoint: makeCheckpointId(provenBlockCheckpoint),
+      },
+      finalized: {
+        block: {
+          number: finalizedBlockNumber,
+          hash: finalizedBlockHeaderHash.toString(),
+        },
+        checkpoint: makeCheckpointId(finalizedBlockCheckpoint),
+      },
+      checkpointed: {
+        block: {
+          number: checkpointedBlockNumber,
+          hash: checkpointedBlockHeaderHash.toString(),
+        },
+        checkpoint: makeCheckpointId(checkpointedBlockCheckpoint),
+      },
+    };
+
+    return l2Tips;
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
     // TODO(pw/mbps): This still assumes 1 block per checkpoint
     const currentBlocks = await this.getL2Tips();
-    const currentL2Block = currentBlocks.latest.number;
-    const currentProvenBlock = currentBlocks.proven.number;
+    const currentL2Block = currentBlocks.proposed.number;
+    const currentProvenBlock = currentBlocks.proven.block.number;
 
     if (targetL2BlockNumber >= currentL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);
@@ -1777,6 +1873,7 @@ export class ArchiverStoreHelper
       | 'addBlocks'
       | 'getBlock'
       | 'getBlocks'
+      | 'getCheckpointedBlocks'
     >
 {
   #log = createLogger('archiver:block-helper');
@@ -1935,7 +2032,7 @@ export class ArchiverStoreHelper
     ).every(Boolean);
   }
 
-  public addBlocks(blocks: L2BlockNew[], pendingChainValidationStatus?: ValidateBlockResult): Promise<boolean> {
+  public addBlocks(blocks: L2BlockNew[], pendingChainValidationStatus?: ValidateCheckpointResult): Promise<boolean> {
     // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
     // or if the previous block is not in the store.
     return this.store.transactionAsync(async () => {
@@ -1958,7 +2055,7 @@ export class ArchiverStoreHelper
 
   public addCheckpoints(
     checkpoints: PublishedCheckpoint[],
-    pendingChainValidationStatus?: ValidateBlockResult,
+    pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
     // or if the previous block is not in the store.
@@ -2102,7 +2199,7 @@ export class ArchiverStoreHelper
     return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<BlockNumber> {
-    return this.store.getCheckpointedL2BlockNumber();
+    return this.store.getLatestBlockNumber();
   }
   getProvenCheckpointNumber(): Promise<CheckpointNumber> {
     return this.store.getProvenCheckpointNumber();
@@ -2158,10 +2255,10 @@ export class ArchiverStoreHelper
   getLastL1ToL2Message(): Promise<InboxMessage | undefined> {
     return this.store.getLastL1ToL2Message();
   }
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined> {
     return this.store.getPendingChainValidationStatus();
   }
-  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+  setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     this.#log.debug(`Setting pending chain validation status to valid ${status?.valid}`, status);
     return this.store.setPendingChainValidationStatus(status);
   }

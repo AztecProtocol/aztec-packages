@@ -32,8 +32,8 @@ const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 //    yarn test:e2e e2e_local_network_example.test.ts
 describe('e2e_local_network_example', () => {
   it('local network example works', async () => {
-    // docs:start:setup
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE LOCAL NETWORK //////////////
+    // docs:start:setup
     const logger = createLogger('e2e:token');
 
     // We create PXE client connected to the local network URL
@@ -181,6 +181,7 @@ describe('e2e_local_network_example', () => {
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;
     const bananaFPCAddress = await registerDeployedBananaFPCInWalletAndGetAddress(wallet);
+    // docs:start:private_fpc_payment
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
     const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5);
@@ -190,6 +191,7 @@ describe('e2e_local_network_example', () => {
       .transfer(bob, amountTransferToBob)
       .send({ from: alice, fee: { paymentMethod } })
       .wait();
+    // docs:end:private_fpc_payment
     const transactionFee = receiptForAlice.transactionFee!;
     logger.info(`Transaction fee: ${transactionFee}`);
 
@@ -206,6 +208,7 @@ describe('e2e_local_network_example', () => {
     const amountTransferToAlice = 48n;
 
     const sponsoredFPC = await registerDeployedSponsoredFPCInWalletAndGetAddress(wallet);
+    // docs:start:sponsored_fpc_payment
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC);
     // The payment method can also be initialized as follows:
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
@@ -215,6 +218,7 @@ describe('e2e_local_network_example', () => {
       .transfer(alice, amountTransferToAlice)
       .send({ from: bob, fee: { paymentMethod: sponsoredPaymentMethod } })
       .wait();
+    // docs:end:sponsored_fpc_payment
     // Check the balances
     const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate({ from: alice });
     logger.info(`Alice's new balance: ${aliceNewBalance}`);

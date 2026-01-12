@@ -29,7 +29,7 @@ shift
 # Handle list-targets command
 if [ "$COMMAND" = "list-targets" ]; then
     echo "Available fuzzing options (<target_name>):"
-    echo "  avm - AVM fuzzer (avm_fuzzer_avm_fuzzer)"
+    echo "  avm - AVM fuzzer (avm_fuzzer_avm_differential_fuzzer)"
     echo "  tx - Transaction fuzzer (avm_fuzzer_tx_fuzzer)"
     echo "  prover - Prover fuzzer (avm_fuzzer_prover_fuzzer)"
     echo "  alu - ALU fuzzer (harness_alu_fuzzer)"
@@ -75,7 +75,7 @@ fi
 
 # Validate and map fuzzer type
 case "$FUZZER_ALIAS" in
-    avm) FUZZER_TYPE="avm_fuzzer_avm_fuzzer" ;;
+    avm) FUZZER_TYPE="avm_fuzzer_avm_differential_fuzzer" ;;
     tx) FUZZER_TYPE="avm_fuzzer_tx_fuzzer" ;;
     prover) FUZZER_TYPE="avm_fuzzer_prover_fuzzer" ;;
     alu) FUZZER_TYPE="harness_alu_fuzzer" ;;

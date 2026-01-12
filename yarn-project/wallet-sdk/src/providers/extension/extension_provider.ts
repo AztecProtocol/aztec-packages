@@ -2,7 +2,7 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
-import type { DiscoveryRequest, DiscoveryResponse, WalletInfo } from '../types.js';
+import type { DiscoveryRequest, DiscoveryResponse, WalletInfo } from '../../types.js';
 
 /**
  * Provider for discovering and managing Aztec wallet extensions

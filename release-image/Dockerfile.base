@@ -6,13 +6,13 @@ COPY . /usr/src
 # Install yarn-project production dependencies.
 # Explicitly specify projects that we use to keep as slim as possible.
 WORKDIR /usr/src/yarn-project
-RUN yarn workspaces focus @aztec/aztec @aztec/cli-wallet --production
+RUN yarn workspaces focus @aztec/aztec --production
 
 # Create base of our final slim image.
 # This can be cached and will only update if dependencies change.
 FROM ubuntu:noble
 
-ENV NODE_MAJOR=22
+ENV NODE_MAJOR=24
 
 RUN apt update && apt install -y \
       curl \

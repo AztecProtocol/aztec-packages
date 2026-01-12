@@ -16,7 +16,8 @@
     "clean": "rm -rf ./dest ./generated .tsbuildinfo",
     "formatting": "run -T prettier --check ./generated && run -T eslint ./generated",
     "formatting:fix": "run -T prettier -w ./generated",
-    "generate": "yarn generate:l1-contracts",
+    "copy-artifacts": "bash scripts/copy-foundry-artifacts.sh",
+    "generate": "yarn copy-artifacts && yarn generate:l1-contracts",
     "generate:l1-contracts": "bash scripts/generate-artifacts.sh"
   },
   "dependencies": {
@@ -30,7 +31,8 @@
   },
   "files": [
     "dest",
-    "generated"
+    "generated",
+    "l1-contracts"
   ],
   "types": "./dest/index.d.ts"
 }

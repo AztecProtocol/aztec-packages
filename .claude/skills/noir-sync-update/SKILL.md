@@ -15,7 +15,6 @@ Noir Sync Update Progress:
 - [ ] Step 2: Update the `Cargo.lock` file in `avm-transpiler`.
 - [ ] Step 3: Update the `yarn.lock` file in `yarn-project`.
 - [ ] Step 4: Format `noir-projects`.
-- [ ] Step 5: Check `noir-projects` still compiles.
 ```
 
 After each step, commit the results.
@@ -23,6 +22,8 @@ After each step, commit the results.
 ## Critical Verification Rules
 
 **ALWAYS verify file changes with `git status` after any modification step before marking it complete.** Command output showing "updating" does not guarantee the file was written to disk.
+
+**IMPORTANT:** Always run `git status` from the repository root directory, not from subdirectories. Running `git status noir-projects/` from inside `noir-projects/` will fail silently.
 
 ### Step 1: Ensure that the new submodule commit has been pulled
 
@@ -69,9 +70,3 @@ This is necessary as the updates to the noir compiler may result in the formatte
 Failing to run the formatter will result in a CI failure.
 
 **After running**, check `git status noir-projects/` for any formatting changes that need to be committed.
-
-### Step 5: Check `noir-projects` still compiles
-
-Run `./bootstrap.sh` in `noir-projects`.
-
-As a sanity check, we want to ensure that `noir-projects` still compiles after the update.

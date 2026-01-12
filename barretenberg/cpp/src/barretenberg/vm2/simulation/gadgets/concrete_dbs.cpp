@@ -17,11 +17,15 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     }
     // If we did get a contract instance, we need to prove that the address is derived from the instance.
     // For protocol contracts the input address is the canonical address, we need to retrieve the derived address.
-    AztecAddress derived_address = is_protocol_contract_address(address)
-                                       ? get_derived_address(protocol_contracts, address)
-                                             .value() /* We can assume that get_derived_address will not return a
-                                                         nullopt, since we have succesfully fetched the instance.*/
-                                       : address;
+    AztecAddress derived_address;
+    if (is_protocol_contract_address(address)) {
+        auto maybe_derived = get_derived_address(protocol_contracts, address);
+        BB_ASSERT(maybe_derived.has_value(),
+                  "Derived address should be found for protocol contract whose instance is found");
+        derived_address = maybe_derived.value();
+    } else {
+        derived_address = address;
+    }
     address_derivation.assert_derivation(derived_address, instance.value());
     return instance;
 }

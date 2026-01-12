@@ -133,7 +133,9 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
 
 std::shared_ptr<std::vector<uint8_t>> PureTxBytecodeManager::get_bytecode_data(const BytecodeId& bytecode_id)
 {
-    return bytecodes.at(bytecode_id);
+    auto it = bytecodes.find(bytecode_id);
+    BB_ASSERT_DEBUG(it != bytecodes.end(), "Bytecode not found for the given bytecode_id");
+    return it->second;
 }
 
 } // namespace bb::avm2::simulation

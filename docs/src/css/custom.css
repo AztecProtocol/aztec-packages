@@ -374,7 +374,7 @@ html[data-theme="dark"] .sidebar-divider {
 
 .card {
   display: flex;
-  border-radius: unset;
+  border-radius: 8px;
   /* box-shadow: none; */
   flex-direction: column;
   height: 100%;
@@ -443,6 +443,28 @@ html[data-theme="dark"] .sidebar-divider {
 
 .dropdown-version-section-header-item:hover {
   background: none !important;
+}
+
+/* ============================================
+   DocCardList Improvements
+   ============================================ */
+
+.cardContainer {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  transition: all 0.3s ease;
+}
+
+.cardContainer:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+[data-theme="dark"] .cardContainer:hover {
+  border-color: #a9cc1f;
+  box-shadow: 0 8px 16px rgba(169, 204, 31, 0.15);
 }
 
 /* ============================================

@@ -188,6 +188,7 @@ Use these terms consistently throughout:
 
 - **[Aztec Protocol]** - Always capitalize and use full name on first mention
 - **[PXE]** - Always capitalize and use full name (Private eXecution Environment) on first mention
+- **Wallet vs Account** - Never use `wallet.address`. A wallet is software that holds multiple accounts; accounts have addresses, not wallets. Use `account.address`, `sender.address`, `alice.address`, etc. instead
 
 ### Formatting Conventions
 

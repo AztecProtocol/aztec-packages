@@ -74,7 +74,7 @@ The tag `aztec-build-local:3.0` avoids conflicts with the official Docker Hub im
 
 **What this does:**
 - Builds the `build` stage from `build-images/src/Dockerfile`
-- Installs Node.js 22.16.0 from NodeSource repository
+- Installs Node.js 24.12.0 from NodeSource repository
 - Installs Clang 16, 18, and 20 from LLVM
 - Installs Rust 1.85.0 using the Rust toolchain installer with wasm32 targets
 - Downloads and installs WASI SDK 27 from GitHub releases
@@ -93,7 +93,7 @@ After the build completes, inspect the image to verify its contents:
 docker run -it --rm aztec-build-local:3.0 /bin/bash
 
 # Check specific versions once inside:
-node --version        # Should show v22.16.0
+node --version        # Should show v24.12.0
 rustc --version       # Should show Rust 1.85.0
 clang-20 --version    # Should show clang 20.x
 forge --version       # Should show v1.4.1
@@ -141,7 +141,7 @@ The tag `aztecprotocol/release-image-base` must match exactly—the Dockerfile i
 
 **What this does:**
 - Installs production Node.js dependencies (no dev dependencies)
-- Includes Node.js 22 runtime and system utilities
+- Includes Node.js 24 runtime and system utilities
 - Copies Foundry tools (anvil, cast) from the build container
 - Creates a slim Ubuntu-based runtime environment without build tools
 
@@ -298,7 +298,7 @@ This approach is faster but requires trusting the published image. The official 
 
 To build without Docker, install all build dependencies locally and run `./bootstrap.sh` directly:
 
-- Install all toolchains from the build image (Node.js 22, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
+- Install all toolchains from the build image (Node.js 24, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
 - Run `bootstrap.sh check` to verify your environment
 - See `build-images/README.md` for details
 

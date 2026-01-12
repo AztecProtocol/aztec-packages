@@ -3,6 +3,8 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/group/test_utils.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 using namespace bb;
@@ -12,9 +14,17 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-using Builder = UltraCircuitBuilder;
-using field_ct = field_t<Builder>;
-using witness_ct = witness_t<Builder>;
+#define STDLIB_TYPE_ALIASES                                                                                            \
+    using Builder = TypeParam;                                                                                         \
+    using field_ct = field_t<Builder>;                                                                                 \
+    using witness_ct = witness_t<Builder>;
+
+template <class Builder> class Sha256Test : public ::testing::Test {};
+
+using BuilderTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
+TYPED_TEST_SUITE(Sha256Test, BuilderTypes);
+
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
 
 /**
  * @brief Test sha256_block against NIST vector one ("abc")
@@ -26,8 +36,10 @@ using witness_ct = witness_t<Builder>;
  * - Padded block: "abc" + 0x80 + zeros + 64-bit length (24 bits)
  * - Single block since message fits in 55 bytes
  */
-TEST(stdlib_sha256, test_sha256_block_NIST_vector_one)
+TYPED_TEST(Sha256Test, BlockNistVectorOne)
 {
+    STDLIB_TYPE_ALIASES
+
     auto builder = Builder();
 
     // SHA-256 initial hash values (FIPS 180-4 section 5.3.3)
@@ -69,16 +81,14 @@ TEST(stdlib_sha256, test_sha256_block_NIST_vector_one)
     // Run circuit compression
     auto circuit_output = SHA256<Builder>::sha256_block(h_init, block);
 
-    // Verify circuit correctness
-    EXPECT_TRUE(CircuitChecker::check(builder));
-
     // Compare outputs
     for (size_t i = 0; i < 8; i++) {
         uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
         EXPECT_EQ(circuit_val, EXPECTED[i]) << "Circuit mismatch at index " << i;
     }
 
-    info("sha256_block num gates = ", builder.get_num_finalized_gates_inefficient());
+    check_circuit_and_gate_count(builder, 6679);
+    EXPECT_EQ(builder.get_tables_size(), 35992);
 }
 
 /**
@@ -91,8 +101,10 @@ TEST(stdlib_sha256, test_sha256_block_NIST_vector_one)
  * - Block 1: message bytes + padding bit (0x80)
  * - Block 2: zeros + 64-bit length (448 bits = 0x1c0)
  */
-TEST(stdlib_sha256, test_sha256_block_NIST_vector_two)
+TYPED_TEST(Sha256Test, BlockNistVectorTwo)
 {
+    STDLIB_TYPE_ALIASES
+
     auto builder = Builder();
 
     // SHA-256 initial hash values
@@ -147,16 +159,14 @@ TEST(stdlib_sha256, test_sha256_block_NIST_vector_two)
 
     auto circuit_output = SHA256<Builder>::sha256_block(h_mid, block2);
 
-    // Verify circuit correctness
-    EXPECT_TRUE(CircuitChecker::check(builder));
-
     // Compare outputs
     for (size_t i = 0; i < 8; i++) {
         uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
         EXPECT_EQ(circuit_val, EXPECTED[i]) << "Circuit mismatch at index " << i;
     }
 
-    info("sha256_block (2 blocks) num gates = ", builder.get_num_finalized_gates_inefficient());
+    check_circuit_and_gate_count(builder, 10611);
+    EXPECT_EQ(builder.get_tables_size(), 35992);
 }
 
 /**
@@ -167,8 +177,10 @@ TEST(stdlib_sha256, test_sha256_block_NIST_vector_two)
  * circuit failure.
  *
  */
-TEST(stdlib_sha256, test_extend_witness_constraints)
+TYPED_TEST(Sha256Test, ExtendWitnessTamperingFailure)
 {
+    STDLIB_TYPE_ALIASES
+
     BB_DISABLE_ASSERTS();
 
     auto builder = Builder();
