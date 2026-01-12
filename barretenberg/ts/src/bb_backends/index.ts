@@ -28,6 +28,9 @@ export type BackendOptions = {
   /** @description Custom path to bb binary for native backend (overrides automatic detection) */
   bbPath?: string;
 
+  /** @description Custom path to bb NAPI module for native backend (overrides automatic detection) */
+  napiPath?: string;
+
   /**
    * @description Logging function
    * Warning: Attaching a logger can prevent nodejs from exiting without explicitly destroying the backend.

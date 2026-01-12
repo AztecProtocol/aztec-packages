@@ -6,6 +6,8 @@
   "exports": {
     "./base-wallet": "./dest/base-wallet/index.js",
     "./providers/extension": "./dest/providers/extension/index.js",
+    "./crypto": "./dest/crypto.js",
+    "./types": "./dest/types.js",
     "./manager": "./dest/manager/index.js"
   },
   "typedocOptions": {
