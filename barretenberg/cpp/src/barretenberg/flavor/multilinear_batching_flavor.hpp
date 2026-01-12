@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -17,8 +17,8 @@
 
 namespace bb {
 
-// Forward declaration - full definition in multilinear_batching_claims.hpp
-struct MultilinearBatchingProverClaim;
+// Forward declaration for debug comparison method
+template <typename Curve> struct MultilinearBatchingVerifierClaim;
 
 class MultilinearBatchingFlavor {
   public:
@@ -122,8 +122,6 @@ class MultilinearBatchingFlavor {
         DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_unshifted() { return WitnessEntities<DataType>::get_all(); };
-        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_witness() const { return WitnessEntities<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -152,6 +150,30 @@ class MultilinearBatchingFlavor {
     };
 
     /**
+     * @brief Prover's claim for multilinear batching - contains polynomials and their evaluation claims.
+     * @details Used as input to ProvingKey and as output from HyperNova folding.
+     * Each claim represents: "polynomial P evaluated at challenge r equals evaluation v".
+     */
+    struct ProverClaim {
+        std::vector<FF> challenge;         // Evaluation point r
+        FF non_shifted_evaluation;         // Claimed value P(r)
+        FF shifted_evaluation;             // Claimed value P_shifted(r)
+        Polynomial non_shifted_polynomial; // The polynomial P
+        Polynomial shifted_polynomial;     // The shiftable polynomial (pre-shift form)
+        Commitment non_shifted_commitment; // Commitment [P]
+        Commitment shifted_commitment;     // Commitment [P_shifted]
+        size_t dyadic_size;                // Size of the polynomial domain
+
+#ifndef NDEBUG
+        /**
+         * @brief Debug helper to compare prover claim against verifier claim.
+         * @details Recomputes commitments and evaluations to verify consistency.
+         */
+        bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim);
+#endif
+    };
+
+    /**
      * @brief The proving key for multilinear batching sumcheck.
      *
      * @details In HyperNova folding, we reduce two polynomial evaluation claims to one via sumcheck.
@@ -169,7 +191,7 @@ class MultilinearBatchingFlavor {
      * After sumcheck, both claims are reduced to evaluations at a new random point u, producing a
      * single combined claim that can be verified with one polynomial opening.
      *
-     * Field mapping from MultilinearBatchingProverClaim to ProvingKey:
+     * Field mapping from ProverClaim to ProvingKey:
      * - non_shifted_polynomial → polynomials.batched_unshifted_{accumulator,instance}
      * - shifted_polynomial     → polynomials.batched_shifted_{accumulator,instance} (via .shifted())
      * - challenge              → {accumulator,instance}_challenge + polynomials.eq_{accumulator,instance}
@@ -208,7 +230,7 @@ class MultilinearBatchingFlavor {
          * @brief Construct from accumulator and instance claims.
          * @details Takes ownership via move semantics. After construction, the claims are consumed.
          */
-        ProvingKey(MultilinearBatchingProverClaim&& accumulator_claim, MultilinearBatchingProverClaim&& instance_claim);
+        ProvingKey(ProverClaim&& accumulator_claim, ProverClaim&& instance_claim);
     };
 
     /**
@@ -252,5 +274,8 @@ class MultilinearBatchingFlavor {
         };
     };
 };
+
+// Type alias for external usage
+using MultilinearBatchingProverClaim = MultilinearBatchingFlavor::ProverClaim;
 
 } // namespace bb

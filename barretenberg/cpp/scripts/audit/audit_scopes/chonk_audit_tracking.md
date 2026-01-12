@@ -31,8 +31,9 @@ Files requiring internal audit (status: Planned)
 
 | File | Status | Auditor |
 |------|--------|---------|
-| `flavor/multilinear_batching_flavor.hpp` | Planned | |
-| `flavor/multilinear_batching_recursive_flavor.hpp` | Planned | |
+| `flavor/multilinear_batching_flavor.hpp` | Complete | |
+| `flavor/multilinear_batching_flavor.cpp` | Complete | |
+| `flavor/multilinear_batching_recursive_flavor.hpp` | Complete | |
 
 ## Special Public Inputs
 
