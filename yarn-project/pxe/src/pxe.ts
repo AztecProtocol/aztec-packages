@@ -300,6 +300,17 @@ export class PXE {
     try {
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
 
+      const blockHeader = await this.node.getBlockHeader('latest');
+      const blockHash = await blockHeader?.hash();
+      console.log('blockHash', blockHash);
+
+      const block = await this.node.getBlockByHash(blockHash!);
+      console.log('block', block);
+
+      if (block === undefined) {
+        throw new Error('Block not found');
+      }
+
       const result = await contractFunctionSimulator.run(
         txRequest,
         contractAddress,
