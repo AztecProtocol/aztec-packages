@@ -151,7 +151,7 @@ Use `.simulate()` to test reverts without spending gas. The simulation will thro
 
 ## Further reading
 
-- [How to simulate functions](./how_to_simulate_function.md)
+- [How to read contract data](./how_to_read_data.md)
 - [How to send transactions](./how_to_send_transaction.md)
 - [How to deploy a contract](./how_to_deploy_contract.md)
 - [How to create an account](./how_to_create_account.md)
