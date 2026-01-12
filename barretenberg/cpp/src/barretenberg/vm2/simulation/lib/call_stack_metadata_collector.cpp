@@ -50,7 +50,7 @@ void CallStackMetadataCollector::notify_enter_call(const AztecAddress& contract_
         .phase = current_phase,
         .contract_address = contract_address,
         .caller_pc = caller_pc,
-        .calldata = calldata,
+        .calldata = std::move(calldata),
         .is_static_call = is_static_call,
         .gas_limit = gas_limit,
         // To be filled in by the exit call or further nested calls.
