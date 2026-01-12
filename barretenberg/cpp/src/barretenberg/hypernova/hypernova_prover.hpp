@@ -67,13 +67,15 @@ class HypernovaFoldingProver {
                                         const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
     /**
-     * @brief Fold an instance into an accumulator. Folding happens in place.
+     * @brief Fold an instance into an accumulator.
+     * @details Takes ownership of accumulator via move - the old accumulator's data is consumed
+     * and a new accumulator is returned. This enables zero-copy flow through the proving pipeline.
      *
-     * @param accumulator
-     * @param instance
-     * @return std::pair<HonkProof, Accumulator>
+     * @param accumulator Moved into the fold operation (consumed)
+     * @param instance The new instance to fold in
+     * @return std::pair<HonkProof, Accumulator> The proof and new accumulator (owns the combined data)
      */
-    std::pair<HonkProof, Accumulator> fold(const Accumulator& accumulator,
+    std::pair<HonkProof, Accumulator> fold(Accumulator&& accumulator,
                                            const std::shared_ptr<ProverInstance>& instance,
                                            const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 

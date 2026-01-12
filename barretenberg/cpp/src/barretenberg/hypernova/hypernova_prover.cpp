@@ -145,17 +145,14 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 }
 
 std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver::fold(
-    const Accumulator& accumulator,
+    Accumulator&& accumulator,
     const std::shared_ptr<ProverInstance>& instance,
     const std::shared_ptr<VerificationKey>& honk_vk)
 {
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
-    // Sumcheck
-    MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator),
-                                              std::make_shared<MultilinearBatchingProverClaim>(incoming_accumulator),
-                                              transcript);
-
+    // Prover takes ownership of both accumulators
+    MultilinearBatchingProver batching_prover(std::move(accumulator), std::move(incoming_accumulator), transcript);
     HonkProof proof = batching_prover.construct_proof();
 
     return { proof, batching_prover.compute_new_claim() };

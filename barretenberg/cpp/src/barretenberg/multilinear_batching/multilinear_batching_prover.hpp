@@ -16,6 +16,12 @@ namespace bb {
 /**
  * @brief Multilinear batching prover. Reduces evaluation claims at different points to a single claim via sumcheck.
  * @details See: chonk/README.md#batching-claims-into-accumulator
+ *
+ * The prover takes ownership of accumulator and instance claims, constructing its internal ProvingKey.
+ * Lifecycle:
+ *   1. Prover constructed with claims (moved in, now owned by prover's key)
+ *   2. Prover runs sumcheck on the key
+ *   3. New claim computed from key + sumcheck output
  */
 class MultilinearBatchingProver {
   public:
@@ -30,9 +36,9 @@ class MultilinearBatchingProver {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
 
-    explicit MultilinearBatchingProver(const std::shared_ptr<MultilinearBatchingProverClaim>& accumulator_claim,
-                                       const std::shared_ptr<MultilinearBatchingProverClaim>& instance_claim,
-                                       const std::shared_ptr<Transcript>& transcript);
+    MultilinearBatchingProver(MultilinearBatchingProverClaim&& accumulator_claim,
+                              MultilinearBatchingProverClaim&& instance_claim,
+                              std::shared_ptr<Transcript> transcript);
 
     BB_PROFILE void execute_commitments_round();
     BB_PROFILE void execute_challenges_and_evaluations_round();
@@ -42,9 +48,7 @@ class MultilinearBatchingProver {
     HonkProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
-
-    std::shared_ptr<ProvingKey> key;
-
+    ProvingKey key; // Owned proving key constructed from moved-in claims
     SumcheckOutput<Flavor> sumcheck_output;
 };
 

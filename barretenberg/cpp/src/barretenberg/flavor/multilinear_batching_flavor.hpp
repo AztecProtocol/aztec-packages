@@ -17,6 +17,9 @@
 
 namespace bb {
 
+// Forward declaration - full definition in multilinear_batching_claims.hpp
+struct MultilinearBatchingProverClaim;
+
 class MultilinearBatchingFlavor {
   public:
     using Curve = curve::BN254;
@@ -150,6 +153,9 @@ class MultilinearBatchingFlavor {
 
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
+     * @details Constructed from two MultilinearBatchingProverClaims (accumulator and instance).
+     * The key owns all polynomial data needed for sumcheck - after construction, the original
+     * claims are no longer needed.
      */
     class ProvingKey {
       public:
@@ -165,6 +171,15 @@ class MultilinearBatchingFlavor {
         Commitment shifted_instance_commitment;
         Polynomial preshifted_accumulator;
         Polynomial preshifted_instance;
+
+        ProvingKey() = default;
+
+        /**
+         * @brief Construct a ProvingKey by moving in accumulator and instance claims.
+         * @details Takes ownership of the claims' polynomial data via move semantics.
+         * After construction, the original claims are in a moved-from state.
+         */
+        ProvingKey(MultilinearBatchingProverClaim&& accumulator_claim, MultilinearBatchingProverClaim&& instance_claim);
     };
 
     /**
