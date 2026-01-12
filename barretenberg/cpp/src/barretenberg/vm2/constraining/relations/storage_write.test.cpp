@@ -199,9 +199,9 @@ TEST(SStoreConstrainingTest, NegativeGhostRowStorageWrite_RelationsOnly)
         },
     });
 
-    // The fix: sel_write_public_data * (1 - sel_execute_sstore) = 0
+    // The fix: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
     // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * (1-0) = 1 != 0 -> FAILS
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
 }
 
 TEST(SStoreConstrainingTest, Interactions)
@@ -409,9 +409,9 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
             { C::execution_written_public_data_slots_tree_size, written_slots_tree_after.next_available_leaf_index },
         });
 
-    // The fix blocks ghost rows: sel_write_public_data * (1 - sel_execute_sstore) = 0
+    // The fix blocks ghost rows: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
     // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * 1 = 1 != 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
 }
 
 } // namespace
