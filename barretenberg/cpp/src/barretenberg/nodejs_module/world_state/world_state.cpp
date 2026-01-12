@@ -274,6 +274,10 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     _dispatcher.register_target(
         WorldStateMessageType::COPY_STORES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return copy_stores(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::GET_MEMORY_STATS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_memory_stats(obj, buffer); });
 }
 
 Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
@@ -932,6 +936,20 @@ bool WorldStateWrapper::copy_stores(msgpack::object& obj, msgpack::sbuffer& buff
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COPY_STORES, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::get_memory_stats(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    HeaderOnlyMessage request;
+    obj.convert(request);
+
+    WorldStateMemoryStats stats = _ws->get_memory_stats();
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateMemoryStats> resp_msg(WorldStateMessageType::GET_MEMORY_STATS, header, stats);
     msgpack::pack(buffer, resp_msg);
 
     return true;

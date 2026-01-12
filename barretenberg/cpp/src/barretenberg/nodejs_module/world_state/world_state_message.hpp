@@ -59,6 +59,8 @@ enum WorldStateMessageType {
 
     COPY_STORES,
 
+    GET_MEMORY_STATS,
+
     CLOSE = 999,
 };
 

@@ -80,6 +80,18 @@ template <typename LeafValueType> class ContentAddressedCache {
 
     bool is_equivalent_to(const ContentAddressedCache& other) const;
 
+    /** Returns the sizes of all cache data structures for memory debugging */
+    struct CacheStats {
+        uint64_t nodesCount;
+        uint64_t indicesCount;
+        uint64_t leavesCount;
+        uint64_t nodesByIndexCount;
+        uint64_t leafPreimageCount;
+        uint64_t journalsCount;
+    };
+
+    CacheStats get_cache_stats() const;
+
   private:
     struct Journal {
         // Captures the tree's metadata at the time of checkpoint
@@ -466,5 +478,24 @@ void ContentAddressedCache<LeafValueType>::put_node_by_index(uint32_t level, con
         }
     }
     nodes_by_index_[level][index] = node;
+}
+
+template <typename LeafValueType>
+typename ContentAddressedCache<LeafValueType>::CacheStats ContentAddressedCache<LeafValueType>::get_cache_stats() const
+{
+    CacheStats stats;
+    stats.nodesCount = nodes_.size();
+    stats.indicesCount = indices_.size();
+    stats.leavesCount = leaves_.size();
+    stats.leafPreimageCount = leaf_pre_image_by_index_.size();
+    stats.journalsCount = journals_.size();
+
+    // Sum up all entries across all levels in nodes_by_index_
+    stats.nodesByIndexCount = 0;
+    for (const auto& level : nodes_by_index_) {
+        stats.nodesByIndexCount += level.size();
+    }
+
+    return stats;
 }
 } // namespace bb::crypto::merkle_tree

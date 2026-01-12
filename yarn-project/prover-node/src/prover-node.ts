@@ -35,6 +35,7 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
+import type { WorldStateMemoryStats } from '@aztec/world-state';
 
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
 import type { SpecificProverNodeConfig } from './config.js';
@@ -101,6 +102,13 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.tracer = telemetryClient.getTracer('ProverNode');
 
     this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
+
+    // Wire up native memory stats callback for memory debugging
+    if ('getMemoryStats' in worldState) {
+      this.memoryDebugger.setNativeMemoryStatsCallback(() =>
+        (worldState as unknown as { getMemoryStats: () => Promise<WorldStateMemoryStats> }).getMemoryStats(),
+      );
+    }
 
     this.rewardsMetrics = new ProverNodeRewardsMetrics(meter, this.prover.getProverId(), rollupContract);
   }

@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import type { WorldStateMemoryStats } from '@aztec/world-state';
 
 import { Storage } from '@google-cloud/storage';
 import * as fs from 'node:fs';
@@ -6,6 +7,9 @@ import * as path from 'node:path';
 import * as v8 from 'node:v8';
 
 const log = createLogger('prover-node:memory-debug');
+
+/** Callback type for getting native world state memory stats */
+export type NativeMemoryStatsCallback = () => Promise<WorldStateMemoryStats>;
 
 /** Memory usage snapshot */
 export type MemorySnapshot = {
@@ -27,6 +31,8 @@ export class MemoryDebugger {
   private gcsBucket: string | undefined;
   private gcsPrefix: string = '';
   private storage: Storage | undefined;
+  private nativeMemoryStatsCallback: NativeMemoryStatsCallback | undefined;
+  private lastNativeStats: WorldStateMemoryStats | undefined;
 
   constructor(opts: { heapSnapshotDir?: string; enabled?: boolean } = {}) {
     this.heapSnapshotDir =
@@ -52,6 +58,48 @@ export class MemoryDebugger {
       if (!fs.existsSync(this.heapSnapshotDir)) {
         fs.mkdirSync(this.heapSnapshotDir, { recursive: true });
       }
+    }
+  }
+
+  /**
+   * Set the callback for getting native world state memory stats.
+   * This should be called after the world state is initialized.
+   */
+  setNativeMemoryStatsCallback(callback: NativeMemoryStatsCallback): void {
+    this.nativeMemoryStatsCallback = callback;
+    if (this.enabled) {
+      log.info(`[MEMORY] Native memory stats callback registered`);
+    }
+  }
+
+  /**
+   * Fetch and log native world state memory stats.
+   * This provides detailed cache sizes for all merkle tree forks.
+   */
+  async logNativeMemoryStats(label: string): Promise<WorldStateMemoryStats | undefined> {
+    if (!this.enabled || !this.nativeMemoryStatsCallback) {
+      return undefined;
+    }
+
+    try {
+      const stats = await this.nativeMemoryStatsCallback();
+      this.lastNativeStats = stats;
+
+      log.info(`[NATIVE MEMORY] ${label}`, {
+        totalForks: stats.totalForks,
+        forks: stats.forks.map(f => ({
+          forkId: f.forkId,
+          blockNumber: f.blockNumber,
+          noteHashTree: `nodes=${f.noteHashTreeStats.nodesCount}, indices=${f.noteHashTreeStats.indicesCount}, leaves=${f.noteHashTreeStats.leavesCount}`,
+          nullifierTree: `nodes=${f.nullifierTreeStats.nodesCount}, indices=${f.nullifierTreeStats.indicesCount}, leaves=${f.nullifierTreeStats.leavesCount}`,
+          publicDataTree: `nodes=${f.publicDataTreeStats.nodesCount}, indices=${f.publicDataTreeStats.indicesCount}, leaves=${f.publicDataTreeStats.leavesCount}`,
+        })),
+      });
+
+      return stats;
+    } catch (err) {
+      log.error(`[NATIVE MEMORY] Failed to get native memory stats`, err);
+      return undefined;
     }
   }
 
@@ -234,6 +282,9 @@ export class MemoryDebugger {
       forkTracker.logOpenForks();
     }
 
+    // Log native memory stats (async, fire and forget)
+    void this.logNativeMemoryStats(`job-end-epoch-${epochNumber}`);
+
     // Take heap snapshot after job completion
     const snapshotInterval = parseInt(process.env.PROVER_NODE_HEAP_SNAPSHOT_INTERVAL ?? '5', 10);
     if (this.jobCounter % snapshotInterval === 0) {
@@ -332,6 +383,55 @@ export class MemoryDebugger {
         nativeEstimateMB: ((s.rss - s.heapTotal - s.arrayBuffers) / 1024 / 1024).toFixed(2),
       })),
       summary: this.snapshots.length >= 2 ? this.computeSummary() : null,
+      nativeWorldState: this.lastNativeStats
+        ? {
+            totalForks: Number(this.lastNativeStats.totalForks),
+            forks: this.lastNativeStats.forks.map(f => ({
+              forkId: Number(f.forkId),
+              blockNumber: Number(f.blockNumber),
+              noteHashTree: {
+                nodes: Number(f.noteHashTreeStats.nodesCount),
+                indices: Number(f.noteHashTreeStats.indicesCount),
+                leaves: Number(f.noteHashTreeStats.leavesCount),
+                nodesByIndex: Number(f.noteHashTreeStats.nodesByIndexCount),
+                leafPreimages: Number(f.noteHashTreeStats.leafPreimageCount),
+                journals: Number(f.noteHashTreeStats.journalsCount),
+              },
+              nullifierTree: {
+                nodes: Number(f.nullifierTreeStats.nodesCount),
+                indices: Number(f.nullifierTreeStats.indicesCount),
+                leaves: Number(f.nullifierTreeStats.leavesCount),
+                nodesByIndex: Number(f.nullifierTreeStats.nodesByIndexCount),
+                leafPreimages: Number(f.nullifierTreeStats.leafPreimageCount),
+                journals: Number(f.nullifierTreeStats.journalsCount),
+              },
+              publicDataTree: {
+                nodes: Number(f.publicDataTreeStats.nodesCount),
+                indices: Number(f.publicDataTreeStats.indicesCount),
+                leaves: Number(f.publicDataTreeStats.leavesCount),
+                nodesByIndex: Number(f.publicDataTreeStats.nodesByIndexCount),
+                leafPreimages: Number(f.publicDataTreeStats.leafPreimageCount),
+                journals: Number(f.publicDataTreeStats.journalsCount),
+              },
+              messageTree: {
+                nodes: Number(f.messageTreeStats.nodesCount),
+                indices: Number(f.messageTreeStats.indicesCount),
+                leaves: Number(f.messageTreeStats.leavesCount),
+                nodesByIndex: Number(f.messageTreeStats.nodesByIndexCount),
+                leafPreimages: Number(f.messageTreeStats.leafPreimageCount),
+                journals: Number(f.messageTreeStats.journalsCount),
+              },
+              archiveTree: {
+                nodes: Number(f.archiveTreeStats.nodesCount),
+                indices: Number(f.archiveTreeStats.indicesCount),
+                leaves: Number(f.archiveTreeStats.leavesCount),
+                nodesByIndex: Number(f.archiveTreeStats.nodesByIndexCount),
+                leafPreimages: Number(f.archiveTreeStats.leafPreimageCount),
+                journals: Number(f.archiveTreeStats.journalsCount),
+              },
+            })),
+          }
+        : null,
     };
 
     // Write to local file

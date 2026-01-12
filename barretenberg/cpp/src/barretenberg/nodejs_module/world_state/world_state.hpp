@@ -79,6 +79,8 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
     bool revert_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer);
 
     bool copy_stores(msgpack::object& obj, msgpack::sbuffer& buffer);
+
+    bool get_memory_stats(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 };
 
 } // namespace bb::nodejs

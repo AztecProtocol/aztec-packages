@@ -293,6 +293,14 @@ class WorldState {
     void commit_all_checkpoints(const uint64_t& forkId);
     void revert_all_checkpoints(const uint64_t& forkId);
 
+    /**
+     * @brief Gets memory statistics for all forks in the world state.
+     * Used for debugging memory leaks in native merkle tree caches.
+     *
+     * @return WorldStateMemoryStats containing cache sizes for all forks and trees
+     */
+    WorldStateMemoryStats get_memory_stats() const;
+
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;

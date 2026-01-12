@@ -28,12 +28,14 @@ import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
+  type WorldStateMemoryStats,
   WorldStateMessageType,
   type WorldStateStatusFull,
   type WorldStateStatusSummary,
   blockStateReference,
   sanitizeFullStatus,
   sanitizeSummary,
+  sanitizeWorldStateMemoryStats,
   treeStateReferenceToSnapshot,
 } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
@@ -372,6 +374,16 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       canonical: true,
     });
     return fromEntries(NATIVE_WORLD_STATE_DBS.map(([name, dir]) => [name, join(dstPath, dir, 'data.mdb')] as const));
+  }
+
+  /**
+   * Gets memory statistics for all forks in the world state.
+   * Used for debugging memory leaks in native merkle tree caches.
+   * @returns Memory stats for all forks
+   */
+  public async getMemoryStats(): Promise<WorldStateMemoryStats> {
+    const stats = await this.instance.call(WorldStateMessageType.GET_MEMORY_STATS, { canonical: true });
+    return sanitizeWorldStateMemoryStats(stats);
   }
 }
 

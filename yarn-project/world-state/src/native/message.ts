@@ -48,6 +48,8 @@ export enum WorldStateMessageType {
 
   COPY_STORES,
 
+  GET_MEMORY_STATS,
+
   CLOSE = 999,
 }
 
@@ -435,6 +437,82 @@ interface CopyStoresRequest extends WithCanonicalForkId {
   compact: boolean;
 }
 
+/** Cache statistics for a single tree. */
+export interface TreeCacheStats {
+  /** Tree name (e.g., "note_hash_tree") */
+  name: string;
+  /** Number of entries in the nodes cache */
+  nodesCount: bigint | number;
+  /** Number of entries in the indices cache */
+  indicesCount: bigint | number;
+  /** Number of entries in the leaves cache */
+  leavesCount: bigint | number;
+  /** Number of entries across all levels in nodes_by_index cache */
+  nodesByIndexCount: bigint | number;
+  /** Number of entries in the leaf preimage cache */
+  leafPreimageCount: bigint | number;
+  /** Number of active journals (checkpoints) */
+  journalsCount: bigint | number;
+}
+
+/** Cache statistics for all trees in a fork. */
+export interface ForkCacheStats {
+  /** The fork ID */
+  forkId: bigint | number;
+  /** The block number this fork is based on */
+  blockNumber: bigint | number;
+  /** Note hash tree cache stats */
+  noteHashTreeStats: TreeCacheStats;
+  /** Message tree cache stats */
+  messageTreeStats: TreeCacheStats;
+  /** Archive tree cache stats */
+  archiveTreeStats: TreeCacheStats;
+  /** Public data tree cache stats */
+  publicDataTreeStats: TreeCacheStats;
+  /** Nullifier tree cache stats */
+  nullifierTreeStats: TreeCacheStats;
+}
+
+/** Memory statistics for the entire world state. */
+export interface WorldStateMemoryStats {
+  /** Total number of forks */
+  totalForks: bigint | number;
+  /** Cache stats for each fork */
+  forks: ForkCacheStats[];
+}
+
+/** Sanitize cache stats from native bigints to JS-friendly values */
+export function sanitizeTreeCacheStats(stats: TreeCacheStats): TreeCacheStats {
+  return {
+    name: stats.name,
+    nodesCount: BigInt(stats.nodesCount),
+    indicesCount: BigInt(stats.indicesCount),
+    leavesCount: BigInt(stats.leavesCount),
+    nodesByIndexCount: BigInt(stats.nodesByIndexCount),
+    leafPreimageCount: BigInt(stats.leafPreimageCount),
+    journalsCount: BigInt(stats.journalsCount),
+  };
+}
+
+export function sanitizeForkCacheStats(stats: ForkCacheStats): ForkCacheStats {
+  return {
+    forkId: Number(stats.forkId),
+    blockNumber: Number(stats.blockNumber),
+    noteHashTreeStats: sanitizeTreeCacheStats(stats.noteHashTreeStats),
+    messageTreeStats: sanitizeTreeCacheStats(stats.messageTreeStats),
+    archiveTreeStats: sanitizeTreeCacheStats(stats.archiveTreeStats),
+    publicDataTreeStats: sanitizeTreeCacheStats(stats.publicDataTreeStats),
+    nullifierTreeStats: sanitizeTreeCacheStats(stats.nullifierTreeStats),
+  };
+}
+
+export function sanitizeWorldStateMemoryStats(stats: WorldStateMemoryStats): WorldStateMemoryStats {
+  return {
+    totalForks: Number(stats.totalForks),
+    forks: stats.forks.map(sanitizeForkCacheStats),
+  };
+}
+
 export type WorldStateRequestCategories = WithForkId | WithWorldStateRevision | WithCanonicalForkId;
 
 export function isWithForkId(body: WorldStateRequestCategories): body is WithForkId {
@@ -491,6 +569,8 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
 
+  [WorldStateMessageType.GET_MEMORY_STATS]: WithCanonicalForkId;
+
   [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
@@ -535,6 +615,8 @@ export type WorldStateResponse = {
   [WorldStateMessageType.REVERT_ALL_CHECKPOINTS]: void;
 
   [WorldStateMessageType.COPY_STORES]: void;
+
+  [WorldStateMessageType.GET_MEMORY_STATS]: WorldStateMemoryStats;
 
   [WorldStateMessageType.CLOSE]: void;
 };

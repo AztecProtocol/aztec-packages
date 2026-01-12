@@ -248,4 +248,118 @@ struct WorldStateStatusFull {
         return os;
     }
 };
+/**
+ * Memory statistics for a single tree's cache.
+ * Tracks the sizes of all in-memory data structures.
+ */
+struct TreeCacheStats {
+    std::string name;           // Tree name (e.g., "note_hash_tree")
+    uint64_t nodesCount;        // nodes_ map size
+    uint64_t indicesCount;      // indices_ map size
+    uint64_t leavesCount;       // leaves_ map size
+    uint64_t nodesByIndexCount; // total entries across all levels in nodes_by_index_
+    uint64_t leafPreimageCount; // leaf_pre_image_by_index_ map size
+    uint64_t journalsCount;     // number of active journals (checkpoints)
+
+    MSGPACK_FIELDS(name, nodesCount, indicesCount, leavesCount, nodesByIndexCount, leafPreimageCount, journalsCount);
+
+    TreeCacheStats() = default;
+    TreeCacheStats(const std::string& name,
+                   uint64_t nodesCount,
+                   uint64_t indicesCount,
+                   uint64_t leavesCount,
+                   uint64_t nodesByIndexCount,
+                   uint64_t leafPreimageCount,
+                   uint64_t journalsCount)
+        : name(name)
+        , nodesCount(nodesCount)
+        , indicesCount(indicesCount)
+        , leavesCount(leavesCount)
+        , nodesByIndexCount(nodesByIndexCount)
+        , leafPreimageCount(leafPreimageCount)
+        , journalsCount(journalsCount)
+    {}
+
+    friend std::ostream& operator<<(std::ostream& os, const TreeCacheStats& stats)
+    {
+        os << stats.name << ": nodes=" << stats.nodesCount << ", indices=" << stats.indicesCount
+           << ", leaves=" << stats.leavesCount << ", nodesByIndex=" << stats.nodesByIndexCount
+           << ", leafPreimages=" << stats.leafPreimageCount << ", journals=" << stats.journalsCount;
+        return os;
+    }
+};
+
+/**
+ * Memory statistics for a single fork.
+ * Contains cache stats for all trees in the fork.
+ */
+struct ForkCacheStats {
+    uint64_t forkId;
+    uint64_t blockNumber;
+    TreeCacheStats noteHashTreeStats;
+    TreeCacheStats messageTreeStats;
+    TreeCacheStats archiveTreeStats;
+    TreeCacheStats publicDataTreeStats;
+    TreeCacheStats nullifierTreeStats;
+
+    MSGPACK_FIELDS(forkId,
+                   blockNumber,
+                   noteHashTreeStats,
+                   messageTreeStats,
+                   archiveTreeStats,
+                   publicDataTreeStats,
+                   nullifierTreeStats);
+
+    ForkCacheStats() = default;
+    ForkCacheStats(uint64_t forkId,
+                   uint64_t blockNumber,
+                   const TreeCacheStats& noteHashTreeStats,
+                   const TreeCacheStats& messageTreeStats,
+                   const TreeCacheStats& archiveTreeStats,
+                   const TreeCacheStats& publicDataTreeStats,
+                   const TreeCacheStats& nullifierTreeStats)
+        : forkId(forkId)
+        , blockNumber(blockNumber)
+        , noteHashTreeStats(noteHashTreeStats)
+        , messageTreeStats(messageTreeStats)
+        , archiveTreeStats(archiveTreeStats)
+        , publicDataTreeStats(publicDataTreeStats)
+        , nullifierTreeStats(nullifierTreeStats)
+    {}
+
+    friend std::ostream& operator<<(std::ostream& os, const ForkCacheStats& stats)
+    {
+        os << "Fork " << stats.forkId << " (block " << stats.blockNumber << "): " << stats.noteHashTreeStats << ", "
+           << stats.messageTreeStats << ", " << stats.archiveTreeStats << ", " << stats.publicDataTreeStats << ", "
+           << stats.nullifierTreeStats;
+        return os;
+    }
+};
+
+/**
+ * Complete memory statistics for the world state.
+ * Includes stats for all forks.
+ */
+struct WorldStateMemoryStats {
+    uint64_t totalForks;
+    std::vector<ForkCacheStats> forks;
+
+    MSGPACK_FIELDS(totalForks, forks);
+
+    WorldStateMemoryStats() = default;
+    WorldStateMemoryStats(uint64_t totalForks, std::vector<ForkCacheStats> forks)
+        : totalForks(totalForks)
+        , forks(std::move(forks))
+    {}
+
+    friend std::ostream& operator<<(std::ostream& os, const WorldStateMemoryStats& stats)
+    {
+        os << "WorldStateMemoryStats: totalForks=" << stats.totalForks;
+        for (const auto& fork : stats.forks) {
+            os << "\n  " << fork;
+        }
+        return os;
+    }
+};
+
 } // namespace bb::world_state

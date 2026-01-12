@@ -208,6 +208,10 @@ uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumbe
     uint64_t forkId = _forkId++;
     fork->_forkId = forkId;
     _forks[forkId] = fork;
+
+    std::cerr << "[FORK] Created fork " << forkId << " at block " << blockNumberForFork
+              << ". Total forks: " << _forks.size() << std::endl;
+
     return forkId;
 }
 
@@ -237,9 +241,12 @@ void WorldState::delete_fork(const uint64_t& forkId)
     // Retrieving the shared pointer here means we throw if the fork is not available, it also means we are not under a
     // lock when we destroy the object
     Fork::SharedPtr fork = retrieve_fork(forkId);
+    block_number_t blockNumber = fork->_blockNumber;
     {
         std::unique_lock lock(mtx);
         _forks.erase(forkId);
+        std::cerr << "[FORK] Deleted fork " << forkId << " (was at block " << blockNumber
+                  << "). Remaining forks: " << _forks.size() << std::endl;
     }
 }
 
@@ -1258,6 +1265,66 @@ WorldStateStatusFull WorldState::attempt_tree_resync()
 
     populate_status_summary(status);
     return status;
+}
+
+WorldStateMemoryStats WorldState::get_memory_stats() const
+{
+    WorldStateMemoryStats stats;
+    std::unique_lock lock(mtx);
+
+    stats.totalForks = _forks.size();
+
+    for (const auto& [forkId, fork] : _forks) {
+        ForkCacheStats forkStats;
+        forkStats.forkId = forkId;
+        forkStats.blockNumber = fork->_blockNumber;
+
+        // Helper to convert cache stats to TreeCacheStats
+        auto makeCacheStats = [](const std::string& name, const auto& cacheStats) {
+            return TreeCacheStats(name,
+                                  cacheStats.nodesCount,
+                                  cacheStats.indicesCount,
+                                  cacheStats.leavesCount,
+                                  cacheStats.nodesByIndexCount,
+                                  cacheStats.leafPreimageCount,
+                                  cacheStats.journalsCount);
+        };
+
+        // Note Hash Tree (FrTree)
+        {
+            const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::NOTE_HASH_TREE));
+            forkStats.noteHashTreeStats = makeCacheStats("note_hash_tree", wrapper.tree->get_cache_stats());
+        }
+
+        // Message Tree (FrTree)
+        {
+            const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
+            forkStats.messageTreeStats = makeCacheStats("l1_to_l2_message_tree", wrapper.tree->get_cache_stats());
+        }
+
+        // Archive Tree (FrTree)
+        {
+            const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
+            forkStats.archiveTreeStats = makeCacheStats("archive", wrapper.tree->get_cache_stats());
+        }
+
+        // Nullifier Tree (indexed)
+        {
+            const auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
+            forkStats.nullifierTreeStats = makeCacheStats("nullifier_tree", wrapper.tree->get_cache_stats());
+        }
+
+        // Public Data Tree (indexed)
+        {
+            const auto& wrapper =
+                std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
+            forkStats.publicDataTreeStats = makeCacheStats("public_data_tree", wrapper.tree->get_cache_stats());
+        }
+
+        stats.forks.push_back(std::move(forkStats));
+    }
+
+    return stats;
 }
 
 } // namespace bb::world_state

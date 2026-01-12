@@ -29,6 +29,6 @@ struct Fork {
     using SharedPtr = std::shared_ptr<Fork>;
     Id _forkId;
     std::unordered_map<MerkleTreeId, Tree> _trees;
-    index_t _blockNumber;
+    block_number_t _blockNumber;
 };
 } // namespace bb::world_state

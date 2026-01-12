@@ -26,7 +26,7 @@ import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperat
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import type { WorldStateStatusFull } from '../native/message.js';
+import type { WorldStateMemoryStats, WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
 import { WorldStateSynchronizerError } from './errors.js';
@@ -85,6 +85,11 @@ export class ServerWorldStateSynchronizer
 
   public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
     return this.merkleTreeDb.backupTo(dstPath, compact);
+  }
+
+  /** Gets memory statistics for native world state caches. Used for debugging memory leaks. */
+  public getMemoryStats(): Promise<WorldStateMemoryStats> {
+    return this.merkleTreeDb.getMemoryStats();
   }
 
   public clear(): Promise<void> {

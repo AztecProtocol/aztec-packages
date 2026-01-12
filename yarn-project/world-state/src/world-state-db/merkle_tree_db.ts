@@ -10,7 +10,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
-import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
+import type { WorldStateMemoryStats, WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
 
 /**
  *
@@ -84,4 +84,11 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, Reado
 
   /** Deletes the db. */
   clear(): Promise<void>;
+
+  /**
+   * Gets memory statistics for native world state caches.
+   * Used for debugging memory leaks in merkle tree caches.
+   * @returns Memory stats for all forks including cache sizes.
+   */
+  getMemoryStats(): Promise<WorldStateMemoryStats>;
 }

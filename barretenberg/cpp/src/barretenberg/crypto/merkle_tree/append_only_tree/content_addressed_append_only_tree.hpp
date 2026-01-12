@@ -257,6 +257,9 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void commit_all_checkpoints(const CheckpointCommitCallback& on_completion);
     void revert_all_checkpoints(const CheckpointRevertCallback& on_completion);
 
+    /** Returns the cache statistics for memory debugging */
+    auto get_cache_stats() const { return store_->get_cache_stats(); }
+
   protected:
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;

@@ -197,6 +197,9 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void revert_all_checkpoints();
     void commit_all_checkpoints();
 
+    /** Returns the sizes of all cache data structures for memory debugging */
+    typename ContentAddressedCache<LeafValueType>::CacheStats get_cache_stats() const;
+
   private:
     using Cache = ContentAddressedCache<LeafValueType>;
 
@@ -1271,6 +1274,14 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialize_from_block(const
         enrich_meta_from_fork_constant_data(meta);
         cache_.put_meta(meta);
     }
+}
+
+template <typename LeafValueType>
+typename ContentAddressedCache<LeafValueType>::CacheStats ContentAddressedCachedTreeStore<
+    LeafValueType>::get_cache_stats() const
+{
+    std::unique_lock lock(mtx_);
+    return cache_.get_cache_stats();
 }
 
 } // namespace bb::crypto::merkle_tree
