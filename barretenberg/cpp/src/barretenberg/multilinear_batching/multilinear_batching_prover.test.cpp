@@ -1,5 +1,4 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_proving_key.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation_consistency.test.cpp"

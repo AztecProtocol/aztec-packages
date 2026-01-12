@@ -20,37 +20,34 @@ MultilinearBatchingProver::MultilinearBatchingProver(
     const std::shared_ptr<MultilinearBatchingProverClaim>& instance_claim,
     const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
+    , key(std::make_shared<ProvingKey>())
 {
     BB_BENCH();
-    ProverPolynomials polynomials;
     size_t virtual_circuit_size = 1 << Flavor::VIRTUAL_LOG_N;
     size_t max_dyadic_size = std::max(accumulator_claim->dyadic_size, instance_claim->dyadic_size);
-    polynomials.batched_unshifted_accumulator = accumulator_claim->non_shifted_polynomial;
-    polynomials.batched_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();
-    polynomials.batched_unshifted_instance = instance_claim->non_shifted_polynomial;
-    polynomials.batched_shifted_instance = instance_claim->shifted_polynomial.shifted();
-    polynomials.eq_accumulator =
-        ProverEqPolynomial<FF>::construct(accumulator_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
-    polynomials.eq_instance =
-        ProverEqPolynomial<FF>::construct(instance_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
 
-    polynomials.increase_polynomials_virtual_size(virtual_circuit_size);
-    std::vector<FF> accumulator_evaluations = { accumulator_claim->non_shifted_evaluation,
-                                                accumulator_claim->shifted_evaluation };
-    std::vector<FF> instance_evaluations = { instance_claim->non_shifted_evaluation,
-                                             instance_claim->shifted_evaluation };
-    key = std::make_shared<MultilinearBatchingProvingKey>(polynomials,
-                                                          accumulator_claim->challenge,
-                                                          instance_claim->challenge,
-                                                          accumulator_evaluations,
-                                                          instance_evaluations,
-                                                          accumulator_claim->non_shifted_commitment,
-                                                          accumulator_claim->shifted_commitment,
-                                                          instance_claim->non_shifted_commitment,
-                                                          instance_claim->shifted_commitment,
-                                                          accumulator_claim->shifted_polynomial,
-                                                          instance_claim->shifted_polynomial);
-    key->proving_key->circuit_size = max_dyadic_size;
+    key->polynomials.batched_unshifted_accumulator = accumulator_claim->non_shifted_polynomial;
+    key->polynomials.batched_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();
+    key->polynomials.batched_unshifted_instance = instance_claim->non_shifted_polynomial;
+    key->polynomials.batched_shifted_instance = instance_claim->shifted_polynomial.shifted();
+    key->polynomials.eq_accumulator =
+        ProverEqPolynomial<FF>::construct(accumulator_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
+    key->polynomials.eq_instance =
+        ProverEqPolynomial<FF>::construct(instance_claim->challenge, bb::numeric::get_msb(max_dyadic_size));
+    key->polynomials.increase_polynomials_virtual_size(virtual_circuit_size);
+
+    key->accumulator_challenge = accumulator_claim->challenge;
+    key->instance_challenge = instance_claim->challenge;
+    key->accumulator_evaluations = { accumulator_claim->non_shifted_evaluation, accumulator_claim->shifted_evaluation };
+    key->instance_evaluations = { instance_claim->non_shifted_evaluation, instance_claim->shifted_evaluation };
+    key->circuit_size = max_dyadic_size;
+
+    key->non_shifted_accumulator_commitment = accumulator_claim->non_shifted_commitment;
+    key->shifted_accumulator_commitment = accumulator_claim->shifted_commitment;
+    key->non_shifted_instance_commitment = instance_claim->non_shifted_commitment;
+    key->shifted_instance_commitment = instance_claim->shifted_commitment;
+    key->preshifted_accumulator = accumulator_claim->shifted_polynomial;
+    key->preshifted_instance = instance_claim->shifted_polynomial;
 }
 
 void MultilinearBatchingProver::execute_commitments_round()
@@ -63,12 +60,10 @@ void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
 {
     BB_BENCH();
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
-        transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i),
-                                     key->proving_key->accumulator_challenge[i]);
+        transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i), key->accumulator_challenge[i]);
     }
     for (size_t i = 0; i < 2; i++) {
-        transcript->send_to_verifier("accumulator_evaluation_" + std::to_string(i),
-                                     key->proving_key->accumulator_evaluations[i]);
+        transcript->send_to_verifier("accumulator_evaluation_" + std::to_string(i), key->accumulator_evaluations[i]);
     }
 }
 
@@ -85,15 +80,15 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    const size_t circuit_size = key->proving_key->circuit_size;
+    const size_t circuit_size = key->circuit_size;
 
     Sumcheck sumcheck(circuit_size,
-                      key->proving_key->polynomials,
+                      key->polynomials,
                       transcript,
                       alpha,
                       Flavor::VIRTUAL_LOG_N,
-                      key->proving_key->accumulator_challenge,
-                      key->proving_key->instance_challenge);
+                      key->accumulator_challenge,
+                      key->instance_challenge);
 
     sumcheck_output = sumcheck.prove();
 }
@@ -106,12 +101,11 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
     auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
 
     // New polynomials
-    auto new_non_shifted_polynomial = Polynomial(key->proving_key->circuit_size);
-    new_non_shifted_polynomial += key->proving_key->polynomials.batched_unshifted_instance;
-    new_non_shifted_polynomial.add_scaled(key->proving_key->polynomials.batched_unshifted_accumulator,
-                                          claim_batching_challenge);
+    auto new_non_shifted_polynomial = Polynomial(key->circuit_size);
+    new_non_shifted_polynomial += key->polynomials.batched_unshifted_instance;
+    new_non_shifted_polynomial.add_scaled(key->polynomials.batched_unshifted_accumulator, claim_batching_challenge);
 
-    auto new_shifted_polynomial = Polynomial::shiftable(key->proving_key->circuit_size);
+    auto new_shifted_polynomial = Polynomial::shiftable(key->circuit_size);
     new_shifted_polynomial += key->preshifted_instance;
     new_shifted_polynomial.add_scaled(key->preshifted_accumulator, claim_batching_challenge);
 
@@ -136,7 +130,7 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
                                            .shifted_polynomial = new_shifted_polynomial,
                                            .non_shifted_commitment = new_non_shifted_commitment,
                                            .shifted_commitment = new_shifted_commitment,
-                                           .dyadic_size = key->proving_key->circuit_size
+                                           .dyadic_size = key->circuit_size
 
     };
 }

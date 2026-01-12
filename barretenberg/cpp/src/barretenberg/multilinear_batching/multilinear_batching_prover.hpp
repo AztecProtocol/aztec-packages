@@ -7,7 +7,6 @@
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_proving_key.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -31,8 +30,6 @@ class MultilinearBatchingProver {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
 
-    // explicit MultilinearBatchingProver(const std::shared_ptr<MultilinearBatchingProvingKey>& key,
-    //                                    const std::shared_ptr<Transcript>& transcript);
     explicit MultilinearBatchingProver(const std::shared_ptr<MultilinearBatchingProverClaim>& accumulator_claim,
                                        const std::shared_ptr<MultilinearBatchingProverClaim>& instance_claim,
                                        const std::shared_ptr<Transcript>& transcript);
@@ -46,7 +43,7 @@ class MultilinearBatchingProver {
 
     std::shared_ptr<Transcript> transcript;
 
-    std::shared_ptr<MultilinearBatchingProvingKey> key;
+    std::shared_ptr<ProvingKey> key;
 
     SumcheckOutput<Flavor> sumcheck_output;
 };

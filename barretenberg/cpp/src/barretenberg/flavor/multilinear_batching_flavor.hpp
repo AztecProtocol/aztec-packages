@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include <utility>
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -40,7 +39,6 @@ class MultilinearBatchingFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-    static constexpr size_t NUM_WIRES = 4;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = 6;
@@ -82,22 +80,11 @@ class MultilinearBatchingFlavor {
                /*sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr);
     }
 
-    // WireEntities for basic witness entities
-    template <typename DataType> class WireEntities {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              batched_unshifted_accumulator, // column 0: batched unshifted poly for accumulator
-                              batched_unshifted_instance,    // column 1: batched unshifted poly for instance
-                              eq_accumulator,                // column 2: eq(u, r_acc) - selects accumulator eval point
-                              eq_instance);                  // column 3: eq(u, r_inst) - selects instance eval point
-    };
-
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
-     * Combines WireEntities + DerivedEntities.
      */
-    template <typename DataType> class WitnessEntities : public WireEntities<DataType> {
+    template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               batched_unshifted_accumulator, // column 0: batched unshifted poly for accumulator
@@ -115,17 +102,15 @@ class MultilinearBatchingFlavor {
                               batched_shifted_accumulator, // column 0: batched shifted poly for accumulator
                               batched_shifted_instance     // column 1: batched shifted poly for instance
         );
-        auto get_shifted() { return RefArray{ batched_shifted_accumulator, batched_shifted_instance }; };
     };
 
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
-     * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
+     * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
-     * implemented as such, but we have this now.
+     * Symbolically we have: AllEntities = WitnessEntities + ShiftedEntities.
      */
     template <typename DataType>
     class AllEntities : public WitnessEntities<DataType>, public ShiftedEntities<DataType> {
@@ -153,25 +138,6 @@ class MultilinearBatchingFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
-        // fully-formed constructor
-        ProverPolynomials(size_t circuit_size)
-        {
-            BB_BENCH_NAME("ProverPolynomials(size_t)");
-
-            // catch-all with fully formed polynomials
-            for (auto& poly : get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ 1 << VIRTUAL_LOG_N };
-                }
-            }
-
-            for (auto& poly : get_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ 1 << VIRTUAL_LOG_N };
-            }
-        }
         [[nodiscard]] size_t get_polynomial_size() const { return batched_unshifted_accumulator.size(); }
         void increase_polynomials_virtual_size(const size_t size_in)
         {
@@ -183,7 +149,6 @@ class MultilinearBatchingFlavor {
 
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
      */
     class ProvingKey {
       public:
@@ -193,18 +158,12 @@ class MultilinearBatchingFlavor {
         std::vector<FF> accumulator_evaluations;
         std::vector<FF> instance_evaluations;
         size_t circuit_size;
-        ProvingKey(ProverPolynomials&& polynomials,
-                   std::vector<FF> accumulator_challenge,
-                   std::vector<FF> instance_challenge,
-                   std::vector<FF> accumulator_evaluations,
-                   std::vector<FF> instance_evaluations)
-            : polynomials(std::move(polynomials))
-            , accumulator_challenge(std::move(accumulator_challenge))
-            , instance_challenge(std::move(instance_challenge))
-            , accumulator_evaluations(std::move(accumulator_evaluations))
-            , instance_evaluations(std::move(instance_evaluations))
-            , circuit_size(polynomials.get_polynomial_size())
-        {}
+        Commitment non_shifted_accumulator_commitment;
+        Commitment shifted_accumulator_commitment;
+        Commitment non_shifted_instance_commitment;
+        Commitment shifted_instance_commitment;
+        Polynomial preshifted_accumulator;
+        Polynomial preshifted_instance;
     };
 
     /**

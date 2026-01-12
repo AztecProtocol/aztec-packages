@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include <utility>
 
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -32,7 +31,6 @@ class MultilinearBatchingRecursiveFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
-    static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
@@ -41,11 +39,7 @@ class MultilinearBatchingRecursiveFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
-    // Note: made generic for use in MegaRecursive.
-    template <typename FF>
-    using Relations_ =
-        std::tuple<bb::MultilinearBatchingAccumulatorRelation<FF>, bb::MultilinearBatchingInstanceRelation<FF>>;
-    using Relations = Relations_<FF>;
+    using Relations = NativeFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;
 
@@ -56,7 +50,7 @@ class MultilinearBatchingRecursiveFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparator = FF;
 
     class AllValues : public NativeFlavor::AllEntities<FF> {
