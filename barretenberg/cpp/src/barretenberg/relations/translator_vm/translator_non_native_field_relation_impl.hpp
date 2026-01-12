@@ -152,7 +152,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& z_first_limb_0 = View(in.z_low_limbs);
     const auto& z_first_limb_1 = View(in.z_high_limbs);
     const auto& quotient_binary_limbs_0 = View(in.quotient_low_binary_limbs);
-    const auto& quotient_binary_limbs_1 = View(in.quotient_high_binary_limbs);
+    const auto& quotient_binary_limbs_1 = View(in.quotient_low_binary_limbs_shift);
     const auto& p_x_limb_1 = View(in.p_x_low_limbs_shift);
     const auto& p_y_limb_1 = View(in.p_y_low_limbs_shift);
     const auto& p_x_limb_3 = View(in.p_x_high_limbs_shift);
@@ -163,7 +163,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& prev_accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3_shift);
     const auto& z_second_limb_0 = View(in.z_low_limbs_shift);
     const auto& z_second_limb_1 = View(in.z_high_limbs_shift);
-    const auto& quotient_binary_limbs_2 = View(in.quotient_low_binary_limbs_shift);
+    const auto& quotient_binary_limbs_2 = View(in.quotient_high_binary_limbs);
     const auto& quotient_binary_limbs_3 = View(in.quotient_high_binary_limbs_shift);
     const auto& relation_wide_limbs_lo = View(in.relation_wide_limbs);
     const auto& relation_wide_limbs_hi = View(in.relation_wide_limbs_shift);
