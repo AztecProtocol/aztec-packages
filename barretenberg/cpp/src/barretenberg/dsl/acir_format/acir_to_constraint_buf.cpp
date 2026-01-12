@@ -5,6 +5,7 @@
 // =====================
 
 #include "acir_to_constraint_buf.hpp"
+#include "msgpack_limits.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -286,7 +287,16 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
     const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
     size_t size = buf.size() - 1;
 
-    auto oh = msgpack::unpack(buffer, size);
+    // Set reasonable limits to prevent memory exhaustion and invalid memory access from malformed data.
+    msgpack::unpack_limit limits(
+        /*array=*/MsgpackLimits::MAX_ARRAY,
+        /*map=*/MsgpackLimits::MAX_MAP,
+        /*str=*/MsgpackLimits::MAX_STR,
+        /*bin=*/MsgpackLimits::MAX_BIN,
+        /*ext=*/MsgpackLimits::MAX_EXT,
+        /*depth=*/MsgpackLimits::MAX_DEPTH);
+
+    auto oh = msgpack::unpack(buffer, size, nullptr, nullptr, limits);
     auto o = oh.get();
 
     // Expect ARRAY type for msgpack-compact format

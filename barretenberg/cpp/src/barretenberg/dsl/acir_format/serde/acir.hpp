@@ -750,6 +750,9 @@ struct BitSize {
             value = v;
         } else if (tag == "Integer") {
             Integer v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -866,6 +869,9 @@ struct MemoryAddress {
         }
         if (tag == "Direct") {
             Direct v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -876,6 +882,9 @@ struct MemoryAddress {
             value = v;
         } else if (tag == "Relative") {
             Relative v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1487,6 +1496,9 @@ struct BlackBoxOp {
         }
         if (tag == "AES128Encrypt") {
             AES128Encrypt v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1497,6 +1509,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Blake2s") {
             Blake2s v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1507,6 +1522,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Blake3") {
             Blake3 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1517,6 +1535,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Keccakf1600") {
             Keccakf1600 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1527,6 +1548,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "EcdsaSecp256k1") {
             EcdsaSecp256k1 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1537,6 +1561,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "EcdsaSecp256r1") {
             EcdsaSecp256r1 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1547,6 +1574,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "MultiScalarMul") {
             MultiScalarMul v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1557,6 +1587,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "EmbeddedCurveAdd") {
             EmbeddedCurveAdd v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1567,6 +1600,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Poseidon2Permutation") {
             Poseidon2Permutation v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1577,6 +1613,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "Sha256Compression") {
             Sha256Compression v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1587,6 +1626,9 @@ struct BlackBoxOp {
             value = v;
         } else if (tag == "ToRadix") {
             ToRadix v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1749,6 +1791,9 @@ struct HeapValueType {
         }
         if (tag == "Simple") {
             Simple v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1759,6 +1804,9 @@ struct HeapValueType {
             value = v;
         } else if (tag == "Array") {
             Array v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1769,6 +1817,9 @@ struct HeapValueType {
             value = v;
         } else if (tag == "Vector") {
             Vector v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1909,6 +1960,9 @@ struct ValueOrArray {
         }
         if (tag == "MemoryAddress") {
             MemoryAddress v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1919,6 +1973,9 @@ struct ValueOrArray {
             value = v;
         } else if (tag == "HeapArray") {
             HeapArray v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -1929,6 +1986,9 @@ struct ValueOrArray {
             value = v;
         } else if (tag == "HeapVector") {
             HeapVector v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2709,6 +2769,9 @@ struct BrilligOpcode {
         }
         if (tag == "BinaryFieldOp") {
             BinaryFieldOp v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2719,6 +2782,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "BinaryIntOp") {
             BinaryIntOp v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2729,6 +2795,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Not") {
             Not v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2739,6 +2808,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Cast") {
             Cast v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2749,6 +2821,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "JumpIf") {
             JumpIf v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2759,6 +2834,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Jump") {
             Jump v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2769,6 +2847,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "CalldataCopy") {
             CalldataCopy v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2779,6 +2860,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Call") {
             Call v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2789,6 +2873,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Const") {
             Const v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2799,6 +2886,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "IndirectConst") {
             IndirectConst v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2812,6 +2902,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "ForeignCall") {
             ForeignCall v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2822,6 +2915,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Mov") {
             Mov v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2832,6 +2928,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "ConditionalMov") {
             ConditionalMov v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2842,6 +2941,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Load") {
             Load v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2852,6 +2954,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Store") {
             Store v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2862,6 +2967,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "BlackBox") {
             BlackBox v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2872,6 +2980,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Trap") {
             Trap v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -2882,6 +2993,9 @@ struct BrilligOpcode {
             value = v;
         } else if (tag == "Stop") {
             Stop v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3018,6 +3132,9 @@ struct FunctionInput {
         }
         if (tag == "Constant") {
             Constant v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3028,6 +3145,9 @@ struct FunctionInput {
             value = v;
         } else if (tag == "Witness") {
             Witness v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3706,6 +3826,9 @@ struct BlackBoxFuncCall {
         }
         if (tag == "AES128Encrypt") {
             AES128Encrypt v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3716,6 +3839,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "AND") {
             AND v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3726,6 +3852,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "XOR") {
             XOR v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3736,6 +3865,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "RANGE") {
             RANGE v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3746,6 +3878,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Blake2s") {
             Blake2s v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3756,6 +3891,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Blake3") {
             Blake3 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3766,6 +3904,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "EcdsaSecp256k1") {
             EcdsaSecp256k1 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3776,6 +3917,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "EcdsaSecp256r1") {
             EcdsaSecp256r1 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3786,6 +3930,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "MultiScalarMul") {
             MultiScalarMul v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3796,6 +3943,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "EmbeddedCurveAdd") {
             EmbeddedCurveAdd v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3806,6 +3956,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Keccakf1600") {
             Keccakf1600 v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3816,6 +3969,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "RecursiveAggregation") {
             RecursiveAggregation v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3826,6 +3982,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Poseidon2Permutation") {
             Poseidon2Permutation v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3836,6 +3995,9 @@ struct BlackBoxFuncCall {
             value = v;
         } else if (tag == "Sha256Compression") {
             Sha256Compression v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -3977,6 +4139,9 @@ struct BlockType {
             value = v;
         } else if (tag == "CallData") {
             CallData v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4156,6 +4321,9 @@ struct BrilligInputs {
         }
         if (tag == "Single") {
             Single v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4166,6 +4334,9 @@ struct BrilligInputs {
             value = v;
         } else if (tag == "Array") {
             Array v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4176,6 +4347,9 @@ struct BrilligInputs {
             value = v;
         } else if (tag == "MemoryArray") {
             MemoryArray v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4292,6 +4466,9 @@ struct BrilligOutputs {
         }
         if (tag == "Simple") {
             Simple v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4302,6 +4479,9 @@ struct BrilligOutputs {
             value = v;
         } else if (tag == "Array") {
             Array v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4618,6 +4798,9 @@ struct Opcode {
         }
         if (tag == "AssertZero") {
             AssertZero v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4628,6 +4811,9 @@ struct Opcode {
             value = v;
         } else if (tag == "BlackBoxFuncCall") {
             BlackBoxFuncCall v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4638,6 +4824,9 @@ struct Opcode {
             value = v;
         } else if (tag == "MemoryOp") {
             MemoryOp v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4648,6 +4837,9 @@ struct Opcode {
             value = v;
         } else if (tag == "MemoryInit") {
             MemoryInit v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4658,6 +4850,9 @@ struct Opcode {
             value = v;
         } else if (tag == "BrilligCall") {
             BrilligCall v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4668,6 +4863,9 @@ struct Opcode {
             value = v;
         } else if (tag == "Call") {
             Call v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4784,6 +4982,9 @@ struct ExpressionOrMemory {
         }
         if (tag == "Expression") {
             Expression v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4794,6 +4995,9 @@ struct ExpressionOrMemory {
             value = v;
         } else if (tag == "Memory") {
             Memory v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4954,6 +5158,9 @@ struct OpcodeLocation {
         }
         if (tag == "Acir") {
             Acir v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -4964,6 +5171,9 @@ struct OpcodeLocation {
             value = v;
         } else if (tag == "Brillig") {
             Brillig v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
@@ -5245,6 +5455,9 @@ struct ExpressionWidth {
             value = v;
         } else if (tag == "Bounded") {
             Bounded v;
+            if (o.type != msgpack::type::MAP) {
+                throw_or_abort("expected MAP for enum variant");
+            }
             try {
                 o.via.map.ptr[0].val.convert(v);
             } catch (const msgpack::type_error&) {
