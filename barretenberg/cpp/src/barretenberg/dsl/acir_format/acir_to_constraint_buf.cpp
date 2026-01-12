@@ -278,9 +278,9 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
     // Expect format marker for msgpack or msgpack-compact
     const uint8_t FORMAT_MSGPACK = 2;
     const uint8_t FORMAT_MSGPACK_COMPACT = 3;
-    uint8_t format = buf[0];
-    BB_ASSERT(format == FORMAT_MSGPACK || format == FORMAT_MSGPACK_COMPACT,
-              "deserialize_msgpack_compact: expected msgpack format marker (2 or 3), got " + std::to_string(format));
+    uint8_t format_u8 = buf[0];
+    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT,
+              "deserialize_msgpack_compact: expected msgpack format marker (2 or 3), got " + std::to_string(format_u8));
 
     // Skip the format marker to get the data.
     const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];

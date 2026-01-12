@@ -18,32 +18,43 @@ namespace {
 
 // Log levels from TS foundation/src/log/log-levels.ts: ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug',
 // 'trace'] Map: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=verbose, 6=debug, 7=trace
-constexpr int LOG_LEVEL_VERBOSE = 5;
-constexpr int LOG_LEVEL_TRACE = 7;
 
-// Helper to set logging flags based on TS log level
-inline void set_logging_from_level(int log_level)
+// Helper to set logging level based on TS log level
+inline void set_logging_from_level(int ts_log_level)
 {
-    // Turn verbose_logging on if log level is verbose (5) or above
-    verbose_logging = (log_level >= LOG_LEVEL_VERBOSE);
-    // Turn debug_logging on if log level is trace (7) or above
-    debug_logging = (log_level >= LOG_LEVEL_TRACE);
+    // Map TS log level (0-7) to C++ LogLevel enum
+    // TS: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=verbose, 6=debug, 7=trace
+    // C++: SILENT=0, FATAL=1, ERROR=2, WARN=3, INFO=4, VERBOSE=5, DEBUG=6, TRACE=7
+    // They map 1:1
+    if (ts_log_level >= 0 && ts_log_level <= 7) {
+        bb_log_level = static_cast<LogLevel>(ts_log_level);
+    } else {
+        log_warn("Invalid log level from TypeScript: ", ts_log_level, ". Using default.");
+    }
 }
 
 // Map C++ LogLevel enum to TypeScript log level string
-// C++ LogLevel: DEBUG=0, INFO=1, VERBOSE=2, IMPORTANT=3
+// C++ LogLevel: SILENT=0, FATAL=1, ERROR=2, WARN=3, INFO=4, VERBOSE=5, DEBUG=6, TRACE=7
 // TS LogLevels: ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace']
 inline const char* cpp_log_level_to_ts(LogLevel level)
 {
     switch (level) {
-    case LogLevel::DEBUG:
-        return "debug";
+    case LogLevel::SILENT:
+        return "silent";
+    case LogLevel::FATAL:
+        return "fatal";
+    case LogLevel::ERROR:
+        return "error";
+    case LogLevel::WARN:
+        return "warn";
     case LogLevel::INFO:
         return "info";
     case LogLevel::VERBOSE:
         return "verbose";
-    case LogLevel::IMPORTANT:
-        return "warn";
+    case LogLevel::DEBUG:
+        return "debug";
+    case LogLevel::TRACE:
+        return "trace";
     default:
         return "info";
     }
@@ -53,18 +64,17 @@ inline const char* cpp_log_level_to_ts(LogLevel level)
 // This allows C++ logging to call back to TypeScript logger from worker threads
 LogFunction create_log_function_from_tsfn(const std::shared_ptr<Napi::ThreadSafeFunction>& logger_tsfn)
 {
-    return [logger_tsfn](LogLevel level, const char* msg) {
+    return [logger_tsfn](LogLevel level, const std::string& msg) {
         // Convert C++ LogLevel to TS log level string
         const char* ts_level = cpp_log_level_to_ts(level);
-        std::string msg_str(msg);
 
         // Call TypeScript logger function on the JS main thread
         // Using BlockingCall to ensure synchronous execution
         // Ignore errors - logging failures shouldn't crash the simulation
-        logger_tsfn->BlockingCall([ts_level, msg_str](Napi::Env env, Napi::Function js_logger) {
+        logger_tsfn->BlockingCall([ts_level, &msg](Napi::Env env, Napi::Function js_logger) {
             // Create arguments: (level: string, msg: string)
             auto level_js = Napi::String::New(env, ts_level);
-            auto msg_js = Napi::String::New(env, msg_str);
+            auto msg_js = Napi::String::New(env, msg);
             js_logger.Call({ level_js, msg_js });
         });
     };
