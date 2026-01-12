@@ -16,9 +16,9 @@ Files requiring internal audit (status: Planned)
 
 | File | Status | Auditor |
 |------|--------|---------|
-| `multilinear_batching/multilinear_batching_prover.cpp` | Planned | |
-| `multilinear_batching/multilinear_batching_prover.hpp` | Planned | |
-| `multilinear_batching/multilinear_batching_claims.hpp` | Planned | |
+| `multilinear_batching/multilinear_batching_prover.cpp` | Complete | |
+| `multilinear_batching/multilinear_batching_prover.hpp` | Complete | |
+| `multilinear_batching/multilinear_batching_claims.hpp` | Complete | |
 
 ## Merge Protocol
 
