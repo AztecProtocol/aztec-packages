@@ -205,7 +205,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Shift left (a &lt;&lt; b)',
     expression: 'M[dstOffset] = M[aOffset] << M[bOffset]',
     details:
-      'Performs left bit shift. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.',
+      'Performs left bit shift. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). If the shift amount is greater than or equal to the bit-width of the operand type, the result is 0. The result inherits the tag from the operands.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
@@ -223,7 +223,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Shift right (a &gt;&gt; b)',
     expression: 'M[dstOffset] = M[aOffset] >> M[bOffset]',
     details:
-      'Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.',
+      'Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). If the shift amount is greater than or equal to the bit-width of the operand type, the result is 0. The result inherits the tag from the operands.',
     errors: [
       { condition: 'TAG_MISMATCH', description: 'Operands have different type tags' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
@@ -575,13 +575,9 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Check existence of note hash',
     expression: 'M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1 : 0',
     details:
-      'Performs a read of the Note Hash Tree to query whether the specified note hash exists at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for note hashes of only the currently executing contract. Note that it is difficult to check for existence of a note hash emitted earlier in the same block because this opcode requires leafIndex. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
+      'Performs a read of the Note Hash Tree to query whether the specified note hash exists at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for note hashes of only the currently executing contract. Note that it is difficult to check for existence of a note hash emitted earlier in the same block because this opcode requires leafIndex. If the leaf index exceeds the maximum tree size, the result is 0 (does not exist). Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Note hash is not FIELD or leaf index is not Uint64' },
-      {
-        condition: 'INDEX_OUT_OF_RANGE',
-        description: 'Leaf index exceeds note hash tree size (NOTE_HASH_TREE_LEAF_COUNT)',
-      },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {
@@ -658,13 +654,9 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     summary: 'Check existence of L1-to-L2 message',
     expression: 'M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset]) ? 1 : 0',
     details:
-      'Checks whether the specified L1-to-L2 message hash exists in the L1 to L2 message tree at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for messages with any particular recipient. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
+      'Checks whether the specified L1-to-L2 message hash exists in the L1 to L2 message tree at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for messages with any particular recipient. If the leaf index exceeds the maximum tree size, the result is 0 (does not exist). Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.',
     errors: [
       { condition: 'INVALID_TAG', description: 'Message hash is not FIELD or leaf index is not Uint64' },
-      {
-        condition: 'INDEX_OUT_OF_RANGE',
-        description: 'Leaf index exceeds L1-to-L2 message tree size (L1_TO_L2_MSG_TREE_LEAF_COUNT)',
-      },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
     operandDescriptions: {

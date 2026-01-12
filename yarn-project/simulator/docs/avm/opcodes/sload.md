@@ -18,7 +18,7 @@ Reads from public storage at the specified slot. Performs a read of the Public D
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 129 | - |
+| L2 Base | 1290 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 

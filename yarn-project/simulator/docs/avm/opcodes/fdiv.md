@@ -18,7 +18,7 @@ Performs field division (computes a * b^(-1) mod p where p is the BN254 field mo
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 9 | - |
+| L2 Base | 225 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 

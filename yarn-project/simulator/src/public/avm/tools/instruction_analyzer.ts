@@ -187,7 +187,7 @@ export class InstructionAnalyzer {
               // Remove visibility modifiers (private, protected, public)
               return paramName.replace(/^(private|protected|public)\s+/, '');
             })
-            .filter((p: string) => p && p !== 'indirect'); // Filter out empty strings and 'indirect'
+            .filter((p: string) => p && p !== 'indirect' && p !== 'addressingMode'); // Filter out empty strings and addressing mode params
 
           if (params.length > 0) {
             return params;

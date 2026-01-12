@@ -18,7 +18,7 @@ Writes a new note hash to the Note Hash Tree. Note hash must have type tag FIELD
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 1285 | - |
+| L2 Base | 19275 | - |
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 

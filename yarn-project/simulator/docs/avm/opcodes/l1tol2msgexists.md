@@ -12,13 +12,13 @@ M[existsOffset] = l1ToL2Messages.exists(M[msgHashOffset], M[msgLeafIndexOffset])
 
 ## Details
 
-Checks whether the specified L1-to-L2 message hash exists in the L1 to L2 message tree at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for messages with any particular recipient. Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.
+Checks whether the specified L1-to-L2 message hash exists in the L1 to L2 message tree at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for messages with any particular recipient. If the leaf index exceeds the maximum tree size, the result is 0 (does not exist). Message hash must be FIELD, leaf index must be Uint64. Result is Uint1.
 
 ## Gas Costs
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 108 | - |
+| L2 Base | 540 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
@@ -90,7 +90,6 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Message hash is not FIELD or leaf index is not Uint64
-- **INDEX_OUT_OF_RANGE**: Leaf index exceeds L1-to-L2 message tree size (L1_TO_L2_MSG_TREE_LEAF_COUNT)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---

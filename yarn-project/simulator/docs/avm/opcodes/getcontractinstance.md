@@ -18,7 +18,7 @@ Looks up contract instance by address and retrieves the specified member. This o
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 1527 | - |
+| L2 Base | 6108 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 

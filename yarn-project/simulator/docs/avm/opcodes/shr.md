@@ -12,7 +12,7 @@ M[dstOffset] = M[aOffset] >> M[bOffset]
 
 ## Details
 
-Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result inherits the tag from the operands.
+Performs right bit shift (logical, zero-fill). Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). If the shift amount is greater than or equal to the bit-width of the operand type, the result is 0. The result inherits the tag from the operands.
 
 ## Gas Costs
 

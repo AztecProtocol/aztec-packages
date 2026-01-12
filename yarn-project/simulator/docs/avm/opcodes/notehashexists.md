@@ -12,13 +12,13 @@ M[existsOffset] = noteHashTree.exists(M[noteHashOffset], M[leafIndexOffset]) ? 1
 
 ## Details
 
-Performs a read of the Note Hash Tree to query whether the specified note hash exists at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for note hashes of only the currently executing contract. Note that it is difficult to check for existence of a note hash emitted earlier in the same block because this opcode requires leafIndex. Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.
+Performs a read of the Note Hash Tree to query whether the specified note hash exists at the given leaf index. Since this opcode checks for existence at a specified leafIndex, it is _not_ limited to checking for note hashes of only the currently executing contract. Note that it is difficult to check for existence of a note hash emitted earlier in the same block because this opcode requires leafIndex. If the leaf index exceeds the maximum tree size, the result is 0 (does not exist). Note hash must be FIELD, leaf index must be Uint64. Result is Uint1.
 
 ## Gas Costs
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 126 | - |
+| L2 Base | 504 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
@@ -90,7 +90,6 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Note hash is not FIELD or leaf index is not Uint64
-- **INDEX_OUT_OF_RANGE**: Leaf index exceeds note hash tree size (NOTE_HASH_TREE_LEAF_COUNT)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---

@@ -12,7 +12,7 @@ M[dstOffset] = M[aOffset] << M[bOffset]
 
 ## Details
 
-Performs left bit shift. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). The result inherits the tag from the operands.
+Performs left bit shift. Both operands must have the same integral type tag (UINT1, UINT8, UINT16, UINT32, UINT64, UINT128). The result is computed modulo 2^k where k is the bit-width of the operand type (e.g., k=8 for UINT8). If the shift amount is greater than or equal to the bit-width of the operand type, the result is 0. The result inherits the tag from the operands.
 
 ## Gas Costs
 

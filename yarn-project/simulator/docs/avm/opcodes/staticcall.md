@@ -22,7 +22,7 @@ Calls another contract in static mode (read-only). Any state modifications in th
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 3312 | - |
+| L2 Base | 9936 | - |
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 

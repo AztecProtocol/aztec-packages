@@ -54,5 +54,7 @@ single AVM proof.
 - **[Addressing Modes](./addressing.md)**: Understand direct, indirect, and relative addressing
 - **[Wire Formats](./wire-format.md)**: How instructions are encoded in bytecode
 - **[Gas Metering](./gas.md)**: Explore how gas costs are calculated and charged
+- **[State](./state.md)**: World state (persistent) vs execution state (transient)
+- **[External Calls](./external-calls.md)**: How nested contract calls work (CALL, STATICCALL, RETURN, REVERT)
 - **[Instruction Set: Quick Reference](./avm-isa-quick-reference.md)**: A quick reference of all AVM instructions
 - **[Instruction Set: Full Reference](./avm-isa-full.md)**: Complete reference for all AVM instructions

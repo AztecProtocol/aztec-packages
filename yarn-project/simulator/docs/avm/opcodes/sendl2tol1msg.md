@@ -18,7 +18,7 @@ Sends a message to L1, with the specified recipient, from the currently executin
 
 | Component | Value | Scales with |
 |-----------|-------|-------------|
-| L2 Base | 209 | - |
+| L2 Base | 418 | - |
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
