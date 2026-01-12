@@ -24,8 +24,8 @@ Files requiring internal audit (status: Planned)
 
 | File | Status | Auditor |
 |------|--------|---------|
-| `goblin/merge_prover.cpp` | Planned | |
-| `goblin/merge_prover.hpp` | Planned | |
+| `goblin/merge_prover.cpp` | Complete | |
+| `goblin/merge_prover.hpp` | Complete | |
 
 ## Flavor
 
@@ -56,8 +56,8 @@ Files requiring internal audit (status: Planned)
 |-----------|-------|-----------|-----------|
 | HyperNova | 9 | 6 | 3 |
 | Multilinear Batching | 5 | 2 | 3 |
-| Merge Protocol | 4 | 2 | 2 |
-| Flavor | 2 | 0 | 2 |
+| Merge Protocol | 4 | 4 | 0 |
+| Flavor | 2 | 2 | 0 |
 | Special Public Inputs | 2 | 1 | 1 |
 | ACIR Integration | 2 | 0 | 2 |
 | **Total** | **24** | **11** | **13** |
