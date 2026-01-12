@@ -30,7 +30,16 @@
 namespace bb {
 
 // Threshold for "large" moduli (>= 2^254). When the top limb of the modulus is >= 2^62,
-// intermediate arithmetic results can overflow 256 bits, requiring different reduction strategies.
+// intermediate arithmetic results can overflow 256 bits, requiring different reduction strategies (enacted via
+// constexpr branching).
+//
+// There is a further difference: internally, when limb[3] <MODULUS_TOP_LIMB_LARGE_THRESHOLD, we allow for coarse
+// representation of the elements; this means that the uint256_t element derived from the limbs is only guaranteed to be
+// in the range [0, 2p). On the other hand, for moduli with limb[3] > MODULUS_TOP_LIMB_LARGE_THRESHOLD, the uint256_t
+// element derived from the limbs is arbitrary (and is in particular NOT guaranteed to be in the range [0, p)).
+//
+// In Barretenberg, the main workhorse fields are the base and scalar fields of BN-254, which are "small" moduli: they
+// are each 254 bits. The field algorithms for them are constant-time.
 static constexpr uint64_t MODULUS_TOP_LIMB_LARGE_THRESHOLD = 0x4000000000000000ULL; // 2^62
 
 /**
@@ -445,8 +454,6 @@ template <class Params_> struct alignas(32) field {
             k1.data[0] = ret.first[0];
             k1.data[1] = ret.first[1];
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): We should move away from this hack by
-            // returning pair of uint64_t[2] instead of a half-set field
 #if !defined(__clang__) && defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
