@@ -128,7 +128,9 @@ run_skill() {
     echo "running" > "$status_file"
 
     # Build the prompt for the skill
-    local prompt="Run the /${skill} audit on ${TARGET_PATH}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding."
+    # Note: We pass the absolute output path so the skill knows where to write its JSON file
+    local abs_output_dir="$(cd "$OUTPUT_DIR" && pwd)"
+    local prompt="Run the /${skill} audit on ${TARGET_PATH}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding. Write the JSON findings file to: ${abs_output_dir}/${skill}.json"
 
     # Run claude with the skill
     if claude -p "$prompt" \
