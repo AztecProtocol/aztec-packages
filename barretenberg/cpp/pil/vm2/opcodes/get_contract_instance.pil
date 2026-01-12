@@ -189,6 +189,7 @@ namespace get_contract_instance;
 
     // Compute memory offsets for writing to
     pol commit member_write_offset;
+    #[MEMBER_WRITE_OFFSET]
     member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1);
     // TODO: remove these once we can use constants in permutations
     pol commit exists_tag;

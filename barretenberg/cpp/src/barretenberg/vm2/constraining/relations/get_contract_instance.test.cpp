@@ -485,5 +485,41 @@ TEST(GetContractInstanceConstrainingTest, NegativeGhostRowInjectionBlocked)
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_contract_instance>(trace), "IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL");
 }
 
+// M-1: Verifies tracegen sets member_write_offset = 0 when writes are out of bounds.
+// PIL constraint: member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+TEST(GetContractInstanceConstrainingTest, TracegenMemberWriteOffsetOutOfBounds)
+{
+    EventEmitter<GetContractInstanceEvent> emitter;
+    emitter.emit(GetContractInstanceEvent{
+        .execution_clk = 1,
+        .contract_address = 0x1234,
+        .dst_offset = AVM_HIGHEST_MEM_ADDRESS, // Boundary case: writes out of bounds
+        .member_enum = static_cast<uint8_t>(ContractInstanceMember::DEPLOYER),
+        .space_id = 1,
+        .nullifier_tree_root = 0x5678,
+        .public_data_tree_root = 0x9ABC,
+        .instance_exists = true,
+        .retrieved_deployer_addr = 0xDEAD,
+        .retrieved_class_id = 0xBEEF,
+        .retrieved_init_hash = 0xCAFE,
+    });
+
+    TestTraceContainer trace;
+    GetContractInstanceTraceBuilder().process(emitter.dump_events(), trace);
+    PrecomputedTraceBuilder().process_get_contract_instance_table(trace);
+
+    // Row 1 has the data (row 0 is skippable setup)
+    constexpr uint32_t data_row = 1;
+    EXPECT_EQ(trace.get(C::get_contract_instance_is_valid_writes_in_bounds, data_row), FF(0));
+    EXPECT_EQ(trace.get(C::get_contract_instance_member_write_offset, data_row), FF(0));
+    check_relation<get_contract_instance>(trace);
+
+    // Negative: incorrect value fails the constraint
+    trace.set(C::get_contract_instance_member_write_offset, data_row, FF(AVM_HIGHEST_MEM_ADDRESS) + FF(1));
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET),
+        "MEMBER_WRITE_OFFSET");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
