@@ -15,6 +15,7 @@ cd "$compose_file_path"
 docker compose $name_arg down --timeout 0 &> /dev/null
 
 function cleanup {
+  set +e
   # echo compose cleanup: $name_arg >/dev/tty
   # If the container hasn't completed, wait up to 15 seconds for it to start.
   # Bit of kludge, but otherwise the "down" could happen before the "up" has started.
@@ -29,13 +30,6 @@ function cleanup {
 }
 trap cleanup EXIT
 
-# Prevent ansi codes from overwriting log headers.
-echo
-echo
-
-started=1
-setsid docker compose --ansi always $name_arg up --exit-code-from=$exit_container --abort-on-container-exit --force-recreate | cat &
+setsid docker compose $name_arg up --exit-code-from=$exit_container --abort-on-container-exit --force-recreate &
 pid=$!
 wait $pid
-code=$?
-exit $code

@@ -21,7 +21,8 @@ if git diff --cached --submodule=short noir/noir-repo | grep -q "^-Subproject co
       exit 1
     fi
   else
-    echo "You can git commit --no-verify if you're sure."
+    echo "You can 'git commit --no-verify' if you're sure. This can be required when committing some resolved merge conflicts, where the merge changed the submodule hash."
+    echo "You can 'git submodule update --init --recursive' to re-sync submodules if you were not expecting the change."
     exit 1
   fi
 fi
