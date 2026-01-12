@@ -222,14 +222,23 @@ void WorldState::remove_forks_for_block(const block_number_t& blockNumber)
     {
         std::unique_lock lock(mtx);
         for (auto it = _forks.begin(); it != _forks.end();) {
+            // Never remove the canonical fork (ID 0)
+            if (it->first == CANONICAL_FORK_ID) {
+                it++;
+                continue;
+            }
             if (it->second->_blockNumber == blockNumber) {
+                std::cerr << "[FORK] Removing fork " << it->first << " at block " << blockNumber
+                          << " during history removal. Remaining forks: " << (_forks.size() - 1) << std::endl;
                 forks.push_back(it->second);
                 it = _forks.erase(it);
-
             } else {
                 it++;
             }
         }
+    }
+    if (forks.empty()) {
+        std::cerr << "[FORK] No forks found at block " << blockNumber << " during history removal" << std::endl;
     }
 }
 

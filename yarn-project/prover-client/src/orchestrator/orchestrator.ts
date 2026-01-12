@@ -113,16 +113,22 @@ export class ProvingOrchestrator implements EpochProver {
     return this.proverId;
   }
 
-  public stop(): Promise<void> {
+  public async stop(): Promise<void> {
     this.cancel();
-    // Log any forks that weren't closed on the happy path
+    // Close any forks that weren't closed on the happy path
     if (this.dbs.size > 0) {
-      logger.warn(`[FORK] Orchestrator stopping with ${this.dbs.size} unclosed forks - potential memory leak!`);
-      for (const blockNumber of this.dbs.keys()) {
-        logger.warn(`[FORK]   Unclosed fork for block ${blockNumber}`);
+      logger.warn(`[FORK] Orchestrator stopping with ${this.dbs.size} unclosed forks - closing them now`);
+      const closePromises: Promise<void>[] = [];
+      for (const [blockNumber, db] of this.dbs.entries()) {
+        logger.debug(`[FORK] Closing leaked fork for block ${blockNumber}`);
+        closePromises.push(
+          db.close().catch(err => logger.error(`[FORK] Error closing fork for block ${blockNumber}`, err)),
+        );
       }
+      await Promise.all(closePromises);
+      this.dbs.clear();
+      logger.debug(`[FORK] All leaked forks closed`);
     }
-    return Promise.resolve();
   }
 
   /** Returns the number of open merkle tree forks (for memory debugging) */
@@ -407,6 +413,7 @@ export class ProvingOrchestrator implements EpochProver {
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
   public async setBlockCompleted(blockNumber: BlockNumber, expectedHeader?: BlockHeader): Promise<BlockHeader> {
+    logger.info(`setBlockCompleted for block ${blockNumber}`);
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -430,7 +437,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // Given we've applied every change from this block, now assemble the block header:
-    logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
+    logger.info(`Block ${blockNumber} completed. Assembling header.`);
     const header = await provingState.buildBlockHeader();
 
     if (expectedHeader && !header.equals(expectedHeader)) {
@@ -442,7 +449,7 @@ export class ProvingOrchestrator implements EpochProver {
     const db = this.dbs.get(provingState.blockNumber)!;
 
     // Update the archive tree, so we're ready to start processing the next block:
-    logger.verbose(
+    logger.info(
       `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
     );
     await db.updateArchive(header);
@@ -456,13 +463,13 @@ export class ProvingOrchestrator implements EpochProver {
   protected async verifyBuiltBlockAgainstSyncedState(provingState: BlockProvingState) {
     const builtBlockHeader = provingState.getBuiltBlockHeader();
     if (!builtBlockHeader) {
-      logger.debug('Block header not built yet, skipping header check.');
+      logger.info('Block header not built yet, skipping header check.');
       return;
     }
 
     const output = provingState.getBlockRootRollupOutput();
     if (!output) {
-      logger.debug('Block root rollup proof not built yet, skipping header check.');
+      logger.info('Block root rollup proof not built yet, skipping header check.');
       return;
     }
     const header = await buildHeaderFromCircuitOutputs(output);
@@ -500,7 +507,7 @@ export class ProvingOrchestrator implements EpochProver {
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
     // but have to make sure it only runs once all operations are completed, otherwise some function here
     // will attempt to access the fork after it was closed.
-    logger.debug(
+    logger.info(
       `[FORK] Cleaning up world state fork for block ${blockNumber}. Open forks before close: ${this.dbs.size}`,
     );
     void this.dbs
@@ -508,7 +515,7 @@ export class ProvingOrchestrator implements EpochProver {
       ?.close()
       .then(() => {
         this.dbs.delete(blockNumber);
-        logger.debug(`[FORK] Closed fork for block ${blockNumber}. Open forks: ${this.dbs.size}`);
+        logger.info(`[FORK] Closed fork for block ${blockNumber}. Open forks: ${this.dbs.size}`);
       })
       .catch(err => logger.error(`[FORK] Error closing db for block ${blockNumber}`, err));
   }
