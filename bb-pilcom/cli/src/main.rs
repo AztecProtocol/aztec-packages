@@ -1,6 +1,6 @@
 use std::{io, path::Path};
 
-use bb_pil_backend::vm_builder::analyzed_to_cpp;
+use bb_pil_backend::{checks::check, vm_builder::analyzed_to_cpp};
 use clap::Parser;
 use powdr_ast::analyzed::Analyzed;
 use powdr_number::Bn254Field;
@@ -33,6 +33,10 @@ fn main() -> Result<(), io::Error> {
     let name = args.name.unwrap();
     println!("Analyzing PIL file: {}", file_name);
     let analyzed: Analyzed<Bn254Field> = analyze_file(Path::new(&file_name));
+    if let Err(e) = check(&analyzed) {
+        eprintln!("Error: {}", e);
+        panic!("Error: {}", e);
+    }
 
     analyzed_to_cpp(&analyzed, args.output_directory.as_deref(), &name, args.yes);
 
