@@ -286,7 +286,7 @@ describe('PrivateEventStore', () => {
       });
 
       // Rollback to block 150 (should remove events from blocks 200 and 300)
-      await privateEventStore.rollbackEventsAfterBlock(150, 300);
+      await privateEventStore.rollback(150, 300);
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
@@ -315,7 +315,7 @@ describe('PrivateEventStore', () => {
       });
 
       // Rollback to block 100
-      await privateEventStore.rollbackEventsAfterBlock(100, 200);
+      await privateEventStore.rollback(100, 200);
 
       // Verify event was removed
       let events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -355,7 +355,7 @@ describe('PrivateEventStore', () => {
       });
 
       // Rollback after all existing events
-      await privateEventStore.rollbackEventsAfterBlock(200, 300);
+      await privateEventStore.rollback(200, 300);
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
