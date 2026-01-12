@@ -314,3 +314,9 @@ tests:
     error_regex: "Error: Unable to find low leaf for block"
     owners:
       - *leila
+
+  # http://ci.aztec-labs.com/61d96be1402847b1
+  - regex: "src/composed/e2e_token_bridge_tutorial_test.test.ts"
+    error_regex: "Exceeded timeout of [0-9]+ ms for a test"
+    owners:
+      - *palla
