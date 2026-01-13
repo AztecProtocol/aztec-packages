@@ -55,17 +55,17 @@ template <typename Curve>
 void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                  std::vector<uint32_t>& consolidated_indices) noexcept
 {
-    std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
+    const size_t num_threads = get_num_cpus();
+    std::vector<size_t> thread_counts(num_threads, 0);
 
+    // Pass 1: Convert scalars and count non-zero entries per thread (no per-thread vector allocation)
     parallel_for([&](const ThreadChunk& chunk) {
-        // parallel_for with ThreadChunk uses get_num_cpus() threads
-        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        BB_ASSERT_EQ(chunk.total_threads, num_threads);
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
             return;
         }
-        std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
-        thread_scalar_indices.reserve(range.size());
+        size_t count = 0;
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
             auto& scalar = scalars[i];
@@ -74,26 +74,37 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
             bool is_zero =
                 (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
             if (!is_zero) {
-                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
+                count++;
             }
         }
+        thread_counts[chunk.thread_index] = count;
     });
 
-    size_t num_entries = 0;
-    for (const auto& indices : thread_indices) {
-        num_entries += indices.size();
+    // Compute prefix sums for thread offsets
+    std::vector<size_t> thread_offsets(num_threads + 1);
+    thread_offsets[0] = 0;
+    for (size_t i = 0; i < num_threads; ++i) {
+        thread_offsets[i + 1] = thread_offsets[i] + thread_counts[i];
     }
+    const size_t num_entries = thread_offsets[num_threads];
     consolidated_indices.resize(num_entries);
 
+    // Pass 2: Fill consolidated_indices directly (no intermediate vector-of-vectors)
     parallel_for([&](const ThreadChunk& chunk) {
-        // parallel_for with ThreadChunk uses get_num_cpus() threads
-        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
-        size_t offset = 0;
-        for (size_t i = 0; i < chunk.thread_index; ++i) {
-            offset += thread_indices[i].size();
+        BB_ASSERT_EQ(chunk.total_threads, num_threads);
+        auto range = chunk.range(scalars.size());
+        if (range.empty()) {
+            return;
         }
-        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
-            consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
+        size_t write_idx = thread_offsets[chunk.thread_index];
+        for (size_t i : range) {
+            BB_ASSERT_DEBUG(i < scalars.size());
+            const auto& scalar = scalars[i];
+            bool is_zero =
+                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
+            if (!is_zero) {
+                consolidated_indices[write_idx++] = static_cast<uint32_t>(i);
+            }
         }
     });
 }
@@ -379,7 +390,14 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
     const size_t size = nonzero_scalar_indices.size();
     const size_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = 1 << bits_per_slice;
-    JacobianBucketAccumulators bucket_data = JacobianBucketAccumulators(num_buckets);
+
+    // Use thread-local storage to avoid per-call allocations
+    static thread_local JacobianBucketAccumulators bucket_data(0);
+    if (bucket_data.buckets.size() < num_buckets) {
+        bucket_data.buckets.resize(num_buckets);
+        bucket_data.bucket_exists.resize(num_buckets);
+    }
+
     Element round_output = Curve::Group::point_at_infinity;
 
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
@@ -407,10 +425,14 @@ typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalar
     if (!use_affine_trick(msm_size, num_buckets)) {
         return small_pippenger_low_memory_with_transformed_scalars(msm_data);
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1452): Consider allowing this memory to persist rather
-    // than allocating/deallocating on every execution.
-    AffineAdditionData affine_data = AffineAdditionData();
-    BucketAccumulators bucket_data = BucketAccumulators(num_buckets);
+
+    // Use thread-local storage to avoid per-call allocations (resolves issue #1452)
+    static thread_local AffineAdditionData affine_data;
+    static thread_local BucketAccumulators bucket_data(0);
+    if (bucket_data.buckets.size() < num_buckets) {
+        bucket_data.buckets.resize(num_buckets);
+        bucket_data.bucket_exists.resize(num_buckets);
+    }
 
     Element round_output = Curve::Group::point_at_infinity;
 
@@ -528,11 +550,12 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
         bucket_data.bucket_exists.clear();
     }
 
-    Element result = previous_round_output;
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
-    size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
-                               ? NUM_BITS_IN_FIELD % bits_per_slice
-                               : bits_per_slice;
+    const bool is_last_round = (round_index == num_rounds - 1);
+    const size_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
+    size_t num_doublings = (is_last_round && remainder != 0) ? remainder : bits_per_slice;
+
+    Element result = std::move(previous_round_output);
     for (size_t i = 0; i < num_doublings; ++i) {
         result.self_dbl();
     }
@@ -777,12 +800,17 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         if (!thread_work_units[thread_idx].empty()) {
             const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
             std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
+            msm_results.reserve(msms.size());
+
+            // Reusable scratch buffer for this thread - avoids per-work-unit heap allocation
+            std::vector<uint64_t> point_schedule;
+
             for (const MSMWorkUnit& msm : msms) {
                 std::span<const ScalarField> work_scalars = scalars[msm.batch_msm_index];
                 std::span<const AffineElement> work_points = points[msm.batch_msm_index];
                 std::span<const uint32_t> work_indices =
                     std::span<const uint32_t>{ &msm_scalar_indices[msm.batch_msm_index][msm.start_index], msm.size };
-                std::vector<uint64_t> point_schedule(msm.size);
+                point_schedule.resize(msm.size);
                 MSMData msm_data(work_scalars, work_points, work_indices, std::span<uint64_t>(point_schedule));
                 Element msm_result = Curve::Group::point_at_infinity;
                 constexpr size_t SINGLE_MUL_THRESHOLD = 16;
@@ -822,10 +850,19 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     }
 
     // Convert our scalars back into Montgomery form so they remain unchanged
-    for (auto& msm_scalars : scalars) {
-        parallel_for_range(msm_scalars.size(), [&](size_t start, size_t end) {
+    // Use a single parallel pass to avoid nested parallelism overhead
+    if (scalars.size() == 1) {
+        // Single MSM - parallel over scalars
+        parallel_for_range(scalars[0].size(), [&](size_t start, size_t end) {
             for (size_t i = start; i < end; ++i) {
-                msm_scalars[i].self_to_montgomery_form();
+                scalars[0][i].self_to_montgomery_form();
+            }
+        });
+    } else {
+        // Multiple MSMs - parallel over MSMs to avoid nested parallelism
+        parallel_for(scalars.size(), [&](size_t msm_idx) {
+            for (size_t i = 0; i < scalars[msm_idx].size(); ++i) {
+                scalars[msm_idx][i].self_to_montgomery_form();
             }
         });
     }

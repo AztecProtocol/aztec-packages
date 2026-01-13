@@ -156,14 +156,14 @@ template <typename Curve> class MSM {
             return Curve::Group::point_at_infinity;
         }
         BB_ASSERT_DEBUG(starting_index > 0);
-        AffineElement offset_generator = Curve::Group::affine_point_at_infinity;
-        if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
-            constexpr auto gen = get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
-            offset_generator = gen;
-        } else {
-            constexpr auto gen = get_precomputed_generators<typename Curve::Group, "DEFAULT_DOMAIN_SEPARATOR", 8>()[0];
-            offset_generator = gen;
-        }
+        // Hoist offset_generator to static to avoid recomputation every call
+        static const AffineElement offset_generator = []() {
+            if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
+                return get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
+            } else {
+                return get_precomputed_generators<typename Curve::Group, "DEFAULT_DOMAIN_SEPARATOR", 8>()[0];
+            }
+        }();
         Element sum = prefix_sum + offset_generator;
         for (int i = static_cast<int>(starting_index - 1); i > 0; --i) {
             size_t idx = static_cast<size_t>(i);

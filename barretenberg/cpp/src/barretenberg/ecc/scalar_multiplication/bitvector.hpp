@@ -54,6 +54,13 @@ class BitVector {
         std::memset(data_.data(), 0, data_.size() * sizeof(uint64_t));
     }
 
+    void resize(size_t num_bits)
+    {
+        num_bits_ = num_bits;
+        data_.resize((num_bits + 63) / 64);
+        clear();
+    }
+
     size_t size() const { return num_bits_; }
 
     // Optional: access raw pointer for performance
