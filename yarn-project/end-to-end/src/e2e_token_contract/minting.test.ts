@@ -6,7 +6,7 @@ describe('e2e_token_contract minting', () => {
   let { asset, tokenSim, adminAddress, account1Address } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
     ({ asset, tokenSim, adminAddress, account1Address } = t);
   });

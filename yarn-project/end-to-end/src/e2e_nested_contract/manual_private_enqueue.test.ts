@@ -13,8 +13,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    // We don't have the manual snapshot because every test requires a fresh setup and teardown
+    // We don't deploy contracts in beforeAll because every test requires a fresh setup
     await t.setup();
     ({ wallet, defaultAccountAddress, aztecNode } = t);
   });

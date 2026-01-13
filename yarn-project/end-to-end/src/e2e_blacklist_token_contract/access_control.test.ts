@@ -6,7 +6,6 @@ describe('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
   });
 

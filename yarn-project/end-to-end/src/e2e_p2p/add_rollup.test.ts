@@ -84,8 +84,8 @@ describe('e2e_p2p_add_rollup', () => {
       startProverNode: false, // Start one later using p2p.
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
     await t.removeInitialNode();
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
