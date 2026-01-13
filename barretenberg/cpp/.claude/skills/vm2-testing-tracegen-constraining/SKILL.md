@@ -15,6 +15,15 @@ Write **integration tests** that verify the tracegen model produces constraint-s
 
 This catches **tracegen-PIL alignment issues** where the C++ tracegen code doesn't match PIL constraints.
 
+## Severity Assessment
+
+**Assess severity case-by-case** based on impact and reachability:
+
+- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
+- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+
 ## When to Use
 
 - Testing that normal execution paths produce valid traces
