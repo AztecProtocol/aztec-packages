@@ -150,24 +150,25 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     const FF minus_one = FF(-1);
 
     // Contribution (1) (1-4 ensure transfer of accumulator limbs at odd indices of the minicircuit)
+    const auto is_row_odd_except_last = lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
     auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
-    tmp_1 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_1 *= is_row_odd_except_last;
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
 
     // Contribution (2)
     auto tmp_2 = accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift;
-    tmp_2 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_2 *= is_row_odd_except_last;
     tmp_2 *= scaling_factor;
     std::get<1>(accumulators) += tmp_2;
     // Contribution (3)
     auto tmp_3 = accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift;
-    tmp_3 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_3 *= is_row_odd_except_last;
     tmp_3 *= scaling_factor;
     std::get<2>(accumulators) += tmp_3;
     // Contribution (4)
     auto tmp_4 = accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift;
-    tmp_4 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
+    tmp_4 *= is_row_odd_except_last;
     tmp_4 *= scaling_factor;
     std::get<3>(accumulators) += tmp_4;
 
