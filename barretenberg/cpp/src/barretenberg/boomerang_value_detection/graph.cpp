@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <optional>
 #include <stack>
+#include <vector>
 
 using namespace bb::plookup;
 using namespace bb;
@@ -57,12 +58,32 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
         return;
     }
     for (auto& var_idx : gate_variables) {
-        KeyPair key = std::make_pair(var_idx, block_idx);
-        variable_gates[key].emplace_back(gate_index);
+        variable_gates[{ var_idx, block_idx }].emplace_back(gate_index);
     }
     for (const auto& variable_index : gate_variables) {
-        variables_gate_counts[variable_index] += 1;
+        variable_gate_count[variable_index] += 1;
     }
+}
+
+template <typename FF, typename CircuitBuilder>
+std::vector<std::pair<size_t, size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(uint32_t var_idx) const
+{
+    std::vector<std::pair<size_t, size_t>> result;
+    auto search = variable_gate_count.find(var_idx);
+    if (search != variable_gate_count.end() && search->second != 0) {
+        const auto block_data = circuit_builder.blocks.get();
+        for (size_t blk_idx = 0; blk_idx < block_data.size(); blk_idx++) {
+            if (blk_idx == pub_inputs_block_idx) {
+                continue;
+            }
+            if (auto search = variable_gates.find({ var_idx, blk_idx }); search != variable_gates.end()) {
+                for (size_t gate_idx : search->second) {
+                    result.emplace_back(blk_idx, gate_idx);
+                }
+            }
+        }
+    }
+    return result;
 }
 
 /**
@@ -647,17 +668,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
 template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace()
 {
     auto block_data = circuit_builder.blocks.get();
-
-    // We have to determine pub_inputs block index based on circuit builder type, because we have to skip it.
-    // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can set
-    // pub_inputs_block_idx
-    size_t pub_inputs_block_idx = 0;
-
-    // For MegaCircuitBuilder, pub_inputs block has index 3
-    if constexpr (IsMegaBuilder<CircuitBuilder>) {
-        pub_inputs_block_idx = 3;
-    }
-
     for (size_t blk_idx = 0; blk_idx < block_data.size(); blk_idx++) {
         if (block_data[blk_idx].size() == 0 || blk_idx == pub_inputs_block_idx) {
             continue;
@@ -736,7 +746,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
  * @param connect_variables
  * @details This constructor initializes the graph structure by:
  *          1) Creating data structures for tracking:
- *             - Number of gates each variable appears in (variables_gate_counts)
+ *             - Number of gates each variable appears in (variable_gate_count)
  *             - Adjacency lists for each variable (variable_adjacency_lists)
  *             - Degree of each variable (variables_degree)
  *          2) Processing different types of gates:
@@ -755,14 +765,23 @@ StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_bui
     : circuit_builder(circuit_builder)
     , connect_variables(connect_variables)
 {
-    variables_gate_counts = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
+    // We have to determine pub_inputs block index based on circuit builder type, because we have to skip it.
+    // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can set
+    // pub_inputs_block_idx
+    if constexpr (IsUltraBuilder<CircuitBuilder>) {
+        pub_inputs_block_idx = 0;
+    }
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
+        pub_inputs_block_idx = 3;
+    }
+    variable_gate_count = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
     variable_adjacency_lists =
         std::unordered_map<uint32_t, std::vector<uint32_t>>(circuit_builder.real_variable_index.size());
     variables_degree = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
     for (const auto& variable_index : circuit_builder.real_variable_index) {
-        variables_gate_counts[variable_index] = 0;
-        variables_degree[variable_index] = 0;
-        variable_adjacency_lists[variable_index] = {};
+        variable_gate_count.emplace(variable_index, 0);
+        variables_degree.emplace(variable_index, 0);
+        variable_adjacency_lists.emplace(variable_index, std::vector<uint32_t>());
     }
     save_constant_variable_indices();
     process_execution_trace();
@@ -946,8 +965,7 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint32_t var_idx, size_t blk_idx) const
 {
     bool result = false;
-    KeyPair key = { var_idx, blk_idx };
-    auto it = variable_gates.find(key);
+    auto it = variable_gates.find({ var_idx, blk_idx });
     if (it != variable_gates.end()) {
         const auto& gates = it->second;
         result = std::all_of(gates.begin(), gates.end(), [this, blk_idx](size_t gate_idx) {
@@ -1083,14 +1101,14 @@ inline size_t StaticAnalyzer_<FF, CircuitBuilder>::process_current_decompose_cha
         if (i == 0) {
             // the first variable in accumulators is the variable which decompose was created. So, we have to
             // decrement variable_gate_counts for this variable
-            variables_gate_counts[accumulators_indices[i]] -= 1;
+            variable_gate_count[accumulators_indices[i]] -= 1;
         } else {
             // next accumulators are useless variables that are not interested for the analyzer. So, for these
-            // variables we can nullify variables_gate_counts
-            variables_gate_counts[accumulators_indices[i]] = 0;
+            // variables we can nullify variable_gate_count
+            variable_gate_count[accumulators_indices[i]] = 0;
         }
     }
-    // we don't want to make variables_gate_counts for intermediate variables negative, so, can go to the next gates
+    // we don't want to make variable_gate_count for intermediate variables negative, so, can go to the next gates
     return current_index;
 }
 
@@ -1141,6 +1159,151 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_decompose_va
             }
         }
     }
+}
+
+/**
+ * @brief Validate that a decompose chain was correctly created for a range constraint
+ *
+ * @details When num_bits > DEFAULT_PLOOKUP_RANGE_BITNUM (14), the circuit builder calls
+ *          decompose_into_default_range which creates:
+ *          1. Sublimb variables, each range-constrained to 14 bits (or fewer for the last limb)
+ *          2. Big add gates that reconstruct the original value from sublimbs
+ *
+ *          The gates have selectors q_1, q_2, q_3 that are powers of 2 with property q_2² == q_1 * q_3
+ *
+ *          Gate structure being validated (Big Add Gate):
+ *          ┌─────────────────────────────────────────────────────────────────────────────┐
+ *          │ w_l (sublimb_0) │ w_r (sublimb_1) │ w_o (sublimb_2) │ w_4 (accumulated)     │
+ *          │ q_1 = 2^a       │ q_2 = 2^b       │ q_3 = 2^c       │ where b = (a+c)/2     │
+ *          └─────────────────────────────────────────────────────────────────────────────┘
+ *          Constraint: q_1·w_l + q_2·w_r + q_3·w_o = w_4
+ *
+ *          Algorithm has 5 phases:
+ *          - Phase 1: Calculate expected structure (num_limbs, num_limb_triples)
+ *          - Phase 2: Find start gate where witness appears in w_4 with power-of-2 selectors
+ *          - Phase 3: Traverse decompose chain collecting sublimb indices
+ *          - Phase 4: Validate sublimb count matches expected
+ *          - Phase 5: Verify each sublimb is in the appropriate range list
+ *
+ * @param witness The witness index that was decomposed
+ * @param num_bits The number of bits the witness should be constrained to
+ * @return true if the decompose chain is valid, false otherwise
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzer_<FF, CircuitBuilder>::validate_decompose_chain(uint32_t witness, uint64_t num_bits)
+{
+    // Determine how many sublimbs and gates we expect based on num_bits
+    constexpr uint64_t target_range_bitnum = CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM; // 14
+    const bool has_remainder = (num_bits % target_range_bitnum != 0);
+    const uint64_t num_limbs = (num_bits / target_range_bitnum) + has_remainder;
+    const uint64_t num_limb_triples = (num_limbs / 3) + ((num_limbs % 3) != 0);
+
+    auto is_power_two = [&](const uint256_t& number) { return number > 0 && ((number & (number - 1)) == 0); };
+
+    // Look in the arithmetic block for gates where:
+    // - The witness is in w_4 (fourth wire)
+    // - Selectors q_1, q_2, q_3 are all powers of 2
+    // - The relationship q_2² == q_1 * q_3 holds (identifies big add gates)
+    const auto witness_gates = get_variable_gates(witness);
+    std::optional<size_t> arith_block_idx_opt = find_block_index(circuit_builder.blocks.arithmetic);
+    if (!arith_block_idx_opt.has_value()) {
+        return false;
+    }
+    auto& block = circuit_builder.blocks.get()[*arith_block_idx_opt];
+    const auto zero_idx = circuit_builder.zero_idx();
+    std::optional<size_t> start_gate_idx;
+    for (auto [blk_idx, gate_idx] : witness_gates) {
+        if (blk_idx != *arith_block_idx_opt) {
+            continue;
+        }
+        uint32_t fourth_idx = block.w_4()[gate_idx];
+        if (circuit_builder.real_variable_index[fourth_idx] == circuit_builder.real_variable_index[witness]) {
+            auto q_1 = block.q_1()[gate_idx];
+            auto q_2 = block.q_2()[gate_idx];
+            auto q_3 = block.q_3()[gate_idx];
+            if (is_power_two(q_1) && is_power_two(q_2) && is_power_two(q_3) && (q_2 * q_2 == q_1 * q_3)) {
+                start_gate_idx = gate_idx;
+                break;
+            }
+        }
+    }
+    if (!start_gate_idx.has_value()) {
+        return false;
+    }
+
+    // Starting from the identified gate, iterate through consecutive gates:
+    // - Verify each gate has the power-of-2 selector pattern
+    // - Collect sublimb indices from w_l, w_r, w_o (excluding zero indices)
+    // - Stop when q_arith == 1 (final gate) or pattern breaks
+    std::vector<uint32_t> collected_sublimbs;
+    size_t current_index = *start_gate_idx;
+    size_t gates_traversed = 0;
+
+    while (gates_traversed < num_limb_triples && current_index < block.size()) {
+        auto q_1 = block.q_1()[current_index];
+        auto q_2 = block.q_2()[current_index];
+        auto q_3 = block.q_3()[current_index];
+
+        if (!is_power_two(q_1) || !is_power_two(q_2) || !is_power_two(q_3) || (q_2 * q_2 != q_1 * q_3)) {
+            break;
+        }
+
+        auto left_idx = block.w_l()[current_index];
+        auto right_idx = block.w_r()[current_index];
+        auto out_idx = block.w_o()[current_index];
+
+        if (left_idx != zero_idx) {
+            collected_sublimbs.push_back(to_real(left_idx));
+        }
+        if (right_idx != zero_idx) {
+            collected_sublimbs.push_back(to_real(right_idx));
+        }
+        if (out_idx != zero_idx) {
+            collected_sublimbs.push_back(to_real(out_idx));
+        }
+
+        auto q_arith = block.q_arith()[current_index];
+        if (q_arith == FF::one()) {
+            gates_traversed++;
+            break;
+        }
+
+        current_index++;
+        gates_traversed++;
+    }
+
+    // Must have exactly the expected number of sublimbs
+    if (collected_sublimbs.size() != num_limbs) {
+        return false;
+    }
+
+    // For each collected sublimb:
+    // - Regular sublimbs: Must be in range list for (2^14 - 1) = 16383
+    // - Last sublimb (if remainder): Must be in range list for (2^last_limb_bits - 1)
+    const auto& range_lists = circuit_builder.range_lists;
+    const uint64_t default_sublimb_range = (1ULL << target_range_bitnum) - 1;
+    const uint64_t last_limb_bits = num_bits - ((num_bits / target_range_bitnum) * target_range_bitnum);
+    const uint64_t last_limb_range = has_remainder ? ((1ULL << last_limb_bits) - 1) : default_sublimb_range;
+
+    for (size_t i = 0; i < collected_sublimbs.size(); ++i) {
+        uint64_t expected_range =
+            (i == collected_sublimbs.size() - 1 && has_remainder) ? last_limb_range : default_sublimb_range;
+
+        auto range_it = range_lists.find(expected_range);
+        if (range_it == range_lists.end()) {
+            return false;
+        }
+
+        const auto& range_list = range_it->second;
+        bool found =
+            std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), collected_sublimbs[i]) !=
+            range_list.variable_indices.end();
+        if (!found) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
@@ -1204,7 +1367,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_aes_plookup_
     if (aes_plookup_tables.contains(table_id)) {
         uint32_t real_out_idx = this->to_real(lookup_block.w_o()[gate_index]);
         uint32_t real_right_idx = this->to_real(lookup_block.w_r()[gate_index]);
-        if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+        if (variable_gate_count[real_out_idx] != 1 || variable_gate_count[real_right_idx] != 1) {
             bool find_out = find_position(real_out_idx);
             auto q_c = lookup_block.q_c()[gate_index];
             if (q_c.is_zero()) {
@@ -1247,7 +1410,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plook
     if (sha256_plookup_tables.contains(table_id)) {
         uint32_t real_right_idx = this->to_real(lookup_block.w_r()[gate_index]);
         uint32_t real_out_idx = this->to_real(lookup_block.w_o()[gate_index]);
-        if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+        if (variable_gate_count[real_out_idx] != 1 || variable_gate_count[real_right_idx] != 1) {
             // auto q_m = lookup_block.q_m()[gate_index];
             auto q_c = lookup_block.q_c()[gate_index];
             bool find_out = find_position(real_out_idx);
@@ -1355,7 +1518,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_record_witness_variables
         std::vector<uint32_t> to_remove;
         for (const auto& var_idx : variables_in_one_gate) {
             KeyPair key = { var_idx, *blk_idx };
-            if (auto search = variable_gates.find(key); search != variable_gates.end()) {
+            if (auto search = variable_gates.find({ var_idx, *blk_idx }); search != variable_gates.end()) {
                 std::vector<size_t> gate_indexes = variable_gates[key];
                 BB_ASSERT_EQ(gate_indexes.size(), 1U);
                 size_t gate_idx = gate_indexes[0];
@@ -1393,7 +1556,7 @@ template <typename FF, typename CircuitBuilder>
 std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_in_one_gate()
 {
     variables_in_one_gate.clear();
-    for (const auto& pair : variables_gate_counts) {
+    for (const auto& pair : variable_gate_count) {
         bool is_not_constant_variable = check_is_not_constant_variable(pair.first);
         if (pair.second == 1 && pair.first != 0 && is_not_constant_variable) {
             variables_in_one_gate.insert(pair.first);
@@ -1404,7 +1567,7 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     for (auto& pair : range_lists) {
         for (auto& elem : pair.second.variable_indices) {
             bool is_not_constant_variable = check_is_not_constant_variable(elem);
-            if (variables_gate_counts[circuit_builder.real_variable_index[elem]] == 1 && is_not_constant_variable) {
+            if (variable_gate_count[circuit_builder.real_variable_index[elem]] == 1 && is_not_constant_variable) {
                 decompose_variables.insert(circuit_builder.real_variable_index[elem]);
             }
         }
@@ -1451,19 +1614,6 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_connected_components_info()
 }
 
 /**
- * @brief this method prints a number of gates for each variable
- * @tparam FF
- * @tparam CircuitBuilder
- */
-
-template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::print_variables_gate_counts()
-{
-    for (const auto& it : variables_gate_counts) {
-        info("number of gates with variables ", it.first, " == ", it.second);
-    }
-}
-
-/**
  * @brief this method prints all information about arithmetic gate where variable was found
  * @tparam FF
  * @tparam CircuitBuilder
@@ -1493,6 +1643,66 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_arithmetic_gate_info(size_t gate
             info("w_1_shift == ", block.w_l()[gate_index + 1]);
             info("w_4_shift == ", block.w_4()[gate_index + 1]);
         }
+
+        // Print final equation
+        auto q_m = block.q_m()[gate_index];
+        auto q_1 = block.q_1()[gate_index];
+        auto q_2 = block.q_2()[gate_index];
+        auto q_3 = block.q_3()[gate_index];
+        auto q_4 = block.q_4()[gate_index];
+        auto q_c = block.q_c()[gate_index];
+        std::ostringstream equation;
+        equation << "final equation: ";
+        bool first = true;
+
+        if (!q_m.is_zero()) {
+            equation << "q_m * w_l * w_r";
+            first = false;
+        }
+        if (!q_1.is_zero()) {
+            if (!first)
+                equation << " + ";
+            equation << "q_1 * w_l";
+            first = false;
+        }
+        if (!q_2.is_zero()) {
+            if (!first)
+                equation << " + ";
+            equation << "q_2 * w_r";
+            first = false;
+        }
+        if (!q_3.is_zero()) {
+            if (!first)
+                equation << " + ";
+            equation << "q_3 * w_o";
+            first = false;
+        }
+        if (!q_4.is_zero()) {
+            if (!first)
+                equation << " + ";
+            equation << "q_4 * w_4";
+            first = false;
+        }
+        if (!q_c.is_zero()) {
+            if (!first)
+                equation << " + ";
+            equation << "q_c";
+            first = false;
+        }
+        if (q_arith == FF(2) && gate_index < block.size() - 1) {
+            if (!first)
+                equation << " + ";
+            equation << "w_4_shift";
+            first = false;
+        }
+        if (q_arith == FF(3) && gate_index < block.size() - 1) {
+            if (!first)
+                equation << " + ";
+            equation << "2 * w_4_shift";
+            first = false;
+        }
+        equation << " = 0";
+        info(equation.str());
     } else {
         return;
     }
@@ -1707,38 +1917,37 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_memory_gate_info(size_t gate_ind
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t real_idx)
 {
-    const auto& block_data = circuit_builder.blocks.get();
-    for (const auto& [key, gates] : variable_gates) {
-        if (key.first == real_idx) {
-            for (size_t i = 0; i < gates.size(); i++) {
-                size_t gate_index = gates[i];
-                auto& block = block_data[key.second];
-                info("---- printing variables in this gate");
-                info("w_l == ",
-                     block.w_l()[gate_index],
-                     " w_r == ",
-                     block.w_r()[gate_index],
-                     " w_o == ",
-                     block.w_o()[gate_index],
-                     " w_4 == ",
-                     block.w_4()[gate_index]);
-                info("---- printing gate info where variable with index ", key.first, " was found ----");
-                print_arithmetic_gate_info(gate_index, block);
-                print_elliptic_gate_info(gate_index, block);
-                print_plookup_gate_info(gate_index, block);
-                print_poseidon2s_gate_info(gate_index, block);
-                print_delta_range_gate_info(gate_index, block);
-                print_nnf_gate_info(gate_index, block);
-                print_memory_gate_info(gate_index, block);
-                if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                    auto q_databus = block.q_busread()[gate_index];
-                    if (!q_databus.is_zero()) {
-                        info("q_databus == ", q_databus);
-                    }
+    auto var_gates = get_variable_gates(real_idx);
+    if (!var_gates.empty()) {
+        for (auto [blk_idx, gate_index] : var_gates) {
+            auto& block = circuit_builder.blocks.get()[blk_idx];
+            info("---- printing variables in this gate");
+            info("w_l == ",
+                 block.w_l()[gate_index],
+                 " w_r == ",
+                 block.w_r()[gate_index],
+                 " w_o == ",
+                 block.w_o()[gate_index],
+                 " w_4 == ",
+                 block.w_4()[gate_index]);
+            info("---- printing gate info where variable with index ", real_idx, " was found ----");
+            print_arithmetic_gate_info(gate_index, block);
+            print_elliptic_gate_info(gate_index, block);
+            print_plookup_gate_info(gate_index, block);
+            print_poseidon2s_gate_info(gate_index, block);
+            print_delta_range_gate_info(gate_index, block);
+            print_nnf_gate_info(gate_index, block);
+            print_memory_gate_info(gate_index, block);
+            if constexpr (IsMegaBuilder<CircuitBuilder>) {
+                auto q_databus = block.q_busread()[gate_index];
+                if (!q_databus.is_zero()) {
+                    info("q_databus == ", q_databus);
                 }
-                info("---- finished printing ----");
             }
+            info("---- finished printing ----");
         }
+    } else {
+        info("variable with index", real_idx, " is unconstrained!");
     }
 }
 
@@ -1772,5 +1981,11 @@ std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> StaticA
 
 template class StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
 template class StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
+
+// Explicit instantiations for find_block_index with specific block types used by StaticAnalyzerAcir
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<
+    bb::UltraTraceLookupBlock>(bb::UltraTraceLookupBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<
+    bb::UltraTraceArithmeticBlock>(bb::UltraTraceArithmeticBlock const&);
 
 } // namespace cdg
