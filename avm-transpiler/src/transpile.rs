@@ -1319,12 +1319,13 @@ fn handle_black_box_function(
             // decomposition
             // Output array is fixed to 3
             assert_eq!(outputs.size, 3, "Output array size must be equal to 3");
+            assert!(points.size % 3 == 0, "Points array size must be divisible by 3");
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
             avm_instrs.push(generate_set_to_procedure(
                 AvmTypeTag::UINT32,
-                &FieldElement::from(points.size),
+                &FieldElement::from(points.size / 3),
                 2,
             ));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
