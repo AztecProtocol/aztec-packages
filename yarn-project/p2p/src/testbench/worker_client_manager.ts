@@ -73,7 +73,12 @@ class WorkerClientManager {
     clientIndex: number,
   ): [ChildProcess, Promise<void>] {
     const childProcess = fork(workerPath);
-    childProcess.send({ type: 'START', config, clientIndex });
+    // Extract the raw peerIdPrivateKey value since SecretValue can't be serialized via IPC
+    const serializedConfig = {
+      ...config,
+      peerIdPrivateKey: config.peerIdPrivateKey?.getValue(),
+    };
+    childProcess.send({ type: 'START', config: serializedConfig, clientIndex });
 
     // Handle unexpected child process exit
     childProcess.on('exit', (code, signal) => {

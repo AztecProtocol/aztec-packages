@@ -170,7 +170,6 @@ pol constant envvar_pi_row_idx;
 pol constant is_address;
 pol constant is_sender;
 pol constant is_transactionfee;
-pol constant is_feeperl2gas;
 pol constant is_isstaticcall;
 pol constant is_l2gasleft;
 pol constant is_dagasleft;

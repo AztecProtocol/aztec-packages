@@ -4,7 +4,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CheckpointedL2Block, L2BlockNew, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { CheckpointedL2Block, L2BlockNew, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -14,7 +14,7 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -84,6 +84,14 @@ export interface ArchiverDataStore {
    * @param number - The block number to return.
    */
   getCheckpointedBlock(number: number): Promise<CheckpointedL2Block | undefined>;
+
+  /**
+   * Gets up to `limit` amount of checkpointed L2 blocks starting from `from`.
+   * @param from - Number of the first block to return (inclusive).
+   * @param limit - The number of blocks to return.
+   * @returns The requested checkpointed L2 blocks.
+   */
+  getCheckpointedBlocks(from: number, limit: number): Promise<CheckpointedL2Block[]>;
 
   /**
    * Returns the block for the given hash, or undefined if not exists.
@@ -206,13 +214,17 @@ export interface ArchiverDataStore {
   getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - The number of logs to return per tag. Defaults to everything
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
+  /**
+   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * array implies no logs match that tag.
    */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]>;
+
+  /**
+   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * logs is returned. An empty array implies no logs match that tag.
+   */
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -361,8 +373,8 @@ export interface ArchiverDataStore {
   getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
 
   /** Returns the last synced validation status of the pending chain. */
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined>;
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined>;
 
   /** Sets the last synced validation status of the pending chain. */
-  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void>;
+  setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void>;
 }

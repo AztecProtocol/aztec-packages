@@ -97,12 +97,24 @@ export class EpochsTestContext {
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
-    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
+    const l1PublishingTime = opts.l1PublishingTime ?? 1;
+    return {
+      l1PublishingTime,
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+    };
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
-      EpochsTestContext.getSlotDurations(opts);
+    const {
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+      l1PublishingTime,
+    } = EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
@@ -130,6 +142,7 @@ export class EpochsTestContext {
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
       slasherFlavor: 'none',
+      l1PublishingTime,
       ...opts,
     });
 
@@ -292,7 +305,7 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given checkpoint number is mined. */
-  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 60) {
+  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.checkpointNumber),
       `Wait until checkpoint ${target}`,
@@ -302,7 +315,7 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given checkpoint number is marked as proven. */
-  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 60) {
+  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
       `Wait proven checkpoint ${target}`,
@@ -335,7 +348,7 @@ export class EpochsTestContext {
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
-        synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
       } else if (type === 'finalized') {
         synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {
@@ -391,11 +404,11 @@ export class EpochsTestContext {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
 
-    // Note we do not include the 'tx-count-check-failed' event here, since it is fine if we dont build
+    // Note we do not include the 'block-tx-count-check-failed' event here, since it is fine if we dont build
     // due to lack of txs available.
     const failEventsKeys: (keyof SequencerEvents)[] = [
       'block-build-failed',
-      'block-publish-failed',
+      'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
     ];
 

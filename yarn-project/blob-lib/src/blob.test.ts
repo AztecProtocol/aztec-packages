@@ -122,8 +122,7 @@ describe('blob', () => {
 
   it('should create a blob from a JSON object', () => {
     const blob = makeRandomBlob(7);
-    const blobIndex = 1;
-    const blobJson = blob.toJson(blobIndex);
+    const blobJson = blob.toJSON();
     expect(Blob.fromJson(blobJson)).toEqual(blob);
   });
 });

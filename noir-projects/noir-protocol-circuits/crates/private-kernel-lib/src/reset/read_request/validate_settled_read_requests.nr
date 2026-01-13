@@ -56,7 +56,7 @@ where
             let leaf = leaf_preimage.as_leaf();
             let witness = hint.membership_witness;
             assert(
-                check_membership(leaf, witness.leaf_index, witness.sibling_path, tree_root),
+                check_membership(leaf, witness, tree_root),
                 "Membership check failed: leaf for read request not found in tree",
             );
         }

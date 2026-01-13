@@ -28,12 +28,12 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
+import { createValidatorForBlockBuilding } from '@aztec/validator-client';
 
 const log = createLogger('block-builder');
 
-export async function buildBlock(
+/** Builds a block out of pending txs */
+async function buildBlock(
   pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
   l1ToL2Messages: Fr[],
   newGlobalVariables: GlobalVariables,
@@ -97,8 +97,10 @@ const FullNodeBlockBuilderConfigKeys = [
   'rollupVersion',
   'txPublicSetupAllowList',
   'fakeProcessingDelayPerTxMs',
+  'fakeThrowAfterProcessingTxCount',
 ] as const;
 
+// TODO(palla/mbps): Try killing this in favor of the CheckpointsBuilder
 export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   constructor(
     private config: FullNodeBlockBuilderConfig,

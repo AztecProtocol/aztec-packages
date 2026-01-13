@@ -585,7 +585,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(avm_verify_command);
     add_avm_public_inputs_option(avm_verify_command);
     add_proof_path_option(avm_verify_command);
-    add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
      * Subcommand: aztec_process_artifact
@@ -750,8 +749,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
-    debug_logging = flags.debug;
-    verbose_logging = debug_logging || flags.verbose;
+    if (flags.debug) {
+        bb_log_level = LogLevel::DEBUG;
+    } else if (flags.verbose) {
+        bb_log_level = LogLevel::VERBOSE;
+    }
     slow_low_memory = flags.slow_low_memory;
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {
@@ -894,7 +896,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (avm_check_circuit_command->parsed()) {
             avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
-            return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+            return avm_verify(proof_path, avm_public_inputs_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
         } else if (avm_write_vk_command->parsed()) {

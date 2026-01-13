@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -10,8 +10,8 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -79,15 +79,6 @@ template <typename Flavor> struct UltraVerifierOutput {
     }
 };
 
-// Instance type selection helper
-template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct UltraVerifierInstanceType {
-    using type = VerifierInstance_<Flavor>;
-};
-
-template <typename Flavor> struct UltraVerifierInstanceType<Flavor, true> {
-    using type = bb::stdlib::recursion::honk::RecursiveVerifierInstance_<Flavor>;
-};
-
 template <typename Flavor, class IO> class UltraVerifier_ {
   public:
     using FF = typename Flavor::FF;
@@ -95,12 +86,12 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using Curve = typename Flavor::Curve;
     using VerificationKey = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
+    using Instance = VerifierInstance_<Flavor>;
 
     static constexpr bool IsRecursive = IsRecursiveFlavor<Flavor>;
 
     // Conditional types based on recursion
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
-    using Instance = typename UltraVerifierInstanceType<Flavor>::type;
     using PairingPoints =
         std::conditional_t<IsRecursive, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 
@@ -144,17 +135,16 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     explicit UltraVerifier_(const std::shared_ptr<VKAndHash>& vk_and_hash,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : vk_and_hash(vk_and_hash)
+        , verifier_instance(std::make_shared<Instance>(vk_and_hash))
         , transcript(transcript)
     {
         if constexpr (!IsRecursive) {
-            // Native: create verifier_instance immediately
-            verifier_instance = std::make_shared<Instance>(vk_and_hash);
+            // Native only: create IPA transcript
             ipa_transcript = std::make_shared<Transcript>();
         } else {
-            // Recursive: extract builder from VKAndHash and create verifier_instance
+            // Recursive only: extract builder from VKAndHash for later use
             // Safe since VKAndHash contains field_t elements (hash) with builder context
             builder = vk_and_hash->hash.get_context();
-            verifier_instance = std::make_shared<Instance>(builder, vk_and_hash);
         }
     }
 
@@ -212,6 +202,37 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      */
     const std::shared_ptr<Instance>& get_verifier_instance() const { return verifier_instance; }
 
+    /**
+     * @brief Get public inputs from the verifier instance
+     */
+    const PublicInputs& get_public_inputs() const { return verifier_instance->public_inputs; }
+
+    /**
+     * @brief Get witness commitments from the verifier instance
+     */
+    const typename Flavor::WitnessCommitments& get_witness_commitments() const
+    {
+        return verifier_instance->witness_commitments;
+    }
+
+    /**
+     * @brief Get calldata commitment (MegaFlavor only)
+     */
+    const Commitment& get_calldata_commitment() const
+        requires IsMegaFlavor<Flavor>
+    {
+        return verifier_instance->witness_commitments.calldata;
+    }
+
+    /**
+     * @brief Get ECC op wire commitments as an array (MegaFlavor only)
+     */
+    auto get_ecc_op_wires() const
+        requires IsMegaFlavor<Flavor>
+    {
+        return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+    }
+
   private:
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
@@ -234,5 +255,7 @@ using UltraStarknetZKVerifier = UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>
 #endif
 using MegaVerifier = UltraVerifier_<MegaFlavor, DefaultIO>;
 using MegaZKVerifier = UltraVerifier_<MegaZKFlavor, HidingKernelIO>;
+using MegaZKRecursiveVerifier = UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
 
 } // namespace bb

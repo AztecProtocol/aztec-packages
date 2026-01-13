@@ -11,6 +11,12 @@ namespace bb::avm2::simulation {
 // Forward declarations
 class MemoryInterface;
 
+struct Poseidon2Exception : public std::runtime_error {
+    Poseidon2Exception(const std::string& message)
+        : std::runtime_error("Poseidon2Exception: " + message)
+    {}
+};
+
 class Poseidon2Interface {
   public:
     virtual ~Poseidon2Interface() = default;

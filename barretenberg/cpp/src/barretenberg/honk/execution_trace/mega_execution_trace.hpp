@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -297,10 +297,18 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  *
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
- * Note: the ecc_op block has to be the first in the execution trace to not break the Goblin functionality.
+ *
+ * @note The ecc_op block must be first in the execution trace. This is required because:
+ * 1. The EccOpQueueRelation constrains ecc_op_wire polynomials to equal shifted wires inside the block
+ * 2. ecc_op_wire stores data starting at index 0, while regular wires start at index 1 (due to zero row)
+ * 3. The relation ecc_op_wire[i] == w[i+1] _only_ holds when ecc_op is first (immediately after the zero row)
+ *
+ * @note The ecc_op block does NOT have a gate selector stored in the builder. Instead, the `lagrange_ecc_op`
+ * selector polynomial is constructed during TraceToPolynomials::add_ecc_op_wires_to_prover_instance() as a
+ * binary indicator (1 inside the ecc_op block, 0 elsewhere).
  */
 struct MegaTraceBlockData {
-    MegaTraceBlock ecc_op;
+    MegaTraceBlock ecc_op; // Must remain first
     MegaTraceBusReadBlock busread;
     MegaTraceLookupBlock lookup;
     MegaTracePublicInputBlock pub_inputs;
@@ -370,15 +378,6 @@ struct MegaTraceBlockData {
 
 class MegaExecutionTraceBlocks : public MegaTraceBlockData {
   public:
-    /**
-     * @brief Defines the circuit block types for the Mega arithmetization
-     * @note Its useful to define this as a template since it is used to actually store gate data (T = MegaTraceBlock)
-     * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
-     * tracking in Chonk.
-     *
-     * @tparam T
-     */
-
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
 
     using FF = fr;

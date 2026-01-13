@@ -1,24 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
-#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
-
-// Helper to select the correct instance type without violating template constraints
-template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct OinkVerifierInstanceType {
-    using type = VerifierInstance_<Flavor>;
-};
-
-template <typename Flavor> struct OinkVerifierInstanceType<Flavor, true> {
-    using type = bb::stdlib::recursion::honk::RecursiveVerifierInstance_<Flavor>;
-};
 
 /**
  * @brief Verifier class for all the presumcheck rounds, which are shared between the folding verifier and ultra
@@ -38,9 +28,7 @@ template <typename Flavor> class OinkVerifier {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using SubrelationSeparator = typename Flavor::SubrelationSeparator;
-
-    // Use appropriate instance type based on whether flavor is recursive
-    using Instance = typename OinkVerifierInstanceType<Flavor>::type;
+    using Instance = bb::VerifierInstance_<Flavor>;
 
   public:
     std::shared_ptr<Transcript> transcript;

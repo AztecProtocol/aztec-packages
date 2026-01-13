@@ -52,6 +52,43 @@ impl SpongeBlob {
         Self { sponge: Poseidon2Sponge::new(iv), num_absorbed_fields: 0 }
     }
 
+    /// |----------|--------------------------------|-------------------------------------|
+    /// | Field 0  | TX_START_PREFIX                | 64 bits                             |
+    /// |          | num_note_hashes                | 16 bits                             |
+    /// |          | num_nullifiers                 | 16 bits                             |
+    /// |          | num_l1_to_l2_msgs              | 16 bits                             |
+    /// |          | num_public_data_writes         | 16 bits                             |
+    /// |          | num_private_logs               | 16 bits                             |
+    /// |          | private_logs_length            | 16 bits                             |
+    /// |          | public_logs_length             | 32 bits                             |
+    /// |          | contract_class_log_length      | 16 bits                             |
+    /// |          | revert_code                    |  8 bits                             |
+    /// |          | num_blob_fields                | 32 bits                             |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// | Field 1  | tx_effect.tx_hash              | A field                             |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// | Field 2  | tx_effect.transaction_fee      | A field                             |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | tx_effect.note_hashes          | `num_note_hashes` fields            |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | tx_effect.nullifiers           | `num_nullifiers` fields             |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | tx_effect.l2_to_l1_msgs        | `num_l1_to_l2_msgs` fields          |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | tx_effect.public_data_writes   | `num_public_data_writes * 2` fields |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | (tx_effect.private_logs):      | (private_logs_length)               |
+    /// |          | Where, for each log:           |                                     |
+    /// |          |     log.length                 | A field                             |
+    /// |          |     log.fields                 | `log.length` fields                 |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | tx_effect.public_logs.payload  | `public_logs.length` fields         |
+    /// |----------|--------------------------------|-------------------------------------|
+    /// |          | tx_effect.contract_class_logs  | (contract_class_log_length)         |
+    /// |          | Where, for each log:           |                                     |
+    /// |          |     log.contract_address       | A field                             |
+    /// |          |     log.fields                 | `log.length` fields                 |
+    /// |----------|--------------------------------|-------------------------------------|
     pub fn absorb_tx_blob_data(
         &mut self,
         tx_effect: TxEffect,
@@ -61,6 +98,28 @@ impl SpongeBlob {
         self.absorb(tx_blob_data, num_blob_fields);
     }
 
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 0  | BLOCK_END_PREFIX                            | 72 bits |
+    /// |          | timestamp                                   | 64 bits |
+    /// |          | block_number                                | 32 bits |
+    /// |          | num_txs                                     | 16 bits |
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 1  | l1_to_l2_message_next_available_leaf_index  | 36 bits |
+    /// |          | note_hash_next_available_leaf_index         | 42 bits |
+    /// |          | nullifier_next_available_leaf_index         | 42 bits |
+    /// |          | public_data_next_available_leaf_index       | 40 bits |
+    /// |          | total_mana_used                             | 48 bits |
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 2  | last_archive.root                           | A field |
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 3  | note_hash_tree.root                         | A field |
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 4  | nullifier_tree.root                         | A field |
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 5  | public_data_tree.root                       | A field |
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 6  | l1_to_l2_message_tree.root                  | A field |
+    /// |----------|---------------------------------------------|---------|
     pub fn absorb_block_end_data(
         &mut self,
         global_variables: GlobalVariables,
@@ -89,9 +148,20 @@ impl SpongeBlob {
         self.absorb(blob_data, num_blob_data_to_absorb);
     }
 
+    /// |----------|---------------------------------------------|---------|
+    /// | Field 0  | CHECKPOINT_END_PREFIX                       | 112 bits|
+    /// |          | num_blob_fields                             | 32 bits |
+    /// |----------|---------------------------------------------|---------|
     pub fn absorb_checkpoint_end_marker(&mut self) {
+        // If you ever increase the size of an `end_marker` beyond 1 Field, you need to adjust this
+        // incrementation accordingly:
         self.num_absorbed_fields += 1;
-        let end_marker = create_checkpoint_end_marker(self.num_absorbed_fields);
+        // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
+        assert(
+            self.num_absorbed_fields <= FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT,
+            "Attempted to overfill blobs",
+        );
+        let end_marker: Field = create_checkpoint_end_marker(self.num_absorbed_fields);
         self.sponge.absorb(end_marker);
     }
 

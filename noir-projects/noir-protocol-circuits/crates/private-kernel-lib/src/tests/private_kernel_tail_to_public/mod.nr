@@ -1,19 +1,16 @@
 mod meter_gas_used_tests;
-mod output_propagation_tests;
+mod output_composition_tests;
 mod previous_kernel_validation_tests;
 mod tail_to_public_output_validator;
 
 use crate::{
     abis::PaddedSideEffectAmounts,
-    private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs,
+    private_kernel_tail_to_public::{self, PrivateKernelTailToPublicCircuitPrivateInputs},
 };
 use dep::types::{
-    abis::{
-        gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-        private_kernel_data::PrivateKernelDataWithoutPublicInputs,
-    },
+    abis::{gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs},
     address::AztecAddress,
-    constants::PRIVATE_KERNEL_INNER_INDEX,
+    constants::PRIVATE_KERNEL_INNER_VK_INDEX,
     tests::fixture_builder::FixtureBuilder,
     traits::{Empty, FromField},
 };
@@ -28,7 +25,7 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
-        let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
+        let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_VK_INDEX);
         previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000_000, 1_000_000_000);
         previous_kernel.append_siloed_nullifiers(1);
         previous_kernel.claimed_first_nullifier =
@@ -52,12 +49,12 @@ impl TestBuilder {
     pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
         let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
-        PrivateKernelTailToPublicCircuitPrivateInputs::new(
-            PrivateKernelDataWithoutPublicInputs { vk_data: previous_kernel.vk_data },
-            previous_kernel.public_inputs,
-            self.padded_side_effect_amounts,
-            self.include_by_timestamp_upper_bound,
-        )
-            .execute()
+        let inputs = PrivateKernelTailToPublicCircuitPrivateInputs {
+            previous_kernel,
+            padded_side_effect_amounts: self.padded_side_effect_amounts,
+            include_by_timestamp_upper_bound: self.include_by_timestamp_upper_bound,
+        };
+
+        private_kernel_tail_to_public::execute(inputs)
     }
 }

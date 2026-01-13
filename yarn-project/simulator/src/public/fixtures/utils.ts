@@ -132,8 +132,7 @@ export async function createTxForPublicCalls(
     : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const header = BlockHeader.empty();
-  header.globalVariables = globals;
+  const header = BlockHeader.empty({ globalVariables: globals });
   const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
   const includeByTimestamp = 0n; // Not used in the simulator.
 

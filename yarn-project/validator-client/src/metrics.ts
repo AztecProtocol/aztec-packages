@@ -1,11 +1,11 @@
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 export class ValidatorMetrics {
@@ -16,55 +16,28 @@ export class ValidatorMetrics {
 
   private reexMana: Histogram;
   private reexTx: Histogram;
-  private reexDuration: Histogram;
+  private reexDuration: Gauge;
 
   constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
 
-    this.failedReexecutionCounter = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_REEXECUTION_COUNT, {
-      description: 'The number of failed re-executions',
-      unit: 'count',
-      valueType: ValueType.INT,
-    });
+    this.failedReexecutionCounter = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_REEXECUTION_COUNT);
 
-    this.successfulAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_SUCCESS_COUNT, {
-      description: 'The number of successful attestations',
-      valueType: ValueType.INT,
-    });
+    this.successfulAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_SUCCESS_COUNT);
 
     this.failedAttestationsBadProposalCount = meter.createUpDownCounter(
       Metrics.VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT,
-      {
-        description: 'The number of failed attestations due to invalid block proposals',
-        valueType: ValueType.INT,
-      },
     );
 
     this.failedAttestationsNodeIssueCount = meter.createUpDownCounter(
       Metrics.VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT,
-      {
-        description: 'The number of failed attestations due to node issues (timeout, missing data, etc.)',
-        valueType: ValueType.INT,
-      },
     );
 
-    this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA, {
-      description: 'The mana consumed by blocks',
-      valueType: ValueType.DOUBLE,
-      unit: 'Mmana',
-    });
+    this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA);
 
-    this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT, {
-      description: 'The number of txs in a block proposal',
-      valueType: ValueType.INT,
-      unit: 'tx',
-    });
+    this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT);
 
-    this.reexDuration = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME, {
-      description: 'The time taken to re-execute a transaction',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.reexDuration = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME);
   }
 
   public recordReex(time: number, txs: number, mManaTotal: number) {

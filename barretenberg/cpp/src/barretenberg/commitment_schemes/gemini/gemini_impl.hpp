@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -48,7 +48,7 @@ namespace bb {
 template <typename Curve>
 template <typename Transcript>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
-    Fr circuit_size,
+    size_t circuit_size,
     PolynomialBatcher& polynomial_batcher,
     std::span<Fr> multilinear_challenge,
     const CommitmentKey<Curve>& commitment_key,
@@ -57,7 +57,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 {
     // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
-    const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+    const size_t log_n = numeric::get_msb(circuit_size);
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");

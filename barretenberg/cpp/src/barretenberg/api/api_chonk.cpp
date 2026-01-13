@@ -3,6 +3,7 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -120,9 +121,9 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 {
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
-    auto proof = Chonk::Proof::from_field_elements(proof_fields);
+    auto proof = ChonkProof::from_field_elements(proof_fields);
 
-    auto vk_buffer = read_file(vk_path);
+    auto vk_buffer = read_vk_file(vk_path);
 
     auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
@@ -138,7 +139,9 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    const bool verified = Chonk::verify(proof, ivc->get_vk());
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    ChonkNativeVerifier verifier(vk_and_hash);
+    const bool verified = verifier.verify(proof);
     return verified;
 }
 

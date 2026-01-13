@@ -16,6 +16,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     exports.Set(Napi::String::New(env, "avmSimulate"), Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::simulate));
     exports.Set(Napi::String::New(env, "avmSimulateWithHintedDbs"),
                 Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::simulateWithHintedDbs));
+    exports.Set(Napi::String::New(env, "createCancellationToken"),
+                Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::createCancellationToken));
+    exports.Set(Napi::String::New(env, "cancelSimulation"),
+                Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::cancelSimulation));
     return exports;
 }
 

@@ -172,10 +172,11 @@ void HintedRawContractDB::add_contracts([[maybe_unused]] const ContractDeploymen
 void HintedRawContractDB::create_checkpoint()
 {
     auto hint_it = create_checkpoint_hints.find(action_counter);
-    assert(hint_it != create_checkpoint_hints.end());
+    BB_ASSERT(hint_it != create_checkpoint_hints.end(), "Hint not found for create checkpoint");
 
     const auto& hint = hint_it->second;
-    assert(hint.old_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.old_checkpoint_id, checkpoint_stack.top(), "Old checkpoint id does not match the current checkpoint id");
 
     checkpoint_stack.push(hint.new_checkpoint_id);
     action_counter++;
@@ -184,29 +185,31 @@ void HintedRawContractDB::create_checkpoint()
 void HintedRawContractDB::commit_checkpoint()
 {
     auto hint_it = commit_checkpoint_hints.find(action_counter);
-    assert(hint_it != commit_checkpoint_hints.end());
+    BB_ASSERT(hint_it != commit_checkpoint_hints.end(), "Hint not found for commit checkpoint");
 
     const auto& hint = hint_it->second;
-    assert(hint.old_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.old_checkpoint_id, checkpoint_stack.top(), "Old checkpoint id does not match the current checkpoint id");
 
     checkpoint_stack.pop();
-    assert(hint.new_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.new_checkpoint_id, checkpoint_stack.top(), "New checkpoint id does not match the current checkpoint id");
     action_counter++;
-    (void)hint;
 }
 
 void HintedRawContractDB::revert_checkpoint()
 {
     auto hint_it = revert_checkpoint_hints.find(action_counter);
-    assert(hint_it != revert_checkpoint_hints.end());
+    BB_ASSERT(hint_it != revert_checkpoint_hints.end(), "Hint not found for revert checkpoint");
 
     const auto& hint = hint_it->second;
-    assert(hint.old_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.old_checkpoint_id, checkpoint_stack.top(), "Old checkpoint id does not match the current checkpoint id");
 
     checkpoint_stack.pop();
-    assert(hint.new_checkpoint_id == checkpoint_stack.top());
+    BB_ASSERT_EQ(
+        hint.new_checkpoint_id, checkpoint_stack.top(), "New checkpoint id does not match the current checkpoint id");
     action_counter++;
-    (void)hint;
 }
 
 uint32_t HintedRawContractDB::get_checkpoint_id() const
@@ -754,6 +757,9 @@ IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tre
 SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 
@@ -765,6 +771,9 @@ SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_l
 SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 
@@ -775,6 +784,9 @@ SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_le
 
 void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 
@@ -783,6 +795,9 @@ void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> le
 
 void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
 {
+    // Throws CancelledException if cancelled.
+    throw_if_cancelled();
+
     // Invalidate the cached tree roots.
     cached_tree_snapshots = std::nullopt;
 

@@ -27,7 +27,7 @@ import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { ContractStore } from '../../storage/contract_store/index.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
@@ -85,7 +85,6 @@ export async function executePrivateFunction(
 
   const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
 
-  const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
@@ -108,7 +107,6 @@ export async function executePrivateFunction(
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
-    noteHashLeafIndexMap,
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
@@ -154,7 +152,7 @@ export function extractPrivateCircuitPublicInputs(
  * from the instance is used.
  * @param contractAddress - The address of the contract to read the class id for.
  * @param instance - The instance of the contract.
- * @param executionDataProvider - The execution data provider.
+ * @param executionStore - The execution data provider.
  * @param blockNumber - The block number at which to load the DelayedPublicMutable storing the class id.
  * @param timestamp - The timestamp at which to obtain the class id from the DelayedPublicMutable.
  * @returns The current class id.
@@ -162,13 +160,13 @@ export function extractPrivateCircuitPublicInputs(
 export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
-  executionDataProvider: ExecutionDataProvider | AztecNode,
+  aztecNode: AztecNode,
   blockNumber: BlockNumber,
   timestamp: UInt64,
 ) {
   const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>
-    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
+    aztecNode.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
   );
   let currentClassId = delayedPublicMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {
@@ -178,23 +176,26 @@ export async function readCurrentClassId(
 }
 
 /**
- * Verify that the current class id of a contract obtained from AztecNode is the same as the one in the execution data
- * provider (i.e. PXE).
- * @param contractAddress - The address of the contract to verify class id for.
- * @param executionDataProvider - The execution data provider.
+ * Verify that the current class id of a contract obtained from AztecNode is the same as the one in contract data
+ * provider (i.e. PXE's own storage).
  * @param header - The header of the block at which to verify the current class id. If not provided, the anchor block
  * header of the execution data provider is used.
  */
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
-  executionDataProvider: ExecutionDataProvider,
+  aztecNode: AztecNode,
+  contractStore: ContractStore,
   header: BlockHeader,
 ) {
-  const instance = await executionDataProvider.getContractInstance(contractAddress);
+  const instance = await contractStore.getContractInstance(contractAddress);
+  if (!instance) {
+    throw new Error(`No contract instance found for address ${contractAddress.toString()}`);
+  }
+
   const currentClassId = await readCurrentClassId(
     contractAddress,
     instance,
-    executionDataProvider,
+    aztecNode,
     header.globalVariables.blockNumber,
     header.globalVariables.timestamp,
   );

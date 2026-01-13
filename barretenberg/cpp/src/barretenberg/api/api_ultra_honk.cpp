@@ -7,7 +7,6 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
@@ -102,7 +101,7 @@ bool UltraHonkAPI::verify(const Flags& flags,
     // Read input files
     auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
     auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
-    auto vk_bytes = read_file(vk_path);
+    auto vk_bytes = read_vk_file(vk_path);
 
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
@@ -210,7 +209,7 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
 {
     BB_BENCH_NAME("UltraHonkAPI::write_solidity_verifier");
     // Read VK file
-    auto vk_bytes = read_file(vk_path);
+    auto vk_bytes = read_vk_file(vk_path);
 
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,

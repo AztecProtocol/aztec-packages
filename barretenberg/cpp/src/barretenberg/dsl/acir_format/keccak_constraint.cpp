@@ -1,13 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "keccak_constraint.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
-#include "round.hpp"
 
 namespace acir_format {
 
@@ -18,13 +17,13 @@ template <typename Builder> void create_keccak_permutations_constraints(Builder&
     // Create the array containing the permuted state
     std::array<field_ct, bb::stdlib::keccak<Builder>::NUM_KECCAK_LANES> state;
 
-    // Get the witness assignment for each witness index
-    // Write the witness assignment to the byte array
+    // Write the witness assignment to the state
     for (size_t i = 0; i < constraint.state.size(); ++i) {
         state[i] = to_field_ct(constraint.state[i], builder);
     }
 
-    std::array<field_ct, 25> output_state = bb::stdlib::keccak<Builder>::permutation_opcode(state, &builder);
+    std::array<field_ct, bb::stdlib::keccak<Builder>::NUM_KECCAK_LANES> output_state =
+        bb::stdlib::keccak<Builder>::permutation_opcode(state, &builder);
 
     for (size_t i = 0; i < output_state.size(); ++i) {
         output_state[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));

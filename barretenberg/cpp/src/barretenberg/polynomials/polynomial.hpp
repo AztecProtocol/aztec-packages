@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -232,9 +232,9 @@ template <typename Fr> class Polynomial {
      * @param other q(X)
      * @param scaling_factor scaling factor by which all coefficients of q(X) are multiplied
      */
-    void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+    void add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor);
 
-    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, const Fr& scaling_factor);
 
     /**
      * @brief adds the polynomial q(X) 'other'.
@@ -255,9 +255,9 @@ template <typename Fr> class Polynomial {
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(Fr scaling_factor);
+    Polynomial& operator*=(const Fr& scaling_factor);
 
-    void multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
+    void multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the

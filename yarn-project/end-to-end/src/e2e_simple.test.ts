@@ -37,12 +37,13 @@ describe('e2e_simple', () => {
         aztecNode,
       } = await setup(1, {
         archiverPollingIntervalMS: 200,
-        transactionPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
         aztecEpochDuration: 4,
         aztecSlotDuration: 12,
+        ethereumSlotDuration: 4,
         aztecTargetCommitteeSize: 0,
         startProverNode: true,
       }));

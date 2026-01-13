@@ -58,6 +58,14 @@ export const schemas = {
       .max(2 ** 32 - 1),
   ),
 
+  /** Coerces input to UInt64. */
+  UInt64: z.union([z.bigint(), z.number(), z.string()]).pipe(
+    z.coerce
+      .bigint()
+      .min(0n)
+      .max(2n ** 64n - 1n),
+  ),
+
   /** Accepts a hex string as a Buffer32 type. */
   Buffer32: z.string().refine(isHex, 'Not a valid hex string').transform(Buffer32.fromString),
 

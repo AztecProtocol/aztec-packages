@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
@@ -57,12 +57,13 @@ template <typename Curve> class GoblinVerifier_ {
         using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
         using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
 
-        PairingPoints pairing_points;   // Aggregated KZG pairing points (Merge + Translator)
-        IPAClaim ipa_claim;             // IPA opening claim from ECCVM (Grumpkin curve)
-        IPAProof ipa_proof;             // IPA proof for verifying the claim
-        bool all_checks_passed = false; // Native: includes pairing checks (already performed)
-                                        // Recursive: excludes pairing (deferred for batching)
-                                        // Both: excludes IPA verification (always deferred)
+        PairingPoints merge_pairing_points;      // KZG pairing points from Merge
+        PairingPoints translator_pairing_points; // KZG pairing points from Translator
+        IPAClaim ipa_claim;                      // IPA opening claim from ECCVM (Grumpkin curve)
+        IPAProof ipa_proof;                      // IPA proof for verifying the claim
+        bool all_checks_passed = false;          // Native: includes pairing checks (already performed)
+                                                 // Recursive: excludes pairing (deferred for batching)
+                                                 // Both: excludes IPA verification (always deferred)
     };
 
     /**

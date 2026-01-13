@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"

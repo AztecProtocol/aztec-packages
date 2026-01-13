@@ -8,15 +8,24 @@ description: Information about running the Aztec local network development envir
 <!-- NOTE: How is this different from getting started with local network - need to merge then delete this one!!! -->
 
 - Current version: `#include_aztec_version`
-- Update with `aztec-up`
+- Update with `aztec-up #include_version_without_prefix`
 
 On this page you will find
 
-- [Understanding versions](#versions)
-- [How to automatically update Aztec's local network and aztec command](#updating)
-- [How to update Aztec.nr packages](#updating-aztecnr-packages)
-- [How to update Aztec.js packages](#updating-aztecjs-packages)
-- [How to enable client-side proving](#local-network-pxe-proving)
+- [Versions](#versions)
+  - [Dependency versions](#dependency-versions)
+  - [Example contract versions](#example-contract-versions)
+  - [Language server version](#language-server-version)
+- [Updating](#updating)
+  - [Steps to keep up to date](#steps-to-keep-up-to-date)
+- [Updating Aztec.nr packages](#updating-aztecnr-packages)
+  - [Automatic update](#automatic-update)
+  - [Manual update](#manual-update)
+- [Updating Aztec.js packages](#updating-aztecjs-packages)
+- [Local Network PXE Proving](#local-network-pxe-proving)
+  - [Local Network in Proving Mode](#local-network-in-proving-mode)
+    - [Usage](#usage)
+  - [Proving with `aztec-wallet`](#proving-with-aztec-wallet)
 
 ## Versions
 
@@ -94,7 +103,7 @@ cd your/aztec/project
 aztec update . --contract src/contract1 --contract src/contract2
 ```
 
-The local network must be running for the update command to work. Make sure it is [installed and running](../aztec-cli/local-network-reference.md).
+The local network must be running for the update command to work. Make sure it is [installed and running](../../getting_started_on_local_network.md).
 
 Follow [updating Aztec.nr packages](#updating-aztecnr-packages) and [updating JavaScript packages](#updating-aztecjs-packages) guides.
 
@@ -192,7 +201,7 @@ You can enable proving on a per-transaction basis using the `aztec-wallet` CLI b
 PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
 ```
 
-Check the [Quickstart](../../getting_started_on_local_network.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../wallet-cli/cli_wallet_reference.md)
+Check the [Getting Started on Local Network](../../getting_started_on_local_network.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../cli/aztec_wallet_cli_reference.md)
 
 Note that you do not need to restart the local network in order to start sending proven transactions. You can optionally set this for one-off transactions.
 
@@ -202,4 +211,4 @@ If this is the first time you are sending transactions with proving enabled, it 
 You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../aztec-nr/framework-description/advanced/how_to_profile_transactions.md)
 :::
 
-You can learn more about custom commands in the [local network reference](../aztec-cli/local-network-reference.md).
+You can learn more about custom commands in the [Aztec CLI Reference](../cli/aztec_cli_reference.md).

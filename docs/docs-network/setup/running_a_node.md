@@ -25,7 +25,7 @@ These requirements are subject to change as the network throughput increases.
 
 **Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md).
 
-This setup includes only essential settings. The `--network testnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
+This setup includes only essential settings. The `--network #release_network` flag applies network-specific defaults—see the [CLI reference](../reference/cli_reference.md) for all available configuration options.
 
 ## Setup
 
@@ -72,7 +72,7 @@ Create a `docker-compose.yml` file in your `aztec-node` directory:
 ```yaml
 services:
   aztec-node:
-    image: "aztecprotocol/aztec:#include_testnet_version"
+    image: "aztecprotocol/aztec:#release_version"
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -97,7 +97,7 @@ services:
       start
       --node
       --archiver
-      --network testnet
+      --network #release_network
     networks:
       - aztec
     restart: always
@@ -140,7 +140,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 http://localhost:8080 | jq -r ".result.proven.number"
 ```
 
-Compare the output with block explorers like [Aztec Scan](https://aztecscan.xyz/) or [Aztec Explorer](https://aztecexplorer.xyz/).
+Compare the output with block explorers (see [Networks page](/networks) for explorer links).
 
 ### Check Node Status
 

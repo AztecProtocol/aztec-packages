@@ -8,7 +8,7 @@ import {
   type IUtilityExecutionOracle,
   packAsRetrievedNote,
 } from '@aztec/pxe/simulator';
-import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -29,6 +29,9 @@ import {
   toForeignCallResult,
   toSingle,
 } from './util/encoding.js';
+
+const MAX_EVENT_LEN = 12; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_RESERVED_FIELDS
+const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -156,6 +159,12 @@ export class RPCTranslator {
 
   // TXE-specific oracles
 
+  txeGetDefaultAddress() {
+    const defaultAddress = this.handlerAsTxe().txeGetDefaultAddress();
+
+    return toForeignCallResult([toSingle(defaultAddress)]);
+  }
+
   async txeGetNextBlockNumber() {
     const nextBlockNumber = await this.handlerAsTxe().txeGetNextBlockNumber();
 
@@ -265,6 +274,39 @@ export class RPCTranslator {
       ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
       ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
     ]);
+  }
+
+  async txeGetPrivateEvents(
+    foreignSelector: ForeignCallSingle,
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
+    const selector = EventSelector.fromField(fromSingle(foreignSelector));
+    const contractAddress = addressFromSingle(foreignContractAddress);
+    const scope = addressFromSingle(foreignScope);
+
+    const events = await this.handlerAsTxe().txeGetPrivateEvents(selector, contractAddress, scope);
+
+    if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
+      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PRIVATE_EVENTS_PER_TXE_QUERY}`);
+    }
+
+    if (events.some(e => e.length > MAX_EVENT_LEN)) {
+      throw new Error(`Some private event has length larger than maxLen ${MAX_EVENT_LEN}`);
+    }
+
+    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a raw
+    // multidimensional array in get_private_events_oracle and create the BoundedVecs here.
+    const rawArrayStorage = events
+      .map(e => e.concat(Array(MAX_EVENT_LEN - e.length).fill(new Fr(0))))
+      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_EVENT_LEN).fill(new Fr(0))))
+      .flat();
+    const eventLengths = events
+      .map(e => new Fr(e.length))
+      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(new Fr(0)));
+    const queryLength = new Fr(events.length);
+
+    return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);
   }
 
   privateStoreInExecutionCache(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {

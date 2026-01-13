@@ -2,19 +2,23 @@ import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } 
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { KeyStore } from '@aztec/key-store';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
+  type FunctionCall,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -26,9 +30,17 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import { syncSenderTaggingIndexes } from '../../tagging/sync/sync_sender_tagging_indexes.js';
-import { Tag } from '../../tagging/tag.js';
-import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { NoteService } from '../../notes/note_service.js';
+import type { AddressStore } from '../../storage/address_store/address_store.js';
+import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
+import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
+import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
+import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
+import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import { syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
@@ -52,16 +64,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Users can also use this to get a clearer idea of what's happened during a simulation.
    */
   private newNotes: NoteAndSlot[] = [];
-  /**
-   * Notes from previous transactions that are returned to the oracle call `getNotes` during this execution.
-   * The mapping maps from the unique siloed note hash to the index for notes created in private executions.
-   * It maps from siloed note hash to the index for notes created by public functions.
-   *
-   * They are not part of the ExecutionNoteCache and being forwarded to nested contexts via `extend()`
-   * because these notes are meant to be maintained on a per-call basis
-   * They should act as references for the read requests output by an app circuit via public inputs.
-   */
-  private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
@@ -73,13 +75,26 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
     protected override readonly anchorBlockHeader: BlockHeader,
+    /** Needed to trigger contract synchronization before nested calls */
+    private readonly utilityExecutor: (call: FunctionCall) => Promise<void>,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     private readonly taggingIndexCache: ExecutionTaggingIndexCache,
-    executionDataProvider: ExecutionDataProvider,
+    contractStore: ContractStore,
+    noteStore: NoteStore,
+    keyStore: KeyStore,
+    addressStore: AddressStore,
+    aztecNode: AztecNode,
+    anchorBlockStore: AnchorBlockStore,
+    private readonly senderTaggingStore: SenderTaggingStore,
+    recipientTaggingStore: RecipientTaggingStore,
+    senderAddressBookStore: SenderAddressBookStore,
+    capsuleStore: CapsuleStore,
+    privateEventStore: PrivateEventStore,
+    jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -87,7 +102,25 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
   ) {
-    super(callContext.contractAddress, authWitnesses, capsules, anchorBlockHeader, executionDataProvider, log, scopes);
+    super(
+      callContext.contractAddress,
+      authWitnesses,
+      capsules,
+      anchorBlockHeader,
+      contractStore,
+      noteStore,
+      keyStore,
+      addressStore,
+      aztecNode,
+      anchorBlockStore,
+      recipientTaggingStore,
+      senderAddressBookStore,
+      capsuleStore,
+      privateEventStore,
+      jobId,
+      log,
+      scopes,
+    );
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
@@ -117,14 +150,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
-  }
-
-  /**
-   * The KernelProver will use this to fully populate witnesses and provide hints to the kernel circuit
-   * regarding which note hash each settled read request corresponds to.
-   */
-  public getNoteHashLeafIndexMap() {
-    return this.noteHashLeafIndexMap;
   }
 
   /**
@@ -203,11 +228,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const secret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
-      this.contractAddress,
-      sender,
-      recipient,
-    );
+    const secret = await this.#calculateDirectionalAppTaggingSecret(this.contractAddress, sender, recipient);
 
     const index = await this.#getIndexToUseForSecret(secret);
     this.log.debug(
@@ -218,6 +239,22 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Tag.compute({ secret, index });
   }
 
+  async #calculateDirectionalAppTaggingSecret(
+    contractAddress: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ) {
+    const senderCompleteAddress = await this.getCompleteAddress(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    return DirectionalAppTaggingSecret.compute(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      contractAddress,
+      recipient,
+    );
+  }
+
   async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
@@ -225,16 +262,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (lastUsedIndexInTx !== undefined) {
       return lastUsedIndexInTx + 1;
     } else {
-      // TODO(#17776): Don't access the Aztec node and senderTaggingDataProvider via the executionDataProvider.
-      const aztecNode = this.executionDataProvider.aztecNode;
-      const senderTaggingDataProvider = this.executionDataProvider.senderTaggingDataProvider;
-
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, aztecNode, senderTaggingDataProvider);
+      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore);
 
-      const lastUsedIndex = await senderTaggingDataProvider.getLastUsedIndex(secret);
+      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -322,7 +355,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
-    const dbNotes = await this.executionDataProvider.getNotes(
+
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner,
       storageSlot,
@@ -350,23 +385,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
-
-    const noteHashesAndIndexes = await Promise.all(
-      notes.map(async n => {
-        if (n.index !== undefined) {
-          const siloedNoteHash = await siloNoteHash(n.contractAddress, n.noteHash);
-          const uniqueNoteHash = await computeUniqueNoteHash(n.noteNonce, siloedNoteHash);
-
-          return { hash: uniqueNoteHash, index: n.index };
-        }
-      }),
-    );
-
-    noteHashesAndIndexes
-      .filter(n => n !== undefined)
-      .forEach(n => {
-        this.noteHashLeafIndexMap.set(n!.hash.toBigInt(), n!.index);
-      });
 
     return notes;
   }
@@ -500,9 +518,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.anchorBlockHeader);
+    await verifyCurrentClassId(targetContractAddress, this.aztecNode, this.contractStore, this.anchorBlockHeader);
 
-    const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
+    await this.contractStore.syncPrivateState(targetContractAddress, functionSelector, this.utilityExecutor);
+
+    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
@@ -516,12 +536,24 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       derivedTxContext,
       derivedCallContext,
       this.anchorBlockHeader,
+      this.utilityExecutor,
       this.authWitnesses,
       this.capsules,
       this.executionCache,
       this.noteCache,
       this.taggingIndexCache,
-      this.executionDataProvider,
+      this.contractStore,
+      this.noteStore,
+      this.keyStore,
+      this.addressStore,
+      this.aztecNode,
+      this.anchorBlockStore,
+      this.senderTaggingStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
+      this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
@@ -634,7 +666,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {

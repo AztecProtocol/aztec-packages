@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -29,9 +35,7 @@ class AvmRecursiveVerifier {
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const StdlibProof& stdlib_proof_with_pi_flag, // TODO(#14234)[Unconditional PIs validation]: rename
-                                                      // stdlib_proof_with_pi_flag to stdlib_proof
-        const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
+        const StdlibProof& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
     Builder& builder;
     std::shared_ptr<VerificationKey> key;

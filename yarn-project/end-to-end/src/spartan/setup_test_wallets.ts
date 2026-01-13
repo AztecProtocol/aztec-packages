@@ -315,11 +315,17 @@ export async function performTransfers({
   }
 }
 
+export type WalletWrapper = {
+  wallet: TestWallet;
+  aztecNode: AztecNode;
+  cleanup: () => Promise<void>;
+};
+
 export async function createWalletAndAztecNodeClient(
   nodeUrl: string,
   proverEnabled: boolean,
   logger: Logger,
-): Promise<{ wallet: TestWallet; aztecNode: AztecNode; cleanup: () => Promise<void> }> {
+): Promise<WalletWrapper> {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
   const pxeConfig = {

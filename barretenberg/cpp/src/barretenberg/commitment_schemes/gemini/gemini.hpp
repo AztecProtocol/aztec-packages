@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -74,7 +74,7 @@ namespace gemini {
  * @param num_powers
  * @return std::vector<Fr>
  */
-template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const size_t num_powers)
+template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr& rho, const size_t num_powers)
 {
     std::vector<Fr> rhos = { Fr(1), rho };
     rhos.reserve(num_powers);
@@ -91,7 +91,7 @@ template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const siz
  * @param num_squares The number of foldings
  * @return std::vector<typename Curve::ScalarField>
  */
-template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const Fr r, const size_t num_squares)
+template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const Fr& r, const size_t num_squares)
 {
     std::vector<Fr> squares = { r };
     squares.reserve(num_squares);
@@ -301,7 +301,7 @@ template <typename Curve> class GeminiProver_ {
                                                                   const Fr& r_challenge);
 
     template <typename Transcript>
-    static std::vector<Claim> prove(const Fr circuit_size,
+    static std::vector<Claim> prove(size_t circuit_size,
                                     PolynomialBatcher& polynomial_batcher,
                                     std::span<Fr> multilinear_challenge,
                                     const CommitmentKey<Curve>& commitment_key,

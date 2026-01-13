@@ -1,8 +1,8 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type {
   BuildBlockResult,
@@ -74,9 +74,12 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
     const epochNumber = EpochNumber(1);
 
-    const block = await L2Block.random(
+    const block = await L2BlockNew.random(
       BlockNumber(12), // block number
-      4, // txs per block
+      {
+        txsPerBlock: 4,
+        slotNumber: SlotNumber(10),
+      },
     );
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
 
@@ -118,9 +121,12 @@ describe('EpochPruneWatcher', () => {
   it('should slash if the data is available and the epoch could have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const block = await L2Block.random(
+    const block = await L2BlockNew.random(
       BlockNumber(12), // block number
-      4, // txs per block
+      {
+        txsPerBlock: 4,
+        slotNumber: SlotNumber(10),
+      },
     );
     const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
@@ -170,13 +176,20 @@ describe('EpochPruneWatcher', () => {
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const blockFromL1 = await L2Block.random(
+    const blockFromL1 = await L2BlockNew.random(
       BlockNumber(12), // block number
-      1, // txs per block
+      {
+        txsPerBlock: 1,
+        slotNumber: SlotNumber(10),
+      },
     );
-    const blockFromBuilder = await L2Block.random(
+
+    const blockFromBuilder = await L2BlockNew.random(
       BlockNumber(13), // block number
-      1, // txs per block
+      {
+        txsPerBlock: 1,
+        slotNumber: SlotNumber(10),
+      },
     );
     const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });

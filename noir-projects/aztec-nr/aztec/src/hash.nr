@@ -1,9 +1,8 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
-        GENERATOR_INDEX__FUNCTION_ARGS, GENERATOR_INDEX__MESSAGE_NULLIFIER,
-        GENERATOR_INDEX__PUBLIC_BYTECODE, GENERATOR_INDEX__PUBLIC_CALLDATA,
-        GENERATOR_INDEX__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+        DOM_SEP__FUNCTION_ARGS, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE,
+        DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
     },
     hash::{poseidon2_hash_subarray, poseidon2_hash_with_separator, sha256_to_field},
     point::Point,
@@ -17,7 +16,7 @@ pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> P
 }
 
 pub fn compute_secret_hash(secret: Field) -> Field {
-    poseidon2_hash_with_separator([secret], GENERATOR_INDEX__SECRET_HASH)
+    poseidon2_hash_with_separator([secret], DOM_SEP__SECRET_HASH)
 }
 
 pub fn compute_l1_to_l2_message_hash(
@@ -53,7 +52,7 @@ pub fn compute_l1_to_l2_message_hash(
 
 // The nullifier of a l1 to l2 message is the hash of the message salted with the secret
 pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) -> Field {
-    poseidon2_hash_with_separator([message_hash, secret], GENERATOR_INDEX__MESSAGE_NULLIFIER)
+    poseidon2_hash_with_separator([message_hash, secret], DOM_SEP__MESSAGE_NULLIFIER)
 }
 
 // Computes the hash of input arguments or return values for private functions, or for authwit creation.
@@ -61,13 +60,13 @@ pub fn hash_args<let N: u32>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
     } else {
-        poseidon2_hash_with_separator(args, GENERATOR_INDEX__FUNCTION_ARGS)
+        poseidon2_hash_with_separator(args, DOM_SEP__FUNCTION_ARGS)
     }
 }
 
 // Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
-    poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
+    poseidon2_hash_with_separator(calldata, DOM_SEP__PUBLIC_CALLDATA)
 }
 
 /**
@@ -93,7 +92,7 @@ pub fn compute_public_bytecode_commitment(
     assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
     // Packed_bytecode's 0th entry is the length. Replace it with separator before hashing.
-    let separator = GENERATOR_INDEX__PUBLIC_BYTECODE.to_field();
+    let separator = DOM_SEP__PUBLIC_BYTECODE.to_field();
     packed_public_bytecode[0] = separator;
 
     // `fields_to_hash` is the number of fields from the start of `packed_public_bytecode` that should be included in

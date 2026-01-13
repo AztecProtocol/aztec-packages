@@ -1,13 +1,9 @@
 use crate::{
     context::PrivateContext,
     messages::{
-        encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::{note::private_note_to_message_plaintext, utils::prefix_with_tag},
-        message_delivery::MessageDelivery,
-        offchain_messages::deliver_offchain_message,
+        logs::note::encode_private_note_message, message_delivery::do_private_message_delivery,
     },
     note::{lifecycle::NewNote, note_interface::NoteType},
-    utils::remove_constraints::remove_constraints_if,
 };
 use protocol_types::{address::AztecAddress, traits::Packable};
 
@@ -68,57 +64,24 @@ where
     /// low value application like a game might deliver all notes offchain to a centralized server that then serves them
     /// via the app, bypassing the need for contract sync and improving UX.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
-        // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
-        // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
-        // perform dead-code elimination.
-        assert_constant(delivery_mode);
-
-        // The following maps out the 3 dimensions across which we configure message delivery.
-        let constrained_encryption = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
-        let deliver_as_offchain_message = delivery_mode == MessageDelivery.UNCONSTRAINED_OFFCHAIN;
-        // TODO(#14565): Add constrained tagging
-        let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
-
         // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to it
         // because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
         // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
         // not allowed. As a workaround, we create a variable without the context and capture that instead.
         let new_note = self.new_note;
 
-        let ciphertext = remove_constraints_if(
-            !constrained_encryption,
-            || AES128::encrypt(
-                private_note_to_message_plaintext(
-                    new_note.note,
-                    new_note.owner,
-                    new_note.storage_slot,
-                    new_note.randomness,
-                ),
-                recipient,
+        do_private_message_delivery(
+            self.context,
+            || encode_private_note_message(
+                new_note.note,
+                new_note.owner,
+                new_note.storage_slot,
+                new_note.randomness,
             ),
+            Option::some(self.new_note.note_hash_counter),
+            recipient,
+            delivery_mode,
         );
-
-        if deliver_as_offchain_message {
-            deliver_offchain_message(ciphertext, recipient);
-        } else {
-            // Onchain messages are delivered via private logs, which must be prefixed with a tag such that the
-            // recipient will know to fetch and decrypt them.
-
-            // Safety: Currently unsafe. See description of CONSTRAINED_ONCHAIN in messages::MessageDeliveryEnum.
-            // TODO(#14565): Implement proper constrained tag prefixing to make this truly CONSTRAINED_ONCHAIN
-            let log_content = prefix_with_tag(ciphertext, recipient);
-
-            // We associate the log with the new note's side effect counter, so that if the note ends up being squashed
-            // in the current transaction, the log will be removed as well.
-            //
-            // Note that the log always has the same length regardless of the [Note] type, because all
-            // message ciphertexts also have the same length. This prevents accidental privacy leakage via the log length.
-            self.context.emit_raw_note_log(
-                log_content,
-                log_content.len(),
-                new_note.note_hash_counter,
-            );
-        }
     }
 
     /// Returns the note contained in the message.
@@ -162,7 +125,7 @@ where
 
     /// Same as [NoteMessage::deliver], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::CONSTRAINED_ONCHAIN] will pay
+    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED] will pay
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver(self, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {
@@ -174,7 +137,7 @@ where
 
     /// Same as [NoteMessage::deliver_to], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::CONSTRAINED_ONCHAIN] will pay
+    /// Messages delivered using [crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED] will pay
     /// proving costs regardless of whether the message exists or not.
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
         if self.maybe_new_note.is_some() {

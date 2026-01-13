@@ -19,22 +19,15 @@ Before proceeding, ensure you have:
 - An Ethereum wallet with sufficient ETH for gas fees
 - Understanding of basic Aztec staking mechanics
 - Foundry installed for `cast` commands
-- Aztec CLI v2.1.4 or later installed:
+- Aztec CLI v2.1.9 or later installed:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network)
-aztec-up --version 2.1.4
+bash -i <(curl -s https://install.aztec.network/2.1.9/)
 ```
 
 ### Contract Addresses
 
-**Testnet (Sepolia):**
-- Staking Registry: `0xc3860c45e5F0b1eF3000dbF93149756f16928ADB`
-- GSE (Governance Staking Escrow): `0xfb243b9112bb65785a4a8edaf32529accf003614`
-
-**Mainnet:**
-- Staking Registry: `0x042dF8f42790d6943F41C25C2132400fd727f452`
-- GSE: `0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f`
+For Staking Registry and GSE (Governance Staking Escrow) addresses, see the [Networks page](/networks#l1-contract-addresses).
 
 ## How Delegated Stake Works
 

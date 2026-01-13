@@ -33,7 +33,7 @@ impl Immediate {
 
 pub(crate) struct OperandCollectionResult {
     pub(crate) operands: Vec<usize>,
-    pub(crate) indirect: Vec<bool>,
+    pub(crate) addressing_mode: Vec<bool>,
     pub(crate) immediates: Vec<Immediate>,
     pub(crate) tag: Option<AvmTypeTag>,
 }
@@ -42,7 +42,7 @@ pub(crate) struct OperandCollector {
     parsed_opcode: ParsedOpcode,
     extracted_operands: Vec<usize>,
     extracted_immediates: Vec<Immediate>,
-    indirect: Vec<bool>,
+    addressing_mode: Vec<bool>,
 
     operand_index: usize,
     extracted_tag: bool,
@@ -54,7 +54,7 @@ impl OperandCollector {
             parsed_opcode,
             extracted_operands: vec![],
             extracted_immediates: vec![],
-            indirect: vec![],
+            addressing_mode: vec![],
             operand_index: 0,
             extracted_tag: false,
         }
@@ -70,7 +70,7 @@ impl OperandCollector {
     }
 
     fn convert_address(address: usize) -> Result<usize, String> {
-        if address > MAX_SCRATCH_SPACE {
+        if address >= MAX_SCRATCH_SPACE {
             return Err(format!("Address {} is out of bounds", address));
         }
         let result = address + SCRATCH_SPACE_START;
@@ -82,15 +82,15 @@ impl OperandCollector {
         let address = match operand {
             Operand::Symbol(symbol) => match symbol {
                 Symbol::Direct(address) => {
-                    self.indirect.push(false);
+                    self.addressing_mode.push(false);
                     OperandCollector::convert_address(address)
                 }
                 Symbol::Indirect(address) => {
-                    self.indirect.push(true);
+                    self.addressing_mode.push(true);
                     OperandCollector::convert_address(address)
                 }
                 Symbol::Reserved(address) => {
-                    self.indirect.push(false);
+                    self.addressing_mode.push(false);
                     Ok(address)
                 }
                 Symbol::Label(_) => Err("Expected address found label".to_string()),
@@ -148,7 +148,7 @@ impl OperandCollector {
         }
         Ok(OperandCollectionResult {
             operands: self.extracted_operands,
-            indirect: self.indirect,
+            addressing_mode: self.addressing_mode,
             immediates: self.extracted_immediates,
             tag: self.parsed_opcode.tag,
         })

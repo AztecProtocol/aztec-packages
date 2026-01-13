@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="styles.css">
+<script defer src="nargo_doc.js"></script>
 <title>All items in aztec-nr documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">aztec-nr</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="index.html">aztec-nr</a></h1>
 <div><a href="all.html">All items</a></div>
@@ -25,9 +31,11 @@
 <ul class="item-list">
 <li><a href="address_note/address_note/struct.AddressNote.html">address_note::address_note::AddressNote</a></li>
 <li><a href="address_note/address_note/struct.AddressNoteProperties.html">address_note::address_note::AddressNoteProperties</a></li>
+<li><a href="balance_set/balance_set/struct.BalanceSet.html">balance_set::balance_set::BalanceSet</a></li>
 <li><a href="compressed_string/struct.CompressedString.html">compressed_string::CompressedString</a></li>
 <li><a href="compressed_string/struct.FieldCompressedString.html">compressed_string::FieldCompressedString</a></li>
-<li><a href="easy_private_state/struct.EasyPrivateUint.html">easy_private_state::EasyPrivateUint</a></li>
+<li><a href="field_note/field_note/struct.FieldNote.html">field_note::field_note::FieldNote</a></li>
+<li><a href="field_note/field_note/struct.FieldNoteProperties.html">field_note::field_note::FieldNoteProperties</a></li>
 <li><a href="noir_aztec/authwit/account/struct.AccountActions.html">noir_aztec::authwit::account::AccountActions</a></li>
 <li><a href="noir_aztec/authwit/account/struct.AccountFeePaymentMethodOptionsEnum.html">noir_aztec::authwit::account::AccountFeePaymentMethodOptionsEnum</a></li>
 <li><a href="noir_aztec/authwit/authorization_selector/struct.AuthorizationSelector.html">noir_aztec::authwit::authorization_selector::AuthorizationSelector</a></li>
@@ -46,21 +54,23 @@
 <li><a href="noir_aztec/context/returns_hash/struct.ReturnsHash.html">noir_aztec::context::returns_hash::ReturnsHash</a></li>
 <li><a href="noir_aztec/context/utility_context/struct.UtilityContext.html">noir_aztec::context::utility_context::UtilityContext</a></li>
 <li><a href="noir_aztec/contract_self/struct.ContractSelf.html">noir_aztec::contract_self::ContractSelf</a></li>
+<li><a href="noir_aztec/event/event_emission/struct.NewEvent.html">noir_aztec::event::event_emission::NewEvent</a></li>
+<li><a href="noir_aztec/event/event_message/struct.EventMessage.html">noir_aztec::event::event_message::EventMessage</a></li>
 <li><a href="noir_aztec/event/event_selector/struct.EventSelector.html">noir_aztec::event::event_selector::EventSelector</a></li>
 <li><a href="noir_aztec/messages/discovery/struct.NoteHashAndNullifier.html">noir_aztec::messages::discovery::NoteHashAndNullifier</a></li>
 <li><a href="noir_aztec/messages/discovery/nonce_discovery/struct.DiscoveredNoteInfo.html">noir_aztec::messages::discovery::nonce_discovery::DiscoveredNoteInfo</a></li>
 <li><a href="noir_aztec/messages/encryption/aes128/struct.AES128.html">noir_aztec::messages::encryption::aes128::AES128</a></li>
 <li><a href="noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html">noir_aztec::messages::message_delivery::MessageDeliveryEnum</a></li>
 <li><a href="noir_aztec/messages/processing/message_context/struct.MessageContext.html">noir_aztec::messages::processing::message_context::MessageContext</a></li>
-<li><a href="noir_aztec/note/note_emission/struct.NoteEmission.html">noir_aztec::note::note_emission::NoteEmission</a></li>
-<li><a href="noir_aztec/note/note_emission/struct.NoteEmissionContent.html">noir_aztec::note::note_emission::NoteEmissionContent</a></li>
-<li><a href="noir_aztec/note/note_emission/struct.OuterNoteEmission.html">noir_aztec::note::note_emission::OuterNoteEmission</a></li>
+<li><a href="noir_aztec/note/lifecycle/struct.NewNote.html">noir_aztec::note::lifecycle::NewNote</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html">noir_aztec::note::note_getter_options::NoteGetterOptions</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.NoteStatusEnum.html">noir_aztec::note::note_getter_options::NoteStatusEnum</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.PropertySelector.html">noir_aztec::note::note_getter_options::PropertySelector</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.Select.html">noir_aztec::note::note_getter_options::Select</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.Sort.html">noir_aztec::note::note_getter_options::Sort</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.SortOrderEnum.html">noir_aztec::note::note_getter_options::SortOrderEnum</a></li>
+<li><a href="noir_aztec/note/note_message/struct.MaybeNoteMessage.html">noir_aztec::note::note_message::MaybeNoteMessage</a></li>
+<li><a href="noir_aztec/note/note_message/struct.NoteMessage.html">noir_aztec::note::note_message::NoteMessage</a></li>
 <li><a href="noir_aztec/note/note_metadata/struct.NoteMetadata.html">noir_aztec::note::note_metadata::NoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_metadata/struct.PendingPreviousPhaseNoteMetadata.html">noir_aztec::note::note_metadata::PendingPreviousPhaseNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html">noir_aztec::note::note_metadata::PendingSamePhaseNoteMetadata</a></li>
@@ -72,11 +82,13 @@
 <li><a href="noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html">noir_aztec::oracle::get_public_data_witness::PublicDataWitness</a></li>
 <li><a href="noir_aztec/state_vars/delayed_public_mutable/struct.DelayedPublicMutable.html">noir_aztec::state_vars::delayed_public_mutable::DelayedPublicMutable</a></li>
 <li><a href="noir_aztec/state_vars/map/struct.Map.html">noir_aztec::state_vars::map::Map</a></li>
+<li><a href="noir_aztec/state_vars/owned/struct.Owned.html">noir_aztec::state_vars::owned::Owned</a></li>
 <li><a href="noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html">noir_aztec::state_vars::private_immutable::PrivateImmutable</a></li>
 <li><a href="noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html">noir_aztec::state_vars::private_mutable::PrivateMutable</a></li>
 <li><a href="noir_aztec/state_vars/private_set/struct.PrivateSet.html">noir_aztec::state_vars::private_set::PrivateSet</a></li>
 <li><a href="noir_aztec/state_vars/public_immutable/struct.PublicImmutable.html">noir_aztec::state_vars::public_immutable::PublicImmutable</a></li>
 <li><a href="noir_aztec/state_vars/public_mutable/struct.PublicMutable.html">noir_aztec::state_vars::public_mutable::PublicMutable</a></li>
+<li><a href="noir_aztec/state_vars/single_private_immutable/struct.SinglePrivateImmutable.html">noir_aztec::state_vars::single_private_immutable::SinglePrivateImmutable</a></li>
 <li><a href="noir_aztec/state_vars/storage/struct.Storable.html">noir_aztec::state_vars::storage::Storable</a></li>
 <li><a href="noir_aztec/test/helpers/test_environment/struct.PrivateContextOptions.html">noir_aztec::test::helpers::test_environment::PrivateContextOptions</a></li>
 <li><a href="noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">noir_aztec::test::helpers::test_environment::TestEnvironment</a></li>
@@ -87,8 +99,6 @@
 <li><a href="uint_note/uint_note/struct.PartialUintNote.html">uint_note::uint_note::PartialUintNote</a></li>
 <li><a href="uint_note/uint_note/struct.UintNote.html">uint_note::uint_note::UintNote</a></li>
 <li><a href="uint_note/uint_note/struct.UintNoteProperties.html">uint_note::uint_note::UintNoteProperties</a></li>
-<li><a href="value_note/value_note/struct.ValueNote.html">value_note::value_note::ValueNote</a></li>
-<li><a href="value_note/value_note/struct.ValueNoteProperties.html">value_note::value_note::ValueNoteProperties</a></li>
 </ul>
 <span id="trait"></span><h2>Traits</h2>
 <ul class="item-list">
@@ -110,7 +120,8 @@
 <li><a href="noir_aztec/note/note_interface/trait.NoteProperties.html">noir_aztec::note::note_interface::NoteProperties</a></li>
 <li><a href="noir_aztec/note/note_interface/trait.NoteType.html">noir_aztec::note::note_interface::NoteType</a></li>
 <li><a href="noir_aztec/note/note_interface/trait.PartialNote.html">noir_aztec::note::note_interface::PartialNote</a></li>
-<li><a href="noir_aztec/state_vars/storage/trait.HasStorageSlot.html">noir_aztec::state_vars::storage::HasStorageSlot</a></li>
+<li><a href="noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html">noir_aztec::state_vars::owned_state_variable::OwnedStateVariable</a></li>
+<li><a href="noir_aztec/state_vars/state_variable/trait.StateVariable.html">noir_aztec::state_vars::state_variable::StateVariable</a></li>
 </ul>
 <span id="type"></span><h2>Type aliases</h2>
 <ul class="item-list">
@@ -152,6 +163,7 @@
 </ul>
 <span id="fn"></span><h2>Functions</h2>
 <ul class="item-list">
+<li><a href="balance_set/balance_set/fn.preprocess_notes_min_sum.html">balance_set::balance_set::preprocess_notes_min_sum</a></li>
 <li><a href="noir_aztec/authwit/auth/fn.assert_current_call_valid_authwit.html">noir_aztec::authwit::auth::assert_current_call_valid_authwit</a></li>
 <li><a href="noir_aztec/authwit/auth/fn.assert_current_call_valid_authwit_public.html">noir_aztec::authwit::auth::assert_current_call_valid_authwit_public</a></li>
 <li><a href="noir_aztec/authwit/auth/fn.assert_inner_hash_valid_authwit.html">noir_aztec::authwit::auth::assert_inner_hash_valid_authwit</a></li>
@@ -166,6 +178,7 @@
 <li><a href="noir_aztec/context/public_context/fn.calldata_copy.html">noir_aztec::context::public_context::calldata_copy</a></li>
 <li><a href="noir_aztec/event/event_emission/fn.emit_event_in_private.html">noir_aztec::event::event_emission::emit_event_in_private</a></li>
 <li><a href="noir_aztec/event/event_emission/fn.emit_event_in_public.html">noir_aztec::event::event_emission::emit_event_in_public</a></li>
+<li><a href="noir_aztec/event/event_interface/fn.compute_private_event_commitment.html">noir_aztec::event::event_interface::compute_private_event_commitment</a></li>
 <li><a href="noir_aztec/hash/fn.compute_l1_to_l2_message_hash.html">noir_aztec::hash::compute_l1_to_l2_message_hash</a></li>
 <li><a href="noir_aztec/hash/fn.compute_l1_to_l2_message_nullifier.html">noir_aztec::hash::compute_l1_to_l2_message_nullifier</a></li>
 <li><a href="noir_aztec/hash/fn.compute_public_bytecode_commitment.html">noir_aztec::hash::compute_public_bytecode_commitment</a></li>
@@ -174,7 +187,6 @@
 <li><a href="noir_aztec/hash/fn.hash_calldata_array.html">noir_aztec::hash::hash_calldata_array</a></li>
 <li><a href="noir_aztec/hash/fn.pedersen_commitment.html">noir_aztec::hash::pedersen_commitment</a></li>
 <li><a href="noir_aztec/keys/ecdh_shared_secret/fn.derive_ecdh_shared_secret.html">noir_aztec::keys::ecdh_shared_secret::derive_ecdh_shared_secret</a></li>
-<li><a href="noir_aztec/keys/ecdh_shared_secret/fn.derive_ecdh_shared_secret_using_aztec_address.html">noir_aztec::keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address</a></li>
 <li><a href="noir_aztec/keys/ephemeral/fn.generate_ephemeral_key_pair.html">noir_aztec::keys::ephemeral::generate_ephemeral_key_pair</a></li>
 <li><a href="noir_aztec/keys/getters/fn.get_nsk_app.html">noir_aztec::keys::getters::get_nsk_app</a></li>
 <li><a href="noir_aztec/keys/getters/fn.get_ovsk_app.html">noir_aztec::keys::getters::get_ovsk_app</a></li>
@@ -224,11 +236,12 @@
 <li><a href="noir_aztec/messages/encryption/aes128/fn.derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe.html">noir_aztec::messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe</a></li>
 <li><a href="noir_aztec/messages/encryption/poseidon2/fn.poseidon2_decrypt.html">noir_aztec::messages::encryption::poseidon2::poseidon2_decrypt</a></li>
 <li><a href="noir_aztec/messages/encryption/poseidon2/fn.poseidon2_encrypt.html">noir_aztec::messages::encryption::poseidon2::poseidon2_encrypt</a></li>
+<li><a href="noir_aztec/messages/logs/event/fn.private_event_to_message_plaintext.html">noir_aztec::messages::logs::event::private_event_to_message_plaintext</a></li>
 <li><a href="noir_aztec/messages/logs/event/fn.to_encrypted_private_event_message.html">noir_aztec::messages::logs::event::to_encrypted_private_event_message</a></li>
 <li><a href="noir_aztec/messages/logs/note/fn.compute_partial_note_private_content_log.html">noir_aztec::messages::logs::note::compute_partial_note_private_content_log</a></li>
 <li><a href="noir_aztec/messages/logs/note/fn.partial_note_private_content_to_message_plaintext.html">noir_aztec::messages::logs::note::partial_note_private_content_to_message_plaintext</a></li>
 <li><a href="noir_aztec/messages/logs/note/fn.private_note_to_message_plaintext.html">noir_aztec::messages::logs::note::private_note_to_message_plaintext</a></li>
-<li><a href="noir_aztec/messages/offchain_messages/fn.emit_offchain_message.html">noir_aztec::messages::offchain_messages::emit_offchain_message</a></li>
+<li><a href="noir_aztec/messages/offchain_messages/fn.deliver_offchain_message.html">noir_aztec::messages::offchain_messages::deliver_offchain_message</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.create_note.html">noir_aztec::note::lifecycle::create_note</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.destroy_note.html">noir_aztec::note::lifecycle::destroy_note</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.destroy_note_unsafe.html">noir_aztec::note::lifecycle::destroy_note_unsafe</a></li>
@@ -323,10 +336,8 @@
 <li><a href="noir_aztec/utils/remove_constraints/fn.remove_constraints_if.html">noir_aztec::utils::remove_constraints::remove_constraints_if</a></li>
 <li><a href="noir_aztec/utils/to_bytes/fn.arr_to_be_bytes_arr.html">noir_aztec::utils::to_bytes::arr_to_be_bytes_arr</a></li>
 <li><a href="noir_aztec/utils/to_bytes/fn.str_to_be_bytes_arr.html">noir_aztec::utils::to_bytes::str_to_be_bytes_arr</a></li>
-<li><a href="value_note/balance_utils/fn.get_balance.html">value_note::balance_utils::get_balance</a></li>
-<li><a href="value_note/balance_utils/fn.get_balance_with_offset.html">value_note::balance_utils::get_balance_with_offset</a></li>
-<li><a href="value_note/filter/fn.filter_notes_min_sum.html">value_note::filter::filter_notes_min_sum</a></li>
 </ul>
 </main>
+</span>
 </body>
 </html>

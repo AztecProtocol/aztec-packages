@@ -1,5 +1,6 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import { sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -9,6 +10,7 @@ import { z } from 'zod';
 import { L2BlockNew } from '../block/l2_block_new.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import type { CheckpointInfo } from './checkpoint_info.js';
 
 export class Checkpoint {
   constructor(
@@ -66,6 +68,37 @@ export class Checkpoint {
 
   public getState() {
     return this.blocks.at(-1)!.header.state;
+  }
+
+  public toCheckpointInfo(): CheckpointInfo {
+    return {
+      archive: this.archive.root,
+      lastArchive: this.header.lastArchiveRoot,
+      slotNumber: this.header.slotNumber,
+      checkpointNumber: this.number,
+      timestamp: this.header.timestamp,
+    };
+  }
+
+  /** Returns stats used for logging */
+  public getStats() {
+    const txEffects = this.blocks.flatMap(block => block.body.txEffects);
+
+    const logsStats = {
+      privateLogCount: sum(txEffects.map(tx => tx.privateLogs.length)),
+      publicLogCount: sum(txEffects.map(tx => tx.publicLogs.length)),
+      contractClassLogCount: sum(txEffects.map(tx => tx.contractClassLogs.length)),
+      contractClassLogSize: sum(txEffects.map(tx => sum(tx.contractClassLogs.map(log => log.emittedLength)))),
+    };
+
+    return {
+      txCount: txEffects.length,
+      blockCount: this.blocks.length,
+      slotNumber: this.header.slotNumber,
+      checkpointNumber: this.number,
+      timestamp: this.header.timestamp,
+      ...logsStats,
+    };
   }
 
   static async random(

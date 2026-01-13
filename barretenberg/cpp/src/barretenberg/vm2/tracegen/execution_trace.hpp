@@ -38,6 +38,7 @@ class ExecutionTraceBuilder final {
                            const std::vector<MemoryValue>& inputs,
                            const MemoryValue& output,
                            std::span<MemoryValue> registers,
+                           bool register_processing_failed,
                            TraceContainer& trace,
                            uint32_t row);
     // Sets the writes.

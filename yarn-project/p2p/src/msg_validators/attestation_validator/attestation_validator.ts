@@ -1,33 +1,34 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type BlockAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { type CheckpointAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
-export class AttestationValidator implements P2PValidator<BlockAttestation> {
+export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
 
   constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
-    this.logger = createLogger('p2p:attestation-validator');
+    this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
-  async validate(message: BlockAttestation): Promise<PeerErrorSeverity | undefined> {
+  async validate(message: CheckpointAttestation): Promise<PeerErrorSeverity | undefined> {
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      const { currentProposer, nextProposer, currentSlot, nextSlot } =
-        await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+      const { currentSlot, nextSlot } = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
-        this.logger.warn(`Attestation slot ${slotNumber} is not current (${currentSlot}) or next (${nextSlot}) slot`);
+        this.logger.warn(
+          `Checkpoint attestation slot ${slotNumber} is not current (${currentSlot}) or next (${nextSlot}) slot`,
+        );
         return PeerErrorSeverity.HighToleranceError;
       }
 
       // Verify the signature is valid
       const attester = message.getSender();
       if (attester === undefined) {
-        this.logger.warn(`Invalid signature in attestation for slot ${slotNumber}`);
+        this.logger.warn(`Invalid signature in checkpoint attestation for slot ${slotNumber}`);
         return PeerErrorSeverity.LowToleranceError;
       }
 
@@ -37,20 +38,22 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
         return PeerErrorSeverity.HighToleranceError;
       }
 
-      // Verify the proposer signature matches the expected proposer for this slot
+      // Verify the proposer signature matches the expected proposer for the attestation's slot
+      // We look up the proposer for the specific slot rather than using currentSlot/nextSlot
+      // since timing differences could cause mismatches
       const proposer = message.getProposer();
-      const expectedProposer = slotNumber === currentSlot ? currentProposer : nextProposer;
+      const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (!expectedProposer) {
         this.logger.warn(`No proposer defined for slot ${slotNumber}`);
         return PeerErrorSeverity.HighToleranceError;
       }
       if (!proposer) {
-        this.logger.warn(`Invalid proposer signature in attestation for slot ${slotNumber}`);
+        this.logger.warn(`Invalid proposer signature in checkpoint attestation for slot ${slotNumber}`);
         return PeerErrorSeverity.LowToleranceError;
       }
       if (!proposer.equals(expectedProposer)) {
         this.logger.warn(
-          `Proposer signature mismatch in attestation. ` +
+          `Proposer signature mismatch in checkpoint attestation. ` +
             `Expected ${expectedProposer?.toString() ?? 'none'} but got ${proposer.toString()} for slot ${slotNumber}`,
         );
         return PeerErrorSeverity.HighToleranceError;
@@ -60,7 +63,7 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
     } catch (e) {
       // People shouldn't be sending us attestations if the committee doesn't exist
       if (e instanceof NoCommitteeError) {
-        this.logger.warn(`No committee exists for attestation for slot ${slotNumber}`);
+        this.logger.warn(`No committee exists for checkpoint attestation for slot ${slotNumber}`);
         return PeerErrorSeverity.LowToleranceError;
       }
       throw e;

@@ -28,13 +28,13 @@ include "../public_inputs.pil";
  * - VERSION
  * - BLOCKNUMBER
  * - TIMESTAMP
- * - BASEFEEPERL2GAS
- * - BASEFEEPERDAGAS
+ * - MINFEEPERL2GAS
+ * - MINFEEPERDAGAS
  *
  * Note that the lookup to public inputs pulls 2 values (col0 and col1)
- * because { baseFeePerDaGas, baseFeePerL2Gas } is in 1 row spanning 2 columns.
+ * because { minFeePerDaGas, minFeePerL2Gas } is in 1 row spanning 2 columns.
  * This means that while nearly all globalVariables will come from public inputs col0,
- * baseFeePerL2Gas will come from col1. But for now, they share one lookup.
+ * minFeePerL2Gas will come from col1. But for now, they share one lookup.
  *
  * If memberEnum is out of range, or if some other error occurs in an earlier temporality group
  * (e.g. address resolution or out-of-gas errors), all of this virtual gadget's selectors should
@@ -55,8 +55,8 @@ include "../public_inputs.pil";
  * |   4   | version         |         0         |          1          |          0         | VERSION_ROW_IDX   |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    FF     |
  * |   5   | blockNumber     |         0         |          1          |          0         | BLOCK_NUM_ROW_IDX |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    U32    |
  * |   6   | timestamp       |         0         |          1          |          0         | TIMESTAMP_ROW_IDX |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    U64    |
- * |   7   | baseFeePerL2Gas |         0         |          0          |          1         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       1       |         0       |      0       |      0         |    U128   |
- * |   8   | baseFeePerDaGas |         0         |          1          |          0         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    u128   |
+ * |   7   | minFeePerL2Gas  |         0         |          0          |          1         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       1       |         0       |      0       |      0         |    U128   |
+ * |   8   | minFeePerDaGas  |         0         |          1          |          0         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    u128   |
  * |   9   | isStaticCall    |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         1       |      0       |      0         |    U1     |
  * |  10   | l2GasLeft       |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      1       |      0         |    U32    |
  * |  11   | daGasLeft       |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      0       |      1         |    U32    |
@@ -113,7 +113,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     } in public_inputs.sel {
         precomputed.clk, public_inputs.cols[0]
     };
-    // Read from PI col1 instead for baseFeePerL2Gas
+    // Read from PI col1 instead for minFeePerL2Gas
     #[READ_FROM_PUBLIC_INPUTS_COL1]
     sel_envvar_pi_lookup_col1 {
         envvar_pi_row_idx, value_from_pi

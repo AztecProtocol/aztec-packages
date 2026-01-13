@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "ecc_wnaf_relation.hpp"
@@ -36,7 +36,7 @@ namespace bb {
  * round, slice) to the multiset when point_transition == 1.
  *
  * Furthermore, as the column `point_transition` is committed to by the Prover, we must constrain it is correctly
- * computed (see also `ecc_point_table_relation.cpp` for a description of what the table looks like.)
+ * computed (see also `ECCVMPointTableRelationImpl` for a description of what the table looks like.)
  *
  * @tparam FF
  * @tparam AccumulatorTypes
@@ -50,7 +50,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
-
+    auto lagrange_first = View(in.lagrange_first);
     auto scalar_sum = View(in.precompute_scalar_sum);
     auto scalar_sum_shift = View(in.precompute_scalar_sum_shift);
     auto q_transition = View(in.precompute_point_transition);
@@ -58,9 +58,13 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     auto round_shift = View(in.precompute_round_shift);
     auto pc = View(in.precompute_pc); // note that this is a _point-counter_.
     auto pc_shift = View(in.precompute_pc_shift);
-    // precompute_select is a boolean column. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
-    // `precompute_select=1`
+    // precompute_select is a boolean column that is 0 at the initial row and 1 at all subsequent active rows in the
+    // precompute table. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
+    // `precompute_select=1`. As a reminder, this latter is 0 at the initial row and then 1 at the rest of the (active)
+    // rows of the Precomputed table. The fact that `precompute_select` is correctly computed is mediated by the set
+    // relation.
     auto precompute_select = View(in.precompute_select);
+
     auto precompute_select_shift = View(in.precompute_select_shift);
 
     const auto& precompute_skew = View(in.precompute_skew);
@@ -89,6 +93,8 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     const auto scaled_transition_is_zero =
         -scaled_transition + scaling_factor; // `scaling_factor * (1 - q_transition)`, i.e., is the scaling_factor if we
                                              // are _not_ at a transition, else 0.
+
+    const auto scaled_lagrange_first = scaling_factor * lagrange_first; // for edge-case handling
     /**
      * @brief Constrain each of our scalar slice chunks (s1, ..., s8) to be 2 bits.
      * Doing range checks this way vs permutation-based range check removes need to create sorted list + grand product
@@ -113,8 +119,11 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      */
     const auto s1_shift = View(in.precompute_s1hi_shift);
     const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
-    std::get<20>(accumulator) += scaled_transition * precompute_select_shift * s1_shift_msb_set;
-
+    const auto scaled_transition_plus_lagrange_first = scaled_transition + scaled_lagrange_first;
+    // away from row zero, add `scaled_transition * precompute_select_shift * s1_shift_msb_set`. however,
+    // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
+    // `scaled_lagrange_first`.
+    std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1_shift_msb_set;
     /**
      * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
      * Conversion from binary -> wnaf = 2 * binary - 15.
@@ -205,19 +214,24 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     // => q_transition * (round - 7 - round_shift + round + 1) + (round_shift - round - 1)
     // => q_transition * (2 * round - round_shift - 6) + (round_shift - round - 1)
     const auto round_check = round_shift - round - 1;
+    // This selector is 1 at row 0 (via lagrange_first) and at transition rows where precompute_select == 1.
+    // It's used to constrain shifted values (like round_shift, scalar_sum_shift) that need to be checked
+    // both at the first active row AND at subsequent transitions between scalars.
+    const auto precompute_select_transition_plus_lagrange_first =
+        precompute_select * scaled_transition + scaled_lagrange_first;
     std::get<9>(accumulator) +=
         precompute_select * (scaled_transition * (round - round_check - 7) + scaling_factor * round_check);
-    std::get<10>(accumulator) +=
-        precompute_select * scaled_transition * round_shift; // at a transition, next round == 0
+    // At a transition (or at row 0 via lagrange_first), the next round must be 0.
+    std::get<10>(accumulator) += precompute_select_transition_plus_lagrange_first * round_shift;
 
     /**
      * @brief Scalar transition/PC checks.
-     * 1: if q_transition = 1, scalar_sum_new = 0
+     * 1: if q_transition = 1 or if lagrange_first = 1, scalar_sum_new = 0. (note that q_transition[0] == 0.)
      * 2: if q_transition = 0, pc at next row = pc at current row
      * 3: if q_transition = 1, pc at next row = pc at current row - 1 (decrements by 1)
      * (we combine 2 and 3 into a single relation)
      */
-    std::get<11>(accumulator) += precompute_select * scaled_transition * scalar_sum_shift;
+    std::get<11>(accumulator) += precompute_select_transition_plus_lagrange_first * scalar_sum_shift;
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
     // => q_transition * (-2 * (pc_shift - pc) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;

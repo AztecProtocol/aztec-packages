@@ -1,7 +1,7 @@
 ---
 title: "Bridge Your NFT to Aztec"
 sidebar_position: 1
-description: "Build a private NFT bridge that moves CryptoPunks between Ethereum and Aztec with encrypted ownership using custom notes and PrivateSet."
+description: "Build a private NFT bridge between Ethereum and Aztec using custom notes, PrivateSet, and cross-chain messaging portals."
 ---
 
 ## Why Bridge an NFT?
@@ -85,11 +85,17 @@ aztec new contracts/aztec/nft
 cd contracts/aztec/nft
 ```
 
-Open `Nargo.toml` and make sure you add `aztec` as a dependency:
+:::tip Noir Language Server
+
+If you're using VS Code, install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for syntax highlighting, error checking, and code completion while writing Noir contracts.
+
+:::
+
+Open `Nargo.toml` and make sure `aztec` is a dependency:
 
 ```toml
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "#include_aztec_version", directory = "aztec" }
 ```
 
 ### Create the NFT Note
@@ -125,15 +131,20 @@ One interesting aspect of this storage configuration is the use of `DelayedPubli
 
 Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `main.nr` file:
 
-#include_code contract_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+<!-- wrapped in a code block to add a "}" at the end -->
+
+```rust
+#include_code contract_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr raw
+}
+```
 
 ### Utility Functions
 
-Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and internal with [specific macros](../../aztec-nr/framework-description/macros.md):
+Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and `#[only_self]` so only the contract can call it:
 
 #include_code mark_nft_exists /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-This internal function uses `schedule_value_change` to update the `nfts` storage, preventing the same NFT from being minted twice or burned when it doesn't exist. You'll call this public function from a private function later.
+This function is marked with `#[only_self]`, meaning only the contract itself can call it. It uses `schedule_value_change` to update the `nfts` storage, preventing the same NFT from being minted twice or burned when it doesn't exist. You'll call this public function from a private function later using `enqueue_self`.
 
 Another useful function checks how many notes a caller has. You can use this later to verify the claim and exit from L2:
 
@@ -145,7 +156,8 @@ Before anything else, you need to set the minter. This will be the bridge contra
 
 #include_code set_minter /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, emit a new [constrained event](../../aztec-nr/framework-description/how_to_emit_event.md) (best practice when "sending someone a note"), and then [enqueue a public call](../../aztec-nr/framework-description/how_to_call_contracts.md) to the `_mark_nft_exists` function:
+Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, deliver the note using [constrained message delivery](../../aztec-nr/framework-description/how_to_emit_event.md) (best practice when "sending someone a
+note") and then [enqueue a public call](../../aztec-nr/framework-description/how_to_call_contracts.md) to the `_mark_nft_exists` function:
 
 #include_code mint /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
@@ -201,7 +213,7 @@ Let's create a new contract in the same tidy `contracts/aztec` folder:
 
 ```bash
 cd ..
-aztec new --contract nft_bridge
+aztec new nft_bridge
 cd nft_bridge
 ```
 
@@ -209,7 +221,7 @@ And again, add the `aztec-nr` dependency to `Nargo.toml`. We also need to add th
 
 ```toml
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag = "#include_aztec_version", directory = "aztec" }
 NFTPunk = { path = "../nft" }
 ```
 
@@ -226,7 +238,12 @@ This means having knowledge about the L2 NFT contract, and the bridge on the L1 
 
 Clean up `main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
 
-#include_code bridge_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
+<!-- wrapped in a code block to add a "}" at the end -->
+
+```rust
+#include_code bridge_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr raw
+}
+```
 
 You can't initialize the `portal` value in the constructor because the L1 portal hasn't been deployed yet. You'll need another function to set it up after the L1 portal is deployed.
 
@@ -254,7 +271,7 @@ Cross-chain messaging on Aztec is powerful because it doesn't conform to any spe
 
 :::tip Private Functions
 
-Both `claim` and `exit` are `#[private]`, which means the bridging process is private—nobody can see who's bridging which NFT by watching the chain.
+Both `claim` and `exit` are `#[external("private")]`, which means the bridging process is private—nobody can see who's bridging which NFT by watching the chain.
 
 :::
 
@@ -314,7 +331,10 @@ touch contracts/NFTPortal.sol
 
 Initialize it with Aztec's registry, which holds the canonical contracts for Aztec-related contracts, including the Inbox and Outbox. These are the message-passing contracts—Aztec sequencers read any messages on these contracts.
 
-#include_code portal_setup /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol solidity
+```solidity
+#include_code portal_setup /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol raw
+}
+```
 
 The core logic is similar to the L2 logic. `depositToAztec` calls the `Inbox` canonical contract to send a message to Aztec, and `withdraw` calls the `Outbox` contract.
 

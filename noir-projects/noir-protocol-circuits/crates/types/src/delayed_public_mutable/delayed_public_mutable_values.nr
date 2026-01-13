@@ -31,6 +31,8 @@ impl<T, let INITIAL_DELAY: u64> DelayedPublicMutableValues<T, INITIAL_DELAY> {
     }
 }
 
+/// Extracts a ScheduledValueChange struct from the packed representation of the full DelayedPublicMutable.
+/// TODO: impl the packable trait for ScheduledValueChange.
 pub fn unpack_value_change<T, let M: u32>(packed: [Field; 2 * M + 1]) -> ScheduledValueChange<T>
 where
     T: Packable<N = M>,
@@ -48,6 +50,9 @@ where
     )
 }
 
+/// Extracts a ScheduledDelayChange struct from 0th field of the packed representation of the full DelayedPublicMutable.
+/// This function expects to be called with just the first field of the packed representation, which contains sdc
+/// and svc timestamp_of_change. We'll discard the svc component.
 pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     packed: Field,
 ) -> ScheduledDelayChange<INITIAL_DELAY> {
@@ -87,6 +92,7 @@ pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     }
 }
 
+// Q: do these evaluate at comptime or runtime?
 global TWO_POW_32: Field = 2.pow_32(32);
 global TWO_POW_8: Field = 2.pow_32(8);
 

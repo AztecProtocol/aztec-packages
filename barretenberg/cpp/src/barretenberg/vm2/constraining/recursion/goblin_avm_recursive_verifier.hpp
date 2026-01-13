@@ -1,6 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
@@ -56,10 +64,9 @@ class AvmGoblinRecursiveVerifier {
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
     struct InnerProverOutput {
-        HonkProof mega_proof;                                 // \pi_M
-        GoblinProof goblin_proof;                             // \pi_G
-        std::shared_ptr<MegaFlavor::VerificationKey> mega_vk; // VK_M
-        Goblin::VerificationKey goblin_vk;                    // VK_G
+        HonkProof mega_proof;                                    // \pi_M
+        GoblinProof goblin_proof;                                // \pi_G
+        std::shared_ptr<MegaAvmFlavor::VerificationKey> mega_vk; // VK_M
     };
 
     UltraBuilder& ultra_builder;
@@ -107,13 +114,13 @@ class AvmGoblinRecursiveVerifier {
                                                    const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
-        using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
-        using MegaRecursiveVKAndHash = MegaRecursiveFlavor::VKAndHash;
+        using MegaAvmRecursiveFlavor = MegaAvmRecursiveFlavor_<UltraBuilder>;
+        using MegaRecursiveVKAndHash = MegaAvmRecursiveFlavor::VKAndHash;
         using GoblinRecursiveVerifier = bb::GoblinRecursiveVerifier;
         using MergeCommitments = GoblinRecursiveVerifier::MergeCommitments;
-        using FF = MegaRecursiveFlavor::FF;
+        using FF = MegaAvmRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<UltraBuilder>;
-        using MegaRecursiveVerifier = UltraVerifier_<MegaRecursiveFlavor, IO>;
+        using MegaRecursiveVerifier = UltraVerifier_<MegaAvmRecursiveFlavor, IO>;
 
         // Construct hash buffer containing the AVM proof and public inputs
         std::vector<FF> hash_buffer;
@@ -124,7 +131,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
         // All verifier components share a single transcript
-        auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
+        auto transcript = std::make_shared<MegaAvmRecursiveFlavor::Transcript>();
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
         // Fix the inner mega vk and vk hash to be constants in the outer circuit.
         mega_vk_and_hash->vk->fix_witness();
@@ -146,7 +153,19 @@ class AvmGoblinRecursiveVerifier {
         };
         GoblinRecursiveVerifier::ReductionResult goblin_verifier_output =
             goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
-        goblin_verifier_output.pairing_points.aggregate(mega_verifier_output.points_accumulator);
+
+        // Batch aggregate all pairing points: Mega + Merge + Translator
+        // Edge case handling disabled: Safe because all points are verifier-computed (deterministic, won't collide)
+        // and the random challenges maintain binding. Saves significant circuit gates.
+        std::vector<PairingPoints> all_pairing_points;
+        all_pairing_points.reserve(3);
+        all_pairing_points.push_back(mega_verifier_output.points_accumulator);
+        all_pairing_points.push_back(std::move(goblin_verifier_output.merge_pairing_points));
+        all_pairing_points.push_back(std::move(goblin_verifier_output.translator_pairing_points));
+
+        constexpr bool handle_edge_cases = false;
+        PairingPoints aggregated_pairing_points =
+            PairingPoints::aggregate_multiple(all_pairing_points, handle_edge_cases);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
@@ -155,7 +174,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         RecursiveAvmGoblinOutput output;
-        output.points_accumulator = goblin_verifier_output.pairing_points;
+        output.points_accumulator = std::move(aggregated_pairing_points);
         output.ipa_claim = goblin_verifier_output.ipa_claim;
         output.ipa_proof = goblin_verifier_output.ipa_proof;
         return output;
@@ -171,11 +190,11 @@ class AvmGoblinRecursiveVerifier {
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
-        using ECCVMVK = Goblin::ECCVMVerificationKey;
-        using TranslatorVK = Goblin::TranslatorVerificationKey;
-        using MegaVerificationKey = MegaFlavor::VerificationKey;
         using FF = AvmRecursiveFlavor::FF;
         using IO = stdlib::recursion::honk::GoblinAvmIO<MegaBuilder>;
+        using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
+        using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
+        using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
@@ -218,14 +237,14 @@ class AvmGoblinRecursiveVerifier {
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
-        auto mega_proving_key = std::make_shared<ProverInstance_<MegaFlavor>>(mega_builder);
+        auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(mega_builder);
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
             mega_proving_key->log_dyadic_size(),
             MEGA_AVM_LOG_N,
             "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
-        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->get_precomputed());
-        MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
+        auto mega_vk = std::make_shared<MegaAvmVerificationKey>(mega_proving_key->get_precomputed());
+        MegaAvmProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
         goblin.avm_mode = true;
@@ -233,14 +252,10 @@ class AvmGoblinRecursiveVerifier {
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
         GoblinProof goblin_proof = goblin.prove();
 
-        // Recursively verify the goblin proof in the Ultra circuit
-        Goblin::VerificationKey goblin_vk{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
-
         return {
             .mega_proof = mega_proof,
             .goblin_proof = goblin_proof,
             .mega_vk = mega_vk,
-            .goblin_vk = goblin_vk,
         };
     }
 };

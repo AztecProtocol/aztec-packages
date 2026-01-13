@@ -23,7 +23,7 @@ export class DebugLog extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private levelOffset: number,
     private messageOffset: number,
     private fieldsOffset: number,
@@ -35,7 +35,7 @@ export class DebugLog extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 //
 // === CODE ROLE: Builder-agnostic data structures ===
@@ -47,9 +47,6 @@ enum BasicTableId {
     SHA256_BASE28_ROTATE3,
     SHA256_BASE16,
     SHA256_BASE16_ROTATE2,
-    SHA256_BASE16_ROTATE6,
-    SHA256_BASE16_ROTATE7,
-    SHA256_BASE16_ROTATE8,
     UINT_XOR_SLICE_6_ROTATE_0,
     UINT_XOR_SLICE_2_ROTATE_0,
     UINT_XOR_SLICE_4_ROTATE_0,

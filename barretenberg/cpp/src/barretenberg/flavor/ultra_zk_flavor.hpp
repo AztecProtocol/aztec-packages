@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -34,8 +34,6 @@ class UltraZKFlavor : public UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
-    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
     // Override AllEntities to use ZK version (includes gemini_masking_poly via MaskingEntities)
     template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;
@@ -86,150 +84,5 @@ class UltraZKFlavor : public UltraFlavor {
                /* 12. Shplonk Q commitment */ (num_frs_comm) +
                /* 13. KZG W commitment */ (num_frs_comm);
     }
-
-    /**
-     * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
-     * functions.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
-     */
-    class Transcript_ : public UltraFlavor::Transcript {
-      public:
-        using Base = UltraFlavor::Transcript::Base;
-        // Override sumcheck_evaluations to use the correct size for ZK flavor
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        // Note: we have a different vector of univariates because the degree for ZK flavors differs
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
-        Commitment libra_concatenation_commitment;
-        FF libra_sum;
-        FF libra_claimed_evaluation;
-        Commitment libra_grand_sum_commitment;
-        Commitment libra_quotient_commitment;
-        FF libra_concatenation_eval;
-        FF libra_shifted_grand_sum_eval;
-        FF libra_grand_sum_eval;
-        FF libra_quotient_eval;
-        Commitment hiding_polynomial_commitment;
-        FF hiding_polynomial_eval;
-
-        Transcript_() = default;
-
-        static std::shared_ptr<Transcript_> prover_init_empty()
-        {
-            auto transcript = Base::prover_init_empty();
-            return std::static_pointer_cast<Transcript_>(transcript);
-        };
-
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
-        {
-            auto verifier_transcript = Base::verifier_init_empty(transcript);
-            return std::static_pointer_cast<Transcript_>(verifier_transcript);
-        };
-
-        /**
-         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
-         * that compose the structure. Must be called in order to access the structure of the
-         * proof.
-         *
-         */
-        void deserialize_full_transcript(size_t num_public_inputs, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
-        {
-            // take current proof and put them into the struct
-            size_t num_frs_read = 0;
-            auto& proof_data = this->proof_data;
-            for (size_t i = 0; i < num_public_inputs; ++i) {
-                this->public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->w_l_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->w_r_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->w_o_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->lookup_read_counts_comm =
-                Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->lookup_read_tags_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->w_4_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->lookup_inverses_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            this->z_perm_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_concatenation_commitment =
-                Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_sum = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                zk_sumcheck_univariates.push_back(
-                    Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        proof_data, num_frs_read));
-            }
-            libra_claimed_evaluation = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            this->sumcheck_evaluations =
-                Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            libra_grand_sum_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_quotient_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
-                this->gemini_fold_comms.push_back(
-                    Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
-            }
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                this->gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            libra_concatenation_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_shifted_grand_sum_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_grand_sum_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_quotient_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            this->shplonk_q_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-
-            this->kzg_w_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-        }
-
-        /**
-         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called
-         * only if deserialize_full_transcript() was called and some transcript variable was
-         * modified.
-         *
-         */
-        void serialize_full_transcript(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
-        {
-            auto& proof_data = this->proof_data;
-            size_t old_proof_length = proof_data.size();
-            proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            for (const auto& input : this->public_inputs) {
-                Base::serialize_to_buffer(input, proof_data);
-            }
-            Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
-            Base::serialize_to_buffer(this->w_l_comm, proof_data);
-            Base::serialize_to_buffer(this->w_r_comm, proof_data);
-            Base::serialize_to_buffer(this->w_o_comm, proof_data);
-            Base::serialize_to_buffer(this->lookup_read_counts_comm, proof_data);
-            Base::serialize_to_buffer(this->lookup_read_tags_comm, proof_data);
-            Base::serialize_to_buffer(this->w_4_comm, proof_data);
-            Base::serialize_to_buffer(this->lookup_inverses_comm, proof_data);
-            Base::serialize_to_buffer(this->z_perm_comm, proof_data);
-            Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
-            Base::serialize_to_buffer(libra_sum, proof_data);
-
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                Base::serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
-            }
-            Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
-
-            Base::serialize_to_buffer(this->sumcheck_evaluations, proof_data);
-            Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
-            Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
-            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
-                Base::serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
-            }
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                Base::serialize_to_buffer(this->gemini_fold_evals[i], proof_data);
-            }
-            Base::serialize_to_buffer(libra_concatenation_eval, proof_data);
-            Base::serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
-            Base::serialize_to_buffer(libra_grand_sum_eval, proof_data);
-            Base::serialize_to_buffer(libra_quotient_eval, proof_data);
-            Base::serialize_to_buffer(this->shplonk_q_comm, proof_data);
-            Base::serialize_to_buffer(this->kzg_w_comm, proof_data);
-
-            BB_ASSERT_EQ(proof_data.size(), old_proof_length);
-        }
-    };
-    using Transcript = Transcript_;
-    using VKAndHash = UltraFlavor::VKAndHash;
 };
 } // namespace bb

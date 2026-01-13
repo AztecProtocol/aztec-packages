@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/aztec.js/log';
-import type { L1PublishBlockStats, L1PublishStats } from '@aztec/stdlib/stats';
+import type { L1PublishCheckpointStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
   type Gauge,
@@ -7,7 +7,6 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 import { formatEther } from 'viem/utils';
@@ -40,88 +39,33 @@ export class SequencerPublisherMetrics {
   ) {
     const meter = client.getMeter(name);
 
-    this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
-      description: 'The gas price used for transactions',
-      unit: 'gwei',
-      valueType: ValueType.DOUBLE,
-    });
+    this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE);
 
-    this.txCount = meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT, {
-      description: 'The number of transactions processed',
-    });
+    this.txCount = meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT);
 
-    this.txDuration = meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION, {
-      description: 'The duration of transaction processing',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.txDuration = meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION);
 
-    this.txGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
-      description: 'The gas consumed by transactions',
-      unit: 'gas',
-      valueType: ValueType.INT,
-    });
+    this.txGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS);
 
-    this.txCalldataSize = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
-      description: 'The size of the calldata in transactions',
-      unit: 'By',
-      valueType: ValueType.INT,
-    });
+    this.txCalldataSize = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE);
 
-    this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
-      description: 'The gas consumed by the calldata in transactions',
-      unit: 'gas',
-      valueType: ValueType.INT,
-    });
+    this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS);
 
-    this.txBlobDataGasUsed = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED, {
-      description: 'The amount of blob gas used in transactions',
-      unit: 'gas',
-      valueType: ValueType.INT,
-    });
+    this.txBlobDataGasUsed = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED);
 
-    this.txBlobDataGasCost = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST, {
-      description: 'The gas cost of blobs in transactions',
-      unit: 'gwei',
-      valueType: ValueType.INT,
-    });
+    this.txBlobDataGasCost = meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST);
 
-    this.blobCountHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_COUNT, {
-      description: 'Number of blobs in L1 transactions',
-      unit: 'blobs',
-      valueType: ValueType.INT,
-    });
+    this.blobCountHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_COUNT);
 
-    this.blobInclusionBlocksHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_INCLUSION_BLOCKS, {
-      description: 'Number of L1 blocks between blob tx submission and inclusion',
-      unit: 'blocks',
-      valueType: ValueType.INT,
-    });
+    this.blobInclusionBlocksHistogram = meter.createHistogram(Metrics.L1_PUBLISHER_BLOB_INCLUSION_BLOCKS);
 
-    this.blobTxSuccessCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_SUCCESS, {
-      description: 'Number of successful L1 transactions with blobs',
-    });
+    this.blobTxSuccessCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_SUCCESS);
 
-    this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE, {
-      description: 'Number of failed L1 transactions with blobs',
-    });
+    this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE);
 
-    this.txTotalFee = meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE, {
-      description: 'How much L1 tx costs',
-      unit: 'eth',
-      valueType: ValueType.DOUBLE,
-      advice: {
-        explicitBucketBoundaries: [
-          0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1, 1.2, 1.4, 1.8, 2,
-        ],
-      },
-    });
+    this.txTotalFee = meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE);
 
-    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
-      unit: 'eth',
-      description: 'The balance of the sender address',
-      valueType: ValueType.DOUBLE,
-    });
+    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE);
   }
 
   recordFailedTx(txType: L1TxType) {
@@ -135,7 +79,7 @@ export class SequencerPublisherMetrics {
     }
   }
 
-  recordProcessBlockTx(durationMs: number, stats: L1PublishBlockStats) {
+  recordProcessBlockTx(durationMs: number, stats: L1PublishCheckpointStats) {
     this.recordTx('process', durationMs, stats);
 
     if (stats.blobCount && stats.blobCount > 0) {

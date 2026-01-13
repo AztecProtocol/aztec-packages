@@ -10,8 +10,7 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { type AztecNode, createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -70,7 +69,6 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import type { Anvil } from '@viem/anvil';
 import { randomBytes } from 'crypto';
 import fs from 'fs/promises';
-import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import type { Hex } from 'viem';
@@ -90,6 +88,16 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 export { startAnvil };
+
+/**
+ * Sets up shared blob storage using FileStore in the data directory.
+ */
+export async function setupSharedBlobStorage(config: { dataDirectory?: string } & Record<string, any>): Promise<void> {
+  const sharedBlobPath = path.join(config.dataDirectory!, 'shared-blobs');
+  await fs.mkdir(sharedBlobPath, { recursive: true });
+  config.blobFileStoreUrls = [`file://${sharedBlobPath}`];
+  config.blobFileStoreUploadUrl = `file://${sharedBlobPath}`;
+}
 
 const { AZTEC_NODE_URL = '' } = process.env;
 const getAztecUrl = () => AZTEC_NODE_URL;
@@ -232,7 +240,6 @@ async function setupWithRemoteEnvironment(
     mockGossipSubNetwork: undefined,
     watcher: undefined,
     dateProvider: undefined,
-    blobSink: undefined,
     telemetryClient: undefined,
     teardown,
   };
@@ -312,8 +319,6 @@ export type EndToEndContext = {
   watcher: AnvilTestWatcher | undefined;
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
   dateProvider: TestDateProvider | undefined;
-  /** The blob sink (undefined if connected to remote environment) */
-  blobSink: BlobSinkServer | undefined;
   /** Telemetry client */
   telemetryClient: TelemetryClient | undefined;
   /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
@@ -489,21 +494,7 @@ export async function setup(
 
     const telemetry = await getTelemetryClient(opts.telemetryConfig);
 
-    // Blob sink service - blobs get posted here and served from here
-    const blobSinkPort = await getPort();
-    const blobSink = await createBlobSinkServer(
-      {
-        l1ChainId: config.l1ChainId,
-        l1RpcUrls: config.l1RpcUrls,
-        l1Contracts: config.l1Contracts,
-        port: blobSinkPort,
-        dataDirectory: config.dataDirectory,
-        dataStoreMapSizeKb: config.dataStoreMapSizeKb,
-      },
-      telemetry,
-    );
-    await blobSink.start();
-    config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+    await setupSharedBlobStorage(config);
 
     logger.verbose('Creating and synching an aztec node', config);
 
@@ -518,8 +509,6 @@ export async function setup(
       config.bbBinaryPath = bbConfig.bbBinaryPath;
       config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
     }
-
-    const blobSinkClient = createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
     let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
@@ -559,7 +548,7 @@ export async function setup(
 
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
-      { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
+      { dateProvider, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
     const sequencerClient = aztecNode.getSequencer();
@@ -647,7 +636,6 @@ export async function setup(
         await tryStop(watcher, logger);
         await tryStop(anvil, logger);
 
-        await tryStop(blobSink, logger);
         await tryRmDir(directoryToCleanup, logger);
       } catch (err) {
         logger.error(`Error during e2e test teardown`, err);
@@ -657,7 +645,6 @@ export async function setup(
     return {
       aztecNode,
       aztecNodeAdmin: aztecNode,
-      blobSink,
       cheatCodes,
       ethCheatCodes,
       config,
@@ -852,13 +839,13 @@ export function createAndSyncProverNode(
       stop: () => Promise.resolve(),
     };
 
-    const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
+    const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('blob-client:prover-node'));
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
     const archiver = await createArchiver(
       archiverConfig,
-      { blobSinkClient, dateProvider: proverNodeDeps.dateProvider },
+      { blobClient, dateProvider: proverNodeDeps.dateProvider },
       { blockUntilSync: true },
     );
 

@@ -1,11 +1,9 @@
 ---
 title: Setting up for Devnet
 sidebar_position: 3
-tags: [testnet]
+tags: [devnet]
 description: Guide for developers to get started with the Aztec devnet, including account creation and contract deployment.
 ---
-
-import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This guide explains the differences between the local network and devnet, how to migrate from the local network to devnet, and how to start developing directly on devnet.
 
@@ -38,16 +36,10 @@ If you're new to Aztec and want to understand local development first, check out
 Before working with devnet, ensure you have:
 
 1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI installed:
+2. Aztec CLI with Devnet version installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network)
-```
-
-3. The devnet version installed:
-
-```bash
-aztec-up #include_devnet_version
+bash -i <(curl -s https://install.aztec.network/#include_devnet_version/)
 ```
 
 :::warning
@@ -88,7 +80,7 @@ aztec-wallet create-account \
 ```
 
 :::note
-The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on testnet.
+The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on devnet.
 :::
 
 ### Step 3: Deploy and interact with contracts
@@ -118,16 +110,16 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
-## Migrating from the Local Network to Testnet
+## Migrating from the Local Network to Devnet
 
-If you have an existing app running on your local network, here's how to migrate it to testnet:
+If you have an existing app running on your local network, here's how to migrate it to devnet:
 
-### 1. Connect to Testnet Node
+### 1. Connect to Devnet Node
 
-Instead of running a local network, connect to the testnet node:
+Instead of running a local network, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
+export NODE_URL=https://next.devnet.aztec-labs.com/
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -138,7 +130,7 @@ aztec-wallet create-account -a main --node-url $NODE_URL
 
 ### 2. Initialize a TestWallet for Devnet
 
-You can connect to testnet directly from your app using AztecJS:
+You can connect to devnet directly from your app using AztecJS:
 
 In the browser:
 
@@ -210,51 +202,9 @@ const isDevnet = process.env.NODE_URL?.includes("devnet");
 const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 ```
 
-## Devnet information
+## Devnet Information
 
-## RPC
-
-https://devnet.aztec-labs.com
-
-## Packages Versions / Github Tag
-
-3.0.0-devnet.4
-
-## Network Configuration
-
-- **l1ChainId**: 11155111
-- **rollupVersion**: 1667575857
-<!-- cspell:disable-next-line -->
-- **enr**: -Na4QDO8LfoSfCpWFbMPHwYZegt9P--3X8XCRmwuXD1SEtxdD2kx4K-ue5VuwG4DOWqDbsxLQ9Ja3Mr6OSmjV-8x-ToHhWF6dGVjsTAwLTExMTU1MTExLWIwNWYzNmM5LTE2Njc1NzU4NTctMjc2MzhiZjMtMDY4YTc5ZTiCaWSCdjSCaXCEIpEKG4lzZWNwMjU2azGhAvyGRkH6p8gsIWyI6vmqHxMIqAweVkShKk3mjGfL7e2Gg3RjcIKd0IN1ZH CCndCDdmVyjjMuMC4wLWRldm5ldC4y
-
-## Migration Notes
-
-[Migration Notes](./docs/resources/migration_notes.md)
-
-## L1 Contract Addresses
-
-- **registryAddress**: `0x9017a63e26eaf1197c49b4315a9f32a771abeea7`
-- **slashFactoryAddress**: `0x4926e1bd0ba4c9f477c57ce7311c62d4075dca5c`
-- **feeAssetHandlerAddress**: `0x252a71fc243812f747fc4782dea865a260ef81c9`
-- **rollupAddress**: `0xb05f36c9dffa76f0af639385ef44d5560e0160c1`
-- **inboxAddress**: `0x33631b33f335e249279db08b9b7272c9906c1405`
-- **outboxAddress**: `0xfe37ceedec5674805fdc3cd5ca8aa6ca656cbfb9`
-- **feeJuiceAddress**: `0xa9144418460188c2b59914e6a7cb01deb1e019d7`
-- **stakingAssetAddress**: `0xdcaca47b74caf5c14ce023597f0e3b67e1f14496`
-- **feeJuicePortalAddress**: `0xeea84a878a3fd52d14e7820dddb60d35219b9cd9`
-- **coinIssuerAddress**: `0x48ab541e0f60e3138f6f24c5cc72993ffcdca462`
-- **rewardDistributorAddress**: `0x4833dacefe705e31200d071a04d17bd29e2c740c`
-- **governanceProposerAddress**: `0x4194937ab0bb3b1b4b1b1d770bb8577a0500911b`
-- **governanceAddress**: `0x6af3cc6c09a72b5a0ab772f37fd7b719569f27b9`
-- **gseAddress**: `0xeee2d3289dff43909b935da9ef2121fdcad8773f`
-
-## Protocol Contract Addresses
-
-- **classRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000003`
-- **feeJuice**: `0x0000000000000000000000000000000000000000000000000000000000000005`
-- **instanceRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000002`
-- **multiCallEntrypoint**: `0x0000000000000000000000000000000000000000000000000000000000000004`
-- **sponsoredFPC**: `0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97`
+For complete Devnet technical details including RPC endpoints, contract addresses, and network configuration, see the [Networks page](/networks#devnet).
 
 ## Next Steps
 
@@ -262,9 +212,3 @@ https://devnet.aztec-labs.com
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
-
-## Additional Resources
-
-- [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
-- [Running a node](/network/)
-- [Block explorers](https://devnet.aztecscan.xyz)

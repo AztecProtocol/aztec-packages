@@ -6,7 +6,7 @@
     ".": "./dest/index.js",
     "./testing": "./dest/testing/index.js"
   },
-  "bin": "./dest/bin/index.js",
+  "bin": "./scripts/aztec.sh",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -35,7 +35,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@aztec/blob-sink": "workspace:^",
+    "@aztec/blob-client": "workspace:^",
     "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
     "@aztec/cli": "workspace:^",
@@ -59,6 +59,7 @@
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/test-wallet": "workspace:^",
     "@aztec/txe": "workspace:^",
+    "@aztec/validator-ha-signer": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@types/chalk": "^2.2.0",
     "abitype": "^0.8.11",
@@ -70,6 +71,7 @@
   },
   "files": [
     "dest",
+    "scripts",
     "src",
     "!*.test.*"
   ],

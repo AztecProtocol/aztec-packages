@@ -1,6 +1,5 @@
-import { L2Block } from '@aztec/aztec.js/block';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
@@ -26,7 +25,8 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { FormattedViemError, formatViemError, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
@@ -35,11 +35,12 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
-import { CommitteeAttestation, CommitteeAttestationsAndSigners, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
+import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type StateOverride, type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
@@ -79,12 +80,12 @@ type GovernanceSignalAction = Extract<Action, 'governance-signal' | 'empire-slas
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
 export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
 
-export type InvalidateBlockRequest = {
+export type InvalidateCheckpointRequest = {
   request: L1TxRequest;
   reason: 'invalid-attestation' | 'insufficient-attestations';
   gasUsed: bigint;
-  blockNumber: BlockNumber;
-  forcePendingBlockNumber: BlockNumber;
+  checkpointNumber: CheckpointNumber;
+  forcePendingCheckpointNumber: CheckpointNumber;
 };
 
 interface RequestWithExpiry {
@@ -109,10 +110,12 @@ export class SequencerPublisher {
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
+  private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
+
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkClient: BlobSinkClientInterface;
+  private blobClient: BlobClientInterface;
 
   /** Address to use for simulations in fisherman mode (actual proposer's address) */
   private proposerAddressForSimulation?: EthAddress;
@@ -136,13 +139,15 @@ export class SequencerPublisher {
   public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
   public slashFactoryContract: SlashFactoryContract;
 
+  public readonly tracer: Tracer;
+
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
     private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
-      blobSinkClient?: BlobSinkClientInterface;
+      blobClient: BlobClientInterface;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
       slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
@@ -160,11 +165,11 @@ export class SequencerPublisher {
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
-    this.blobSinkClient =
-      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
+    this.blobClient = deps.blobClient;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.tracer = telemetry.getTracer('SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
@@ -239,7 +244,7 @@ export class SequencerPublisher {
    * @returns The analysis result (incomplete until block mines), or undefined if no requests
    */
   public async analyzeL1Fees(
-    l2SlotNumber: bigint,
+    l2SlotNumber: SlotNumber,
     onComplete?: (analysis: L1FeeAnalysisResult) => void,
   ): Promise<L1FeeAnalysisResult | undefined> {
     if (!this.l1FeeAnalyzer) {
@@ -294,10 +299,11 @@ export class SequencerPublisher {
    * - a receipt and errorMsg if it failed on L1
    * - undefined if no valid requests are found OR the tx failed to send.
    */
+  @trackSpan('SequencerPublisher.sendRequests')
   public async sendRequests() {
     const requestsToProcess = [...this.requests];
     this.requests = [];
-    if (this.interrupted) {
+    if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
@@ -411,17 +417,14 @@ export class SequencerPublisher {
   public canProposeAtNextEthBlock(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingBlockNumber?: BlockNumber } = {},
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     return this.rollupContract
       .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
-        forcePendingCheckpointNumber:
-          opts.forcePendingBlockNumber !== undefined
-            ? CheckpointNumber.fromBlockNumber(opts.forcePendingBlockNumber)
-            : undefined,
+        forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
@@ -440,10 +443,11 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
+  @trackSpan('SequencerPublisher.validateBlockHeader')
   public async validateBlockHeader(
     header: CheckpointHeader,
-    opts?: { forcePendingBlockNumber: BlockNumber | undefined },
-  ) {
+    opts?: { forcePendingCheckpointNumber: CheckpointNumber | undefined },
+  ): Promise<void> {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
@@ -452,17 +456,13 @@ export class SequencerPublisher {
       [], // no signers
       Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
-      header.contentCommitment.blobsHash.toString(),
+      header.blobsHash.toString(),
       flags,
     ] as const;
 
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
-    const optsForcePendingCheckpointNumber =
-      opts?.forcePendingBlockNumber !== undefined
-        ? CheckpointNumber.fromBlockNumber(opts.forcePendingBlockNumber)
-        : undefined;
     const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
-      optsForcePendingCheckpointNumber,
+      opts?.forcePendingCheckpointNumber,
     );
     let balance = 0n;
     if (this.config.fishermanMode) {
@@ -490,77 +490,90 @@ export class SequencerPublisher {
   }
 
   /**
-   * Simulate making a call to invalidate a block with invalid attestations. Returns undefined if no need to invalidate.
-   * @param block - The block to invalidate and the criteria for invalidation (as returned by the archiver)
+   * Simulate making a call to invalidate a checkpoint with invalid attestations. Returns undefined if no need to invalidate.
+   * @param validationResult - The validation result indicating which checkpoint to invalidate (as returned by the archiver)
    */
-  public async simulateInvalidateBlock(
-    validationResult: ValidateBlockResult,
-  ): Promise<InvalidateBlockRequest | undefined> {
+  public async simulateInvalidateCheckpoint(
+    validationResult: ValidateCheckpointResult,
+  ): Promise<InvalidateCheckpointRequest | undefined> {
     if (validationResult.valid) {
       return undefined;
     }
 
-    const { reason, block } = validationResult;
-    const blockNumber = block.blockNumber;
-    const logData = { ...block, reason };
+    const { reason, checkpoint } = validationResult;
+    const checkpointNumber = checkpoint.checkpointNumber;
+    const logData = { ...checkpoint, reason };
 
-    const currentBlockNumber = await this.rollupContract.getCheckpointNumber();
-    if (currentBlockNumber < validationResult.block.blockNumber) {
+    const currentCheckpointNumber = await this.rollupContract.getCheckpointNumber();
+    if (currentCheckpointNumber < checkpointNumber) {
       this.log.verbose(
-        `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
-        { currentBlockNumber, ...logData },
+        `Skipping checkpoint ${checkpointNumber} invalidation since it has already been removed from the pending chain`,
+        { currentCheckpointNumber, ...logData },
       );
       return undefined;
     }
 
-    const request = this.buildInvalidateBlockRequest(validationResult);
-    this.log.debug(`Simulating invalidate block ${blockNumber}`, { ...logData, request });
+    const request = this.buildInvalidateCheckpointRequest(validationResult);
+    this.log.debug(`Simulating invalidate checkpoint ${checkpointNumber}`, { ...logData, request });
 
     try {
       const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
-      this.log.verbose(`Simulation for invalidate block ${blockNumber} succeeded`, { ...logData, request, gasUsed });
+      this.log.verbose(`Simulation for invalidate checkpoint ${checkpointNumber} succeeded`, {
+        ...logData,
+        request,
+        gasUsed,
+      });
 
-      return { request, gasUsed, blockNumber, forcePendingBlockNumber: BlockNumber(blockNumber - 1), reason };
+      return {
+        request,
+        gasUsed,
+        checkpointNumber,
+        forcePendingCheckpointNumber: CheckpointNumber(checkpointNumber - 1),
+        reason,
+      };
     } catch (err) {
       const viemError = formatViemError(err);
 
-      // If the error is due to the block not being in the pending chain, and it was indeed removed by someone else,
-      // we can safely ignore it and return undefined so we go ahead with block building.
+      // If the error is due to the checkpoint not being in the pending chain, and it was indeed removed by someone else,
+      // we can safely ignore it and return undefined so we go ahead with checkpoint building.
       if (viemError.message?.includes('Rollup__BlockNotInPendingChain')) {
         this.log.verbose(
-          `Simulation for invalidate block ${blockNumber} failed due to block not being in pending chain`,
+          `Simulation for invalidate checkpoint ${checkpointNumber} failed due to checkpoint not being in pending chain`,
           { ...logData, request, error: viemError.message },
         );
-        const latestPendingBlockNumber = await this.rollupContract.getCheckpointNumber();
-        if (latestPendingBlockNumber < blockNumber) {
-          this.log.verbose(`Block number ${blockNumber} has already been invalidated`, { ...logData });
+        const latestPendingCheckpointNumber = await this.rollupContract.getCheckpointNumber();
+        if (latestPendingCheckpointNumber < checkpointNumber) {
+          this.log.verbose(`Checkpoint ${checkpointNumber} has already been invalidated`, { ...logData });
           return undefined;
         } else {
           this.log.error(
-            `Simulation for invalidate ${blockNumber} failed and it is still in pending chain`,
+            `Simulation for invalidate checkpoint ${checkpointNumber} failed and it is still in pending chain`,
             viemError,
             logData,
           );
-          throw new Error(`Failed to simulate invalidate block ${blockNumber} while it is still in pending chain`, {
-            cause: viemError,
-          });
+          throw new Error(
+            `Failed to simulate invalidate checkpoint ${checkpointNumber} while it is still in pending chain`,
+            {
+              cause: viemError,
+            },
+          );
         }
       }
 
-      // Otherwise, throw. We cannot build the next block if we cannot invalidate the previous one.
-      this.log.error(`Simulation for invalidate block ${blockNumber} failed`, viemError, logData);
-      throw new Error(`Failed to simulate invalidate block ${blockNumber}`, { cause: viemError });
+      // Otherwise, throw. We cannot build the next checkpoint if we cannot invalidate the previous one.
+      this.log.error(`Simulation for invalidate checkpoint ${checkpointNumber} failed`, viemError, logData);
+      throw new Error(`Failed to simulate invalidate checkpoint ${checkpointNumber}`, { cause: viemError });
     }
   }
 
-  private buildInvalidateBlockRequest(validationResult: ValidateBlockResult) {
+  private buildInvalidateCheckpointRequest(validationResult: ValidateCheckpointResult) {
     if (validationResult.valid) {
-      throw new Error('Cannot invalidate a valid block');
+      throw new Error('Cannot invalidate a valid checkpoint');
     }
 
-    const { block, committee, reason } = validationResult;
-    const logData = { ...block, reason };
-    this.log.debug(`Simulating invalidate block ${block.blockNumber}`, logData);
+    const { checkpoint, committee, reason } = validationResult;
+    const logData = { ...checkpoint, reason };
+    this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
     const attestationsAndSigners = new CommitteeAttestationsAndSigners(
       validationResult.attestations,
@@ -568,14 +581,14 @@ export class SequencerPublisher {
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
-        CheckpointNumber.fromBlockNumber(block.blockNumber),
+        checkpoint.checkpointNumber,
         attestationsAndSigners,
         committee,
         validationResult.invalidIndex,
       );
     } else if (reason === 'insufficient-attestations') {
       return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
-        CheckpointNumber.fromBlockNumber(block.blockNumber),
+        checkpoint.checkpointNumber,
         attestationsAndSigners,
         committee,
       );
@@ -585,45 +598,39 @@ export class SequencerPublisher {
     }
   }
 
-  /**
-   * @notice  Will simulate `propose` to make sure that the block is valid for submission
-   *
-   * @dev     Throws if unable to propose
-   *
-   * @param block - The block to propose
-   * @param attestationData - The block's attestation data
-   *
-   */
-  public async validateBlockForSubmission(
-    block: L2Block,
+  /** Simulates `propose` to make sure that the checkpoint is valid for submission */
+  @trackSpan('SequencerPublisher.validateCheckpointForSubmission')
+  public async validateCheckpointForSubmission(
+    checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingBlockNumber?: BlockNumber },
+    options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
+    // TODO(palla/mbps): This should not be needed, there's no flow where we propose with zero attestations. Or is there?
     // If we have no attestations, we still need to provide the empty attestations
     // so that the committee is recalculated correctly
-    const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
-    if (ignoreSignatures) {
-      const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
-      if (!committee) {
-        this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-        throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
-      }
-      attestationsAndSigners.attestations = committee.map(committeeMember =>
-        CommitteeAttestation.fromAddress(committeeMember),
-      );
-    }
+    // const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
+    // if (ignoreSignatures) {
+    //   const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber);
+    //   if (!committee) {
+    //     this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
+    //     throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber}`);
+    //   }
+    //   attestationsAndSigners.attestations = committee.map(committeeMember =>
+    //     CommitteeAttestation.fromAddress(committeeMember),
+    //   );
+    // }
 
-    const blobFields = block.getCheckpointBlobFields();
+    const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
     const blobInput = getPrefixedEthBlobCommitments(blobs);
 
     const args = [
       {
-        header: block.getCheckpointHeader().toViem(),
-        archive: toHex(block.archive.root.toBuffer()),
+        header: checkpoint.header.toViem(),
+        archive: toHex(checkpoint.archive.root.toBuffer()),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
@@ -661,7 +668,16 @@ export class SequencerPublisher {
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
+    if (roundInfo.quorumReached) {
+      return false;
+    }
+
     if (roundInfo.lastSignalSlot >= slotNumber) {
+      return false;
+    }
+
+    if (await this.isPayloadEmpty(payload)) {
+      this.log.warn(`Skipping vote cast for payload with empty code`);
       return false;
     }
 
@@ -707,14 +723,14 @@ export class SequencerPublisher {
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
           this.log.error(
-            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
+            `Signaling in ${action} for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
           this.lastActions[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
-            `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
+            `Signaling in ${action} for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
             logData,
           );
           return true;
@@ -722,6 +738,17 @@ export class SequencerPublisher {
       },
     });
     return true;
+  }
+
+  private async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
+    const key = payload.toString();
+    const cached = this.isPayloadEmptyCache.get(key);
+    if (cached) {
+      return cached;
+    }
+    const isEmpty = !(await this.l1TxUtils.getCode(payload));
+    this.isPayloadEmptyCache.set(key, isEmpty);
+    return isEmpty;
   }
 
   /**
@@ -871,27 +898,21 @@ export class SequencerPublisher {
     return true;
   }
 
-  /**
-   * Proposes a L2 block on L1.
-   *
-   * @param block - L2 block to propose.
-   * @returns True if the tx has been enqueued, throws otherwise. See #9315
-   */
-  public async enqueueProposeL2Block(
-    block: L2Block,
+  /** Simulates and enqueues a proposal for a checkpoint on L1 */
+  public async enqueueProposeCheckpoint(
+    checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
-  ): Promise<boolean> {
-    const checkpointHeader = block.getCheckpointHeader();
+    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+  ): Promise<void> {
+    const checkpointHeader = checkpoint.header;
 
-    const blobFields = block.getCheckpointBlobFields();
+    const blobFields = checkpoint.toBlobFields();
     const blobs = getBlobsPerL1Block(blobFields);
 
     const proposeTxArgs = {
       header: checkpointHeader,
-      archive: block.archive.root.toBuffer(),
-      body: block.body.toBuffer(),
+      archive: checkpoint.archive.root.toBuffer(),
       blobs,
       attestationsAndSigners,
       attestationsAndSignersSignature,
@@ -905,22 +926,29 @@ export class SequencerPublisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateBlockForSubmission(block, attestationsAndSigners, attestationsAndSignersSignature, opts);
+      ts = await this.validateCheckpointForSubmission(
+        checkpoint,
+        attestationsAndSigners,
+        attestationsAndSignersSignature,
+        opts,
+      );
     } catch (err: any) {
-      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
-        ...block.getStats(),
-        slotNumber: block.header.globalVariables.slotNumber,
-        forcePendingBlockNumber: opts.forcePendingBlockNumber,
+      this.log.error(`Checkpoint validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
+        ...checkpoint.getStats(),
+        slotNumber: checkpoint.header.slotNumber,
+        forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
       });
       throw err;
     }
 
-    this.log.verbose(`Enqueuing block propose transaction`, { ...block.toBlockInfo(), ...opts });
-    await this.addProposeTx(block, proposeTxArgs, opts, ts);
-    return true;
+    this.log.verbose(`Enqueuing checkpoint propose transaction`, { ...checkpoint.toCheckpointInfo(), ...opts });
+    await this.addProposeTx(checkpoint, proposeTxArgs, opts, ts);
   }
 
-  public enqueueInvalidateBlock(request: InvalidateBlockRequest | undefined, opts: { txTimeoutAt?: Date } = {}) {
+  public enqueueInvalidateCheckpoint(
+    request: InvalidateCheckpointRequest | undefined,
+    opts: { txTimeoutAt?: Date } = {},
+  ) {
     if (!request) {
       return;
     }
@@ -928,9 +956,9 @@ export class SequencerPublisher {
     // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
 
-    const { gasUsed, blockNumber } = request;
-    const logData = { gasUsed, blockNumber, gasLimit, opts };
-    this.log.verbose(`Enqueuing invalidate block request`, logData);
+    const { gasUsed, checkpointNumber } = request;
+    const logData = { gasUsed, checkpointNumber, gasLimit, opts };
+    this.log.verbose(`Enqueuing invalidate checkpoint request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
       request: request.request,
@@ -943,9 +971,9 @@ export class SequencerPublisher {
           result.receipt.status === 'success' &&
           tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointInvalidated');
         if (!success) {
-          this.log.warn(`Invalidate block ${request.blockNumber} failed`, { ...result, ...logData });
+          this.log.warn(`Invalidate checkpoint ${request.checkpointNumber} failed`, { ...result, ...logData });
         } else {
-          this.log.info(`Invalidate block ${request.blockNumber} succeeded`, { ...result, ...logData });
+          this.log.info(`Invalidate checkpoint ${request.checkpointNumber} succeeded`, { ...result, ...logData });
         }
         return !!success;
       },
@@ -1024,7 +1052,7 @@ export class SequencerPublisher {
   private async prepareProposeTx(
     encodedData: L1ProcessArgs,
     timestamp: bigint,
-    options: { forcePendingBlockNumber?: BlockNumber },
+    options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
@@ -1105,7 +1133,7 @@ export class SequencerPublisher {
       `0x${string}`,
     ],
     timestamp: bigint,
-    options: { forcePendingBlockNumber?: BlockNumber },
+    options: { forcePendingCheckpointNumber?: CheckpointNumber },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1114,13 +1142,9 @@ export class SequencerPublisher {
     });
 
     // override the pending checkpoint number if requested
-    const optsForcePendingCheckpointNumber =
-      options.forcePendingBlockNumber !== undefined
-        ? CheckpointNumber.fromBlockNumber(options.forcePendingBlockNumber)
-        : undefined;
     const forcePendingCheckpointNumberStateDiff = (
-      optsForcePendingCheckpointNumber !== undefined
-        ? await this.rollupContract.makePendingCheckpointNumberOverride(optsForcePendingCheckpointNumber)
+      options.forcePendingCheckpointNumber !== undefined
+        ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingCheckpointNumber)
         : []
     ).flatMap(override => override.stateDiff ?? []);
 
@@ -1182,11 +1206,12 @@ export class SequencerPublisher {
   }
 
   private async addProposeTx(
-    block: L2Block,
+    checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: BlockNumber } = {},
+    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
     timestamp: bigint,
   ): Promise<void> {
+    const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
@@ -1201,11 +1226,11 @@ export class SequencerPublisher {
         SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     );
 
-    // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
-    // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
+    // Send the blobs to the blob client preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
+    // tx fails but it does get mined. We make sure that the blobs are sent to the blob client regardless of the tx outcome.
     void Promise.resolve().then(() =>
-      this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
-        this.log.error('Failed to send blobs to blob sink');
+      this.blobClient.sendBlobsToFilestore(encodedData.blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob client');
       }),
     );
 
@@ -1215,7 +1240,7 @@ export class SequencerPublisher {
         to: this.rollupContract.address,
         data: rollupData,
       },
-      lastValidL2Slot: block.header.globalVariables.slotNumber,
+      lastValidL2Slot: checkpoint.header.slotNumber,
       gasConfig: { ...opts, gasLimit },
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
@@ -1230,11 +1255,12 @@ export class SequencerPublisher {
           receipt &&
           receipt.status === 'success' &&
           tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointProposed');
+
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
           const { calldataGas, calldataSize, sender } = stats!;
-          const publishStats: L1PublishBlockStats = {
+          const publishStats: L1PublishCheckpointStats = {
             gasPrice: receipt.effectiveGasPrice,
             gasUsed: receipt.gasUsed,
             blobGasUsed: receipt.blobGasUsed ?? 0n,
@@ -1243,23 +1269,26 @@ export class SequencerPublisher {
             calldataGas,
             calldataSize,
             sender,
-            ...block.getStats(),
+            ...checkpoint.getStats(),
             eventName: 'rollup-published-to-l1',
             blobCount: encodedData.blobs.length,
             inclusionBlocks,
           };
-          this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
+          this.log.info(`Published checkpoint ${checkpoint.number} at slot ${slot} to rollup contract`, {
+            ...stats,
+            ...checkpoint.getStats(),
+            ...pick(receipt, 'transactionHash', 'blockHash'),
+          });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
           return true;
         } else {
           this.metrics.recordFailedTx('process');
-          this.log.error(`Rollup process tx failed: ${errorMsg ?? 'no error message'}`, undefined, {
-            ...block.getStats(),
-            receipt,
-            txHash: receipt.transactionHash,
-            slotNumber: block.header.globalVariables.slotNumber,
-          });
+          this.log.error(
+            `Publishing checkpoint at slot ${slot} failed with ${errorMsg ?? 'no error message'}`,
+            undefined,
+            { ...checkpoint.getStats(), ...receipt },
+          );
           return false;
         }
       },

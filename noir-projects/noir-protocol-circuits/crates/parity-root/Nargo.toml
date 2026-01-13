@@ -5,5 +5,4 @@ authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
-parity_lib = { path = "../parity-lib" }
-types = { path = "../types" }
+rollup_lib = { path = "../rollup-lib" }

@@ -463,12 +463,12 @@ bool RegisterInfo::is_write(size_t index) const
 
 bool RegisterInfo::need_tag_check(size_t index) const
 {
-    return index < inputs.size() && inputs.at(index).has_value();
+    return index < inputs.size() && inputs[index].has_value();
 }
 
 std::optional<ValueTag> RegisterInfo::expected_tag(size_t index) const
 {
-    return index < inputs.size() ? inputs.at(index) : std::nullopt;
+    return index < inputs.size() ? inputs[index] : std::nullopt;
 }
 
 // Ordered to match ExecutionOpCode enum

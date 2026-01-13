@@ -100,9 +100,14 @@ class AvmFlavor {
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
+    // This formula must match the serialization in Transcript::serialize_full_transcript().
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
-        (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
-        MAX_AVM_TRACE_LOG_SIZE * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
+        NUM_WITNESS_ENTITIES * NUM_FRS_COM +                                    // witness commitments
+        NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations
+        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH + // sumcheck univariates
+        (MAX_AVM_TRACE_LOG_SIZE - 1) * NUM_FRS_COM +                            // gemini fold comms
+        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR +                                   // gemini fold evals
+        2 * NUM_FRS_COM;                                                        // shplonk + kzg
 
     static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
                   "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
@@ -221,20 +226,21 @@ class AvmFlavor {
         std::vector<FF> public_inputs;
     };
 
-    class VerificationKey
-        : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript, VKSerializationMode::NO_METADATA> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                                          typename Transcript::Codec,
+                                                          typename Transcript::HashFunction,
+                                                          void,
+                                                          VKSerializationMode::NO_METADATA> {
+        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                            typename Transcript::Codec,
+                                            typename Transcript::HashFunction,
+                                            void,
+                                            VKSerializationMode::NO_METADATA>;
+
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
         VerificationKey() = default;
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-        {
-            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
-            }
-        }
 
         VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
         {
@@ -244,12 +250,22 @@ class AvmFlavor {
             }
         }
 
+        // NOTE: This should not be used in production. You should use the fixed VK instead.
+        static VerificationKey from_proving_key(const ProvingKey& proving_key)
+        {
+            VerificationKey vk;
+            vk.log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
+            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
+                commitment = proving_key.commitment_key.commit(polynomial);
+            }
+            return vk;
+        }
+
         /**
          * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
          * the provided VK hash directly to the transcript.
          */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

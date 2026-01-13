@@ -264,6 +264,8 @@ SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leav
     AppendOnlyTreeSnapshot state_after = db.get_tree_roots().public_data_tree;
 
     SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
+    BB_ASSERT(!result.low_leaf_witness_data.empty(), "Expected non-empty low_leaf_witness_data after insertion");
+    BB_ASSERT(!result.insertion_witness_data.empty(), "Expected non-empty insertion_witness_data after insertion");
     SequentialInsertHint<PublicDataLeafValue> sequential_insert_hint = {
         .hint_key = tree_info,
         .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
@@ -286,6 +288,8 @@ SequentialInsertionResult<NullifierLeafValue> HintingRawDB::insert_indexed_leave
     auto state_after = db.get_tree_roots().nullifier_tree;
 
     SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
+    BB_ASSERT(!result.low_leaf_witness_data.empty(), "Expected non-empty low_leaf_witness_data after insertion");
+    BB_ASSERT(!result.insertion_witness_data.empty(), "Expected non-empty insertion_witness_data after insertion");
     SequentialInsertHint<NullifierLeafValue> sequential_insert_hint = {
         .hint_key = tree_info,
         .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,

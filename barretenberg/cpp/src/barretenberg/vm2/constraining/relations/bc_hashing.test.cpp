@@ -78,7 +78,7 @@ class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstra
             uint32_t pc_index = 0;
             auto bytecode_fields = all_bytecode_fields[j];
             auto bytecode_id = bytecode_ids[j];
-            bytecode_fields.insert(bytecode_fields.begin(), GENERATOR_INDEX__PUBLIC_BYTECODE);
+            bytecode_fields.insert(bytecode_fields.begin(), DOM_SEP__PUBLIC_BYTECODE);
             auto hash = poseidon2.hash(bytecode_fields);
             auto bytecode_field_at = [&bytecode_fields](size_t i) -> FF {
                 return i < bytecode_fields.size() ? bytecode_fields[i] : 0;
@@ -147,14 +147,14 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
         bytecode.insert(bytecode.end(), bytes.begin() + 1, bytes.end());
     }
 
-    auto hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_BYTECODE, 1, 2 });
+    auto hash = poseidon2.hash({ DOM_SEP__PUBLIC_BYTECODE, 1, 2 });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::bc_hashing_input_len, 3 },
             { C::bc_hashing_latch, 1 },
-            { C::bc_hashing_packed_fields_0, GENERATOR_INDEX__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
             { C::bc_hashing_packed_fields_1, 1 },
             { C::bc_hashing_packed_fields_2, 2 },
             { C::bc_hashing_pc_at_final_field, 31 },
@@ -211,7 +211,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, SingleBytecodeHashMax)
 {
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
     prepended_fields.insert(prepended_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
@@ -233,7 +233,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, MultipleBytecodeHash)
     std::vector<FF> hashes;
     for (uint32_t i = 0; i < all_bytecode.size(); i++) {
         all_bytecode_fields.push_back(simulation::encode_bytecode(all_bytecode[i]));
-        std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+        std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
         prepended_fields.insert(prepended_fields.end(), all_bytecode_fields[i].begin(), all_bytecode_fields[i].end());
         hashes.push_back(RawPoseidon2::hash(prepended_fields));
     }
@@ -260,7 +260,7 @@ TEST_F(BytecodeHashingConstrainingTest, BytecodeInteractions)
 
     std::vector<uint8_t> bytecode = random_bytes(123);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
@@ -359,7 +359,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
 
     std::vector<uint8_t> bytecode = random_bytes(150);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
@@ -448,7 +448,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     // 80 bytes => hash 4 fields, two padding fields
     std::vector<uint8_t> bytecode = random_bytes(80);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
-    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
@@ -546,7 +546,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeRounds)
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeOutputHash)
 {
     std::vector<FF> bytecode_fields = random_fields(10);
-    std::vector<FF> prepended_fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_fields = { DOM_SEP__PUBLIC_BYTECODE };
     prepended_fields.insert(prepended_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
     TestTraceContainer trace = process_bc_hashing_trace({ bytecode_fields }, { hash });
@@ -571,13 +571,13 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 3));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
-    auto bad_hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_BYTECODE, bytecode_fields[1], bytecode_fields[2] });
+    auto bad_hash = poseidon2.hash({ DOM_SEP__PUBLIC_BYTECODE, bytecode_fields[1], bytecode_fields[2] });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::bc_hashing_latch, 1 },
-            { C::bc_hashing_packed_fields_0, GENERATOR_INDEX__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
             { C::bc_hashing_packed_fields_1, bytecode_fields[1] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[2] },
             { C::bc_hashing_pc_at_final_field, 62 },
@@ -611,19 +611,14 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 3));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
-    auto bad_hash = poseidon2.hash({ 0xa,
-                                     0xb,
-                                     0xc,
-                                     GENERATOR_INDEX__PUBLIC_BYTECODE,
-                                     bytecode_fields[0],
-                                     bytecode_fields[1],
-                                     bytecode_fields[2] });
+    auto bad_hash = poseidon2.hash(
+        { 0xa, 0xb, 0xc, DOM_SEP__PUBLIC_BYTECODE, bytecode_fields[0], bytecode_fields[1], bytecode_fields[2] });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::bc_hashing_input_len, 7 },
-            { C::bc_hashing_packed_fields_0, GENERATOR_INDEX__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
             { C::bc_hashing_packed_fields_1, bytecode_fields[0] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[1] },
             { C::bc_hashing_pc_index_1, 0 },
@@ -679,7 +674,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 5));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
-    auto good_hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_BYTECODE,
+    auto good_hash = poseidon2.hash({ DOM_SEP__PUBLIC_BYTECODE,
                                       bytecode_fields[0],
                                       bytecode_fields[1],
                                       bytecode_fields[2],
@@ -691,7 +686,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
         { { C::precomputed_first_row, 1 } },
         {
             { C::bc_hashing_input_len, 6 },
-            { C::bc_hashing_packed_fields_0, GENERATOR_INDEX__PUBLIC_BYTECODE },
+            { C::bc_hashing_packed_fields_0, DOM_SEP__PUBLIC_BYTECODE },
             { C::bc_hashing_packed_fields_1, bytecode_fields[0] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[1] },
             { C::bc_hashing_pc_index_1, 0 },
@@ -742,5 +737,36 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
         "Failed.*CHECK_FINAL_BYTES_REMAINING. Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ID_PROPAGATION), "ID_PROPAGATION");
 }
+// =====================================================================
+// Ghost Row Injection Vulnerability Tests
+// =====================================================================
+// These tests verify that ghost rows (sel=0) cannot fire permutations.
+// The fix: sel_not_padding_1 * (1 - sel) = 0 and sel_not_padding_2 * (1 - sel) = 0
+// ensure these selectors are forced to 0 when sel=0.
+
+TEST_F(BytecodeHashingConstrainingTest, NegativeGhostRowInjectionBlocked)
+{
+    // Try to create a ghost row (sel=0) with sel_not_padding_1=1 or sel_not_padding_2=1
+    // which would fire the #[GET_PACKED_FIELD_1] or #[GET_PACKED_FIELD_2] permutations
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::bc_hashing_sel, 0 },               // Ghost row: gadget not active
+            { C::bc_hashing_sel_not_padding_1, 1 }, // Try to fire permutation anyway
+            { C::bc_hashing_sel_not_padding_2, 0 },
+        },
+    });
+
+    // The fix: sel_not_padding_1 * (1 - sel) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_1_REQUIRES_SEL");
+
+    // Reset and try with sel_not_padding_2
+    trace.set(C::bc_hashing_sel_not_padding_1, 1, 0);
+    trace.set(C::bc_hashing_sel_not_padding_2, 1, 1);
+
+    // The fix: sel_not_padding_2 * (1 - sel) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_2_REQUIRES_SEL");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

@@ -18,7 +18,7 @@ using simulation::Operand;
 TEST(SerializationTest, Not8RoundTrip)
 {
     const Instruction instr = { .opcode = WireOpCode::NOT_8,
-                                .indirect = 5,
+                                .addressing_mode = 5,
                                 .operands = { Operand::from<uint8_t>(123), Operand::from<uint8_t>(45) } };
     const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
@@ -29,7 +29,7 @@ TEST(SerializationTest, Add16RoundTrip)
 {
     const Instruction instr = {
         .opcode = WireOpCode::ADD_16,
-        .indirect = 3,
+        .addressing_mode = 3,
         .operands = { Operand::from<uint16_t>(1000), Operand::from<uint16_t>(1001), Operand::from<uint16_t>(1002) }
     };
     const auto decoded = deserialize_instruction(instr.serialize(), 0);
@@ -40,7 +40,7 @@ TEST(SerializationTest, Add16RoundTrip)
 TEST(SerializationTest, Jumpi32RoundTrip)
 {
     const Instruction instr = { .opcode = WireOpCode::JUMPI_32,
-                                .indirect = 7,
+                                .addressing_mode = 7,
                                 .operands = { Operand::from<uint16_t>(12345), Operand::from<uint32_t>(678901234) } };
     const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
@@ -52,7 +52,7 @@ TEST(SerializationTest, Set64RoundTrip)
     const uint64_t value_64 = 0xABCDEF0123456789LLU;
 
     const Instruction instr = { .opcode = WireOpCode::SET_64,
-                                .indirect = 2,
+                                .addressing_mode = 2,
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U64)),
                                               Operand::from<uint64_t>(value_64) } };
@@ -66,7 +66,7 @@ TEST(SerializationTest, Set128RoundTrip)
     const uint128_t value_128 = (uint128_t{ 0x123456789ABCDEF0LLU } << 64) + uint128_t{ 0xABCDEF0123456789LLU };
 
     const Instruction instr = { .opcode = WireOpCode::SET_128,
-                                .indirect = 2,
+                                .addressing_mode = 2,
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U128)),
                                               Operand::from<uint128_t>(value_128) } };
@@ -80,7 +80,7 @@ TEST(SerializationTest, SetFFRoundTrip)
     const FF large_ff = FF::modulus - 981723;
 
     const Instruction instr = { .opcode = WireOpCode::SET_FF,
-                                .indirect = 2,
+                                .addressing_mode = 2,
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::FF)),
                                               Operand::from<FF>(large_ff) } };
@@ -97,7 +97,7 @@ TEST(SerializationTest, DeserializeLargeFF)
 
     // We first serialize a "dummy" instruction and then substitute the immediate value encoded as the last 32 bytes.
     const Instruction instr = { .opcode = WireOpCode::SET_FF,
-                                .indirect = 0,
+                                .addressing_mode = 0,
                                 .operands = { Operand::from<uint16_t>(1002),
                                               Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U8)),
                                               Operand::from<FF>(FF::modulus - 1) } };
@@ -144,7 +144,7 @@ TEST(SerializationTest, InstructionOutOfRange)
 {
     // Create a valid SET_16 instruction
     Instruction instr = { .opcode = WireOpCode::SET_16,
-                          .indirect = 2,
+                          .addressing_mode = 2,
                           .operands = { Operand::from<uint16_t>(1002),
                                         Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U16)),
                                         Operand::from<uint16_t>(12345) } };
@@ -166,7 +166,7 @@ TEST(SerializationTest, InstructionOutOfRange)
 TEST(SerializationTest, CheckTagValid)
 {
     Instruction instr = { .opcode = WireOpCode::SET_128,
-                          .indirect = 2,
+                          .addressing_mode = 2,
                           .operands = { Operand::from<uint16_t>(1002),
                                         Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U128)),
                                         Operand::from<uint128_t>(12345) } };
@@ -177,7 +177,7 @@ TEST(SerializationTest, CheckTagValid)
 TEST(SerializationTest, CheckTagInvalid)
 {
     Instruction instr = { .opcode = WireOpCode::SET_128,
-                          .indirect = 2,
+                          .addressing_mode = 2,
                           .operands = { Operand::from<uint16_t>(1002),
                                         Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::MAX) + 1),
                                         Operand::from<uint128_t>(12345) } };
@@ -187,7 +187,9 @@ TEST(SerializationTest, CheckTagInvalid)
 // Testing check_tag with an invalid instruction for wire opcode SET_128, not enough operands
 TEST(SerializationTest, CheckTagInvalidNotEnoughOperands)
 {
-    Instruction instr = { .opcode = WireOpCode::SET_128, .indirect = 2, .operands = { Operand::from<uint16_t>(1002) } };
+    Instruction instr = { .opcode = WireOpCode::SET_128,
+                          .addressing_mode = 2,
+                          .operands = { Operand::from<uint16_t>(1002) } };
     EXPECT_FALSE(check_tag(instr));
 }
 
@@ -195,7 +197,7 @@ TEST(SerializationTest, CheckTagInvalidNotEnoughOperands)
 TEST(SerializationTest, CheckTagInvalidTagNotByte)
 {
     Instruction instr = { .opcode = WireOpCode::SET_128,
-                          .indirect = 2,
+                          .addressing_mode = 2,
                           .operands = { Operand::from<uint16_t>(1002),
                                         Operand::from<uint16_t>(static_cast<uint8_t>(MemoryTag::U128)),
                                         Operand::from<uint128_t>(12345) } };

@@ -1,6 +1,7 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { omit } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -10,9 +11,10 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockHash } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { SiloedTag } from '@aztec/stdlib/logs';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -25,7 +27,7 @@ import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
 import { PXE, type PackedPrivateEvent } from './pxe.js';
-import { PrivateEventDataProvider } from './storage/index.js';
+import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 
 describe('PXE', () => {
   let pxe: PXE;
@@ -153,14 +155,14 @@ describe('PXE', () => {
   // These tests are meant to quickly exercise PXE as a
   // frontier API so we don't need to rely on slower E2E
   // tests (which in turn are more meaningful for acceptance).
-  // For finer grained tests check out storage/private_event_data_provider.test.ts
+  // For finer grained tests check out storage/private_event_store.test.ts
   describe('getPrivateEvents', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;
     let lastKnownBlockNumber: BlockNumber;
     let l2BlockHash: L2BlockHash;
     let scope: AztecAddress;
-    let privateEventDataProvider: PrivateEventDataProvider;
+    let privateEventStore: PrivateEventStore;
     let eventIndex = 0;
 
     beforeEach(async () => {
@@ -174,13 +176,25 @@ describe('PXE', () => {
       });
       node.getBlockHeader.mockResolvedValue(blockHeader);
 
+      // Mock getL2Tips which is needed for syncing tagged logs
+      const tipId = {
+        block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: CheckpointNumber(lastKnownBlockNumber), hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      };
+      node.getL2Tips.mockResolvedValue({
+        proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpointed: tipId,
+        proven: tipId,
+        finalized: tipId,
+      });
+
       // This is read when PXE tries to resolve the
       // class id of a contract instance
       node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
       // on the input.
-      node.getLogsByTags.mockImplementation((tags: Fr[]) => Promise.resolve(tags.map(() => [])));
+      node.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
       // Necessary to sync contract private state
       await pxe.registerContractClass(TestContractArtifact);
@@ -197,7 +211,7 @@ describe('PXE', () => {
 
       scope = await AztecAddress.random();
 
-      privateEventDataProvider = new PrivateEventDataProvider(kvStore);
+      privateEventStore = new PrivateEventStore(kvStore);
     });
 
     async function storeEvent(blockNumber?: number): Promise<PackedPrivateEvent> {
@@ -209,7 +223,9 @@ describe('PXE', () => {
         eventSelector,
       };
 
-      await privateEventDataProvider.storePrivateEventLog(eventSelector, event.packedEvent, eventIndex++, {
+      const randomness = Fr.random();
+
+      await privateEventStore.storePrivateEventLog(eventSelector, randomness, event.packedEvent, eventIndex++, {
         contractAddress,
         scope,
         txHash: event.txHash,

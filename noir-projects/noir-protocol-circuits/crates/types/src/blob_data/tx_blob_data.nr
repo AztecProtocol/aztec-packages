@@ -4,10 +4,12 @@ use crate::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS, TX_START_PREFIX,
+        TX_START_PREFIX_BIT_SIZE,
     },
     traits::ToField,
 };
 use super::tx_effect::TxEffect;
+use std::static_assert;
 
 pub global MAX_TX_BLOB_DATA_SIZE_IN_FIELDS: u32 = 1 // tx start marker
     + 1 // tx hash
@@ -64,6 +66,22 @@ pub fn create_tx_start_marker(
     contract_class_log_length: u32, // Assumed to be a u16, checked on tail to be less than CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
     revert_code: u8,
 ) -> Field {
+    static_assert(
+        NUM_BLOB_FIELDS_BIT_SIZE
+            + REVERT_CODE_BIT_SIZE
+            + CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE
+            + PUBLIC_LOGS_LENGTH_BIT_SIZE
+            + PRIVATE_LOGS_LENGTH_BIT_SIZE
+            + NUM_PRIVATE_LOG_BIT_SIZE
+            + NUM_PUBLIC_DATA_WRITE_BIT_SIZE
+            + NUM_L2_TO_L1_MSG_BIT_SIZE
+            + NUM_NULLIFIER_BIT_SIZE
+            + NUM_NOTE_HASH_BIT_SIZE
+            + TX_START_PREFIX_BIT_SIZE
+            <= 253,
+        "These bit-sizes don't fit within a field anymore. Have you changed a constant?",
+    );
+
     let num_blob_fields_field = num_blob_fields as Field;
     num_blob_fields_field.assert_max_bit_size::<NUM_BLOB_FIELDS_BIT_SIZE>();
     let mut marker = num_blob_fields_field;
@@ -86,6 +104,9 @@ pub fn create_tx_start_marker(
     marker += public_logs_length_field * shift;
     shift *= (1 << PUBLIC_LOGS_LENGTH_BIT_SIZE as u64) as Field;
 
+    // This is the length of all private logs (concatenated) that will be inserted into the blob.
+    // Each private_log conveys its own `length` field; all such `length` fields are included in this
+    // private_logs_length value.
     let private_logs_length_field = private_logs_length as Field;
     private_logs_length_field.assert_max_bit_size::<PRIVATE_LOGS_LENGTH_BIT_SIZE>();
     marker += private_logs_length_field * shift;

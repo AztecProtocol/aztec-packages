@@ -74,9 +74,19 @@ App₀ → Kernel₀ → App₁ → Kernel₁ → ... → Appₙ → Reset → T
 
 ### Proof Structure
 
-A Chonk proof (`Chonk::Proof`) consists of:
+A Chonk proof (`ChonkProof_<IsRecursive>`) is a unified template structure that works for both native and recursive verification modes:
 
-1. **Mega proof**: ZK proof of the Hiding kernel which recursively verifies:
+```cpp
+template <bool IsRecursive>
+struct ChonkProof_ {
+    HonkProof mega_proof;      // MegaZK proof of Hiding kernel
+    GoblinProof goblin_proof;  // Goblin sub-proofs
+};
+```
+
+**Proof components:**
+
+1. **Mega proof** (MegaZK): ZK proof of the Hiding kernel which recursively verifies:
    - The final HyperNova folding proof
    - The decider proof
 
@@ -85,6 +95,19 @@ A Chonk proof (`Chonk::Proof`) consists of:
    - **ECCVM proof**: Proves correctness of EC operations (see [ECCVM README](../eccvm/README.md))
    - **IPA proof**: Inner product argument for ECCVM (Grumpkin curve)
    - **Translator proof**: Converts between BN254 and Grumpkin curves
+
+**Verification Architecture:**
+
+The Chonk verifier performs verification in stages:
+1. **MegaZK reduction**: Uses `MegaZKVerifier::reduce_to_pairing_check` to verify Hiding kernel
+2. **Goblin reduction**: Reduces Merge, ECCVM, and Translator to pairing checks and IPA verification
+3. **Pairing aggregation**: Aggregates 4 pairing point sets in a single operation using `aggregate_multiple`:
+   - Public Input (PI) pairing points from MegaZK
+   - Polynomial Commitment Scheme (PCS) pairing points from MegaZK
+   - Merge protocol pairing points
+   - Translator protocol pairing points
+4. **Native mode**: Immediately verifies aggregated pairing points and IPA claim
+5. **Recursive mode**: Returns `ChonkVerifier::ReductionResult` with aggregated pairing points and IPA claim for deferred verification
 
 **Note on deferred verification**: IPA claims and pairing points are propagated through the rollup:
 - **IPA claims** (Grumpkin): originate from ECCVM verification when Chonk or AVM proofs are recursively verified. Carried in `RollupIO` public inputs through tx_merge → block_merge → checkpoint_root → checkpoint_merge. At each level, claims from child proofs are accumulated via `IPA::accumulate`. Finally verified **in-circuit in the root rollup** via `IPA::full_verify_recursive`.
@@ -703,7 +726,7 @@ This chain ensures the op queue history is maintained correctly. The Merge proto
 
 ```cpp
 // In OinkVerifier::verify() (called by HypernovaFoldingVerifier for each instance)
-FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
 // All subsequent challenges now depend on this hash
 ```
@@ -765,10 +788,10 @@ The type indicates which proof is being verified BY the current kernel:
 
 ```cpp
 // Without public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
+size_t len = ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS();
 
 // With HidingKernelIO public inputs
-size_t len = Chonk::Proof::PROOF_LENGTH();
+size_t len = ChonkProof::PROOF_LENGTH();
 ```
 
 ### Serialization
@@ -776,15 +799,15 @@ size_t len = Chonk::Proof::PROOF_LENGTH();
 ```cpp
 // Proof to/from field elements
 std::vector<FF> fields = proof.to_field_elements();
-Chonk::Proof proof = Chonk::Proof::from_field_elements(fields);
+ChonkProof proof = ChonkProof::from_field_elements(fields);
 
 // Proof to/from msgpack
 msgpack::sbuffer buf = proof.to_msgpack_buffer();
-Chonk::Proof proof = Chonk::Proof::from_msgpack_buffer(buf);
+ChonkProof proof = ChonkProof::from_msgpack_buffer(buf);
 
 // Proof to/from file
 proof.to_file_msgpack("proof.bin");
-Chonk::Proof proof = Chonk::Proof::from_file_msgpack("proof.bin");
+ChonkProof proof = ChonkProof::from_file_msgpack("proof.bin");
 
 // VK serialization
 std::vector<bb::fr> fields = vk.to_field_elements();

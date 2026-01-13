@@ -11,15 +11,6 @@
 
 namespace bb::avm2::simulation {
 
-struct ContractInstanceNotFoundError : public std::runtime_error {
-    ContractInstanceNotFoundError(AztecAddress address, const std::string& message)
-        : std::runtime_error(message)
-        , address(address)
-    {}
-
-    AztecAddress address;
-};
-
 class ContractInstanceManager : public ContractInstanceManagerInterface {
   public:
     ContractInstanceManager(ContractDBInterface& contract_db,

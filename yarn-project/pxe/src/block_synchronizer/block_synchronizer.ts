@@ -1,13 +1,15 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../config/index.js';
-import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 /**
  * The BlockSynchronizer class orchestrates synchronization between PXE and Aztec node, maintaining an up-to-date
@@ -21,9 +23,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
   constructor(
     private node: AztecNode,
-    private anchorBlockDataProvider: AnchorBlockDataProvider,
-    private noteDataProvider: NoteDataProvider,
-    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
+    private store: AztecAsyncKVStore,
+    private anchorBlockStore: AnchorBlockStore,
+    private noteStore: NoteStore,
+    private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
     config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
@@ -50,33 +53,36 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const lastBlock = event.blocks.at(-1)!.block;
+        const lastBlock = event.blocks.at(-1)!;
         this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
           blockHash: lastBlock.hash(),
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.anchorBlockDataProvider.setHeader(lastBlock.getBlockHeader());
+        await this.anchorBlockStore.setHeader(lastBlock.header);
         break;
       }
       case 'chain-pruned': {
         this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
-        // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
-        const lastSynchedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
-        await this.noteDataProvider.rollbackNotesAndNullifiers(event.block.number, lastSynchedBlockNumber);
-        // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
-        // block number in which each index is used it's all we can do.
-        // Note: This is now unnecessary for the sender tagging data provider because the new algorithm handles reorgs.
-        // TODO(#17775): Once this issue is implemented we will have the index-block number mapping, so we can
-        // implement this more intelligently.
-        await this.recipientTaggingDataProvider.resetNoteSyncData();
-        // Update the header to the last block.
-        const newHeader = await this.node.getBlockHeader(event.block.number);
-        if (!newHeader) {
-          this.log.error(`Block header not found for block number ${event.block.number} during chain prune`);
-        } else {
-          await this.anchorBlockDataProvider.setHeader(newHeader);
+
+        const oldAnchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+        // Note that the following is not necessarily the anchor block that will be used in the transaction - if
+        // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
+        // forward.
+        const newAnchorBlockHeader = await this.node.getBlockHeaderByHash(Fr.fromString(event.block.hash));
+
+        if (!newAnchorBlockHeader) {
+          throw new Error(
+            `Block header for block number ${event.block.number} and hash ${event.block.hash} not found during chain prune. This likely indicates a bug in the node, as we receive block stream events and fetch block headers from the same node.`,
+          );
         }
+
+        // Operations are wrapped in a single transaction to ensure atomicity.
+        await this.store.transactionAsync(async () => {
+          await this.noteStore.rollback(event.block.number, oldAnchorBlockNumber);
+          await this.privateEventStore.rollback(event.block.number, oldAnchorBlockNumber);
+          await this.anchorBlockStore.setHeader(newAnchorBlockHeader);
+        });
         break;
       }
     }
@@ -112,13 +118,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = await this.anchorBlockDataProvider.getBlockHeader();
+      currentHeader = await this.anchorBlockStore.getBlockHeader();
     } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.anchorBlockDataProvider.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
+      await this.anchorBlockStore.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
     }
     await this.blockStream.sync();
   }

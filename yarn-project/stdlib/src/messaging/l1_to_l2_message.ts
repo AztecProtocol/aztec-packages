@@ -84,6 +84,7 @@ export async function getNonNullifiedL1ToL2MessageWitness(
   if (!response) {
     throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
   }
+
   const [messageIndex, siblingPath] = response;
 
   const messageNullifier = await computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);

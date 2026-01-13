@@ -17,16 +17,19 @@ void discardImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
     const auto execution_DYING_CONTEXT_DIFF = (in.get(C::execution_context_id) - in.get(C::execution_dying_context_id));
-    const auto execution_PROPAGATE_DISCARD = execution_NOT_LAST_EXEC *
-                                             (FF(1) - in.get(C::execution_enqueued_call_end)) *
-                                             (FF(1) - in.get(C::execution_resolves_dying_context)) *
-                                             (FF(1) - in.get(C::execution_nested_call_from_undiscarded_context));
+    const auto execution_RESOLVES_DYING_CONTEXT =
+        in.get(C::execution_sel_failure) * in.get(C::execution_is_dying_context);
+    const auto execution_NESTED_CALL_FROM_UNDISCARDED_CONTEXT =
+        in.get(C::execution_sel_enter_call) * (FF(1) - in.get(C::execution_discard));
+    const auto execution_PROPAGATE_DISCARD =
+        execution_NOT_LAST_EXEC * (FF(1) - in.get(C::execution_enqueued_call_end)) *
+        ((FF(1) - execution_RESOLVES_DYING_CONTEXT) - execution_NESTED_CALL_FROM_UNDISCARDED_CONTEXT);
 
     { // SEL_FAILURE
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::execution_sel_failure)) -
-                    (FF(1) - (FF(1) - static_cast<View>(in.get(C::execution_sel_error))) *
-                                 (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_revert)))));
+                    (static_cast<View>(in.get(C::execution_sel_error)) +
+                     static_cast<View>(in.get(C::execution_sel_execute_revert))));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
     {
@@ -67,56 +70,32 @@ void discardImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_is_dying_context)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    { // RESOLVES_DYING_CONTEXT
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_resolves_dying_context)) -
-                    static_cast<View>(in.get(C::execution_sel_failure)) *
-                        static_cast<View>(in.get(C::execution_is_dying_context)));
-        std::get<6>(evals) += (tmp * scaling_factor);
-    }
-    { // NESTED_CALL_FROM_UNDISCARDED_CONTEXT
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_nested_call_from_undiscarded_context)) -
-                    static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_discard))));
-        std::get<7>(evals) += (tmp * scaling_factor);
-    }
-    { // DISCARD_PROPAGATION
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = CView(execution_PROPAGATE_DISCARD) * (static_cast<View>(in.get(C::execution_discard_shift)) -
-                                                         static_cast<View>(in.get(C::execution_discard)));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
     { // DYING_CONTEXT_PROPAGATION
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp =
             CView(execution_PROPAGATE_DISCARD) * (static_cast<View>(in.get(C::execution_dying_context_id_shift)) -
                                                   static_cast<View>(in.get(C::execution_dying_context_id)));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<6>(evals) += (tmp * scaling_factor);
     }
     { // DYING_CONTEXT_MUST_FAIL
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_is_dying_context)) *
-                   static_cast<View>(in.get(C::execution_sel_exit_call)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_failure)));
-        std::get<10>(evals) += (tmp * scaling_factor);
+                   static_cast<View>(in.get(C::execution_sel_execute_return));
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_discard))) *
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_NESTED_CALL_FROM_UNDISCARDED_CONTEXT) *
                    static_cast<View>(in.get(C::execution_discard_shift)) *
                    (static_cast<View>(in.get(C::execution_context_id_shift)) -
                     static_cast<View>(in.get(C::execution_dying_context_id_shift)));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_failure)) *
-                   static_cast<View>(in.get(C::execution_is_dying_context)) *
-                   static_cast<View>(in.get(C::execution_has_parent_ctx)) *
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = CView(execution_RESOLVES_DYING_CONTEXT) * static_cast<View>(in.get(C::execution_has_parent_ctx)) *
                    static_cast<View>(in.get(C::execution_discard_shift));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
 }
 

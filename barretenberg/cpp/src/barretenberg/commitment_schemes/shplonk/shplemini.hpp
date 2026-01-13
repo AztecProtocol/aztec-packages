@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -33,7 +33,7 @@ template <typename Curve> class ShpleminiProver_ {
     using PolynomialBatcher = GeminiProver::PolynomialBatcher;
 
     template <typename Transcript>
-    static OpeningClaim prove(const FF circuit_size,
+    static OpeningClaim prove(size_t circuit_size,
                               PolynomialBatcher& polynomial_batcher,
                               std::span<FF> multilinear_challenge,
                               const CommitmentKey<Curve>& commitment_key,
@@ -110,7 +110,7 @@ template <typename Curve> class ShpleminiProver_ {
      *
      */
     static std::vector<OpeningClaim> compute_sumcheck_round_claims(
-        const FF circuit_size,
+        size_t circuit_size,
         std::span<FF> multilinear_challenge,
         const std::vector<Polynomial>& sumcheck_round_univariates,
         const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations)
@@ -118,7 +118,7 @@ template <typename Curve> class ShpleminiProver_ {
         OpeningClaim new_claim;
         std::vector<OpeningClaim> sumcheck_round_claims = {};
 
-        const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+        const size_t log_n = numeric::get_msb(circuit_size);
         for (size_t idx = 0; idx < log_n; idx++) {
             const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
             size_t eval_idx = 0;
@@ -135,6 +135,7 @@ template <typename Curve> class ShpleminiProver_ {
         return sumcheck_round_claims;
     }
 };
+
 /**
  * \brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
  *

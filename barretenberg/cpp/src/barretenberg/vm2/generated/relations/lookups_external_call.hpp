@@ -11,56 +11,56 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_external_call_call_is_l2_gas_allocated_lt_left ///////////////////
+/////////////////// lookup_external_call_is_l2_gas_left_gt_allocated ///////////////////
 
-struct lookup_external_call_call_is_l2_gas_allocated_lt_left_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EXTERNAL_CALL_CALL_IS_L2_GAS_ALLOCATED_LT_LEFT";
+struct lookup_external_call_is_l2_gas_left_gt_allocated_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXTERNAL_CALL_IS_L2_GAS_LEFT_GT_ALLOCATED";
     static constexpr std::string_view RELATION_NAME = "external_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
     static constexpr Column DST_SELECTOR = Column::gt_sel_others;
-    static constexpr Column COUNTS = Column::lookup_external_call_call_is_l2_gas_allocated_lt_left_counts;
-    static constexpr Column INVERSES = Column::lookup_external_call_call_is_l2_gas_allocated_lt_left_inv;
+    static constexpr Column COUNTS = Column::lookup_external_call_is_l2_gas_left_gt_allocated_counts;
+    static constexpr Column INVERSES = Column::lookup_external_call_is_l2_gas_left_gt_allocated_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_l2_gas_left,
         ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_call_is_l2_gas_allocated_lt_left
+        ColumnAndShifts::execution_is_l2_gas_left_gt_allocated
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
                                                                                     ColumnAndShifts::gt_res };
 };
 
-using lookup_external_call_call_is_l2_gas_allocated_lt_left_settings =
-    lookup_settings<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings_>;
+using lookup_external_call_is_l2_gas_left_gt_allocated_settings =
+    lookup_settings<lookup_external_call_is_l2_gas_left_gt_allocated_settings_>;
 template <typename FF_>
-using lookup_external_call_call_is_l2_gas_allocated_lt_left_relation =
-    lookup_relation_base<FF_, lookup_external_call_call_is_l2_gas_allocated_lt_left_settings>;
+using lookup_external_call_is_l2_gas_left_gt_allocated_relation =
+    lookup_relation_base<FF_, lookup_external_call_is_l2_gas_left_gt_allocated_settings>;
 
-/////////////////// lookup_external_call_call_is_da_gas_allocated_lt_left ///////////////////
+/////////////////// lookup_external_call_is_da_gas_left_gt_allocated ///////////////////
 
-struct lookup_external_call_call_is_da_gas_allocated_lt_left_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EXTERNAL_CALL_CALL_IS_DA_GAS_ALLOCATED_LT_LEFT";
+struct lookup_external_call_is_da_gas_left_gt_allocated_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXTERNAL_CALL_IS_DA_GAS_LEFT_GT_ALLOCATED";
     static constexpr std::string_view RELATION_NAME = "external_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
     static constexpr Column DST_SELECTOR = Column::gt_sel_others;
-    static constexpr Column COUNTS = Column::lookup_external_call_call_is_da_gas_allocated_lt_left_counts;
-    static constexpr Column INVERSES = Column::lookup_external_call_call_is_da_gas_allocated_lt_left_inv;
+    static constexpr Column COUNTS = Column::lookup_external_call_is_da_gas_left_gt_allocated_counts;
+    static constexpr Column INVERSES = Column::lookup_external_call_is_da_gas_left_gt_allocated_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_da_gas_left,
         ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_call_is_da_gas_allocated_lt_left
+        ColumnAndShifts::execution_is_da_gas_left_gt_allocated
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
                                                                                     ColumnAndShifts::gt_res };
 };
 
-using lookup_external_call_call_is_da_gas_allocated_lt_left_settings =
-    lookup_settings<lookup_external_call_call_is_da_gas_allocated_lt_left_settings_>;
+using lookup_external_call_is_da_gas_left_gt_allocated_settings =
+    lookup_settings<lookup_external_call_is_da_gas_left_gt_allocated_settings_>;
 template <typename FF_>
-using lookup_external_call_call_is_da_gas_allocated_lt_left_relation =
-    lookup_relation_base<FF_, lookup_external_call_call_is_da_gas_allocated_lt_left_settings>;
+using lookup_external_call_is_da_gas_left_gt_allocated_relation =
+    lookup_relation_base<FF_, lookup_external_call_is_da_gas_left_gt_allocated_settings>;
 
 } // namespace bb::avm2

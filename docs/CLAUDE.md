@@ -27,7 +27,8 @@ The documentation uses a **preprocessing system** that:
 
 - Pulls code from source files using `#include_code` macros
 - Generates auto-documentation from TypeScript/JavaScript sources
-- Processes macros like `#include_aztec_version` and `#include_testnet_version`
+- Processes version macros (`#release_version`, `#release_network`, `#include_aztec_version`, etc.)
+- Processes conditional content blocks (`#if`/`#elif`/`#else`/`#endif`)
 - Outputs to `processed-docs/` folder (used only in production builds)
 
 For development:
@@ -35,6 +36,52 @@ For development:
 - `yarn preprocess` - Run preprocessing manually (uses dotenv for configuration)
 - `yarn start` - Runs preprocessing once at startup and serves from source directories
 - **Important**: Hot reloading is NOT available - you must restart the dev server to see changes
+
+### Preprocessing Environment Variables
+
+The preprocessing system uses these environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RELEASE_TYPE` | Release type: `nightly`, `devnet`, `testnet`, `mainnet`, `ignition` | `nightly` |
+| `NIGHTLY_TAG` | Version for nightly builds (falls back to `COMMIT_TAG`) | `0.0.0-nightly.0` |
+| `DEVNET_TAG` | Version for devnet builds | `3.0.0-devnet.5` |
+| `TESTNET_TAG` | Version for testnet builds | `2.1.9` |
+| `MAINNET_TAG` | Version for mainnet/ignition builds | `2.1.9` |
+| `COMMIT_TAG` | Legacy variable, used as fallback for `NIGHTLY_TAG` | `next` |
+
+### Preprocessing Macros
+
+**Release-type-aware macros:**
+- `#release_version` - Resolves to the version for the current `RELEASE_TYPE`:
+  - `nightly` → `NIGHTLY_TAG`, `devnet` → `DEVNET_TAG`, `testnet` → `TESTNET_TAG`, `mainnet`/`ignition` → `MAINNET_TAG`
+- `#release_network` - Resolves to the network name for CLI `--network` flag:
+  - `nightly` → `local-network`, `devnet` → `devnet`, `testnet` → `testnet`, `mainnet`/`ignition` → `mainnet`
+
+**Legacy macros:**
+- `#include_aztec_version` - Uses `COMMIT_TAG`
+- `#include_devnet_version`, `#include_testnet_version`, `#include_mainnet_version` - Version-specific macros
+
+### Conditional Content
+
+Use conditional blocks to show content only for specific release types:
+
+```markdown
+#if(devnet)
+Content for devnet docs
+#elif(testnet)
+Content for testnet docs
+#else
+Default content
+#endif
+```
+
+**Supported conditions** (matching `RELEASE_TYPE` values): `nightly`, `devnet`, `testnet`, `mainnet`, `ignition`
+
+**Notes:**
+- Conditional blocks are processed before version macro substitution (so you can use version macros inside conditionals)
+- Nested conditionals are not supported
+- The `#else` block is optional
 
 ## Documentation Architecture
 
@@ -67,7 +114,7 @@ Uses Docusaurus multi-instance versioning with separate version tracks:
 - **Developer docs**: Versions in `developer_versions.json`, stored in `developer_versioned_docs/`
 - **Network docs**: Versions in `network_versions.json`, stored in `network_versioned_docs/`
 - Each docs instance has its own version dropdown in the navbar
-- Macros (`#include_code`, `#include_aztec_version`, etc.) only work in source folders, not in versioned copies
+- Preprocessing macros (`#include_code`, `#release_version`, conditionals, etc.) only work in source folders, not in versioned copies
 - Create new versions with: `yarn docusaurus docs:version:<instance-id> <version>`
 
 ## Documentation Review Standards
@@ -141,6 +188,7 @@ Use these terms consistently throughout:
 
 - **[Aztec Protocol]** - Always capitalize and use full name on first mention
 - **[PXE]** - Always capitalize and use full name (Private eXecution Environment) on first mention
+- **Wallet vs Account** - Never use `wallet.address`. A wallet is software that holds multiple accounts; accounts have addresses, not wallets. Use `account.address`, `sender.address`, `alice.address`, etc. instead
 
 ### Formatting Conventions
 
@@ -255,5 +303,5 @@ Approved external documentation sources:
 - Flag any content that might need subject matter expert review
 - Suggest improvements even if they go beyond pure editing
 
-Last updated: 2025-15-08
-Version: 1.1
+Last updated: 2025-12-24
+Version: 1.2

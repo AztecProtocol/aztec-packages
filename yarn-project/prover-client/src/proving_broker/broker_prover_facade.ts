@@ -6,13 +6,11 @@ import type {
 } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
-  type ProofAndVerificationKey,
   type ProofUri,
   type ProvingJobId,
   type ProvingJobInputsMap,
@@ -24,7 +22,7 @@ import {
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { ProvingRequestType, RecursiveProof } from '@aztec/stdlib/proofs';
 import type {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
@@ -398,24 +396,16 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
   getAvmProof(
     inputs: AvmCircuitInputs,
-    skipPublicInputsValidation?: boolean, // TODO(#14234)[Unconditional PIs validation]: remove this argument
     signal?: AbortSignal,
     epochNumber?: EpochNumber,
-  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    this.log.info(`getAvmProof() called with skipPublicInputsValidation: ${skipPublicInputsValidation}`);
-
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,
       inputs,
       epochNumber,
       signal,
-    ).then(result => {
-      // TODO(#14234)[Unconditional PIs validation]: Remove ".then()".
-      // Override the default value of skipPublicInputsValidation potentially set in BBNativeRollupProver.getAvmProof().
-      result.proof.proof[0] = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
-      return result;
-    });
+    );
   }
 
   getBaseParityProof(

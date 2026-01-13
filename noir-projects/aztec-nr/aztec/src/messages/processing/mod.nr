@@ -9,10 +9,8 @@ use crate::{
     capsules::CapsuleArray,
     event::event_selector::EventSelector,
     messages::{
-        discovery::{
-            partial_notes::DeliveredPendingPartialNote, private_events::MAX_EVENT_SERIALIZED_LEN,
-            private_notes::MAX_NOTE_PACKED_LEN,
-        },
+        discovery::partial_notes::DeliveredPendingPartialNote,
+        logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest,
             log_retrieval_response::LogRetrievalResponse,
@@ -116,6 +114,7 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
 pub(crate) unconstrained fn enqueue_event_for_validation(
     contract_address: AztecAddress,
     event_type_id: EventSelector,
+    randomness: Field,
     serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
     event_commitment: Field,
     tx_hash: Field,
@@ -127,6 +126,7 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
         EventValidationRequest {
             contract_address,
             event_type_id,
+            randomness,
             serialized_event,
             event_commitment,
             tx_hash,

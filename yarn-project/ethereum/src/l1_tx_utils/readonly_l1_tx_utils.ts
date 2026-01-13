@@ -1,4 +1,5 @@
 import { getKeys, merge, pick, times } from '@aztec/foundation/collection';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -11,6 +12,7 @@ import {
   type BaseError,
   type BlockOverrides,
   type ContractFunctionExecutionError,
+  type GetCodeReturnType,
   type Hex,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
@@ -67,6 +69,10 @@ export class ReadOnlyL1TxUtils {
     return this.client.getBlockNumber();
   }
 
+  public getCode(address: EthAddress): Promise<GetCodeReturnType> {
+    return this.client.getCode({ address: address.toString() });
+  }
+
   /**
    * Gets the current gas price with bounds checking
    */
@@ -78,63 +84,31 @@ export class ReadOnlyL1TxUtils {
   ): Promise<GasPrice> {
     const gasConfig = merge(this.config, gasConfigOverrides);
 
-    // Make all RPC calls in parallel upfront with retry logic
-    // First 2 calls are necessary to complete
-    const latestBlockPromise = this.tryTwice(
-      () => this.client.getBlock({ blockTag: 'latest' }),
-      'Getting latest block',
+    // Execute strategy - it handles all RPC calls internally and returns everything we need
+    const strategyResult = await retry(
+      () =>
+        CurrentStrategy.execute(this.client, {
+          gasConfig,
+          isBlobTx,
+          logger: this.logger,
+        }),
+      'Executing priority fee strategy',
+      makeBackoff(times(2, () => 0)),
+      this.logger,
+      true,
     );
 
-    let blobBaseFeePromise = null;
-    if (isBlobTx) {
-      blobBaseFeePromise = this.tryTwice(() => this.client.getBlobBaseFee(), 'Getting blob base fee');
-    }
+    const { latestBlock, blobBaseFee, priorityFee: strategyPriorityFee } = strategyResult;
 
-    // Get strategy promises for priority fee calculation
-    const strategyPromises = CurrentStrategy.getRequiredPromises(this.client, { isBlobTx });
-    const strategyPromiseKeys = [];
-    const strategyPromisesArr = [];
-    for (const [key, promise] of Object.entries(strategyPromises)) {
-      strategyPromiseKeys.push(key);
-      strategyPromisesArr.push(this.tryTwice(() => promise, `Getting strategy data for ${key}`));
-    }
+    // Extract base fee from latest block
+    const baseFee = latestBlock.baseFeePerGas ?? 0n;
 
-    const [latestBlockResult, blobBaseFeeResult, ...strategyResults] = await Promise.allSettled([
-      latestBlockPromise,
-      blobBaseFeePromise ?? Promise.resolve(0n),
-      ...strategyPromisesArr,
-    ]);
-
-    // Extract results
-    const baseFee =
-      latestBlockResult.status === 'fulfilled' &&
-      typeof latestBlockResult.value === 'object' &&
-      latestBlockResult.value.baseFeePerGas
-        ? latestBlockResult.value.baseFeePerGas
-        : 0n;
-
-    // Get blob base fee if available
-    let blobBaseFee = 0n;
-    if (isBlobTx && blobBaseFeeResult.status === 'fulfilled' && typeof blobBaseFeeResult.value === 'bigint') {
-      blobBaseFee = blobBaseFeeResult.value;
-    } else if (isBlobTx) {
+    // Handle blob base fee
+    if (isBlobTx && blobBaseFee === undefined) {
       this.logger?.warn('Failed to get L1 blob base fee', attempt);
     }
 
-    let priorityFee: bigint;
-    // Get competitive priority fee using strategy
-    // Reconstruct the results object with the same keys as the promises
-    const resultsObject: Record<string, PromiseSettledResult<unknown>> = {};
-    strategyPromiseKeys.forEach((key, index) => {
-      resultsObject[key] = strategyResults[index];
-    });
-
-    const result = CurrentStrategy.calculate(resultsObject as any, {
-      gasConfig,
-      isBlobTx,
-      logger: this.logger,
-    });
-    priorityFee = result.priorityFee;
+    let priorityFee = strategyPriorityFee;
 
     // Apply minimum priority fee floor if configured
     if (gasConfig.minimumPriorityFeePerGas) {
@@ -150,7 +124,7 @@ export class ReadOnlyL1TxUtils {
     }
     let maxFeePerGas = baseFee;
 
-    let maxFeePerBlobGas = blobBaseFee;
+    let maxFeePerBlobGas = blobBaseFee ?? 0n;
 
     // Bump base fee so it's valid for next blocks if it stalls
     const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
@@ -244,7 +218,7 @@ export class ReadOnlyL1TxUtils {
         baseFee: formatGwei(baseFee),
         maxFeePerGas: formatGwei(maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
-        blobBaseFee: formatGwei(blobBaseFee),
+        blobBaseFee: formatGwei(blobBaseFee ?? 0n),
         maxFeePerBlobGas: formatGwei(maxFeePerBlobGas),
       },
     );
@@ -276,11 +250,17 @@ export class ReadOnlyL1TxUtils {
         ..._blobInputs,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         gas: LARGE_GAS_LIMIT,
+        blockTag: 'latest',
       });
 
       this.logger?.trace(`Estimated gas for blob tx: ${initialEstimate}`);
     } else {
-      initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
+      initialEstimate = await this.client.estimateGas({
+        account,
+        ...request,
+        gas: LARGE_GAS_LIMIT,
+        blockTag: 'latest',
+      });
       this.logger?.trace(`Estimated gas for non-blob tx: ${initialEstimate}`);
     }
 
@@ -435,12 +415,5 @@ export class ReadOnlyL1TxUtils {
       bumpedGasLimit,
     });
     return bumpedGasLimit;
-  }
-
-  /**
-   * Helper function to retry RPC calls twice
-   */
-  private tryTwice<T>(fn: () => Promise<T>, description: string): Promise<T> {
-    return retry<T>(fn, description, makeBackoff(times(2, () => 0)), this.logger, true);
   }
 }

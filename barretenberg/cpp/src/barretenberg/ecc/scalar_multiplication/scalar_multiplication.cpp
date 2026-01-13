@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
@@ -749,7 +749,8 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  *          This is because this method will be able to dispatch equal work to all threads without splitting the input
  *          msms up so much.
  *          The Pippenger algorithm runtime is O(N/log(N)) so there will be slight gains as each inner-thread MSM will
- *          have a larger N
+ *          have a larger N.
+ *          The input scalars are not const because the algorithm converts them out of Montgomery form and then back.
  *
  * @tparam Curve
  * @param points

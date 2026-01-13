@@ -23,7 +23,7 @@
     "aztec",
     "bb-prover",
     "blob-lib",
-    "blob-sink",
+    "blob-client",
     "bot",
     "builder",
     "cli-wallet",
@@ -61,6 +61,7 @@
     "txe",
     "test-wallet",
     "validator-client",
+    "validator-ha-signer",
     "wallet-sdk",
     "world-state"
   ],

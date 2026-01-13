@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -11,7 +11,6 @@
 
 #include "arithmetic_constraints.hpp"
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -33,7 +32,6 @@
 
 namespace acir_format {
 
-using QuadConstraints = mul_quad_<fr>;
 using WitnessVector = std::vector<bb::fr>;
 
 /**
@@ -103,12 +101,8 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-    std::vector<QuadConstraints> quad_constraints; // Standard honk arithmetic constraint of width 4
-    // A vector of vector of QuadConstraints gates (i.e arithmetic constraints of width 4)
-    // Each vector of gates represente a 'big' expression (a polynomial of degree 1 or 2 which does not fit inside one
-    // mul_gate) that has been split into multiple mul_gates, using w4_shift (the 4th wire of the next gate), to
-    // reduce the number of intermediate variables.
-    std::vector<std::vector<QuadConstraints>> big_quad_constraints;
+    std::vector<QuadConstraint> quad_constraints;
+    std::vector<BigQuadConstraint> big_quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -117,28 +111,6 @@ struct AcirFormat {
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
-
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(public_inputs,
-                   logic_constraints,
-                   range_constraints,
-                   aes128_constraints,
-                   sha256_compression,
-                   ecdsa_k1_constraints,
-                   ecdsa_r1_constraints,
-                   blake2s_constraints,
-                   blake3_constraints,
-                   keccak_permutations,
-                   poseidon2_constraints,
-                   multi_scalar_mul_constraints,
-                   ec_add_constraints,
-                   honk_recursion_constraints,
-                   avm_recursion_constraints,
-                   hn_recursion_constraints,
-                   chonk_recursion_constraints,
-                   quad_constraints,
-                   big_quad_constraints,
-                   block_constraints);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };

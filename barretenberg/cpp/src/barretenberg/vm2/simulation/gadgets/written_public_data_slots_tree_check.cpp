@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
@@ -7,7 +8,7 @@ namespace bb::avm2::simulation {
 
 FF WrittenPublicDataSlotsTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
-    return poseidon2.hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
+    return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_INDEX, contract_address, slot });
 }
 
 void WrittenPublicDataSlotsTreeCheck::validate_low_leaf_jumps_over_slot(
@@ -99,7 +100,8 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
             .root = write_root,
             .next_available_leaf_index = prev_snapshot.next_available_leaf_index + 1,
         };
-        assert(next_snapshot == tree.get_snapshot());
+        // This will throw an unexpected exception if it fails.
+        BB_ASSERT_EQ(next_snapshot, tree.get_snapshot(), "Next snapshot mismatch");
         append_data = SlotAppendData{
             .updated_low_leaf_hash = updated_low_leaf_hash,
             .new_leaf_hash = new_leaf_hash,

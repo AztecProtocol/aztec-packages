@@ -26,14 +26,14 @@ export async function sequencers(opts: {
   const chain = createEthereumChain(l1RpcUrls, chainId);
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(l1RpcUrls.map(url => http(url))),
+    transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
   });
 
   const walletClient = mnemonic
     ? createWalletClient({
         account: mnemonicToAccount(mnemonic),
         chain: chain.chainInfo,
-        transport: fallback(l1RpcUrls.map(url => http(url))),
+        transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
       })
     : undefined;
 
@@ -66,8 +66,9 @@ export async function sequencers(opts: {
 
     log(`Adding ${who} as sequencer`);
 
+    const stakingAssetAddress = await rollup.getStakingAsset();
     const stakingAsset = getContract({
-      address: await rollup.getStakingAsset(),
+      address: stakingAssetAddress.toString(),
       abi: TestERC20Abi,
       client: walletClient,
     });

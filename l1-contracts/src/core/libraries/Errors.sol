@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Status, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
@@ -43,12 +44,9 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
-  error Outbox__RootAlreadySetAtCheckpoint(uint256 checkpointNumber); // 0x6eb83cef
   error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
-  error Outbox__AlreadyNullified(uint256 checkpointNumber, uint256 leafIndex); // 0xfd71c2d4
-  error Outbox__NothingToConsumeAtCheckpoint(uint256 checkpointNumber); // 0x0279277d
-  error Outbox__CheckpointNotProven(uint256 checkpointNumber); // 0x104bcfc1
-  error Outbox__CheckpointAlreadyProven(uint256 checkpointNumber);
+  error Outbox__AlreadyNullified(Epoch epoch, uint256 leafIndex); // 0xfd71c2d4
+  error Outbox__NothingToConsumeAtEpoch(Epoch epoch); // 0x5e3d32ce
   error Outbox__PathTooLong();
   error Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength);
 
@@ -79,7 +77,7 @@ library Errors {
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
-  error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
+  error Rollup__InvalidManaMinFee(uint256 expected, uint256 actual); // 0x73b6d896
   error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end); // 0xb64ec33e
   error Rollup__StartIsNotFirstCheckpointOfEpoch(); // 0x19ceb206
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
@@ -97,6 +95,19 @@ library Errors {
     uint256 checkpointNumber, uint256 pendingCheckpointNumber, uint256 upperLimit
   );
   error Rollup__NoBlobsInCheckpoint();
+  error Rollup__CannotInvalidateEscapeHatch();
+  error Rollup__InvalidEscapeHatchProposer(address expected, address actual);
+
+  // EscapeHatch
+  error EscapeHatch__AlreadyInCandidateSet(address candidate);
+  error EscapeHatch__NotInCandidateSet(address candidate);
+  error EscapeHatch__InvalidStatus(Status expected, Status actual);
+  error EscapeHatch__NotExitableYet(uint256 exitableAt, uint256 currentTime);
+  error EscapeHatch__OnlyRollup(address caller, address rollup);
+  error EscapeHatch__NoDesignatedProposer(Hatch hatch);
+  error EscapeHatch__InvalidConfiguration();
+  error EscapeHatch__SetUnstable(Hatch hatch);
+  error EscapeHatch__AlreadyValidated(Hatch hatch);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

@@ -1,8 +1,8 @@
 #include "arithmetic_constraints.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 
@@ -39,7 +39,7 @@ class ArithmeticConstraintsTestingFunctions {
     using Builder = Builder_;
     using AcirConstraint = AcirConstraint_;
 
-    static constexpr bool IS_BIG_QUAD = std::is_same_v<AcirConstraint, std::vector<mul_quad_<typename Builder::FF>>>;
+    static constexpr bool IS_BIG_QUAD = std::is_same_v<AcirConstraint, BigQuadConstraint>;
 
     /**
      * @brief Compute the number of elements to overlap between multiplication and linear terms
@@ -136,7 +136,9 @@ class ArithmeticConstraintsTestingFunctions {
         return result;
     }
 
-    void generate_constraints(AcirConstraint& arithmetic_constraint, WitnessVector& witness_values)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& arithmetic_constraint, WitnessVector& witness_values)
     {
         // (scalar, (lhs_index, lhs_value), (rhs_index, rhs_value))
         std::vector<std::tuple<bb::fr, std::pair<uint32_t, bb::fr>, std::pair<uint32_t, bb::fr>>> mul_terms;
@@ -238,9 +240,10 @@ class ArithmeticConstraintsTestingFunctions {
         }
     }
 
-    void invalidate_witness(AcirConstraint& constraint,
-                            WitnessVector& witness_values,
-                            const typename InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint constraint,
+        WitnessVector witness_values,
+        const typename InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -264,6 +267,8 @@ class ArithmeticConstraintsTestingFunctions {
             break;
         }
         };
+
+        return { constraint, witness_values };
     };
 };
 
@@ -280,7 +285,6 @@ class BigQuadConstraintTest
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 
-using BigQuadConstraint = std::vector<mul_quad_<bb::fr>>;
 using BigQuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, BigQuadConstraint, 1, 3, false, false>, // Minimal cases
                                                                                             // requiring 2 gates
@@ -330,7 +334,6 @@ class QuadConstraintTest
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 
-using QuadConstraint = mul_quad_<bb::fr>;
 using QuadConstraintConfigs = testing::Types<
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 0, false, false>,
     ArithmeticConstraintParams<UltraCircuitBuilder, QuadConstraint, 1, 1, false, false>,
@@ -359,4 +362,27 @@ TYPED_TEST(QuadConstraintTest, GenerateVKFromConstraints)
 TYPED_TEST(QuadConstraintTest, Tampering)
 {
     TestFixture::test_tampering();
+}
+
+template <typename Builder> class BigQuadOpcodeGateCountTest : public ::testing::Test {};
+
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
+TYPED_TEST_SUITE(BigQuadOpcodeGateCountTest, BuilderTypes);
+
+TYPED_TEST(BigQuadOpcodeGateCountTest, OpcodeGateCount)
+{
+    using BigQuadConstraintTest =
+        ArithmeticConstraintsTestingFunctions<TypeParam, BigQuadConstraint, 1, 3, false, false>;
+
+    BigQuadConstraint big_quad_constraint;
+    WitnessVector witness_values;
+    BigQuadConstraintTest::generate_constraints(big_quad_constraint, witness_values);
+
+    AcirFormat constraint_system =
+        constraint_to_acir_format(big_quad_constraint, static_cast<uint32_t>(witness_values.size() - 1));
+    AcirProgram program{ constraint_system, witness_values };
+    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BIG_QUAD<TypeParam> }));
 }

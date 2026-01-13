@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -17,7 +17,7 @@ import type {
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import type { LogFilter, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -234,6 +234,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return toArray(this.#blockStore.getBlocks(from, limit));
   }
 
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
+    return toArray(this.#blockStore.getCheckpointedBlocks(from, limit));
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks headers starting from `from`.
    *
@@ -318,16 +322,17 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#messageStore.getL1ToL2Messages(checkpointNumber);
   }
 
-  /**
-   * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
-   * @param tags - The tags to filter the logs by.
-   * @param logsPerTag - How many logs to return per tag. Default returns everything
-   * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
-   * that tag.
-   */
-  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getLogsByTags(tags, logsPerTag);
+      return this.#logStore.getPrivateLogsByTags(tags);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    try {
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -409,11 +414,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#messageStore.removeL1ToL2Messages(startIndex);
   }
 
-  public getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+  public getPendingChainValidationStatus(): Promise<ValidateCheckpointResult | undefined> {
     return this.#blockStore.getPendingChainValidationStatus();
   }
 
-  public setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+  public setPendingChainValidationStatus(status: ValidateCheckpointResult | undefined): Promise<void> {
     return this.#blockStore.setPendingChainValidationStatus(status);
   }
 

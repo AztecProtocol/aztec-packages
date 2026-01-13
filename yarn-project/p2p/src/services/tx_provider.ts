@@ -137,6 +137,7 @@ export class TxProvider implements ITxProvider {
     );
 
     if (missingTxHashes.size === 0) {
+      this.instrumentation.incTxsFromP2P(0, txHashes.length);
       return { txsFromMempool };
     }
 
@@ -155,23 +156,25 @@ export class TxProvider implements ITxProvider {
 
     if (missingTxHashes.size === 0) {
       await this.processProposalTxs(txsFromProposal);
+      this.instrumentation.incTxsFromP2P(0, txHashes.length);
       return { txsFromMempool, txsFromProposal };
     }
 
     // Start tx collection from the network if needed, while we validate the txs taken from the proposal in parallel
     const [txsFromNetwork] = await Promise.all([
-      this.txCollection.collectFastFor(request, [...missingTxHashes], opts),
+      this.collectFromP2P(request, [...missingTxHashes], opts),
       this.processProposalTxs(txsFromProposal),
     ] as const);
 
     if (txsFromNetwork.length > 0) {
       txsFromNetwork.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
-      this.instrumentation.incTxsFromP2P(txsFromNetwork.length);
       this.log.debug(
         `Retrieved ${txsFromNetwork.length} txs from network for block proposal (${missingTxHashes.size} pending)`,
         { ...blockInfo, missingTxHashes: [...missingTxHashes] },
       );
     }
+
+    this.instrumentation.incTxsFromP2P(txsFromNetwork.length, txHashes.length);
 
     if (missingTxHashes.size === 0) {
       return { txsFromNetwork, txsFromMempool, txsFromProposal };
@@ -198,6 +201,18 @@ export class TxProvider implements ITxProvider {
       txsFromProposal,
       missingTxHashes: [...missingTxHashes],
     };
+  }
+
+  private async collectFromP2P(
+    input: FastCollectionRequestInput,
+    txHashes: TxHash[] | string[],
+    opts: { deadline: Date; pinnedPeer?: PeerId },
+  ): Promise<Tx[]> {
+    const requestedAt = Date.now();
+    const result = await this.txCollection.collectFastFor(input, txHashes, opts);
+    const requestProcessedAt = Date.now();
+    this.instrumentation.recordTxsRequestDelay(requestProcessedAt - requestedAt);
+    return result;
   }
 
   private extractFromProposal(proposal: BlockProposal | undefined, missingTxHashes: string[]): Tx[] {

@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -12,7 +13,6 @@ import {
   DEFAULT_PRIORITY_FEE_STRATEGIES,
   type PriorityFeeStrategy,
   type PriorityFeeStrategyContext,
-  executeStrategy,
 } from './fee-strategies/index.js';
 import type { L1BlobInputs, L1TxRequest } from './types.js';
 
@@ -125,7 +125,7 @@ export interface L1FeeAnalysisResult {
   /** Unique identifier for this analysis */
   id: string;
   /** L2 slot number this analysis was performed for */
-  l2SlotNumber: bigint;
+  l2SlotNumber: SlotNumber;
   /** Snapshot of pending state when we computed our fees */
   pendingSnapshot: PendingBlockSnapshot;
   /** Our computed gas prices */
@@ -261,7 +261,7 @@ export class L1FeeAnalyzer {
 
   /**
    * Executes all configured strategies and returns their results.
-   * Each strategy defines its own promises which are executed and passed to calculate.
+   * Each strategy handles its own RPC calls internally.
    * @param isBlobTx - Whether this is a blob transaction
    * @returns Array of strategy results
    */
@@ -275,7 +275,7 @@ export class L1FeeAnalyzer {
 
     for (const strategy of this.strategies) {
       try {
-        const result = await executeStrategy(strategy, this.client, context);
+        const result = await strategy.execute(this.client, context);
 
         results.push({
           strategyId: strategy.id,
@@ -353,7 +353,7 @@ export class L1FeeAnalyzer {
    * @returns The analysis ID for tracking
    */
   async startAnalysis(
-    l2SlotNumber: bigint,
+    l2SlotNumber: SlotNumber,
     gasLimit: bigint,
     requests: L1TxRequest[],
     blobInputs?: L1BlobInputs,

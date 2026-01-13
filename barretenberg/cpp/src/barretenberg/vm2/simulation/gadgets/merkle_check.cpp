@@ -25,7 +25,7 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
                                     const FF& root)
 {
     // Gadget breaks if tree_height > 64 (leaf_index is of type uint64_t)
-    assert(sibling_path.size() <= 64 && "Merkle path length must be less than or equal to 64");
+    BB_ASSERT_LTE(sibling_path.size(), static_cast<size_t>(64), "Merkle path length must be less than or equal to 64");
 
     FF curr_value = leaf_value;
     uint64_t curr_index = leaf_index;
@@ -77,7 +77,7 @@ FF MerkleCheck::write(const FF& current_value,
                       const FF& current_root)
 {
     // Gadget breaks if tree_height > 64 (leaf_index is of type uint64_t)
-    assert(sibling_path.size() <= 64 && "Merkle path length must be less than or equal to 64");
+    BB_ASSERT_LTE(sibling_path.size(), static_cast<size_t>(64), "Merkle path length must be less than or equal to 64");
 
     FF read_value = current_value;
     FF write_value = new_value;

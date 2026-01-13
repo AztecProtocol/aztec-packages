@@ -700,7 +700,7 @@ actually exists.</p>
 <p>&quot;Read requests&quot; are used to prove that a note hash exists without
 revealing which specific note was read.</p>
 <p>This can be used to prove existence of both settled notes (created in
-prior transactions) and transient notes (created in the current
+prior transactions) and pending notes (created in the current
 transaction).
 If you need to prove existence of a settled note <em>at a specific block
 number</em>, use <code>note_inclusion::prove_note_inclusion</code>.</p>
@@ -750,34 +750,34 @@ Asserts instead of returning a boolean to save on gates.</p>
 </div>
 </div><code id="push_nullifier_read_request" class="code-header">pub fn <a href="#push_nullifier_read_request"><span class="fn">push_nullifier_read_request</span></a>(
     &mut self,
-    nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    unsiloed_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Requests to read a specific nullifier from the nullifier tree.</p>
-<p>Nullifier read requests are used to prove that a nullifier exists without
-revealing which specific nullifier preimage was read.</p>
-<p>This can be used to prove existence of both settled nullifiers (created in
-prior transactions) and transient nullifiers (created in the current
-transaction).
-If you need to prove existence of a settled nullifier <em>at a specific block
-number</em>, use <code>nullifier_inclusion::prove_nullifier_inclusion</code>.</p>
-<p>Low-level function. Ordinarily, smart contract developers will not need
-to call this directly. Aztec-nr's state variables (see <code>../state_vars/</code>)
-are designed to understand when to create and push new nullifier read
-requests.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>nullifier</code> - The nullifier to read and verify</li>
-<li><code>contract_address</code> - The contract address that emitted the nullifier</li>
-</ul>
-<h4>Advanced</h4>
-<p>This approach improves latency between writes and reads:
-a function can read a nullifier which was created earlier in the tx
-(rather than performing the read in a later tx, after waiting for the
-earlier tx to be included, to ensure the nullifier is included in the tree).</p>
-</div>
+<p>Requests the private kernel to ensure an <code>unsiloed_nullifier</code> has been emitted by <code>contract_address</code>, failing
+the transaction otherwise.</p>
+<p>Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
+<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html">crate::hash::compute_siloed_nullifier</a> with the emitting contract's address.</p>
+<h4>Pending Nullifiers</h4>
+<p>Both settled nullifiers (emitted in prior transactions) and pending nullifiers (emitted in the current
+transaction) will be considered by this function. This is the <strong>only</strong> mechanism via which it is possible to
+assert that a pending nullifier exists, since those are otherwise hidden from contracts by the kernels.</p>
+<p>The nullifier must have been emitted <strong>before</strong> this call is made for the transaction to not fail.</p>
+<p>In order to instead prove existence of a settled nullifier at a specific block number, use
+<a href="../../../noir_aztec/history/nullifier_inclusion/trait.ProveNullifierInclusion.html#prove_nullifier_inclusion">crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion</a>.</p>
+<h4>Public vs Private</h4>
+<p>In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
+possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
+block. Private functions instead prove existence via this function and 'prove' non-existence by <em>emitting</em> the
+nullifer, which would cause the transaction to fail if the nullifier existed.</p>
+<p>This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
+prove whether a nullifier exists or not via
+<a href="../../../noir_aztec/context/public_context/struct.PublicContext.html#nullifier_exists_unsafe">crate::context::public_context::PublicContext::nullifier_exists_unsafe</a>.</p>
+<h4>Cost</h4>
+<p>This uses up one of the call's kernel nullifier read requests, which are limited. Like all kernel requests,
+proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
+an additional invocation of the kernel reset circuit.</p></div>
 </div><code id="request_nsk_app" class="code-header">pub fn <a href="#request_nsk_app"><span class="fn">request_nsk_app</span></a>(&mut self, npk_m_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">

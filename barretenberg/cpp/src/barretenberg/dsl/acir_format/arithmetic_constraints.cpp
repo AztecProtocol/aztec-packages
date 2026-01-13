@@ -1,16 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], date: 2025-12-12 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "arithmetic_constraints.hpp"
 
 namespace acir_format {
 
-using namespace bb;
-
-template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<typename Builder::FF>& mul_quad)
+template <typename Builder> void set_zero_idx(const Builder& builder, QuadConstraint& mul_quad)
 {
     using FF = Builder::FF;
 
@@ -31,9 +29,7 @@ template <typename Builder> void set_zero_idx(const Builder& builder, mul_quad_<
 }
 
 template <typename Builder>
-void check_mul_add_gate(Builder& builder,
-                        const mul_quad_<typename Builder::FF>& mul_quad,
-                        const typename Builder::FF next_wire_w4)
+void check_mul_add_gate(Builder& builder, const QuadConstraint& mul_quad, const typename Builder::FF next_wire_w4)
 {
     using FF = Builder::FF;
 
@@ -49,7 +45,7 @@ void check_mul_add_gate(Builder& builder,
     }
 }
 
-template <typename Builder> void create_quad_constraint(Builder& builder, bb::mul_quad_<typename Builder::FF>& mul_quad)
+template <typename Builder> void create_quad_constraint(Builder& builder, QuadConstraint& mul_quad)
 {
     // Replace IS_CONSTANT indices with zero indices
     set_zero_idx(builder, mul_quad);
@@ -59,8 +55,7 @@ template <typename Builder> void create_quad_constraint(Builder& builder, bb::mu
     builder.create_big_mul_add_gate(mul_quad);
 }
 
-template <typename Builder>
-void create_big_quad_constraint(Builder& builder, std::vector<mul_quad_<typename Builder::FF>>& big_constraint)
+template <typename Builder> void create_big_quad_constraint(Builder& builder, BigQuadConstraint& big_constraint)
 {
     using FF = typename Builder::FF;
 
@@ -98,29 +93,26 @@ void create_big_quad_constraint(Builder& builder, std::vector<mul_quad_<typename
     check_mul_add_gate(builder, big_constraint.back());
 }
 
-template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&,
-                                                mul_quad_<typename UltraCircuitBuilder::FF>&);
+template void set_zero_idx<UltraCircuitBuilder>(const UltraCircuitBuilder&, QuadConstraint&);
 
-template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, mul_quad_<typename MegaCircuitBuilder::FF>&);
+template void set_zero_idx<MegaCircuitBuilder>(const MegaCircuitBuilder&, QuadConstraint&);
 
 template void check_mul_add_gate<UltraCircuitBuilder>(UltraCircuitBuilder&,
-                                                      const mul_quad_<typename UltraCircuitBuilder::FF>&,
+                                                      const QuadConstraint&,
                                                       const typename UltraCircuitBuilder::FF);
 
 template void check_mul_add_gate<MegaCircuitBuilder>(MegaCircuitBuilder&,
-                                                     const mul_quad_<typename MegaCircuitBuilder::FF>&,
+                                                     const QuadConstraint&,
                                                      const typename MegaCircuitBuilder::FF);
 
-template void create_quad_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                          mul_quad_<UltraCircuitBuilder::FF>& constraint);
+template void create_quad_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder, QuadConstraint& constraint);
 
-template void create_quad_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                         mul_quad_<MegaCircuitBuilder::FF>& constraint);
+template void create_quad_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder, QuadConstraint& constraint);
 
-template void create_big_quad_constraint<UltraCircuitBuilder>(
-    UltraCircuitBuilder& builder, std::vector<mul_quad_<UltraCircuitBuilder::FF>>& big_constraint);
+template void create_big_quad_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                              BigQuadConstraint& big_constraint);
 
-template void create_big_quad_constraint<MegaCircuitBuilder>(
-    MegaCircuitBuilder& builder, std::vector<mul_quad_<MegaCircuitBuilder::FF>>& big_constraint);
+template void create_big_quad_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
+                                                             BigQuadConstraint& big_constraint);
 
 } // namespace acir_format

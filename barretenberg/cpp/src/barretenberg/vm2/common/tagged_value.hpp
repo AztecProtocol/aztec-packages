@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <ostream>
 #include <string>
 #include <variant>
 
@@ -12,28 +13,47 @@
 
 namespace bb::avm2 {
 
-class TagMismatchException : public std::runtime_error {
+class TaggedValueException : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error; // Inherit the constructor.
+};
+
+class TagMismatchException : public TaggedValueException {
   public:
     TagMismatchException(const std::string& msg)
-        : std::runtime_error("Mismatched tags: " + msg)
+        : TaggedValueException("Mismatched tags: " + msg)
     {}
 };
 
-class InvalidOperationTag : public std::runtime_error {
+class InvalidOperationTag : public TaggedValueException {
   public:
     InvalidOperationTag(const std::string& msg)
-        : std::runtime_error("InvalidOperationTag: " + msg)
+        : TaggedValueException("InvalidOperationTag: " + msg)
     {}
 };
 
-class DivisionByZero : public std::runtime_error {
+class DivisionByZero : public TaggedValueException {
   public:
     DivisionByZero(const std::string& msg)
-        : std::runtime_error("Division by zero: " + msg)
+        : TaggedValueException("Division by zero: " + msg)
     {}
 };
 
-enum class ValueTag {
+class ValueOutOfBounds : public TaggedValueException {
+  public:
+    ValueOutOfBounds(const std::string& msg)
+        : TaggedValueException("Value out of bounds: " + msg)
+    {}
+};
+
+class CastException : public TaggedValueException {
+  public:
+    CastException(const std::string& msg)
+        : TaggedValueException("CastException: " + msg)
+    {}
+};
+
+enum class ValueTag : uint8_t {
     FF = MEM_TAG_FF,
     U1 = MEM_TAG_U1,
     U8 = MEM_TAG_U8,
@@ -43,6 +63,30 @@ enum class ValueTag {
     U128 = MEM_TAG_U128,
     MAX = U128,
 };
+
+inline std::ostream& operator<<(std::ostream& os, ValueTag tag)
+{
+    switch (tag) {
+    case ValueTag::FF:
+        return os << "FF";
+    case ValueTag::U1:
+        return os << "U1";
+    case ValueTag::U8:
+        return os << "U8";
+    case ValueTag::U16:
+        return os << "U16";
+    case ValueTag::U32:
+        return os << "U32";
+    case ValueTag::U64:
+        return os << "U64";
+    case ValueTag::U128:
+        return os << "U128";
+    default:
+        return os << "Unknown";
+    }
+
+    __builtin_unreachable();
+}
 
 template <typename T> ValueTag tag_for_type()
 {
@@ -118,8 +162,8 @@ class TaggedValue {
         if (std::holds_alternative<T>(value)) {
             return std::get<T>(value);
         }
-        throw std::runtime_error("TaggedValue::as(): type mismatch. Wanted type " +
-                                 std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
+        throw CastException("TaggedValue::as(): type mismatch. Wanted type " +
+                            std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
     }
 
     // This method try to do the smallest conversion possible.

@@ -44,7 +44,7 @@ describe('e2e_fees sponsored_public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentMinFees(),
     });
 
     [[initialAlicePublicBananas, initialBobPublicBananas], [initialAliceGas, initialFPCGas, initialSequencerGas]] =
@@ -55,6 +55,7 @@ describe('e2e_fees sponsored_public_payment', () => {
   });
 
   it('pays fees for tx that makes a public transfer', async () => {
+    // docs:start:sponsored_fpc_simple
     const bananasToSendToBob = 10n;
     const tx = await bananaCoin.methods
       .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
@@ -66,6 +67,7 @@ describe('e2e_fees sponsored_public_payment', () => {
         },
       })
       .wait();
+    // docs:end:sponsored_fpc_simple
 
     const feeAmount = tx.transactionFee!;
 

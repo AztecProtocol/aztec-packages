@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct GasFees documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">GasFees</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -14,8 +20,8 @@
 <h2><a href="#struct">Struct GasFees</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#fee_per_da_gas">fee_per_da_gas</a></li>
-<li><a href="#fee_per_l2_gas">fee_per_l2_gas</a></li>
+<li><a href="#structfield.fee_per_da_gas">fee_per_da_gas</a></li>
+<li><a href="#structfield.fee_per_l2_gas">fee_per_l2_gas</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -43,14 +49,14 @@
 }
 </code></pre>
 <h2>Fields</h2>
-<div id="fee_per_da_gas" class="struct-field"><code class="code-header">fee_per_da_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code></div>
-<div class="padded-description"></div><div id="fee_per_l2_gas" class="struct-field"><code class="code-header">fee_per_l2_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code></div>
+<div id="structfield.fee_per_da_gas" class="struct-field"><code class="code-header">fee_per_da_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code></div>
+<div class="padded-description"></div><div id="structfield.fee_per_l2_gas" class="struct-field"><code class="code-header">fee_per_l2_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(fee_per_da_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a>, fee_per_l2_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(fee_per_da_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a>, fee_per_l2_gas: <a href="../../../std/primitive.u128.html" class="primitive">u128</a>) -> Self</code>
 
-<code id="is_empty" class="code-header">pub fn <span class="fn">is_empty</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code id="is_empty" class="code-header">pub fn <a href="#is_empty"><span class="fn">is_empty</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-GasFees"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a></code></h3>
@@ -74,5 +80,6 @@
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
 
 </div></main>
+</span>
 </body>
 </html>

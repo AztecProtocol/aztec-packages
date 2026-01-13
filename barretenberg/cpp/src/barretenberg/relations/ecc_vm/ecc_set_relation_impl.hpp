@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -18,34 +18,45 @@ namespace bb {
  *
  * @details ECCVMSetRelationImpl validates the correctness of the "inputs"/"outputs" of the three main algorithms
  * evaluated by the ECCVM. Note that the terminology of "inputs" and "outputs" is _purely psychological_; they each just
- * name the multiset we are adding to.
+ * name the multiset we are adding to. We alternately use the terminology "numerator source" and "denominator source".
  *
  * It will be helpful to recall that `pc` always stands for point-counter. We use the terms interchangably.
  *
- * FIRST TERM: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices, as part of
- * ECCVMWnafRelation.
+ * FIRST TERM: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices.
  *
- * Input source: ECCVMWnafRelation
- * Output source: ECCVMMSMRelation
+ * Numerator source: Precompute table columns (constrained by ECCVMWnafRelation)
+ * Denominator source: MSM table columns (constrained by ECCVMMSMRelation)
+ * @note This ensures the following:
+ *   * every WNAF slice computed during scalar decomposition must be used exactly once during the MSM computation.
+ * @warning There is a subtlety in this table, which slightly complicates the abstraction of multiset-equality testing.
+ * On the denominator side, when `addX == 0` for all `X ∈ {1, 2, 3, 4}` (automatically forced by `add1 == 0`), we
+ * multiply by 1. On the numerator side, to balance this out, this means that when `precompute_select == 0`, we must
+ * multiply by an additional `eccvm_set_permutation_delta`, which is the _inverse_ of the fingerprint of the tuple `(0,
+ * 0, 0)`. (This corresponds to "removing" the tuple `(0, 0, 0)` from the left multiset when `precompute_select == 0`).
  *
  *
+ * SECOND TERM: tuple of (pc, P.x, P.y, scalar-multiplier), linking scalar mul requests to their WNAF decompositions.
  *
- * SECOND TERM: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation.
+ * Numerator source: Precompute table columns (constrained by ECCVMWnafRelation and ECCVMPointTableRelation)
+ * Denominator source: Transcript table columns (constrained by ECCVMTranscriptRelation)
  *
- * Input source: ECCVMPointTableRelation
- * Output source: ECCVMTranscriptRelation
+ * The numerator is gated by `precompute_point_transition == 1` (once per 128-bit scalar mul in the precompute table).
+ * The denominator is gated by `transcript_mul == 1` (once per MUL opcode in the transcript, which can contribute
+ * up to two 128-bit scalar muls via z1 and z2).
+ * @note This ensures the following:
+ *   * every scalar multiplication requested in the transcript (with a non-zero scalar and non-infinity base point)
+ *     has a corresponding entry in the precompute table.
  *
- * Note that, from the latter table, this is only turned on when we are at a `mul` instruction. Similarly, from the
- * former table, this is only turned on when `precompute_point_transition == 1`.
+ * THIRD TERM: tuple of (pc, P.x, P.y, msm-size), linking MSM outputs to their claimed values in the transcript.
  *
- * THIRD TERM: tuple of (pc, P.x, P.y,msm-size) from ECCVMMSMRelation, to link the output of the MSM computation from
- * the MSM table to the values in the Transcript tables.
+ * Numerator source: MSM table columns (constrained by ECCVMMSMRelation)
+ * Denominator source: Transcript table columns (constrained by ECCVMTranscriptRelation)
  *
- * Input source: ECCVMMSMRelation
- * Output source: ECCVMTranscriptRelation
- * Note that, from the latter table, this is only turned on when we are at an MSM transition, so we don't record the
- * "intermediate" `transcript_pc` values from the Transcript columns. This is compatible with the fact that the `msm_pc`
- * values are _constant_ on a fixed MSM.
+ * The numerator is gated by `msm_transition == 1` (once per completed MSM).
+ * The denominator is gated by `transcript_msm_transition == 1`.
+ * @note This ensures the following:
+ *   * the MSM output computed in the MSM table matches the MSM output claimed in the transcript.
+ *   * the MSM size and starting point counter are consistent between the two tables.
  *
  *
  * @tparam FF
@@ -140,10 +151,14 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         numerator *= skew_input; // degree-5
     }
     {
+        // in `EccvmProver` and `ECCVMVerifier`, we see that `eccvm_set_permutation_delta` is initially computed as
+        // (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²) and _then_ inverted. Therefore, `eccvm_set_permutation_delta` == 1 / (γ)·(γ
+        // + β²)·(γ + 2β²)·(γ
+        // + 3β²)
         const auto& eccvm_set_permutation_delta = params.eccvm_set_permutation_delta;
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
-        // to work (as we have zero-padded the rows of the MSM table), we must multiply by
-        // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
+        // to work (as we have zero-padded the rows of the MSM table), we must multiply by the inverse of the
+        // fingerprint of (0, 0, 0).
         numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 

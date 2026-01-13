@@ -5,9 +5,7 @@ tags: [accounts]
 description: Overview of wallet responsibilities in Aztec including account management, private state tracking, transaction execution, key management, and authorization handling.
 ---
 
-On this page we will cover the main responsibilities of a wallet in the Aztec network.
-
-Go to [wallet architecture](./index.md) for an overview of its architecture and a reference on the interface a wallet must implement.
+This page covers the main responsibilities of a wallet in the Aztec network.
 
 Wallets are the applications through which users manage their accounts. Users rely on wallets to browse through their accounts, monitor their balances, and create new accounts. Wallets also store seed phrases and private keys, or interact with external keystores such as hardware wallets.
 
@@ -19,27 +17,25 @@ In addition to these usual responsibilities, wallets in Aztec also need to track
 
 The first step for any wallet is to let the user set up their [accounts](./accounts/index.md). An account in Aztec is represented onchain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
 
-A wallet must support at least one specific account contract implementation, which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/account/interface.ts).
+A wallet must support at least one specific account contract implementation, which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/account/account_contract.ts).
 
-Note that users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](./accounts/keys.md#address-keys) without having to interact with the network, so they can share it with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialization arguments, a deployment salt, and a privacy key. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
+Note that users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](./accounts/keys.md#address-derivation) without having to interact with the network, so they can share it with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialization arguments, a deployment salt, and the user's keys. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
 
 ## Transaction lifecycle
 
 Every transaction in Aztec is broadcast to the network as a zero-knowledge proof of correct execution, in order to preserve privacy. This means that transaction proofs are generated on the wallet and not on a remote node. This is one of the biggest differences with regard to EVM chain wallets.
 
-A wallet is responsible for **creating** an _execution request_ out of one or more _function calls_ requested by a dapp. For example, a dapp may request a wallet to "invoke the `transfer` function on the contract at `0x1234` with the following arguments", in response to a user action. The wallet turns that into an execution request with the signed instructions to execute that function call from the user's account contract. In an [ECDSA-based account](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr), for instance, this is an execution request that encodes the function call in the _entrypoint payload_, and includes its ECDSA signature with the account's signing private key.
+A wallet is responsible for **creating** an _execution request_ out of one or more _function calls_ requested by a dapp. For example, a dapp may request a wallet to "invoke the `transfer` function on the contract at `0x1234` with the following arguments", in response to a user action. The wallet turns that into an execution request with the signed instructions to execute that function call from the user's account contract. In an [ECDSA-based account](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr), for instance, this is an execution request that encodes the function call in the _entrypoint payload_, and includes its ECDSA signature with the account's signing private key.
 
-Once the _execution request_ is created, the wallet is responsible for **simulating** and **proving** the execution of its private functions. The simulation yields an execution trace, which can be used to provide the user with a list of side effects of the private execution of the transaction. During this simulation, the wallet is responsible of providing data to the virtual machine, such as private notes, encryption keys, or nullifier secrets. This execution trace is fed into the prover, which returns a zero-knowledge proof that guarantees correct execution and hides all private information. The output of this process is a _transaction object_.
+Once the _execution request_ is created, the wallet is responsible for **simulating** and **proving** the execution of its private functions. The simulation yields an execution trace, which can be used to provide the user with a list of side effects of the private execution of the transaction. During this simulation, the wallet is responsible for providing data to the virtual machine, such as private notes, encryption keys, or nullifier secrets. This execution trace is fed into the prover, which returns a zero-knowledge proof that guarantees correct execution and hides all private information. The output of this process is a _transaction object_.
 
 :::info
-Since private functions rely on a UTXO model, the private execution trace of a transaction is determined exclusively by the notes used as inputs. Since these notes are immutable, the trace of a transaction is always the same, so any effects observed during simulation will be exactly the same when the transaction is mined. However, the transaction may be dropped if it attempts to consume a private note that another transaction nullified before it gets mined. Note that this applies only to private function execution. Public functions rely on an account model, similar to Ethereum, so their execution trace depends on the chain's public state at the point they are included in a block, which may have changed since the transaction was simulated locally.
+Private functions use a UTXO model, so their execution trace is determined entirely by the input notes. Since notes are immutable, simulation results match mined results exactly. However, a transaction may be dropped if it tries to consume a note that was nullified by another transaction first.
+
+Public functions use an account model (like Ethereum), so their execution trace depends on chain state at inclusion time, which may differ from simulation.
 :::
 
 Finally, the wallet **sends** the resulting _transaction_ object, which includes the proof of execution, to an Aztec Node. The transaction is then broadcasted through the peer-to-peer network, to be eventually picked up by a sequencer and included in a block.
-
-:::warning
-There are no proofs generated as of the Local Network release. This will be included in a future release before testnet.
-:::
 
 ## Authorizing actions
 
@@ -49,41 +45,27 @@ Wallets should manage these authorizations, prompting the user when they are req
 
 ## Key management
 
-As in EVM-based chains, wallets are expected to manage user keys, or provide an interface to hardware wallets or alternative key stores. Keep in mind that in Aztec each account requires [two sets of keys](./accounts/keys.md): privacy keys and authentication keys. Privacy keys are mandated by the protocol and used for encryption and nullification, whereas authentication keys are dependent on the account contract implementation rolled out by the wallet. Should the account contract support it, wallets must provide the user with the means to rotate or recover their authentication keys.
+As in EVM-based chains, wallets are expected to manage user keys, or provide an interface to hardware wallets or alternative key stores. Keep in mind that in Aztec each account requires [multiple key pairs](./accounts/keys.md): protocol keys (nullifier and incoming viewing keys) are mandated by the protocol and used for spending notes and decryption, whereas signing keys are dependent on the account contract implementation rolled out by the wallet. Should the account contract support it, wallets must provide the user with the means to rotate or recover their signing keys.
 
 :::info
-Due to limitations in the current architecture, privacy keys need to be available in the wallet software itself and cannot be punted to an external keystore. This restriction may be lifted in a future release.
+Due to limitations in the current architecture, protocol keys need to be available in the wallet software itself and cannot be delegated to an external keystore. This restriction may be lifted in a future release.
 :::
 
-## Recipient encryption keys
+## Recipient address management
 
-Wallets are also expected to manage the public encryption keys of any recipients of local transactions. When creating an encrypted note for a recipient given their address, the wallet needs to provide their [complete address](./accounts/keys.md#address-keys). Recipients broadcast their complete addresses when deploying their account contracts, and wallets collect this information and save it in a local registry for easy access when needed.
+Wallets are also expected to manage the public encryption keys of any recipients of local transactions. When creating an encrypted note for a recipient given their address, the wallet needs to provide their [complete address](./accounts/keys.md#address-derivation). Recipients broadcast their complete addresses when deploying their account contracts, and wallets collect this information and save it in a local registry for easy access when needed.
 
 Note that, in order to interact with a recipient who has not yet deployed their account contract (and thus not broadcasted their complete address), it must also be possible to manually add an entry to a wallet's local registry of complete addresses.
 
 ## Private state
 
-Last but not least, wallets also store the user's private state. Wallets currently rely on brute force decryption, where every new block is downloaded and its encrypted data blobs are attempted to be decrypted with the user decryption keys. Whenever a blob is decrypted properly, it is added to the corresponding account's private state. Note that wallets must also scan for private state in blocks prior to the deployment of a user's account contract, since users may have received private state before deployment.
+Wallets also store the user's private state. Aztec uses a [note tagging system](./advanced/storage/note_discovery.md) that allows users to efficiently discover notes that belong to them. When a note is created, the sender tags it with a value derived from a shared secret, allowing the recipient's wallet to query for relevant notes without attempting to decrypt every note on the network. Once discovered, notes are decrypted and added to the corresponding account's private state.
 
-:::info
-At the time of this writing, all private state is encrypted and broadcasted through the network, and eventually committed to L1. This means that a wallet can reconstruct its entire private state out of its encryption keys in the event of local data loss.
-:::
+To discover notes from a sender, the wallet must first register that sender's address with the PXE. This allows the wallet to compute the shared secrets needed for note tagging. Wallets typically register senders when users add contacts or interact with new counterparties. Wallets must also scan for private state in blocks prior to the deployment of a user's account contract, since users may have received notes before deployment.
 
-Encrypted data blobs do not carry any public information as to whom their recipient is. Therefore, it is not possible for a remote node to identify the notes that belong to a user, and it is not possible for a wallet to query a remote node for its private state. As such, wallets need to keep a local database of their accounts private state, in order to be able to answer any queries on their private state.
+Private state can be encrypted and broadcast through the network, then committed to L1. While tags allow wallets to query the network for relevant notes, the tags themselves don't reveal the recipient - only the sender and recipient can compute and recognize them. This means wallets need to maintain a local database of their accounts' private state to answer queries efficiently.
 
-Dapps may require access to the user's private state, in order to show information relevant to the current application. For instance, a dapp for a token may require access to the user's private notes in the token contract in order to display the user's balance. It is responsibility of the wallet to require authorization from the user before disclosing private state to a dapp.
-
-## Wallet Architecture
-
-Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions. Bear in mind that, as in Ethereum, wallets should require user confirmation whenever carrying out a potentially sensitive action requested by a dapp.
-
-Architecture-wise, a wallet is an instance of an **Private Execution Environment (PXE)** which manages user keys and private state.
-The PXE also communicates with an **Aztec Node** for retrieving public information or broadcasting transactions.
-Note that the PXE requires a local database for keeping private state, and is also expected to be continuously syncing new blocks for trial-decryption of user notes.
-
-Additionally, a wallet must be able to handle one or more account contract implementation. When a user creates a new account, the account is represented onchain by an account contract. The wallet is responsible for deploying and interacting with this contract. A wallet may support multiple flavours of accounts, such as an account that uses ECDSA signatures, or one that relies on WebAuthn, or one that requires multi-factor authentication. For a user, the choice of what account implementation to use is then determined by the wallet they interact with.
-
-In code, this translates to a wallet implementing an **AccountInterface** interface that defines [how to create an _execution request_ out of an array of _function calls_](#transaction-lifecycle) for the specific implementation of an account contract and [how to generate an _auth witness_](#authorizing-actions) for authorizing actions on behalf of the user. Think of this interface as the Javascript counterpart of an account contract, or the piece of code that knows how to format a transaction and authenticate an action based on the rules defined by the user's account contract implementation.
+Dapps may require access to the user's private state, in order to show information relevant to the current application. For instance, a dapp for a token may require access to the user's private notes in the token contract in order to display the user's balance. It is the responsibility of the wallet to require authorization from the user before disclosing private state to a dapp.
 
 ## Account interface
 

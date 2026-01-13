@@ -414,7 +414,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U64) } },
         // fee_per_l2_gas
         { { C::execution_sel, 1 },
-          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS) },
+          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERL2GAS) },
           { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
@@ -436,7 +436,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
         // fee_per_da_gas
         { { C::execution_sel, 1 },
-          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERDAGAS) },
+          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERDAGAS) },
           { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
@@ -637,7 +637,7 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
     auto test_public_inputs = PublicInputsBuilder().rand_global_variables().build();
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS) },
+          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERL2GAS) },
           { C::execution_sel_should_execute_opcode, 1 },
           // from precomputed table
           { C::execution_sel_opcode_error, 0 }, // valid enum

@@ -153,12 +153,23 @@ jobs:
         with:
           name: barretenberg-arm64-darwin-starknet.tar.gz
 
+      - name: Determine if prerelease
+        id: check-prerelease
+        run: |
+          VERSION="${{ inputs.ref_name || inputs.tag || github.ref_name }}"
+          # Check if version has a prerelease tag (e.g., -rc.1, -alpha, -beta)
+          if [[ "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish to GitHub
         uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         with:
           tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
-          prerelease: true
+          prerelease: ${{ steps.check-prerelease.outputs.is_prerelease == 'true' }}
           files: |
             barretenberg-amd64-darwin.tar.gz
             barretenberg-arm64-darwin.tar.gz
@@ -169,7 +180,7 @@ jobs:
         continue-on-error: true
         with:
           tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
-          prerelease: true
+          prerelease: ${{ steps.check-prerelease.outputs.is_prerelease == 'true' }}
           files: |
             barretenberg-amd64-darwin-starknet.tar.gz
             barretenberg-arm64-darwin-starknet.tar.gz

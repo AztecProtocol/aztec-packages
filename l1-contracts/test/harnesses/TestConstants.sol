@@ -20,6 +20,7 @@ library TestConstants {
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = 3;
   uint256 internal constant AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = 2;
+  uint256 internal constant AZTEC_INBOX_LAG = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
@@ -118,7 +119,8 @@ library TestConstants {
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
       slasherFlavor: SlasherFlavor.EMPIRE,
       localEjectionThreshold: 0, // The same as it being off, and only using the global.
-      earliestRewardsClaimableTimestamp: Timestamp.wrap(0) // Default to 0 (no restriction)
+      earliestRewardsClaimableTimestamp: Timestamp.wrap(0), // Default to 0 (no restriction)
+      inboxLag: AZTEC_INBOX_LAG
     });
 
     // For the version we derive it based on the config (with a 0 version)

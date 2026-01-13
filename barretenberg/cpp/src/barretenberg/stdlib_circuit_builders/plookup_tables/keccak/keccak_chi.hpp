@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -84,13 +84,14 @@ class Chi {
      * Used by the Plookup code to precompute lookup tables and generate witness values
      *
      * @param key (first element = table input. Second element is unused as this lookup does not have 2 keys per value)
-     * @return std::array<bb::fr, 2> table output (normalized input and normalized input / 11^8)
+     * @return std::array<bb::fr, 2> table output (normalized input and normalized input / 11^{divisor_exponent})
      */
     static std::array<bb::fr, 2> get_chi_renormalization_values(const std::array<uint64_t, 2> key)
     {
         uint64_t accumulator = 0;
         uint64_t input = key[0];
         uint64_t base_shift = 1;
+        // want the most significant bit of the 64-bit integer, when this table is used on the most significant slice
         constexpr uint64_t divisor_exponent = (64 % TABLE_BITS == 0) ? (TABLE_BITS - 1) : (64 % TABLE_BITS) - 1;
         constexpr uint64_t divisor = numeric::pow64(BASE, divisor_exponent);
         while (input > 0) {
@@ -239,7 +240,7 @@ class Chi {
     static MultiTable get_chi_output_table(const MultiTableId id = KECCAK_CHI_OUTPUT)
     {
         constexpr size_t num_tables_per_multitable =
-            (64 / TABLE_BITS) + (64 % TABLE_BITS == 0 ? 0 : 1); // 64 bits, 8 bits per entry
+            (64 / TABLE_BITS) + (64 % TABLE_BITS == 0 ? 0 : 1); // 64 bits, 6 bits per entry
 
         // column_multiplier is used to define the gap between rows when deriving colunn values via relative differences
         uint64_t column_multiplier = numeric::pow64(BASE, TABLE_BITS);

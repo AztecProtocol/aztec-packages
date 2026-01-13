@@ -43,13 +43,9 @@ export class BlockRollupPublicInputs {
      */
     public endSpongeBlob: SpongeBlob,
     /**
-     * Timestamp of the first block in this block range.
+     * Timestamp of the blocks in this block range.
      */
-    public startTimestamp: UInt64,
-    /**
-     * Timestamp of the last block in this block range.
-     */
-    public endTimestamp: UInt64,
+    public timestamp: UInt64,
     /**
      * Hash of the headers of all blocks in this block range. It will be combined with the `blockHeadersHash` from
      * other blocks in the same checkpoint to form a wonky tree. The root of that tree becomes the final hash stored in
@@ -85,7 +81,6 @@ export class BlockRollupPublicInputs {
       reader.readObject(SpongeBlob),
       reader.readObject(SpongeBlob),
       reader.readUInt64(),
-      reader.readUInt64(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -103,8 +98,7 @@ export class BlockRollupPublicInputs {
       this.endState,
       this.startSpongeBlob,
       this.endSpongeBlob,
-      bigintToUInt64BE(this.startTimestamp),
-      bigintToUInt64BE(this.endTimestamp),
+      bigintToUInt64BE(this.timestamp),
       this.blockHeadersHash,
       this.inHash,
       this.outHash,

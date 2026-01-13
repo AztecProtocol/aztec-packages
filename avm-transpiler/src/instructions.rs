@@ -13,10 +13,10 @@ use crate::opcodes::AvmOpcode;
 pub struct AvmInstruction {
     pub opcode: AvmOpcode,
 
-    /// Any instructions with memory offset operands have the indirect flag
+    /// Any instructions with memory offset operands have the addressing mode
     /// Each bit is a boolean: 0:direct, 1:indirect
     /// The 0th bit corresponds to an instruction's 0th offset arg, 1st to 1st, etc...
-    pub indirect: Option<AvmOperand>,
+    pub addressing_mode: Option<AvmOperand>,
 
     /// Some instructions have a tag, its usage will depend on the instruction.
     /// Its usage will depend on the instruction.
@@ -33,8 +33,8 @@ pub struct AvmInstruction {
 impl Display for AvmInstruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "opcode {}", self.opcode.name())?;
-        if let Some(indirect) = &self.indirect {
-            write!(f, ", indirect: {}", indirect)?;
+        if let Some(addressing_mode) = &self.addressing_mode {
+            write!(f, ", addressing_mode: {}", addressing_mode)?;
         }
         if !self.operands.is_empty() {
             write!(f, ", operands: [")?;
@@ -60,12 +60,12 @@ impl Display for AvmInstruction {
 
 impl AvmInstruction {
     /// Bytes representation for generating AVM bytecode
-    /// Order: INDIRECT, OPERANDS, TAG, IMMEDIATES
+    /// Order: ADDRESSING_MODE, OPERANDS, TAG, IMMEDIATES
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.push(self.opcode as u8);
-        if let Some(indirect) = &self.indirect {
-            bytes.extend_from_slice(&indirect.to_be_bytes());
+        if let Some(addressing_mode) = &self.addressing_mode {
+            bytes.extend_from_slice(&addressing_mode.to_be_bytes());
         }
         for operand in &self.operands {
             bytes.extend_from_slice(&operand.to_be_bytes());
@@ -95,8 +95,8 @@ impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
             opcode: AvmOpcode::ADD_8,
-            // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
-            indirect: None,
+            // TODO(4266): default to Some(0), since all instructions have addressing mode except jumps
+            addressing_mode: None,
             tag: None,
             operands: vec![],
             immediates: vec![],
@@ -158,34 +158,34 @@ impl AvmOperand {
 
 #[derive(Debug, Default)]
 pub(crate) struct AddressingModeBuilder {
-    indirect: Vec<bool>,
+    addressing_mode: Vec<bool>,
     relative: Vec<bool>,
 }
 
 impl AddressingModeBuilder {
     pub(crate) fn direct_operand(mut self, address: &MemoryAddress) -> Self {
         self.relative.push(address.is_relative());
-        self.indirect.push(false);
+        self.addressing_mode.push(false);
 
         self
     }
 
     pub(crate) fn indirect_operand(mut self, address: &MemoryAddress) -> Self {
         self.relative.push(address.is_relative());
-        self.indirect.push(true);
+        self.addressing_mode.push(true);
 
         self
     }
 
     pub(crate) fn build(self) -> AvmOperand {
-        let num_operands = self.indirect.len();
+        let num_operands = self.addressing_mode.len();
         assert!(num_operands <= 8, "Too many operands for building addressing mode bytes");
 
         let mut result = 0;
-        for (i, (indirect, relative)) in
-            self.indirect.into_iter().zip(self.relative.into_iter()).enumerate()
+        for (i, (is_indirect, relative)) in
+            self.addressing_mode.into_iter().zip(self.relative.into_iter()).enumerate()
         {
-            if indirect {
+            if is_indirect {
                 // Even bits are indirect
                 result |= 1 << (i * 2);
             }

@@ -54,14 +54,13 @@ TEST_F(CalldataHashingTest, SimpleHash)
         calldata_fields.push_back(FF(i));
     }
 
-    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> prepended_calldata_fields = { DOM_SEP__PUBLIC_CALLDATA };
     prepended_calldata_fields.insert(prepended_calldata_fields.end(), calldata_fields.begin(), calldata_fields.end());
 
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    auto output_hash = calldata_hasher.compute_calldata_hash(calldata_fields);
+    calldata_hasher.assert_calldata_hash(hash, calldata_fields);
 
-    EXPECT_EQ(output_hash, hash);
     EXPECT_THAT(
         calldata_events.dump_events(),
         AllOf(SizeIs(1),
@@ -71,13 +70,13 @@ TEST_F(CalldataHashingTest, SimpleHash)
 TEST_F(CalldataHashingTest, Hash)
 {
     std::vector<FF> calldata = testing::random_fields(500);
-    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> prepended_calldata_fields = { DOM_SEP__PUBLIC_CALLDATA };
     prepended_calldata_fields.insert(prepended_calldata_fields.end(), calldata.begin(), calldata.end());
 
     auto hash = RawPoseidon2::hash(prepended_calldata_fields);
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    calldata_hasher.compute_calldata_hash(calldata);
+    calldata_hasher.assert_calldata_hash(hash, calldata);
     EXPECT_THAT(
         calldata_events.dump_events(),
         AllOf(SizeIs(1),
@@ -88,12 +87,12 @@ TEST_F(CalldataHashingTest, Empty)
 {
     std::vector<FF> calldata = {};
     // If we recieve empty calldata, we just hash the separator:
-    std::vector<FF> prepended_calldata_fields = { GENERATOR_INDEX__PUBLIC_CALLDATA };
+    std::vector<FF> prepended_calldata_fields = { DOM_SEP__PUBLIC_CALLDATA };
 
     auto hash = RawPoseidon2::hash(prepended_calldata_fields);
     EXPECT_CALL(poseidon2, hash(prepended_calldata_fields)).WillOnce(Return(hash));
 
-    calldata_hasher.compute_calldata_hash(calldata);
+    calldata_hasher.assert_calldata_hash(hash, calldata);
     EXPECT_THAT(
         calldata_events.dump_events(),
         AllOf(SizeIs(1),

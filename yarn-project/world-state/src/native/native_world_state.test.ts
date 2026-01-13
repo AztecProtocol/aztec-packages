@@ -1377,9 +1377,7 @@ describe('NativeWorldState', () => {
 
       await testFork.sequentialInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        block2.body.txEffects.map(write => {
-          return write.toBuffer();
-        }),
+        block2.body.txEffects.flatMap(tx => tx.publicDataWrites.map(w => w.toBuffer())),
       );
 
       const initialPath = await testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
@@ -1392,9 +1390,7 @@ describe('NativeWorldState', () => {
       );
       const write = testFork.sequentialInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        block3.body.txEffects.map(write => {
-          return write.toBuffer();
-        }),
+        block3.body.txEffects.flatMap(tx => tx.publicDataWrites.map(w => w.toBuffer())),
       );
       const secondReadsUncommitted = Array.from({ length: numReads }, () =>
         testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),

@@ -45,6 +45,7 @@ export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
   private checkpoints: Checkpoint[] = [];
   private nextCheckpointIndex = 0;
+  private nextCheckpointNumber = CheckpointNumber(1);
   private nextBlockNumber = 1;
   private epochNumber = 1;
   private feePayerBalance: Fr;
@@ -187,7 +188,8 @@ export class TestContext {
     }
 
     const checkpointIndex = this.nextCheckpointIndex++;
-    const checkpointNumber = CheckpointNumber(checkpointIndex + 1);
+    const checkpointNumber = this.nextCheckpointNumber;
+    this.nextCheckpointNumber++;
     const slotNumber = checkpointNumber * 15; // times an arbitrary number to make it different to the checkpoint number
 
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
@@ -204,6 +206,8 @@ export class TestContext {
 
     const startBlockNumber = this.nextBlockNumber;
     const previousBlockHeader = this.getBlockHeader(BlockNumber(startBlockNumber - 1));
+    // All blocks in the same slot/checkpoint share the same timestamp.
+    const timestamp = BigInt(slotNumber * 26);
 
     // Build global variables.
     const blockGlobalVariables = times(numBlocks, i =>
@@ -211,6 +215,7 @@ export class TestContext {
         coinbase: constants.coinbase,
         feeRecipient: constants.feeRecipient,
         gasFees: constants.gasFees,
+        timestamp,
       }),
     );
     this.nextBlockNumber += numBlocks;
@@ -253,7 +258,10 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const block = await builder.addBlock(blockGlobalVariables[i], state, txs);
+      const block = await builder.addBlock(blockGlobalVariables[i], txs, {
+        expectedEndState: state,
+        insertTxsEffects: true,
+      });
 
       const header = block.header;
       this.headers.set(block.number, header);

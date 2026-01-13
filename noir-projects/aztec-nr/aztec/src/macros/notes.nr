@@ -33,7 +33,7 @@ comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Q
     let name = s.name();
     let typ = s.as_type();
     let note_type_name: str<_> = f"{name}".as_ctstring().as_quoted_str!();
-    let max_note_packed_len = crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
+    let max_note_packed_len = crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 
     quote {
         impl aztec::note::note_interface::NoteType for $name {
@@ -73,7 +73,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
         impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, owner: aztec::protocol_types::address::AztecAddress, storage_slot: Field, randomness: Field) -> Field {
                 let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [aztec::protocol_types::traits::ToField::to_field(owner), storage_slot, randomness]);
-                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::DOM_SEP__NOTE_HASH)
             }
 
             fn compute_nullifier(
@@ -89,7 +89,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 let secret = context.request_nsk_app(owner_npk_m_hash);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
-                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                    aztec::protocol_types::constants::DOM_SEP__NOTE_NULLIFIER as Field,
                 )
             }
 
@@ -105,7 +105,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullification, secret],
-                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                    aztec::protocol_types::constants::DOM_SEP__NOTE_NULLIFIER as Field,
                 )
             }
         }
@@ -146,7 +146,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
-    let mut properties_list = &[];
+    let mut properties_list = @[];
     for i in 0..note_fields.len() {
         let (name, _, _) = note_fields[i];
         let i = i as u8;

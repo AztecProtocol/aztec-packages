@@ -16,7 +16,7 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
     using C = ColumnAndShifts;
 
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
-    const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
+    const auto constants_DOM_SEP__PUBLIC_LEAF_INDEX = FF(23);
     const auto written_public_data_slots_tree_check_EXISTS =
         (FF(1) - in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
     const auto written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF =
@@ -46,7 +46,7 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::written_public_data_slots_tree_check_sel)) *
-                   (CView(constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX) -
+                   (CView(constants_DOM_SEP__PUBLIC_LEAF_INDEX) -
                     static_cast<View>(in.get(C::written_public_data_slots_tree_check_siloing_separator)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }

@@ -81,7 +81,7 @@ export class Blob {
   /**
    * Create a Blob from a JSON object.
    *
-   * Blobs will be in this form when requested from the blob sink, or from
+   * Blobs will be in this form when requested from the blob client, or from
    * the beacon chain via `getBlobSidecars`
    * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
    *
@@ -102,13 +102,11 @@ export class Blob {
   /**
    * Get the JSON representation of the blob.
    *
-   * @param index - optional - The index of the blob in the block.
    * @returns The JSON representation of the blob.
    */
-  toJson(index: number): BlobJson {
+  toJSON(): BlobJson {
     return {
       blob: `0x${Buffer.from(this.data).toString('hex')}`,
-      index: index.toString(),
       // eslint-disable-next-line camelcase
       kzg_commitment: `0x${this.commitment.toString('hex')}`,
     };

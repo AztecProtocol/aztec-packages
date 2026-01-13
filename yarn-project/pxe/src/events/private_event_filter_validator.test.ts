@@ -6,7 +6,7 @@ import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import { AnchorBlockDataProvider } from '../storage/index.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { PrivateEventFilterValidator } from './private_event_filter_validator.js';
 
 describe('PrivateEventFilterValidator', () => {
@@ -14,7 +14,7 @@ describe('PrivateEventFilterValidator', () => {
   let lastKnownBlock: BlockHeader;
   let lastKnownBlockNumber: BlockNumber;
   let scope: AztecAddress;
-  let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
+  let anchorBlockStore: MockProxy<AnchorBlockStore>;
   let validator: PrivateEventFilterValidator;
 
   beforeEach(async () => {
@@ -22,10 +22,10 @@ describe('PrivateEventFilterValidator', () => {
     lastKnownBlockNumber = lastKnownBlock.getBlockNumber();
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
-    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
+    anchorBlockStore = mock<AnchorBlockStore>();
 
-    anchorBlockDataProvider.getBlockHeader.mockResolvedValue(lastKnownBlock);
-    validator = new PrivateEventFilterValidator(anchorBlockDataProvider);
+    anchorBlockStore.getBlockHeader.mockResolvedValue(lastKnownBlock);
+    validator = new PrivateEventFilterValidator(anchorBlockStore);
   });
 
   it('rejects empty scope', async () => {

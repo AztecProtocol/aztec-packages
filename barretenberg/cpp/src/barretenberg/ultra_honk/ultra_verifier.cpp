@@ -1,16 +1,19 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "./ultra_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -321,7 +324,7 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
 
 // MegaRecursiveFlavor with GoblinAvmIO
-template class UltraVerifier_<MegaRecursiveFlavor_<UltraCircuitBuilder>,
+template class UltraVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::GoblinAvmIO<UltraCircuitBuilder>>;
 
 } // namespace bb

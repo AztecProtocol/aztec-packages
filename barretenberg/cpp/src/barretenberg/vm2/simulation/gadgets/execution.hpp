@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -30,6 +31,7 @@
 #include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
 #include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
+#include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -79,7 +81,8 @@ class Execution : public ExecutionInterface {
               EmitUnencryptedLogInterface& emit_unencrypted_log_component,
               DebugLoggerInterface& debug_log_component,
               HighLevelMerkleDBInterface& merkle_db,
-              CallStackMetadataCollectorInterface& call_stack_metadata_collector)
+              CallStackMetadataCollectorInterface& call_stack_metadata_collector,
+              CancellationTokenPtr cancellation_token = nullptr)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
@@ -100,6 +103,7 @@ class Execution : public ExecutionInterface {
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
         , call_stack_metadata_collector(call_stack_metadata_collector)
+        , cancellation_token_(std::move(cancellation_token))
     {}
 
     EnqueuedCallResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
@@ -114,9 +118,9 @@ class Execution : public ExecutionInterface {
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
-    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag);
-    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
-    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value);
+    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, MemoryTag dst_tag);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t env_var_value);
+    void set(ContextInterface& context, MemoryAddress dst_addr, MemoryTag tag, const FF& value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
@@ -265,6 +269,10 @@ class Execution : public ExecutionInterface {
     std::vector<MemoryValue> inputs;
     MemoryValue output;
     std::unique_ptr<GasTrackerInterface> gas_tracker;
+
+    // Optional cancellation token for stopping simulation on timeout.
+    // When nullptr, cancellation checks are skipped (no overhead for non-NAPI paths).
+    CancellationTokenPtr cancellation_token_;
 };
 
 } // namespace bb::avm2::simulation

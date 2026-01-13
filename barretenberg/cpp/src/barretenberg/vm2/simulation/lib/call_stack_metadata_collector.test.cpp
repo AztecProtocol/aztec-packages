@@ -18,9 +18,14 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
+CollectionLimitsConfig limits = {
+    .max_calldata_size_in_fields = 1024,
+    .max_returndata_size_in_fields = 1024,
+};
+
 TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
 {
-    CallStackMetadataCollector collector;
+    CallStackMetadataCollector collector(limits);
     AztecAddress contract_addr(0x1234);
     uint32_t caller_pc = 100;
     uint32_t exit_pc = 200;
@@ -70,7 +75,7 @@ TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
 
 TEST(CallStackMetadataCollectorTest, NestedCalls)
 {
-    CallStackMetadataCollector collector;
+    CallStackMetadataCollector collector(limits);
     AztecAddress contract1(0x1111);
     AztecAddress contract2(0x2222);
     AztecAddress contract3(0x3333);
@@ -158,7 +163,7 @@ TEST(CallStackMetadataCollectorTest, NestedCalls)
 
 TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
 {
-    CallStackMetadataCollector collector;
+    CallStackMetadataCollector collector(limits);
     AztecAddress contract0(0x0000);
     AztecAddress contract1(0xaaaa);
     AztecAddress contract2(0xbbbb);
@@ -216,7 +221,7 @@ TEST(CallStackMetadataCollectorTest, MultipleSiblingCalls)
 
 TEST(CallStackMetadataCollectorTest, CalldataSizeLimit)
 {
-    CallStackMetadataCollector collector;
+    CallStackMetadataCollector collector(limits);
     AztecAddress contract_addr(0x1234);
     std::vector<FF> large_calldata(2000, FF(0xabcd)); // Larger than max_calldata_size (1024)
 
@@ -246,7 +251,7 @@ TEST(CallStackMetadataCollectorTest, CalldataSizeLimit)
 
 TEST(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
 {
-    CallStackMetadataCollector collector;
+    CallStackMetadataCollector collector(limits);
     AztecAddress contract_addr(0x5678);
     std::vector<FF> calldata = { FF(0x1234) };
 
@@ -277,7 +282,7 @@ TEST(CallStackMetadataCollectorTest, ReturnDataSizeLimit)
 
 TEST(CallStackMetadataCollectorTest, PhaseTracking)
 {
-    CallStackMetadataCollector collector;
+    CallStackMetadataCollector collector(limits);
     AztecAddress contract1(0x1111);
     AztecAddress contract2(0x2222);
     AztecAddress contract3(0x3333);
@@ -340,21 +345,20 @@ class MakeProviderTest : public ::testing::Test {
 
 TEST_F(MakeProviderTest, MakeCalldataProviderSuccess)
 {
-    uint32_t cd_offset = 100;
     uint32_t cd_size = 5;
     std::vector<MemoryValue> calldata_values = {
         MemoryValue::from<FF>(FF(0xaaaa)), MemoryValue::from<FF>(FF(0xbbbb)), MemoryValue::from<FF>(FF(0xcccc)),
         MemoryValue::from<FF>(FF(0xdddd)), MemoryValue::from<FF>(FF(0xeeee)),
     };
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    // This is called when creating the provider
     EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
 
-    // This is called when invoking the provider
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, cd_size)).WillOnce(Return(calldata_values));
+    // This is called when invoking the provider.
+    // get_calldata handles offsetting into parent memory for nested contexts internally.
+    EXPECT_CALL(mock_context, get_calldata(0, cd_size)).WillOnce(Return(calldata_values));
 
     auto result = provider(1024);
 
@@ -363,7 +367,6 @@ TEST_F(MakeProviderTest, MakeCalldataProviderSuccess)
 
 TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
 {
-    uint32_t cd_offset = 0;
     uint32_t cd_size = 2000; // Larger than max_size
     uint32_t max_size = 10;
     std::vector<MemoryValue> calldata_values(2000);
@@ -371,46 +374,19 @@ TEST_F(MakeProviderTest, MakeCalldataProviderRespectsMaxSize)
         calldata_values[i] = MemoryValue::from<FF>(FF(i));
     }
 
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
+    // This is called when creating the provider
     EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
 
     auto provider = make_calldata_provider(mock_context);
 
     // This is called when invoking the provider
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, max_size))
-        .WillOnce([&calldata_values, max_size](uint32_t, uint32_t) {
-            return std::vector<MemoryValue>(calldata_values.begin(), calldata_values.begin() + max_size);
-        });
+    EXPECT_CALL(mock_context, get_calldata(0, max_size)).WillOnce([&calldata_values, max_size](uint32_t, uint32_t) {
+        return std::vector<MemoryValue>(calldata_values.begin(), calldata_values.begin() + max_size);
+    });
 
     auto result = provider(max_size);
 
     ASSERT_EQ(result.size(), max_size);
-}
-
-TEST_F(MakeProviderTest, MakeCalldataProviderHandlesException)
-{
-    static AztecAddress contract_addr(0x1234);
-    uint32_t cd_offset = 100;
-    uint32_t cd_size = 5;
-
-    // These are called when creating the provider
-    EXPECT_CALL(mock_context, get_parent_cd_addr()).WillOnce(Return(cd_offset));
-    EXPECT_CALL(mock_context, get_parent_cd_size()).WillOnce(Return(cd_size));
-
-    auto provider = make_calldata_provider(mock_context);
-
-    // This is called when invoking the provider, and throws
-    EXPECT_CALL(mock_context, get_calldata(cd_offset, _))
-        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
-    // The exception handler may call get_address() and get_pc() for logging (optional)
-    EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
-    EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(200));
-
-    auto result = provider(1024);
-
-    // Should return empty vector on exception
-    EXPECT_TRUE(result.empty());
 }
 
 TEST_F(MakeProviderTest, MakeReturnDataProviderSuccess)
@@ -468,29 +444,6 @@ TEST_F(MakeProviderTest, MakeReturnDataProviderRespectsMaxSize)
     auto result = provider(max_size);
 
     ASSERT_EQ(result.size(), max_size);
-}
-
-TEST_F(MakeProviderTest, MakeReturnDataProviderHandlesException)
-{
-    uint32_t rd_addr = 200;
-    uint32_t rd_size = 3;
-    static AztecAddress contract_addr(0x5678);
-
-    auto provider = make_return_data_provider(mock_context, rd_addr, rd_size);
-
-    // This is called when invoking the provider, and throws
-    StrictMock<MockMemory> memory;
-    EXPECT_CALL(::testing::Const(mock_context), get_memory())
-        .WillOnce(::testing::Throw(std::runtime_error("Test exception")));
-
-    // The exception handler may call get_address() and get_pc() for logging (optional)
-    EXPECT_CALL(mock_context, get_address()).Times(::testing::AnyNumber()).WillRepeatedly(ReturnRef(contract_addr));
-    EXPECT_CALL(mock_context, get_pc()).Times(::testing::AnyNumber()).WillRepeatedly(Return(300));
-
-    auto result = provider(1024);
-
-    // Should return empty vector on exception
-    EXPECT_TRUE(result.empty());
 }
 
 } // namespace

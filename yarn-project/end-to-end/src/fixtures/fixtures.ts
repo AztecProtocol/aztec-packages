@@ -8,7 +8,7 @@ export const shouldCollectMetrics = () => {
 };
 
 export const TEST_PEER_CHECK_INTERVAL_MS = 1000;
-export const TEST_MAX_TX_POOL_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+export const TEST_MAX_PENDING_TX_POOL_COUNT = 10_000; // Number of max pending TXs ~ 1.56GB
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
 export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');
@@ -24,5 +24,3 @@ export const NO_L1_TO_L2_MSG_ERROR =
   /No non-nullified L1 to L2 message found for message hash|Tried to consume nonexistent L1-to-L2 message/;
 export const STATIC_CALL_STATE_MODIFICATION_ERROR = /Static call cannot update the state.*/;
 export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can only be called statically.*/;
-
-export const DEFAULT_BLOB_SINK_PORT = '5052';

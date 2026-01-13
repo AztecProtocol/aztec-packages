@@ -80,18 +80,15 @@ describe('e2e_snapshot_sync', () => {
 
   const expectNodeSyncedToL2Block = async (node: AztecNode | ProverNode, blockNumber: number) => {
     const tips = await node.getL2Tips();
-    expect(tips.latest.number).toBeGreaterThanOrEqual(blockNumber);
+    expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
     const worldState = await node.getWorldStateSyncStatus();
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
   };
 
-  it('waits until a few checkpoints have been mined and purges blobs', async () => {
+  it('waits until a few checkpoints have been mined', async () => {
     log.warn(`Waiting for checkpoints to be mined`);
     await retryUntil(() => monitor.checkpointNumber > TARGET_CHECKPOINT_NUMBER, 'checkpoints-mined', 90, 1);
-    log.warn(
-      `Checkpoint height is now ${monitor.checkpointNumber}. Purging all blobs from sink so snapshot is required.`,
-    );
-    await context.blobSink!.clear();
+    log.warn(`Checkpoint height is now ${monitor.checkpointNumber}.`);
   });
 
   it('creates a snapshot', async () => {

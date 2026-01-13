@@ -31,7 +31,7 @@ using Operand = TaggedValue;
 
 struct Instruction {
     WireOpCode opcode = WireOpCode::LAST_OPCODE_SENTINEL;
-    uint16_t indirect = 0;
+    uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
 
     std::string to_string() const;
@@ -54,9 +54,6 @@ enum class InstrDeserializationEventError : uint8_t {
     OPCODE_OUT_OF_RANGE,
     INSTRUCTION_OUT_OF_RANGE,
     TAG_OUT_OF_RANGE,
-    // FIXME: remove this once all execution opcodes are supported.
-    // Also uncomment proper constraining of error in instr_fetching.pil.
-    INVALID_EXECUTION_OPCODE,
 };
 
 struct InstrDeserializationError {

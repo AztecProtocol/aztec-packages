@@ -45,10 +45,10 @@ cd aztec-packages
 
 ### Step 2: Check Out a Version Tag
 
-Check out the version tag you want to build. For example, to build version #include_testnet_version:
+Check out the version tag you want to build. For example, to build version #release_version:
 
 ```bash
-git checkout v#include_testnet_version
+git checkout v#release_version
 ```
 
 :::tip
@@ -74,7 +74,7 @@ The tag `aztec-build-local:3.0` avoids conflicts with the official Docker Hub im
 
 **What this does:**
 - Builds the `build` stage from `build-images/src/Dockerfile`
-- Installs Node.js 22.16.0 from NodeSource repository
+- Installs Node.js 24.12.0 from NodeSource repository
 - Installs Clang 16, 18, and 20 from LLVM
 - Installs Rust 1.85.0 using the Rust toolchain installer with wasm32 targets
 - Downloads and installs WASI SDK 27 from GitHub releases
@@ -93,7 +93,7 @@ After the build completes, inspect the image to verify its contents:
 docker run -it --rm aztec-build-local:3.0 /bin/bash
 
 # Check specific versions once inside:
-node --version        # Should show v22.16.0
+node --version        # Should show v24.12.0
 rustc --version       # Should show Rust 1.85.0
 clang-20 --version    # Should show clang 20.x
 forge --version       # Should show v1.4.1
@@ -141,7 +141,7 @@ The tag `aztecprotocol/release-image-base` must match exactly—the Dockerfile i
 
 **What this does:**
 - Installs production Node.js dependencies (no dev dependencies)
-- Includes Node.js 22 runtime and system utilities
+- Includes Node.js 24 runtime and system utilities
 - Copies Foundry tools (anvil, cast) from the build container
 - Creates a slim Ubuntu-based runtime environment without build tools
 
@@ -150,11 +150,11 @@ The tag `aztecprotocol/release-image-base` must match exactly—the Dockerfile i
 Build the final node image, combining the runtime environment (Step 5) with your compiled code (Step 4):
 
 ```bash
-docker build -f release-image/Dockerfile --build-arg VERSION=#include_testnet_version -t aztec-local:#include_testnet_version .
+docker build -f release-image/Dockerfile --build-arg VERSION=#release_version -t aztec-local:#release_version .
 ```
 
 :::tip
-The tag `aztec-local:#include_testnet_version` avoids conflicts with the official Docker Hub image and clearly indicates this is a locally-built version.
+The tag `aztec-local:#release_version` avoids conflicts with the official Docker Hub image and clearly indicates this is a locally-built version.
 :::
 
 **Build arguments:**
@@ -180,21 +180,21 @@ You should see your image listed:
 
 ```
 REPOSITORY      TAG       IMAGE ID       CREATED        SIZE
-aztec-local     #include_testnet_version     abc123def456   2 minutes ago  2.5GB
+aztec-local     #release_version     abc123def456   2 minutes ago  2.5GB
 ```
 
 ### Verify Version
 
 ```bash
-docker run --rm aztec-local:#include_testnet_version --version
+docker run --rm aztec-local:#release_version --version
 ```
 
-Should display version #include_testnet_version.
+Should display version #release_version.
 
 ### Test Basic Functionality
 
 ```bash
-docker run --rm aztec-local:#include_testnet_version --help
+docker run --rm aztec-local:#release_version --help
 ```
 
 Should display CLI help information without errors.
@@ -256,7 +256,7 @@ If all checks pass, your image is ready to use.
 
 **Solutions**:
 - Ensure you used `--build-arg VERSION=X.Y.Z` when building the release image
-- The version should match the git tag without the 'v' prefix (e.g., `#include_testnet_version` not `v#include_testnet_version`)
+- The version should match the git tag without the 'v' prefix (e.g., `#release_version` not `v#release_version`)
 
 ## Using Your Custom Build
 
@@ -267,7 +267,7 @@ Use your locally-built image with any node setup method. For Docker Compose, upd
 ```yaml
 services:
   aztec-node:
-    image: "aztec-local:#include_testnet_version"
+    image: "aztec-local:#release_version"
     # ... rest of configuration
 ```
 
@@ -278,7 +278,7 @@ See [Running a Full Node](./running_a_node.md) for complete setup instructions.
 Run the Aztec CLI directly from your custom image:
 
 ```bash
-docker run --rm aztec-local:#include_testnet_version --version
+docker run --rm aztec-local:#release_version --version
 ```
 
 ## Alternative Approaches
@@ -298,7 +298,7 @@ This approach is faster but requires trusting the published image. The official 
 
 To build without Docker, install all build dependencies locally and run `./bootstrap.sh` directly:
 
-- Install all toolchains from the build image (Node.js 22, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
+- Install all toolchains from the build image (Node.js 24, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
 - Run `bootstrap.sh check` to verify your environment
 - See `build-images/README.md` for details
 

@@ -19,6 +19,7 @@ import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
@@ -58,6 +59,7 @@ export class FeesTest {
 
   public logger: Logger;
   public aztecNode!: AztecNode;
+  public aztecNodeAdmin!: AztecNodeAdmin;
   public cheatCodes!: CheatCodes;
 
   public wallet!: TestWallet;
@@ -142,9 +144,7 @@ export class FeesTest {
     const blockReward = await this.rollupContract.getCheckpointReward();
     const rewardConfig = await this.rollupContract.getRewardConfig();
 
-    const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
-      EthAddress.fromString(rewardConfig.rewardDistributor),
-    );
+    const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(rewardConfig.rewardDistributor);
 
     const toDistribute = balance > blockReward ? blockReward : balance;
     const sequencerBlockRewards = (toDistribute * BigInt(rewardConfig.sequencerBps)) / 10000n;
@@ -190,7 +190,8 @@ export class FeesTest {
       async ({ deployedAccounts }, { wallet, aztecNode, cheatCodes }) => {
         this.wallet = wallet;
         this.aztecNode = aztecNode;
-        this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
+        this.aztecNodeAdmin = aztecNode;
+        this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
         this.cheatCodes = cheatCodes;
         this.accounts = deployedAccounts.map(a => a.address);
         this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
@@ -322,7 +323,7 @@ export class FeesTest {
           const { baseFee } = await this.rollupContract.getL1FeesAt(block!.header.globalVariables.timestamp);
           const proverCost =
             mulDiv(
-              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await this.rollupContract.getEpochDuration()),
+              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, BigInt(await this.rollupContract.getEpochDuration())),
               1n,
               await this.rollupContract.getManaTarget(),
             ) + (await this.rollupContract.getProvingCostPerMana());

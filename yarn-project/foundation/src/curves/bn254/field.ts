@@ -8,8 +8,6 @@ import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader } from '../../serialize/buffer_reader.js';
 import { TypeRegistry } from '../../serialize/type_registry.js';
 
-const ZERO_BUFFER = Buffer.alloc(32);
-
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 
 /**
@@ -25,14 +23,12 @@ type DerivedField<T extends BaseField> = {
 
 /**
  * Base field class.
- * Conversions from Buffer to BigInt and vice-versa are not cheap.
- * We allow construction with either form and lazily convert to other as needed.
- * We only check we are within the field modulus when initializing with bigint.
+ * Uses bigint as the internal representation.
+ * Buffers are generated on demand from the bigint value.
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
-  private asBuffer?: Buffer;
-  private asBigInt?: bigint;
+  private readonly asBigInt: bigint;
 
   /**
    * Return bigint representation.
@@ -52,53 +48,41 @@ abstract class BaseField {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
-      this.asBuffer =
-        value.length === BaseField.SIZE_IN_BYTES
-          ? value
-          : Buffer.concat([Buffer.alloc(BaseField.SIZE_IN_BYTES - value.length), value]);
+      this.asBigInt = toBigIntBE(value);
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
       this.asBigInt = BigInt(value);
-      if (this.asBigInt >= this.modulus()) {
-        throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
-      } else if (this.asBigInt < 0n) {
-        throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
-      }
     } else if (value instanceof BaseField) {
-      this.asBuffer = value.asBuffer;
       this.asBigInt = value.asBigInt;
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
+    }
+
+    if (this.asBigInt < 0n) {
+      throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
+    } else if (this.asBigInt >= this.modulus()) {
+      throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
     }
   }
 
   protected abstract modulus(): bigint;
 
   /**
-   * We return a copy of the Buffer to ensure this remains immutable.
+   * Converts the bigint to a Buffer.
    */
   toBuffer(): Buffer {
-    if (!this.asBuffer) {
-      this.asBuffer = toBufferBE(this.asBigInt!, 32);
-    }
-    return Buffer.from(this.asBuffer);
+    return toBufferBE(this.asBigInt, 32);
   }
 
   toString(): `0x${string}` {
-    return `0x${this.toBuffer().toString('hex')}`;
+    return `0x${this.asBigInt.toString(16).padStart(64, '0')}`;
   }
 
   toBigInt(): bigint {
-    if (this.asBigInt === undefined) {
-      this.asBigInt = toBigIntBE(this.asBuffer!);
-      if (this.asBigInt >= this.modulus()) {
-        throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
-      }
-    }
     return this.asBigInt;
   }
 
   toBool(): boolean {
-    return Boolean(this.toBigInt());
+    return this.asBigInt !== 0n;
   }
 
   /**
@@ -106,11 +90,10 @@ abstract class BaseField {
    * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
    */
   toNumber(): number {
-    const value = this.toBigInt();
-    if (value > Number.MAX_SAFE_INTEGER) {
-      throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
+    if (this.asBigInt > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Value ${this.asBigInt.toString(16)} greater than than max safe integer`);
     }
-    return Number(value);
+    return Number(this.asBigInt);
   }
 
   /**
@@ -118,8 +101,7 @@ abstract class BaseField {
    * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
    */
   toNumberUnsafe(): number {
-    const value = this.toBigInt();
-    return Number(value);
+    return Number(this.asBigInt);
   }
 
   toShortString(): string {
@@ -128,21 +110,24 @@ abstract class BaseField {
   }
 
   equals(rhs: BaseField): boolean {
-    return this.toBuffer().equals(rhs.toBuffer());
+    return this.asBigInt === rhs.asBigInt;
   }
 
   lt(rhs: BaseField): boolean {
-    return this.toBigInt() < rhs.toBigInt();
+    return this.asBigInt < rhs.asBigInt;
   }
 
   cmp(rhs: BaseField): -1 | 0 | 1 {
-    const lhsBigInt = this.toBigInt();
-    const rhsBigInt = rhs.toBigInt();
-    return lhsBigInt === rhsBigInt ? 0 : lhsBigInt < rhsBigInt ? -1 : 1;
+    const rhsBigInt = rhs.asBigInt;
+    return this.asBigInt === rhsBigInt ? 0 : this.asBigInt < rhsBigInt ? -1 : 1;
+  }
+
+  static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
+    return lhs.cmp(rhs);
   }
 
   isZero(): boolean {
-    return this.toBuffer().equals(ZERO_BUFFER);
+    return this.asBigInt === 0n;
   }
 
   isEmpty(): boolean {

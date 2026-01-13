@@ -1,27 +1,32 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { map, sort, toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import {
+  MerkleTreeId,
+  NullifierLeaf,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ArchiveCache, GasTxValidator } from '../../msg_validators/index.js';
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import { describeTxPool } from './tx_pool_test_suite.js';
 
 describe('KV TX pool', () => {
-  let txPool: TestAztecKVTxPool;
+  let txPool: AztecKVTxPool;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let nextTxSeed: number;
-  let mockTxSize: number;
   const mockFixedTxSize = 100;
 
   const block1Header = BlockHeader.empty({
@@ -30,18 +35,11 @@ describe('KV TX pool', () => {
   const block2Header = BlockHeader.empty({
     globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2), timestamp: 36n }),
   });
-  const block10Header = BlockHeader.empty({
-    globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(10), timestamp: 360n }),
-  });
 
   const checkPendingTxConsistency = async () => {
     const pendingTxHashCount = await txPool.getPendingTxHashes().then(h => h.length);
     expect(await txPool.getPendingTxCount()).toEqual(pendingTxHashCount);
   };
-
-  beforeAll(async () => {
-    mockTxSize = (await mockTx(1)).getSize();
-  });
 
   beforeEach(async () => {
     nextTxSeed = 1;
@@ -49,12 +47,24 @@ describe('KV TX pool', () => {
     worldState = worldState = mock<WorldStateSynchronizer>();
     db = mock<MerkleTreeReadOperations>();
     worldState.getCommitted.mockReturnValue(db);
+    worldState.getSnapshot.mockReturnValue(db);
 
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
-    txPool.mockGasTxValidator.validateTxFee.mockImplementation(() =>
-      Promise.resolve({ result: 'valid' } as TxValidationResult),
-    );
-    txPool.mockArchiveCache.getArchiveIndices.mockImplementation(() => Promise.resolve([BigInt(1)]));
+    db.findLeafIndices.mockImplementation((_tree, leaves) => {
+      return Promise.resolve(times(leaves.length, () => 1n));
+    });
+
+    db.getPreviousValueIndex.mockImplementation((_tree, slot) => {
+      return Promise.resolve({ index: slot, alreadyPresent: true });
+    });
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      return Promise.resolve(
+        tree === MerkleTreeId.NULLIFIER_TREE
+          ? new NullifierLeafPreimage(new NullifierLeaf(new Fr(index)), Fr.ONE, 1n)
+          : new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(1e18)), Fr.ONE, 1n),
+      );
+    });
+
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
   });
 
   afterEach(checkPendingTxConsistency);
@@ -69,38 +79,52 @@ describe('KV TX pool', () => {
 
   it('Returns archived txs and purges archived txs once the archived tx limit is reached', async () => {
     // set the archived tx limit to 2
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       archivedTxLimit: 2,
     });
 
     const txs = await timesAsync(5, i => mockTx(i + 1));
     await txPool.addTxs(txs);
 
-    const expectedArchivedTxs = txs.map(tx => Tx.from({ ...tx, chonkProof: ChonkProof.empty() }));
+    // Only mined txs should be archived, pending are never archived
+    await txPool.markAsMined(
+      txs.map(t => t.txHash),
+      block1Header,
+    );
+
+    const expectArchivedTx = async (txHash: TxHash, shouldExist: boolean) => {
+      const archived = await txPool.getArchivedTxByHash(txHash);
+      if (shouldExist) {
+        expect(archived).toBeDefined();
+        expect(archived!.getTxHash()).toEqual(txHash);
+      } else {
+        expect(archived).toBeUndefined();
+      }
+    };
 
     // delete two txs and assert that they are properly archived
     await txPool.deleteTxs([txs[0].getTxHash(), txs[1].getTxHash()]);
-    await expect(txPool.getArchivedTxByHash(txs[0].getTxHash())).resolves.toEqual(expectedArchivedTxs[0]);
-    await expect(txPool.getArchivedTxByHash(txs[1].getTxHash())).resolves.toEqual(expectedArchivedTxs[1]);
+    await expectArchivedTx(txs[0].getTxHash(), true);
+    await expectArchivedTx(txs[1].getTxHash(), true);
 
     // delete a single tx and assert that the first tx is purged and the new tx is archived
     await txPool.deleteTxs([txs[2].getTxHash()]);
-    await expect(txPool.getArchivedTxByHash(txs[0].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[1].getTxHash())).resolves.toEqual(expectedArchivedTxs[1]);
-    await expect(txPool.getArchivedTxByHash(txs[2].getTxHash())).resolves.toEqual(expectedArchivedTxs[2]);
+    await expectArchivedTx(txs[0].getTxHash(), false);
+    await expectArchivedTx(txs[1].getTxHash(), true);
+    await expectArchivedTx(txs[2].getTxHash(), true);
 
     // delete multiple txs and assert that the old txs are purged and the new txs are archived
     await txPool.deleteTxs([txs[3].getTxHash(), txs[4].getTxHash()]);
-    await expect(txPool.getArchivedTxByHash(txs[0].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[1].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[2].getTxHash())).resolves.toBeUndefined();
-    await expect(txPool.getArchivedTxByHash(txs[3].getTxHash())).resolves.toEqual(expectedArchivedTxs[3]);
-    await expect(txPool.getArchivedTxByHash(txs[4].getTxHash())).resolves.toEqual(expectedArchivedTxs[4]);
+    await expectArchivedTx(txs[0].getTxHash(), false);
+    await expectArchivedTx(txs[1].getTxHash(), false);
+    await expectArchivedTx(txs[2].getTxHash(), false);
+    await expectArchivedTx(txs[3].getTxHash(), true);
+    await expectArchivedTx(txs[4].getTxHash(), true);
   });
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 3, // pool should contain no more than 3 mock txs
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxPendingTxCount: 3,
     });
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
@@ -144,10 +168,9 @@ describe('KV TX pool', () => {
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
   });
 
-  it('respects the overflow factor configured', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockFixedTxSize * 10, // pool should contain no more than 10 mock txs
-      txPoolOverflowFactor: 1.5, // but allow it to grow up to 15, but then when it evicts, it evicts until it's left to 10
+  it('respects the maximum transaction count configured', async () => {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxPendingTxCount: 10, // pool should contain no more than 10 txs
     });
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
@@ -168,41 +191,19 @@ describe('KV TX pool', () => {
     const secondBatch = await timesAsync(2, () => mockFixedSizeTx());
     await txPool.addTxs(secondBatch);
 
-    // we've added two more txs. At this point the pool contains more txs than the limit
-    // but it still hasn't evicted anything
-    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
-      await toArray(
-        sort(
-          map([...firstBatch, ...secondBatch], tx => tx.getTxHash()),
-          cmp,
-        ),
-      ),
-    );
-
-    const thirdBatch = await timesAsync(3, () => mockFixedSizeTx());
-    await txPool.addTxs(thirdBatch);
-
-    // add another 3 txs. The pool has reached the limit. All txs should be available still
-    // another txs would trigger evictions
-    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
-      await toArray(
-        sort(
-          map([...firstBatch, ...secondBatch, ...thirdBatch], tx => tx.getTxHash()),
-          cmp,
-        ),
-      ),
-    );
+    // pool should evict 2 txs to bring it back to 10
+    expect(await txPool.getPendingTxCount()).toBe(10);
 
     const lastTx = await mockFixedSizeTx();
     await txPool.addTxs([lastTx]);
 
-    // the pool should evict enough txs to stay under the size limit
-    expect(await txPool.getPendingTxCount()).toBeLessThanOrEqual(10);
+    // the pool should evict enough txs to stay below the limit
+    expect(await txPool.getPendingTxCount()).toBe(10);
   });
 
   it('evicts based on the updated size limit', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockFixedTxSize * 10, // pool should contain no more than 10 mock txs
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxPendingTxCount: 10, // pool should contain no more than 10 mock txs
     });
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
@@ -223,7 +224,7 @@ describe('KV TX pool', () => {
 
     // now set the limit to 5 txs
     const numRemainingTxs = 5;
-    txPool.updateConfig({ maxTxPoolSize: mockFixedTxSize * numRemainingTxs });
+    txPool.updateConfig({ maxPendingTxCount: numRemainingTxs });
 
     // txs are not immediately evicted
     expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
@@ -279,10 +280,17 @@ describe('KV TX pool', () => {
 
     // modify tx1 to have the same fee payer as the mined tx and an insufficient fee payer balance
     tx1.data.feePayer = tx4.data.feePayer;
-    txPool.mockGasTxValidator.validateTxFee.mockImplementation((tx: Tx) => {
-      return Promise.resolve({
-        result: tx.getTxHash().equals(tx1.getTxHash()) ? 'invalid' : 'valid',
-      } as TxValidationResult);
+    const prev = db.getLeafPreimage.getMockImplementation()!;
+    const expectedSlot = await computeFeePayerBalanceLeafSlot(tx1.data.feePayer);
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      if (index === expectedSlot.toBigInt() && tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+        return Promise.resolve(
+          // this feePayer has a balance of 0 now
+          new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(tx1.data.feePayer.toField(), Fr.ZERO), Fr.ONE, 1n),
+        );
+      } else {
+        return prev(tree, index);
+      }
     });
 
     await txPool.addTxs([tx1, tx2, tx3, tx4]);
@@ -314,17 +322,17 @@ describe('KV TX pool', () => {
     // modify tx1 to return no archive indices
     tx1.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(1);
     const tx1HeaderHash = await tx1.data.constants.anchorBlockHeader.hash();
-    txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
-      if (archives[0].equals(tx1HeaderHash)) {
-        return Promise.resolve([]);
+    db.findLeafIndices.mockImplementation((tree, leaves) => {
+      if (tree === MerkleTreeId.ARCHIVE) {
+        return Promise.resolve((leaves as Fr[]).map(l => (l.equals(tx1HeaderHash) ? undefined : 1n)));
       }
-      return Promise.resolve([BigInt(1)]);
+      return Promise.resolve([]);
     });
 
     await txPool.addTxs([tx1, tx2, tx3]);
     const txHashes = [tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()];
     await txPool.markAsMined(txHashes, block1Header);
-    await txPool.markMinedAsPending(txHashes);
+    await txPool.markMinedAsPending(txHashes, tx2.data.constants.anchorBlockHeader.getBlockNumber());
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
@@ -340,13 +348,20 @@ describe('KV TX pool', () => {
     await txPool.markAsMined([tx2.getTxHash()], block1Header);
     await checkPendingTxConsistency();
 
-    // modify tx1 to have an insufficient fee payer balance after the reorg
-    txPool.mockGasTxValidator.validateTxFee.mockImplementation((tx: Tx) => {
-      return Promise.resolve({
-        result: tx.getTxHash().equals(tx1.getTxHash()) ? 'invalid' : 'valid',
-      } as TxValidationResult);
+    const prev = db.getLeafPreimage.getMockImplementation()!;
+    const expectedSlot = await computeFeePayerBalanceLeafSlot(tx1.data.feePayer);
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      if (index === expectedSlot.toBigInt() && tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+        return Promise.resolve(
+          // this feePayer has a balance of 0 now
+          new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(tx1.data.feePayer.toField(), Fr.ZERO), Fr.ONE, 1n),
+        );
+      } else {
+        return prev(tree, index);
+      }
     });
-    await txPool.markMinedAsPending([tx2.getTxHash()]);
+
+    await txPool.markMinedAsPending([tx2.getTxHash()], BlockNumber(1));
     await checkPendingTxConsistency();
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
@@ -355,8 +370,8 @@ describe('KV TX pool', () => {
   });
 
   it('Does not evict low priority txs marked as non-evictable', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 3, // pool should contain no more than 3 mock txs
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxPendingTxCount: 3,
     });
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
@@ -375,49 +390,41 @@ describe('KV TX pool', () => {
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx5.getTxHash(), tx4.getTxHash(), tx1.getTxHash()]);
   });
 
-  it('Evicts low priority txs after block is mined', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 3, // pool should contain no more than 3 mock txs
+  describe('getLowestPriorityEvictable', () => {
+    it('returns the lowest-priority evictable tx hashes up to limit', async () => {
+      txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+        maxPendingTxCount: 0,
+      });
+
+      const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+      const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+      const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+      const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
+      await txPool.addTxs([tx3, tx1, tx4, tx2]);
+
+      // Mark tx2 as non-evictable; tx1 should be considered first
+      await txPool.markTxsAsNonEvictable([tx2.getTxHash()]);
+
+      const res1 = await txPool.getLowestPriorityEvictable(1);
+      expect(res1).toEqual([tx1.getTxHash()]);
+
+      const res2 = await txPool.getLowestPriorityEvictable(2);
+      // After skipping non-evictable tx2, next lowest is tx3
+      expect(res2).toEqual([tx1.getTxHash(), tx3.getTxHash()]);
+
+      const res3 = await txPool.getLowestPriorityEvictable(10);
+      expect(res3).toEqual([tx1.getTxHash(), tx3.getTxHash(), tx4.getTxHash()]);
     });
 
-    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
-    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
-    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
-    await txPool.addTxs([tx1, tx2, tx3]);
-    await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx3.getTxHash(), tx2.getTxHash(), tx1.getTxHash()]);
+    it('respects zero and all non-evictable cases', async () => {
+      txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
+      const tx1 = await mockTx(10, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+      await txPool.addTxs([tx1]);
 
-    // Mark tx 1 as non-evictable
-    const tx1Hash = tx1.getTxHash();
-    await txPool.markTxsAsNonEvictable([tx1Hash]);
+      expect(await txPool.getLowestPriorityEvictable(0)).toEqual([]);
 
-    // once the tx pool size limit is reached, the lowest priority txs that are evictable (tx2, tx3) should be evicted
-    const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
-    const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
-    await txPool.addTxs([tx4, tx5]);
-    await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx5.getTxHash(), tx4.getTxHash(), tx1.getTxHash()]);
-
-    // We have now mined a block. Mark some tx hashes as mined and we should now evict tx1 again
-    const newTx = await mockTx();
-    // We are marking a completely different tx as mined, but that fact that any block has been mined should
-    // clear the non-evictable status
-    await txPool.markAsMined([newTx.getTxHash()], block10Header);
-
-    // if another tx is added after the tx pool size limit is reached, the lowest priority tx that is evictable (tx1) should be evicted
-    const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(6, 6) });
-    await txPool.addTxs([tx6]);
-    await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx6.getTxHash(), tx5.getTxHash(), tx4.getTxHash()]);
+      await txPool.markTxsAsNonEvictable([tx1.getTxHash()]);
+      expect(await txPool.getLowestPriorityEvictable(1)).toEqual([]);
+    });
   });
 });
-
-class TestAztecKVTxPool extends AztecKVTxPool {
-  public mockGasTxValidator: MockProxy<GasTxValidator> = mock<GasTxValidator>();
-  public mockArchiveCache: MockProxy<ArchiveCache> = mock<ArchiveCache>();
-
-  protected override createGasTxValidator(_db: MerkleTreeReadOperations): GasTxValidator {
-    return this.mockGasTxValidator;
-  }
-
-  protected override createArchiveCache(_db: MerkleTreeReadOperations): ArchiveCache {
-    return this.mockArchiveCache;
-  }
-}

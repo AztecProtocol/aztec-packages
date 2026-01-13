@@ -1,14 +1,19 @@
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
-import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { schemas as foundationSchemas } from '@aztec/foundation/schemas';
+import {
+  BufferReader,
+  bigintToUInt64BE,
+  numToUInt32BE,
+  serializeArrayOfBufferableToVector,
+} from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { L2BlockHash } from '../block/block_hash.js';
+import { schemas } from '../schemas/schemas.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { PrivateLog } from './private_log.js';
-import { PublicLog } from './public_log.js';
+import type { UInt64 } from '../types/shared.js';
 
-// TODO(#14460): Split to private and public versions instead of having this weird mix.
 export class TxScopedL2Log {
   constructor(
     /*
@@ -16,89 +21,78 @@ export class TxScopedL2Log {
      */
     public txHash: TxHash,
     /*
-     * The next available leaf index for the note hash tree for this transaction. It is stored
-     * with the log so the noteHashIndex can be reconstructed after decryption.
-     */
-    public dataStartIndexForTx: number,
-    /*
-     * The index of the log in the transaction. Note that public and private logs are in separate arrays in the tx
-     * effect and for this reason these indices are independent (a private and public log can have the same index).
-     */
-    public logIndexInTx: number,
-    /*
      * The block this log is included in
      */
     public blockNumber: BlockNumber,
     /*
-     * The block this log is included in
+     * The timestamp of the block this log is included in
      */
-    public blockHash: L2BlockHash,
+    public blockTimestamp: UInt64,
     /*
-     * The log data as either a PrivateLog or PublicLog
+     * The log data as an array of field elements
      */
-    public log: PrivateLog | PublicLog,
+    public logData: Fr[],
+    /*
+     * The note hashes from the tx effect
+     */
+    public noteHashes: Fr[],
+    /*
+     * The first nullifier from the tx effect. Used for nonce discovery when processing notes from logs.
+     *
+     * (Note nonces are computed as `hash(firstNullifier, noteIndexInTx)`.)
+     */
+    public firstNullifier: Fr,
   ) {}
-
-  get isFromPublic() {
-    return this.log instanceof PublicLog;
-  }
 
   static get schema() {
     return z
       .object({
         txHash: TxHash.schema,
-        dataStartIndexForTx: z.number(),
-        logIndexInTx: z.number(),
         blockNumber: BlockNumberSchema,
-        blockHash: L2BlockHash.schema,
-        log: z.union([PrivateLog.schema, PublicLog.schema]),
+        blockTimestamp: schemas.UInt64,
+        logData: z.array(foundationSchemas.Fr),
+        noteHashes: z.array(foundationSchemas.Fr),
+        firstNullifier: foundationSchemas.Fr,
       })
       .transform(
-        ({ txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, log }) =>
-          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, log),
+        ({ txHash, blockNumber, blockTimestamp, logData, noteHashes, firstNullifier }) =>
+          new TxScopedL2Log(txHash, blockNumber, blockTimestamp, logData, noteHashes, firstNullifier),
       );
   }
 
   toBuffer() {
     return Buffer.concat([
       this.txHash.toBuffer(),
-      numToUInt32BE(this.dataStartIndexForTx),
-      numToUInt32BE(this.logIndexInTx),
       numToUInt32BE(this.blockNumber),
-      this.blockHash.toBuffer(),
-      boolToBuffer(this.isFromPublic),
-      this.log.toBuffer(),
+      bigintToUInt64BE(this.blockTimestamp),
+      serializeArrayOfBufferableToVector(this.logData),
+      serializeArrayOfBufferableToVector(this.noteHashes),
+      this.firstNullifier.toBuffer(),
     ]);
   }
 
   static fromBuffer(buffer: Buffer) {
     const reader = BufferReader.asReader(buffer);
     const txHash = reader.readObject(TxHash);
-    const dataStartIndexForTx = reader.readNumber();
-    const logIndexInTx = reader.readNumber();
     const blockNumber = BlockNumber(reader.readNumber());
-    const blockHash = reader.readObject(L2BlockHash);
-    const isFromPublic = reader.readBoolean();
-    const log = isFromPublic ? PublicLog.fromBuffer(reader) : PrivateLog.fromBuffer(reader);
+    const blockTimestamp = reader.readUInt64();
+    const logData = reader.readVector(Fr);
+    const noteHashes = reader.readVector(Fr);
+    const firstNullifier = reader.readObject(Fr);
 
-    return new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, blockHash, log);
-  }
-
-  static async random(isFromPublic = Math.random() < 0.5) {
-    const log = isFromPublic ? await PublicLog.random() : PrivateLog.random();
-    return new TxScopedL2Log(TxHash.random(), 1, 1, BlockNumber(1), L2BlockHash.random(), log);
+    return new TxScopedL2Log(txHash, blockNumber, blockTimestamp, logData, noteHashes, firstNullifier);
   }
 
   equals(other: TxScopedL2Log) {
     return (
       this.txHash.equals(other.txHash) &&
-      this.dataStartIndexForTx === other.dataStartIndexForTx &&
-      this.logIndexInTx === other.logIndexInTx &&
       this.blockNumber === other.blockNumber &&
-      this.blockHash.equals(other.blockHash) &&
-      ((this.log instanceof PublicLog && other.log instanceof PublicLog) ||
-        (this.log instanceof PrivateLog && other.log instanceof PrivateLog)) &&
-      this.log.equals(other.log as any)
+      this.blockTimestamp === other.blockTimestamp &&
+      this.logData.length === other.logData.length &&
+      this.logData.every((f, i) => f.equals(other.logData[i])) &&
+      this.noteHashes.length === other.noteHashes.length &&
+      this.noteHashes.every((h, i) => h.equals(other.noteHashes[i])) &&
+      this.firstNullifier.equals(other.firstNullifier)
     );
   }
 }

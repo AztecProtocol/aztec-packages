@@ -150,13 +150,17 @@ pub contract ContractInstanceRegistry {
     fn update(new_contract_class_id: ContractClassId) {
         let address = self.msg_sender().unwrap();
 
+        // Safety: we're using the nullifier's existence as a guarantee of the availability of the contract's
+        // information through publishing, which is safe - we just need this information to be _eventually_ available.
         assert(
-            self.context.nullifier_exists(address.to_field(), self.address),
+            self.context.nullifier_exists_unsafe(address.to_field(), self.address),
             "msg.sender is not deployed",
         );
 
+        // Safety: we're using the nullifier's existence as a guarantee of the availability of the new contract class'
+        // information through registration, which is safe - we just need this information to be _eventually_ available.
         assert(
-            self.context.nullifier_exists(
+            self.context.nullifier_exists_unsafe(
                 new_contract_class_id.to_field(),
                 CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
             ),
@@ -185,8 +189,10 @@ pub contract ContractInstanceRegistry {
     fn set_update_delay(new_update_delay: u64) {
         let msg_sender = self.msg_sender().unwrap();
 
+        // Safety: we're using the nullifier's existence as a guarantee of the availability of the contract's
+        // information through publishing, which is safe - we just need this information to be _eventually_ available.
         assert(
-            self.context.nullifier_exists(msg_sender.to_field(), self.address),
+            self.context.nullifier_exists_unsafe(msg_sender.to_field(), self.address),
             "msg.sender is not deployed",
         );
 

@@ -126,16 +126,16 @@ Instruction random_instruction(WireOpCode w_opcode)
 {
     const auto format = simulation::testonly::get_instruction_wire_formats().at(w_opcode);
     std::vector<Operand> operands;
-    uint16_t indirect = 0;
-    operands.reserve(format.size()); // Might be a bit larger (due to indirect)
+    uint16_t addressing_mode = 0;
+    operands.reserve(format.size()); // Might be a bit larger (due to addressing_mode)
 
     for (const auto& operand_type : format) {
         switch (operand_type) {
         case OperandType::INDIRECT8:
-            indirect = random_operand(operand_type).as<uint8_t>();
+            addressing_mode = random_operand(operand_type).as<uint8_t>();
             break;
         case OperandType::INDIRECT16:
-            indirect = random_operand(operand_type).as<uint16_t>();
+            addressing_mode = random_operand(operand_type).as<uint16_t>();
             break;
         default:
             operands.emplace_back(random_operand(operand_type));
@@ -145,7 +145,7 @@ Instruction random_instruction(WireOpCode w_opcode)
 
     return Instruction{
         .opcode = w_opcode,
-        .indirect = indirect,
+        .addressing_mode = addressing_mode,
         .operands = std::move(operands),
     };
 }

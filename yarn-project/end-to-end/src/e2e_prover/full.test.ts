@@ -26,9 +26,6 @@ import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 // Set a very long 15 minute timeout.
 const TIMEOUT = 900_000;
 
-// This makes AVM proving throw if there's a failure.
-process.env.AVM_PROVING_STRICT = '1';
-
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();

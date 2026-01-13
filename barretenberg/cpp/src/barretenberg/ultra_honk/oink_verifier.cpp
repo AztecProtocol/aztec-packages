@@ -1,13 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
@@ -42,7 +43,6 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify()
     verifier_instance->witness_commitments = witness_comms;
     verifier_instance->relation_parameters = relation_parameters;
     verifier_instance->alpha = generate_alpha_round();
-    verifier_instance->is_complete = true; // instance has been completely populated
 }
 
 /**
@@ -53,7 +53,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     auto vk = verifier_instance->get_vk();
 
-    FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+    FF vk_hash = vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 
@@ -195,6 +195,7 @@ template class OinkVerifier<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;

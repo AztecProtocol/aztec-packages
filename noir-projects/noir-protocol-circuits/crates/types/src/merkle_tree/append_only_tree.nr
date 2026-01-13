@@ -1,7 +1,7 @@
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     merkle_tree::{
-        membership::check_membership,
+        membership::{check_membership, MembershipWitness},
         root::{calculate_empty_tree_root, root_from_sibling_path},
     },
 };
@@ -37,8 +37,7 @@ pub fn insert_subtree_root_to_snapshot<let TreeHeight: u32, let SubtreeHeight: u
     assert(
         check_membership(
             empty_subtree_root,
-            subtree_root_index_at_depth,
-            sibling_path,
+            MembershipWitness { leaf_index: subtree_root_index_at_depth, sibling_path },
             snapshot.root,
         ),
         "Membership check failed: empty subtree root not found at insertion index",

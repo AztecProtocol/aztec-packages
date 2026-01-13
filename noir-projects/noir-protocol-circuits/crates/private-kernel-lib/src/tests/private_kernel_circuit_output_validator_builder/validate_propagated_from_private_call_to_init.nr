@@ -1,5 +1,4 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::tests::utils::swap_items;
 
 #[test]
 fn validate_propagated_from_private_call_to_init__empty_data_succeeds() {
@@ -274,7 +273,7 @@ fn validate_propagated_from_private_call_to_init__private_call_requests_succeeds
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
-    builder.output.append_private_call_requests(2);
+    builder.output.reverse_append_private_call_requests(2);
 
     builder.validate_as_first_call();
 }
@@ -284,9 +283,8 @@ fn validate_propagated_from_private_call_to_init__private_call_requests_not_reve
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
+    // Append the requests in regular order.
     builder.output.append_private_call_requests(2);
-    // Swap the call requests.
-    swap_items(&mut builder.output.private_call_requests, 0, 1);
 
     builder.validate_as_first_call();
 }
@@ -297,7 +295,7 @@ fn validate_propagated_from_private_call_to_init__private_call_requests_output_o
 
     builder.private_call.append_private_call_requests(2);
     // Propagate 1 more item to the output.
-    builder.output.append_private_call_requests(3);
+    builder.output.reverse_append_private_call_requests(3);
 
     builder.validate_as_first_call();
 }
@@ -307,11 +305,10 @@ fn validate_propagated_from_private_call_to_init__private_call_requests_output_o
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
+    // Propagate 2 items in reversed order to the output.
+    builder.output.reverse_append_private_call_requests(2);
     // Propagate 1 more item to the output.
-    builder.output.append_private_call_requests(3);
-    // Swap the order of the items so that the first two items matches the values in the private call after reversing.
-    swap_items(&mut builder.output.private_call_requests, 0, 2);
-    swap_items(&mut builder.output.private_call_requests, 1, 2);
+    builder.output.append_private_call_requests(1);
 
     builder.validate_as_first_call();
 }
