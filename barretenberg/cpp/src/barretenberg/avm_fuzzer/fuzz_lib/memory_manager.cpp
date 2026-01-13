@@ -117,7 +117,6 @@ ResolvedAddress MemoryManager::resolve_address(VariableRef variable,
         break;
     }
     case AddressingMode::Relative:
-        // TODO(Alvaro): Maybe delete this or prevent wraparound
         BB_ASSERT_LTE(absolute_address, base_offset + max_operand_address);
         resolved_address.operand_address = absolute_address - base_offset;
         resolved_address.via_relative = true;
@@ -155,7 +154,6 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
         break;
     }
     case AddressingMode::Relative:
-        // TODO(Alvaro): Maybe delete this or prevent wraparound
         BB_ASSERT_LTE(address.address, base_offset + max_operand_address);
         resolved_address.operand_address = address.address - base_offset;
         resolved_address.via_relative = true;
