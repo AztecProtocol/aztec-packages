@@ -1145,12 +1145,21 @@ fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruc
         Some(
             AddressingModeBuilder::default()
                 .direct_operand(source)
-                .direct_operand(&MemoryAddress::Direct(target_address))
+                .direct_operand(&MemoryAddress::direct(target_address))
                 .build(),
         ),
         source.to_usize() as u32,
         target_address as u32,
     )
+}
+
+fn generate_set_to_procedure(
+    tag: AvmTypeTag,
+    value: &FieldElement,
+    index: usize,
+) -> AvmInstruction {
+    let target_address = SCRATCH_SPACE_START + index;
+    generate_set_instruction(tag, &MemoryAddress::direct(target_address), value, false)
 }
 
 fn generate_procedure_call(
@@ -1310,10 +1319,15 @@ fn handle_black_box_function(
             // decomposition
             // Output array is fixed to 3
             assert_eq!(outputs.size, 3, "Output array size must be equal to 3");
+            assert!(points.size % 3 == 0, "Points array size must be divisible by 3");
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
-            avm_instrs.push(generate_mov_to_procedure(&points.size, 2));
+            avm_instrs.push(generate_set_to_procedure(
+                AvmTypeTag::UINT32,
+                &FieldElement::from(points.size / 3),
+                2,
+            ));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
             avm_instrs.push(generate_procedure_call(
                 Procedure::MultiScalarMul,
@@ -1363,7 +1377,7 @@ fn handle_debug_log(
     };
     // Message
     let (message_offset, message_size) = match &inputs[1] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, *size as u32),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, *size),
         _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
     };
     // Length and pointer
