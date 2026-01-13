@@ -76,7 +76,7 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
 
     await sleep(100);
 
@@ -109,7 +109,7 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
 
     await sleep(100);
 
@@ -142,7 +142,7 @@ describe('AttestationsBlockWatcher', () => {
       validationResult: invalidCheckpointValidationResult,
     };
 
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointEvent);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointEvent);
 
     await sleep(100);
 
@@ -178,7 +178,7 @@ describe('AttestationsBlockWatcher', () => {
     };
 
     handler.mockClear();
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, childEvent);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, childEvent);
 
     await sleep(100);
 
@@ -226,9 +226,9 @@ describe('AttestationsBlockWatcher', () => {
     };
 
     // Emit the same event twice
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
     await sleep(100);
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
     await sleep(100);
 
     // Should only emit once
@@ -254,7 +254,7 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    l2BlockSource.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
+    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
 
     await sleep(100);
 
@@ -263,8 +263,8 @@ describe('AttestationsBlockWatcher', () => {
   });
 });
 
-class MockL2BlockSource extends EventEmitter {
-  constructor() {
-    super();
-  }
+class MockL2BlockSource {
+  public readonly events = new EventEmitter();
+
+  constructor() {}
 }
