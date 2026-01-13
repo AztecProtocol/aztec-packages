@@ -17,12 +17,9 @@ import {
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
-import { asyncMap } from '@aztec/foundation/async-map';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { createLogger } from '@aztec/foundation/log';
-import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
@@ -30,17 +27,13 @@ import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { copySync, removeSync } from 'fs-extra/esm';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
-import path, { join } from 'path';
-import type { Hex } from 'viem';
+import path from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -74,192 +67,10 @@ export type SubsystemsContext = {
   directoryToCleanup?: string;
 };
 
-type SnapshotEntry = {
-  name: string;
-  apply: (context: SubsystemsContext) => Promise<any>;
-  restore: (snapshotData: any, context: SubsystemsContext) => Promise<any>;
-  snapshotPath: string;
-};
-
-export function createSnapshotManager(
-  testName: string,
-  dataPath?: string,
-  config: Partial<SetupOptions> = {},
-  deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {
-    initialValidators: [],
-  },
-) {
-  return dataPath
-    ? new SnapshotManager(testName, dataPath, config, deployL1ContractsArgs)
-    : new MockSnapshotManager(testName, config, deployL1ContractsArgs);
-}
-
-export interface ISnapshotManager {
-  snapshot<T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore?: (snapshotData: T, context: SubsystemsContext) => Promise<void>,
-  ): Promise<void>;
-
-  setup(): Promise<SubsystemsContext>;
-
-  teardown(): Promise<void>;
-}
-
-/** Snapshot manager that does not perform snapshotting, it just applies transition and restoration functions as it receives them. */
-class MockSnapshotManager implements ISnapshotManager {
-  private context?: SubsystemsContext;
-  private logger: Logger;
-
-  constructor(
-    testName: string,
-    private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
-  ) {
-    this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
-    this.logger.warn(`No data path given, will not persist any snapshots.`);
-  }
-
-  public async snapshot<T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ) {
-    // We are running in disabled mode. Just apply the state.
-    const context = await this.setup();
-    this.logger.verbose(`Applying state transition for ${name}...`);
-    const snapshotData = await apply(context);
-    this.logger.verbose(`State transition for ${name} complete.`);
-    // Execute the restoration function.
-    await restore(snapshotData, context);
-    return;
-  }
-
-  public async setup() {
-    if (!this.context) {
-      this.context = await setupFromFresh(undefined, this.logger, this.config, this.deployL1ContractsArgs);
-    }
-    return this.context;
-  }
-
-  public async teardown() {
-    await teardown(this.context);
-    this.context = undefined;
-  }
-}
-
-/**
- * Snapshot engine for local e2e tests. Read more:
- * https://github.com/AztecProtocol/aztec-packages/pull/5526
- */
-class SnapshotManager implements ISnapshotManager {
-  private snapshotStack: SnapshotEntry[] = [];
-  private context?: SubsystemsContext;
-  private livePath: string;
-  private logger: Logger;
-
-  constructor(
-    testName: string,
-    private dataPath: string,
-    private config: Partial<SetupOptions> = {},
-    private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
-  ) {
-    this.livePath = join(this.dataPath, 'live', testName);
-    this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
-  }
-
-  public async snapshot<T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ) {
-    const snapshotPath = join(this.dataPath, 'snapshots', ...this.snapshotStack.map(e => e.name), name, 'snapshot');
-
-    if (existsSync(snapshotPath)) {
-      // Snapshot exists. Record entry on stack but do nothing else as we're probably still descending the tree.
-      // It's the tests responsibility to call setup() before a test to ensure subsystems get created.
-      this.logger.verbose(`Snapshot exists at ${snapshotPath}. Continuing...`);
-      this.snapshotStack.push({ name, apply, restore, snapshotPath });
-      return;
-    }
-
-    // Snapshot didn't exist at snapshotPath, and by definition none of the child snapshots can exist.
-    // If we have no subsystem context yet, create it from the top of the snapshot stack (if it exists).
-    const context = await this.setup();
-
-    this.snapshotStack.push({ name, apply, restore, snapshotPath });
-
-    // Apply current state transition.
-    this.logger.verbose(`Applying state transition for ${name}...`);
-    const snapshotData = await apply(context);
-    this.logger.verbose(`State transition for ${name} complete.`);
-
-    // Execute the restoration function.
-    await restore(snapshotData, context);
-
-    // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls, context.dateProvider);
-    const anvilStateFile = `${this.livePath}/anvil.dat`;
-    await ethCheatCodes.dumpChainState(anvilStateFile);
-    writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
-
-    // Copy everything to snapshot path.
-    // We want it to be atomic, in case multiple processes are racing to create the snapshot.
-    this.logger.verbose(`Saving snapshot to ${snapshotPath}...`);
-    if (mkdirSync(snapshotPath, { recursive: true })) {
-      copySync(this.livePath, snapshotPath);
-      this.logger.verbose(`Snapshot copied to ${snapshotPath}.`);
-    } else {
-      this.logger.verbose(`Snapshot already exists at ${snapshotPath}. Discarding our version.`);
-      await this.teardown();
-    }
-  }
-
-  /**
-   * Creates and returns the subsystem context based on the current snapshot stack.
-   * If the subsystem context already exists, just return it.
-   * If you want to be sure to get a clean snapshot, be sure to call teardown() before calling setup().
-   */
-  public async setup() {
-    // We have no subsystem context yet.
-    // If one exists on the snapshot stack, create one from that snapshot.
-    // Otherwise create a fresh one.
-    if (!this.context) {
-      removeSync(this.livePath);
-      mkdirSync(this.livePath, { recursive: true });
-      const previousSnapshotPath = this.snapshotStack[this.snapshotStack.length - 1]?.snapshotPath;
-      if (previousSnapshotPath) {
-        this.logger.verbose(`Copying snapshot from ${previousSnapshotPath} to ${this.livePath}...`);
-        copySync(previousSnapshotPath, this.livePath);
-        this.context = await setupFromState(this.livePath, this.logger);
-        // Execute each of the previous snapshots restoration functions in turn.
-        await asyncMap(this.snapshotStack, async e => {
-          const snapshotData = JSON.parse(readFileSync(`${e.snapshotPath}/${e.name}.json`, 'utf-8'), reviver);
-          this.logger.verbose(`Executing restoration function for ${e.name}...`);
-          await e.restore(snapshotData, this.context!);
-          this.logger.verbose(`Restoration of ${e.name} complete.`);
-        });
-      } else {
-        this.context = await setupFromFresh(this.livePath, this.logger, this.config, this.deployL1ContractsArgs);
-      }
-    }
-    return this.context;
-  }
-
-  /**
-   * Destroys the current subsystem context.
-   */
-  public async teardown() {
-    await teardown(this.context);
-    this.context = undefined;
-    removeSync(this.livePath);
-  }
-}
-
 /**
  * Destroys the current subsystem context.
  */
-async function teardown(context: SubsystemsContext | undefined) {
+export async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
@@ -280,11 +91,9 @@ async function teardown(context: SubsystemsContext | undefined) {
 
 /**
  * Initializes a fresh set of subsystems.
- * If given a statePath, the state will be written to the path.
- * If there is no statePath, in-memory and temporary state locations will be used.
+ * State is stored in temporary in-memory locations.
  */
-async function setupFromFresh(
-  statePath: string | undefined,
+export async function setupFromFresh(
   logger: Logger,
   { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {
@@ -315,11 +124,7 @@ async function setupFromFresh(
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
   await fs.mkdir(directoryToCleanup, { recursive: true });
-  if (statePath === undefined) {
-    aztecNodeConfig.dataDirectory = directoryToCleanup;
-  } else {
-    aztecNodeConfig.dataDirectory = statePath;
-  }
+  aztecNodeConfig.dataDirectory = directoryToCleanup;
 
   await setupSharedBlobStorage(aztecNodeConfig);
 
@@ -433,16 +238,11 @@ async function setupFromFresh(
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEConfig();
-  pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
+  pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   // Only enable proving if specifically requested.
   pxeConfig.proverEnabled = !!opts.realProofs;
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
-
-  if (statePath) {
-    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
-    writeFileSync(`${statePath}/accounts.json`, JSON.stringify(initialFundedAccounts, resolver));
-  }
 
   return {
     aztecNodeConfig,
@@ -463,120 +263,8 @@ async function setupFromFresh(
 }
 
 /**
- * Given a statePath, setup the system starting from that state.
- */
-async function setupFromState(statePath: string, logger: Logger): Promise<SubsystemsContext> {
-  logger.verbose(`Initializing with saved state at ${statePath}...`);
-
-  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
-  await fs.mkdir(directoryToCleanup, { recursive: true });
-
-  // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
-    readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
-    reviver,
-  );
-  aztecNodeConfig.dataDirectory = statePath;
-  aztecNodeConfig.listenAddress = '127.0.0.1';
-
-  await setupSharedBlobStorage(aztecNodeConfig);
-
-  const initialFundedAccounts: InitialAccountData[] =
-    JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
-  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
-
-  // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
-  const { anvil, rpcUrl } = await startAnvil();
-  aztecNodeConfig.l1RpcUrls = [rpcUrl];
-  // Load anvil state.
-  const anvilStateFile = `${statePath}/anvil.dat`;
-
-  const dateProvider = new TestDateProvider();
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls, dateProvider);
-  await ethCheatCodes.loadChainState(anvilStateFile);
-
-  // TODO: Encapsulate this in a NativeAcvm impl.
-  const acvmConfig = await getACVMConfig(logger);
-  if (acvmConfig) {
-    aztecNodeConfig.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
-    aztecNodeConfig.acvmBinaryPath = acvmConfig.acvmBinaryPath;
-  }
-
-  const bbConfig = await getBBConfig(logger);
-  if (bbConfig) {
-    aztecNodeConfig.bbBinaryPath = bbConfig.bbBinaryPath;
-    aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
-  }
-
-  logger.verbose('Creating ETH clients...');
-  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
-
-  const watcher = new AnvilTestWatcher(
-    ethCheatCodes,
-    aztecNodeConfig.l1Contracts.rollupAddress,
-    l1Client,
-    dateProvider,
-  );
-  await watcher.start();
-
-  const telemetry = await initTelemetryClient(getTelemetryConfig());
-
-  logger.verbose('Creating aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(
-    aztecNodeConfig,
-    { telemetry, dateProvider },
-    { prefilledPublicData },
-  );
-
-  let proverNode: ProverNode | undefined = undefined;
-  if (aztecNodeConfig.startProverNode) {
-    logger.verbose('Creating and syncing a simulated prover node...');
-    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-    const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-    proverNode = await createAndSyncProverNode(
-      proverNodePrivateKeyHex,
-      aztecNodeConfig,
-      {
-        ...aztecNodeConfig.proverNodeConfig,
-        dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')),
-        p2pEnabled: false,
-      },
-      aztecNode,
-      prefilledPublicData,
-    );
-  }
-
-  logger.verbose('Creating pxe...');
-  const pxeConfig = getPXEConfig();
-  pxeConfig.dataDirectory = statePath;
-  const wallet = await TestWallet.create(aztecNode, pxeConfig);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, aztecNode, dateProvider);
-
-  return {
-    aztecNodeConfig,
-    anvil,
-    aztecNode,
-    wallet,
-    sequencer: aztecNode.getSequencer()!,
-    acvmConfig,
-    bbConfig,
-    proverNode,
-    deployL1ContractsValues: {
-      l1Client,
-      l1ContractAddresses: aztecNodeConfig.l1Contracts,
-      rollupVersion: aztecNodeConfig.rollupVersion,
-    },
-    watcher,
-    cheatCodes,
-    dateProvider,
-    initialFundedAccounts,
-    directoryToCleanup,
-  };
-}
-
-/**
- * Snapshot 'apply' helper function to add accounts.
- * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
+ * Helper function to deploy accounts.
+ * Returns deployed account data that can be used by tests.
  */
 export const deployAccounts =
   (numberOfAccounts: number, logger: Logger) =>

@@ -24,7 +24,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   let user2Address: AztecAddress;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =

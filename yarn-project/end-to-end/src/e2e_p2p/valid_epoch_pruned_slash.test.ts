@@ -68,8 +68,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {

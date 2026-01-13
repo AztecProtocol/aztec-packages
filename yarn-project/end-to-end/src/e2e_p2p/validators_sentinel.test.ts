@@ -53,8 +53,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
