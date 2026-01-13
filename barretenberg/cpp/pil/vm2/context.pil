@@ -36,7 +36,7 @@ namespace execution;
     pol commit contract_address;
     pol commit bytecode_id;
     pol commit transaction_fee;
-    pol commit is_static;
+    pol commit is_static; // @boolean (on active rows and follows from the different constraints below)
 
     pol commit parent_calldata_addr;
     pol commit parent_calldata_size;
@@ -44,7 +44,7 @@ namespace execution;
     pol commit last_child_id;
     pol commit last_child_returndata_addr;
     pol commit last_child_returndata_size;
-    pol commit last_child_success;
+    pol commit last_child_success; // @boolean (on active rows and follows from the different constraints below)
 
     // ==== Gas ====
     pol commit l2_gas_limit;
