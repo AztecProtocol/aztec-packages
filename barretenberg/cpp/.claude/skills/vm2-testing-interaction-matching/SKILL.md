@@ -1,350 +1,194 @@
 ---
 name: vm2-testing-interaction-matching
 description: Write tests for lookup and permutation interaction correctness. Tests verify source/destination row counts match, tuple values align, and interactions fail appropriately when mismatched.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+version: 1.0.0
 ---
 
 # VM2 Interaction Matching Testing
 
 ## Purpose
+Write tests verifying lookup and permutation interactions have correct source/destination row counts and tuple values.
 
-Write tests that verify **lookup and permutation interactions** work correctly. These tests check that source rows match destination rows in count and tuple values.
+## When to Use
+- Writing negative tests for interaction count mismatches
+- Testing tuple value alignment between source and destination
+- Verifying error gating prevents lookups from firing on error paths
+- Testing injected row detection in permutations
 
-## Severity Assessment
+## When NOT to Use
+- Testing constraint relations (use vm2-testing-relation-violation)
+- Full simulation-based tests (use vm2-testing-tracegen-constraining)
 
-**Assess severity case-by-case** based on impact and reachability:
-
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
-
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
-
-## Key Concepts
-
-### Lookups vs Permutations
+## Interaction Types
 
 ```pil
-// LOOKUP: Many sources can map to one destination (like a table lookup)
+// LOOKUP (in): Many sources can map to one destination
 source_sel { a, b } in dest.sel { dest.x, dest.y };
 
-// PERMUTATION: Exact 1:1 mapping required (bijection)
+// PERMUTATION (is): Exact 1:1 mapping required
 source_sel { a, b } is dest.sel { dest.x, dest.y };
 ```
 
-| Type | Source Count | Dest Count | Use Case |
-|------|--------------|------------|----------|
-| Lookup (`in`) | Any | >= sources | Range checks, table lookups |
-| Permutation (`is`) | N | Exactly N | Memory ops, state changes |
+| Type | Source:Dest Ratio | Fails When |
+|------|-------------------|------------|
+| Lookup | N:>=N | dest count < source count |
+| Permutation | N:N exactly | counts differ OR tuples don't pair |
 
-## Core Functions
+## Core Test Functions
 
 ```cpp
-// Check ALL interactions for a trace builder (lookups + permutations)
-check_all_interactions<ComponentTraceBuilder>(trace);
-
-// Check a SPECIFIC permutation
-check_permutation<ComponentTraceBuilder, specific_perm_settings>(trace);
-
-// Check a SPECIFIC lookup
-check_lookup<ComponentTraceBuilder, specific_lookup_settings>(trace);
+check_all_interactions<ComponentTraceBuilder>(trace);  // All interactions
+check_permutation<ComponentTraceBuilder, PermSettings>(trace);  // Specific permutation
+check_lookup<ComponentTraceBuilder, LookupSettings>(trace);  // Specific lookup
 ```
 
-## Test Categories
+## Test Patterns
 
-### 1. Row Count Mismatch (Permutation)
-
-Permutations require equal source and destination row counts.
-
+### Row Count Mismatch (Permutation)
 ```cpp
 TEST_F(ComponentConstrainingTest, NegativePermutationCountMismatch)
 {
     auto trace = TestTraceContainer({
-        // Source: 2 rows with selector = 1
-        {
-            { C::source_sel, 1 },
-            { C::source_value, 10 },
-        },
-        {
-            { C::source_sel, 1 },
-            { C::source_value, 20 },
-        },
-        // Destination: Only 1 row with selector = 1
-        {
-            { C::dest_sel, 1 },
-            { C::dest_value, 10 },
-        },
+        { { C::source_sel, 1 }, { C::source_value, 10 } },
+        { { C::source_sel, 1 }, { C::source_value, 20 } },
+        // Only 1 destination for 2 sources
+        { { C::dest_sel, 1 }, { C::dest_value, 10 } },
     });
-
-    // Permutation should fail: 2 sources != 1 destination
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::runtime_error
-    );
+    EXPECT_THROW(check_all_interactions<ComponentTraceBuilder>(trace), std::runtime_error);
 }
 ```
 
-### 2. Injected Row Detection
-
-Test that extra rows in destination (without source) are caught.
-
+### Injected Row Detection
 ```cpp
 TEST_F(MemoryConstrainingTest, NegativeInjectedMemoryRow)
 {
     auto trace = TestTraceContainer({
-        // Execution: NO memory operation
-        {
-            { C::execution_sel, 1 },
-            { C::sel_mem_op, 0 },  // No memory access
-        },
-        // Memory: Claims to be valid (INJECTED!)
-        {
-            { C::memory_sel, 1 },
-            { C::memory_addr, 42 },
-            { C::memory_value, 999 },
-        },
+        { { C::execution_sel, 1 }, { C::sel_mem_op, 0 } },  // No memory op
+        // Injected memory row with no source
+        { { C::memory_sel, 1 }, { C::memory_addr, 42 }, { C::memory_value, 999 } },
     });
-
-    // Permutation fails: 0 sources != 1 destination
-    EXPECT_THROW(
-        check_all_interactions<MemoryTraceBuilder>(trace),
-        std::runtime_error
-    );
+    EXPECT_THROW(check_all_interactions<MemoryTraceBuilder>(trace), std::runtime_error);
 }
 ```
 
-### 3. Tuple Value Mismatch
-
-Test that tuple columns must match between source and destination.
-
+### Tuple Value Mismatch
 ```cpp
 TEST_F(ComponentConstrainingTest, NegativeTupleMismatch)
 {
     auto trace = TestTraceContainer({
-        // Source row
-        {
-            { C::source_sel, 1 },
-            { C::source_addr, 100 },
-            { C::source_value, 42 },
-        },
-        // Destination row with WRONG values
-        {
-            { C::dest_sel, 1 },
-            { C::dest_addr, 100 },
-            { C::dest_value, 999 },  // Doesn't match source!
-        },
+        { { C::source_sel, 1 }, { C::source_addr, 100 }, { C::source_value, 42 } },
+        { { C::dest_sel, 1 }, { C::dest_addr, 100 }, { C::dest_value, 999 } },  // Wrong!
     });
-
-    EXPECT_THROW(
-        check_all_interactions<ComponentTraceBuilder>(trace),
-        std::runtime_error
-    );
+    EXPECT_THROW(check_all_interactions<ComponentTraceBuilder>(trace), std::runtime_error);
 }
 ```
 
-### 4. Missing Error Gating
-
-Test that lookups don't fire when errors occur.
-
+### Missing Error Gating
 ```cpp
 TEST_F(AluConstrainingTest, NegativeLookupFiresOnError)
 {
-    // When sel_err = 1, lookups should NOT fire
-    // (destination event not emitted on error path)
-
+    // When sel_err = 1, lookups should NOT fire (no destination on error path)
     auto trace = TestTraceContainer({
-        {
-            { C::sel_div, 1 },
-            { C::sel_err, 1 },        // Error occurred!
-            { C::a, 10 },
-            { C::b, 0 },              // Division by zero
-            // Lookup tries to fire but destination doesn't exist
-        },
+        { { C::sel_div, 1 }, { C::sel_err, 1 }, { C::a, 10 }, { C::b, 0 } },
     });
-
-    // If lookup source is properly gated by (1 - sel_err),
-    // this should PASS (lookup doesn't fire)
-    // If NOT gated, this FAILS (lookup fires, no destination)
-
-    // Expected: This test documents whether error gating exists
+    // If lookup source is gated by (1 - sel_err): PASS
+    // If NOT gated: FAIL (lookup fires, no destination)
     try {
         check_all_interactions<AluTraceBuilder>(trace);
-        // Passed = properly gated
     } catch (...) {
-        // Failed = missing error gating (BUG)
         FAIL() << "Lookup fired on error path - missing error gating";
     }
 }
 ```
 
-### 5. Lookup Allows Duplicates (Positive)
-
-Lookups CAN have multiple sources pointing to same destination.
-
+### Lookup Allows Duplicates (Positive)
 ```cpp
 TEST_F(RangeCheckConstrainingTest, PositiveLookupAllowsDuplicates)
 {
     auto trace = TestTraceContainer({
-        // Two sources looking up same range check value
-        {
-            { C::source_sel_a, 1 },
-            { C::value_a, 42 },
-        },
-        {
-            { C::source_sel_b, 1 },
-            { C::value_b, 42 },  // Same value - OK for lookup
-        },
-        // One destination row
-        {
-            { C::range_check_sel, 1 },
-            { C::range_check_value, 42 },
-        },
+        { { C::source_sel_a, 1 }, { C::value_a, 42 } },
+        { { C::source_sel_b, 1 }, { C::value_b, 42 } },  // Same value OK
+        { { C::range_check_sel, 1 }, { C::range_check_value, 42 } },
     });
-
-    // Lookups allow many-to-one
-    check_all_interactions<RangeCheckTraceBuilder>(trace);
+    check_all_interactions<RangeCheckTraceBuilder>(trace);  // Should pass
 }
 ```
 
-### 6. Permutation Rejects Duplicates (Negative)
-
-Permutations require exact 1:1 mapping.
-
+### Permutation Rejects Duplicates (Negative)
 ```cpp
 TEST_F(MemoryConstrainingTest, NegativePermutationRejectsDuplicates)
 {
     auto trace = TestTraceContainer({
-        // Two source rows with same tuple
-        {
-            { C::exec_sel, 1 },
-            { C::mem_addr, 100 },
-            { C::mem_value, 42 },
-        },
-        {
-            { C::exec_sel, 1 },
-            { C::mem_addr, 100 },
-            { C::mem_value, 42 },  // Duplicate!
-        },
-        // Only one destination
-        {
-            { C::memory_sel, 1 },
-            { C::memory_addr, 100 },
-            { C::memory_value, 42 },
-        },
+        { { C::exec_sel, 1 }, { C::mem_addr, 100 }, { C::mem_value, 42 } },
+        { { C::exec_sel, 1 }, { C::mem_addr, 100 }, { C::mem_value, 42 } },  // Duplicate
+        { { C::memory_sel, 1 }, { C::memory_addr, 100 }, { C::memory_value, 42 } },
     });
-
-    // Permutation fails: 2 sources can't both match 1 destination
-    EXPECT_THROW(
-        check_all_interactions<MemoryTraceBuilder>(trace),
-        std::runtime_error
-    );
+    EXPECT_THROW(check_all_interactions<MemoryTraceBuilder>(trace), std::runtime_error);
 }
 ```
 
-## Setting Up Cross-Trace Tests
+## Cross-Trace Setup
 
-Interactions span multiple traces. Set columns for both source and destination:
+Interactions span traces. Set columns for both source and destination:
 
 ```cpp
 auto trace = TestTraceContainer({
-    // === Source trace rows ===
-    {
-        { C::execution_sel, 1 },
-        { C::sel_mem_read, 1 },
-        { C::execution_addr, 100 },
-        { C::execution_value, 42 },
-        { C::execution_clk, 5 },
-    },
-    // === Destination trace rows ===
-    {
-        { C::memory_sel, 1 },
-        { C::memory_addr, 100 },
-        { C::memory_value, 42 },
-        { C::memory_clk, 5 },
-    },
+    // Source trace
+    { { C::execution_sel, 1 }, { C::sel_mem_read, 1 },
+      { C::execution_addr, 100 }, { C::execution_value, 42 }, { C::execution_clk, 5 } },
+    // Destination trace
+    { { C::memory_sel, 1 }, { C::memory_addr, 100 },
+      { C::memory_value, 42 }, { C::memory_clk, 5 } },
 });
 ```
 
-## Finding Interaction Definitions
-
-Interactions are defined in PIL with `in` (lookup) or `is` (permutation):
+## Finding Interactions in PIL
 
 ```bash
-# Find all interactions in a component
 grep -nE "}\s*(in|is)\s+" pil/vm2/component.pil
-
-# Find the interaction name
-grep -B1 "} is " pil/vm2/component.pil
 ```
 
-Example PIL:
+Example:
 ```pil
 #[MEM_READ]
 sel_mem_read { clk, addr, value } is memory.sel { memory.clk, memory.addr, memory.value };
 ```
 
-## Precomputed Trace Setup
-
-Many interactions reference precomputed columns (clk, constants):
+## Precomputed Columns
 
 ```cpp
 TEST_F(ComponentConstrainingTest, InteractionWithPrecomputed)
 {
     TestTraceContainer trace;
-
-    // First, populate precomputed columns
     PrecomputedTraceBuilder precomputed;
-    precomputed.process(trace);
-
-    // Then set component-specific columns
+    precomputed.process(trace);  // Sets clk, constants
     trace.set(C::component_sel, 0, 1);
     trace.set(C::component_value, 0, 42);
-    // precomputed.clk is already set by PrecomputedTraceBuilder
-
     check_all_interactions<ComponentTraceBuilder>(trace);
 }
 ```
 
-## Debugging Interaction Failures
+## Debugging Failures
 
-When interactions fail:
-
-1. **Check selector counts**: Print how many rows have each selector = 1
-2. **Check tuple values**: Ensure source tuple columns match destination
-3. **Check clk alignment**: Many interactions include clock columns
+1. **Count selectors**: How many rows have each selector = 1?
+2. **Check tuples**: Do source columns match destination columns?
+3. **Check clk**: Many interactions include clock columns
 4. **Check error gating**: Is source selector gated by `(1 - sel_err)`?
 
 ```cpp
-// Debug: Count active rows
-uint32_t source_count = 0, dest_count = 0;
+uint32_t src = 0, dst = 0;
 for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
-    if (trace.get(C::source_sel, row) == 1) source_count++;
-    if (trace.get(C::dest_sel, row) == 1) dest_count++;
+    if (trace.get(C::source_sel, row) == 1) src++;
+    if (trace.get(C::dest_sel, row) == 1) dst++;
 }
-std::cout << "Sources: " << source_count << ", Destinations: " << dest_count << std::endl;
+std::cout << "Sources: " << src << ", Destinations: " << dst << std::endl;
 ```
 
 ## Build and Run
 
 ```bash
-# Regenerate C++ from PIL
-vmp
-
-# Build tests
-vmb
-
-# Run interaction tests
+vmp   # Regenerate C++ from PIL
+vmb   # Build tests
 vmtg "ComponentConstraining*Interaction*"
 vmtg "ComponentConstraining*Permutation*"
-vmtg "ComponentConstraining*Lookup*"
 ```
-
-## Quick Reference
-
-| Test Type | Source Count | Dest Count | Expected |
-|-----------|--------------|------------|----------|
-| Permutation match | N | N | PASS |
-| Permutation mismatch | N | M (N != M) | THROW |
-| Lookup match | N | >= N | PASS |
-| Lookup missing dest | N | < N | THROW |
-| Tuple mismatch | Any | Any | THROW |
-| Injected dest row | 0 | 1 | THROW (permutation) |
