@@ -307,8 +307,9 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
     const auto lagrange_mini_masking = View(in.lagrange_mini_masking);
 
     // 0 in the minicircuit, -1 outside
-    auto not_in_mininicircuit_or_masked = (lagrange_odd_in_minicircuit + lagrange_even_in_minicircuit + minus_one) *
-                                          (lagrange_mini_masking + minus_one) * scaling_factor;
+    const auto not_in_mininicircuit_or_masked =
+        (lagrange_odd_in_minicircuit + lagrange_even_in_minicircuit + lagrange_mini_masking + minus_one) *
+        scaling_factor;
 
     // Contribution 0, ensure p_x_low_limbs_range_constraint_0 is 0 outside of minicircuit
     std::get<0>(accumulators) += p_x_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
