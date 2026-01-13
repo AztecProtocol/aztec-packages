@@ -82,11 +82,9 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // All contributions are zero outside the minicircuit or at even indices within the minicircuite excluding
-        // masked areas (except from the last and result row in minicircuit)
-        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row +
-                in.lagrange_mini_masking)
-            .is_zero();
+        // All contributions are zero outside the minicircuit and at even indices within the minicircuit
+        // (except the last and result row in minicircuit)
+        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row).is_zero();
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
