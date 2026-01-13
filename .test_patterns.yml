@@ -320,3 +320,9 @@ tests:
     error_regex: "Exceeded timeout of [0-9]+ ms for a test"
     owners:
       - *palla
+
+  # http://ci.aztec-labs.com/963635a09039594f
+  - regex: "boxes/scripts/run_test.sh react"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
