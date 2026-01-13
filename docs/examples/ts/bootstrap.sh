@@ -171,12 +171,14 @@ validate_project() {
         if [ "$has_deps" = true ]; then
             # Install linked @aztec dependencies
             if [ ${#aztec_deps[@]} -gt 0 ]; then
-                yarn add "${aztec_deps[@]}" >/dev/null 2>&1
+                echo_stderr "Adding aztec deps: ${aztec_deps[*]}"
+                yarn add "${aztec_deps[@]}"
             fi
 
             # Install external npm dependencies
             if [ ${#npm_deps[@]} -gt 0 ]; then
-                yarn add "${npm_deps[@]}" >/dev/null 2>&1
+                echo_stderr "Adding npm deps: ${npm_deps[*]}"
+                yarn add "${npm_deps[@]}"
             fi
         else
             # Fallback to default dependencies if none specified
@@ -185,9 +187,38 @@ validate_project() {
                 @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
                 @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
                 @aztec/test-wallet@link:$REPO_ROOT/yarn-project/test-wallet \
-                @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store \
-                >/dev/null 2>&1
+                @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
         fi
+
+        # Verify linked packages exist and have built artifacts
+        echo_stderr "Verifying linked packages..."
+        for dep in "${aztec_deps[@]}"; do
+            # Extract package name from @aztec/foo@link:... format
+            local pkg_full=$(echo "$dep" | cut -d'@' -f2)  # aztec/foo
+            local pkg_name=${pkg_full#aztec/}  # foo
+            local link_target="$REPO_ROOT/yarn-project/$pkg_name"
+
+            if [ ! -d "$link_target" ]; then
+                echo_stderr "ERROR: Link target does not exist: $link_target"
+                return 1
+            fi
+
+            if [ ! -d "$link_target/dest" ]; then
+                echo_stderr "ERROR: Package not built (no dest/): $link_target"
+                ls -la "$link_target" || true
+                return 1
+            fi
+
+            # Check for .d.ts files (type declarations)
+            local dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
+            if [ "$dts_count" -eq 0 ]; then
+                echo_stderr "ERROR: No .d.ts files found in $link_target/dest"
+                ls -la "$link_target/dest" | head -20 || true
+                return 1
+            fi
+
+            echo_stderr "  ✓ @aztec/$pkg_name: $dts_count .d.ts files"
+        done
 
         yarn add -D typescript >/dev/null 2>&1
 
