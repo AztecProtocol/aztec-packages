@@ -1,174 +1,142 @@
 ---
 name: vm2-audit-ghost-row-injection
 description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source. This is the attack that succeeded against sstore.pil.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
+version: 1.0.0
 ---
 
 # VM2 Ghost Row Injection Audit
 
-Tests if a selector-outside-active vulnerability is exploitable via ghost row injection. Use after `vm2-audit-selector-outside-active` finds a missing implication constraint where the sub-selector fires a **PERMUTATION** (not lookup). Ghost row injection fires permutations from inactive rows (`main_sel=0`) matching legitimate destination rows from simulation gadgets. "Destination protection" (`write * (1 - sel) = 0`) only prevents ghost DESTINATIONS, not ghost SOURCES matching legitimate destinations.
+## Purpose
+Determine if a selector-outside-active vulnerability is exploitable by injecting ghost source rows that match legitimate destination rows created via simulation gadgets.
 
-## Severity Assessment
+## When to Use
+- After `vm2-audit-selector-outside-active` finds sub-selector fires **PERMUTATION** from inactive rows
+- Validating if "destination protection" (`write * (1 - sel) = 0`) is sufficient (it only blocks ghost DESTINATIONS, not ghost SOURCES)
 
-**Assess severity case-by-case** based on impact and reachability:
+## When NOT to Use
+- Sub-selector fires a LOOKUP (lookups allow duplicates, different attack model)
+- No selector-outside-active finding exists for the target
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+## Attack Concept
 
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+Ghost row injection exploits permutations by:
+1. Placing a ghost row at `main_sel=0` with attacker-controlled values
+2. Sub-selector fires permutation source from ghost row
+3. Using simulation gadgets to create legitimate destination rows that match
+4. CLK trick: place ghost at row N where N equals destination's committed `clk`
 
-## Instructions
+## Workflow
 
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
-
-### Step 1: Identify the Permutation
-
-Find the permutation fired by the unconstrained sub-selector from the `selector-outside-active` finding.
+### Step 1: Identify Permutation and Tuple
 
 ```bash
-# Find permutation definitions
-grep -rn "in.*{" pil/vm2/<component>.pil | grep -v lookup
+# Find permutation in the vulnerable PIL
+grep -n "in " pil/vm2/<component>.pil
 ```
 
-### Step 2: Find the Destination Trace
+Extract the tuple columns - these must match between source and destination.
 
-Identify the destination trace and its simulation gadget in tracegen.
+### Step 2: Locate Destination Trace Builder
+
+Find the destination's simulation gadget in tracegen:
+```bash
+grep -rn "class.*Builder\|EventEmitter" src/barretenberg/vm2/simulation/
+grep -rn "<destination_trace>" src/barretenberg/vm2/tracegen/
+```
 
 ### Step 3: Verify Gadget Accepts Arbitrary Values
 
-Check if the simulation gadget can be used to create rows with attacker-controlled values.
+Check if simulation gadget parameters are attacker-controllable:
+- Can caller specify slot, value, address, or other critical fields?
+- Does gadget auto-generate valid cryptographic data (hashes, proofs)?
 
-### Step 4: Analyze Blocking Factors
+### Step 4: Analyze CLK Matching
 
-Check for factors that might prevent the attack (CLK mismatch, START_CONDITION, cryptographic constraints).
+Permutation tuples often include clock:
+- **Source**: uses `precomputed.clk` (equals row number)
+- **Destination**: uses committed `clk` column
 
-### Step 5: Document Attack Feasibility
+**Attack**: Place ghost at row 0, create destination with `clk=0` at any row.
 
-If attack succeeds: CRITICAL finding. If blocked: document the blocking factor.
+### Step 5: Check Blocking Factors
 
-## Common Blocking Factors
+| Factor | Blocked? | Bypass |
+|--------|----------|--------|
+| CLK mismatch | Maybe | Place ghost at row N = destination clk |
+| START_CONDITION (`sel' * (1 - sel) * (1 - first_row) = 0`) | No | Trace builder handles continuity |
+| Cryptographic constraints | No | Simulation gadgets provide valid proofs |
+| Other tuple fields constrained | Check | May require gadget to set specific values |
 
-### CLK Mismatch
-The permutation tuple often includes clock values:
-- Source uses `precomputed.clk` (row number)
-- Destination uses committed `clk` column
+### Step 6: Document Result
 
-**Solution**: Place ghost row at row N where N equals the destination's clk value.
-
-### START_CONDITION
-Some traces have: `sel' * (1 - sel) * (1 - first_row) = 0`
-
-This requires trace continuity. The destination trace builder handles this automatically.
-
-### Cryptographic Constraints
-Destinations often require valid hashes/proofs. Using simulation gadgets handles this automatically.
+- **Exploitable**: CRITICAL - ghost rows can inject arbitrary operations
+- **Blocked**: Document specific constraint that prevents exploitation
 
 ## Real-World Example: SSTORE Attack
 
 ```cpp
-// From storage_write.test.cpp
-TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
-{
-    // Uses PublicDataTreeCheck simulation gadget
-    // Creates events with malicious slot/value/address
-    // Builds public_data_check trace (legitimate rows)
-    // Injects ghost sstore row at row 0
-    // Result: Attack SUCCEEDED
-}
+// Ghost sstore row at row 0 with precomputed_clk=0
+// public_data_check write row at row 1 with clk=0
+// Result: PERMUTATION PASSES - Attack SUCCEEDED
 ```
 
-**Output**:
-```
-Ghost sstore row at row 0 with precomputed_clk=0
-public_data_check write row at row 1 with clk=0
-
-sstore relation: PASSED
-public_data_check relation: PASSED
-STORAGE_WRITE permutation: PASSED
-
-CRITICAL: Attack SUCCEEDED!
-```
+Attack succeeded because:
+1. `sel_sstore` unconstrained when `main_sel=0`
+2. PublicDataTreeCheck gadget creates legitimate destination rows
+3. Ghost source at row 0 matched destination with `clk=0`
 
 ## Fix Pattern
 
-Add the implication constraint to the source PIL:
-
 ```pil
-// Before (vulnerable):
+// VULNERABLE: sub_selector unconstrained when main_sel = 0
 pol commit sub_selector;
 main_sel * (condition - sub_selector) = 0;
-// sub_selector unconstrained when main_sel = 0
 
-// After (fixed):
-pol commit sub_selector;
-main_sel * (condition - sub_selector) = 0;
+// FIXED: force sub_selector = 0 when main_sel = 0
 #[SUB_SELECTOR_REQUIRES_MAIN_SEL]
 sub_selector * (1 - main_sel) = 0;
-// sub_selector forced to 0 when main_sel = 0
 ```
-
-## Examples
-
-- **SSTORE Attack** - Ghost row injection succeeded against sstore.pil, allowing arbitrary storage writes
 
 ## References
 
-- Parent skill: `vm2-audit-selector-outside-active`
+- Prerequisite: `vm2-audit-selector-outside-active`
 - SSTORE attack test: `src/barretenberg/vm2/constraining/relations/storage_write.test.cpp`
 
-## REQUIRED OUTPUT FORMAT
+## Output Format
 
-You MUST produce TWO output files:
-
-### 1. Markdown Report (stdout)
-
-#### Summary Table
+### Summary Table
 
 | Item | Value |
 |------|-------|
 | Skill | `vm2-audit-ghost-row-injection` |
-| Target | `{path audited}` |
-| Files Scanned | `{number}` |
-| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Target | `{path}` |
+| Files Scanned | `{n}` |
+| Findings | `{count by severity or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-#### Findings Format
+### Finding Format
 
-- **ID**: `vm2-audit-ghost-row-injection-filename-123-issue-type` (MUST use full skill name: `vm2-audit-ghost-row-injection`)
-- **Severity**: Critical / High / Medium / Low
+- **ID**: `vm2-audit-ghost-row-injection-{file}-{line}-{type}`
+- **Severity**: Critical (exploitable) / High (likely exploitable) / Medium (theoretical)
 - **File**: `path/to/file.pil:line`
-- **Description**: Brief description
-- **Fix**: One-line suggestion
+- **Exploitability**: Analysis of attack feasibility
+- **Fix**: Constraint to add
 
-### 2. JSON File (REQUIRED - separate file)
-
-Write a `vm2-audit-ghost-row-injection.json` file to the output directory with:
+### JSON Output (write to specified path)
 
 ```json
 {
   "skill": "vm2-audit-ghost-row-injection",
   "status": "COMPLETED_WITH_FINDINGS",
-  "findings": [
-    {
-      "id": "vm2-audit-ghost-row-injection-filename-123-issue-type",
-      "severity": "critical",
-      "file": "path/to/file.pil",
-      "line": 123,
-      "description": "Brief description",
-      "exploitability": "high",
-      "fix": "Suggested fix"
-    }
-  ]
+  "findings": [{
+    "id": "vm2-audit-ghost-row-injection-file-line-type",
+    "severity": "critical",
+    "file": "path/to/file.pil",
+    "line": 123,
+    "description": "Ghost source can match legitimate destination",
+    "exploitability": "high",
+    "fix": "Add sub_selector * (1 - main_sel) = 0"
+  }]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-ghost-row-injection",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

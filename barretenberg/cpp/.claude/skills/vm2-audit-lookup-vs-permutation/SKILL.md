@@ -1,211 +1,122 @@
 ---
 name: vm2-audit-lookup-vs-permutation
 description: Audit VM2/AVM PIL files for lookup vs permutation misuse. Critical soundness issue where lookups are used when permutations are required for operations with side effects, allowing duplicate operations, extra insertions, or skipped operations.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
 ---
 
 # VM2 Lookup vs Permutation Audit
 
-Audits for lookup vs permutation misuse. Lookups (many-to-one) vs Permutations (bijection). Using lookups on side-effectful operations allows duplicate operations, extra insertions, or skipped operations.
+Detect misuse of lookups (many-to-one) vs permutations (bijection). Using lookups on side-effectful operations allows duplicate/skipped operations.
+
+## When to Use
+- Auditing PIL files for interaction correctness
+- Reviewing memory, emission, or dispatch operations
+- Validating side-effectful operations use permutations
+
+## When NOT to Use
+- Auditing precomputed table lookups (those are correct)
+- Reviewing pure computation without side effects
 
 ## Severity Assessment
 
-**Assess severity case-by-case** based on impact and reachability:
+- **Soundness**: Typically Critical/High - malicious prover can duplicate or skip operations
+- **Completeness**: Low to Critical based on reachability via canonical simulation
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+## Workflow
 
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
-
-## Instructions
-
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
-
-### Step 1: Identify All Interactions
-
+### Step 1: Find All Interactions
 ```bash
-# Find all lookups and permutations
-grep -n "} in \|} permute " barretenberg/cpp/pil/vm2/<component>.pil
+grep -n "} in \|} permute " pil/vm2/<component>.pil
 ```
 
-### Step 2: For Each Lookup (`in`), Analyze the Destination
+### Step 2: Classify Each Lookup Destination
 
-For each lookup found, determine if the destination has side effects:
-
-```bash
-# Check what the destination trace does
-grep -rn "dest_trace_name" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-Questions to answer:
-- Is the destination a pure computation (no side effects)?
-- Is the destination precomputed/constant (e.g., range check table)?
-- Could duplicating this operation cause problems?
-
-### Step 3: Identify Side-Effectful Operations
-
-Side-effectful operations that MUST use permutations:
-- **Memory operations**: Read/write to memory
-- **State tree operations**: Storage reads/writes
-- **Emission operations**: Nullifiers, note hashes, logs, L2-to-L1 messages
-- **Call dispatch/return**: Function calls, returns
-- **Any operation affecting external state**
-
-```bash
-# Find memory-related interactions
-grep -rn "memory\." barretenberg/cpp/pil/vm2/<component>.pil | grep "} in \|} permute "
-
-# Find emission-related interactions
-grep -rn "emit\|append\|nullifier\|note_hash" barretenberg/cpp/pil/vm2/<component>.pil | grep "} in \|} permute "
-
-# Find call-related interactions
-grep -rn "call\|dispatch\|execution" barretenberg/cpp/pil/vm2/<component>.pil | grep "} in \|} permute "
-```
-
-### Step 4: Verify Correct Interaction Type
-
-For each side-effectful destination, verify it uses `permute` not `in`:
-
-```pil
-// WRONG - lookup for memory
-sel_mem { ... } in memory.sel { ... };
-
-// CORRECT - permutation for memory
-sel_mem { ... } permute memory.sel { ... };
-```
-
-### Step 5: Check Interaction Counts
-
-For permutations, source count must equal destination count:
-
-```bash
-# Check tracegen for count verification
-grep -rn "count\|num_" barretenberg/cpp/src/barretenberg/vm2/tracegen/<component>*.cpp
-```
-
-## When to Use Each
-
-### Use Lookups (`in`) When:
-- Destination is a precomputed table (range checks, constants)
-- Destination has no side effects
-- Multiple sources legitimately share same destination
-- Order doesn't matter
-
-Examples of valid lookup destinations:
-- Range check tables (U8, U16, U32, etc.)
-- Constant tables
-- Precomputed values
-- Pure function results
-
-### Use Permutations (`permute`) When:
-- Destination has side effects
-- Each operation must happen exactly once
-- Order matters
-- Clock/sequence must be preserved
-
-Examples requiring permutations:
-- Memory read/write operations
-- State tree operations
-- Emission operations
+**MUST use `permute` (side-effectful)**:
+- Memory read/write
+- State tree operations (storage)
+- Emissions (nullifiers, note hashes, logs, L2-to-L1)
 - Call dispatch/return
 - Any external state changes
 
-## Patterns
+**Can use `in` (pure/precomputed)**:
+- Range check tables (U8, U16, etc.)
+- Constant/precomputed tables
+- Pure function results
 
-### Vulnerable Pattern: Lookup for Memory Operations
+### Step 3: Check Suspicious Lookups
+```bash
+# Memory interactions using lookup (suspicious)
+grep -n "memory\." pil/vm2/<component>.pil | grep "} in "
 
-```pil
-// VULNERABLE: Using lookup for memory with side effects
-sel_mem_read { addr, value } in memory.sel { memory.addr, memory.value };
+# Emission interactions using lookup (suspicious)
+grep -n "emit\|append\|nullifier\|note_hash" pil/vm2/<component>.pil | grep "} in "
+
+# Dispatch interactions using lookup (suspicious)
+grep -n "call\|dispatch\|execution" pil/vm2/<component>.pil | grep "} in "
 ```
 
-### Vulnerable Pattern: Lookup for Operation Dispatch
+### Step 4: Verify Permutation Counts Match
+For permutations, source count must equal destination count (check tracegen).
+
+## Vulnerable Patterns
 
 ```pil
-// VULNERABLE: Using lookup for side-effectful dispatch
-pol SOURCE = sel_operation;
-#[OPERATION_DISPATCH]
-SOURCE { op_id, input } in dest_sel { dest_op_id, dest_input };
+// VULNERABLE: Lookup for memory (allows duplicate reads/writes)
+sel_mem { addr, value } in memory.sel { ... };
+
+// VULNERABLE: Lookup for dispatch (allows extra calls)
+sel_dispatch { call_id, args } in execution.sel { ... };
+
+// VULNERABLE: Lookup for emission (allows duplicate nullifiers)
+sel_emit { nullifier } in nullifier_trace.sel { ... };
 ```
 
-### Vulnerable Pattern: Lookup for Emissions
+## Secure Patterns
 
 ```pil
-// VULNERABLE: Using lookup for nullifier emission
-sel_emit { nullifier } in nullifier_trace.sel { nullifier_trace.value };
-```
+// SECURE: Permutation for memory
+sel_mem { clk, addr, value } permute memory.sel { ... };
 
-### Secure Pattern: Permutation for Memory
+// SECURE: Permutation for dispatch
+sel_dispatch { call_id, args } permute execution.sel { ... };
 
-```pil
-// SECURE: Use permutation for memory operations
-sel_mem_read { clk, addr, value } permute memory.sel { memory.clk, memory.addr, memory.value };
-```
-
-### Secure Pattern: Permutation for Dispatch
-
-```pil
-// SECURE: Use permutation for operation dispatch
-#[OPERATION_DISPATCH]
-SOURCE { op_id, input } permute dest_sel { dest_op_id, dest_input };
-```
-
-### Secure Pattern: Lookup for Range Checks
-
-```pil
-// SECURE: Lookup for precomputed range check table
+// SECURE: Lookup for range checks (precomputed, no side effects)
 sel { value } in range_check.sel { range_check.value };
 ```
 
-## Examples
-
-### Example 1: TX Public Call Dispatch (PR #18336)
+## Real Example: PR #18336
 
 ```pil
-// BEFORE (vulnerable): Using lookups
+// BEFORE (vulnerable)
 #[DISPATCH_PUBLIC_CALL]
-sel_dispatch { call_id, args... } in execution.sel { execution.call_id, execution.args... };
+sel_dispatch { call_id, args } in execution.sel { ... };
 
-// AFTER (secure): Using permutations
+// AFTER (secure)
 #[DISPATCH_PUBLIC_CALL]
-sel_dispatch { call_id, args... } permute execution.sel { execution.call_id, execution.args... };
+sel_dispatch { call_id, args } permute execution.sel { ... };
 ```
 **Impact**: Could insert extra public call requests.
 
-### Example 2: Memory Operations
+## Output Format
 
-```pil
-// Must always use permutation for memory
-sel_mem_op { clk, addr, value, rw } permute memory.sel { memory.clk, memory.addr, memory.value, memory.rw };
-```
-
-## REQUIRED OUTPUT FORMAT
-
-You MUST produce TWO output files:
-
-### 1. Markdown Report (stdout)
-
-#### Summary Table
+### Summary Table
 
 | Item | Value |
 |------|-------|
 | Skill | `vm2-audit-lookup-vs-permutation` |
-| Target | `{path audited}` |
-| Files Scanned | `{number}` |
-| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
+| Target | `{path}` |
+| Files Scanned | `{N}` |
+| Findings | `{e.g., "2 Critical" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-#### Findings Format
-
-- **ID**: `vm2-audit-lookup-vs-permutation-filename-123-issue-type` (MUST use full skill name: `vm2-audit-lookup-vs-permutation`)
+### Finding Format
+- **ID**: `vm2-audit-lookup-vs-permutation-{filename}-{line}-{type}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
-
-Write a `vm2-audit-lookup-vs-permutation.json` file to the output directory with:
+### JSON Output (write to specified path)
 
 ```json
 {
@@ -224,14 +135,3 @@ Write a `vm2-audit-lookup-vs-permutation.json` file to the output directory with
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-lookup-vs-permutation",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

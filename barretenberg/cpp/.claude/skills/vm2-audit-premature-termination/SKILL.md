@@ -1,229 +1,139 @@
 ---
 name: vm2-audit-premature-termination
 description: Audit VM2/AVM PIL files for premature computation termination vulnerabilities. High severity soundness issue where multi-row computations can be terminated before completion due to missing trace continuity constraints, allowing provers to skip computation steps, truncate Merkle proofs, end copy operations early, or skip validation steps.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
+version: 1.0.0
 ---
 
 # VM2 Premature Termination Audit
 
-Audits for premature computation termination - multi-row computations can exit early without reaching valid end condition. Enables skipped hash steps, truncated Merkle proofs, partial copies, bypassed validation.
+## Purpose
+Detect missing trace continuity constraints that allow multi-row computations to exit early, enabling skipped hash steps, truncated Merkle proofs, partial copies, and bypassed validation.
+
+## When to Use
+- Auditing PIL files with multi-row computations (loops, Merkle proofs, copy operations)
+- Reviewing start/end/counter patterns in PIL constraints
+- Security review of computation continuation logic
 
 ## Severity Assessment
+- **Soundness** (malicious prover exploits): Critical/High
+- **Completeness** (honest prover fails): Critical if reachable via canonical simulation
 
-**Assess severity case-by-case** based on impact and reachability:
+## Core Pattern
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
-
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
-
-## The Trace Continuity Pattern
-
-The standard pattern to prevent premature termination:
+The trace continuity constraint prevents premature termination:
 
 ```pil
-#[COMPUTATION_FINISH_AT_END]
+#[TRACE_CONTINUITY]
 sel * (1 - sel') * (1 - end) = 0;
-
-// This constraint says:
-// If sel = 1 (we're in computation)
-// And sel' = 0 (next row exits computation)
-// Then end = 1 (we properly terminated)
-
-// Equivalently: sel = 1 AND sel' = 0 => end = 1
+// Meaning: If sel=1 and sel'=0, then end=1 (proper termination required)
 ```
 
-## Instructions
-
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
+## Workflow
 
 ### Step 1: Identify Multi-Row Computations
 
 ```bash
-# Look for start/end patterns
+# Start/end patterns
 grep -rn "pol commit start\|pol commit end\|pol commit sel_end" barretenberg/cpp/pil/vm2/ --include="*.pil"
 
-# Look for counters/remaining values
+# Counters
 grep -rn "remaining\|counter\|cnt\|idx\|row_idx" barretenberg/cpp/pil/vm2/ --include="*.pil"
 
-# Look for latch/continuation patterns
+# Continuation patterns
 grep -rn "latch\|NOT_END\|continue\|continuity" barretenberg/cpp/pil/vm2/ --include="*.pil"
 ```
 
-**Note**: Grep may not be comprehensive. Manually review each PIL file to identify all multi-row computations.
+**Note**: Also manually review each PIL file - grep may miss patterns.
 
-### Step 2: Verify Trace Continuity Constraint Exists
-
-For each multi-row computation, search for the continuity constraint:
+### Step 2: Verify Trace Continuity Exists
 
 ```bash
-# Look for the trace continuity pattern
-grep -rn "sel.*1 - sel'.*1 - end\|sel.*(1 - sel').*(1 - end)" barretenberg/cpp/pil/vm2/ --include="*.pil"
-
-# Alternative patterns
-grep -rn "CONTINUITY\|FINISH_AT_END\|MUST_END" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-Expected pattern:
-```pil
-#[TRACE_CONTINUITY]
-sel * (1 - sel') * (1 - end) = 0;
+grep -rn "sel.*1 - sel'.*1 - end\|CONTINUITY\|FINISH_AT_END\|MUST_END" barretenberg/cpp/pil/vm2/ --include="*.pil"
 ```
 
 ### Step 3: Check End Condition Constraints
 
-Verify that `end` can only be set when computation is truly complete:
-
-```bash
-# Look for end condition constraints
-grep -rn "end.*remaining\|end.*count\|end.*done\|END_WHEN\|END_ONLY" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-Check for bidirectional constraints:
+Verify bidirectional constraints on `end`:
 ```pil
-// end => done (necessary)
+// end => done
 end * remaining_count = 0;
-
-// done => end (also necessary!)
+// done => end (often missing!)
 (1 - end) * is_done_indicator = 0;
 ```
 
-### Step 4: Look for Underflow Risks
-
-Counters that underflow could wrap around, breaking termination logic:
+### Step 4: Check Counter Underflow
 
 ```bash
-# Look for counter decrement patterns
-grep -rn "remaining'.*remaining - 1\|counter'.*counter - 1\|cnt - 1" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -rn "remaining'.*remaining - 1\|counter'.*counter - 1" barretenberg/cpp/pil/vm2/ --include="*.pil"
 ```
 
-Check that:
-- Counters can't go negative (or wrap in field arithmetic)
-- Off-by-one errors don't allow early termination
+Verify counters can't wrap in field arithmetic.
 
-### Step 5: Verify Error Handling Doesn't Break Continuity
-
-Error paths must still require proper termination:
+### Step 5: Verify Error Path Termination
 
 ```bash
-# Look for error-related termination
 grep -rn "err.*end\|error.*end\|END_ON_ERR" barretenberg/cpp/pil/vm2/ --include="*.pil"
 ```
 
-Verify:
-- Error path still requires `end = 1` before `sel' = 0`
-- Early exit on error is properly constrained with start gating
+Error paths must still require `end=1` before `sel'=0`.
 
-## Patterns
+## Vulnerable Patterns
 
-### Vulnerable Pattern: No Enforcement of Continuation
-
+### No Continuation Enforcement
 ```pil
-// VULNERABLE: No enforcement that computation continues until end
+// VULNERABLE: sel can drop to 0 anytime
 pol commit sel;
 pol commit end;
+// Missing: sel * (1 - sel') * (1 - end) = 0
 ```
 
-### Vulnerable Pattern: One-Way End Condition
-
+### One-Way End Condition
 ```pil
 // VULNERABLE: end can be set prematurely
-pol commit remaining_count;
-pol commit end;
-end * remaining_count = 0;  // Only checks end implies count = 0
+end * remaining_count = 0;  // Only checks end => done
+// Missing: done => end
 ```
 
-### Vulnerable Pattern: Missing Start Gating on Error
-
+### Missing Start Gating on Error
 ```pil
-// VULNERABLE: Error can trigger end on any row
-err * (1 - sel_end) = 0;  // Missing sel_start gating!
-```
-
-### Secure Pattern: Complete Trace Continuity
-
-```pil
-// SECURE: Trace continuity constraint
-pol commit sel;
-pol commit end;
-#[TRACE_CONTINUITY]
-sel * (1 - sel') * (1 - end) = 0;
-// SECURE: end only when truly finished
-#[END_ONLY_WHEN_DONE]
-end * remaining_count = 0;      // end implies done
-```
-
-### Secure Pattern: Gated Error Termination
-
-```pil
-// SECURE: Error termination properly gated
-#[END_ON_ERR]
-sel_start * err * (1 - sel_end) = 0;
-```
-
-## Examples
-
-### Example 1: Data Copy (PR #17877)
-
-```pil
-// BEFORE: Could truncate copy operation
-pol commit sel;
-pol commit sel_end;
-// No constraint that sel = 1 until sel_end = 1
-
-// AFTER: Added continuity constraint
-#[COPY_CONTINUITY]
-sel * (1 - sel') * (1 - sel_end) = 0;
-```
-**Impact**: Could copy partial data.
-
-### Example 2: Merkle Check (PR #17771)
-
-```pil
-// BEFORE: Merkle path could be truncated
-// No explicit finish-at-end constraint
-
-// AFTER: Added constraint
-#[COMPUTATION_FINISH_AT_END]
-sel * (1 - sel') * (1 - end) = 0;
-```
-**Impact**: Could truncate Merkle proofs.
-
-### Example 3: TX is_padded (PR #18336)
-
-```pil
-// BEFORE: is_padded didn't imply end_phase
-// Could extend trace infinitely via counter underflow
-
-// AFTER: Added implication
-#[IS_PADDED_END_PHASE]
-is_padded * (1 - end_phase) = 0;
-```
-**Impact**: Infinite trace extension.
-
-### Example 4: Data Copy sel_end (PR #17877)
-
-```pil
-// sel_end could be toggled prematurely because:
-// 1. err not constrained beyond first row
-// 2. sel_start missing as gating factor in #[END_ON_ERR]
-
-// BEFORE:
+// VULNERABLE: Error triggers end on any row
 err * (1 - sel_end) = 0;  // Missing sel_start!
 
-// AFTER:
-#[END_ON_ERR]
+// SECURE:
 sel_start * err * (1 - sel_end) = 0;
+```
+
+## Real Bug Examples
+
+### Data Copy (PR #17877)
+```pil
+// Missing: sel * (1 - sel') * (1 - sel_end) = 0
+```
+**Impact**: Truncated copy operations.
+
+### Merkle Check (PR #17771)
+```pil
+// Added: sel * (1 - sel') * (1 - end) = 0
+```
+**Impact**: Truncated Merkle proofs.
+
+### TX is_padded (PR #18336)
+```pil
+// Added: is_padded * (1 - end_phase) = 0
+```
+**Impact**: Infinite trace extension via counter underflow.
+
+### Data Copy sel_end (PR #17877)
+```pil
+// BEFORE: err * (1 - sel_end) = 0  // Missing sel_start!
+// AFTER: sel_start * err * (1 - sel_end) = 0
 ```
 **Impact**: Premature end on non-start rows.
 
-## REQUIRED OUTPUT FORMAT
+## Output Format
 
-You MUST produce TWO output files:
-
-### 1. Markdown Report (stdout)
-
-#### Summary Table
+### Summary Table
 
 | Item | Value |
 |------|-------|
@@ -233,17 +143,16 @@ You MUST produce TWO output files:
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-#### Findings Format
-
-- **ID**: `vm2-audit-premature-termination-filename-123-issue-type` (MUST use full skill name: `vm2-audit-premature-termination`)
+### Finding Format
+- **ID**: `vm2-audit-premature-termination-{filename}-{line}-{issue-type}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
+### JSON Output (required)
 
-Write a `vm2-audit-premature-termination.json` file to the output directory with:
+Write `vm2-audit-premature-termination.json` to the specified output directory:
 
 ```json
 {
@@ -262,14 +171,3 @@ Write a `vm2-audit-premature-termination.json` file to the output directory with
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-premature-termination",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

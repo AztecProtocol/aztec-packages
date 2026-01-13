@@ -1,126 +1,98 @@
 ---
-name: vm2-audit-error-aggregation
+name: vm2-take2-audit-error-aggregation
 description: Audit VM2/AVM PIL files for missing error aggregation constraints. Critical soundness issue where aggregate error flags only have boolean constraints but no constraint tying them to individual errors, allowing provers to claim no error when individual errors exist and bypass error handling logic.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
+version: 1.0.0
 ---
 
 # VM2 Error Aggregation Audit
 
-Audits for missing error aggregation - aggregate error flag has only a boolean constraint but no tie to individual errors. Allows prover to claim no error when individual errors exist.
+## Purpose
+Detect aggregate error flags with only boolean constraints but no tie to individual errors - allows prover to claim no error when errors exist.
 
-## Severity Assessment
+## Severity
+- **Soundness** (malicious prover): Critical/High
+- **Completeness** (honest prover fails on valid input): Critical if reachable via canonical simulation
 
-**Assess severity case-by-case** based on impact and reachability:
+## Workflow
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
-
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
-
-## Instructions
-
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
-
-### Step 1: Find All Error Flags
-
+### 1. Find Error Flags
 ```bash
-# Find aggregate error flags
+# Aggregate errors
 grep -rn "pol commit sel_err\|pol commit.*_error" pil/vm2/ --include="*.pil"
 
-# Find individual error flags
+# Individual errors
 grep -rn "err_\|out_of_range\|overflow\|invalid" pil/vm2/ --include="*.pil"
 ```
 
-### Step 2: Verify Aggregation Constraints
-
-For each aggregate error, verify it's tied to individual errors:
-
+### 2. Verify Aggregation Constraints
 ```bash
-# Look for aggregation constraints
+# Aggregation patterns
 grep -rn "sel_err.*=" pil/vm2/ --include="*.pil"
 
-# Check for commented-out aggregation (CRITICAL!)
+# CRITICAL: Check for commented-out aggregation
 grep -rn "//.*sel_err.*=\|FIXME.*err" pil/vm2/ --include="*.pil"
 ```
 
-Expected patterns:
+### 3. Check Constraint Patterns
+
+**Vulnerable** - only boolean, no tie to individual errors:
 ```pil
-// Sum (mutually exclusive errors)
+pol commit sel_err;
+sel_err * (1 - sel_err) = 0;  // MISSING: no aggregation!
+```
+
+**Secure** - proper aggregation:
+```pil
+// Sum (requires mutual exclusivity)
 sel_err = err_a + err_b + err_c;
 
-// OR (non-exclusive errors)
+// OR (non-exclusive)
 sel_err = err_a + err_b - err_a * err_b;
 
-// Implication
+// Implication (each error implies aggregate)
 err_a * (1 - sel_err) = 0;
 ```
 
-### Step 3: Verify Correctness
+### 4. Verify Correctness
+- Sum aggregation: errors MUST be mutually exclusive
+- OR aggregation: both directions constrained (individual->aggregate AND no-individual->no-aggregate)
 
-- **If using sum**: Errors must be mutually exclusive
-- **If using OR**: Both directions constrained (individual→aggregate AND no-individual→no-aggregate)
+## Example Bug
 
-## Patterns
-
-### Vulnerable: Only Boolean
 ```pil
-pol commit sel_err;
-sel_err * (1 - sel_err) = 0;  // No tie to individual errors!
-```
-
-### Secure: Proper Aggregation
-```pil
-sel_err = sel_tag_err + sel_div_0_err - sel_tag_err * sel_div_0_err;
-```
-
-## Examples
-
-### Example 1: Instruction Fetching
-```pil
-// BEFORE: Only boolean, aggregation commented out
+// VULNERABLE: Aggregation commented out
 sel_parsing_err * (1 - sel_parsing_err) = 0;
 // FIXME: sel_parsing_err = pc_out_of_range + opcode_out_of_range;
-
-// AFTER: Proper aggregation
-sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
 ```
-**Impact**: Complete bypass of instruction validation.
+**Impact**: Complete bypass of instruction validation - prover sets sel_parsing_err=0 while individual errors=1.
 
-## REQUIRED OUTPUT FORMAT
+## Output Format
 
-You MUST produce TWO output files:
-
-### 1. Markdown Report (stdout)
-
-#### Summary Table
-
+### Summary Table
 | Item | Value |
 |------|-------|
-| Skill | `vm2-audit-error-aggregation` |
+| Skill | `vm2-take2-audit-error-aggregation` |
 | Target | `{path audited}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-#### Findings Format
-
-- **ID**: `vm2-audit-error-aggregation-filename-123-issue-type` (MUST use full skill name: `vm2-audit-error-aggregation`)
+### Findings
+- **ID**: `vm2-take2-audit-error-aggregation-{filename}-{line}-{issue}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
-
-Write a `vm2-audit-error-aggregation.json` file to the output directory with:
-
+### JSON Output (write to specified path)
 ```json
 {
-  "skill": "vm2-audit-error-aggregation",
+  "skill": "vm2-take2-audit-error-aggregation",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-error-aggregation-filename-123-issue-type",
+      "id": "vm2-take2-audit-error-aggregation-filename-123-issue",
       "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
@@ -131,14 +103,3 @@ Write a `vm2-audit-error-aggregation.json` file to the output directory with:
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-error-aggregation",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

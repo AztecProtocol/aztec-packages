@@ -1,260 +1,139 @@
 ---
 name: vm2-audit-optional-value-safety
 description: Audit VM2/AVM simulation code for unsafe optional value access. Completeness issue where calling .value() on empty std::optional or accessing out-of-bounds collection elements causes crashes, preventing trace generation for valid edge cases like unused protocol contract slots.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # VM2 Optional Value Safety Audit
 
-Audits for unsafe `.value()` access on optionals. **Completeness issue** - crashes for valid edge cases (empty slots, missing contracts) that PIL handles correctly.
+## Purpose
+Find unsafe `.value()` calls and collection accesses in simulation/tracegen that crash on valid edge cases.
 
-## Severity Assessment
+## When to Use
+- Auditing VM2 simulation code for crash bugs
+- Reviewing code that handles optional returns or collection access
+- After adding new lookup/query functions
 
-**Assess severity case-by-case** based on impact and reachability:
+## When NOT to Use
+- PIL constraint audits (use constraint-focused skills)
+- Non-VM2 C++ code
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+## Severity
+**Completeness issue** - crashes prevent trace generation for valid inputs.
+- **Critical**: Reachable via normal simulation on valid inputs
+- **High**: Reachable via edge cases (unused slots, missing contracts)
+- **Low**: Theoretical/unreachable paths
 
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+## Workflow
 
-## Instructions
-
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
-
-### Step 1: Find All .value() Calls
-
+### 1. Find .value() Calls
 ```bash
-# Find all .value() calls in simulation code
-grep -rn "\.value()" --include="*.cpp" --include="*.hpp" barretenberg/cpp/src/barretenberg/vm2/simulation/
-
-# Also check tracegen
-grep -rn "\.value()" --include="*.cpp" --include="*.hpp" barretenberg/cpp/src/barretenberg/vm2/tracegen/
+grep -rn "\.value()" --include="*.cpp" --include="*.hpp" src/barretenberg/vm2/simulation/
+grep -rn "\.value()" --include="*.cpp" --include="*.hpp" src/barretenberg/vm2/tracegen/
 ```
 
-### Step 2: Check Each .value() Call
+### 2. Analyze Each Call
+For each `.value()`:
+1. Is there a `.has_value()` guard?
+2. Trace origin - what returns this optional?
+3. When does it return `std::nullopt`?
 
-For each `.value()` call found:
-
-1. **Is there a `.has_value()` check before it?**
-   ```cpp
-   // SAFE: Check before access
-   if (optional.has_value()) {
-       auto value = optional.value();
-   }
-   ```
-
-2. **Can the optional ever be empty?**
-   - Trace back to where the optional is created
-   - What function returns it?
-   - Under what conditions does it return `std::nullopt`?
-
-3. **What edge cases could cause it to be empty?**
-   - Missing database entries
-   - Unused reserved slots
-   - Out-of-bounds access
-   - Failed lookups
-
-### Step 3: Find Collection Accesses
-
+### 3. Find Collection Accesses
 ```bash
-# Find potentially unsafe collection accesses
-grep -rn "\.at(" --include="*.cpp" --include="*.hpp" barretenberg/cpp/src/barretenberg/vm2/simulation/
-grep -rn "\.front(" --include="*.cpp" --include="*.hpp" barretenberg/cpp/src/barretenberg/vm2/simulation/
-grep -rn "\.back(" --include="*.cpp" --include="*.hpp" barretenberg/cpp/src/barretenberg/vm2/simulation/
-grep -rn "\[.*\]" --include="*.cpp" --include="*.hpp" barretenberg/cpp/src/barretenberg/vm2/simulation/
+grep -rn "\.at(\|\.front(\|\.back(" --include="*.cpp" --include="*.hpp" src/barretenberg/vm2/simulation/
 ```
 
-### Step 4: Verify Bounds Checks
+### 4. Verify Bounds
+- Index validated before access?
+- Collection guaranteed non-empty?
 
-For each collection access:
-- Is the index validated before access?
-- Is the collection guaranteed non-empty?
-- What happens at boundary conditions?
-
-### Step 5: Identify Common Sources of Empty Optionals
-
-| Source | Example | Edge Case |
-|--------|---------|-----------|
-| Database lookup | `get_contract(address)` | Contract not deployed |
-| Protocol contracts | `get_protocol_contract(slot)` | Unused reserved slots (7-11) |
-| Tree operations | `get_leaf(index)` | Leaf not found |
-| Memory access | `read_memory(address)` | Uninitialized address |
-| Bytecode retrieval | `get_bytecode(address)` | Contract without code |
-| Map lookup | `map.find(key)` | Missing key |
-
-## Patterns
-
-### Vulnerable Pattern: Direct .value() Access
+## Vulnerable Patterns
 
 ```cpp
-// VULNERABLE: Direct .value() access without check
-std::optional<ContractInstance> maybe_instance = lookup(address);
-const ContractInstance& instance = maybe_instance.value();  // CRASH if nullopt!
-return instance;
-```
+// BUG: Direct .value() without check
+auto instance = lookup(address).value();  // CRASH if nullopt
 
-### Vulnerable Pattern: Assuming Collection Has Elements
+// BUG: Unguarded collection access
+auto first = collection.front();  // CRASH if empty
+auto item = collection.at(index); // CRASH if out of bounds
 
-```cpp
-// VULNERABLE: Assuming collection always has elements
-auto result = collection.at(index);  // Throws if index out of bounds
-// VULNERABLE: Assuming non-empty
-auto first = collection.front();  // Crash if empty
-```
-
-### Vulnerable Pattern: Assuming Map Lookup Succeeds
-
-```cpp
-// VULNERABLE: Using operator[] on map
-auto value = map[key];  // Creates default if missing (may not be desired)
-// VULNERABLE: Assuming find succeeds
+// BUG: Map iterator without check
 auto it = map.find(key);
-auto value = it->second;  // Crash if key not found
+auto value = it->second;  // CRASH if not found
 ```
 
-### Secure Pattern: Check Before Access
+## Secure Patterns
 
 ```cpp
-// SECURE: Check before access
-std::optional<ContractInstance> maybe_instance = lookup(address);
-if (!maybe_instance.has_value()) {
-    return std::nullopt;  // Or handle appropriately
-}
-const ContractInstance& instance = maybe_instance.value();
-return instance;
-```
+// SAFE: Check before access
+if (!maybe.has_value()) return std::nullopt;
+auto value = maybe.value();
 
-### Secure Pattern: Use value_or
+// SAFE: value_or for defaults
+auto value = maybe.value_or(Default{});
 
-```cpp
-// SECURE: Use value_or for safe default
-auto instance = maybe_instance.value_or(ContractInstance{});
-return instance;
-```
+// SAFE: Bounds check
+if (index >= vec.size()) return error;
 
-### Secure Pattern: Return Optional Directly
-
-```cpp
-// SECURE: Return the optional directly
-std::optional<ContractInstance> maybe_instance = lookup(address);
-return maybe_instance;  // Let caller handle empty case
-```
-
-### Secure Pattern: Bounds Check
-
-```cpp
-// SECURE: Check collection bounds
-if (index >= collection.size()) {
-    return error_or_default;
-}
-auto result = collection.at(index);
-```
-
-### Secure Pattern: Safe Map Access
-
-```cpp
-// SECURE: Check iterator before use
+// SAFE: Iterator check
 auto it = map.find(key);
-if (it == map.end()) {
-    return error_or_default;
-}
-auto value = it->second;
+if (it == map.end()) return error;
 ```
 
-## Examples
+## Common Empty Optional Sources
 
-### Example 1: Contract Instance Manager (PR #19254)
+| Source | Edge Case |
+|--------|-----------|
+| `get_protocol_contract(slot)` | Unused slots 7-11 |
+| `get_contract(address)` | Contract not deployed |
+| `get_leaf(index)` | Leaf not found |
+| `get_bytecode(address)` | Contract without code |
+
+## Real Bug: PR #19254
 
 ```cpp
-// BEFORE: Crash on empty protocol slot
-// Protocol contracts have 11 reserved slots, but only 6 are used.
-// Querying addresses 7-11 returns nullopt.
-std::optional<ContractInstance> maybe_instance = get_protocol_contract(address);
-const ContractInstance& instance = maybe_instance.value();  // CRASH!
-return ContractInstanceEvent{
-    .contract_instance = instance,
-    .exists = true
-};
+// BEFORE: Protocol contracts have 11 slots, only 6 used
+auto maybe = get_protocol_contract(address);
+auto& instance = maybe.value();  // CRASH on slots 7-11!
 
-// AFTER: Safe handling
-auto maybe_instance = get_protocol_contract(address);
+// AFTER:
 return ContractInstanceEvent{
-    .contract_instance = maybe_instance.value_or(ContractInstance{}),
-    .exists = maybe_instance.has_value()
+    .contract_instance = maybe.value_or(ContractInstance{}),
+    .exists = maybe.has_value()
 };
 ```
-**Impact**: Querying unused protocol contract slot crashes simulation.
 
-### Example 2: General Optional Misuse
+## Output Format
 
-```cpp
-// Pattern that appears in various places
-auto result = compute_something();  // Returns optional
-do_something_with(result.value());  // Crash if empty!
-```
-
-## Edge Cases to Consider
-
-1. **Reserved but unused slots**: Protocol contracts, precomputed tables
-2. **Empty collections**: Zero-length arrays, empty maps
-3. **Missing lookups**: Addresses not in database, unknown keys
-4. **Boundary conditions**: Index at exact boundary
-5. **Uninitialized state**: First access to memory/storage
-6. **Failed operations**: Computations that may not produce results
-
-## REQUIRED OUTPUT FORMAT
-
-You MUST produce TWO output files:
-
-### 1. Markdown Report (stdout)
-
-#### Summary Table
+### Markdown Report
 
 | Item | Value |
 |------|-------|
 | Skill | `vm2-audit-optional-value-safety` |
-| Target | `{path audited}` |
-| Files Scanned | `{number}` |
-| Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
-| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
+| Target | `{path}` |
+| Files Scanned | `{n}` |
+| Findings | `{e.g., "2 Critical"}` |
+| Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` |
 
-#### Findings Format
-
-- **ID**: `vm2-audit-optional-value-safety-filename-123-issue-type` (MUST use full skill name: `vm2-audit-optional-value-safety`)
+### Finding Format
+- **ID**: `vm2-audit-optional-value-safety-{file}-{line}-{type}`
 - **Severity**: Critical / High / Medium / Low
-- **File**: `path/to/file.pil:line`
+- **File**: `path/to/file.cpp:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
-
-Write a `vm2-audit-optional-value-safety.json` file to the output directory with:
+### JSON Output (write to specified path)
 
 ```json
 {
   "skill": "vm2-audit-optional-value-safety",
   "status": "COMPLETED_WITH_FINDINGS",
-  "findings": [
-    {
-      "id": "vm2-audit-optional-value-safety-filename-123-issue-type",
-      "severity": "critical",
-      "file": "path/to/file.pil",
-      "line": 123,
-      "description": "Brief description",
-      "exploitability": "high",
-      "fix": "Suggested fix"
-    }
-  ]
+  "findings": [{
+    "id": "vm2-audit-optional-value-safety-file-123-unsafe-value",
+    "severity": "critical",
+    "file": "path/to/file.cpp",
+    "line": 123,
+    "description": "Brief description",
+    "fix": "Suggested fix"
+  }]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-optional-value-safety",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

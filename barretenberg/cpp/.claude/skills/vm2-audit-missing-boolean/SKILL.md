@@ -1,242 +1,149 @@
 ---
 name: vm2-audit-missing-boolean
 description: Audit VM2/AVM PIL files for missing boolean selector constraints. Critical soundness issue where columns used as booleans lack `sel * (1 - sel) = 0` constraints, allowing field arithmetic exploits including error cancellation, conditional logic corruption, and accumulator manipulation.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
+version: 1.0.0
 ---
 
 # VM2 Missing Boolean Selector Audit
 
-Audits for missing boolean constraints on selector columns. This is a **critical soundness vulnerability** that enables field arithmetic exploits.
+Audit for missing boolean constraints on selector columns - a **critical soundness vulnerability** enabling field arithmetic exploits.
+
+## When to Use
+- Auditing PIL files for missing boolean constraints
+- Reviewing selectors, flags, or indicator columns
+- Checking zero-check pattern implementations
 
 ## Severity Assessment
 
-**Assess severity case-by-case** based on impact and reachability:
-
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
-
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+Assess case-by-case based on impact:
+- **Soundness** (malicious prover exploits): Critical/High
+- **Completeness** (honest prover fails): Critical if reachable via canonical simulation
 
 ## Exploit Types
 
 ### 1. Error Cancellation (Most Common)
-
 ```pil
-// Example: Error aggregation
 sel_err = sel_out_of_bound + sel_wrong_tag;
-
-// If sel_wrong_tag is not constrained boolean, prover can set:
-//   sel_out_of_bound = 1
-//   sel_wrong_tag = p - 1  (where p is the field modulus)
-//   sel_err = 1 + (p - 1) = 0  (mod p)
-// The error is cancelled out!
+// If sel_wrong_tag unconstrained, prover sets sel_wrong_tag = p-1:
+//   sel_err = 1 + (p-1) = 0 (mod p) - error cancelled!
 ```
 
 ### 2. Conditional Logic Corruption (MUX Pattern)
-
 ```pil
-// Select between two values based on selector
 result = sel * A + (1 - sel) * B;
-
-// If sel is not boolean, prover can set sel = 2:
-//   result = 2*A + (1-2)*B = 2*A - B
-// Result is neither A nor B - completely corrupted!
+// If sel=2: result = 2*A - B (neither A nor B!)
 ```
 
-### 3. Accumulator/Counter Manipulation
-
+### 3. Accumulator Manipulation
 ```pil
-// Counting occurrences
 count = sel_a + sel_b + sel_c;
-
-// If selectors aren't boolean, prover can set arbitrary counts
-// e.g., sel_a = 5 gives count = 5 even if only one event occurred
+// If sel_a unconstrained, prover sets arbitrary counts
 ```
 
-**Important clarification**: `sel * expr = 0` with `sel = 2` does NOT allow bypassing constraints (in a field, non-zero `sel` simply means `expr = 0`). The vulnerability is specifically in **additive expressions** and **multiplicative factor uses** where non-boolean values produce incorrect results.
+**Note**: `sel * expr = 0` with non-boolean sel does NOT bypass constraints (non-zero sel still forces expr=0). Vulnerability is in **additive expressions** and **multiplicative factors**.
 
-## Instructions
+## Workflow
 
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
+### Step 1: Find Boolean Columns
+```bash
+grep -rn "@boolean\|pol commit.*sel\|pol commit is_" pil/vm2/ --include="*.pil"
+```
+Also review column usage - some booleans lack naming conventions.
 
-### Step 1: Find All Boolean Columns
+### Step 2: Verify Constraints Exist
+
+For each boolean column, verify one applies:
+1. **Explicit**: `col * (1 - col) = 0;`
+2. **Lookup to binary table**: Document with comment
+3. **Derived from booleans**: Prove derivation preserves boolean property
 
 ```bash
-# Find @boolean annotations and selector declarations
-grep -rn "@boolean\|pol commit.*sel\|pol commit is_" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -rn "my_selector.*1 - my_selector" pil/vm2/ --include="*.pil"
 ```
 
-Note that this is just a first pass. There may be columns that are used as booleans without being named or annotated as such! After checking via grep, double check by reviewing the usage of each column.
+### Step 3: Check Gated Boolean Constraints
 
-### Step 2: Verify Boolean Constraints Exist
-
-For each boolean column, verify one of these applies:
-
-1. **Explicit constraint**: `col * (1 - col) = 0;`
-2. **Lookup to binary table**: Document this with a comment
-3. **Derived from other booleans**: Must prove the derivation preserves boolean property
-
-```bash
-# Search for boolean constraints on a specific column
-grep -rn "my_selector.*1 - my_selector" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-### Step 3: Check for Gated Boolean Constraints
-
-Gated boolean constraints are acceptable IF all uses are also gated:
-
+Gated constraints acceptable IF all uses also gated:
 ```pil
-// ACCEPTABLE: Gated boolean constraint with all uses also gated
+// OK: Gated constraint, gated uses
 sel * my_bool * (1 - my_bool) = 0;
-sel * (output - my_bool * value) = 0;  // Also gated by sel
+sel * (output - my_bool * value) = 0;
 
-// VULNERABLE: Gated boolean but ungated use
-sel * my_bool * (1 - my_bool) = 0;  // Gated
-other_expr + my_bool = 0;            // UNGATED USE - VULNERABLE!
+// VULNERABLE: Gated constraint, ungated use
+sel * my_bool * (1 - my_bool) = 0;
+other_expr + my_bool = 0;  // UNGATED - exploitable!
 ```
-
-### Step 4: Document Findings
-
-Record for each boolean column:
-- Column name and location
-- How it's constrained (explicit, lookup, derived)
-- Whether constraint is gated and if all uses are also gated
-- Any implicit constraints from other relations
 
 ## Patterns
 
-### Vulnerable Pattern
-
+### Vulnerable
 ```pil
-// VULNERABLE: Boolean annotation without constraint
-pol commit my_selector; // @boolean
-// VULNERABLE: Used as boolean but not constrained
+pol commit my_selector; // @boolean but no constraint!
 pol commit is_active;
-is_active * some_expression = 0;  // Assumes is_active in {0, 1}
+is_active * some_expression = 0;  // Assumes boolean
 ```
 
-### Secure Pattern
-
+### Secure
 ```pil
-// SECURE: Explicit boolean constraint
-pol commit my_selector; // @boolean
-#[MY_SELECTOR_BOOL]
-my_selector * (1 - my_selector) = 0;
-// SECURE: Boolean via lookup (documented)
+pol commit my_selector;
+my_selector * (1 - my_selector) = 0;  // Explicit constraint
+
 pol commit sel;
-sel { sel } in precomputed.sel_binary { precomputed.binary_value };
+sel { sel } in precomputed.sel_binary { precomputed.binary_value };  // Lookup
 ```
 
-## Examples
-
-### Example 1: ECC Memory (PR #19256)
-```pil
-// ecc_mem.pil - sel not explicitly boolean constrained
-pol commit sel;
-// Missing: sel * (1 - sel) = 0;
-```
-**Fix**: Added explicit `sel * (1 - sel) = 0;`
-
-### Example 2: ALU Shift Operations (PR #18192)
-```pil
-// Missing boolean for shift operation selectors
-pol commit sel_op_shl;
-pol commit sel_op_shr;
-pol commit sel_shift_ops_no_overflow;
-// None had boolean constraints
-```
-**Impact**: Could fake shift operation results.
-
-### Example 3: To Radix Memory (PR #19256)
-```pil
-// to_radix_mem.pil - selector missing boolean
-pol commit sel;
-// Was missing boolean constraint
-```
-
-## Zero-Check Pattern (Special Case)
-
-The zero-check pattern is a well-known vulnerability when the indicator isn't boolean:
+## Zero-Check Pattern (Critical)
 
 ```pil
 // e = 1 iff x = 0
-pol commit e;
-pol commit inv;
+pol commit e, inv;
 x * (e * (1 - inv) + inv) - 1 + e = 0;
-
-// If e is not constrained boolean, the check can be bypassed!
-// MUST have: e * (1 - e) = 0;
+// MUST have: e * (1 - e) = 0;  // Without this, check bypassed!
 ```
 
-Always verify boolean constraint exists on zero-check indicators.
+## Historical Bugs
 
-## Exploitability Note
-
-The actual exploitability of a missing boolean depends heavily on how the column is used in other relations. Focus on:
-1. **Spotting** missing boolean constraints
-2. **Checking** if the column appears in additive expressions
-3. **Documenting** the finding for further analysis
-
-Avoid over-claiming specific exploits without analyzing all related constraints.
-
-## References
-
-- [PR #19256](https://github.com/AztecProtocol/aztec-packages/pull/19256) - Missing Bool Selectors Fix
-- [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
+- **PR #19256**: ecc_mem.pil, to_radix_mem.pil - sel missing boolean constraint
+- **PR #18192**: ALU sel_op_shl, sel_op_shr, sel_shift_ops_no_overflow unconstrained
 
 ## REQUIRED OUTPUT FORMAT
-
-You MUST produce TWO output files:
 
 ### 1. Markdown Report (stdout)
 
 #### Summary Table
-
 | Item | Value |
 |------|-------|
 | Skill | `vm2-audit-missing-boolean` |
-| Target | `{path audited}` |
+| Target | `{path}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
 #### Findings Format
-
-- **ID**: `vm2-audit-missing-boolean-filename-123-issue-type` (MUST use full skill name: `vm2-audit-missing-boolean`)
+- **ID**: `vm2-audit-missing-boolean-{filename}-{line}-{issue-type}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
+### 2. JSON File (REQUIRED)
 
-Write a `vm2-audit-missing-boolean.json` file to the output directory with:
-
+Write `vm2-audit-missing-boolean.json` to output directory:
 ```json
 {
   "skill": "vm2-audit-missing-boolean",
   "status": "COMPLETED_WITH_FINDINGS",
-  "findings": [
-    {
-      "id": "vm2-audit-missing-boolean-filename-123-issue-type",
-      "severity": "critical",
-      "file": "path/to/file.pil",
-      "line": 123,
-      "description": "Brief description",
-      "exploitability": "high",
-      "fix": "Suggested fix"
-    }
-  ]
+  "findings": [{
+    "id": "vm2-audit-missing-boolean-filename-123-issue-type",
+    "severity": "critical",
+    "file": "path/to/file.pil",
+    "line": 123,
+    "description": "Brief description",
+    "exploitability": "high",
+    "fix": "Suggested fix"
+  }]
 }
 ```
 
-For no findings:
-```json
-{
-  "skill": "vm2-audit-missing-boolean",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.
+For no findings: `{"skill": "vm2-audit-missing-boolean", "status": "COMPLETED_NO_FINDINGS", "findings": []}`

@@ -1,184 +1,151 @@
 ---
 name: vm2-audit-precomputed-table-completeness
 description: Audit VM2/AVM precomputed trace tables for missing entries. Completeness issue where precomputed tables skip edge cases (index 0, 1, max) or invalid-but-queryable values, causing lookup failures when execution trace queries those indices.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
+version: 1.0.0
 ---
 
 # VM2 Precomputed Table Completeness Audit
 
-Audits precomputed tables for missing entries. **Completeness issue** - execution trace can query any index, including edge cases and error conditions. Missing precomputed entries cause lookup failures.
+## Purpose
+Detect missing precomputed table entries that cause lookup failures when execution trace queries edge cases or error paths.
+
+## When to Use
+- Auditing precomputed trace generation
+- Reviewing changes to `precomputed_trace.cpp`
+- Investigating lookup failures in tests
+
+## When NOT to Use
+- Runtime trace issues (use tracegen-pil-alignment skill)
+- PIL constraint audits (use other vm2-audit skills)
 
 ## Severity Assessment
 
-**Assess severity case-by-case** based on impact and reachability:
+**Completeness issue** - honest prover fails on valid inputs.
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+- **Critical**: Reachable via canonical simulation on valid inputs - system broken
+- **High**: Reachable via unusual but valid inputs
+- **Medium**: Theoretical edge cases
+- **Low**: Unreachable in practice
 
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+## The Bug Pattern
 
-## The Problem
-
-Precomputed tables are generated at startup. If they skip certain indices, lookups into those indices fail:
+Precomputed tables generated at startup. If they skip indices, lookups fail:
 
 ```cpp
-// BUG: Skipped radix=0,1 entries (decomposition_len == 0)
+// BUG: Skips radix=0,1 (p_limbs_per_radix[0,1] are empty)
 for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
-    size_t decomposition_len = p_limbs_per_radix[i].size();
-    if (decomposition_len > 0) {  // SKIPS i=0 and i=1!
+    if (p_limbs_per_radix[i].size() > 0) {  // SKIPS i=0,1!
         trace.set(C::precomputed_sel_to_radix_p_limb_counts, i, 1);
     }
 }
-
-// Execution trace: ToRadix with radix=1 (invalid, will error)
-// Still does gas lookup into precomputed table at index 1
+// ToRadix with radix=1 (invalid) still does gas lookup at index 1
 // Lookup fails because row 1 has sel=0!
 ```
 
-## Instructions
+## Workflow
 
-### Step 1: Identify Precomputed Tables
-
-```bash
-# Find precomputed trace generation
-ls barretenberg/cpp/src/barretenberg/vm2/tracegen/precomputed_trace.cpp
-
-# Find precomputed column definitions
-grep -n "precomputed\." barretenberg/cpp/pil/vm2/ -r --include="*.pil"
-```
-
-### Step 2: Identify Lookup Sources
-
-For each precomputed table, find what queries it:
+### Step 1: Find Precomputed Tables and Their Lookups
 
 ```bash
-# Find lookups INTO precomputed tables
+# Precomputed trace generation
+cat barretenberg/cpp/src/barretenberg/vm2/tracegen/precomputed_trace.cpp
+
+# Lookups INTO precomputed tables
 grep -rnE '}\s*(in|is)\s+precomputed\.' barretenberg/cpp/pil/vm2/ --include="*.pil"
 ```
 
-### Step 3: Analyze Query Index Range
+### Step 2: For Each Table, Check Population vs Query Range
 
-For each lookup, determine:
-1. What index values can the source query?
-2. Can it query edge cases (0, 1, max)?
-3. Can it query during error conditions?
-
-```bash
-# Check what drives the lookup index
-grep -B5 "in precomputed\." barretenberg/cpp/pil/vm2/<component>.pil
-```
-
-### Step 4: Check Table Population
-
-```bash
-# Find how table is populated
-grep -n "precomputed_sel_\|precomputed_to_\|precomputed_" \
-    barretenberg/cpp/src/barretenberg/vm2/tracegen/precomputed_trace.cpp
-```
-
-Verify:
-- Does it populate ALL possible query indices?
-- Does it handle boundary values (0, 1, max)?
-- Does it populate indices for error/invalid inputs?
-
-### Step 5: Check for Conditional Population
-
-Look for patterns that skip entries:
+For each precomputed selector/table:
+1. **What indices can be queried?** (Check lookup source - often opcode index, radix value, etc.)
+2. **Does population cover ALL queryable indices?** Including 0, 1, max, and error inputs
+3. **Any conditional population that skips entries?**
 
 ```bash
 # Find conditional population (potential skips)
-grep -n "if.*decomposition\|if.*size\|if.*len\|continue" \
+grep -n "if.*size\|if.*len\|continue" \
     barretenberg/cpp/src/barretenberg/vm2/tracegen/precomputed_trace.cpp
 ```
 
-## Patterns
+### Step 3: Check Edge Cases
 
-### Vulnerable: Skip Zero/Edge Cases
+- **Index 0**: Often skipped by `if (size > 0)` guards
+- **Index 1**: Similar issue
+- **Max index**: Boundary conditions
+- **Invalid inputs**: Error paths still do lookups before erroring
 
+## Vulnerable Patterns
+
+### Skip Zero/Edge Cases
 ```cpp
-// VULNERABLE: Skips entries where result is empty
+// VULNERABLE
 for (size_t i = 0; i < table.size(); ++i) {
-    if (table[i].size() > 0) {  // Skips i where table[i] is empty!
+    if (table[i].size() > 0) {  // Skips empty entries!
         trace.set(C::precomputed_sel, i, 1);
     }
 }
 ```
 
-### Vulnerable: Invalid Input Not Populated
-
+### Invalid Input Not Populated
 ```cpp
-// VULNERABLE: Only populates valid radix values (2-256)
+// VULNERABLE: Only populates valid radix (2-256)
 for (size_t radix = 2; radix <= 256; ++radix) {
     trace.set(C::precomputed_sel_radix, radix, 1);
 }
-// But execution can query radix=0,1 during error path!
+// Execution can query radix=0,1 during error path!
 ```
 
 ### Secure: Populate All Queryable Indices
-
 ```cpp
-// SECURE: Populate all indices, use fallback for invalid
+// SECURE: Always set selector, use fallback for invalid
 for (size_t i = 0; i < table.size(); ++i) {
-    trace.set(C::precomputed_sel, i, 1);  // Always set selector
-    size_t value = table[i].size() > 0 ? table[i].size() - 1 : 0;
-    trace.set(C::precomputed_value, i, value);
+    trace.set(C::precomputed_sel, i, 1);  // Always
+    trace.set(C::precomputed_value, i,
+              table[i].size() > 0 ? table[i].size() - 1 : 0);
 }
 ```
 
-## Examples
-
-### Example 1: ToRadix P-Limbs (PR #19266)
+## Real Bug Example: ToRadix P-Limbs (PR #19266)
 
 ```cpp
-// BEFORE (BUG): Skipped radix=0,1 (p_limbs_per_radix[0,1] are empty)
+// BEFORE (BUG)
 for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
     size_t decomposition_len = p_limbs_per_radix[i].size();
-    if (decomposition_len > 0) {
+    if (decomposition_len > 0) {  // Skips i=0,1!
         trace.set(C::precomputed_sel_to_radix_p_limb_counts, i, 1);
-        trace.set(C::precomputed_to_radix_safe_limbs, i, decomposition_len - 1);
     }
 }
 
-// AFTER (FIX): Always populate, use 0 as fallback
+// AFTER (FIX)
 for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
     size_t decomposition_len = p_limbs_per_radix[i].size();
-    trace.set(C::precomputed_sel_to_radix_p_limb_counts, i, 1);
+    trace.set(C::precomputed_sel_to_radix_p_limb_counts, i, 1);  // Always
     trace.set(C::precomputed_to_radix_safe_limbs, i,
               decomposition_len > 0 ? decomposition_len - 1 : 0);
-    trace.set(C::precomputed_to_radix_num_limbs_for_p, i, decomposition_len);
 }
 ```
 
-**Impact**: ToRadix with invalid radix (0 or 1) triggers error in subtrace, but execution trace still does gas lookup at that index. Missing precomputed row causes lookup failure.
-
-**Why missed by tests**: Bug only manifests when:
-1. Invalid radix (0 or 1) used
-2. FULL precomputed trace generated (not mocked)
-3. FULL execution trace generated
-4. Lookup constraint actually checked
+**Why missed by tests**: Only manifests when invalid radix (0/1) used with FULL precomputed and execution traces.
 
 ## Key Files
 
 - `src/barretenberg/vm2/tracegen/precomputed_trace.cpp` - Precomputed generation
-- `pil/vm2/precomputed.pil` - Precomputed column definitions
-- `pil/vm2/execution.pil` - Gas lookups into precomputed
+- `pil/vm2/precomputed.pil` - Column definitions
+- `pil/vm2/execution.pil` - Gas lookups
 
 ## Checklist
 
-Before marking a precomputed table as safe:
-- [ ] Table populates index 0?
-- [ ] Table populates index 1?
-- [ ] Table populates max valid index?
-- [ ] Table populates indices for invalid/error inputs?
-- [ ] No `if (size > 0)` or similar guards that skip entries?
+Before marking a table safe:
+- [ ] Populates index 0?
+- [ ] Populates index 1?
+- [ ] Populates max valid index?
+- [ ] Populates indices for invalid/error inputs?
+- [ ] No `if (size > 0)` guards that skip entries?
 
-## REQUIRED OUTPUT FORMAT
+## Output Format
 
-You MUST produce TWO output files:
-
-### 1. Markdown Report (stdout)
-
-#### Summary Table
+### 1. Markdown Report
 
 | Item | Value |
 |------|-------|
@@ -188,17 +155,16 @@ You MUST produce TWO output files:
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-#### Findings Format
-
-- **ID**: `vm2-audit-precomputed-table-completeness-filename-123-issue-type` (MUST use full skill name: `vm2-audit-precomputed-table-completeness`)
+**Finding format**:
+- **ID**: `vm2-audit-precomputed-table-completeness-{filename}-{line}-{issue}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.cpp:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
+### 2. JSON File (REQUIRED)
 
-Write a `vm2-audit-precomputed-table-completeness.json` file to the output directory with:
+Write to output directory specified in audit prompt:
 
 ```json
 {
@@ -206,7 +172,7 @@ Write a `vm2-audit-precomputed-table-completeness.json` file to the output direc
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-precomputed-table-completeness-filename-123-issue-type",
+      "id": "vm2-audit-precomputed-table-completeness-filename-123-issue",
       "severity": "medium",
       "file": "path/to/file.cpp",
       "line": 123,
@@ -217,14 +183,3 @@ Write a `vm2-audit-precomputed-table-completeness.json` file to the output direc
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-precomputed-table-completeness",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

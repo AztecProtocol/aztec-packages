@@ -1,232 +1,145 @@
 ---
 name: vm2-audit-tag-validation
 description: Audit VM2/AVM PIL files for tag validation gaps. Medium severity soundness issue where type tags (U8, U16, U32, U64, U128, FF) are not properly validated before operations or tag mismatch errors are not handled correctly, enabling type confusion, invalid arithmetic, and range check bypass.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
+version: 1.0.0
 ---
 
 # VM2 Tag Validation Audit
 
-Audits for tag validation gaps - type tags (U8-U128, FF) not validated before operations. Enables type confusion, range check bypass, memory corruption.
+## Purpose
+Detect missing or incomplete type tag validation that enables type confusion, range check bypass, or memory corruption.
 
-## Severity Assessment
+## When to Use
+- Auditing PIL files with arithmetic/bitwise operations
+- Reviewing operations that require tag matching (ADD, SUB, MUL, etc.)
+- Checking memory operations for tag consistency
+- Analyzing hash functions that expect specific input types
 
-**Assess severity case-by-case** based on impact and reachability:
+## When NOT to Use
+- Non-tag-related PIL audits (use specific audit skill instead)
 
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
-
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
-
-## Tag System Overview
+## Tag System
 
 ```pil
-// Tags in AVM:
-// U1 = 1, U8 = 2, U16 = 3, U32 = 4, U64 = 5, U128 = 6, FF = 7
-
-// Tag checking verifies:
-// 1. Input operands have expected tags
-// 2. Output has correct tag for operation
-// 3. Memory reads/writes have consistent tags
+// Tags: U1=1, U8=2, U16=3, U32=4, U64=5, U128=6, FF=7
+// Validation ensures: input tags match, output tag correct, memory consistent
 ```
 
-## Instructions
+## Workflow
 
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
-
-### Step 1: Identify All Operations with Tag Requirements
+### Step 1: Identify Tag-Related Columns
 
 ```bash
-# Find tag-related columns
-grep -rn "pol commit.*tag\|_tag\|tag_" barretenberg/cpp/pil/vm2/ --include="*.pil"
-
-# Find tag error flags
-grep -rn "sel_tag_err\|tag_err\|tag_mismatch" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -rn "pol commit.*tag\|_tag\|tag_" pil/vm2/ --include="*.pil"
+grep -rn "sel_tag_err\|tag_err\|tag_mismatch" pil/vm2/ --include="*.pil"
 ```
 
-Operations requiring tag validation:
-- **Arithmetic**: ADD, SUB, MUL, DIV, MOD
-- **Bitwise**: AND, OR, XOR, NOT, SHL, SHR
-- **Comparison**: EQ, LT, LTE, GT, GTE
-- **Memory**: LOAD, STORE
-- **Hashing**: Poseidon2, SHA256, Keccak (expect FF inputs)
+Operations requiring validation: ADD, SUB, MUL, DIV, MOD, AND, OR, XOR, NOT, SHL, SHR, EQ, LT, LTE, LOAD, STORE, Poseidon2, SHA256, Keccak
 
 ### Step 2: Verify Input Tag Validation
 
-For each operation, check that input tags are validated:
-
-```bash
-# Look for input tag constraints
-grep -rn "a_tag\|b_tag\|input_tag" barretenberg/cpp/pil/vm2/ --include="*.pil"
-
-# Look for tag match checks
-grep -rn "tag.*match\|tag.*==\|tag.*-.*tag" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-Expected patterns:
+Expected pattern:
 ```pil
-// Single input tag check
+// Single input
 sel * (input_tag - EXPECTED_TAG) * (1 - sel_tag_err) = 0;
 
-// Binary operation tag match
-sel * (a_tag - b_tag) * tag_match_inv * (1 - sel_tag_err) = 0;
-```
-
-### Step 3: Verify Tag Mismatch Triggers Error
-
-```bash
-# Look for tag error constraints
-grep -rn "sel_tag_err\|tag_err" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-Verify:
-- Tag mismatch sets `sel_tag_err = 1`
-- Tag match means `sel_tag_err = 0`
-- Error is bidirectional (mismatch ⟺ error)
-
-### Step 4: Verify Output Tag Constrained
-
-```bash
-# Look for output tag constraints
-grep -rn "c_tag\|output_tag\|result_tag" barretenberg/cpp/pil/vm2/ --include="*.pil"
-```
-
-Output tag rules:
-- ADD/SUB/MUL: Same as input tag
-- DIV/MOD: Same as input tag (or error on field type)
-- Comparison (EQ, LT): U1
-- Field ops: FF
-- Bitwise: Same as input (or FF for NOT on FF)
-
-### Step 5: Verify Error Gates Further Processing
-
-```bash
-# Check that tag errors gate lookups/permutations
-grep -rn "sel_tag_err\|tag_err" barretenberg/cpp/pil/vm2/ --include="*.pil" | grep -v "commit"
-```
-
-Verify:
-- Lookups/permutations gated by `(1 - sel_tag_err)`
-- No computation proceeds on tag error
-
-### Step 6: Check Tag Value Assumptions in Tracegen
-
-```bash
-# Find tag handling in simulation/tracegen
-grep -rn "tag\|Tag::" --include="*.cpp" barretenberg/cpp/src/barretenberg/vm2/simulation/<component>*.cpp
-```
-
-Verify:
-- Tag differences handled as field elements (not cast to uint64_t)
-- No overflow assumptions about tag arithmetic
-- Tags compared properly
-
-## Tag Checking Patterns
-
-### Pattern 1: Input Tag Validation
-
-```pil
-// Verify input has expected tag
-pol commit input_tag;
-pol commit sel_tag_err;
-
-#[INPUT_TAG_CHECK]
-sel * (input_tag - EXPECTED_TAG) * (1 - sel_tag_err) = 0;
-```
-
-### Pattern 2: Binary Operation Tag Match
-
-```pil
-// Both inputs must have same tag
-pol commit a_tag;
-pol commit b_tag;
-pol tag_match_indicator;  // 1 iff a_tag == b_tag
-
-#[TAG_MATCH_CHECK]
+// Binary operation - both inputs must match
 sel * (1 - tag_match_indicator) * (1 - sel_tag_err) = 0;
 ```
 
-### Pattern 3: Output Tag Derivation
+Check for missing validation - operations that use tags without constraining them.
+
+### Step 3: Verify Tag Mismatch Triggers Error
+
+Requirements:
+- Tag mismatch => `sel_tag_err = 1`
+- Tag match => `sel_tag_err = 0`
+- Bidirectional (mismatch <=> error)
+
+Missing bidirectionality allows malicious prover to claim error when tags match.
+
+### Step 4: Verify Output Tag Constrained
+
+Output tag rules:
+- ADD/SUB/MUL: Same as input
+- DIV/MOD: Same as input (or error on FF)
+- Comparison (EQ, LT): U1
+- Field ops: FF
+- Bitwise: Same as input
 
 ```pil
-// Output tag based on operation
-// ADD/SUB/MUL: same as input
-// Comparison: U1
-// Field ops: FF
-
-#[OUTPUT_TAG_ADD]
 sel_add * (1 - sel_err) * (c_tag - a_tag) = 0;
-
-#[OUTPUT_TAG_EQ]
 sel_eq * (1 - sel_err) * (c_tag - Tag::U1) = 0;
 ```
 
-## Patterns
+### Step 5: Verify Error Gates Processing
 
-### Vulnerable Pattern: Incorrect Tag Value Assumptions
+Lookups/permutations must gate on `(1 - sel_tag_err)`. No computation on tag error.
 
-```cpp
-// VULNERABLE: Incorrect assumption about tag values
-auto tag_diff = static_cast<uint64_t>(tag_a - tag_b);
-// Tag::FF - Tag::U32 can be p - 4, not fitting in 64 bits!
+### Step 6: Check Tracegen Tag Handling
+
+```bash
+grep -rn "tag\|Tag::" --include="*.cpp" src/barretenberg/vm2/simulation/
 ```
 
-### Secure Pattern: Complete Tag Validation
+Verify: Tag differences as field elements (NOT cast to uint64_t), no overflow assumptions.
 
+## Vulnerability Patterns
+
+### Missing Tag Check
 ```pil
-// SECURE: Explicit tag matching for binary ops
-pol TAG_MATCH = (a_tag == b_tag indicator);
-pol commit sel_tag_err;
-#[TAG_ERR_ON_MISMATCH]
+// VULNERABLE: No input tag validation
+sel * (a + b - c) = 0;  // What if a has wrong tag?
+```
+
+### Incorrect Tag Arithmetic (Tracegen)
+```cpp
+// VULNERABLE: Tag diff can be ~p, not fit in 64 bits
+auto tag_diff = static_cast<uint64_t>(tag_a - tag_b);
+
+// SECURE: Keep as field element
+auto tag_diff = tag_a - tag_b;
+```
+
+### Non-Bidirectional Error
+```pil
+// VULNERABLE: Only one direction
 (1 - TAG_MATCH) * (1 - sel_tag_err) = 0;  // Mismatch => error
-#[NO_TAG_ERR_ON_MATCH]
-TAG_MATCH * sel_tag_err = 0;  // Match => no error
+// Missing: TAG_MATCH * sel_tag_err = 0;  // Match => no error
 ```
 
-## Examples
+## Real Bug Examples
 
-### Example 1: SHA256 Batched Tag Checks (PR #19244)
-
+### SHA256 Batched Tag Checks (PR #19244)
 ```cpp
-// BEFORE: Invalid assumption about tag value size
+// BUG: uint64_t cast loses precision for field tag differences
 auto tag_diff = static_cast<uint64_t>(tag_a - tag_b);
-// Tag::FF - Tag::U32 can be p - 4, not fitting in 64 bits!
-
-// AFTER: Proper field element handling
-auto tag_diff = tag_a - tag_b;  // Keep as field element
+// Tag::FF - Tag::U32 = p - 4, overflows!
 ```
-**Impact**: Incorrect tag validation in SHA256.
 
-### Example 2: Poseidon2 Tag Check (PR #19300)
-
+### Poseidon2 Missing Tag Check (PR #19300)
 ```pil
-// BEFORE: Missing tag check found by fuzzer
-// No validation that inputs have expected FF tag
-
-// AFTER: Added proper tag check
-#[TAG_CHECK]
-sel * (input_tag - Tag::FF) * (1 - sel_tag_err) = 0;
+// BUG: Inputs not validated to be FF type
+// Could process non-field elements as field elements
 ```
-**Impact**: Could process non-field elements as field elements.
 
-### Example 3: ALU NOT Output Tag (PR #18192)
-
+### ALU NOT Output Tag (PR #18192)
 ```pil
-// BEFORE: Output tag for NOT not constrained when non-field
-// For field type: output tag should be field
-// For integer type: output tag should match input
-// Was triggering tag error instead of constraining correctly
-
-// AFTER: Proper output tag constraint
+// BUG: Output tag for NOT unconstrained for integer types
+// For field: output tag = FF; For integer: output tag = input tag
 ```
-**Impact**: Incorrect output type for bitwise NOT.
 
-## REQUIRED OUTPUT FORMAT
+## Severity Assessment
 
-You MUST produce TWO output files:
+- **Soundness** (malicious prover exploits): Critical/High
+- **Completeness** (honest prover fails): Low to Critical based on reachability
 
-### 1. Markdown Report (stdout)
+Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
 
-#### Summary Table
+## Output Format
+
+### Summary Table
 
 | Item | Value |
 |------|-------|
@@ -236,17 +149,17 @@ You MUST produce TWO output files:
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
-#### Findings Format
+### Finding Format
 
-- **ID**: `vm2-audit-tag-validation-filename-123-issue-type` (MUST use full skill name: `vm2-audit-tag-validation`)
+- **ID**: `vm2-audit-tag-validation-{filename}-{line}-{issue-type}`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
+### JSON Output (Required)
 
-Write a `vm2-audit-tag-validation.json` file to the output directory with:
+Write `vm2-audit-tag-validation.json` to specified output directory:
 
 ```json
 {
@@ -265,14 +178,3 @@ Write a `vm2-audit-tag-validation.json` file to the output directory with:
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-tag-validation",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.

@@ -1,62 +1,58 @@
 ---
-name: vm2-audit-dead-columns
+name: vm2-take2-audit-dead-columns
 description: Audit VM2/AVM PIL files for dead columns - columns that are declared but never used in constraints, lookups, or permutations. This can indicate incomplete constraints, missing security checks, or leftover code from refactoring that may hide soundness issues.
-allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
 # VM2 Dead Columns Audit
 
-Audits for dead columns - columns declared (`pol commit`) but never meaningfully used. Can indicate incomplete constraints, missing lookups, or forgotten security checks.
+## Purpose
+Find columns declared (`pol commit`) but never meaningfully constrained - indicates incomplete constraints, missing lookups, or forgotten security checks.
 
-**Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination.
-**Dead**: only declared, only assigned in tracegen, or only in comments.
+## When to Use
+- Auditing PIL files for constraint completeness
+- Reviewing refactored PIL code
+- Security audit of new PIL components
 
-## Severity Assessment
+## Definitions
+- **Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination
+- **Dead**: only declared, only assigned in tracegen, or only in comments
 
-**Assess severity case-by-case** based on impact and reachability:
-
-- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
-- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
-
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
-
-## Instructions
-
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
+## Workflow
 
 ### Step 1: Find Columns and Check Usage
-
 ```bash
-# List all declared columns
+# List all PIL files
+find pil/vm2 -name "*.pil"
+
+# List declared columns
 grep -n "pol commit" pil/vm2/<component>.pil
 
-# For each column, check usage (should have >1 occurrence)
+# Check usage count (should have >1 occurrence)
 grep -c "column_name" pil/vm2/<component>.pil
 
 # Check cross-file usage
 grep -rn "component\\.column_name" pil/vm2/ --include="*.pil"
 ```
 
-A column is potentially dead if it only appears in its declaration.
+Column is potentially dead if it only appears in its declaration.
 
 ### Step 2: Verify Valid Usage Types
 
-Before flagging, check if column has valid indirect usage:
-
-| Usage Type | How to Check | Status |
-|------------|--------------|--------|
+| Usage Type | Check | Status |
+|------------|-------|--------|
 | Lookup destination | `grep -rn "in component\\." pil/vm2/` | Valid |
 | Used in intermediate | `pol DERIVED = column * ...` | Valid |
 | Conditional constraint | `sel_X * (column - ...) = 0` | Valid |
 | Tracegen only | Only in `.cpp`, not constrained | **Dead** |
 | Commented constraint | Constraint is `// commented` | **Dead** |
 
-### Step 3: Categorize Findings
+### Step 3: Categorize by Severity
 
-For each dead column:
-- **Incomplete constraint**: Security check missing → High severity
-- **Refactoring leftover**: Can be removed → Low severity
-- **Placeholder**: Has TODO comment → Informational
+| Category | Severity | Description |
+|----------|----------|-------------|
+| Incomplete constraint | High | Security check missing |
+| Refactoring leftover | Low | Can be removed |
+| Placeholder | Info | Has TODO comment |
 
 ## Patterns
 
@@ -72,41 +68,42 @@ pol commit precomputed_value;
 // No local constraints - other traces look this up
 ```
 
-## REQUIRED OUTPUT FORMAT
+## Severity Assessment
 
-You MUST produce TWO output files:
+- **Soundness** (malicious prover exploits): Critical/High based on exploitability
+- **Completeness** (honest prover fails): Low to Critical based on reachability
 
-### 1. Markdown Report (stdout)
+Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
+
+## Output Format
+
+### 1. Markdown Report
 
 #### Summary Table
-
 | Item | Value |
 |------|-------|
-| Skill | `vm2-audit-dead-columns` |
+| Skill | `vm2-take2-audit-dead-columns` |
 | Target | `{path audited}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
 #### Findings Format
-
-- **ID**: `vm2-audit-dead-columns-filename-123-issue-type` (MUST use full skill name: `vm2-audit-dead-columns`)
+- **ID**: `vm2-take2-audit-dead-columns-filename-123-issue-type`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
 - **Fix**: One-line suggestion
 
-### 2. JSON File (REQUIRED - separate file)
-
-Write a `vm2-audit-dead-columns.json` file to the output directory with:
+### 2. JSON File (write to output directory)
 
 ```json
 {
-  "skill": "vm2-audit-dead-columns",
+  "skill": "vm2-take2-audit-dead-columns",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-dead-columns-filename-123-issue-type",
+      "id": "vm2-take2-audit-dead-columns-filename-123-issue-type",
       "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
@@ -117,14 +114,3 @@ Write a `vm2-audit-dead-columns.json` file to the output directory with:
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-dead-columns",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.
