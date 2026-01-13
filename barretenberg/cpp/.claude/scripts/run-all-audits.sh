@@ -1,11 +1,16 @@
 #!/bin/bash
 #
-# run-all-audits.sh - Run all vm2-audit-* skills in parallel
+# run-all-audits.sh - Run vm2-audit-* skills in parallel with tier selection
 #
 # Usage:
 #   ./run-all-audits.sh [OPTIONS]
 #
 # Options:
+#   -T, --tier TIERS    Run specific tier(s): 1, 2, 3, 4, or combinations like "1,2" or "1-3"
+#                       Default: all tiers. Examples:
+#                         -T 1       Run Tier 1 (Critical) only
+#                         -T 1,2     Run Tiers 1 and 2
+#                         -T 1-3     Run Tiers 1 through 3
 #   -j, --jobs N        Maximum parallel jobs (default: 4)
 #   -o, --output DIR    Output directory (default: ./audit-results)
 #   -s, --skill SKILL   Run only specific skill(s) (can be repeated)
@@ -14,10 +19,23 @@
 #   --summarize-only    Only run summarizer on existing results
 #   --no-summarize      Skip the summarizer step
 #   --multi-model-summary  Run extra multi-model validation (Gemini/GPT via PAL MCP)
+#   --list-skills       List available skills by tier and exit
 #   -h, --help          Show this help message
+#
+# Tier Descriptions:
+#   Tier 1 (Critical):  Must-run skills that find the most severe bugs
+#   Tier 2 (High):      High-value skills, should run for thorough audits
+#   Tier 3 (Moderate):  Good-to-have skills for comprehensive coverage
+#   Tier 4 (Sanity):    Sanity-check skills, usually return clean results
 #
 # Environment Variables:
 #   EXTRA_MULTI_MODEL_SUMMARY=1  Enable multi-model validation (same as --multi-model-summary)
+#
+# Examples:
+#   ./run-all-audits.sh -T 1                    # Run Tier 1 only (fastest, critical bugs)
+#   ./run-all-audits.sh -T 1,2                  # Run Tiers 1 and 2 (recommended)
+#   ./run-all-audits.sh -T 1-3 -j 6             # Run Tiers 1-3 with 6 parallel jobs
+#   ./run-all-audits.sh                         # Run all tiers (comprehensive)
 
 set -euo pipefail
 
@@ -26,6 +44,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Default configuration
@@ -34,8 +53,10 @@ OUTPUT_DIR="./audit-results"
 TARGET_PATH="pil/vm2"
 MODEL="sonnet"
 SPECIFIC_SKILLS=()
+SELECTED_TIERS=()  # Empty means all tiers
 SUMMARIZE_ONLY=false
 NO_SUMMARIZE=false
+LIST_SKILLS=false
 EXTRA_MULTI_MODEL_SUMMARY="${EXTRA_MULTI_MODEL_SUMMARY:-false}"
 
 # Get script directory
@@ -43,21 +64,123 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SKILLS_DIR="$SCRIPT_DIR/../skills"
 
-# Dynamically discover all vm2-audit-* skills from the skills directory
-ALL_SKILLS=()
+# Function to parse tier specification
+parse_tiers() {
+    local tier_spec="$1"
+    local tiers=()
+
+    # Handle comma-separated values
+    IFS=',' read -ra PARTS <<< "$tier_spec"
+    for part in "${PARTS[@]}"; do
+        # Handle range (e.g., "1-3" or "0-2")
+        if [[ "$part" =~ ^([0-4])-([0-4])$ ]]; then
+            local start="${BASH_REMATCH[1]}"
+            local end="${BASH_REMATCH[2]}"
+            for ((i=start; i<=end; i++)); do
+                tiers+=("$i")
+            done
+        # Handle single tier
+        elif [[ "$part" =~ ^[0-4]$ ]]; then
+            tiers+=("$part")
+        else
+            echo -e "${RED}Invalid tier specification: $part${NC}" >&2
+            echo "Valid tiers: 0, 1, 2, 3, 4 (or ranges like 0-2, 1-3)" >&2
+            exit 1
+        fi
+    done
+
+    # Remove duplicates and sort
+    printf '%s\n' "${tiers[@]}" | sort -u
+}
+
+# Dynamically discover all vm2-audit-* skills from the skills directory, organized by tier
+declare -A TIER_SKILLS
+TIER_SKILLS[0]=""
+TIER_SKILLS[1]=""
+TIER_SKILLS[2]=""
+TIER_SKILLS[3]=""
+TIER_SKILLS[4]=""
+OTHER_SKILLS=""
+
 for dir in "$SKILLS_DIR"/vm2-audit-*/; do
     if [[ -d "$dir" ]]; then
         skill_name=$(basename "$dir")
-        ALL_SKILLS+=("$skill_name")
+        # Extract tier from skill name (vm2-audit-t0-*, vm2-audit-t1-*, etc.)
+        if [[ "$skill_name" =~ ^vm2-audit-t([0-4])- ]]; then
+            tier="${BASH_REMATCH[1]}"
+            TIER_SKILLS[$tier]="${TIER_SKILLS[$tier]} $skill_name"
+        else
+            OTHER_SKILLS="$OTHER_SKILLS $skill_name"
+        fi
     fi
 done
 
-# Sort for consistent ordering
-IFS=$'\n' ALL_SKILLS=($(sort <<<"${ALL_SKILLS[*]}")); unset IFS
+# Function to list skills by tier
+list_skills() {
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║              VM2 Audit Skills by Tier                        ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    echo -e "${CYAN}Tier 0 - Opcode Cross-Layer Consistency:${NC}"
+    for skill in ${TIER_SKILLS[0]}; do
+        echo "  - $skill"
+    done
+    echo "  Count: $(echo ${TIER_SKILLS[0]} | wc -w)"
+    echo ""
+
+    echo -e "${CYAN}Tier 1 - Critical (Must Have):${NC}"
+    for skill in ${TIER_SKILLS[1]}; do
+        echo "  - $skill"
+    done
+    echo "  Count: $(echo ${TIER_SKILLS[1]} | wc -w)"
+    echo ""
+
+    echo -e "${CYAN}Tier 2 - High Value (Should Have):${NC}"
+    for skill in ${TIER_SKILLS[2]}; do
+        echo "  - $skill"
+    done
+    echo "  Count: $(echo ${TIER_SKILLS[2]} | wc -w)"
+    echo ""
+
+    echo -e "${CYAN}Tier 3 - Moderate Value (Good to Have):${NC}"
+    for skill in ${TIER_SKILLS[3]}; do
+        echo "  - $skill"
+    done
+    echo "  Count: $(echo ${TIER_SKILLS[3]} | wc -w)"
+    echo ""
+
+    echo -e "${CYAN}Tier 4 - Sanity Checks (Optional):${NC}"
+    for skill in ${TIER_SKILLS[4]}; do
+        echo "  - $skill"
+    done
+    echo "  Count: $(echo ${TIER_SKILLS[4]} | wc -w)"
+    echo ""
+
+    if [[ -n "$OTHER_SKILLS" ]]; then
+        echo -e "${YELLOW}Other (non-tiered):${NC}"
+        for skill in $OTHER_SKILLS; do
+            echo "  - $skill"
+        done
+        echo ""
+    fi
+
+    local total=0
+    for t in 0 1 2 3 4; do
+        total=$((total + $(echo ${TIER_SKILLS[$t]} | wc -w)))
+    done
+    echo -e "${GREEN}Total tiered skills: $total${NC}"
+}
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -T|--tier)
+            while IFS= read -r tier; do
+                SELECTED_TIERS+=("$tier")
+            done < <(parse_tiers "$2")
+            shift 2
+            ;;
         -j|--jobs)
             MAX_JOBS="$2"
             shift 2
@@ -90,8 +213,12 @@ while [[ $# -gt 0 ]]; do
             EXTRA_MULTI_MODEL_SUMMARY=true
             shift
             ;;
+        --list-skills)
+            LIST_SKILLS=true
+            shift
+            ;;
         -h|--help)
-            head -20 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
+            head -38 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
             exit 0
             ;;
         *)
@@ -101,12 +228,38 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Determine which skills to run
-if [[ ${#SPECIFIC_SKILLS[@]} -gt 0 ]]; then
-    SKILLS_TO_RUN=("${SPECIFIC_SKILLS[@]}")
-else
-    SKILLS_TO_RUN=("${ALL_SKILLS[@]}")
+# Handle --list-skills
+if [[ "$LIST_SKILLS" == "true" ]]; then
+    list_skills
+    exit 0
 fi
+
+# Build list of skills to run
+ALL_SKILLS=()
+
+if [[ ${#SPECIFIC_SKILLS[@]} -gt 0 ]]; then
+    # Use specific skills if provided
+    ALL_SKILLS=("${SPECIFIC_SKILLS[@]}")
+elif [[ ${#SELECTED_TIERS[@]} -gt 0 ]]; then
+    # Use skills from selected tiers
+    for tier in "${SELECTED_TIERS[@]}"; do
+        for skill in ${TIER_SKILLS[$tier]}; do
+            ALL_SKILLS+=("$skill")
+        done
+    done
+else
+    # Use all tiered skills
+    for tier in 0 1 2 3 4; do
+        for skill in ${TIER_SKILLS[$tier]}; do
+            ALL_SKILLS+=("$skill")
+        done
+    done
+fi
+
+# Sort for consistent ordering
+IFS=$'\n' ALL_SKILLS=($(sort <<<"${ALL_SKILLS[*]}")); unset IFS
+
+SKILLS_TO_RUN=("${ALL_SKILLS[@]}")
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -163,7 +316,7 @@ show_progress() {
             case "$status" in
                 success) ((++completed)) ;;
                 failed) ((++failed)); ((++completed)) ;;
-                running) ((++running)); running_skills+=("${skill#vm2-audit-}") ;;
+                running) ((++running)); running_skills+=("${skill#vm2-audit-t?-}") ;;
             esac
         fi
     done
@@ -229,11 +382,34 @@ else
     log "  Target path: $TARGET_PATH"
     log "  Model: $MODEL"
     log "  Max parallel jobs: $MAX_JOBS"
+    if [[ ${#SELECTED_TIERS[@]} -gt 0 ]]; then
+        log "  Selected tiers: ${SELECTED_TIERS[*]}"
+    else
+        log "  Selected tiers: all (1-4)"
+    fi
     log "  Skills to run: ${#SKILLS_TO_RUN[@]}"
     log ""
-    log "Skills:"
-    for skill in "${SKILLS_TO_RUN[@]}"; do
-        log "  - $skill"
+
+    # Group skills by tier for display
+    log "Skills by tier:"
+    for tier in 0 1 2 3 4; do
+        tier_count=0
+        tier_skills=""
+        for skill in "${SKILLS_TO_RUN[@]}"; do
+            if [[ "$skill" =~ ^vm2-audit-t${tier}- ]]; then
+                ((++tier_count))
+                tier_skills="$tier_skills $skill"
+            fi
+        done
+        if [[ $tier_count -gt 0 ]]; then
+            case $tier in
+                0) log "  ${CYAN}Tier 0 (Opcode):${NC} $tier_count skills" ;;
+                1) log "  ${CYAN}Tier 1 (Critical):${NC} $tier_count skills" ;;
+                2) log "  ${CYAN}Tier 2 (High):${NC} $tier_count skills" ;;
+                3) log "  ${CYAN}Tier 3 (Moderate):${NC} $tier_count skills" ;;
+                4) log "  ${CYAN}Tier 4 (Sanity):${NC} $tier_count skills" ;;
+            esac
+        fi
     done
     log ""
     log "${YELLOW}Starting audit runs...${NC}"
