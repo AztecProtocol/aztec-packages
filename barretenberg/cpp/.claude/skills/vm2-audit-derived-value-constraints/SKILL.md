@@ -97,7 +97,29 @@ sel_op_b * (derived - formula_b) = 0;
 (1 - sel_op_a - sel_op_b) * derived = 0;  // Default case
 ```
 
-### Step 7: Search for Red Flags
+### Step 7: Check Error-Path-Only Constraints
+
+Values that should ALWAYS be constrained but are only constrained on error:
+
+```bash
+grep -rn "sel_err\|sel_tag_err\|sel_error" pil/vm2/ --include="*.pil"
+```
+
+**Pattern**: If constraint only fires when error flag is set, what constrains the value when NO error?
+
+```pil
+// VULNERABLE: Value only constrained on error path
+sel_error * (value - expected_on_error) = 0;
+// What if sel_error = 0? Value unconstrained!
+
+// SECURE: Value constrained in both cases
+sel_error * (value - error_value) = 0;
+(1 - sel_error) * (value - normal_value) = 0;
+```
+
+Check: outputs, tags, derived state that must be valid regardless of error status.
+
+### Step 8: Search for Red Flags
 
 ```bash
 grep -rn "TODO.*constrain\|FIXME.*constrain\|unconstrained" pil/vm2/ --include="*.pil"

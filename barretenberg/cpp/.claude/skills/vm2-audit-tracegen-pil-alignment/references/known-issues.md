@@ -155,6 +155,61 @@ if (should_apply_indirection[i]) { batched_tags_diff += ...; }
 
 ---
 
+## Example 8: Error Path Column Toggle (PR #19001 - Addressing)
+
+**Type**: Error Path Mismatch
+
+When resolving indirect address then relative address with invalid base address:
+```cpp
+// WRONG: Column toggled before error check
+row.sel_should_apply_indirection[0] = 1;
+// Then error occurs, but column already set!
+// PIL constraint #[INDIRECT_GATING_0] fires and fails
+```
+
+**Impact**: Valid error cases fail verification.
+
+**Detection**: Check if columns are set BEFORE error checks, when PIL expects them OFF on error.
+
+---
+
+## Example 9: Wrong Default on Overflow (PR #19001 - Addressing)
+
+**Type**: Edge Case Default
+
+```cpp
+// WRONG: Overflow uses wrong default
+if (base + offset > MAX) {
+    resolved_operand = 0;  // Wrong default!
+}
+
+// CORRECT: Use same default as non-overflow case
+if (base + offset > MAX) {
+    resolved_operand = expected_default;
+}
+```
+
+**Impact**: Constraint fails when overflow occurs.
+
+---
+
+## Example 10: Wrong Boolean in Accumulation (PR #19001 - Addressing)
+
+**Type**: Wrong Selector
+
+```cpp
+// PIL uses should_apply_indirection[i] for batched_diff
+// WRONG: Tracegen uses different boolean
+batched_tags_diff += is_indirect_effective[i] ? diff : 0;
+
+// CORRECT: Use same boolean as PIL
+batched_tags_diff += should_apply_indirection[i] ? diff : 0;
+```
+
+**Detection**: For batched/accumulated columns, verify EXACT selector match.
+
+---
+
 ## Vulnerable vs Secure Pattern Summary
 
 ### Vulnerable: Missing Column

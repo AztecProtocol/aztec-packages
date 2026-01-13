@@ -61,13 +61,18 @@ grep -n "discard'\|dying_context\|DISCARD\|DYING" pil/vm2/<component>.pil
 
 Check: propagates to children, clears on resolution, failure implies discard.
 
-### Step 5: Check Interaction Tuples
+### Step 5: Check Interaction Tuples (CRITICAL - Missed Bug Category)
 
 ```bash
 grep -n "} in \|} is " pil/vm2/<component>.pil
 ```
 
-Verify discard field included where relevant.
+**For EVERY interaction involving context state**:
+1. Does tuple include `discard` field?
+2. Check BOTH sides of interaction - source AND destination must agree on discard
+3. Cross-file check: If `A.pil` sends to `B.pil`, verify B includes discard in destination
+
+**Pattern that missed bugs**: Lookups for "end enqueued call" or "context exit" missing discard field, allowing discarded rows to match non-discarded destinations.
 
 ### Step 6: Review Tracegen
 
@@ -117,7 +122,15 @@ sel { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.d
 
 **PR #18606 - Tracegen**: `tx_should_l2_l1_msg_append` ignored discard. Fix: check `&& !discard`.
 
-**PR #19149 - Lookup Tuple**: End enqueued call missing discard field. Fix: include discard in tuple.
+**PR #19149 - End Enqueued Call (CRITICAL)**: Lookup tuple missing discard field:
+```pil
+// VULNERABLE: discard not in tuple
+sel_end_enqueued_call { context_id, success } in tx.sel { tx.context_id, tx.success };
+
+// SECURE: discard included
+sel_end_enqueued_call { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.discard };
+```
+**Impact**: Malicious prover could discard rows before failing nested call, corrupting execution trace.
 
 ## Severity Assessment
 
