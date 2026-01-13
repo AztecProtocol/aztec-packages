@@ -29,10 +29,12 @@ import {
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { EventEmitter } from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
-import { Archiver } from './archiver.js';
+import { Archiver, type ArchiverEmitter } from './archiver.js';
+import { ArchiverL1Synchronizer } from './archiver_l1_synchronizer.js';
 import { InitialBlockNumberNotSequentialError } from './errors.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
@@ -296,24 +298,46 @@ describe('Archiver', () => {
       slashingProposerAddress,
     };
 
-    archiver = new Archiver(
+    const config = {
+      pollingIntervalMs: 1000,
+      batchSize: 1000,
+      maxAllowedEthClientDriftSeconds: 300,
+      ethereumAllowNoDebugHosts: true,
+    };
+
+    // Create event emitter shared by archiver and synchronizer
+    const events = new EventEmitter() as ArchiverEmitter;
+
+    // Create the L1 synchronizer
+    const synchronizer = new ArchiverL1Synchronizer(
       publicClient,
       debugClient,
       rollupWrapper,
       inboxWrapper,
       contractAddresses,
       archiverStore,
-      {
-        pollingIntervalMs: 1000,
-        batchSize: 1000,
-        maxAllowedEthClientDriftSeconds: 300,
-        ethereumAllowNoDebugHosts: true,
-      },
+      config,
       blobClient,
       epochCache,
       dateProvider,
       instrumentation,
       l1Constants,
+      events,
+      instrumentation.tracer,
+    );
+
+    archiver = new Archiver(
+      publicClient,
+      debugClient,
+      rollupWrapper,
+      contractAddresses,
+      archiverStore,
+      config,
+      blobClient,
+      instrumentation,
+      l1Constants,
+      synchronizer,
+      events,
     );
 
     // Create checkpoints starting from the genesis archive root so that archive roots chain correctly

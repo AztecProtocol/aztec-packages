@@ -1,5 +1,6 @@
 export * from './archiver.js';
 export * from './archive_source_base.js';
+export * from './archiver_l1_synchronizer.js';
 export * from './archiver_store_updates.js';
 export * from './config.js';
 export { type L1PublishedData } from './structs/published.js';

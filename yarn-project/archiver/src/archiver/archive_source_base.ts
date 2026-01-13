@@ -14,15 +14,17 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiveSource } from './archiver.js';
+import type { CheckpointData } from './kv_archiver_store/block_store.js';
 import type { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 import type { ValidateCheckpointResult } from './validation.js';
 
@@ -34,13 +36,10 @@ import type { ValidateCheckpointResult } from './validation.js';
 export abstract class ArchiveSourceBase
   implements ArchiveSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource
 {
-  protected readonly store: KVArchiverDataStore;
-
-  constructor(store: KVArchiverDataStore) {
-    this.store = store;
-  }
-
-  // Abstract methods that require L1 dependencies
+  constructor(
+    protected readonly store: KVArchiverDataStore,
+    protected readonly l1Constants?: L1RollupConstants,
+  ) {}
 
   abstract getRollupAddress(): Promise<EthAddress>;
 
@@ -58,17 +57,21 @@ export abstract class ArchiveSourceBase
 
   abstract getL2EpochNumber(): Promise<EpochNumber | undefined>;
 
-  abstract getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]>;
-
-  abstract getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]>;
-
-  abstract getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
-
   abstract isEpochComplete(epochNumber: EpochNumber): Promise<boolean>;
 
   abstract syncImmediate(): Promise<void>;
 
-  // Store-delegating methods
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.store.getSynchedCheckpointNumber();
+  }
+
+  public getSynchedCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.store.getSynchedCheckpointNumber();
+  }
+
+  public getProvenCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.store.getProvenCheckpointNumber();
+  }
 
   public getBlockNumber(): Promise<BlockNumber> {
     return this.store.getLatestBlockNumber();
@@ -89,6 +92,32 @@ export abstract class ArchiveSourceBase
 
   public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
     return this.store.getCheckpointedBlock(number);
+  }
+
+  public getCheckpointedBlockNumber(): Promise<BlockNumber> {
+    return this.store.getCheckpointedL2BlockNumber();
+  }
+
+  public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {
+    if (number === 'latest') {
+      number = await this.store.getSynchedCheckpointNumber();
+    }
+    if (number === 0) {
+      return undefined;
+    }
+    const checkpoint = await this.store.getCheckpointData(number);
+    if (!checkpoint) {
+      return undefined;
+    }
+    return checkpoint.header;
+  }
+
+  public async getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<BlockNumber | undefined> {
+    const checkpointData = await this.store.getCheckpointData(checkpointNumber);
+    if (!checkpointData) {
+      return undefined;
+    }
+    return BlockNumber(checkpointData.startBlock + checkpointData.numBlocks - 1);
   }
 
   public async getCheckpointedBlocks(
@@ -151,8 +180,6 @@ export abstract class ArchiveSourceBase
     return blocks;
   }
 
-  // L2LogsSource methods
-
   public getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
     return this.store.getPrivateLogsByTags(tags);
   }
@@ -168,8 +195,6 @@ export abstract class ArchiveSourceBase
   public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
-
-  // ContractDataSource methods
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     return this.store.getContractClass(id);
@@ -207,8 +232,6 @@ export abstract class ArchiveSourceBase
     return this.store.registerContractFunctionSignatures(signatures);
   }
 
-  // L1ToL2MessageSource methods
-
   public getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(checkpointNumber);
   }
@@ -216,8 +239,6 @@ export abstract class ArchiveSourceBase
   public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
-
-  // Published checkpoint methods
 
   public async getPublishedCheckpoints(
     checkpointNumber: CheckpointNumber,
@@ -246,6 +267,87 @@ export abstract class ArchiveSourceBase
       fullCheckpoints.push(publishedCheckpoint);
     }
     return fullCheckpoints;
+  }
+
+  public async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
+    if (!this.l1Constants) {
+      throw new Error('L1 constants not set');
+    }
+
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
+    const blocks: L2Block[] = [];
+
+    // Walk the list of checkpoints backwards and filter by slots matching the requested epoch.
+    // We'll typically ask for checkpoints for a very recent epoch, so we shouldn't need an index here.
+    let checkpoint = await this.store.getCheckpointData(await this.store.getSynchedCheckpointNumber());
+    const slot = (b: CheckpointData) => b.header.slotNumber;
+    while (checkpoint && slot(checkpoint) >= start) {
+      if (slot(checkpoint) <= end) {
+        // push the blocks on backwards
+        const endBlock = checkpoint.startBlock + checkpoint.numBlocks - 1;
+        for (let i = endBlock; i >= checkpoint.startBlock; i--) {
+          const block = await this.getBlock(BlockNumber(i));
+          if (block) {
+            blocks.push(block);
+          }
+        }
+      }
+      checkpoint = await this.store.getCheckpointData(CheckpointNumber(checkpoint.checkpointNumber - 1));
+    }
+
+    return blocks.reverse();
+  }
+
+  public async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
+    if (!this.l1Constants) {
+      throw new Error('L1 constants not set');
+    }
+
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
+    const blocks: BlockHeader[] = [];
+
+    // Walk the list of checkpoints backwards and filter by slots matching the requested epoch.
+    // We'll typically ask for checkpoints for a very recent epoch, so we shouldn't need an index here.
+    let checkpoint = await this.store.getCheckpointData(await this.store.getSynchedCheckpointNumber());
+    const slot = (b: CheckpointData) => b.header.slotNumber;
+    while (checkpoint && slot(checkpoint) >= start) {
+      if (slot(checkpoint) <= end) {
+        // push the blocks on backwards
+        const endBlock = checkpoint.startBlock + checkpoint.numBlocks - 1;
+        for (let i = endBlock; i >= checkpoint.startBlock; i--) {
+          const block = await this.getBlockHeader(BlockNumber(i));
+          if (block) {
+            blocks.push(block);
+          }
+        }
+      }
+      checkpoint = await this.store.getCheckpointData(CheckpointNumber(checkpoint.checkpointNumber - 1));
+    }
+    return blocks.reverse();
+  }
+
+  public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
+    if (!this.l1Constants) {
+      throw new Error('L1 constants not set');
+    }
+
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
+    const checkpoints: Checkpoint[] = [];
+
+    // Walk the list of checkpoints backwards and filter by slots matching the requested epoch.
+    // We'll typically ask for checkpoints for a very recent epoch, so we shouldn't need an index here.
+    let checkpointData = await this.store.getCheckpointData(await this.store.getSynchedCheckpointNumber());
+    const slot = (b: CheckpointData) => b.header.slotNumber;
+    while (checkpointData && slot(checkpointData) >= start) {
+      if (slot(checkpointData) <= end) {
+        // push the checkpoints on backwards
+        const [checkpoint] = await this.getPublishedCheckpoints(checkpointData.checkpointNumber, 1);
+        checkpoints.push(checkpoint.checkpoint);
+      }
+      checkpointData = await this.store.getCheckpointData(CheckpointNumber(checkpointData.checkpointNumber - 1));
+    }
+
+    return checkpoints.reverse();
   }
 
   public async getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
@@ -279,8 +381,6 @@ export abstract class ArchiveSourceBase
     }
     return olbBlocks;
   }
-
-  // Legacy APIs
 
   public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.

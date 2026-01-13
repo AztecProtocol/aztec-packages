@@ -22,10 +22,12 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import assert from 'assert';
+import { EventEmitter } from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
-import { Archiver } from './archiver.js';
+import { Archiver, type ArchiverEmitter } from './archiver.js';
+import { ArchiverL1Synchronizer } from './archiver_l1_synchronizer.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 import { FakeL1State, type FakeL1StateConfig } from './test/fake_l1_state.js';
@@ -49,7 +51,9 @@ describe('Archiver Sync', () => {
   let archiverStore: KVArchiverDataStore;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let archiver: Archiver;
+  let synchronizer: ArchiverL1Synchronizer;
   let logger: Logger;
+  let syncLogger: Logger;
   let now: number;
 
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT);
@@ -57,6 +61,7 @@ describe('Archiver Sync', () => {
 
   beforeEach(async () => {
     logger = createLogger('archiver:sync:test');
+    syncLogger = createLogger('archiver:l1-sync:test');
     now = Math.floor(Date.now() / 1000);
     dateProvider = new TestDateProvider();
 
@@ -109,24 +114,47 @@ describe('Archiver Sync', () => {
     rollupContract = fake.createMockRollupContract(publicClient);
     inboxContract = fake.createMockInboxContract(publicClient);
 
-    archiver = new Archiver(
+    const config = {
+      pollingIntervalMs: 1000,
+      batchSize: 1000,
+      maxAllowedEthClientDriftSeconds: 300,
+      ethereumAllowNoDebugHosts: true,
+    };
+
+    // Create event emitter shared by archiver and synchronizer
+    const events = new EventEmitter() as ArchiverEmitter;
+
+    // Create the L1 synchronizer
+    synchronizer = new ArchiverL1Synchronizer(
       publicClient,
-      publicClient, // debugClient same as publicClient for tests
+      publicClient,
       rollupContract,
       inboxContract,
       contractAddresses,
       archiverStore,
-      {
-        pollingIntervalMs: 1000,
-        batchSize: 1000,
-        maxAllowedEthClientDriftSeconds: 300,
-        ethereumAllowNoDebugHosts: true,
-      },
+      config,
       blobClient,
       epochCache,
       dateProvider,
       instrumentation,
       l1Constants,
+      events,
+      instrumentation.tracer,
+      syncLogger,
+    );
+
+    archiver = new Archiver(
+      publicClient,
+      publicClient,
+      rollupContract,
+      contractAddresses,
+      archiverStore,
+      config,
+      blobClient,
+      instrumentation,
+      l1Constants,
+      synchronizer,
+      events,
     );
   });
 
@@ -217,7 +245,7 @@ describe('Archiver Sync', () => {
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {
-      const loggerSpy = jest.spyOn((archiver as any).log, 'warn');
+      const loggerSpy = jest.spyOn(syncLogger, 'warn');
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
@@ -311,7 +339,7 @@ describe('Archiver Sync', () => {
     }, 10_000);
 
     it('skip event search if no changes found', async () => {
-      const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
+      const loggerSpy = jest.spyOn(syncLogger, 'debug');
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
@@ -755,7 +783,7 @@ describe('Archiver Sync', () => {
 
   describe('reorg handling', () => {
     it('handles L2 reorg', async () => {
-      const loggerSpy = jest.spyOn((archiver as any).log, 'debug');
+      const loggerSpy = jest.spyOn(syncLogger, 'debug');
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
