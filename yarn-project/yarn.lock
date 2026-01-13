@@ -2295,9 +2295,8 @@ __metadata:
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
-    "@electric-sql/pglite": "npm:^0.2.17"
+    "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
-    "@middle-management/pglite-pg-adapter": "npm:^0.0.3"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/node-pg-migrate": "npm:^2.3.1"
@@ -2919,10 +2918,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electric-sql/pglite@npm:^0.2.17":
-  version: 0.2.17
-  resolution: "@electric-sql/pglite@npm:0.2.17"
-  checksum: 10/cb04d18614c9a3d985fa63f5ca889104eab55b15a9aa569df264e335ea559f2279ee64c1284aa68d5b92ff516dd37ae553299cf55c226a3e541d6c46416c7160
+"@electric-sql/pglite@npm:^0.3.14":
+  version: 0.3.14
+  resolution: "@electric-sql/pglite@npm:0.3.14"
+  checksum: 10/7cd072cd6a5c4314b47e7d26cc2ac191fcca5ba204f3bb1908bdb34746e51315cbde3e53646020d6a7c19c087d7845d2908850d9f4312285be10b3aefe28d621
   languageName: node
   linkType: hard
 
@@ -4898,15 +4897,6 @@ __metadata:
   version: 0.15.1
   resolution: "@microsoft/tsdoc@npm:0.15.1"
   checksum: 10/1a92612883088fe184dba596e7ba7a0daef0e6981caeca22bad6ad551d2247294f12e368537d0d8192525cf5743f7f15fcc2ad7b3b849f26a09a15ffdd89fd0c
-  languageName: node
-  linkType: hard
-
-"@middle-management/pglite-pg-adapter@npm:^0.0.3":
-  version: 0.0.3
-  resolution: "@middle-management/pglite-pg-adapter@npm:0.0.3"
-  peerDependencies:
-    "@electric-sql/pglite": ^0.3.0
-  checksum: 10/5526fdbc3cad9d30c868a576c67d7763877338f99df10b3cf478416d4b83c6e65b8f5e2984bebb9fe4e87b998ec011efff900374797b677868a25eb9392709da
   languageName: node
   linkType: hard
 
