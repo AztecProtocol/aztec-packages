@@ -14,8 +14,8 @@ template <typename FF_> class bc_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 4, 3, 3,
-                                                                            3, 3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
+    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3,
+                                                                            3, 3, 3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -44,14 +44,16 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_PC_INCREMENTS_2 = 9;
     static constexpr size_t SR_ID_PROPAGATION = 10;
     static constexpr size_t SR_START_IS_SEPARATOR = 11;
-    static constexpr size_t SR_PADDING_CONSISTENCY = 14;
-    static constexpr size_t SR_PADDING_END = 15;
-    static constexpr size_t SR_PADDED_BY_ZERO_1 = 16;
-    static constexpr size_t SR_PADDED_BY_ZERO_2 = 17;
-    static constexpr size_t SR_PADDING_CORRECTNESS = 18;
-    static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 19;
-    static constexpr size_t SR_ROUNDS_DECREMENT = 20;
-    static constexpr size_t SR_HASH_IS_ID = 21;
+    static constexpr size_t SR_SEL_NOT_PADDING_1_REQUIRES_SEL = 14;
+    static constexpr size_t SR_SEL_NOT_PADDING_2_REQUIRES_SEL = 15;
+    static constexpr size_t SR_PADDING_CONSISTENCY = 16;
+    static constexpr size_t SR_PADDING_END = 17;
+    static constexpr size_t SR_PADDED_BY_ZERO_1 = 18;
+    static constexpr size_t SR_PADDED_BY_ZERO_2 = 19;
+    static constexpr size_t SR_PADDING_CORRECTNESS = 20;
+    static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 21;
+    static constexpr size_t SR_ROUNDS_DECREMENT = 22;
+    static constexpr size_t SR_HASH_IS_ID = 23;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -72,6 +74,10 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "ID_PROPAGATION";
         case SR_START_IS_SEPARATOR:
             return "START_IS_SEPARATOR";
+        case SR_SEL_NOT_PADDING_1_REQUIRES_SEL:
+            return "SEL_NOT_PADDING_1_REQUIRES_SEL";
+        case SR_SEL_NOT_PADDING_2_REQUIRES_SEL:
+            return "SEL_NOT_PADDING_2_REQUIRES_SEL";
         case SR_PADDING_CONSISTENCY:
             return "PADDING_CONSISTENCY";
         case SR_PADDING_END:

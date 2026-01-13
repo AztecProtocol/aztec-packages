@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 
@@ -361,4 +362,27 @@ TYPED_TEST(QuadConstraintTest, GenerateVKFromConstraints)
 TYPED_TEST(QuadConstraintTest, Tampering)
 {
     TestFixture::test_tampering();
+}
+
+template <typename Builder> class BigQuadOpcodeGateCountTest : public ::testing::Test {};
+
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
+TYPED_TEST_SUITE(BigQuadOpcodeGateCountTest, BuilderTypes);
+
+TYPED_TEST(BigQuadOpcodeGateCountTest, OpcodeGateCount)
+{
+    using BigQuadConstraintTest =
+        ArithmeticConstraintsTestingFunctions<TypeParam, BigQuadConstraint, 1, 3, false, false>;
+
+    BigQuadConstraint big_quad_constraint;
+    WitnessVector witness_values;
+    BigQuadConstraintTest::generate_constraints(big_quad_constraint, witness_values);
+
+    AcirFormat constraint_system =
+        constraint_to_acir_format(big_quad_constraint, static_cast<uint32_t>(witness_values.size() - 1));
+    AcirProgram program{ constraint_system, witness_values };
+    const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
+    auto builder = create_circuit<TypeParam>(program, metadata);
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BIG_QUAD<TypeParam> }));
 }

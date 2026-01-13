@@ -8,6 +8,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { L2BlockNew } from '../block/l2_block_new.js';
+import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { CheckpointInfo } from './checkpoint_info.js';
@@ -48,7 +49,7 @@ export class Checkpoint {
     return new Checkpoint(
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(CheckpointHeader),
-      reader.readVector(L2BlockNew),
+      reader.readVector(L2BlockNew, MAX_BLOCKS_PER_CHECKPOINT),
       CheckpointNumber(reader.readNumber()),
     );
   }
@@ -73,6 +74,7 @@ export class Checkpoint {
   public toCheckpointInfo(): CheckpointInfo {
     return {
       archive: this.archive.root,
+      lastArchive: this.header.lastArchiveRoot,
       slotNumber: this.header.slotNumber,
       checkpointNumber: this.number,
       timestamp: this.header.timestamp,

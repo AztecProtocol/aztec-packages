@@ -174,12 +174,44 @@ export class CheckpointProposal { ... }
 - Prefer `undefined` over `null`
 - Use `compactArray()` from foundation to filter undefined values
 
+## Resource Management
+
+Prefer `using`/`await using` over `try`/`finally` for cleanup of disposable resources:
+
+```typescript
+// Good: using statement ensures cleanup even on exceptions
+using fork = await this.worldState.fork(blockNumber);
+const result = await processWithFork(fork);
+return result;
+
+// Bad: try/finally is more verbose and error-prone
+const fork = await this.worldState.fork(blockNumber);
+try {
+  const result = await processWithFork(fork);
+  return result;
+} finally {
+  await fork.close();
+}
+```
+
+- Use `using` for `Disposable` resources (implements `[Symbol.dispose](): void`)
+- Use `await using` for `AsyncDisposable` resources (implements `[Symbol.asyncDispose](): Promise<void>`)
+- When the resource is obtained asynchronously but disposed synchronously, use `using x = await getResource()`
+
 ## General Style
 
 - Prefer `const` over `let`
 - Prefer `async`/`await` over `.then()`/`.catch()` callbacks
 - Named exports only (no default exports)
 - Explicit return types on public API methods; inferred types acceptable on private/internal methods
+- Only export types that are needed by external consumers; keep internal option types private
+- Avoid `const self = this`; use arrow functions to preserve `this` context instead
+
+## Collections
+
+- Prefer high-level collection functions (`find`, `filter`, `map`, and other helpers from `foundation/src/collection/`) over imperative loops, but prefer imperative loops over `forEach` and complex `reduce`
+- Prefer `sum(items.map(item => item.value))` over `reduce((acc, items) => acc + items.value, 0)` for addition
+
 
 ## Code Duplication
 
@@ -198,7 +230,7 @@ Avoid duplicating logic unless clarity benefits from keeping it inline. When ext
 - Check `foundation` for existing utilities before reimplementing
 - Extract general (non-domain) utilities to `foundation`
 
-## Collections
+## Using `Set`/`Map`
 
 Avoid `Set`/`Map` of non-primitive class instances; this leads to errors with `has()` checks. Use primitive keys (strings, numbers) instead.
 
@@ -241,4 +273,25 @@ type SequencerEvents = {
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
   // ...
 }
+```
+
+## Function Arguments
+
+Simplify function arguments to single expressions where possible:
+
+```typescript
+// Good: Single expression
+mock.getData.mockImplementation((id: string) =>
+  Promise.resolve(items.find(item => item.id === id)),
+);
+
+// Bad: Unnecessary block with loop
+mock.getData.mockImplementation((id: string) => {
+  for (const item of items) {
+    if (item.id === id) {
+      return Promise.resolve(item);
+    }
+  }
+  return Promise.resolve(undefined);
+});
 ```

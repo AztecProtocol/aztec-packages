@@ -164,10 +164,8 @@ export class EmbeddedWallet extends BaseWallet {
     let i = 0;
     // Assume we're in a network with test accounts (local network) if the first of them
     // is initialized
-    if (
-      !aliasedAccounts.find(aliased => aliased.item.equals(sampleAccount.address)) &&
-      (await this.pxe.getContractMetadata(sampleAccount.address)).isContractInitialized
-    ) {
+    const { isContractInitialized } = await this.getContractMetadata(sampleAccount.address);
+    if (!aliasedAccounts.find(aliased => aliased.item.equals(sampleAccount.address)) && isContractInitialized) {
       for (const accountData of testAccountData) {
         const accountManager = await this.createAccountInternal(
           'schnorr',
@@ -217,7 +215,7 @@ export class EmbeddedWallet extends BaseWallet {
     const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = await originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
+    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }

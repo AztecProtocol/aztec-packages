@@ -1,5 +1,6 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { L2Block } from '@aztec/stdlib/block';
+import type { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { createHistogram } from 'perf_hooks';
@@ -20,6 +21,8 @@ export class TxInclusionMetrics {
   private data = new Map<string, TxInclusionData>();
   private groups = new Set<string>();
   private blocks = new Map<number, Promise<L2Block>>();
+
+  private p2pGossipLatencyByTopic: Partial<Record<TopicType, { p50: number; p95: number }>> = {};
 
   constructor(private aztecNode: AztecNode) {}
 
@@ -71,7 +74,7 @@ export class TxInclusionMetrics {
   } {
     const histogram = createHistogram({});
     for (const tx of this.data.values()) {
-      if (!tx.blocknumber || tx.group !== group) {
+      if (!tx.blocknumber || tx.group !== group || tx.minedAt === -1) {
         continue;
       }
 
@@ -101,6 +104,10 @@ export class TxInclusionMetrics {
     };
   }
 
+  public recordP2PGossipLatency(topicName: TopicType, p50: number, p95: number): void {
+    this.p2pGossipLatencyByTopic[topicName] = { p50, p95 };
+  }
+
   toGithubActionBenchmarkJSON(): Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> {
     const data: Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> = [];
     for (const group of this.groups) {
@@ -123,6 +130,19 @@ export class TxInclusionMetrics {
           value: stats.p99,
         },
       );
+    }
+
+    for (const [topic, { p50, p95 }] of Object.entries(this.p2pGossipLatencyByTopic)) {
+      data.push({
+        name: `p2p_gossip_latency/${topic}/p50`,
+        unit: 'ms',
+        value: p50,
+      });
+      data.push({
+        name: `p2p_gossip_latency/${topic}/p95`,
+        unit: 'ms',
+        value: p95,
+      });
     }
 
     return data;

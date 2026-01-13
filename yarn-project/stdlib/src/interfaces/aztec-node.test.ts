@@ -6,7 +6,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { timesAsync } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -23,10 +23,11 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { type BlockParameter, CommitteeAttestation, L2BlockHash } from '../block/index.js';
+import { type BlockParameter, CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
+import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -93,10 +94,15 @@ describe('AztecNodeApiSchema', () => {
 
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
+    const expectedTipId = {
+      block: { number: 1, hash: `0x01` },
+      checkpoint: { number: 1, hash: `0x01` },
+    };
     expect(result).toEqual({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      proposed: { number: 1, hash: `0x01` },
+      checkpointed: expectedTipId,
+      proven: expectedTipId,
+      finalized: expectedTipId,
     });
   });
 
@@ -258,12 +264,33 @@ describe('AztecNodeApiSchema', () => {
     await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
+  it('getL2BlocksNew', async () => {
+    const response = await context.client.getL2BlocksNew(BlockNumber(1), BlockNumber(1));
+    expect(response).toHaveLength(1);
+    expect(response[0]).toBeInstanceOf(L2BlockNew);
+
+    await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
+    await expect(context.client.getBlocks(BlockNumber(1), BlockNumber.ZERO)).rejects.toThrow();
+    await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
+  });
+
   it('getPublishedBlocks', async () => {
     const response = await context.client.getPublishedBlocks(BlockNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
     expect(response[0].block.constructor.name).toEqual('L2Block');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
+  });
+
+  it('getPublishedCheckpoints', async () => {
+    const response = await context.client.getPublishedCheckpoints(CheckpointNumber(1), 1);
+    expect(response).toHaveLength(1);
+    expect(response[0]).toBeInstanceOf(PublishedCheckpoint);
+  });
+
+  it('getCheckpointedBlocks', async () => {
+    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 1);
+    expect(response).toEqual([]);
   });
 
   it('getNodeVersion', async () => {
@@ -533,11 +560,25 @@ class MockAztecNode implements AztecNode {
   }
 
   getL2Tips(): Promise<L2Tips> {
+    const tipId = {
+      block: { number: BlockNumber(1), hash: `0x01` },
+      checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
+    };
     return Promise.resolve({
-      latest: { number: BlockNumber(1), hash: `0x01` },
-      proven: { number: BlockNumber(1), hash: `0x01` },
-      finalized: { number: BlockNumber(1), hash: `0x01` },
+      proposed: { number: BlockNumber(1), hash: `0x01` },
+      checkpointed: tipId,
+      proven: tipId,
+      finalized: tipId,
     });
+  }
+
+  async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
+    const block = await L2BlockNew.random(from);
+    return [block];
+  }
+
+  getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean) {
+    return Promise.resolve([]);
   }
 
   findLeavesIndexes(
@@ -696,6 +737,15 @@ class MockAztecNode implements AztecNode {
     return timesAsync(limit, async i =>
       PublishedL2Block.fromFields({
         block: await L2Block.random(BlockNumber(from + i)),
+        attestations: [CommitteeAttestation.random()],
+        l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
+      }),
+    );
+  }
+  getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return timesAsync(limit, async i =>
+      PublishedCheckpoint.from({
+        checkpoint: await Checkpoint.random(CheckpointNumber(from + i)),
         attestations: [CommitteeAttestation.random()],
         l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
       }),

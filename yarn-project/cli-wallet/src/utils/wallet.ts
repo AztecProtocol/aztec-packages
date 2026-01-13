@@ -180,7 +180,7 @@ export class CLIWallet extends BaseWallet {
     const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
+    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
@@ -258,5 +258,11 @@ export class CLIWallet extends BaseWallet {
   // this is just a CLI wallet.
   getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     return this.pxe.debug.getNotes(filter);
+  }
+
+  // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because
+  // this is just a CLI wallet.
+  getContractArtifact(id: Fr) {
+    return this.pxe.getContractArtifact(id);
   }
 }

@@ -14,7 +14,7 @@ include "../context.pil";
 // pol commit dynamic_l2_gas_factor;
 // pol commit dynamic_da_gas_factor;
 // pol commit sel_should_check_gas;
-// pol commit indirect; (from execution.pil #[INSTRUCTION_FETCHING_BODY])
+// pol commit addressing_mode; (from execution.pil #[INSTRUCTION_FETCHING_BODY])
 //
 // Inputs from context.pil:
 // pol commit prev_l2_gas_used;
@@ -41,7 +41,7 @@ namespace execution;
 
     pol commit addressing_gas; // 16-bit (follows from compute_addressing_gas() and populated in precomputed.pil)
     #[ADDRESSING_GAS_READ]
-    sel_should_check_gas { indirect, addressing_gas }
+    sel_should_check_gas { addressing_mode, addressing_gas }
     in
     precomputed.sel_addressing_gas { precomputed.clk, precomputed.addressing_gas };
 

@@ -1,7 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
-import { BlockAttestation } from '../p2p/block_attestation.js';
+import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { Tx } from '../tx/tx.js';
 import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
 
@@ -26,10 +26,10 @@ describe('P2PApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('getAttestationsForSlot', async () => {
-    const attestations = await context.client.getAttestationsForSlot(SlotNumber(1), 'proposalId');
-    expect(attestations).toEqual([BlockAttestation.empty()]);
-    expect(attestations[0]).toBeInstanceOf(BlockAttestation);
+  it('getCheckpointAttestationsForSlot', async () => {
+    const attestations = await context.client.getCheckpointAttestationsForSlot(SlotNumber(1), 'proposalId');
+    expect(attestations).toEqual([CheckpointAttestation.empty()]);
+    expect(attestations[0]).toBeInstanceOf(CheckpointAttestation);
   });
 
   it('getPendingTxs', async () => {
@@ -56,10 +56,6 @@ describe('P2PApiSchema', () => {
     const peers = await context.client.getPeers(true);
     expect(peers).toEqual(peers);
   });
-
-  it('deleteAttestation', async () => {
-    await context.client.deleteAttestation(BlockAttestation.empty());
-  });
 });
 
 const peers: PeerInfo[] = [
@@ -69,10 +65,10 @@ const peers: PeerInfo[] = [
 ];
 
 class MockP2P implements P2PApi {
-  getAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<BlockAttestation[]> {
+  getCheckpointAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<CheckpointAttestation[]> {
     expect(slot).toEqual(SlotNumber(1));
     expect(proposalId).toEqual('proposalId');
-    return Promise.resolve([BlockAttestation.empty()]);
+    return Promise.resolve([CheckpointAttestation.empty()]);
   }
 
   getPendingTxs(): Promise<Tx[]> {
@@ -90,15 +86,5 @@ class MockP2P implements P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     expect(includePending === undefined || includePending === true).toBeTruthy();
     return Promise.resolve(peers);
-  }
-
-  addAttestations(attestations: BlockAttestation[]): Promise<void> {
-    expect(attestations).toEqual([BlockAttestation.empty(), BlockAttestation.empty()]);
-    return Promise.resolve();
-  }
-
-  deleteAttestation(attestation: BlockAttestation): Promise<void> {
-    expect(attestation).toEqual(BlockAttestation.empty());
-    return Promise.resolve();
   }
 }

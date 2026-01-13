@@ -40,7 +40,7 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static constexpr const std::string_view NAME = "addressing";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
+    static constexpr size_t SR_ADDRESSING_MODE_RECONSTRUCTION = 16;
     static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 18;
     static constexpr size_t SR_BASE_ADDRESS_CHECK = 20;
     static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0 = 21;
@@ -78,8 +78,8 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_INDIRECT_RECONSTRUCTION:
-            return "INDIRECT_RECONSTRUCTION";
+        case SR_ADDRESSING_MODE_RECONSTRUCTION:
+            return "ADDRESSING_MODE_RECONSTRUCTION";
         case SR_NUM_RELATIVE_INV_CHECK:
             return "NUM_RELATIVE_INV_CHECK";
         case SR_BASE_ADDRESS_CHECK:

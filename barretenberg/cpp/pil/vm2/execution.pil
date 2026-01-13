@@ -192,7 +192,7 @@ pol commit instr_length; // Need this for shift col on next_pc
 pol commit sel_instruction_fetching_failure; // @boolean (by definition below)
 
 pol commit ex_opcode;
-pol commit indirect;
+pol commit addressing_mode;
 pol commit op[7];  // operands
 
 // We now proceed to fetch the instruction.
@@ -226,7 +226,7 @@ sel_instruction_fetching_success {
     bytecode_id,
     ex_opcode,
     instr_length,
-    indirect,
+    addressing_mode,
     op[0],
     op[1],
     op[2],
@@ -239,7 +239,7 @@ sel_instruction_fetching_success {
     instr_fetching.bytecode_id,
     instr_fetching.exec_opcode,
     instr_fetching.instr_size,
-    instr_fetching.indirect,
+    instr_fetching.addressing_mode,
     instr_fetching.op1,
     instr_fetching.op2,
     instr_fetching.op3,

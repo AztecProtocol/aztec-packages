@@ -9,7 +9,7 @@ import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { getClassRegistryContract } from '../contract/protocol_contracts.js';
+import { ContractClassRegistryContract } from '../contract/protocol_contracts/contract-class-registry.js';
 import type { Wallet } from '../wallet/index.js';
 
 /** Sets up a call to publish a contract class given its artifact. */
@@ -19,7 +19,7 @@ export async function publishContractClass(
 ): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
-  const classRegistry = await getClassRegistryContract(wallet);
+  const classRegistry = ContractClassRegistryContract.at(wallet);
 
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   return classRegistry.methods.publish(artifactHash, privateFunctionsRoot, publicBytecodeCommitment).with({

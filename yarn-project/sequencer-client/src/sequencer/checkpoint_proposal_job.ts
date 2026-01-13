@@ -2,6 +2,7 @@ import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { filter } from '@aztec/foundation/iterator';
@@ -15,6 +16,7 @@ import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   L2BlockNew,
+  type L2BlockSink,
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -25,19 +27,17 @@ import type {
   ResolvedSequencerConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import type { BlockProposalOptions, CheckpointProposal, CheckpointProposalOptions } from '@aztec/stdlib/p2p';
 import { orderAttestations } from '@aztec/stdlib/p2p';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import { CheckpointBuilder, type FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { CheckpointBuilder, type FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
@@ -64,13 +64,14 @@ export class CheckpointProposalJob implements Traceable {
     private readonly proposer: EthAddress | undefined,
     private readonly publisher: SequencerPublisher,
     private readonly attestorAddress: EthAddress,
-    private readonly invalidateBlock: InvalidateBlockRequest | undefined,
+    private readonly invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
     private readonly validatorClient: ValidatorClient,
     private readonly globalsBuilder: GlobalVariableBuilder,
     private readonly p2pClient: P2P,
     private readonly worldState: WorldStateSynchronizer,
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
+    private readonly blockSink: L2BlockSink,
     private readonly l1Constants: SequencerRollupConstants,
     protected config: ResolvedSequencerConfig,
     protected timetable: SequencerTimetable,
@@ -152,9 +153,9 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.slot);
       this.metrics.incOpenSlot(this.slot, this.proposer?.toString() ?? 'unknown');
 
-      // Enqueues block invalidation (constant for the whole slot)
-      if (this.invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
-        this.publisher.enqueueInvalidateBlock(this.invalidateBlock);
+      // Enqueues checkpoint invalidation (constant for the whole slot)
+      if (this.invalidateCheckpoint && !this.config.skipInvalidateBlockAsProposer) {
+        this.publisher.enqueueInvalidateCheckpoint(this.invalidateCheckpoint);
       }
 
       // Create checkpoint builder for the slot
@@ -164,8 +165,9 @@ export class CheckpointProposalJob implements Traceable {
         this.slot,
       );
 
-      // Collect L1 to L2 messages for the checkpoint
+      // Collect L1 to L2 messages for the checkpoint and compute their hash
       const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(this.checkpointNumber);
+      const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Create a long-lived forked world state for the checkpoint builder
       using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
@@ -184,10 +186,16 @@ export class CheckpointProposalJob implements Traceable {
         broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
       };
 
+      const checkpointProposalOptions: CheckpointProposalOptions = {
+        publishFullTxs: !!this.config.publishTxsWithProposals,
+        broadcastInvalidCheckpointProposal: this.config.broadcastInvalidBlockProposal,
+      };
+
       // Main loop: build blocks for the checkpoint
-      const { blocksInCheckpoint, pendingBroadcast } = await this.buildBlocksForCheckpoint(
+      const { blocksInCheckpoint, blockPendingBroadcast } = await this.buildBlocksForCheckpoint(
         checkpointBuilder,
         checkpointGlobalVariables.timestamp,
+        inHash,
         blockProposalOptions,
       );
 
@@ -217,22 +225,30 @@ export class CheckpointProposalJob implements Traceable {
         return checkpoint;
       }
 
-      // TODO(palla/mbps): Wire this to the new p2p API once available, including the pendingBroadcast.block
+      // Include the block pending broadcast in the checkpoint proposal if any
+      const lastBlock = blockPendingBroadcast && {
+        blockHeader: blockPendingBroadcast.block.header,
+        indexWithinCheckpoint: blockPendingBroadcast.block.indexWithinCheckpoint,
+        txs: blockPendingBroadcast.txs,
+      };
+
+      // Create the checkpoint proposal and broadcast it
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,
         checkpoint.archive.root,
-        pendingBroadcast?.txs ?? [],
+        lastBlock,
         this.proposer,
-        blockProposalOptions,
+        checkpointProposalOptions,
       );
+
       const blockProposedAt = this.dateProvider.now();
-      await this.p2pClient.broadcastProposal(proposal);
+      await this.p2pClient.broadcastCheckpointProposal(proposal);
 
       this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.slot);
       const attestations = await this.waitForAttestations(proposal);
       const blockAttestedAt = this.dateProvider.now();
 
-      this.metrics.recordBlockAttestationDelay(blockAttestedAt - blockProposedAt);
+      this.metrics.recordCheckpointAttestationDelay(blockAttestedAt - blockProposedAt);
 
       // Proposer must sign over the attestations before pushing them to L1
       const signer = this.proposer ?? this.publisher.getSenderAddress();
@@ -245,7 +261,7 @@ export class CheckpointProposalJob implements Traceable {
       const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
       await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
         txTimeoutAt,
-        forcePendingBlockNumber: this.invalidateBlock?.forcePendingBlockNumber,
+        forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
       });
 
       return checkpoint;
@@ -262,17 +278,18 @@ export class CheckpointProposalJob implements Traceable {
   private async buildBlocksForCheckpoint(
     checkpointBuilder: CheckpointBuilder,
     timestamp: bigint,
+    inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
   ): Promise<{
     blocksInCheckpoint: L2BlockNew[];
-    pendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined;
+    blockPendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined;
   }> {
     const blocksInCheckpoint: L2BlockNew[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
-    let pendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined = undefined;
+    let blockPendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined = undefined;
 
     while (true) {
       const blocksBuilt = blocksInCheckpoint.length;
@@ -342,17 +359,17 @@ export class CheckpointProposalJob implements Traceable {
           blockNumber,
           blocksBuilt,
         });
-        pendingBroadcast = { block, txs: usedTxs };
+        blockPendingBroadcast = { block, txs: usedTxs };
         break;
       }
 
       // For non-last blocks, broadcast the block proposal (unless we're in fisherman mode)
       // If the block is the last one, we'll broadcast it along with the checkpoint at the end of the loop
       if (!this.config.fishermanMode) {
-        // TODO(palla/mbps): Wire this to the new p2p API once available
         const proposal = await this.validatorClient.createBlockProposal(
-          block.header.globalVariables.blockNumber,
-          (await checkpointBuilder.getCheckpoint()).header,
+          block.header,
+          block.indexWithinCheckpoint,
+          inHash,
           block.archive.root,
           usedTxs,
           this.proposer,
@@ -370,10 +387,7 @@ export class CheckpointProposalJob implements Traceable {
       blocksBuilt: blocksInCheckpoint.length,
     });
 
-    return {
-      blocksInCheckpoint,
-      pendingBroadcast,
-    };
+    return { blocksInCheckpoint, blockPendingBroadcast };
   }
 
   /** Sleeps until it is time to produce the next block in the slot */
@@ -539,7 +553,7 @@ export class CheckpointProposalJob implements Traceable {
    * This is run after all blocks for the checkpoint have been built.
    */
   @trackSpan('CheckpointProposalJob.waitForAttestations')
-  private async waitForAttestations(proposal: BlockProposal): Promise<CommitteeAttestationsAndSigners> {
+  private async waitForAttestations(proposal: CheckpointProposal): Promise<CommitteeAttestationsAndSigners> {
     if (this.config.fishermanMode) {
       this.log.debug('Skipping attestation collection in fisherman mode');
       return CommitteeAttestationsAndSigners.empty();
@@ -588,8 +602,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // Manipulate the attestations if we've been configured to do so
       if (this.config.injectFakeAttestation || this.config.shuffleAttestationOrdering) {
-        const checkpoint = proposal.payload.header;
-        return this.manipulateAttestations(checkpoint, epoch, seed, committee, sorted);
+        return this.manipulateAttestations(proposal.slotNumber, epoch, seed, committee, sorted);
       }
 
       return new CommitteeAttestationsAndSigners(sorted);
@@ -605,7 +618,7 @@ export class CheckpointProposalJob implements Traceable {
 
   /** Breaks the attestations before publishing based on attack configs */
   private manipulateAttestations(
-    checkpoint: CheckpointHeader,
+    slotNumber: SlotNumber,
     epoch: EpochNumber,
     seed: bigint,
     committee: EthAddress[],
@@ -613,7 +626,6 @@ export class CheckpointProposalJob implements Traceable {
   ) {
     // Compute the proposer index in the committee, since we dont want to tweak it.
     // Otherwise, the L1 rollup contract will reject the block outright.
-    const { slotNumber } = checkpoint;
     const proposerIndex = Number(
       this.epochCache.computeProposerIndex(slotNumber, epoch, seed, BigInt(committee.length)),
     );
@@ -662,16 +674,24 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
-   * Placeholder for pushing block to archiver and waiting for sync.
-   * To be implemented when archiver and world-state support proposed blocks.
+   * Adds the proposed block to the archiver so it's available via P2P.
+   * Gossip doesn't echo messages back to the sender, so the proposer's archiver/world-state
+   * would never receive its own block without this explicit sync.
    */
   private async syncProposedBlockToArchiver(block: L2BlockNew): Promise<void> {
-    this.log.debug(`Syncing proposed block ${block.number}`, {
+    // TODO(palla/mbps): Change default to false once block sync is stable.
+    if (this.config.skipPushProposedBlocksToArchiver !== false) {
+      this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
+        blockNumber: block.number,
+        slot: block.header.globalVariables.slotNumber,
+      });
+      return;
+    }
+    this.log.debug(`Syncing proposed block ${block.number} to archiver`, {
       blockNumber: block.number,
       slot: block.header.globalVariables.slotNumber,
     });
-    // TODO(palla/mbps): Implement actual sync to archiver and world-state
-    await Promise.resolve();
+    await this.blockSink.addBlock(block);
   }
 
   /** Runs fee analysis and logs checkpoint outcome as fisherman */

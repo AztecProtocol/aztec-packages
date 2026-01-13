@@ -85,7 +85,6 @@ export async function executePrivateFunction(
 
   const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
 
-  const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
@@ -108,7 +107,6 @@ export async function executePrivateFunction(
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
-    noteHashLeafIndexMap,
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,

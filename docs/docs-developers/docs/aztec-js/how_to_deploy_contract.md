@@ -300,5 +300,5 @@ await wallet.registerContract(instance, MyContract.artifact);
 ## Next steps
 
 - [Send transactions](./how_to_send_transaction.md) to interact with your contract
-- [Simulate functions](./how_to_simulate_function.md) to read contract state
+- [Read contract data](./how_to_read_data.md) including simulating functions and reading events
 - [Use authentication witnesses](./how_to_use_authwit.md) for delegated calls

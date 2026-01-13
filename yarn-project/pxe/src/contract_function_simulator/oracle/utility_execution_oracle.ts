@@ -354,6 +354,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.addressStore,
+      this.jobId,
     );
 
     await logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
@@ -385,11 +386,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all note and event validation requests and process them all concurrently. This makes the process much
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
+      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
     ).map(NoteValidationRequest.fromFields);
 
     const eventValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot)
+      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
@@ -424,8 +425,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     await Promise.all([...noteDeliveries, ...eventDeliveries]);
 
     // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
-    await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
+    await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
   }
 
   public async utilityBulkRetrieveLogs(
@@ -441,7 +442,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
+      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
     ).map(LogRetrievalRequest.fromFields);
 
     const logService = new LogService(
@@ -452,18 +453,20 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.recipientTaggingStore,
       this.senderAddressBookStore,
       this.addressStore,
+      this.jobId,
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
 
     // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
 
     // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
     await this.capsuleStore.setCapsuleArray(
       contractAddress,
       logRetrievalResponsesArrayBaseSlot,
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
+      this.jobId,
     );
   }
 
@@ -472,7 +475,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule);
+    this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
+    return Promise.resolve();
   }
 
   public async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
@@ -483,7 +487,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return (
       // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
       this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.capsuleStore.loadCapsule(this.contractAddress, slot))
+      (await this.capsuleStore.loadCapsule(this.contractAddress, slot, this.jobId))
     );
   }
 
@@ -492,7 +496,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.deleteCapsule(this.contractAddress, slot);
+    this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
+    return Promise.resolve();
   }
 
   public utilityCopyCapsule(
@@ -505,7 +510,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries, this.jobId);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.

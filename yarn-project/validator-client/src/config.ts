@@ -70,6 +70,16 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
   },
+  // TODO(palla/mbps): Change default to false once checkpoint validation is stable
+  skipCheckpointProposalValidation: {
+    description: 'Skip checkpoint proposal validation and always attest (default: true)',
+    defaultValue: true,
+  },
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  skipPushProposedBlocksToArchiver: {
+    description: 'Skip pushing re-executed blocks to archiver (default: true)',
+    defaultValue: true,
+  },
 };
 
 /**

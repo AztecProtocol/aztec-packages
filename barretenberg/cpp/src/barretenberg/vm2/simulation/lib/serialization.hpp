@@ -31,7 +31,7 @@ using Operand = TaggedValue;
 
 struct Instruction {
     WireOpCode opcode = WireOpCode::LAST_OPCODE_SENTINEL;
-    uint16_t indirect = 0;
+    uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
 
     std::string to_string() const;
