@@ -40,6 +40,7 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
     static constexpr size_t SR_IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL = 4;
     static constexpr size_t SR_ERROR_AGGREGATION = 5;
     static constexpr size_t SR_SELECTED_MEMBER = 6;
+    static constexpr size_t SR_MEMBER_WRITE_OFFSET = 7;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -54,6 +55,8 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
             return "ERROR_AGGREGATION";
         case SR_SELECTED_MEMBER:
             return "SELECTED_MEMBER";
+        case SR_MEMBER_WRITE_OFFSET:
+            return "MEMBER_WRITE_OFFSET";
         }
         return std::to_string(index);
     }
