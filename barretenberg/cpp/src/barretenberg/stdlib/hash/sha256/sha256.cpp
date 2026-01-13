@@ -438,11 +438,10 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     output[6] = add_normalize_unsafe(g.normal, h_init[6], /*overflow_bits=*/1);
     output[7] = add_normalize_unsafe(h.normal, h_init[7], /*overflow_bits=*/1);
 
-    // The final add_normalize outputs are not consumed by lookup tables, so they must be
-    // explicitly range-constrained. (Within the compression loop, lookup tables provide
-    // implicit 32-bit constraints on add_normalize outputs.)
-    for (size_t i = 0; i < 8; i++) {
-        output[i].create_range_constraint(/*num_bits=*/32);
+    // The final add_normalize outputs are not consumed by lookup tables, so they must be explicitly range-constrained.
+    // (Within the compression loop, lookup tables provide implicit 32-bit constraints on add_normalize outputs.)
+    for (const auto& val : output) {
+        apply_32_bit_range_constraint_via_lookup(val);
     }
 
     return output;
