@@ -47,16 +47,25 @@ export function ContractSelector() {
   useEffect(() => {
     const refreshContracts = async () => {
       setIsContractsLoading(true);
-      const aliasedContracts = await playgroundDB.listAliases('contracts');
-      const contracts = parseAliasedBuffersAsString(aliasedContracts);
-      // Temporarily filter out undeployed contracts
-      const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
-      setContracts(deployedContracts);
+      try {
+        const aliasedContracts = await playgroundDB.listAliases('contracts');
+        const contracts = parseAliasedBuffersAsString(aliasedContracts);
+        // Temporarily filter out undeployed contracts
+        const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+        setContracts(deployedContracts);
+      } catch (error) {
+        // Wallet may have disconnected during the async operation
+        console.warn('Failed to refresh contracts:', error);
+        setContracts([]);
+      }
       setIsContractsLoading(false);
     };
 
     if (playgroundDB && wallet) {
       refreshContracts();
+    } else {
+      // Clear contracts when wallet is disconnected
+      setContracts([]);
     }
   }, [currentContractAddress, playgroundDB, wallet, pendingTxUpdateCounter]);
 
@@ -141,14 +150,23 @@ export function ContractSelector() {
           IconComponent={KeyboardArrowDownIcon}
           fullWidth
           renderValue={selected => {
+            if (!selected) {
+              return 'Select Contract';
+            }
             const contract = contracts.find(contract => contract.item === selected);
             if (contract) {
               return `${contract?.alias.split(':')[1]} (${formatFrAsString(contract?.item)})`;
             }
-            if (selected === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
-              return 'Upload Your Own';
+            switch (selected) {
+              case PREDEFINED_CONTRACTS.CUSTOM_UPLOAD:
+                return 'Upload Your Own';
+              case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
+                return 'Easy Private Voting';
+              case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
+                return 'Simple Token';
+              default:
+                return 'Select Contract';
             }
-            return selected ?? 'Select Contract';
           }}
           disabled={isContractsLoading}
           MenuProps={{
