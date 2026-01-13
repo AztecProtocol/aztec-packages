@@ -15,7 +15,7 @@ A tooling suite to run all VM2/AVM security audit skills in parallel and aggrega
 - **PAL MCP Server** - Enables cross-validation with multiple AI models
   - Provides `mcp__pal__consensus` tool for multi-model consensus
   - Configure in Claude Code's MCP settings
-  - **Requires API keys** (GEMINI_API_KEY, OPENAI_API_KEY, etc.) in the PAL MCP configuration - NOT the Gemini/Codex CLI tools
+  - **Requires API keys** (GEMINI_API_KEY, OPENAI_API_KEY, etc.) in the PAL MCP configuration
   - The CLIs (gemini, codex) are only needed for PAL's optional `clink` tool which spawns CLI subagents
 
 The `--multi-model-summary` feature uses PAL MCP to have Gemini and GPT review Claude's findings, providing an additional validation layer.

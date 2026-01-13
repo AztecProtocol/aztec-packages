@@ -11,6 +11,15 @@ Audits for dead columns - columns declared (`pol commit`) but never meaningfully
 **Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination.
 **Dead**: only declared, only assigned in tracegen, or only in comments.
 
+## Severity Assessment
+
+**Assess severity case-by-case** based on impact and reachability:
+
+- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
+- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+
 ## Instructions
 
 > **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
@@ -73,7 +82,7 @@ You MUST produce TWO output files:
 
 | Item | Value |
 |------|-------|
-| Skill | `{skill-name}` |
+| Skill | `vm2-audit-dead-columns` |
 | Target | `{path audited}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
@@ -81,7 +90,7 @@ You MUST produce TWO output files:
 
 #### Findings Format
 
-- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **ID**: `vm2-audit-dead-columns-filename-123-issue-type` (MUST use full skill name: `vm2-audit-dead-columns`)
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
@@ -89,15 +98,15 @@ You MUST produce TWO output files:
 
 ### 2. JSON File (REQUIRED - separate file)
 
-Write a `{skill-name}.json` file to the output directory with:
+Write a `vm2-audit-dead-columns.json` file to the output directory with:
 
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-dead-columns",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "id": "vm2-audit-dead-columns-filename-123-issue-type",
       "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
@@ -112,7 +121,7 @@ Write a `{skill-name}.json` file to the output directory with:
 For no findings:
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-dead-columns",
   "status": "COMPLETED_NO_FINDINGS",
   "findings": []
 }
