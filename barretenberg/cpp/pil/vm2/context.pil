@@ -143,21 +143,21 @@ namespace execution;
      *                 Same also applies for `sel_enter_call`.
      */
 
-     /* Partitioning of an active row:
-      *
-      * In what most of the constraints below, we partition the active rows into the following cases:
-      * - Enter nested call: sel_enter_call == 1
-      * - Nested return: nested_return == 1
-      * - Nested failure: nested_failure == 1
-      * - Top-level exit: enqueued_call_end == 1
-      * - Other cases: DEFAULT_CTX_ROW == 1: usually no change
-      *
-      * Each of the above cases is mutually exclusive and covers all active rows and therefore form a partition.
-      * As a consequence: sel = DEFAULT_CTX_ROW + sel_enter_call + nested_return + nested_failure + enqueued_call_end
-      * Namely, sel_exit_call = has_parent_ctx * sel_exit_call + (1 - has_parent_ctx) * sel_exit_call
-      *                       = has_parent_ctx * (sel_failure + sel_execute_return) + enqueued_call_end
-      *                       = nested_failure + nested_return + enqueued_call_end
-      */
+    /* Partitioning of an active row:
+     *
+     * In what most of the constraints below, we partition the active rows into the following cases:
+     * - Enter nested call: sel_enter_call == 1
+     * - Nested return: nested_return == 1
+     * - Nested failure: nested_failure == 1
+     * - Top-level exit: enqueued_call_end == 1
+     * - Other cases: DEFAULT_CTX_ROW == 1: usually no change
+     *
+     * Each of the above cases is mutually exclusive and covers all active rows and therefore form a partition.
+     * As a consequence: sel = DEFAULT_CTX_ROW + sel_enter_call + nested_return + nested_failure + enqueued_call_end
+     * Namely, sel_exit_call = has_parent_ctx * sel_exit_call + (1 - has_parent_ctx) * sel_exit_call
+     *                       = has_parent_ctx * (sel_failure + sel_execute_return) + enqueued_call_end
+     *                       = nested_failure + nested_return + enqueued_call_end
+     */
 
     // =============================
     //        Context ID
