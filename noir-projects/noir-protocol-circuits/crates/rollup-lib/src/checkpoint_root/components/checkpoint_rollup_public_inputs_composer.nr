@@ -63,12 +63,18 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             prover_id: merged_rollup.constants.prover_id,
         };
 
+        // Note: it might seem strange that we only write to the 0th index of an array of length
+        // `AZTEC_MAX_EPOCH_DURATION`. "Why not output a single `Field`?". It's because we want the
+        // layout of the public inputs of this Checkpoint Root circuit to match those of the Checkpoint
+        // Merge circuit. In the Checkpoint Merge circuit, we use more elements of this array: we
+        // progressively merge the arrays from left and right subtrees.
         let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         checkpoint_header_hashes[0] = self.create_checkpoint_header().hash();
 
         let mut out_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         out_hashes[0] = merged_rollup.out_hash;
 
+        // Note: as per the above note.
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
         fees[0] = FeeRecipient {
             recipient: merged_rollup.constants.coinbase,
