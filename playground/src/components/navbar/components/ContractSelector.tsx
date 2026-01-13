@@ -36,6 +36,7 @@ export function ContractSelector() {
   const {
     currentContractAddress,
     wallet,
+    node,
     playgroundDB,
     pendingTxUpdateCounter,
     setCurrentContractArtifact,
@@ -58,7 +59,7 @@ export function ContractSelector() {
     if (playgroundDB && wallet) {
       refreshContracts();
     }
-  }, [currentContractAddress, playgroundDB, wallet, pendingTxUpdateCounter]);
+  }, [currentContractAddress, playgroundDB, wallet, pendingTxUpdateCounter, node]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;

@@ -2,7 +2,6 @@ import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { omit } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -117,12 +116,10 @@ describe('PXE', () => {
     const instance = await randomContractInstanceWithAddress({ contractClassId });
 
     await pxe.registerContractClass(artifact);
-    expect((await pxe.getContractClassMetadata(contractClassId)).contractClass).toMatchObject(
-      omit(contractClass, 'privateFunctionsRoot', 'publicBytecodeCommitment'),
-    );
+    expect(await pxe.getContractArtifact(contractClassId)).toEqual(artifact);
 
     await pxe.registerContract({ instance });
-    expect((await pxe.getContractMetadata(instance.address)).contractInstance).toEqual(instance);
+    expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
   });
 
   it('refuses to register a class with a mismatched address', async () => {
