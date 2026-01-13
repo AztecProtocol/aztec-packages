@@ -83,7 +83,7 @@ class MultilinearBatchingProver {
     HonkProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
-    ProvingKey key; // Owned proving key constructed from moved-in claims
+    ProvingKey key;
     SumcheckOutput<Flavor> sumcheck_output;
 };
 

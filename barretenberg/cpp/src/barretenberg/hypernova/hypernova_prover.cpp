@@ -129,8 +129,9 @@ std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver
 {
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
-    // Prover takes ownership of both accumulators
+    // Sumcheck
     MultilinearBatchingProver batching_prover(std::move(accumulator), std::move(incoming_accumulator), transcript);
+
     HonkProof proof = batching_prover.construct_proof();
 
     return { proof, batching_prover.compute_new_claim() };

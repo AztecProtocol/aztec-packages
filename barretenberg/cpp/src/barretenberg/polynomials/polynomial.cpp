@@ -275,14 +275,6 @@ void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
     }
 }
 
-template <typename Fr>
-void Polynomial<Fr>::self_scale_and_add(PolynomialSpan<const Fr> other, const Fr& self_scaling_factor)
-{
-    // Computes: this = this * self_scaling_factor + other
-    *this *= self_scaling_factor;
-    *this += other;
-}
-
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
     BB_ASSERT_GTE(coefficients_.start_, static_cast<size_t>(1));

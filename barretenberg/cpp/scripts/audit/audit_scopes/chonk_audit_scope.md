@@ -54,7 +54,8 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ### ACIR Integration
 31. `dsl/acir_format/hypernova_recursion_constraint.hpp`
 32. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-
+33. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+34. `dsl/acir_format/recursion_constraint.cpp`
 ---
 
 ## Critical Files
