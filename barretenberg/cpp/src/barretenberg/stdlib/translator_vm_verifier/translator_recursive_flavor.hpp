@@ -101,42 +101,17 @@ class TranslatorRecursiveFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
-                                                          TranslatorFlavor::PrecomputedEntities<Commitment>,
-                                                          NativeVerificationKey,
-                                                          VKSerializationMode::NO_METADATA> {
+    class VerificationKey : public FixedStdlibVerificationKey_<CircuitBuilder,
+                                                               TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                               NativeVerificationKey> {
+        using Base = FixedStdlibVerificationKey_<CircuitBuilder,
+                                                 TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                 NativeVerificationKey>;
+
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
-            // and the verification key.
-            this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
-            this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
-            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
-
-            for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
-                comm = Commitment::from_witness(builder, native_comm);
-            }
-        }
-
-        /**
-         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
-         *
-         * @param domain_separator
-         * @param tag
-         */
-        FF hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-        void fix_witness()
-        {
-            for (Commitment& commitment : this->get_all()) {
-                commitment.fix_witness();
-            }
-        }
+            : Base(builder, native_key)
+        {}
     };
 
     /**

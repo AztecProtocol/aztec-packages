@@ -16,6 +16,18 @@ using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 static auto& engine = numeric::get_debug_randomness();
 
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+TranslatorFlavor::VerificationKey create_vk_from_proving_key(
+    const std::shared_ptr<TranslatorFlavor::ProvingKey>& proving_key)
+{
+    TranslatorFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
 class TranslatorTests : public ::testing::Test {
     using G1 = g1::affine_element;
     using Fr = fr;
@@ -350,7 +362,7 @@ TEST_F(TranslatorTests, FixedVK)
             generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
-        TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
+        TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
         size_t index = 0;
         for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {

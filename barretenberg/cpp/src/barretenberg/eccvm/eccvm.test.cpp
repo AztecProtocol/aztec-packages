@@ -25,6 +25,17 @@ using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
 using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 using eccvm_test_utils::add_hiding_op_for_test;
 
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+ECCVMFlavor::VerificationKey create_vk_from_proving_key(const std::shared_ptr<PK>& proving_key)
+{
+    ECCVMFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -387,7 +398,7 @@ TEST_F(ECCVMTests, FixedVK)
     // Generate the default fixed VK
     ECCVMFlavor::VerificationKey fixed_vk{};
     // Generate a VK from PK
-    ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
+    ECCVMFlavor::VerificationKey vk_computed_by_prover = create_vk_from_proving_key(prover.key);
 
     const auto& labels = bb::ECCVMFlavor::VerificationKey::get_labels();
     size_t index = 0;

@@ -840,59 +840,38 @@ class TranslatorFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
+     * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
+     * @details Translator has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
+     * Uses FixedVerificationKey_ as base since circuit size and public inputs are known constants.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction> {
-        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction>;
+    class VerificationKey : public FixedVerificationKey_<PrecomputedEntities<Commitment>, FF> {
+        using Base = FixedVerificationKey_<PrecomputedEntities<Commitment>, FF>;
 
       public:
-        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
+        // Default construct the fixed VK from hardcoded commitments
         VerificationKey()
-            : Base(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+            : Base(compute_vk_hash())
         {
-            this->pub_inputs_offset = 0;
-
-            // Populate the commitments of the precomputed polynomials
             for (auto [vk_commitment, fixed_commitment] :
                  zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
                 vk_commitment = fixed_commitment;
             }
         }
 
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+      private:
+        // Compute VK hash from commitments only (no metadata since it's fixed/constant)
+        static FF compute_vk_hash()
         {
-            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
-            this->num_public_inputs = 0;
-            this->pub_inputs_offset = 0;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
+            std::vector<FF> elements;
+            // Serialize commitments using the Codec
+            for (const auto& commitment : TranslatorFixedVKCommitments::get_all()) {
+                auto frs = Codec::serialize_to_fields(commitment);
+                for (const auto& fr : frs) {
+                    elements.push_back(fr);
+                }
             }
+            return HashFunction::hash(elements);
         }
-
-        /**
-         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
-         *
-         * @param domain_separator
-         * @param tag
-         */
-        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return Base::template compare<NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
     };
 
     /**

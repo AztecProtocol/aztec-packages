@@ -809,15 +809,12 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
+     * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
+     * @details ECCVM has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
+     * Uses FixedVerificationKey_ as base since circuit size and public inputs are known constants.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction> {
-        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction>;
+    class VerificationKey : public FixedVerificationKey_<PrecomputedEntities<Commitment>, BF> {
+        using Base = FixedVerificationKey_<PrecomputedEntities<Commitment>, BF>;
 
       public:
         bool operator==(const VerificationKey&) const = default;
@@ -828,49 +825,28 @@ class ECCVMFlavor {
             return pcs_vk.get_g1_identity();
         }();
 
-        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
+        // Default construct the fixed VK from hardcoded commitments
         VerificationKey()
-            : Base(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
+            : Base(compute_vk_hash())
         {
-            this->pub_inputs_offset = 0;
-
-            // Populate the commitments of the precomputed polynomials using the fixed VK data
             for (auto [vk_commitment, fixed_commitment] :
                  zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
                 vk_commitment = fixed_commitment;
             }
         }
 
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : Base(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+      private:
+        // Compute VK hash from commitments only (no metadata since it's fixed/constant)
+        static BF compute_vk_hash()
         {
-            this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = 0;
-            this->pub_inputs_offset = 0;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
+            std::vector<BF> elements;
+            // Serialize commitments (each Grumpkin point -> 2 field elements)
+            for (const auto& commitment : ECCVMFixedVKCommitments::get_all()) {
+                elements.push_back(commitment.x);
+                elements.push_back(commitment.y);
             }
+            return HashFunction::hash(elements);
         }
-
-        /**
-         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
-         *
-         * @param domain_separator
-         * @param tag
-         * @returns The hash of the verification key
-         */
-        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from the verification key.
     };
 
     /**
