@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
 cd "$(dirname "$0")/.."
 
@@ -9,4 +9,4 @@ if [ -f "$HOME/.cargo/env" ]; then
 fi
 
 # Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
-cargo test --release
+denoise "cargo test --release"
