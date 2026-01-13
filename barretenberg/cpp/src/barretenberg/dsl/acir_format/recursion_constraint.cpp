@@ -265,10 +265,7 @@ void process_hn_recursion_constraints(
         ivc->complete_kernel_circuit_logic(builder);
 
         // Note: we can't easily track the gate contribution from each individual hn_recursion_constraint since they
-        // are handled simultaneously in the above function call; instead we track the total contribution
-        if (hn_recursion_data.second.empty()) {
-            throw_or_abort("process_hn_recursion_constraints: missing opcode index for gate tracking");
-        }
+        // are handled simultaneously in the above function call; instead we track the total contribution.
         gate_counter.track_diff(gates_per_opcode, hn_recursion_data.second.at(0));
     };
 

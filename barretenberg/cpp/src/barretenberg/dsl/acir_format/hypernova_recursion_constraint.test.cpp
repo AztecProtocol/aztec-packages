@@ -724,3 +724,85 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
     EXPECT_EQ(actual_ultra_ops, HIDING_KERNEL_ULTRA_OPS);
 }
+
+// =====================================================================================
+// Boundary check failure tests - verify that invalid inputs are rejected
+// =====================================================================================
+
+/**
+ * @brief Test that mismatched constraints/indices sizes are rejected
+ */
+TEST_F(HypernovaRecursionConstraintTest, FailsOnConstraintIndicesSizeMismatch)
+{
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    // Corrupt the opcode indices to have wrong size
+    program.constraints.original_opcode_indices.hn_recursion_constraints.push_back(999);
+
+    ProgramMetadata metadata{ .ivc = ivc };
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+                              "hn_recursion_data constraints/indices size mismatch");
+}
+
+/**
+ * @brief Test that ACIR constraints vs IVC queue size mismatch is rejected
+ */
+TEST_F(HypernovaRecursionConstraintTest, FailsOnAcirQueueSizeMismatch)
+{
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    // Add an extra constraint that doesn't exist in the IVC queue
+    program.constraints.hn_recursion_constraints.push_back(program.constraints.hn_recursion_constraints[0]);
+    program.constraints.original_opcode_indices.hn_recursion_constraints.push_back(1);
+
+    ProgramMetadata metadata{ .ivc = ivc };
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+                              "mismatch between ACIR constraints");
+}
+
+/**
+ * @brief Test that non-empty public_inputs in HN constraint is rejected
+ */
+TEST_F(HypernovaRecursionConstraintTest, FailsOnNonEmptyPublicInputs)
+{
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    // Add public inputs to the constraint (which should be empty for HN)
+    program.constraints.hn_recursion_constraints[0].public_inputs = { 0, 1, 2 };
+
+    ProgramMetadata metadata{ .ivc = ivc };
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+                              "unexpected non-empty public_inputs in HN constraint");
+}
+
+/**
+ * @brief Test that proof_type mismatch between ACIR and IVC queue is rejected
+ */
+TEST_F(HypernovaRecursionConstraintTest, FailsOnProofTypeMismatch)
+{
+    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+    acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    // Change the proof type to something that doesn't match the queue entry
+    // OINK queue entry expects PROOF_TYPE::OINK, change to HN
+    program.constraints.hn_recursion_constraints[0].proof_type = PROOF_TYPE::HN;
+
+    ProgramMetadata metadata{ .ivc = ivc };
+
+    EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
+                              "ACIR constraint proof_type does not match IVC queue type");
+}
