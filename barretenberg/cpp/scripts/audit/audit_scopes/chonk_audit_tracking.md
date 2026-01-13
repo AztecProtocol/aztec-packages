@@ -38,25 +38,13 @@ Files requiring internal audit (status: Planned)
 
 | File | Status | Auditor |
 |------|--------|---------|
-| `stdlib/primitives/public_input_component/public_input_component.hpp` | Planned | |
+| `stdlib/primitives/public_input_component/public_input_component.hpp` | Complete | |
 
 ## ACIR Integration
 
 | File | Status | Auditor |
 |------|--------|---------|
-| `dsl/acir_format/hypernova_recursion_constraint.cpp` | Planned | |
-| `dsl/acir_format/hypernova_recursion_constraint.hpp` | Planned | |
+| `dsl/acir_format/hypernova_recursion_constraint.cpp` | Complete | |
+| `dsl/acir_format/hypernova_recursion_constraint.hpp` | Complete | |
 
 ---
-
-## Summary
-
-| Component | Total | Completed | Remaining |
-|-----------|-------|-----------|-----------|
-| HyperNova | 9 | 6 | 3 |
-| Multilinear Batching | 5 | 2 | 3 |
-| Merge Protocol | 4 | 4 | 0 |
-| Flavor | 2 | 2 | 0 |
-| Special Public Inputs | 2 | 1 | 1 |
-| ACIR Integration | 2 | 0 | 2 |
-| **Total** | **24** | **11** | **13** |

@@ -237,6 +237,15 @@ template <typename Fr> class Polynomial {
     void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, const Fr& scaling_factor);
 
     /**
+     * @brief Computes this = this * self_scaling_factor + other.
+     * @details Wrapper for operator*= and operator+=.
+     *
+     * @param other q(X) to add
+     * @param self_scaling_factor scaling factor by which this polynomial is multiplied before adding other
+     */
+    void self_scale_and_add(PolynomialSpan<const Fr> other, const Fr& self_scaling_factor);
+
+    /**
      * @brief adds the polynomial q(X) 'other'.
      *
      * @param other q(X)
@@ -277,7 +286,8 @@ template <typename Fr> class Polynomial {
 
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
-    void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
+    void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); }
+    void set_virtual_size(const size_t size_in) { coefficients_.set_virtual_size(size_in); }
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }

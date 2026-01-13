@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -43,7 +43,7 @@ class PublicInputComponent {
     using Builder = ComponentType::Builder;
     using Fr = stdlib::field_t<Builder>; // type for native field elements in the circuit (i.e. the type for "limbs")
 
-    static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
     using Key = PublicComponentKey;

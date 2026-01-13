@@ -62,18 +62,34 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 
     const FF claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
 
-    // Accumulate into instance polynomial, extending only if accumulator is larger
-    auto& unshifted = key.polynomials.batched_unshifted_instance;
-    if (unshifted.end_index() < key.circuit_size) {
-        unshifted = Polynomial<FF>(unshifted, key.circuit_size);
-    }
-    unshifted.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
+    const size_t instance_size = key.polynomials.batched_unshifted_instance.size();
+    const size_t accum_size = key.polynomials.batched_unshifted_accumulator.size();
 
-    auto& shifted = key.preshifted_instance;
-    if (shifted.end_index() < key.circuit_size) {
-        shifted = Polynomial<FF>(shifted, key.circuit_size - 1);
+    Polynomial<FF> new_non_shifted_polynomial;
+    Polynomial<FF> new_shifted_polynomial;
+
+    // Compute new_poly = instance + challenge * accum by modifying the larger polynomial in place
+    if (instance_size >= accum_size) {
+        // instance += challenge * accum
+        key.polynomials.batched_unshifted_instance.add_scaled(key.polynomials.batched_unshifted_accumulator,
+                                                              claim_batching_challenge);
+        new_non_shifted_polynomial = std::move(key.polynomials.batched_unshifted_instance);
+
+        key.preshifted_instance.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+        new_shifted_polynomial = std::move(key.preshifted_instance);
+    } else {
+        // accum = accum * challenge + instance
+        key.polynomials.batched_unshifted_accumulator.self_scale_and_add(key.polynomials.batched_unshifted_instance,
+                                                                         claim_batching_challenge);
+        new_non_shifted_polynomial = std::move(key.polynomials.batched_unshifted_accumulator);
+
+        key.preshifted_accumulator.self_scale_and_add(key.preshifted_instance, claim_batching_challenge);
+        new_shifted_polynomial = std::move(key.preshifted_accumulator);
     }
-    shifted.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+
+    // Deflate virtual_size from sumcheck's padded size back to circuit_size
+    new_non_shifted_polynomial.set_virtual_size(key.circuit_size);
+    new_shifted_polynomial.set_virtual_size(key.circuit_size);
 
     // New commitments
     auto new_non_shifted_commitment =
@@ -92,8 +108,8 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
     return MultilinearBatchingProverClaim{ .challenge = std::move(sumcheck_output.challenge),
                                            .non_shifted_evaluation = new_non_shifted_evaluation,
                                            .shifted_evaluation = new_shifted_evaluation,
-                                           .non_shifted_polynomial = std::move(unshifted),
-                                           .shifted_polynomial = std::move(shifted),
+                                           .non_shifted_polynomial = std::move(new_non_shifted_polynomial),
+                                           .shifted_polynomial = std::move(new_shifted_polynomial),
                                            .non_shifted_commitment = new_non_shifted_commitment,
                                            .shifted_commitment = new_shifted_commitment,
                                            .dyadic_size = key.circuit_size };

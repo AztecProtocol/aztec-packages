@@ -83,6 +83,12 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
         virtual_size_ = new_virtual_size;
     }
 
+    void set_virtual_size(const size_t new_virtual_size)
+    {
+        BB_ASSERT_GTE(new_virtual_size, end_); // virtual_size must be >= end_index
+        virtual_size_ = new_virtual_size;
+    }
+
     T& operator[](size_t index)
     {
         BB_ASSERT_DEBUG(index >= start_);

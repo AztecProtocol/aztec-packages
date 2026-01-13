@@ -65,6 +65,10 @@ TEST(MultilinearBatchingProver, ConstructProof)
     MultilinearBatchingProver prover(std::move(accumulator_claim), std::move(instance_claim), transcript);
     auto proof = prover.construct_proof();
     EXPECT_FALSE(proof.empty());
+
+    // Test compute_new_claim
+    auto new_claim = prover.compute_new_claim();
+    EXPECT_EQ(new_claim.dyadic_size, 16UL);
 }
 } // namespace
 } // namespace bb
