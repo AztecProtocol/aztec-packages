@@ -282,7 +282,7 @@ tests:
   - regex: "src/e2e_p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
-      - *palla
+      - *phil
 
   - regex: "src/e2e_epochs/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes

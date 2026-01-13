@@ -99,7 +99,6 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       disabledValidators: [],
       validatorReexecute: false,
-      validatorReexecuteDeadlineMs: 6000,
       slashBroadcastedInvalidBlockPenalty: 1n,
       disableTransactions: false,
     };
