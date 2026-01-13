@@ -136,7 +136,7 @@ As with everything in computer science, there's no one-size-fits all. But there 
 
 This would be an approach for something like our guessing game, where proofs are sent back and forth and are verified by each opponent. This circuit would be divided in two sections:
 
-- A `recursive verification` section, which would be just the call to `std::verify_proof`, and that would be skipped on the first move (since there's no proof to verify)
+- A `recursive verification` section, which would be just the call to `verify_honk_proof` (from `bb_proof_verification`), and that would be skipped on the first move (since there's no proof to verify)
 - A `guessing` section, which is basically the logic part where the actual guessing happens
 
 In such a situation, and assuming Alice is first, she would skip the first part and try to guess Bob's number. Bob would then verify her proof on the first section of his run, and try to guess Alice's number on the second part, and so on.
