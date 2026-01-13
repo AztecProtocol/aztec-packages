@@ -13,7 +13,7 @@ function build {
     (cd ../ts && yarn generate)
 
     # Build all targets
-    cargo build --release
+    denoise "cargo build --release"
 
     # Upload build artifacts and generated source files to cache
     cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
