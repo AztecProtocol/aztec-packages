@@ -1,7 +1,6 @@
 import type { Blob } from '@aztec/blob-lib';
 
 import type { BlobStore } from '../blobstore/index.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
 import type { BlobClientInterface, GetBlobSidecarOptions } from './interface.js';
 
 export class LocalBlobClient implements BlobClientInterface {
@@ -16,17 +15,16 @@ export class LocalBlobClient implements BlobClientInterface {
   }
 
   public async sendBlobsToFilestore(blobs: Blob[]): Promise<boolean> {
-    const blobsWithIndex = blobs.map((blob, index) => new BlobWithIndex(blob, index));
-    await this.blobStore.addBlobs(blobsWithIndex);
+    await this.blobStore.addBlobs(blobs);
     return true;
   }
 
-  public getBlobSidecar(
-    _blockId: string,
-    blobHashes: Buffer[],
-    _indices?: number[],
-    _opts?: GetBlobSidecarOptions,
-  ): Promise<BlobWithIndex[]> {
+  public getBlobSidecar(_blockId: string, blobHashes: Buffer[], _opts?: GetBlobSidecarOptions): Promise<Blob[]> {
     return this.blobStore.getBlobsByHashes(blobHashes);
+  }
+
+  /** Returns true if this client can upload blobs. Always true for local client. */
+  public canUpload(): boolean {
+    return true;
   }
 }

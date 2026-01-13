@@ -172,17 +172,17 @@ export class ProverNodePublisher {
 
     // Check the archive for the immediate checkpoint before the epoch
     const checkpointLog = await this.rollupContract.getCheckpoint(CheckpointNumber(fromCheckpoint - 1));
-    if (publicInputs.previousArchiveRoot.toString() !== checkpointLog.archive) {
+    if (!publicInputs.previousArchiveRoot.equals(checkpointLog.archive)) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${checkpointLog.archive}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${checkpointLog.archive.toString()}`,
       );
     }
 
     // Check the archive for the last checkpoint in the epoch
     const endCheckpointLog = await this.rollupContract.getCheckpoint(toCheckpoint);
-    if (publicInputs.endArchiveRoot.toString() !== endCheckpointLog.archive) {
+    if (!publicInputs.endArchiveRoot.equals(endCheckpointLog.archive)) {
       throw new Error(
-        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endCheckpointLog.archive}`,
+        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endCheckpointLog.archive.toString()}`,
       );
     }
 
@@ -200,7 +200,7 @@ export class ProverNodePublisher {
     );
     const argsPublicInputs = [...publicInputs.toFields()];
 
-    if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
+    if (!areArraysEqual(rollupPublicInputs, argsPublicInputs, (a, b) => a.equals(b))) {
       const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
       throw new Error(
         `Root rollup public inputs mismatch:\nRollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,
@@ -266,6 +266,7 @@ export class ProverNodePublisher {
       {
         previousArchive: args.publicInputs.previousArchiveRoot.toString(),
         endArchive: args.publicInputs.endArchiveRoot.toString(),
+        outHash: args.publicInputs.outHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>

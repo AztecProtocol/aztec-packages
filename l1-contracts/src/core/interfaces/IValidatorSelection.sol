@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
@@ -11,14 +12,19 @@ struct ValidatorSelectionStorage {
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
   // Checkpointed map of epoch -> randao value
   Checkpoints.Trace224 randaos;
+  // The following 3 uint32s + address pack into a single slot (12 + 20 = 32 bytes)
   uint32 targetCommitteeSize;
   uint32 lagInEpochsForValidatorSet;
   uint32 lagInEpochsForRandao;
+  IEscapeHatch escapeHatch;
 }
 
 interface IValidatorSelectionCore {
+  event EscapeHatchUpdated(address escapeHatch);
+
   function setupEpoch() external;
   function checkpointRandao() external;
+  function updateEscapeHatch(address _escapeHatch) external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
@@ -36,6 +42,7 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
 
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
+  function getTimestampForEpoch(Epoch _epoch) external view returns (Timestamp);
 
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
   function getSamplingSizeAt(Timestamp _ts) external view returns (uint256);
@@ -51,4 +58,6 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getSlotDuration() external view returns (uint256);
   function getEpochDuration() external view returns (uint256);
   function getTargetCommitteeSize() external view returns (uint256);
+
+  function getEscapeHatch() external view returns (IEscapeHatch);
 }

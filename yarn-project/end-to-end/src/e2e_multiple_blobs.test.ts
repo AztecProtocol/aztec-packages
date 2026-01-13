@@ -60,9 +60,10 @@ describe('e2e_multiple_blobs', () => {
     const provenTxs = [
       // 1 contract deployment tx.
       await publishContractClass(wallet, AvmTestContract.artifact),
-      // 2 private function broadcast txs.
+      // 2 private function broadcast txs. We pick [2] because it has large bytecode (~1,807 fields),
+      // which combined with the contract class publication exceeds FIELDS_PER_BLOB (4,096).
       await broadcastFunction(privateFunctions[0]),
-      await broadcastFunction(privateFunctions[1]),
+      await broadcastFunction(privateFunctions[2]),
       // 1 utility function broadcast tx.
       await broadcastFunction(utilityFunctions[0]),
       // 1 tx to emit note hash, nullifier, l2_to_l1_message, private log and public log.

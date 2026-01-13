@@ -10,7 +10,7 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { type AztecNode, createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -241,7 +241,6 @@ async function setupWithRemoteEnvironment(
     watcher: undefined,
     dateProvider: undefined,
     telemetryClient: undefined,
-    blobClient: undefined,
     teardown,
   };
 }
@@ -326,8 +325,6 @@ export type EndToEndContext = {
   mockGossipSubNetwork: MockGossipSubNetwork | undefined;
   /** Prefilled public data used for setting up nodes. */
   prefilledPublicData: PublicDataTreeLeaf[] | undefined;
-  /** The blob client client used for blob storage (undefined if connected to remote environment) */
-  blobClient: BlobClientInterface | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -513,8 +510,6 @@ export async function setup(
       config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
     }
 
-    const blobClient = await createBlobClientWithFileStores(config, createLogger('node:blob-client:client'));
-
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
     let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
 
@@ -553,7 +548,7 @@ export async function setup(
 
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
-      { dateProvider, blobClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
+      { dateProvider, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
     const sequencerClient = aztecNode.getSequencer();
@@ -666,7 +661,6 @@ export async function setup(
       wallet,
       accounts,
       watcher,
-      blobClient,
     };
   } catch (err) {
     // TODO: Just hoisted anvil for now to ensure cleanup. Prob need to hoist the rest.
@@ -699,14 +693,14 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
         .filter(({ deployed }) => !deployed)
         .map(({ address }) => wallet.getContractMetadata(address)),
     )
-  ).map(contractMetadata => contractMetadata.contractInstance);
+  ).map(contractMetadata => contractMetadata.instance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await wallet.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
     await (await publishContractClass(wallet, SchnorrAccountContractArtifact))
       .send({ from: accountsToDeploy[0] })
       .wait();
   }
-  const requests = await Promise.all(instances.map(async instance => await publishInstance(wallet, instance!)));
+  const requests = instances.map(instance => publishInstance(wallet, instance!));
   const batch = new BatchCall(wallet, requests);
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }

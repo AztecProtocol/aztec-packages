@@ -30,7 +30,7 @@ echo "" > "$FLAKES_FILE"  # Create/clear from previous run
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
   set +e
-  output=$(parallel $parallel_args --bar 'DUMP_FAIL=1 run_test_cmd {}' > >(DUP=1 cache_log "Test run"))
+  output=$(parallel $parallel_args --bar 'DUMP_FAIL=1 run_test_cmd {}' > >(DUP=1 stdbuf -oL cache_log "Test run"))
   code=$?
   if [ "$code" -ne 0 ]; then
     echo -e "$output"

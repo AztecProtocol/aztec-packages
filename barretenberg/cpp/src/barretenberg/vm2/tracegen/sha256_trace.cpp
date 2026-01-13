@@ -404,17 +404,21 @@ void Sha256TraceBuilder::process(
 
         if (invalid_state_tag_err) {
             // This is the more efficient batched tag check we perform in the circuit
-            uint64_t batched_check = 0;
+            FF batched_tag_check = 0;
             // Batch the state tag checks
+            FF target_tag = FF(static_cast<uint8_t>(MemoryTag::U32));
             for (uint32_t i = 0; i < event.state.size(); i++) {
-                batched_check |=
-                    (static_cast<uint64_t>(event.state[i].get_tag()) - static_cast<uint64_t>(MemoryTag::U32))
-                    << (i * 3);
+                // Compute the batched tag check step by step to match the circuit implementation
+                FF mem_tag = FF(static_cast<uint8_t>(event.state[i].get_tag()));
+                FF state_tag_diff = mem_tag - target_tag;
+                FF exponent = FF(1 << (i * 3)); // exponent is 1, 8, 64, 512, ...
+                batched_tag_check += state_tag_diff * exponent;
             }
             trace.set(row,
                       { {
                           { C::sha256_sel_invalid_state_tag_err, 1 },
-                          { C::sha256_batch_tag_inv, FF(batched_check).invert() },
+                          // Guaranteed non-zero (so inversion is safe) since we have an invalid tag
+                          { C::sha256_batch_tag_inv, FF(batched_tag_check).invert() },
                           { C::sha256_latch, 1 },
                           { C::sha256_err, 1 }, // Set the error flag
                       } });
@@ -430,6 +434,7 @@ void Sha256TraceBuilder::process(
         // If during simulation we encounter an invalid tag, it will have been the last element we retrieved
         // before we threw an error - so it will be the last element in the input vector.
         // Therefore, it is just sufficient to check the tag of the last element
+        BB_ASSERT(!event.input.empty(), "SHA256 input cannot be empty");
         bool invalid_tag_err = event.input.back().get_tag() != MemoryTag::U32;
 
         // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
@@ -554,6 +559,7 @@ void Sha256TraceBuilder::process(
         trace.set(row,
                   { {
                       { C::sha256_latch, 1 },
+                      { C::sha256_last, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_xor_sel, 2 },
                       { C::sha256_round_count, 64 },

@@ -12,7 +12,7 @@ Here's a complete example with all monitoring components integrated with your Az
 services:
   # Your Aztec node (example for full node)
   aztec-node:
-    image: "aztecprotocol/aztec:2.1.9"
+    image: "aztecprotocol/aztec:#release_version"
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -36,7 +36,7 @@ services:
       start
       --node
       --archiver
-      --network testnet
+      --network #release_network
     networks:
       - aztec
     restart: always

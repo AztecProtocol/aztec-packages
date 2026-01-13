@@ -16,6 +16,8 @@ spec:
       labels:
         {{- include "eth-devnet.selectorLabels" . | nindent 8 }}
         app: eth-validator
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     spec:
       {{- if .Values.ethereum.validator.nodeSelector }}
       nodeSelector:

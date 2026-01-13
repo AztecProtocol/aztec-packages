@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], date: 2025-11-03 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 
 namespace acir_format {
@@ -44,17 +43,6 @@ struct EcAdd {
     uint32_t result_y;
     uint32_t result_infinite;
 
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(input1_x,
-                   input1_y,
-                   input1_infinite,
-                   input2_x,
-                   input2_y,
-                   input2_infinite,
-                   predicate,
-                   result_x,
-                   result_y,
-                   result_infinite);
     friend bool operator==(EcAdd const& lhs, EcAdd const& rhs) = default;
 };
 

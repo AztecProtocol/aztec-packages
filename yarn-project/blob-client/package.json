@@ -7,7 +7,6 @@
     "./client": "./dest/client/index.js",
     "./client/config": "./dest/client/config.js",
     "./encoding": "./dest/encoding/index.js",
-    "./types": "./dest/types/index.js",
     "./filestore": "./dest/filestore/index.js"
   },
   "inherits": [

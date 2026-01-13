@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -217,7 +217,7 @@ template <typename Curve> struct PairingPoints {
 
 #ifndef NDEBUG
         bb::PairingPoints<typename Curve::NativeCurve> native_pp(P0.get_value(), P1.get_value());
-        info("Aggregated Pairing Points with tag ", tag_index, ": valid: ", native_pp.check() ? "true" : "false");
+        info("Are aggregated Pairing Points with tag ", tag_index, " valid? ", native_pp.check() ? "true" : "false");
 #endif
     }
 

@@ -249,7 +249,7 @@ export class EthAddress {
   /** Converts a number into an address. Useful for testing. */
   static fromNumber(num: bigint | number): EthAddress {
     const buffer = Buffer.alloc(EthAddress.SIZE_IN_BYTES);
-    buffer.writeBigUInt64BE(BigInt(num), 0);
+    buffer.writeBigUInt64BE(BigInt(num), EthAddress.SIZE_IN_BYTES - 8);
     return new EthAddress(buffer);
   }
 

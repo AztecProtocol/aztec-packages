@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 # Resolve repo root and script directory for reliable relative paths
@@ -13,6 +12,17 @@ log() { echo "[INFO]  $(date -Is) - $*"; }
 err() { echo "[ERROR] $(date -Is) - $*" >&2; }
 die() { err "$*"; exit 1; }
 
+# Cleanup function for traps
+cleanup() {
+  if [[ -n "${K8S_LOG_WATCHER_PID:-}" ]]; then
+    log "Cleaning up K8s log watcher (PID: ${K8S_LOG_WATCHER_PID})"
+    kill "${K8S_LOG_WATCHER_PID}" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+# We want to separate out these logs.
+export DENOISE=1
 ########################
 # TIMING INSTRUMENTATION
 ########################
@@ -177,19 +187,37 @@ if (( TOTAL_PROVER_PUBLISHERS > 0 )); then
   LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${PROVER_PUBLISHER_RANGE}"
 fi
 
-# Ensure docker image provided
-if [[ -z "${AZTEC_DOCKER_IMAGE:-}" ]]; then
+# Ensure docker image provided (not needed for pure teardowns)
+if [[ -z "${AZTEC_DOCKER_IMAGE:-}" && ("${CREATE_AZTEC_INFRA:-}" == "true" || "${CREATE_ROLLUP_CONTRACTS:-}" == "true") ]]; then
   die "AZTEC_DOCKER_IMAGE is not set"
 fi
 
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 
 if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then
-  kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true
+  "${SCRIPT_DIR}/network_teardown.sh"
 fi
 
 # Create the namespace if it doesn't exist
 kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
+
+# Start K8s log watcher in background (GKE only)
+K8S_LOG_WATCHER_PID=""
+if [[ "${CLUSTER}" != "kind" && "${K8S_CLUSTER_CONTEXT}" == gke_* ]]; then
+  # Parse GKE context: gke_{project}_{location}_{cluster_name}
+  GKE_CLUSTER_NAME=$(echo "${K8S_CLUSTER_CONTEXT}" | cut -d'_' -f4)
+  GKE_LOCATION=$(echo "${K8S_CLUSTER_CONTEXT}" | cut -d'_' -f3)
+  # Convert epoch start time to ISO format for log filtering
+  DEPLOY_START_ISO=$(date -u -d "@${DEPLOY_START_TIME}" +"%Y-%m-%dT%H:%M:%SZ")
+  log "Starting K8s log watcher for namespace ${NAMESPACE}"
+  python3 "${SCRIPT_DIR}/watch_k8s_logs.py" "${NAMESPACE}" \
+    --project "${GCP_PROJECT_ID}" \
+    --cluster "${GKE_CLUSTER_NAME}" \
+    --location "${GKE_LOCATION}" \
+    --start-time "${DEPLOY_START_ISO}" &
+  K8S_LOG_WATCHER_PID=$!
+  log "K8s log watcher started (PID: ${K8S_LOG_WATCHER_PID})"
+fi
 
 # DRY helper to init/plan/apply/destroy a terraform module
 tf_run() {
@@ -206,6 +234,7 @@ tf_run() {
     terraform -chdir="${dir}" apply tfplan
   fi
 }
+export -f tf_run
 
 # -------------------------------------------------------
 # Optionally deploy Ethereum devnet; otherwise use env URLs
@@ -237,7 +266,7 @@ RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
 EOF
 
   "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ETH_DEVNET_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-eth-devnet"
-  tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}"
+  denoise "tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}""
 
   L1_RPC_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_execution_rpc_url)
   L1_CONSENSUS_HOST_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_beacon_api_url)
@@ -279,7 +308,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -292,6 +321,13 @@ if [[ -n "${NETWORK:-}" ]]; then
   NETWORK_TF="\"${NETWORK}\""
 else
   NETWORK_TF=null
+fi
+
+# Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
+  ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
+else
+  ETHERSCAN_API_KEY_TF=null
 fi
 
 cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
@@ -330,7 +366,7 @@ AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-n
 AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
 AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
-ETHERSCAN_API_KEY = "${ETHERSCAN_API_KEY:-null}"
+ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
 NETWORK = ${NETWORK_TF}
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
@@ -339,7 +375,7 @@ EOF
 
 # Check terraform state for existing contract addresses
 # This avoids redeploying contracts when the k8s job has been cleaned up by TTL
-terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" init -reconfigure >/dev/null
+denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} init -reconfigure >/dev/null"
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
 if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
@@ -347,10 +383,10 @@ if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; 
 else
   if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
     log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
-    terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve
+    denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
   fi
-  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" plan -out=tfplan
-  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" apply tfplan
+  denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
+  denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} apply tfplan"
 
   # Print logs from any failed pods (useful if job succeeded after retries)
   JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
@@ -506,9 +542,11 @@ P2P_NODEPORT_ENABLED = ${P2P_NODEPORT_ENABLED}
 
 PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
 DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
+
+WAIT_FOR_PROVER_DEPLOY = ${WAIT_FOR_PROVER_DEPLOY:-null}
 EOF
 
-tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
+denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
 STAGE_TIMINGS[aztec_infra]=$(($(date +%s) - AZTEC_INFRA_START))
 log "Deployed aztec infra"
 

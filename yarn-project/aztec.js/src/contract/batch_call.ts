@@ -15,6 +15,7 @@ import {
 } from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
+// docs:start:batch_call_class
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
@@ -22,6 +23,7 @@ export class BatchCall extends BaseContractInteraction {
   ) {
     super(wallet);
   }
+  // docs:end:batch_call_class
 
   /**
    * Returns an execution request that represents this operation.

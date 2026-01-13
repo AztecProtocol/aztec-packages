@@ -10,7 +10,7 @@ import type { CheckpointGlobalVariables, GlobalVariables } from './global_variab
  * Interface for building global variables for Aztec blocks.
  */
 export interface GlobalVariableBuilder {
-  getCurrentBaseFees(): Promise<GasFees>;
+  getCurrentMinFees(): Promise<GasFees>;
 
   /**
    * Builds global variables for a given block.

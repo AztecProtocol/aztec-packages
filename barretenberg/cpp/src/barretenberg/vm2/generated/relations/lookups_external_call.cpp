@@ -25,7 +25,7 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_external_call_is_l2_gas_left_gt_alllocated_relation);
-INSTANTIATE_LOOKUP(lookup_external_call_is_da_gas_left_gt_alllocated_relation);
+INSTANTIATE_LOOKUP(lookup_external_call_is_l2_gas_left_gt_allocated_relation);
+INSTANTIATE_LOOKUP(lookup_external_call_is_da_gas_left_gt_allocated_relation);
 
 } // namespace bb::avm2

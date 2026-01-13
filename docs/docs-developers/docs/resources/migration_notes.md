@@ -9,6 +9,107 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Toolchain] Node.js upgraded to v24
+
+Node.js minimum version changed from v22 to v24.12.0.
+
+### [L1 Contracts] Renamed base fee to min fee
+
+The L1 rollup contract functions and types related to fee calculation have been renamed from "base fee" to "min fee" to better reflect their purpose.
+
+**Renamed functions:**
+
+- `getManaBaseFeeAt` → `getManaMinFeeAt`
+- `getManaBaseFeeComponentsAt` → `getManaMinFeeComponentsAt`
+
+**Renamed types:**
+
+- `ManaBaseFeeComponents` → `ManaMinFeeComponents`
+
+**Renamed errors:**
+
+- `Rollup__InvalidManaBaseFee` → `Rollup__InvalidManaMinFee`
+
+**Migration:**
+
+```diff
+- uint256 fee = rollup.getManaBaseFeeAt(timestamp, true);
++ uint256 fee = rollup.getManaMinFeeAt(timestamp, true);
+
+- ManaBaseFeeComponents memory components = rollup.getManaBaseFeeComponentsAt(timestamp, true);
++ ManaMinFeeComponents memory components = rollup.getManaMinFeeComponentsAt(timestamp, true);
+```
+
+### [Aztec.js] Renamed base fee to min fee
+
+The Aztec Node API method for getting current fees has been renamed:
+
+- `getCurrentBaseFees` → `getCurrentMinFees`
+
+**Migration:**
+
+```diff
+- const fees = await node.getCurrentBaseFees();
++ const fees = await node.getCurrentMinFees();
+```
+
+### [Aztec.nr] Renamed fee context methods
+
+The context methods for accessing fee information have been renamed:
+
+- `context.base_fee_per_l2_gas()` → `context.min_fee_per_l2_gas()`
+- `context.base_fee_per_da_gas()` → `context.min_fee_per_da_gas()`
+
+**Migration:**
+
+```diff
+- let l2_fee = context.base_fee_per_l2_gas();
+- let da_fee = context.base_fee_per_da_gas();
++ let l2_fee = context.min_fee_per_l2_gas();
++ let da_fee = context.min_fee_per_da_gas();
+```
+
+### [Aztec.nr] Renamed message delivery options
+
+The following terms have been renamed:
+
+- `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
+- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+- `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
+
+We believe these names will better convey the meaning of the concepts.
+
+### [Aztec Node] changes to `getLogsByTags` endpoint
+
+`getLogsByTags` endpoint has been optimized for our new log sync algorithm and these are the changes:
+
+- The `logsPerTag` pagination argument has been removed. Pagination was unnecessary here, since multiple logs per tag typically only occur if several devices are sending logs from the same sender to a recipient, which is unlikely to generate enough logs to require pagination.
+- The structure of `TxScopedL2Log` has been revised to meet the requirements of our new log sync algorithm.
+- The endpoint has been separated into two versions: `getPrivateLogsByTags` and `getPublicLogsByTagsFromContract`. This change was made because it was never desirable in PXE to mix public and private logs. The public version requires both a `Tag` and a contract address as input. In contrast to the private version—which uses `SiloedTag` (a tag that hashes the raw tag with the emitting contract's address)—the public version uses the raw `Tag` type, since kernels do not hash the tag with the contract address for public logs.
+
+### [AVM] Gas cost multipliers for public execution to reach simulation/proving parity
+
+Gas costs for several AVM opcodes have been adjusted with multipliers to better align public simulation costs with actual proving costs.
+
+| Opcode              | Multiplier | Previous Cost | New Cost |
+| ------------------- | ---------- | ------------- | -------- |
+| FDIV                | 25x        | 9             | 225      |
+| SLOAD               | 10x        | 129           | 1,290    |
+| SSTORE              | 20x        | 1,657         | 33,140   |
+| NOTEHASHEXISTS      | 4x         | 126           | 504      |
+| EMITNOTEHASH        | 15x        | 1,285         | 19,275   |
+| NULLIFIEREXISTS     | 7x         | 132           | 924      |
+| EMITNULLIFIER       | 20x        | 1,540         | 30,800   |
+| L1TOL2MSGEXISTS     | 5x         | 108           | 540      |
+| SENDL2TOL1MSG       | 2x         | 209           | 418      |
+| CALL                | 3x         | 3,312         | 9,936    |
+| STATICCALL          | 3x         | 3,312         | 9,936    |
+| GETCONTRACTINSTANCE | 4x         | 1,527         | 6,108    |
+| POSEIDON2           | 15x        | 24            | 360      |
+| ECADD               | 10x        | 27            | 270      |
+
+**Impact**: Contracts with public bytecode performing any of these operations will see increased gas consumption.
+
 ### [PXE] deprecated `getNotes`
 
 This function serves only for debugging purposes so we are taking it out of the main PXE API. If you still need to consume it, you can
@@ -18,6 +119,8 @@ do so through the new `debug` sub-module.
 - this.pxe.getNotes(filter);
 + this.pxe.debug.getNotes(filter);
 ```
+
+## 3.0.0-devnet.20251212
 
 ### [Aztec node, archiver] Deprecated `getPrivateLogs`
 
@@ -518,6 +621,37 @@ Additionally, any function or struct that previously referenced an L2 block numb
 ```
 
 Note: current node softwares still produce exactly one L2 block per checkpoint, so for now checkpoint numbers and L2 block numbers remain equal. This may change once multi-block checkpoints are enabled.
+
+### [L1 Contracts] L2-to-L1 messages are now grouped by epoch.
+
+L2-to-L1 messages are now aggregated and organized per epoch rather than per block. This change affects how you compute membership witnesses for consuming messages on L1. You now need to know the epoch number in which the message was emitted to retrieve and consume the message.
+
+**Note**: This is only an API change. The protocol behavior remains the same - messages can still only be consumed once an epoch is proven as before.
+
+#### What changed
+
+Previously, you might have computed the membership witness without explicitly needing the epoch:
+
+```typescript
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  l2TxReceipt.blockNumber,
+  l2ToL1Message
+);
+```
+
+Now, you should provide the epoch number:
+
+```typescript
+const epoch = await rollup.getEpochNumberForCheckpoint(
+  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber)
+);
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  epoch,
+  l2ToL1Message
+);
+```
 
 ### [Aztec.js] Wallet interface changes
 
@@ -1868,7 +2002,7 @@ export type Wallet = AccountInterface &
     | "getNodeInfo"
     | "getPXEInfo"
     // Fee info
-    | "getCurrentBaseFees"
+    | "getCurrentMinFees"
     // Still undecided, kept for the time being
     | "updateContract"
     // Sender management

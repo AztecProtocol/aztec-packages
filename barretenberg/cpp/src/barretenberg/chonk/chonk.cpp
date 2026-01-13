@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/chonk/chonk.hpp"
@@ -117,7 +117,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
 
     // Update previous accumulator hash so that we can check it against the one extracted from the public inputs
     if (verifier_inputs.is_kernel) {
-        prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging("", *accumulation_recursive_transcript);
+        prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
     }
 
     RecursiveFoldingVerifier folding_verifier(accumulation_recursive_transcript);
@@ -340,7 +340,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.ecc_op_tables = T_prev_commitments;
         RecursiveTranscript hash_transcript;
         kernel_output.output_hn_accum_hash =
-            current_stdlib_verifier_accumulator->hash_with_origin_tagging("", hash_transcript);
+            current_stdlib_verifier_accumulator->hash_with_origin_tagging(hash_transcript);
         info("Kernel output accumulator hash: ", kernel_output.output_hn_accum_hash);
 #ifndef NDEBUG
         info("Chonk recursive verification: accumulator hash set in the public inputs matches the one "
@@ -601,13 +601,19 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
         }
     }
 
-    if (!queue_entry.is_kernel) {
-        native_verifier_accum_hash = native_verifier_accum.hash_with_origin_tagging("", *verifier_transcript);
-    }
-
     info("Chonk accumulate: prover and verifier accumulators match: ",
          prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
-    info("Chonk accumulate: hash of verifier accumulator computed natively ", native_verifier_accum_hash);
+
+    // Update the native verifier accumulator hash if we are accumulating an app (i.e. the previous circuit was a
+    // kernel) or if the last app has been accumulated (i.e. the current circuit is the tail kernel)
+    bool update_verifier_accum_hash = is_previous_circuit_a_kernel || has_last_app_been_accumulated;
+    if (update_verifier_accum_hash) {
+        native_verifier_accum_hash = native_verifier_accum.hash_with_origin_tagging(*verifier_transcript);
+        info("Chonk accumulate: hash of verifier accumulator computed natively set in previous kernel IO: ",
+             native_verifier_accum_hash);
+    }
+    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 4;
+    is_previous_circuit_a_kernel = queue_entry.is_kernel;
 
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 }
@@ -628,7 +634,7 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
     // Compare precomputed VK with the one generated during accumulation
     auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
     info("Does the precomputed vk match with the one generated during accumulation? ",
-         vk->compare(*precomputed_vk) ? "true" : "false");
+         vk->compare(*precomputed_vk, MegaFlavor::CommitmentLabels().get_precomputed()) ? "true" : "false");
 
     info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }

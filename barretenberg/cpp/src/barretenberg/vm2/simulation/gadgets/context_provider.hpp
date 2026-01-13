@@ -35,22 +35,23 @@ class ContextProvider : public ContextProviderInterface {
         , side_effect_tracker(side_effect_tracker)
         , global_variables(global_variables)
     {}
-    std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
-                                                          AztecAddress msg_sender,
-                                                          FF transaction_fee,
+    std::unique_ptr<ContextInterface> make_nested_context(const AztecAddress& address,
+                                                          const AztecAddress& msg_sender,
+                                                          const FF& transaction_fee,
                                                           ContextInterface& parent_context,
                                                           MemoryAddress cd_offset_address,
-                                                          MemoryAddress cd_size_address,
+                                                          uint32_t cd_size,
                                                           bool is_static,
-                                                          Gas gas_limit,
+                                                          const Gas& gas_limit,
                                                           TransactionPhase phase) override;
-    std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
-                                                            AztecAddress msg_sender,
-                                                            FF transaction_fee,
+    std::unique_ptr<ContextInterface> make_enqueued_context(const AztecAddress& address,
+                                                            const AztecAddress& msg_sender,
+                                                            const FF& transaction_fee,
                                                             std::span<const FF> calldata,
+                                                            const FF& calldata_hash,
                                                             bool is_static,
-                                                            Gas gas_limit,
-                                                            Gas gas_used,
+                                                            const Gas& gas_limit,
+                                                            const Gas& gas_used,
                                                             TransactionPhase phase) override;
     uint32_t get_next_context_id() const override;
 

@@ -76,7 +76,7 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+      (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let walletFeePaymentMethod;
     let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set a default
@@ -286,7 +286,7 @@ export class EmbeddedWallet extends BaseWallet {
     const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = await originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(
+    const contractInstance = await this.pxe.getContractInstance(
       originalAddress.address
     );
     if (!contractInstance) {

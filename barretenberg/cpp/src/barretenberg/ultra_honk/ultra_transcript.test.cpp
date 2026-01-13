@@ -7,6 +7,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -201,7 +202,8 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs)
     {
         // reset internal variables needed for exporting the proof
-        size_t proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+        // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
+        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs);
         prover.transcript->test_set_proof_parsing_state(0, proof_length);
         return prover.export_proof();
     }
@@ -317,9 +319,6 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     using Commitment = Flavor::Commitment;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
-    if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        GTEST_SKIP() << "Not built for this parameter";
-    }
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
@@ -333,9 +332,13 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
 
+    // Use StructuredProof test utility to deserialize/serialize proof data
+    StructuredProof<Flavor> proof_structure;
+
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
-    prover.transcript->serialize_full_transcript(virtual_log_n);
+    proof_structure.deserialize(
+        prover.transcript->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
+    proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
 
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     // we have changed nothing so proof is still valid
@@ -344,18 +347,19 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
-    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
+    proof_structure.z_perm_comm = one_group_val * rand_val; // choose random object to modify
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     // we have not serialized it back to the proof so it should still be fine
     typename TestFixture::Verifier verifier3(vk_and_hash);
     EXPECT_TRUE(verifier3.verify_proof(proof).result);
 
-    prover.transcript->serialize_full_transcript();
+    proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     // the proof is now wrong after serializing it
     typename TestFixture::Verifier verifier4(vk_and_hash);
     EXPECT_FALSE(verifier4.verify_proof(proof).result);
 
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
-    EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
+    proof_structure.deserialize(
+        prover.transcript->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
+    EXPECT_EQ(static_cast<Commitment>(proof_structure.z_perm_comm), one_group_val * rand_val);
 }

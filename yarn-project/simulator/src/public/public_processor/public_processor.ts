@@ -160,7 +160,7 @@ export class PublicProcessor implements Traceable {
     let totalBlockGas = new Gas(0, 0);
     let totalBlobFields = 0;
 
-    for await (const origTx of txs) {
+    for await (const tx of txs) {
       // Only process up to the max tx limit
       if (maxTransactions !== undefined && result.length >= maxTransactions) {
         this.log.debug(`Stopping tx processing due to reaching the max tx limit.`);
@@ -174,8 +174,8 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if it'd exceed max block size
-      const txHash = origTx.getTxHash().toString();
-      const preTxSizeInBytes = origTx.getEstimatedPrivateTxEffectsSize();
+      const txHash = tx.getTxHash().toString();
+      const preTxSizeInBytes = tx.getEstimatedPrivateTxEffectsSize();
       if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
         this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
           txHash,
@@ -187,7 +187,7 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if its gas limit would exceed the block gas limit
-      const txGasLimit = origTx.data.constants.txContext.gasSettings.gasLimits;
+      const txGasLimit = tx.data.constants.txContext.gasSettings.gasLimits;
       if (maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
         this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
           txHash,
@@ -197,9 +197,6 @@ export class PublicProcessor implements Traceable {
         });
         continue;
       }
-
-      // The processor modifies the tx objects in place, so we need to clone them.
-      const tx = Tx.clone(origTx);
 
       // We validate the tx before processing it, to avoid unnecessary work.
       if (preprocessValidator) {
@@ -288,7 +285,15 @@ export class PublicProcessor implements Traceable {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
           // We hit the transaction execution deadline.
-          // There may still be a transaction executing. We stop the guarded fork to prevent any further access to the world state.
+          // There may still be a transaction executing on a worker thread (C++ via NAPI).
+          // Signal cancellation AND WAIT for the simulation to actually stop.
+          // This is critical because C++ might be in the middle of a slow operation (e.g., pad_trees)
+          // and won't check the cancellation flag until that operation completes.
+          // Without waiting, we'd proceed to revert checkpoints while C++ is still writing to state.
+          // Wait for C++ to stop gracefully.
+          await this.publicTxSimulator.cancel?.();
+
+          // Now stop the guarded fork to prevent any further TS-side access to the world state.
           await this.guardedMerkleTree.stop();
 
           // We now know there can't be any further access to world state. The fork is in a state where there is:

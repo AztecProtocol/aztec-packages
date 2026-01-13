@@ -4,6 +4,8 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
@@ -13,6 +15,35 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+
+namespace {
+/**
+ * @brief Test helper: Serialize stdlib VK to field elements and hash with poseidon2.
+ * @details This replicates the removed StdlibVerificationKey_::hash() method for testing purposes.
+ */
+template <typename VK> auto compute_stdlib_vk_hash(const VK& vk)
+{
+    using FF = typename VK::FF;
+    using Builder = typename VK::Builder;
+    using Codec = stdlib::StdlibCodec<FF>;
+
+    auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+        std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
+        buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+    };
+
+    std::vector<FF> elements;
+    serialize_to_field_buffer(vk.log_circuit_size, elements);
+    serialize_to_field_buffer(vk.num_public_inputs, elements);
+    serialize_to_field_buffer(vk.pub_inputs_offset, elements);
+
+    for (const auto& commitment : vk.get_all()) {
+        serialize_to_field_buffer(commitment, elements);
+    }
+
+    return stdlib::poseidon2<Builder>::hash(elements);
+}
+} // namespace
 
 template <typename Flavor> class StdlibVerificationKeyTests : public ::testing::Test {
   public:
@@ -65,14 +96,14 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     OuterBuilder outer_builder;
     StdlibVerificationKey vk(&outer_builder, native_vk);
 
-    // First method of hashing: using hash().
-    FF vk_hash_1 = vk.hash();
+    // First method of hashing: serialize to fields and hash with poseidon2.
+    FF vk_hash_1 = compute_stdlib_vk_hash(vk);
 
     // Second method of hashing: using hash_with_origin_tagging.
     // (ECCVM and Translator recursive flavors don't support hash_with_origin_tagging as their VKs are hardcoded)
     if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
         StdlibTranscript transcript;
-        FF vk_hash_2 = vk.hash_with_origin_tagging("", transcript);
+        FF vk_hash_2 = vk.hash_with_origin_tagging(transcript);
         EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
     }
 }

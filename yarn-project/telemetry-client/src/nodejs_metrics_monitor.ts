@@ -3,17 +3,9 @@ import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDela
 
 import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
-import {
-  type BatchObservableResult,
-  type Meter,
-  type ObservableGauge,
-  type UpDownCounter,
-  ValueType,
-} from './telemetry.js';
+import type { BatchObservableResult, Meter, ObservableGauge, UpDownCounter } from './telemetry.js';
 
-/**
- * Detector for custom Aztec attributes
- */
+/** Monitors Node.js runtime metrics */
 export class NodejsMetricsMonitor {
   private eventLoopDelayGauges: {
     min: ObservableGauge;
@@ -38,53 +30,25 @@ export class NodejsMetricsMonitor {
   private eventLoopDelay: IntervalHistogram;
 
   constructor(private meter: Meter) {
-    const nsObsGauge = (name: (typeof Metrics)[keyof typeof Metrics], description: string) =>
-      meter.createObservableGauge(name, {
-        unit: 'ns',
-        valueType: ValueType.INT,
-        description,
-      });
-
     this.eventLoopDelayGauges = {
-      min: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MIN, 'Minimum delay of the event loop'),
-      mean: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MEAN, 'Mean delay of the event loop'),
-      max: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MAX, 'Max delay of the event loop'),
-      stddev: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_STDDEV, 'Stddev delay of the event loop'),
-      p50: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P50, 'P50 delay of the event loop'),
-      p90: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P90, 'P90 delay of the event loop'),
-      p99: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P99, 'P99 delay of the event loop'),
+      min: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MIN),
+      mean: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MEAN),
+      max: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MAX),
+      stddev: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_STDDEV),
+      p50: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P50),
+      p90: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P90),
+      p99: meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P99),
     };
 
-    this.eventLoopUilization = meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_UTILIZATION, {
-      valueType: ValueType.DOUBLE,
-      description: 'How busy is the event loop',
-    });
-
-    this.eventLoopTime = meter.createUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME, {
-      unit: 'ms',
-      valueType: ValueType.INT,
-      description: 'How much time the event loop has spent in a given state',
-    });
-
+    this.eventLoopUilization = meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_UTILIZATION);
+    this.eventLoopTime = meter.createUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME);
     this.eventLoopDelay = monitorEventLoopDelay();
 
     this.memoryGauges = {
-      heapUsed: meter.createObservableGauge(Metrics.NODEJS_MEMORY_HEAP_USAGE, {
-        unit: 'By',
-        description: 'Memory used by the V8 heap',
-      }),
-      heapTotal: meter.createObservableGauge(Metrics.NODEJS_MEMORY_HEAP_TOTAL, {
-        unit: 'By',
-        description: 'The max size the V8 heap can grow to',
-      }),
-      arrayBuffers: meter.createObservableGauge(Metrics.NODEJS_MEMORY_BUFFER_USAGE, {
-        unit: 'By',
-        description: 'Memory allocated for buffers (includes native memory used)',
-      }),
-      external: meter.createObservableGauge(Metrics.NODEJS_MEMORY_NATIVE_USAGE, {
-        unit: 'By',
-        description: 'Memory allocated for native C++ objects',
-      }),
+      heapUsed: meter.createObservableGauge(Metrics.NODEJS_MEMORY_HEAP_USAGE),
+      heapTotal: meter.createObservableGauge(Metrics.NODEJS_MEMORY_HEAP_TOTAL),
+      arrayBuffers: meter.createObservableGauge(Metrics.NODEJS_MEMORY_BUFFER_USAGE),
+      external: meter.createObservableGauge(Metrics.NODEJS_MEMORY_NATIVE_USAGE),
     };
   }
 

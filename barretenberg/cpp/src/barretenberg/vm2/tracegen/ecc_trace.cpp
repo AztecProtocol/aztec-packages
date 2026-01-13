@@ -62,7 +62,10 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         bool y_match = p.y() == q.y();
 
         bool double_predicate = (x_match && y_match);
-        bool add_predicate = (!x_match && !y_match);
+        // add_predicate is true when x-coordinates differ (regardless of y-coordinates).
+        // PIL constraint: sel = double_op + add_op + INFINITY_PRED, where INFINITY_PRED = x_match * (1 - y_match).
+        // When x_match=0: double_op=0, INFINITY_PRED=0, so add_op must be 1.
+        bool add_predicate = !x_match;
         // If x match but the y's don't, the result is the infinity point when adding;
         bool infinity_predicate = (x_match && !y_match);
         // The result is also the infinity point if
@@ -73,7 +76,7 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
         bool use_computed_result = !infinity_predicate && (!p.is_infinity() && !q.is_infinity());
 
-        assert(result_is_infinity == result.is_infinity() && "Inconsistent infinity result assumption");
+        BB_ASSERT_EQ(result_is_infinity, result.is_infinity(), "Inconsistent infinity result assumption");
 
         FF lambda = compute_lambda(double_predicate, add_predicate, result_is_infinity, p, q);
 
@@ -145,7 +148,7 @@ void EccTraceBuilder::process_scalar_mul(
 
             simulation::ScalarMulIntermediateState state = event.intermediate_states[intermediate_state_idx];
             if (is_start) {
-                assert(state.res == event.result);
+                BB_ASSERT_EQ(state.res, event.result, "Inconsistent result assumption");
             }
             EmbeddedCurvePoint res = state.res;
 

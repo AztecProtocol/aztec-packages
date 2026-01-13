@@ -7,7 +7,7 @@ mod validate_propagated_from_private_call_to_init;
 use crate::components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator;
 use dep::types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
-    constants::PRIVATE_KERNEL_INIT_INDEX,
+    constants::PRIVATE_KERNEL_INIT_VK_INDEX,
     hash::create_protocol_nullifier,
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
@@ -28,7 +28,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut previous_kernel = FixtureBuilder::new();
         let private_call = FixtureBuilder::new();
         let mut output = FixtureBuilder::new();
-        let tx_request = output.build_tx_request();
+        let tx_request = output.to_tx_request();
 
         output.claimed_first_nullifier = 27;
         output.claimed_revertible_counter = 42;
@@ -36,7 +36,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         previous_kernel.claimed_first_nullifier = 27;
         previous_kernel.claimed_revertible_counter = 42;
 
-        previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
+        previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
 
         PrivateKernelCircuitOutputValidatorBuilder {
             previous_kernel,

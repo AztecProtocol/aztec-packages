@@ -58,6 +58,7 @@ describe('p2p client integration block txs protocol ', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
@@ -66,6 +67,8 @@ describe('p2p client integration block txs protocol ', () => {
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
+
+    attestationPool.isEmpty.mockResolvedValue(true);
 
     worldState.status.mockResolvedValue({
       state: mock(),
@@ -96,7 +99,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     txs = await Promise.all(times(5, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const blockProposal = createBlockProposal(BlockNumber(blockNumber), blockHash, txHashes);
+    const blockProposal = await createBlockProposal(BlockNumber(blockNumber), blockHash, txHashes);
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
   });
 
@@ -121,8 +124,8 @@ describe('p2p client integration block txs protocol ', () => {
   const createBlockProposal = (blockNumber: BlockNumber, blockHash: any, txHashes: any[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
-      header: makeL2BlockHeader(1, blockNumber),
-      archive: blockHash,
+      blockHeader: makeL2BlockHeader(1, blockNumber),
+      archiveRoot: blockHash,
       txHashes,
     });
   };

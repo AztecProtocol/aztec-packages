@@ -3,7 +3,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { inboundTransform, outboundTransform } from '../encoding/index.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
 import { FileStoreBlobClient } from './filestore_blob_client.js';
 
 class MockFileStore implements FileStore {
@@ -144,22 +143,6 @@ describe('FileStoreBlobClient', () => {
     });
   });
 
-  describe('saveBlobs with BlobWithIndex', () => {
-    it('should save blobs from BlobWithIndex array', async () => {
-      const blob1 = Blob.fromFields([Fr.random()]);
-      const blob2 = Blob.fromFields([Fr.random()]);
-      const blobsWithIndex = [new BlobWithIndex(blob1, 0), new BlobWithIndex(blob2, 1)];
-
-      await client.saveBlobs(blobsWithIndex);
-
-      const hash1 = `0x${blob1.getEthVersionedBlobHash().toString('hex')}`;
-      const hash2 = `0x${blob2.getEthVersionedBlobHash().toString('hex')}`;
-
-      expect(await mockStore.exists(`${basePath}/blobs/${hash1}.data`)).toBe(true);
-      expect(await mockStore.exists(`${basePath}/blobs/${hash2}.data`)).toBe(true);
-    });
-  });
-
   describe('getBlobsByHashes', () => {
     it('should retrieve blobs by their versioned hashes', async () => {
       const blob = Blob.fromFields([Fr.random(), Fr.random()]);
@@ -191,24 +174,6 @@ describe('FileStoreBlobClient', () => {
       const blobs = await client.getBlobsByHashes([hash1, hash2]);
 
       expect(blobs.length).toBe(2);
-    });
-
-    it('should always set index to -1 (filestore does not track original indices)', async () => {
-      const blob1 = Blob.fromFields([Fr.random()]);
-      const blob2 = Blob.fromFields([Fr.random()]);
-
-      await client.saveBlobs([blob1, blob2]);
-
-      const hash1 = `0x${blob1.getEthVersionedBlobHash().toString('hex')}`;
-      const hash2 = `0x${blob2.getEthVersionedBlobHash().toString('hex')}`;
-
-      // Request in reverse order
-      const blobs = await client.getBlobsByHashes([hash2, hash1]);
-
-      // Index is always '-1' - filestore doesn't preserve original indices
-      // This is intentional as noted in the implementation
-      expect(blobs[0].index).toBe('-1');
-      expect(blobs[1].index).toBe('-1');
     });
 
     it('should skip blobs that fail to parse', async () => {
@@ -247,15 +212,18 @@ describe('FileStoreBlobClient', () => {
   });
 
   describe('testConnection', () => {
-    it('should return true when store is accessible', async () => {
+    it('should return true when healthcheck file exists', async () => {
+      await client.uploadHealthcheck();
       expect(await client.testConnection()).toBe(true);
     });
 
-    // Note: The current implementation of testConnection() always returns true
-    // as noted in the TODO comment in the source. This test documents the current
-    // behavior. When proper connectivity testing is implemented, this test should
-    // be updated to verify that testConnection returns false for failing stores.
-    it('should return true even when store might fail (current implementation limitation)', async () => {
+    it('should return false when healthcheck file does not exist', async () => {
+      const freshStore = new MockFileStore();
+      const freshClient = new FileStoreBlobClient(freshStore, basePath);
+      expect(await freshClient.testConnection()).toBe(false);
+    });
+
+    it('should return false when store throws error', async () => {
       const failingStore: ReadOnlyFileStore = {
         read: () => Promise.reject(new Error('fail')),
         download: () => Promise.reject(new Error('fail')),
@@ -263,8 +231,7 @@ describe('FileStoreBlobClient', () => {
       };
 
       const failingClient = new FileStoreBlobClient(failingStore, basePath);
-      // Current implementation always returns true
-      expect(await failingClient.testConnection()).toBe(true);
+      expect(await failingClient.testConnection()).toBe(false);
     });
   });
 
@@ -284,7 +251,7 @@ describe('FileStoreBlobClient', () => {
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
       const path = `${basePath}/blobs/${versionedHash}.data`;
 
-      files.set(path, outboundTransform(Buffer.from(JSON.stringify(blob.toJson(-1)))));
+      files.set(path, outboundTransform(Buffer.from(JSON.stringify(blob.toJSON()))));
 
       const readOnlyStore = new MockReadOnlyFileStore(files);
       const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath);

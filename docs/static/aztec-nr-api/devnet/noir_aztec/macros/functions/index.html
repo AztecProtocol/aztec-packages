@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Module functions documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">functions</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -52,13 +58,14 @@ once and only once, preventing replay attacks.</div></li>
 <li>if there are multiple initializer functions, only one of them can be called</li>
 <li>no non-initializer functions can be called until an initializer has ben called (except <code>noinitcheck</code> functions)</li>
 </ul></div></li>
-<li><div class="item-name"><a href="fn.internal.html" class="fn">internal</a></div><div class="item-description">Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #[only_self]
+<li><div class="item-name"><a href="fn.internal.html" class="fn">internal</a></div><div class="item-description">Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #<a href="../../../noir_aztec/macros/functions/fn.only_self.html">only_self</a>
 functions, internal functions are inlined (e.g. akin to EVM's JUMP and not EVM's CALL).</div></li>
 <li><div class="item-name"><a href="fn.noinitcheck.html" class="fn">noinitcheck</a></div><div class="item-description">Functions with noinitcheck can be called before contract initialization.</div></li>
-<li><div class="item-name"><a href="fn.nophasecheck.html" class="fn">nophasecheck</a></div><div class="item-description">Functions marked with #[nophasecheck] will handle phase changes internally</div></li>
-<li><div class="item-name"><a href="fn.only_self.html" class="fn">only_self</a></div><div class="item-description">Functions marked with #[only_self] attribute can only be called by the contract itself.</div></li>
+<li><div class="item-name"><a href="fn.nophasecheck.html" class="fn">nophasecheck</a></div><div class="item-description">Functions marked with #<a href="../../../noir_aztec/macros/functions/fn.nophasecheck.html">nophasecheck</a> will handle phase changes internally</div></li>
+<li><div class="item-name"><a href="fn.only_self.html" class="fn">only_self</a></div><div class="item-description">Functions marked with #<a href="../../../noir_aztec/macros/functions/fn.only_self.html">only_self</a> attribute can only be called by the contract itself.</div></li>
 <li><div class="item-name"><a href="fn.view.html" class="fn">view</a></div><div class="item-description">View functions can only be called in a static execution context.</div></li>
 </ul>
 </main>
+</span>
 </body>
 </html>

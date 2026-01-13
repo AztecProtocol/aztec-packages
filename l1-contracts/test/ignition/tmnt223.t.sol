@@ -119,7 +119,7 @@ contract Tmnt223Test is RollupBase {
     // Now say that we alter the mana limit! Ensure that we can still produce checkpoints!
     MANA_TARGET = 1e6;
     vm.expectEmit(true, true, true, true, address(rollup.getInbox()));
-    emit IInbox.InboxSynchronized(12);
+    emit IInbox.InboxSynchronized(10 + TestConstants.AZTEC_INBOX_LAG + 1);
     vm.prank(Ownable(address(rollup)).owner());
     rollup.updateManaTarget(MANA_TARGET);
 
@@ -133,7 +133,7 @@ contract Tmnt223Test is RollupBase {
     );
 
     assertEq(rollup.getPendingCheckpointNumber(), 11);
-    assertEq(rollup.getInbox().getInProgress(), 13);
+    assertEq(rollup.getInbox().getInProgress(), 11 + TestConstants.AZTEC_INBOX_LAG + 1);
   }
 
   function getCheckpoint() internal view returns (Checkpoint memory) {
@@ -152,7 +152,7 @@ contract Tmnt223Test is RollupBase {
     header.timestamp = ts;
     header.coinbase = address(bytes20("coinbase"));
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     if (MANA_TARGET > 0) {
       header.totalManaUsed = MANA_TARGET;
     } else {

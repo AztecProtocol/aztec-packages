@@ -45,7 +45,7 @@ pub contract EcdsaKAccount {
         // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
         // contract.
         self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
@@ -74,6 +74,7 @@ pub contract EcdsaKAccount {
         actions.verify_private_authwit(inner_hash)
     }
 
+    // docs:start:is_valid_impl
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
@@ -100,4 +101,5 @@ pub contract EcdsaKAccount {
             hashed_message,
         )
     }
+    // docs:end:is_valid_impl
 }

@@ -50,6 +50,7 @@ describe('p2p client integration', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
@@ -58,6 +59,8 @@ describe('p2p client integration', () => {
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
+
+    attestationPool.isEmpty.mockResolvedValue(true);
 
     worldState.status.mockResolvedValue({
       state: mock(),
@@ -297,7 +300,6 @@ describe('p2p client integration', () => {
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
-    // Low tolerance error is due to the invalid proof
     expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
   });
 
@@ -335,7 +337,6 @@ describe('p2p client integration', () => {
     // Even though we got a response, the proof was deemed invalid
     expect(requestedTxs).toEqual([]);
 
-    // Received wrong tx
     expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
   });
 });

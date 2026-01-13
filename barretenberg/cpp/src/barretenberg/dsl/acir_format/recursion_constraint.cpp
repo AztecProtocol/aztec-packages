@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
@@ -9,7 +9,6 @@
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 
 namespace acir_format {
 
@@ -186,20 +185,22 @@ void process_hn_recursion_constraints(
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
-        // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
-        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1597): Are there public inputs in the queue_entry
+        // proofs?
+        // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in
+        // the internal verification queue. This ensures that the witnesses utilized in constraints generated based on
         // acir are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
         // verifications).
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
-            // Get the witness indices for the public inputs contained within the proof in the verification queue
-            std::vector<uint32_t> public_input_indices =
-                ProofSurgeon<uint256_t>::get_public_inputs_witness_indices_from_proof(queue_entry.proof,
-                                                                                      constraint.public_inputs.size());
+            std::vector<StdlibFF> public_inputs_from_proof(queue_entry.proof.begin(),
+                                                           queue_entry.proof.begin() +
+                                                               static_cast<ptrdiff_t>(constraint.public_inputs.size()));
 
-            // Assert equality between the internal public input witness indices and those in the acir constraint
-            for (auto [witness_idx, constraint_witness_idx] :
-                 zip_view(public_input_indices, constraint.public_inputs)) {
-                builder.assert_equal(witness_idx, constraint_witness_idx);
+            for (const auto [proof_public_input, constraint_public_input_idx] :
+                 zip_view(public_inputs_from_proof, constraint.public_inputs)) {
+                const StdlibFF constraint_public_input =
+                    StdlibFF::from_witness_index(&builder, constraint_public_input_idx);
+                proof_public_input.assert_equal(constraint_public_input);
             }
         }
 

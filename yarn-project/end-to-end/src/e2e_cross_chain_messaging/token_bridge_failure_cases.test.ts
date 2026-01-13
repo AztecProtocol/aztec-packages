@@ -1,7 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/aztec.js/messaging';
-import { RollupContract } from '@aztec/ethereum/contracts';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 
 import { toFunctionSelector } from 'viem';
@@ -13,21 +12,15 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   const t = new CrossChainMessagingTest('token_bridge_failure_cases');
   let version: number = 1;
 
-  let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address } = t;
+  let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address, rollup } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Address, user2Address, ownerAddress } = t);
+    ({ crossChainTestHarness, user1Address, user2Address, ownerAddress, rollup } = t);
     ethAccount = crossChainTestHarness.ethAccount;
     l2Bridge = crossChainTestHarness.l2Bridge;
     ownerAddress = crossChainTestHarness.ownerAddress;
-
-    const rollup = new RollupContract(
-      crossChainTestHarness.l1Client,
-      crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
-    );
     version = Number(await rollup.getVersion());
   }, 300_000);
 

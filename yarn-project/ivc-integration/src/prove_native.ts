@@ -12,7 +12,6 @@ import {
 } from '@aztec/bb-prover';
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   CHONK_PROOF_LENGTH,
   HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -153,7 +152,6 @@ export async function proveAvm(
   workingDirectory: string,
   logger: Logger,
 ): Promise<{
-  vk: VerificationKeyAsFields;
   proof: Fr[];
   publicInputs: AvmCircuitPublicInputs;
 }> {
@@ -169,11 +167,7 @@ export async function proveAvm(
   }
 
   const avmProofPath = proofRes.proofPath;
-  const avmVkDirectoryPath = proofRes.vkDirectoryPath;
   expect(avmProofPath).toBeDefined();
-  expect(avmVkDirectoryPath).toBeDefined();
-
-  const avmVkPath = path.join(proofRes.vkDirectoryPath as string, VK_FILENAME);
 
   // Read the binary proof
   const avmProofBuffer = await fs.readFile(avmProofPath!);
@@ -191,26 +185,11 @@ export async function proveAvm(
     proof.push(new Fr(0));
   }
 
-  // Read the key
-  const vkBuffer = await fs.readFile(avmVkPath!);
-  const vkReader = BufferReader.asReader(vkBuffer);
-  const vk: Fr[] = [];
-  while (!vkReader.isEmpty()) {
-    vk.push(Fr.fromBuffer(vkReader));
-  }
-  // We extend to a fixed-size padded vk as during development any new AVM circuit precomputed
-  // column changes the vk length and we do not have a mechanism to feedback a cpp constant to noir/TS.
-  // TODO(#13390): Revive a non-padded vk proof
-  while (vk.length < AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
-    vk.push(new Fr(0));
-  }
-
   const verificationResult = await verifyAvmProof(
     bbPath,
     workingDirectory,
     proofRes.proofPath!,
     avmCircuitInputs.publicInputs,
-    path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
     logger,
   );
 
@@ -220,7 +199,6 @@ export async function proveAvm(
 
   return {
     proof,
-    vk: await VerificationKeyAsFields.fromKey(vk),
     publicInputs: avmCircuitInputs.publicInputs,
   };
 }

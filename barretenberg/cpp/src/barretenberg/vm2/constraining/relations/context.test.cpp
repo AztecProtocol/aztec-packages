@@ -154,7 +154,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
     check_relation<context>(trace);
 
     check_interaction<tracegen::ExecutionTraceBuilder,
-                      lookup_context_ctx_stack_call_settings,
+                      perm_context_ctx_stack_call_settings,
                       lookup_context_ctx_stack_rollback_settings,
                       lookup_context_ctx_stack_return_settings>(trace);
 }
@@ -284,7 +284,7 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
     check_relation<context>(trace);
 
     check_interaction<tracegen::ExecutionTraceBuilder,
-                      lookup_context_ctx_stack_call_settings,
+                      perm_context_ctx_stack_call_settings,
                       lookup_context_ctx_stack_rollback_settings,
                       lookup_context_ctx_stack_return_settings>(trace);
 }
@@ -801,6 +801,166 @@ TEST(ContextConstrainingTest, IsStaticPropagationWithoutCalls)
 
     // reset is_static
     trace.set(C::execution_is_static, 2, 1);
+}
+
+// =================================================================================================
+// Test: Tree state must be inherited when entering a nested call (sel_enter_call=1)
+// =================================================================================================
+// Previously this was a vulnerability - tree state was unconstrained on enter_call.
+// Now fixed with *_ON_ENTER_CALL constraints that enforce continuity.
+// =================================================================================================
+TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
+{
+    // Setup: Row 1 (CALL instruction) has tree state, Row 2 (nested context) has DIFFERENT tree state
+    // The new *_ON_ENTER_CALL constraints should catch this manipulation
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // CALL instruction - has current tree state
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 },
+            // Current tree state at end of this instruction
+            { C::execution_note_hash_tree_root, 100 },
+            { C::execution_note_hash_tree_size, 50 },
+            { C::execution_num_note_hashes_emitted, 10 },
+            { C::execution_nullifier_tree_root, 200 },
+            { C::execution_nullifier_tree_size, 60 },
+            { C::execution_num_nullifiers_emitted, 20 },
+            { C::execution_public_data_tree_root, 300 },
+            { C::execution_public_data_tree_size, 70 },
+            { C::execution_written_public_data_slots_tree_root, 400 },
+            { C::execution_written_public_data_slots_tree_size, 80 },
+            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_l2_to_l1_messages, 3 },
+        },
+        {
+            // First row of nested context - MALICIOUS: completely different tree state!
+            // A malicious prover tries to set arbitrary values here
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_parent_id, 1 },
+            { C::execution_has_parent_ctx, 1 },
+            { C::execution_is_parent_id_inv, 1 },
+            // ATTACK ATTEMPT: These should equal the previous row's values
+            { C::execution_prev_note_hash_tree_root, 999999 },                 // Should be 100
+            { C::execution_prev_note_hash_tree_size, 888888 },                 // Should be 50
+            { C::execution_prev_num_note_hashes_emitted, 777777 },             // Should be 10
+            { C::execution_prev_nullifier_tree_root, 666666 },                 // Should be 200
+            { C::execution_prev_nullifier_tree_size, 555555 },                 // Should be 60
+            { C::execution_prev_num_nullifiers_emitted, 444444 },              // Should be 20
+            { C::execution_prev_public_data_tree_root, 333333 },               // Should be 300
+            { C::execution_prev_public_data_tree_size, 222222 },               // Should be 70
+            { C::execution_prev_written_public_data_slots_tree_root, 111111 }, // Should be 400
+            { C::execution_prev_written_public_data_slots_tree_size, 99999 },  // Should be 80
+            { C::execution_prev_num_unencrypted_log_fields, 88888 },           // Should be 5
+            { C::execution_prev_num_l2_to_l1_messages, 77777 },                // Should be 3
+        },
+        {
+            { C::execution_sel, 0 },
+        },
+    });
+
+    // Each of the new *_ON_ENTER_CALL constraints should catch the manipulation
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY),
+                              "NOTE_HASH_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY),
+                              "NOTE_HASH_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY),
+                              "NUM_NOTE_HASHES_EMITTED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_ROOT_CONTINUITY),
+                              "NULLIFIER_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
+                              "NULLIFIER_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
+                              "NUM_NULLIFIERS_EMITTED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
+                              "PUBLIC_DATA_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
+                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
+                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
+                              "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+}
+
+// Positive test: Correct tree state inheritance on enter call
+TEST(ContextConstrainingTest, TreeStateOnEnterCallCorrect)
+{
+    // Tree state is correctly inherited (prev values on row 2 match current values on row 1)
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // CALL instruction
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 },
+            // Current tree state
+            { C::execution_note_hash_tree_root, 100 },
+            { C::execution_note_hash_tree_size, 50 },
+            { C::execution_num_note_hashes_emitted, 10 },
+            { C::execution_nullifier_tree_root, 200 },
+            { C::execution_nullifier_tree_size, 60 },
+            { C::execution_num_nullifiers_emitted, 20 },
+            { C::execution_public_data_tree_root, 300 },
+            { C::execution_public_data_tree_size, 70 },
+            { C::execution_written_public_data_slots_tree_root, 400 },
+            { C::execution_written_public_data_slots_tree_size, 80 },
+            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_l2_to_l1_messages, 3 },
+        },
+        {
+            // First row of nested context - CORRECT: inherits parent's tree state
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_parent_id, 1 },
+            { C::execution_has_parent_ctx, 1 },
+            { C::execution_is_parent_id_inv, 1 },
+            // Correctly inherited from previous row
+            { C::execution_prev_note_hash_tree_root, 100 },
+            { C::execution_prev_note_hash_tree_size, 50 },
+            { C::execution_prev_num_note_hashes_emitted, 10 },
+            { C::execution_prev_nullifier_tree_root, 200 },
+            { C::execution_prev_nullifier_tree_size, 60 },
+            { C::execution_prev_num_nullifiers_emitted, 20 },
+            { C::execution_prev_public_data_tree_root, 300 },
+            { C::execution_prev_public_data_tree_size, 70 },
+            { C::execution_prev_written_public_data_slots_tree_root, 400 },
+            { C::execution_prev_written_public_data_slots_tree_size, 80 },
+            { C::execution_prev_num_unencrypted_log_fields, 5 },
+            { C::execution_prev_num_l2_to_l1_messages, 3 },
+        },
+        {
+            { C::execution_sel, 0 },
+        },
+    });
+
+    // All constraints should pass with correct values
+    check_relation<context>(trace,
+                            context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY,
+                            context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_ROOT_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
+                            context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 }
 
 TEST(ContextConstrainingTest, ContextIdPropagation)

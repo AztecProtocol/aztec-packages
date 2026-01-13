@@ -1,16 +1,13 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { makeBlockHeader } from '@aztec/stdlib/testing';
+import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { SiloedTag } from '../../siloed_tag.js';
-import { Tag } from '../../tag.js';
 import { loadLogsForRange } from './load_logs_for_range.js';
 
 // In tests where the anchor block behavior is not under examination, we use a high block number to ensure it occurs
@@ -29,16 +26,8 @@ describe('loadLogsForRange', () => {
     return SiloedTag.compute(tag, app);
   }
 
-  function makeLog(txHash: TxHash, blockHash: Fr, blockNumber: number, blockTimestamp: bigint, tag: SiloedTag) {
-    return new TxScopedL2Log(
-      txHash,
-      0,
-      0,
-      BlockNumber(blockNumber),
-      L2BlockHash.fromField(blockHash),
-      blockTimestamp,
-      PrivateLog.random(tag.value),
-    );
+  function makeLog(txHash: TxHash, blockNumber: number, blockTimestamp: bigint, tag: SiloedTag) {
+    return randomTxScopedPrivateL2Log({ txHash, blockNumber, blockTimestamp, tag: tag.value });
   }
 
   beforeAll(async () => {
@@ -48,46 +37,16 @@ describe('loadLogsForRange', () => {
   });
 
   beforeEach(() => {
-    aztecNode.getLogsByTags.mockReset();
+    aztecNode.getPrivateLogsByTags.mockReset();
   });
 
   it('returns empty array when no logs found for the given window', async () => {
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       // No log found for any tag
-      return Promise.resolve(tags.map((_tag: Fr) => []));
+      return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
 
     expect(await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER)).toHaveLength(0);
-  });
-
-  it('only returns private logs', async () => {
-    const txHash = TxHash.random();
-    const blockNumber = 5;
-    const index = 3;
-    const timestamp = 1000n;
-    const tag = await computeSiloedTagForIndex(index);
-    const blockHeader = makeBlockHeader(0, { timestamp });
-
-    aztecNode.getLogsByTags.mockImplementation(async (tags: Fr[]) => {
-      const blockHash = await blockHeader.hash();
-      const privateLog = makeLog(txHash, blockHash, blockNumber, timestamp, tag);
-      const publicLog = new TxScopedL2Log(
-        TxHash.random(),
-        0,
-        0,
-        BlockNumber(blockNumber),
-        L2BlockHash.fromField(blockHash),
-        timestamp,
-        await PublicLog.random(),
-      );
-      return tags.map((t: Fr) => (t.equals(tag.value) ? [privateLog, publicLog] : []));
-    });
-
-    const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].log.txHash.equals(txHash)).toBe(true);
-    expect(result[0].log.isFromPublic).toBe(false);
   });
 
   it('handles multiple logs at different indexes', async () => {
@@ -101,16 +60,14 @@ describe('loadLogsForRange', () => {
     const timestamp2 = 2000n;
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
-    const blockHeader1 = makeBlockHeader(0, { timestamp: timestamp1 });
-    const blockHeader2 = makeBlockHeader(1, { timestamp: timestamp2 });
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
       return Promise.all(
-        tags.map(async (t: Fr) => {
-          if (t.equals(tag1.value)) {
-            return [makeLog(txHash1, await blockHeader1.hash(), blockNumber1, timestamp1, tag1)];
-          } else if (t.equals(tag2.value)) {
-            return [makeLog(txHash2, await blockHeader2.hash(), blockNumber2, timestamp2, tag2)];
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tag1)) {
+            return [makeLog(txHash1, blockNumber1, timestamp1, tag1)];
+          } else if (t.equals(tag2)) {
+            return [makeLog(txHash2, blockNumber2, timestamp2, tag2)];
           }
           return [];
         }),
@@ -138,17 +95,12 @@ describe('loadLogsForRange', () => {
     const timestamp1 = 1000n;
     const timestamp2 = 2000n;
     const tag = await computeSiloedTagForIndex(index);
-    const blockHeader1 = makeBlockHeader(0, { timestamp: timestamp1 });
-    const blockHeader2 = makeBlockHeader(1, { timestamp: timestamp2 });
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
-      return Promise.all(
-        tags.map(async (t: Fr) =>
-          t.equals(tag.value)
-            ? [
-                makeLog(txHash1, await blockHeader1.hash(), blockNumber1, timestamp1, tag),
-                makeLog(txHash2, await blockHeader2.hash(), blockNumber2, timestamp2, tag),
-              ]
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((t: SiloedTag) =>
+          t.equals(tag)
+            ? [makeLog(txHash1, blockNumber1, timestamp1, tag), makeLog(txHash2, blockNumber2, timestamp2, tag)]
             : [],
         ),
       );
@@ -173,18 +125,18 @@ describe('loadLogsForRange', () => {
     const timestamp = 1000n;
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
-    const blockHeader = makeBlockHeader(0, { timestamp });
 
-    aztecNode.getLogsByTags.mockImplementation(async (tags: Fr[]) => {
-      const blockHash = await blockHeader.hash();
-      return tags.map((t: Fr) => {
-        if (t.equals(tag1.value)) {
-          return [makeLog(txHash1, blockHash, blockNumber, timestamp, tag1)];
-        } else if (t.equals(tag2.value)) {
-          return [makeLog(txHash2, blockHash, blockNumber, timestamp, tag2)];
-        }
-        return [];
-      });
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tag1)) {
+            return [makeLog(txHash1, blockNumber, timestamp, tag1)];
+          } else if (t.equals(tag2)) {
+            return [makeLog(txHash2, blockNumber, timestamp, tag2)];
+          }
+          return [];
+        }),
+      );
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, 0, 10, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
@@ -207,18 +159,18 @@ describe('loadLogsForRange', () => {
     const timestamp = 1000n;
     const tagAtStart = await computeSiloedTagForIndex(start);
     const tagAtEnd = await computeSiloedTagForIndex(end);
-    const blockHeader = makeBlockHeader(0, { timestamp });
 
-    aztecNode.getLogsByTags.mockImplementation(async (tags: Fr[]) => {
-      const blockHash = await blockHeader.hash();
-      return tags.map((t: Fr) => {
-        if (t.equals(tagAtStart.value)) {
-          return [makeLog(txHashAtStart, blockHash, 5, timestamp, tagAtStart)];
-        } else if (t.equals(tagAtEnd.value)) {
-          return [makeLog(txHashAtEnd, blockHash, 6, timestamp, tagAtEnd)];
-        }
-        return [];
-      });
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((t: SiloedTag) => {
+          if (t.equals(tagAtStart)) {
+            return [makeLog(txHashAtStart, 5, timestamp, tagAtStart)];
+          } else if (t.equals(tagAtEnd)) {
+            return [makeLog(txHashAtEnd, 6, timestamp, tagAtEnd)];
+          }
+          return [];
+        }),
+      );
     });
 
     const result = await loadLogsForRange(secret, app, aztecNode, start, end, NON_INTERFERING_ANCHOR_BLOCK_NUMBER);
@@ -235,18 +187,15 @@ describe('loadLogsForRange', () => {
     const index = 3;
     const timestamp = 1000n;
     const tag = await computeSiloedTagForIndex(index);
-    const blockHeaderBefore = makeBlockHeader(0, { timestamp });
-    const blockHeaderAtAnchor = makeBlockHeader(1, { timestamp });
-    const blockHeaderAfter = makeBlockHeader(2, { timestamp });
 
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => {
-      return Promise.all(
-        tags.map(async (t: Fr) =>
-          t.equals(tag.value)
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((t: SiloedTag) =>
+          t.equals(tag)
             ? [
-                makeLog(TxHash.random(), await blockHeaderBefore.hash(), anchorBlockNumber - 1, timestamp, tag),
-                makeLog(TxHash.random(), await blockHeaderAtAnchor.hash(), anchorBlockNumber, timestamp, tag),
-                makeLog(TxHash.random(), await blockHeaderAfter.hash(), anchorBlockNumber + 1, timestamp, tag),
+                makeLog(TxHash.random(), anchorBlockNumber - 1, timestamp, tag),
+                makeLog(TxHash.random(), anchorBlockNumber, timestamp, tag),
+                makeLog(TxHash.random(), anchorBlockNumber + 1, timestamp, tag),
               ]
             : [],
         ),

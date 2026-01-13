@@ -4,7 +4,7 @@ use crate::{
         FinalBlobBatchingChallenges,
     },
     blob::barycentric_evaluate_blob_at_z,
-    utils::{compress_to_blob_commitment, validate_canonical_point_at_infinity},
+    utils::{compress_to_blob_commitment, validate_canonical_representation_if_infinity},
 };
 use bigcurve::BigCurve;
 use bignum::BLS12_381_Fr;
@@ -42,7 +42,7 @@ fn compute_blob_challenge(
     challenge
 }
 
-/// Evaluates each blob required for an L1 block:
+/// Evaluates each blob required for a checkpoint:
 /// - Compresses each of the blob's injected commitments.
 /// - Evaluates each blob individually to find its challenge `z_i` and evaluation `y_i`.
 /// - Updates the batched blob accumulator.
@@ -54,13 +54,15 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
 ) -> BlobAccumulator {
-    // The rationale behind this is that the start accumulator is hinted, and in merge we just assert that left.end.eq(right.start)
+    // The rationale behind this line is that the start accumulator is hinted, and in merge we just assert that left.end.eq(right.start)
     // And on root we check that left.start.eq(empty()).
     // However, currently the equals method of big curve points doesn't check for equality of the limbs on infinity points.
     // This means that infinity points can be swapped with non canonical versions without the eq realizing it.
     // I don't think there is a way to take advantage of that, since we should never have infinity points in c_acc,
     // but as good measure we'll validate that it's canonical here.
-    validate_canonical_point_at_infinity(start_accumulator.c_acc);
+    // Also, the Root Rollup circuit technically validates that the start accumulator of the checkpoint is Empty,
+    // and the Empty impl uses the canonical representation of infinity.
+    validate_canonical_representation_if_infinity(start_accumulator.c_acc);
 
     let mut end_accumulator = start_accumulator;
     for i in 0..NumBlobs {
@@ -68,7 +70,8 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         let commitment_point = kzg_commitments_points[i];
         // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
         commitment_point.validate_on_curve();
-        validate_canonical_point_at_infinity(commitment_point);
+        // Strangely, `validate_on_curve` doesn't validate the point at infinity, so we check that here:
+        validate_canonical_representation_if_infinity(commitment_point);
         let c_i = compress_to_blob_commitment(commitment_point);
 
         // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.

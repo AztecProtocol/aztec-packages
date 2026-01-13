@@ -12,13 +12,7 @@ import {
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractClassMetadata,
-  ContractClassWithIdSchema,
-  type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
-  type ContractMetadata,
-} from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
 import {
@@ -165,17 +159,43 @@ export type PrivateEvent<T> = {
 };
 
 /**
+ * Contract metadata including deployment and registration status.
+ */
+export type ContractMetadata = {
+  /** The contract instance */
+  instance?: ContractInstanceWithAddress;
+  /** Whether the contract has been initialized (init nullifier exists) */
+  isContractInitialized: boolean;
+  /** Whether the contract instance is publicly deployed on-chain */
+  isContractPublished: boolean;
+  /** Whether the contract has been updated to a different class */
+  isContractUpdated: boolean;
+  /** The updated contract class ID if the contract has been updated */
+  updatedContractClassId?: Fr | undefined;
+};
+
+/**
+ * Contract class metadata.
+ */
+export type ContractClassMetadata = {
+  /** Whether the artifact is registered in the wallet */
+  isArtifactRegistered: boolean;
+  /** Whether the contract class is publicly registered on-chain */
+  isContractClassPubliclyRegistered: boolean;
+};
+
+/**
  * The wallet interface.
  */
 export type Wallet = {
-  getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
-  getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
   getPrivateEvents<T>(
     eventMetadata: EventMetadataDefinition,
     eventFilter: PrivateEventFilter,
   ): Promise<PrivateEvent<T>[]>;
   getChainInfo(): Promise<ChainInfo>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+  getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
+  getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
@@ -281,22 +301,6 @@ export const BatchedMethodSchema = z.union([
   }),
 ]);
 
-export const ContractMetadataSchema = zodFor<ContractMetadata>()(
-  z.object({
-    contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
-    isContractInitialized: z.boolean(),
-    isContractPublished: z.boolean(),
-  }),
-);
-
-export const ContractClassMetadataSchema = zodFor<ContractClassMetadata>()(
-  z.object({
-    contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
-    isContractClassPubliclyRegistered: z.boolean(),
-    artifact: z.union([ContractArtifactSchema, z.undefined()]),
-  }),
-);
-
 export const EventMetadataDefinitionSchema = z.object({
   eventSelector: schemas.EventSelector,
   abiType: AbiTypeSchema,
@@ -318,14 +322,27 @@ export const PrivateEventFilterSchema = z.object({
   toBlock: optional(BlockNumberPositiveSchema),
 });
 
+export const ContractMetadataSchema = z.object({
+  instance: optional(ContractInstanceWithAddressSchema),
+  isContractInitialized: z.boolean(),
+  isContractPublished: z.boolean(),
+  isContractUpdated: z.boolean(),
+  updatedContractClassId: optional(schemas.Fr),
+});
+
+export const ContractClassMetadataSchema = z.object({
+  isArtifactRegistered: z.boolean(),
+  isContractClassPubliclyRegistered: z.boolean(),
+});
+
 export const WalletSchema: ApiSchemaFor<Wallet> = {
   getChainInfo: z
     .function()
     .args()
     .returns(z.object({ chainId: schemas.Fr, version: schemas.Fr })),
-  getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
-  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
+  getContractClassMetadata: z.function().args(schemas.Fr).returns(ContractClassMetadataSchema),
   getPrivateEvents: z
     .function()
     .args(EventMetadataDefinitionSchema, PrivateEventFilterSchema)

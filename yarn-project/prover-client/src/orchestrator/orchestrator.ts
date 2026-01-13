@@ -22,6 +22,7 @@ import type {
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
   PublicInputsAndRecursiveProof,
+  ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
@@ -96,7 +97,7 @@ export class ProvingOrchestrator implements EpochProver {
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
 
   constructor(
-    private dbProvider: ForkMerkleTreeOperations,
+    private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
     telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -110,6 +111,10 @@ export class ProvingOrchestrator implements EpochProver {
 
   public getProverId(): EthAddress {
     return this.proverId;
+  }
+
+  public getNumActiveForks() {
+    return this.dbs.size;
   }
 
   public stop(): Promise<void> {
@@ -309,7 +314,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         validateTx(tx);
 
-        logger.info(`Received transaction: ${tx.hash}`);
+        logger.debug(`Received transaction: ${tx.hash}`);
 
         const startSpongeBlob = spongeBlobState.clone();
         const [hints, treeSnapshots] = await this.prepareBaseRollupInputs(
@@ -485,12 +490,7 @@ export class ProvingOrchestrator implements EpochProver {
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
     // but have to make sure it only runs once all operations are completed, otherwise some function here
     // will attempt to access the fork after it was closed.
-    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
-    void this.dbs
-      .get(blockNumber)
-      ?.close()
-      .then(() => this.dbs.delete(blockNumber))
-      .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
+    void this.cleanupDBFork(blockNumber);
   }
 
   /**
@@ -531,6 +531,21 @@ export class ProvingOrchestrator implements EpochProver {
     });
 
     return epochProofResult;
+  }
+
+  private async cleanupDBFork(blockNumber: BlockNumber): Promise<void> {
+    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
+    const fork = this.dbs.get(blockNumber);
+    if (!fork) {
+      return;
+    }
+
+    try {
+      await fork.close();
+      this.dbs.delete(blockNumber);
+    } catch (err) {
+      logger.error(`Error closing db for block ${blockNumber}`, err);
+    }
   }
 
   /**
@@ -850,19 +865,22 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
-        await this.verifyBuiltBlockAgainstSyncedState(provingState);
-
         logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
 
         const leafLocation = provingState.setBlockRootRollupProof(result);
         const checkpointProvingState = provingState.parentCheckpoint;
+
+        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
+        await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
         if (checkpointProvingState.totalNumBlocks === 1) {
           this.checkAndEnqueueCheckpointRootRollup(checkpointProvingState);
         } else {
           this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
         }
+
+        // We are finished with the block at this point, ensure the fork is cleaned up
+        void this.cleanupDBFork(provingState.blockNumber);
       },
     );
   }
@@ -1218,9 +1236,9 @@ export class ProvingOrchestrator implements EpochProver {
       },
     );
 
-    this.deferredProving(provingState, doAvmProving, proofAndVk => {
+    this.deferredProving(provingState, doAvmProving, proof => {
       logger.debug(`Proven VM for tx index: ${txIndex}`);
-      txProvingState.setAvmProof(proofAndVk);
+      txProvingState.setAvmProof(proof);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
   }

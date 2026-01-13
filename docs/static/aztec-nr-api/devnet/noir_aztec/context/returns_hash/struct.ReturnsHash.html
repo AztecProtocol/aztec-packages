@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
 <title>Struct ReturnsHash documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ReturnsHash</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../all.html">All items</a></div>
@@ -38,9 +44,9 @@ oracles with the preimages of these hashes on return to make them available to t
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/context/returns_hash/struct.ReturnsHash.html" class="struct">ReturnsHash</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <span class="fn">new</span>(hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
-<code id="get_preimage" class="code-header">pub fn <span class="fn">get_preimage</span>&lt;T&gt;(self) -> T
+<code id="get_preimage" class="code-header">pub fn <a href="#get_preimage"><span class="fn">get_preimage</span></a>&lt;T&gt;(self) -> T
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
@@ -48,5 +54,6 @@ oracles with the preimages of these hashes on return to make them available to t
 <p>Fetches the underlying return value from an oracle, constraining that it corresponds to the return data hash.</p>
 </div>
 </div></div></main>
+</span>
 </body>
 </html>

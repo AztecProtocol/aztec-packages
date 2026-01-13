@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -81,6 +81,8 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
+    constexpr field12 operator-() const { return { -c0, -c1 }; }
+
     constexpr field12 operator*(const field12& other) const
     {
         base_field T0 = c0 * other.c0;
@@ -121,6 +123,14 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         *this = operator/(other);
         return *this;
     }
+
+    constexpr void self_neg()
+    {
+        c0.self_neg();
+        c1.self_neg();
+    }
+
+    constexpr void self_sqr() { *this = sqr(); }
 
     constexpr void self_sparse_mul(const ell_coeffs& ell)
     {

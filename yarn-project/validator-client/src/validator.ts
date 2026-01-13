@@ -1,11 +1,13 @@
-import type { FileStoreBlobClient } from '@aztec/blob-client/filestore';
-import { getBlobsPerL1Block } from '@aztec/blob-lib';
+import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { TimeoutError } from '@aztec/foundation/error';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -14,12 +16,24 @@ import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CommitteeAttestationsAndSigners, L2BlockSource } from '@aztec/stdlib/block';
-import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
+import type { CommitteeAttestationsAndSigners, L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type {
+  CreateCheckpointProposalLastBlockData,
+  Validator,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  BlockProposalOptions,
+  CheckpointAttestation,
+  CheckpointProposalCore,
+  CheckpointProposalOptions,
+} from '@aztec/stdlib/p2p';
+import { CheckpointProposal } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -27,6 +41,7 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import { BlockProposalHandler, type BlockProposalValidationFailureReason } from './block_proposal_handler.js';
+import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { ValidationService } from './duties/validation_service.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
@@ -61,13 +76,22 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
 
+  // TODO(palla/mbps): Remove this once checkpoint validation is stable and we can validate all blocks properly.
+  // Tracks slots for which we have successfully validated a block proposal, so we can attest to checkpoint proposals for those slots.
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private validatedBlockSlots: Set<SlotNumber> = new Set();
+
   protected constructor(
     private keyStore: NodeKeystoreAdapter,
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private blockProposalHandler: BlockProposalHandler,
+    private blockSource: L2BlockSource,
+    private checkpointsBuilder: FullNodeCheckpointsBuilder,
+    private worldState: WorldStateSynchronizer,
+    private l1ToL2MessageSource: L1ToL2MessageSource,
     private config: ValidatorClientFullConfig,
-    private fileStoreBlobUploadClient: FileStoreBlobClient | undefined,
+    private blobClient: BlobClientInterface,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -143,14 +167,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   static new(
     config: ValidatorClientFullConfig,
-    blockBuilder: IFullNodeBlockBuilder,
+    checkpointsBuilder: FullNodeCheckpointsBuilder,
+    worldState: WorldStateSynchronizer,
     epochCache: EpochCache,
     p2pClient: P2P,
-    blockSource: L2BlockSource,
+    blockSource: L2BlockSource & L2BlockSink,
     l1ToL2MessageSource: L1ToL2MessageSource,
     txProvider: TxProvider,
     keyStoreManager: KeystoreManager,
-    fileStoreBlobUploadClient?: FileStoreBlobClient,
+    blobClient: BlobClientInterface,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -159,7 +184,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txsPermitted: !config.disableTransactions,
     });
     const blockProposalHandler = new BlockProposalHandler(
-      blockBuilder,
+      checkpointsBuilder,
+      worldState,
       blockSource,
       l1ToL2MessageSource,
       txProvider,
@@ -175,8 +201,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       epochCache,
       p2pClient,
       blockProposalHandler,
+      blockSource,
+      checkpointsBuilder,
+      worldState,
+      l1ToL2MessageSource,
       config,
-      fileStoreBlobUploadClient,
+      blobClient,
       dateProvider,
       telemetry,
     );
@@ -192,16 +222,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public getBlockProposalHandler() {
     return this.blockProposalHandler;
-  }
-
-  // Proxy method for backwards compatibility with tests
-  public reExecuteTransactions(
-    proposal: BlockProposal,
-    blockNumber: BlockNumber,
-    txs: any[],
-    l1ToL2Messages: Fr[],
-  ): Promise<any> {
-    return this.blockProposalHandler.reexecuteTransactions(proposal, blockNumber, txs, l1ToL2Messages);
   }
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
@@ -253,9 +273,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.hasRegisteredHandlers = true;
       this.log.debug(`Registering validator handlers for p2p client`);
 
-      const handler = (block: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> =>
-        this.attestToProposal(block, proposalSender);
-      this.p2pClient.registerBlockProposalHandler(handler);
+      // Block proposal handler - validates but does NOT attest (validators only attest to checkpoints)
+      const blockHandler = (block: BlockProposal, proposalSender: PeerId): Promise<boolean> =>
+        this.validateBlockProposal(block, proposalSender);
+      this.p2pClient.registerBlockProposalHandler(blockHandler);
+
+      // Checkpoint proposal handler - validates and creates attestations
+      // The checkpoint is received as CheckpointProposalCore since the lastBlock is extracted
+      // and processed separately via the block handler above.
+      const checkpointHandler = (
+        checkpoint: CheckpointProposalCore,
+        proposalSender: PeerId,
+      ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender);
+      this.p2pClient.registerCheckpointProposalHandler(checkpointHandler);
 
       const myAddresses = this.getValidatorAddresses();
       this.p2pClient.registerThisValidatorAddresses(myAddresses);
@@ -264,29 +294,33 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
   }
 
-  async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
+  /**
+   * Validate a block proposal from a peer.
+   * Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
+   * @returns true if the proposal is valid, false otherwise
+   */
+  async validateBlockProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> {
     const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
 
     // Reject proposals with invalid signatures
     if (!proposer) {
-      this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
-      return undefined;
+      this.log.warn(`Received block proposal with invalid signature for slot ${slotNumber}`);
+      return false;
     }
 
-    // Check that I have any address in current committee before attesting
+    // Check if we're in the committee (for metrics purposes)
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received proposal for slot ${slotNumber}`, {
+    this.log.info(`Received block proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
     });
 
-    // Reexecute txs if we are part of the committee so we can attest, or if slashing is enabled so we can slash
-    // invalid proposals even when not in the committee, or if we are configured to always reexecute for monitoring purposes.
+    // Reexecute txs if we are part of the committee, or if slashing is enabled, or if we are configured to always reexecute.
     // In fisherman mode, we always reexecute to validate proposals.
     const { validatorReexecute, slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals, fishermanMode } =
       this.config;
@@ -295,7 +329,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       (slashBroadcastedInvalidBlockPenalty > 0n && validatorReexecute) ||
       (partOfCommittee && validatorReexecute) ||
       alwaysReexecuteBlockProposals ||
-      this.fileStoreBlobUploadClient;
+      this.blobClient.canUpload();
 
     const validationResult = await this.blockProposalHandler.handleBlockProposal(
       proposal,
@@ -304,7 +338,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     if (!validationResult.isValid) {
-      this.log.warn(`Proposal validation failed: ${validationResult.reason}`, proposalInfo);
+      this.log.warn(`Block proposal validation failed: ${validationResult.reason}`, proposalInfo);
 
       const reason = validationResult.reason || 'unknown';
       // Classify failure reason: bad proposal vs node issue
@@ -319,7 +353,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
         this.metrics.incFailedAttestationsBadProposal(1, reason, partOfCommittee);
       } else {
-        // Node issues so we can't attest
+        // Node issues so we can't validate
         this.metrics.incFailedAttestationsNodeIssue(1, reason, partOfCommittee);
       }
 
@@ -332,7 +366,79 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.log.warn(`Slashing proposer for invalid block proposal`, proposalInfo);
         this.slashInvalidBlock(proposal);
       }
+      return false;
+    }
+
+    this.log.info(`Validated block proposal for slot ${slotNumber}`, {
+      ...proposalInfo,
+      inCommittee: partOfCommittee,
+      fishermanMode: this.config.fishermanMode || false,
+    });
+
+    // TODO(palla/mbps): Remove this once checkpoint validation is stable.
+    // Track that we successfully validated a block for this slot, so we can attest to checkpoint proposals for it.
+    this.validatedBlockSlots.add(slotNumber);
+
+    return true;
+  }
+
+  /**
+   * Validate and attest to a checkpoint proposal from a peer.
+   * The proposal is received as CheckpointProposalCore (without lastBlock) since
+   * the lastBlock is extracted and processed separately via the block handler.
+   * @returns Checkpoint attestations if valid, undefined otherwise
+   */
+  async attestToCheckpointProposal(
+    proposal: CheckpointProposalCore,
+    _proposalSender: PeerId,
+  ): Promise<CheckpointAttestation[] | undefined> {
+    const slotNumber = proposal.slotNumber;
+    const proposer = proposal.getSender();
+
+    // Reject proposals with invalid signatures
+    if (!proposer) {
+      this.log.warn(`Received checkpoint proposal with invalid signature for slot ${slotNumber}`);
       return undefined;
+    }
+
+    // Check that I have any address in current committee before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
+    const partOfCommittee = inCommittee.length > 0;
+
+    const proposalInfo = {
+      slotNumber,
+      archive: proposal.archive.toString(),
+      proposer: proposer.toString(),
+      txCount: proposal.txHashes.length,
+    };
+    this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
+      ...proposalInfo,
+      txHashes: proposal.txHashes.map(t => t.toString()),
+      fishermanMode: this.config.fishermanMode || false,
+    });
+
+    // TODO(palla/mbps): Remove this once checkpoint validation is stable.
+    // Check that we have successfully validated a block for this slot before attesting to the checkpoint.
+    if (!this.validatedBlockSlots.has(slotNumber)) {
+      this.log.warn(`No validated block found for slot ${slotNumber}, refusing to attest to checkpoint`, proposalInfo);
+      return undefined;
+    }
+
+    // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
+    // TODO(palla/mbps): Change default to false once checkpoint validation is stable.
+    if (this.config.skipCheckpointProposalValidation !== false) {
+      this.log.verbose(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
+    } else {
+      const validationResult = await this.validateCheckpointProposal(proposal, proposalInfo);
+      if (!validationResult.isValid) {
+        this.log.warn(`Checkpoint proposal validation failed: ${validationResult.reason}`, proposalInfo);
+        return undefined;
+      }
+    }
+
+    // Upload blobs to filestore if we can (fire and forget)
+    if (this.blobClient.canUpload()) {
+      void this.uploadBlobsForCheckpoint(proposal, proposalInfo);
     }
 
     // Check that I have any address in current committee before attesting
@@ -343,7 +449,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`${partOfCommittee ? 'Attesting to' : 'Validated'} proposal for slot ${slotNumber}`, {
+    this.log.info(`${partOfCommittee ? 'Attesting to' : 'Validated'} checkpoint proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       inCommittee: partOfCommittee,
       fishermanMode: this.config.fishermanMode || false,
@@ -351,21 +457,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
 
-    // Upload blobs to filestore after successful re-execution (fire-and-forget)
-    if (validationResult.reexecutionResult?.block && this.fileStoreBlobUploadClient) {
-      void Promise.resolve().then(async () => {
-        try {
-          const blobFields = validationResult.reexecutionResult!.block.getCheckpointBlobFields();
-          const blobs = getBlobsPerL1Block(blobFields);
-          await this.fileStoreBlobUploadClient!.saveBlobs(blobs, true);
-          this.log.debug(`Uploaded ${blobs.length} blobs to filestore from re-execution`, proposalInfo);
-        } catch (err) {
-          this.log.warn(`Failed to upload blobs from re-execution`, err);
-        }
-      });
-    }
-
-    // If the above function does not throw an error, then we can attest to the proposal
     // Determine which validators should attest
     let attestors: EthAddress[];
     if (partOfCommittee) {
@@ -384,13 +475,222 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (this.config.fishermanMode) {
       // bail out early and don't save attestations to the pool in fisherman mode
-      this.log.info(`Creating attestations for proposal for slot ${slotNumber}`, {
+      this.log.info(`Creating checkpoint attestations for slot ${slotNumber}`, {
         ...proposalInfo,
         attestors: attestors.map(a => a.toString()),
       });
       return undefined;
     }
-    return this.createBlockAttestationsFromProposal(proposal, attestors);
+
+    return this.createCheckpointAttestationsFromProposal(proposal, attestors);
+  }
+
+  private async createCheckpointAttestationsFromProposal(
+    proposal: CheckpointProposalCore,
+    attestors: EthAddress[] = [],
+  ): Promise<CheckpointAttestation[]> {
+    const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors);
+    await this.p2pClient.addCheckpointAttestations(attestations);
+    return attestations;
+  }
+
+  /**
+   * Validates a checkpoint proposal by building the full checkpoint and comparing it with the proposal.
+   * @returns Validation result with isValid flag and reason if invalid.
+   */
+  private async validateCheckpointProposal(
+    proposal: CheckpointProposalCore,
+    proposalInfo: LogData,
+  ): Promise<{ isValid: true } | { isValid: false; reason: string }> {
+    const slot = proposal.slotNumber;
+    const timeoutSeconds = 10;
+
+    // Wait for last block to sync by archive
+    let lastBlockHeader: BlockHeader | undefined;
+    try {
+      lastBlockHeader = await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          return this.blockSource.getBlockHeaderByArchive(proposal.archive);
+        },
+        `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
+        timeoutSeconds,
+        0.5,
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.log.warn(`Timed out waiting for block with archive matching checkpoint proposal`, proposalInfo);
+        return { isValid: false, reason: 'last_block_not_found' };
+      }
+      this.log.error(`Error fetching last block for checkpoint proposal`, err, proposalInfo);
+      return { isValid: false, reason: 'block_fetch_error' };
+    }
+
+    if (!lastBlockHeader) {
+      this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
+      return { isValid: false, reason: 'last_block_not_found' };
+    }
+
+    // Get the last full block to determine checkpoint number
+    const lastBlock = await this.blockSource.getL2BlockNew(lastBlockHeader.getBlockNumber());
+    if (!lastBlock) {
+      this.log.warn(`Last block ${lastBlockHeader.getBlockNumber()} not found`, proposalInfo);
+      return { isValid: false, reason: 'last_block_not_found' };
+    }
+    const checkpointNumber = lastBlock.checkpointNumber;
+
+    // Get all full blocks for the slot and checkpoint
+    const blocks = await this.getBlocksForSlot(slot, lastBlockHeader, checkpointNumber);
+    if (blocks.length === 0) {
+      this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
+      return { isValid: false, reason: 'no_blocks_for_slot' };
+    }
+
+    this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
+      ...proposalInfo,
+      blockNumbers: blocks.map(b => b.number),
+    });
+
+    // Get checkpoint constants from first block
+    const firstBlock = blocks[0];
+    const constants = this.extractCheckpointConstants(firstBlock);
+
+    // Get L1-to-L2 messages for this checkpoint
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
+
+    // Fork world state at the block before the first block
+    const parentBlockNumber = BlockNumber(firstBlock.number - 1);
+    const fork = await this.worldState.fork(parentBlockNumber);
+
+    try {
+      // Create checkpoint builder with all existing blocks
+      const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
+        checkpointNumber,
+        constants,
+        l1ToL2Messages,
+        fork,
+        blocks,
+      );
+
+      // Complete the checkpoint to get computed values
+      const computedCheckpoint = await checkpointBuilder.completeCheckpoint();
+
+      // Compare checkpoint header with proposal
+      if (!computedCheckpoint.header.equals(proposal.checkpointHeader)) {
+        this.log.warn(`Checkpoint header mismatch`, {
+          ...proposalInfo,
+          computed: computedCheckpoint.header.toInspect(),
+          proposal: proposal.checkpointHeader.toInspect(),
+        });
+        return { isValid: false, reason: 'checkpoint_header_mismatch' };
+      }
+
+      // Compare archive root with proposal
+      if (!computedCheckpoint.archive.root.equals(proposal.archive)) {
+        this.log.warn(`Archive root mismatch`, {
+          ...proposalInfo,
+          computed: computedCheckpoint.archive.root.toString(),
+          proposal: proposal.archive.toString(),
+        });
+        return { isValid: false, reason: 'archive_mismatch' };
+      }
+
+      this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
+      return { isValid: true };
+    } finally {
+      await fork.close();
+    }
+  }
+
+  /**
+   * Get all full blocks for a given slot and checkpoint by walking backwards from the last block.
+   * Returns blocks in ascending order (earliest to latest).
+   * TODO(palla/mbps): Add getL2BlocksForSlot() to L2BlockSource interface for efficiency.
+   */
+  private async getBlocksForSlot(
+    slot: SlotNumber,
+    lastBlockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
+  ): Promise<L2BlockNew[]> {
+    const blocks: L2BlockNew[] = [];
+    let currentHeader = lastBlockHeader;
+    const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
+
+    while (currentHeader.getSlot() === slot) {
+      const block = await this.blockSource.getL2BlockNew(currentHeader.getBlockNumber());
+      if (!block) {
+        this.log.warn(`Block ${currentHeader.getBlockNumber()} not found while getting blocks for slot ${slot}`);
+        break;
+      }
+      if (block.checkpointNumber !== checkpointNumber) {
+        break;
+      }
+      blocks.unshift(block);
+
+      const prevArchive = currentHeader.lastArchive.root;
+      if (prevArchive.equals(genesisArchiveRoot)) {
+        break;
+      }
+
+      const prevHeader = await this.blockSource.getBlockHeaderByArchive(prevArchive);
+      if (!prevHeader || prevHeader.getSlot() !== slot) {
+        break;
+      }
+      currentHeader = prevHeader;
+    }
+
+    return blocks;
+  }
+
+  /**
+   * Extract checkpoint global variables from a block.
+   */
+  private extractCheckpointConstants(block: L2BlockNew): CheckpointGlobalVariables {
+    const gv = block.header.globalVariables;
+    return {
+      chainId: gv.chainId,
+      version: gv.version,
+      slotNumber: gv.slotNumber,
+      coinbase: gv.coinbase,
+      feeRecipient: gv.feeRecipient,
+      gasFees: gv.gasFees,
+    };
+  }
+
+  /**
+   * Uploads blobs for a checkpoint to the filestore (fire and forget).
+   */
+  private async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
+    try {
+      const lastBlockHeader = await this.blockSource.getBlockHeaderByArchive(proposal.archive);
+      if (!lastBlockHeader) {
+        this.log.warn(`Failed to get last block header for blob upload`, proposalInfo);
+        return;
+      }
+
+      // Get the last full block to determine checkpoint number
+      const lastBlock = await this.blockSource.getL2BlockNew(lastBlockHeader.getBlockNumber());
+      if (!lastBlock) {
+        this.log.warn(`Failed to get last block for blob upload`, proposalInfo);
+        return;
+      }
+
+      const blocks = await this.getBlocksForSlot(proposal.slotNumber, lastBlockHeader, lastBlock.checkpointNumber);
+      if (blocks.length === 0) {
+        this.log.warn(`No blocks found for blob upload`, proposalInfo);
+        return;
+      }
+
+      const blobFields = blocks.flatMap(b => b.toBlobFields());
+      const blobs: Blob[] = getBlobsPerL1Block(blobFields);
+      await this.blobClient.sendBlobsToFilestore(blobs);
+      this.log.debug(`Uploaded ${blobs.length} blobs to filestore for checkpoint at slot ${proposal.slotNumber}`, {
+        ...proposalInfo,
+        numBlobs: blobs.length,
+      });
+    } catch (err) {
+      this.log.warn(`Failed to upload blobs for checkpoint: ${err}`, proposalInfo);
+    }
   }
 
   private slashInvalidBlock(proposal: BlockProposal) {
@@ -420,40 +720,55 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     ]);
   }
 
-  // TODO(palla/mbps): Block proposal should not require a checkpoint proposal
   async createBlockProposal(
-    blockNumber: BlockNumber,
-    header: CheckpointHeader,
+    blockHeader: BlockHeader,
+    indexWithinCheckpoint: number,
+    inHash: Fr,
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal> {
     // TODO(palla/mbps): Prevent double proposals properly
-    // if (this.previousProposal?.slotNumber === header.slotNumber) {
+    // if (this.previousProposal?.slotNumber === blockHeader.globalVariables.slotNumber) {
     //   this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
     //   return Promise.resolve(undefined);
     // }
 
-    this.log.info(`Assembling block proposal for block ${blockNumber} slot ${header.slotNumber}`);
-    const newProposal = await this.validationService.createBlockProposal(header, archive, txs, proposerAddress, {
-      ...options,
-      broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
-    });
+    this.log.info(
+      `Assembling block proposal for block ${blockHeader.globalVariables.blockNumber} slot ${blockHeader.globalVariables.slotNumber}`,
+    );
+    const newProposal = await this.validationService.createBlockProposal(
+      blockHeader,
+      indexWithinCheckpoint,
+      inHash,
+      archive,
+      txs,
+      proposerAddress,
+      {
+        ...options,
+        broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+      },
+    );
     this.previousProposal = newProposal;
     return newProposal;
   }
 
-  // TODO(palla/mbps): Effectively create a checkpoint proposal different from a block proposal
-  createCheckpointProposal(
-    header: CheckpointHeader,
+  async createCheckpointProposal(
+    checkpointHeader: CheckpointHeader,
     archive: Fr,
-    txs: Tx[],
+    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
-    options: BlockProposalOptions,
-  ): Promise<BlockProposal> {
-    this.log.info(`Assembling checkpoint proposal for slot ${header.slotNumber}`);
-    return this.createBlockProposal(0 as BlockNumber, header, archive, txs, proposerAddress, options);
+    options: CheckpointProposalOptions,
+  ): Promise<CheckpointProposal> {
+    this.log.info(`Assembling checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
+    return await this.validationService.createCheckpointProposal(
+      checkpointHeader,
+      archive,
+      lastBlockInfo,
+      proposerAddress,
+      options,
+    );
   }
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
@@ -467,24 +782,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer);
   }
 
-  async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {
-    const slot = proposal.payload.header.slotNumber;
+  async collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]> {
+    const slot = proposal.slotNumber;
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
-    const attestations = await this.createBlockAttestationsFromProposal(proposal, inCommittee);
+    const attestations = await this.createCheckpointAttestationsFromProposal(proposal, inCommittee);
 
     // We broadcast our own attestations to our peers so, in case our block does not get mined on L1,
     // other nodes can see that our validators did attest to this block proposal, and do not slash us
     // due to inactivity for missed attestations.
-    void this.p2pClient.broadcastAttestations(attestations).catch(err => {
+    void this.p2pClient.broadcastCheckpointAttestations(attestations).catch(err => {
       this.log.error(`Failed to broadcast self-attestations for slot ${slot}`, err);
     });
     return attestations;
   }
 
-  async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
-    // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.payload.header.slotNumber;
+  async collectAttestations(
+    proposal: CheckpointProposal,
+    required: number,
+    deadline: Date,
+  ): Promise<CheckpointAttestation[]> {
+    // Wait and poll the p2pClient's attestation pool for this checkpoint until we have enough attestations
+    const slot = proposal.slotNumber;
     this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
 
     if (+deadline < this.dateProvider.now()) {
@@ -499,16 +818,16 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const proposalId = proposal.archive.toString();
     const myAddresses = this.getValidatorAddresses();
 
-    let attestations: BlockAttestation[] = [];
+    let attestations: CheckpointAttestation[] = [];
     while (true) {
-      // Filter out attestations with a mismatching payload. This should NOT happen since we have verified
+      // Filter out attestations with a mismatching archive. This should NOT happen since we have verified
       // the proposer signature (ie our own) before accepting the attestation into the pool via the p2p client.
-      const collectedAttestations = (await this.p2pClient.getAttestationsForSlot(slot, proposalId)).filter(
+      const collectedAttestations = (await this.p2pClient.getCheckpointAttestationsForSlot(slot, proposalId)).filter(
         attestation => {
-          if (!attestation.payload.equals(proposal.payload)) {
+          if (!attestation.archive.equals(proposal.archive)) {
             this.log.warn(
-              `Received attestation for slot ${slot} with mismatched payload from ${attestation.getSender()?.toString()}`,
-              { attestationPayload: attestation.payload, proposalPayload: proposal.payload },
+              `Received attestation for slot ${slot} with mismatched archive from ${attestation.getSender()?.toString()}`,
+              { attestationArchive: attestation.archive.toString(), proposalArchive: proposal.archive.toString() },
             );
             return false;
           }
@@ -547,15 +866,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.debug(`Collected ${attestations.length} of ${required} attestations so far`);
       await sleep(this.config.attestationPollingIntervalMs);
     }
-  }
-
-  private async createBlockAttestationsFromProposal(
-    proposal: BlockProposal,
-    attestors: EthAddress[] = [],
-  ): Promise<BlockAttestation[]> {
-    const attestations = await this.validationService.attestToProposal(proposal, attestors);
-    await this.p2pClient.addAttestations(attestations);
-    return attestations;
   }
 
   private async handleAuthRequest(peer: PeerId, msg: Buffer): Promise<Buffer> {

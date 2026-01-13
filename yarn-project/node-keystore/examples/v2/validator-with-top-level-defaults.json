@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "publisher": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "publisher": "0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
   "coinbase": "0x1111111111111111111111111111111111111111",
   "feeRecipient": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
   "validators": [
@@ -9,12 +9,12 @@
     },
     {
       "attester": "0x3333333333333333333333333333333333333333333333333333333333333333",
-      "publisher": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      "publisher": "0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
     },
     {
       "attester": "0x4444444444444444444444444444444444444444444444444444444444444444",
       "coinbase": "0x2222222222222222222222222222222222222222",
-      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+      "feeRecipient": "0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd"
     }
   ]
 }

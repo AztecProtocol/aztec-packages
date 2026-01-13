@@ -1,9 +1,9 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type BlockAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { Attributes, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import { type CheckpointAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { Attributes, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import { AttestationValidator } from './attestation_validator.js';
+import { CheckpointAttestationValidator } from './attestation_validator.js';
 
 /**
  * FishermanAttestationValidator extends the base AttestationValidator to add
@@ -13,7 +13,7 @@ import { AttestationValidator } from './attestation_validator.js';
  * handled by LibP2PService based on the fishermanMode config to ensure a better
  * view of the network.
  */
-export class FishermanAttestationValidator extends AttestationValidator {
+export class FishermanAttestationValidator extends CheckpointAttestationValidator {
   private invalidAttestationCounter;
 
   constructor(
@@ -25,13 +25,10 @@ export class FishermanAttestationValidator extends AttestationValidator {
     this.logger = this.logger.createChild('[FISHERMAN]');
 
     const meter = telemetryClient.getMeter('FishermanAttestationValidator');
-    this.invalidAttestationCounter = meter.createUpDownCounter(Metrics.VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT, {
-      description: 'The number of invalid attestations received',
-      valueType: ValueType.INT,
-    });
+    this.invalidAttestationCounter = meter.createUpDownCounter(Metrics.VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT);
   }
 
-  override async validate(message: BlockAttestation): Promise<PeerErrorSeverity | undefined> {
+  override async validate(message: CheckpointAttestation): Promise<PeerErrorSeverity | undefined> {
     // First run the standard validation
     const baseValidationResult = await super.validate(message);
     if (baseValidationResult !== undefined) {
@@ -52,11 +49,11 @@ export class FishermanAttestationValidator extends AttestationValidator {
     }
 
     const proposalId = message.archive.toString();
-    const proposal = await this.attestationPool.getBlockProposal(proposalId);
+    const proposal = await this.attestationPool.getCheckpointProposal(proposalId);
 
     if (proposal) {
       // Compare the attestation payload with the proposal payload
-      if (!message.payload.equals(proposal.payload)) {
+      if (!message.payload.equals(proposal)) {
         this.logger.error(
           `Attestation payload mismatch for slot ${slotNumberBigInt}! ` +
             `Attester ${attester.toString()} signed different data than the proposal.`,
@@ -66,7 +63,7 @@ export class FishermanAttestationValidator extends AttestationValidator {
             proposer: proposer.toString(),
             proposalArchive: proposal.archive.toString(),
             attestationArchive: message.archive.toString(),
-            proposalHeader: proposal.payload.header.hash().toString(),
+            proposalHeader: proposal.checkpointHeader.hash().toString(),
             attestationHeader: message.payload.header.hash().toString(),
           },
         );

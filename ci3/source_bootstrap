@@ -14,7 +14,7 @@ case "$cmd" in
       exit 0
     fi
     # Until releases are 100% stable, print a debug log.
-    set -x
+    # set -x
     ;;
 esac
 

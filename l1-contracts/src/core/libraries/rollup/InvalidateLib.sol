@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
@@ -212,6 +213,16 @@ library InvalidateLib {
 
     // Get the epoch for the checkpoint's slot to verify committee
     Epoch epoch = checkpointLog.slotNumber.decompress().epochFromSlot();
+
+    // Check if this is an escape hatch epoch - escape hatch checkpoints cannot be invalidated
+    // since they have no committee attestations by design
+    {
+      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      if (address(escapeHatch) != address(0)) {
+        (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
+        require(!isOpen, Errors.Rollup__CannotInvalidateEscapeHatch());
+      }
+    }
 
     // Get and verify the committee commitment
     (bytes32 committeeCommitment, uint256 committeeSize) = ValidatorSelectionLib.getCommitteeCommitmentAt(epoch);

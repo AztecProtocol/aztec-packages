@@ -11,6 +11,7 @@ import {
   type ProvingJobBroker,
   type ProvingJobConsumer,
   type ProvingJobProducer,
+  type ReadonlyWorldStateAccess,
   type ServerCircuitProver,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
@@ -33,7 +34,7 @@ export class ProverClient implements EpochProverManager {
 
   private constructor(
     private config: ProverClientConfig,
-    private worldState: ForkMerkleTreeOperations,
+    private worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -99,7 +100,7 @@ export class ProverClient implements EpochProverManager {
    */
   public static async new(
     config: ProverClientConfig,
-    worldState: ForkMerkleTreeOperations,
+    worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     broker: ProvingJobBroker,
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -129,15 +130,7 @@ export class ProverClient implements EpochProverManager {
     const prover = await buildServerCircuitProver(this.config, this.telemetry);
     this.agents = times(
       this.config.proverAgentCount,
-      () =>
-        new ProvingAgent(
-          this.agentClient!,
-          proofStore,
-          prover,
-          [],
-          this.config.proverAgentPollIntervalMs,
-          this.telemetry,
-        ),
+      () => new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));

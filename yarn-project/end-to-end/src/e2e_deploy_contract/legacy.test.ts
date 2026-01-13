@@ -41,8 +41,9 @@ describe('e2e_deploy_contract legacy', () => {
       .send({ from: defaultAccountAddress, contractAddressSalt: salt })
       .wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
-    expect((await wallet.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
-    expect((await wallet.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
+    const { instance, isContractPublished } = await wallet.getContractMetadata(deploymentData.address);
+    expect(instance).toBeDefined();
+    expect(isContractPublished).toBe(true);
   });
 
   /**
@@ -124,10 +125,9 @@ describe('e2e_deploy_contract legacy', () => {
 
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
-    const { isContractClassPubliclyRegistered } = await wallet.getContractClassMetadata(
-      (await badDeploy.getInstance()).currentContractClassId,
-    );
-    // But the bad tx did not deploy
-    expect(isContractClassPubliclyRegistered).toBeFalse();
+    const badInstance = await badDeploy.getInstance();
+    // But the bad tx did not deploy the class
+    const badMetadata = await wallet.getContractClassMetadata(badInstance.currentContractClassId);
+    expect(badMetadata.isContractClassPubliclyRegistered).toBeFalse();
   });
 });

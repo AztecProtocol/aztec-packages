@@ -2,10 +2,12 @@
 
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -74,8 +76,8 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::add");
     constexpr auto opcode = ExecutionOpCode::ADD;
     auto& memory = context.get_memory();
-    const MemoryValue& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -105,8 +107,8 @@ void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::sub");
     constexpr auto opcode = ExecutionOpCode::SUB;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -136,8 +138,8 @@ void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::mul");
     constexpr auto opcode = ExecutionOpCode::MUL;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -170,8 +172,8 @@ void Execution::div(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::div");
     constexpr auto opcode = ExecutionOpCode::DIV;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -204,8 +206,8 @@ void Execution::fdiv(ContextInterface& context, MemoryAddress a_addr, MemoryAddr
     BB_BENCH_NAME("Execution::fdiv");
     constexpr auto opcode = ExecutionOpCode::FDIV;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -235,8 +237,8 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     BB_BENCH_NAME("Execution::eq");
     constexpr auto opcode = ExecutionOpCode::EQ;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -266,8 +268,8 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     BB_BENCH_NAME("Execution::lt");
     constexpr auto opcode = ExecutionOpCode::LT;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -297,8 +299,8 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::lte");
     constexpr auto opcode = ExecutionOpCode::LT;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -327,7 +329,7 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     BB_BENCH_NAME("Execution::op_not");
     constexpr auto opcode = ExecutionOpCode::NOT;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(src_addr);
+    const MemoryValue a = memory.get(src_addr);
     set_and_validate_inputs(opcode, { a });
 
     get_gas_tracker().consume_gas();
@@ -359,8 +361,8 @@ void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::shl");
     constexpr auto opcode = ExecutionOpCode::SHL;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -392,8 +394,8 @@ void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     BB_BENCH_NAME("Execution::shr");
     constexpr auto opcode = ExecutionOpCode::SHR;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     get_gas_tracker().consume_gas();
@@ -417,7 +419,7 @@ void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
  *
  * @throws OutOfGasException if the gas limit is exceeded.
  */
-void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
+void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, MemoryTag dst_tag)
 {
     BB_BENCH_NAME("Execution::cast");
     constexpr auto opcode = ExecutionOpCode::CAST;
@@ -426,7 +428,7 @@ void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAd
     set_and_validate_inputs(opcode, { val });
 
     get_gas_tracker().consume_gas();
-    MemoryValue truncated = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
+    MemoryValue truncated = alu.truncate(val.as_ff(), dst_tag);
     memory.set(dst_addr, truncated);
     set_output(opcode, truncated);
 }
@@ -436,12 +438,13 @@ void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAd
  *
  * @param context The context.
  * @param dst_addr The resolved address of the output value.
- * @param var_enum The enum value of the environment variable to get.
+ * @param env_var The enum value of the environment variable to get (as an uint8_t).
+ *                We need to use uint8_t here to manually perform validation.
  *
  * @throws OutOfGasException if the gas limit is exceeded.
  * @throws OpcodeExecutionException if the enum value is invalid.
  */
-void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
+void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t env_var_value)
 {
     BB_BENCH_NAME("Execution::get_env_var");
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -449,10 +452,14 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 
     get_gas_tracker().consume_gas();
 
+    // If env_var_value is not a valid EnvironmentVariable enum value, throw an OpcodeExecutionException.
+    if (env_var_value > static_cast<uint8_t>(EnvironmentVariable::MAX)) {
+        throw OpcodeExecutionException("Invalid environment variable enum value");
+    }
+
     MemoryValue result;
 
-    EnvironmentVariable env_var = static_cast<EnvironmentVariable>(var_enum);
-    switch (env_var) {
+    switch (static_cast<EnvironmentVariable>(env_var_value)) {
     case EnvironmentVariable::ADDRESS:
         result = MemoryValue::from<FF>(context.get_address());
         break;
@@ -474,10 +481,10 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
     case EnvironmentVariable::TIMESTAMP:
         result = MemoryValue::from<uint64_t>(context.get_globals().timestamp);
         break;
-    case EnvironmentVariable::BASEFEEPERL2GAS:
+    case EnvironmentVariable::MINFEEPERL2GAS:
         result = MemoryValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_l2_gas);
         break;
-    case EnvironmentVariable::BASEFEEPERDAGAS:
+    case EnvironmentVariable::MINFEEPERDAGAS:
         result = MemoryValue::from<uint128_t>(context.get_globals().gas_fees.fee_per_da_gas);
         break;
     case EnvironmentVariable::ISSTATICCALL:
@@ -490,6 +497,7 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
         result = MemoryValue::from<uint32_t>(context.gas_left().da_gas);
         break;
     default:
+        // We leave this here defensively.
         throw OpcodeExecutionException("Invalid environment variable enum value");
     }
 
@@ -503,19 +511,18 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
  *
  * @param context The context.
  * @param dst_addr The resolved address of the output memory value.
- * @param dst_tag The destination tag of the value to set. (as an uint8_t)
+ * @param dst_tag The destination tag of the value to set.
  * @param value The source value to set. (might get truncated)
  *
  * @throws OutOfGasException if the gas limit is exceeded.
  */
-// TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t dst_tag, const FF& value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, MemoryTag dst_tag, const FF& value)
 {
     BB_BENCH_NAME("Execution::set");
     get_gas_tracker().consume_gas();
 
     constexpr auto opcode = ExecutionOpCode::SET;
-    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(dst_tag));
+    MemoryValue truncated = alu.truncate(value, dst_tag);
     context.get_memory().set(dst_addr, truncated);
     set_output(opcode, truncated);
 }
@@ -534,7 +541,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     BB_BENCH_NAME("Execution::mov");
     constexpr auto opcode = ExecutionOpCode::MOV;
     auto& memory = context.get_memory();
-    const auto& v = memory.get(src_addr);
+    const MemoryValue v = memory.get(src_addr);
     set_and_validate_inputs(opcode, { v });
 
     get_gas_tracker().consume_gas();
@@ -1010,8 +1017,8 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     BB_BENCH_NAME("Execution::and_op");
     constexpr auto opcode = ExecutionOpCode::AND;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -1047,8 +1054,8 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     BB_BENCH_NAME("Execution::or_op");
     constexpr auto opcode = ExecutionOpCode::OR;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -1082,8 +1089,8 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     BB_BENCH_NAME("Execution::xor_op");
     constexpr auto opcode = ExecutionOpCode::XOR;
     auto& memory = context.get_memory();
-    const auto& a = memory.get(a_addr);
-    const auto& b = memory.get(b_addr);
+    const MemoryValue a = memory.get(a_addr);
+    const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
     // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
@@ -1328,8 +1335,9 @@ void Execution::get_contract_instance(ContextInterface& context,
 
     // Execution can still handle address memory read and tag checking
     const auto& address_value = memory.get(address_offset);
-    AztecAddress contract_address = address_value.as<AztecAddress>();
     set_and_validate_inputs(opcode, { address_value });
+
+    AztecAddress contract_address = address_value.as<AztecAddress>();
 
     get_gas_tracker().consume_gas();
 
@@ -1724,6 +1732,11 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     external_call_stack.push(std::move(enqueued_call_context));
 
     while (!external_call_stack.empty()) {
+        // Throws CancelledException if cancelled. No-op when cancellation_token_ is nullptr (non-NAPI paths).
+        if (cancellation_token_) {
+            cancellation_token_->check_and_throw();
+        }
+
         // We fix the context at this point. Even if the opcode changes the stack
         // we'll always use this in the loop.
         auto& context = *external_call_stack.top();
@@ -1775,9 +1788,7 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
 
             gas_tracker = execution_components.make_gas_tracker(gas_event, instruction, context);
             dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
-        }
-        // TODO(fcarreiro): handle this in a better way.
-        catch (const BytecodeRetrievalError& e) {
+        } catch (const BytecodeRetrievalError& e) {
             vinfo("Bytecode retrieval error:: ", e.what());
             error = ExecutionError::BYTECODE_RETRIEVAL;
             handle_exceptional_halt(context, e.what());
@@ -1804,8 +1815,8 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
-            info("An unhandled exception occurred: ", e.what());
-            throw e;
+            important("An unhandled exception occurred: ", e.what());
+            throw;
         }
 
         // We always do what follows. "Finally".
@@ -1813,8 +1824,6 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
         context.set_pc(context.get_next_pc());
         execution_id_manager.increment_execution_id();
 
-        // TODO: We set the inputs and outputs here and into the execution event,
-        //       but maybe there's a better way to do this.
         events.emit({
             .error = error,
             .wire_instruction = instruction,
@@ -1859,6 +1868,10 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
                                                     child_context->get_is_static(),
                                                     child_context->get_gas_limit());
 
+    const auto parent_bytecode_id = parent_context.get_bytecode_manager().get_retrieved_bytecode_id();
+    BB_ASSERT(parent_bytecode_id.has_value(),
+              "Bytecode should have been retrieved in the parent context if it issued a call");
+
     ctx_stack_events.emit({
         .id = parent_context.get_context_id(),
         .parent_id = parent_context.get_parent_id(),
@@ -1866,9 +1879,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .next_pc = parent_context.get_next_pc(),
         .msg_sender = parent_context.get_msg_sender(),
         .contract_addr = parent_context.get_address(),
-        .bytecode_id = parent_context.get_bytecode_manager()
-                           .get_retrieved_bytecode_id()
-                           .value(), // Bytecode should have been retrieved in the parent context if it issued a call.
+        .bytecode_id = parent_bytecode_id.value(),
         .is_static = parent_context.get_is_static(),
         .parent_cd_addr = parent_context.get_parent_cd_addr(),
         .parent_cd_size = parent_context.get_parent_cd_size(),
@@ -1926,14 +1937,9 @@ void Execution::handle_exit_call()
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
         parent_context.set_child_context(std::move(child_context));
 
-        // TODO(fcarreiro): move somewhere else.
-        if (parent_context.get_checkpoint_id_at_creation() != merkle_db.get_checkpoint_id()) {
-            throw std::runtime_error(format("Checkpoint id mismatch: ",
-                                            parent_context.get_checkpoint_id_at_creation(),
-                                            " != ",
-                                            merkle_db.get_checkpoint_id(),
-                                            " (gone back to the wrong db/context)"));
-        }
+        BB_ASSERT_EQ(parent_context.get_checkpoint_id_at_creation(),
+                     merkle_db.get_checkpoint_id(),
+                     "Checkpoint id mismatch: gone back to the wrong db/context");
     }
     // Else: was top level. ExecutionResult is already set and that will be returned.
 }
@@ -2134,10 +2140,19 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
                                           ContextInterface& context,
                                           const std::vector<Operand>& resolved_operands)
 {
-    assert(resolved_operands.size() == sizeof...(Ts));
+    // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+    BB_ASSERT_DEBUG(resolved_operands.size() == sizeof...(Ts), "Resolved operands size mismatch");
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
     [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (this->*f)(context, resolved_operands.at(Is).to<std::decay_t<Ts>>()...);
+        // This helper handles operand conversion. In particular it converts enums to their underlying type first.
+        auto convert_operand = []<typename T>(const Operand& op) -> T {
+            if constexpr (std::is_enum_v<T>) {
+                return static_cast<T>(op.to<std::underlying_type_t<T>>());
+            } else {
+                return op.to<T>();
+            }
+        };
+        (this->*f)(context, convert_operand.template operator()<std::decay_t<Ts>>(resolved_operands.at(Is))...);
     }(operand_indices);
 }
 
@@ -2151,7 +2166,8 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vector<MemoryValue>& inputs)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
-    assert(inputs.size() == register_info.num_inputs());
+    // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+    BB_ASSERT_DEBUG(inputs.size() == register_info.num_inputs(), "Inputs size mismatch");
     this->inputs = inputs;
     for (size_t i = 0; i < register_info.num_inputs(); i++) {
         if (register_info.expected_tag(i) && register_info.expected_tag(i) != this->inputs.at(i).get_tag()) {
@@ -2174,8 +2190,8 @@ void Execution::set_and_validate_inputs(ExecutionOpCode opcode, const std::vecto
 void Execution::set_output(ExecutionOpCode opcode, const MemoryValue& output)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
-    (void)register_info; // To please GCC.
-    assert(register_info.num_outputs() == 1);
+    // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+    BB_ASSERT_DEBUG(register_info.num_outputs() == 1, "Outputs size mismatch");
     this->output = output;
 }
 

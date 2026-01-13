@@ -737,5 +737,36 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
         "Failed.*CHECK_FINAL_BYTES_REMAINING. Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ID_PROPAGATION), "ID_PROPAGATION");
 }
+// =====================================================================
+// Ghost Row Injection Vulnerability Tests
+// =====================================================================
+// These tests verify that ghost rows (sel=0) cannot fire permutations.
+// The fix: sel_not_padding_1 * (1 - sel) = 0 and sel_not_padding_2 * (1 - sel) = 0
+// ensure these selectors are forced to 0 when sel=0.
+
+TEST_F(BytecodeHashingConstrainingTest, NegativeGhostRowInjectionBlocked)
+{
+    // Try to create a ghost row (sel=0) with sel_not_padding_1=1 or sel_not_padding_2=1
+    // which would fire the #[GET_PACKED_FIELD_1] or #[GET_PACKED_FIELD_2] permutations
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::bc_hashing_sel, 0 },               // Ghost row: gadget not active
+            { C::bc_hashing_sel_not_padding_1, 1 }, // Try to fire permutation anyway
+            { C::bc_hashing_sel_not_padding_2, 0 },
+        },
+    });
+
+    // The fix: sel_not_padding_1 * (1 - sel) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_1_REQUIRES_SEL");
+
+    // Reset and try with sel_not_padding_2
+    trace.set(C::bc_hashing_sel_not_padding_1, 1, 0);
+    trace.set(C::bc_hashing_sel_not_padding_2, 1, 1);
+
+    // The fix: sel_not_padding_2 * (1 - sel) = 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_2_REQUIRES_SEL");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

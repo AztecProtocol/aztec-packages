@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -17,8 +16,6 @@ struct Keccakf1600 {
     std::array<WitnessOrConstant<bb::fr>, 25> state;
     std::array<uint32_t, 25> result;
 
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(state, result);
     friend bool operator==(Keccakf1600 const& lhs, Keccakf1600 const& rhs) = default;
 };
 

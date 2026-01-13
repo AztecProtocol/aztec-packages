@@ -1,8 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js/contracts';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import type { MetricsType } from '@aztec/telemetry-client';
+import type { MetricDefinition } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -15,7 +16,7 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
-    /** What metrics to export */ metrics: (MetricsType | MetricFilter)[];
+    /** What metrics to export */ metrics: (MetricDefinition | MetricFilter)[];
     /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
     benchOutput?: string;
   },
@@ -46,7 +47,7 @@ export async function benchmarkSetup(
 }
 
 type MetricFilter = {
-  source: MetricsType;
+  source: MetricDefinition;
   transform: (value: number) => number;
   name: string;
   unit?: string;
@@ -61,17 +62,21 @@ export type GithubActionBenchmarkResult = {
   extra?: string;
 };
 
+function isMetricDefinition(f: MetricDefinition | MetricFilter): f is MetricDefinition {
+  return 'description' in f;
+}
+
 function formatMetricsForGithubBenchmarkAction(
   data: BenchmarkMetricsType,
-  filter: (MetricsType | MetricFilter)[],
+  filter: (MetricDefinition | MetricFilter)[],
 ): GithubActionBenchmarkResult[] {
   const allFilters: MetricFilter[] = filter.map(f =>
-    typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
+    isMetricDefinition(f) ? { name: f.name, source: f, transform: (x: number) => x, unit: f.unit } : f,
   );
   return data.flatMap(meter => {
     return meter.metrics
-      .filter(metric => allFilters.map(f => f.source).includes(metric.name as MetricsType))
-      .map(metric => [metric, allFilters.find(f => f.source === metric.name)!] as const)
+      .filter(metric => allFilters.map(f => f.source.name).includes(metric.name))
+      .map(metric => [metric, allFilters.find(f => f.source.name === metric.name)!] as const)
       .map(([metric, filter]) => ({
         name: `${meter.name}/${filter.name}`,
         unit: filter.unit ?? metric.unit ?? 'unknown',
@@ -103,19 +108,22 @@ function getMetricValues(points: BenchmarkDataPoint[]) {
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns A BatchCall instance.
  */
-function makeCall(
+async function makeCall(
   index: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean,
 ) {
-  const [owner] = context.accounts;
   if (heavyPublicCompute) {
     return new BatchCall(context.wallet, [contract.methods.sha256_hash_1024(randomBytesAsBigInts(1024))]);
   } else {
+    // We use random address for the new note owner because we can emit at most UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN
+    // logs for a given sender-recipient-contract tuple.
+    const ownerOfNewNote = await AztecAddress.random();
+    const [ownerOfBalance] = context.accounts;
     return new BatchCall(context.wallet, [
-      contract.methods.create_note(owner, index + 1),
-      contract.methods.increment_balance(owner, index + 1),
+      contract.methods.create_note(ownerOfNewNote, index + 1),
+      contract.methods.increment_balance(ownerOfBalance, index + 1),
     ]);
   }
 }
@@ -129,13 +137,13 @@ function makeCall(
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns Array of sent txs.
  */
-export function sendTxs(
+export async function sendTxs(
   txCount: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
-): SentTx[] {
-  const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
+): Promise<SentTx[]> {
+  const calls = await Promise.all(times(txCount, index => makeCall(index, context, contract, heavyPublicCompute)));
   context.logger.info(`Creating ${txCount} txs`);
   const [from] = context.accounts;
   context.logger.info(`Sending ${txCount} txs`);

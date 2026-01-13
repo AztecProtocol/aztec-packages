@@ -118,8 +118,8 @@ export class BotFactory {
       contract: new SchnorrAccountContract(signingKey!),
     };
     const accountManager = await this.wallet.createAccount(accountData);
-    const isInit = (await this.wallet.getContractMetadata(accountManager.address)).isContractInitialized;
-    if (isInit) {
+    const metadata = await this.wallet.getContractMetadata(accountManager.address);
+    if (metadata.isContractInitialized) {
       this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
       const timer = new Timer();
       const address = accountManager.address;
@@ -134,7 +134,7 @@ export class BotFactory {
 
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
       const deployMethod = await accountManager.getDeployMethod();
-      const maxFeesPerGas = (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.config.baseFeePadding);
+      const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const sentTx = deployMethod.send({ from: AztecAddress.ZERO, fee: { gasSettings, paymentMethod } });
       const txHash = await sentTx.getTxHash();
@@ -192,7 +192,8 @@ export class BotFactory {
     }
 
     const address = tokenInstance?.address ?? (await deploy.getInstance(deployOpts)).address;
-    if ((await this.wallet.getContractMetadata(address)).isContractPublished) {
+    const metadata = await this.wallet.getContractMetadata(address);
+    if (metadata.isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -325,7 +326,8 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.wallet.getContractMetadata(address)).isContractPublished) {
+    const metadata = await this.wallet.getContractMetadata(address);
+    if (metadata.isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {

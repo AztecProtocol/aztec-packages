@@ -1,5 +1,5 @@
-import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
-import { createLogger } from '@aztec/foundation/log';
+import { AztecClientBackend, type BackendOptions, Barretenberg } from '@aztec/bb.js';
+import { type LogLevel, type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
 import {
@@ -45,12 +45,17 @@ import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@azt
 
 import { ungzip } from 'pako';
 
+export type BBPrivateKernelProverOptions = Omit<BackendOptions, 'logger'> & { logger?: Logger };
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
+  private log: Logger;
+
   constructor(
     protected artifactProvider: ArtifactProvider,
     protected simulator: CircuitSimulator,
-    protected log = createLogger('bb-prover'),
-  ) {}
+    protected options: BBPrivateKernelProverOptions = {},
+  ) {
+    this.log = options.logger || createLogger('bb-prover:private-kernel');
+  }
 
   public async generateInitOutput(
     inputs: PrivateKernelInitCircuitPrivateInputs,
@@ -271,9 +276,13 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   public async createChonkProof(executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
     const timer = new Timer();
     this.log.info(`Generating ClientIVC proof...`);
+    const barretenberg = await Barretenberg.initSingleton({
+      ...this.options,
+      logger: this.options.logger?.[(process.env.LOG_LEVEL as LogLevel) || 'verbose'],
+    });
     const backend = new AztecClientBackend(
       executionSteps.map(step => ungzip(step.bytecode)),
-      await Barretenberg.initSingleton(),
+      barretenberg,
     );
 
     const [proof] = await backend.prove(
@@ -290,7 +299,11 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
 
   public async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
     // Note we do not pass the vk to the backend. This is unneeded for gate counts.
-    const backend = new AztecClientBackend([ungzip(_bytecode)], await Barretenberg.initSingleton());
+    const barretenberg = await Barretenberg.initSingleton({
+      ...this.options,
+      logger: this.options.logger?.[(process.env.LOG_LEVEL as LogLevel) || 'verbose'],
+    });
+    const backend = new AztecClientBackend([ungzip(_bytecode)], barretenberg);
     const gateCount = await backend.gates();
     return gateCount[0];
   }

@@ -225,6 +225,25 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     this.metrics.prettyPrint();
   }
 
+  /**
+   * Cancel the current simulation if one is in progress.
+   * This signals the underlying simulator (e.g., C++) to stop at the next safe point.
+   * Safe to call even if no simulation is in progress.
+   *
+   * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
+   */
+  public async cancel(waitTimeoutMs?: number): Promise<void> {
+    await this.simulator.cancel?.(waitTimeoutMs);
+  }
+
+  /**
+   * Get the underlying simulator for advanced test scenarios.
+   * Use this when you need direct control over simulation (e.g., for testing cancellation).
+   */
+  public getSimulator(): MeasuredPublicTxSimulatorInterface {
+    return this.simulator;
+  }
+
   async #createPubicCallRequestForCall(
     call: TestEnqueuedCall,
     sender: AztecAddress,

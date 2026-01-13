@@ -124,11 +124,13 @@
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_addressing.hpp"
 #include "relations/perms_bc_hashing.hpp"
+#include "relations/perms_context.hpp"
 #include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
 #include "relations/perms_emit_unencrypted_log.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_get_contract_instance.hpp"
+#include "relations/perms_internal_call.hpp"
 #include "relations/perms_keccak_memory.hpp"
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
@@ -142,11 +144,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 124;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3061;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 123;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3059;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 344;
-    static constexpr size_t NUM_WIRES = 2595;
-    static constexpr size_t NUM_ALL_ENTITIES = 3529;
+    static constexpr size_t NUM_WIRES = 2593;
+    static constexpr size_t NUM_ALL_ENTITIES = 3526;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -265,7 +267,6 @@ struct AvmFlavorVariables {
         lookup_calldata_range_check_context_id_diff_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
-        lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
@@ -298,8 +299,8 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_is_da_gas_left_gt_alllocated_relation<FF_>,
-        lookup_external_call_is_l2_gas_left_gt_alllocated_relation<FF_>,
+        lookup_external_call_is_da_gas_left_gt_allocated_relation<FF_>,
+        lookup_external_call_is_l2_gas_left_gt_allocated_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
@@ -317,7 +318,6 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
-        lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
         lookup_keccakf1600_dst_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
@@ -635,6 +635,7 @@ struct AvmFlavorVariables {
         perm_bc_hashing_get_packed_field_0_relation<FF_>,
         perm_bc_hashing_get_packed_field_1_relation<FF_>,
         perm_bc_hashing_get_packed_field_2_relation<FF_>,
+        perm_context_ctx_stack_call_relation<FF_>,
         perm_data_copy_mem_read_relation<FF_>,
         perm_data_copy_mem_write_relation<FF_>,
         perm_ecc_mem_write_mem_0_relation<FF_>,
@@ -652,6 +653,7 @@ struct AvmFlavorVariables {
         perm_execution_dispatch_to_to_radix_relation<FF_>,
         perm_get_contract_instance_mem_write_contract_instance_exists_relation<FF_>,
         perm_get_contract_instance_mem_write_contract_instance_member_relation<FF_>,
+        perm_internal_call_push_call_stack_relation<FF_>,
         perm_keccak_memory_slice_to_mem_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,

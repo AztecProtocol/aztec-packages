@@ -1,6 +1,7 @@
-pub(crate) mod root_rollup_private_inputs;
+pub(crate) mod utils;
+pub mod root_rollup;
 mod tests;
 
 // Re-exports
 pub use crate::abis::RootRollupPublicInputs;
-pub use root_rollup_private_inputs::RootRollupPrivateInputs;
+pub use root_rollup::RootRollupPrivateInputs;

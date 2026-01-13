@@ -21,14 +21,14 @@ import { LogService } from '../../logs/log_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import { PublicStorageService } from '../../public_storage/public_storage_service.js';
-import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
-import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
-import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
-import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
-import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
-import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { AddressStore } from '../../storage/address_store/address_store.js';
+import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
+import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
+import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
+import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import { TreeMembershipService } from '../../tree_membership/tree_membership_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
@@ -54,16 +54,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly authWitnesses: AuthWitness[],
     protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
     protected readonly anchorBlockHeader: BlockHeader,
-    protected readonly contractDataProvider: ContractDataProvider,
-    protected readonly noteDataProvider: NoteDataProvider,
+    protected readonly contractStore: ContractStore,
+    protected readonly noteStore: NoteStore,
     protected readonly keyStore: KeyStore,
-    protected readonly addressDataProvider: AddressDataProvider,
+    protected readonly addressStore: AddressStore,
     protected readonly aztecNode: AztecNode,
-    protected readonly anchorBlockDataProvider: AnchorBlockDataProvider,
-    protected readonly senderTaggingDataProvider: SenderTaggingDataProvider,
-    protected readonly recipientTaggingDataProvider: RecipientTaggingDataProvider,
-    protected readonly capsuleDataProvider: CapsuleDataProvider,
-    protected readonly privateEventDataProvider: PrivateEventDataProvider,
+    protected readonly anchorBlockStore: AnchorBlockStore,
+    protected readonly recipientTaggingStore: RecipientTaggingStore,
+    protected readonly senderAddressBookStore: SenderAddressBookStore,
+    protected readonly capsuleStore: CapsuleStore,
+    protected readonly privateEventStore: PrivateEventStore,
+    protected readonly jobId: string,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {}
@@ -106,7 +107,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public utilityGetMembershipWitness(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockStore);
     return treeMembershipService.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
@@ -136,7 +137,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockStore);
     return await treeMembershipService.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
@@ -150,7 +151,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     blockNumber: BlockNumber,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockStore);
     return await treeMembershipService.getPublicDataWitness(blockNumber, leafSlot);
   }
 
@@ -160,7 +161,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Block extracted from a block with block number `blockNumber`.
    */
   public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
@@ -180,7 +181,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   protected async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.addressDataProvider.getCompleteAddress(account);
+    const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
@@ -200,7 +201,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   protected async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const instance = await this.contractDataProvider.getContractInstance(address);
+    const instance = await this.contractStore.getContractInstance(address);
     if (!instance) {
       throw new Error(`No contract instance found for address ${address.toString()}`);
     }
@@ -256,7 +257,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
@@ -281,13 +282,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async utilityCheckNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockStore);
     const index = await treeMembershipService.getNullifierIndex(nullifier);
     return index !== undefined;
   }
 
   /**
-   * Fetches a message from the executionDataProvider, given its key.
+   * Fetches a message from the executionStore, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
    * @param secret - Secret used to compute a nullifier.
@@ -295,7 +296,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockDataProvider);
+    const treeMembershipService = new TreeMembershipService(this.aztecNode, this.anchorBlockStore);
     const [messageIndex, siblingPath] = await treeMembershipService.getL1ToL2MembershipWitness(
       contractAddress,
       messageHash,
@@ -320,7 +321,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numberOfElements: number,
   ) {
     const values = [];
-    const publicStorageService = new PublicStorageService(this.anchorBlockDataProvider, this.aztecNode);
+    const publicStorageService = new PublicStorageService(this.anchorBlockStore, this.aztecNode);
 
     // TODO: why do we serialize these requests? This should probably a single call
     // Privacy considerations?
@@ -347,16 +348,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     const logService = new LogService(
       this.aztecNode,
-      this.anchorBlockDataProvider,
+      this.anchorBlockStore,
       this.keyStore,
-      this.capsuleDataProvider,
-      this.recipientTaggingDataProvider,
-      this.addressDataProvider,
+      this.capsuleStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.addressStore,
+      this.jobId,
     );
 
     await logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
-    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
     await noteService.syncNoteNullifiers(this.contractAddress);
   }
 
@@ -383,14 +386,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all note and event validation requests and process them all concurrently. This makes the process much
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
+      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
     ).map(NoteValidationRequest.fromFields);
 
     const eventValidationRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot)
+      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
-    const noteService = new NoteService(this.noteDataProvider, this.aztecNode, this.anchorBlockDataProvider);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
     const noteDeliveries = noteValidationRequests.map(request =>
       noteService.deliverNote(
         request.contractAddress,
@@ -406,11 +409,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ),
     );
 
-    const eventService = new EventService(this.anchorBlockDataProvider, this.aztecNode, this.privateEventDataProvider);
+    const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore);
     const eventDeliveries = eventValidationRequests.map(request =>
       eventService.deliverEvent(
         request.contractAddress,
         request.eventTypeId,
+        request.randomness,
         request.serializedEvent,
         request.eventCommitment,
         request.txHash,
@@ -421,8 +425,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     await Promise.all([...noteDeliveries, ...eventDeliveries]);
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
-    await this.capsuleDataProvider.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
+    await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
+    await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
   }
 
   public async utilityBulkRetrieveLogs(
@@ -438,28 +442,31 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
+      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
     ).map(LogRetrievalRequest.fromFields);
 
     const logService = new LogService(
       this.aztecNode,
-      this.anchorBlockDataProvider,
+      this.anchorBlockStore,
       this.keyStore,
-      this.capsuleDataProvider,
-      this.recipientTaggingDataProvider,
-      this.addressDataProvider,
+      this.capsuleStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.addressStore,
+      this.jobId,
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
 
     // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
-    await this.capsuleDataProvider.setCapsuleArray(
+    await this.capsuleStore.setCapsuleArray(
       contractAddress,
       logRetrievalResponsesArrayBaseSlot,
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
+      this.jobId,
     );
   }
 
@@ -468,7 +475,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleDataProvider.storeCapsule(this.contractAddress, slot, capsule);
+    this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
+    return Promise.resolve();
   }
 
   public async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
@@ -479,7 +487,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return (
       // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
       this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.capsuleDataProvider.loadCapsule(this.contractAddress, slot))
+      (await this.capsuleStore.loadCapsule(this.contractAddress, slot, this.jobId))
     );
   }
 
@@ -488,7 +496,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleDataProvider.deleteCapsule(this.contractAddress, slot);
+    this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
+    return Promise.resolve();
   }
 
   public utilityCopyCapsule(
@@ -501,7 +510,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleDataProvider.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries, this.jobId);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.

@@ -50,6 +50,8 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   injectFakeAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  skipPushProposedBlocksToArchiver: true,
 };
 
 /**
@@ -201,6 +203,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_BUILD_CHECKPOINT_IF_EMPTY',
     description: 'Have sequencer build and publish an empty checkpoint if there are no txs',
     ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
+  },
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  skipPushProposedBlocksToArchiver: {
+    description: 'Skip pushing proposed blocks to archiver (default: true)',
+    ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };

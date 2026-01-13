@@ -31,9 +31,10 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
   program.configureHelp({ sortSubcommands: true });
 
-  program.addHelpText(
-    'after',
-    `
+  if (process.env.AZTEC_SHELL_WRAPPER) {
+    program.addHelpText(
+      'after',
+      `
 
   Additional commands:
 
@@ -64,30 +65,17 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       The compiled contracts will be placed in the target/ directory by default.
       Supports standard nargo compile options.
 
-    fmt [options]: formats Noir code using nargo fmt
-      Example:
-        $ aztec fmt                     # formats all Noir files in the project
-
-    check [options]: type-checks Noir code without compiling using nargo check
-      Example:
-        $ aztec check                   # checks all Noir files in the project
-
     test [options]: starts a dockerized TXE node via
       $ aztec start --txe
     then runs
       $ aztec test --silence-warnings --oracle-resolver=<TXE_ADDRESS> [options]
 
-    lsp: starts the Nargo Language Server Protocol server
-      Runs nargo lsp in a Docker container for IDE integration with Noir.
-      This command is typically used by IDE extensions and not called directly by users.
-      Example:
-        $ aztec lsp                     # starts the LSP server
-
     preload-crs: Downloads and caches the Common Reference String (CRS) data required for zero-knowledge proofs.
       Example:
         $ aztec preload-crs             # preloads CRS data
     `,
-  );
+    );
+  }
 
   program
     .command('preload-crs')

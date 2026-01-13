@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
 <title>Trait Deserialize documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Deserialize</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../index.html">aztec-nr</a></h1>
 <div><a href="../../all.html">All items</a></div>
@@ -53,6 +59,7 @@
 <li><a href="#impl-Deserialize-for-FeeRecipient">FeeRecipient</a></li>
 <li><a href="#impl-Deserialize-for-Field">Field</a></li>
 <li><a href="#impl-Deserialize-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Deserialize-for-FieldNote">FieldNote</a></li>
 <li><a href="#impl-Deserialize-for-FunctionData">FunctionData</a></li>
 <li><a href="#impl-Deserialize-for-FunctionSelector">FunctionSelector</a></li>
 <li><a href="#impl-Deserialize-for-Gas">Gas</a></li>
@@ -112,7 +119,6 @@
 <li><a href="#impl-Deserialize-for-TxContext">TxContext</a></li>
 <li><a href="#impl-Deserialize-for-TxRequest">TxRequest</a></li>
 <li><a href="#impl-Deserialize-for-UintNote">UintNote</a></li>
-<li><a href="#impl-Deserialize-for-ValueNote">ValueNote</a></li>
 <li><a href="#impl-Deserialize-for-[T; M]">[T; M]</a></li>
 <li><a href="#impl-Deserialize-for-bool">bool</a></li>
 <li><a href="#impl-Deserialize-for-i16">i16</a></li>
@@ -159,18 +165,16 @@ deserializing return values from function calls in Noir. Since the same function
 <li><code>N</code> - The length of the input Field array, known at compile time</li>
 </ul>
 <h2>Example</h2>
-<pre><code>impl&lt;let M: u32&gt; Deserialize for str&lt;M&gt; {
-    let N: u32 = M;
+<pre><code><span class="kw">impl</span>&lt;<span class="kw">let</span> M: u32&gt; Deserialize <span class="kw">for</span> str&lt;M&gt; {
+    <span class="kw">let</span> N: u32 = M;
 
     #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -&gt; Self {
-        str::&lt;Self::N&gt;::from(fields.map(|value| value as u8))
+    <span class="kw">fn</span> deserialize(fields: [Field; Self::N]) -&gt; Self {
+        str::&lt;Self::N&gt;::from(fields.map(|value| value <span class="kw">as</span> u8))
     }
-}
-</code></pre>
-</div>
+}</code></pre></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="deserialize" class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
+<div class="padded-methods"><code id="deserialize" class="code-header">pub fn <a href="#deserialize"><span class="fn">deserialize</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
 
 </div><h2>Implementors</h2>
 <h3 id="impl-Deserialize-for-()"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for ()</code></h3>
@@ -275,6 +279,8 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-Field"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
 
 <h3 id="impl-Deserialize-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<h3 id="impl-Deserialize-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
 
 <h3 id="impl-Deserialize-for-FunctionData"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/function_data/struct.FunctionData.html" class="struct">FunctionData</a></code></h3>
 
@@ -402,8 +408,6 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
 
-<h3 id="impl-Deserialize-for-ValueNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../value_note/value_note/struct.ValueNote.html" class="struct">ValueNote</a></code></h3>
-
 <h3 id="impl-Deserialize-for-[T; M]"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for [T; M]
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
@@ -433,5 +437,6 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-u8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
 
 </main>
+</span>
 </body>
 </html>

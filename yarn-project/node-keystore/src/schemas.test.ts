@@ -70,8 +70,8 @@ describe('Keystore Schema Validation', () => {
     expect(parsed.validators).toBeDefined();
     const v0: any = parsed.validators![4];
     expect(typeof v0.attester).toBe('object');
-    expect(v0.attester.eth).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
-    expect(v0.attester.bls).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    expect(v0.attester.eth).toBe('0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
+    expect(v0.attester.bls).toBe('0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b');
   });
 
   it('should validate prover with publishers example', () => {
@@ -85,7 +85,7 @@ describe('Keystore Schema Validation', () => {
     expect(prover.id.equals(EthAddress.fromString('0x1234567890123456789012345678901234567890'))).toBeTruthy();
     expect(Array.isArray(prover.publisher)).toBe(true);
     expect(prover.publisher as any[]).toHaveLength(2);
-    expect(parsed.fundingAccount).toBe('0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd');
+    expect(parsed.fundingAccount).toBe('0x0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d');
   });
 
   it('should validate prover with single publisher example', () => {
@@ -186,7 +186,7 @@ describe('Keystore Schema Validation', () => {
 
     // Type guard: if schemaVersion is 2, these fields exist
     if (parsed.schemaVersion === 2) {
-      expect(parsed.publisher).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+      expect(parsed.publisher).toBe('0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a');
       expect(parsed.coinbase?.equals(EthAddress.fromString('0x1111111111111111111111111111111111111111'))).toBeTruthy();
       expect(
         parsed.feeRecipient?.equals(
@@ -202,7 +202,7 @@ describe('Keystore Schema Validation', () => {
     expect(parsed.validators![0].feeRecipient).toBeUndefined();
 
     // Second validator overrides publisher
-    expect(parsed.validators![1].publisher).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    expect(parsed.validators![1].publisher).toBe('0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b');
 
     // Third validator overrides coinbase and feeRecipient
     expect(
@@ -210,7 +210,7 @@ describe('Keystore Schema Validation', () => {
     ).toBeTruthy();
     expect(
       parsed.validators![2].feeRecipient?.equals(
-        AztecAddress.fromString('0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+        AztecAddress.fromString('0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd'),
       ),
     ).toBeTruthy();
   });
@@ -253,7 +253,7 @@ describe('Keystore Schema Validation', () => {
         },
         {
           attester: '0x2222222222222222222222222222222222222222222222222222222222222222',
-          feeRecipient: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+          feeRecipient: '0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd',
         },
       ],
     };

@@ -13,9 +13,7 @@ import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
-// eslint-disable-next-line import/no-cycle
 import { LMDBArray } from './array.js';
-// eslint-disable-next-line import/no-cycle
 import { LMDBMap } from './map.js';
 import {
   Database,
@@ -27,9 +25,10 @@ import {
 import { LMDBMultiMap } from './multi_map.js';
 import { ReadTransaction } from './read_transaction.js';
 import { LMDBSet } from './set.js';
-// eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
+
+export { execInReadTx, execInWriteTx } from './tx-helpers.js';
 
 export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   private open = false;
@@ -215,31 +214,5 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
       actualSize: resp.stats.reduce((s, db) => Number(db.totalUsedSize) + s, 0),
       numItems: resp.stats.reduce((s, db) => Number(db.numDataItems) + s, 0),
     };
-  }
-}
-
-export function execInWriteTx<T>(store: AztecLMDBStoreV2, fn: (tx: WriteTransaction) => Promise<T>): Promise<T> {
-  const currentWrite = store.getCurrentWriteTx();
-  if (currentWrite) {
-    return fn(currentWrite);
-  } else {
-    return store.transactionAsync(fn);
-  }
-}
-
-export async function execInReadTx<T>(
-  store: AztecLMDBStoreV2,
-  fn: (tx: ReadTransaction) => T | Promise<T>,
-): Promise<T> {
-  const currentWrite = store.getCurrentWriteTx();
-  if (currentWrite) {
-    return await fn(currentWrite);
-  } else {
-    const tx = store.getReadTx();
-    try {
-      return await fn(tx);
-    } finally {
-      tx.close();
-    }
   }
 }

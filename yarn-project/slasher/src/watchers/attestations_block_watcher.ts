@@ -3,12 +3,12 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
-  type InvalidBlockDetectedEvent,
-  type L2BlockInfo,
+  type InvalidCheckpointDetectedEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
-  type ValidateBlockNegativeResult,
+  type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
+import type { CheckpointInfo } from '@aztec/stdlib/checkpoint';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
@@ -32,19 +32,19 @@ type AttestationsBlockWatcherConfig = Pick<SlasherConfig, (typeof AttestationsBl
 export class AttestationsBlockWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private log: Logger = createLogger('attestations-block-watcher');
 
-  // Only keep track of the last N invalid blocks
-  private maxInvalidBlocks = 100;
+  // Only keep track of the last N invalid checkpoints
+  private maxInvalidCheckpoints = 100;
 
   // All invalid archive roots seen
   private invalidArchiveRoots: Set<string> = new Set();
 
   private config: AttestationsBlockWatcherConfig;
 
-  private boundHandleInvalidBlock = (event: InvalidBlockDetectedEvent) => {
+  private boundHandleInvalidCheckpoint = (event: InvalidCheckpointDetectedEvent) => {
     try {
-      this.handleInvalidBlock(event);
+      this.handleInvalidCheckpoint(event);
     } catch (err) {
-      this.log.error('Error handling invalid block', err, {
+      this.log.error('Error handling invalid checkpoint', err, {
         ...event.validationResult,
         reason: event.validationResult.reason,
       });
@@ -67,54 +67,57 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.InvalidAttestationsBlockDetected, this.boundHandleInvalidBlock);
+    this.l2BlockSource.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, this.boundHandleInvalidCheckpoint);
     return Promise.resolve();
   }
 
   public stop() {
     this.l2BlockSource.removeListener(
-      L2BlockSourceEvents.InvalidAttestationsBlockDetected,
-      this.boundHandleInvalidBlock,
+      L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
+      this.boundHandleInvalidCheckpoint,
     );
     return Promise.resolve();
   }
 
-  private handleInvalidBlock(event: InvalidBlockDetectedEvent): void {
+  private handleInvalidCheckpoint(event: InvalidCheckpointDetectedEvent): void {
     const { validationResult } = event;
-    const block = validationResult.block;
+    const checkpoint = validationResult.checkpoint;
 
-    // Check if we already have processed this block, archiver may emit the same event multiple times
-    if (this.invalidArchiveRoots.has(block.archive.toString())) {
-      this.log.trace(`Already processed invalid block ${block.blockNumber}`);
+    // Check if we already have processed this checkpoint, archiver may emit the same event multiple times
+    if (this.invalidArchiveRoots.has(checkpoint.archive.toString())) {
+      this.log.trace(`Already processed invalid checkpoint ${checkpoint.checkpointNumber}`);
       return;
     }
 
-    this.log.verbose(`Detected invalid block ${block.blockNumber}`, {
-      ...block,
+    this.log.verbose(`Detected invalid checkpoint ${checkpoint.checkpointNumber}`, {
+      ...checkpoint,
       reason: validationResult.valid === false ? validationResult.reason : 'unknown',
     });
 
-    // Store the invalid block
-    this.addInvalidBlock(event.validationResult.block);
+    // Store the invalid checkpoint
+    this.addInvalidCheckpoint(event.validationResult.checkpoint);
 
-    // Slash the proposer of the invalid block
+    // Slash the proposer of the invalid checkpoint
     this.slashProposer(event.validationResult);
 
-    // Check if the parent of this block is invalid as well, if so, we will slash its attestors as well
+    // Check if the parent of this checkpoint is invalid as well, if so, we will slash its attestors as well
     this.slashAttestorsOnAncestorInvalid(event.validationResult);
   }
 
-  private slashAttestorsOnAncestorInvalid(validationResult: ValidateBlockNegativeResult) {
-    const block = validationResult.block;
+  private slashAttestorsOnAncestorInvalid(validationResult: ValidateCheckpointNegativeResult) {
+    const checkpoint = validationResult.checkpoint;
 
-    const parentArchive = block.lastArchive.toString();
+    const parentArchive = checkpoint.lastArchive.toString();
     if (this.invalidArchiveRoots.has(parentArchive)) {
       const attestors = validationResult.attestors;
-      this.log.info(`Want to slash attestors of block ${block.blockNumber} built on invalid block`, {
-        ...block,
-        ...attestors,
-        parentArchive,
-      });
+      this.log.info(
+        `Want to slash attestors of checkpoint ${checkpoint.checkpointNumber} built on invalid checkpoint`,
+        {
+          ...checkpoint,
+          ...attestors,
+          parentArchive,
+        },
+      );
 
       this.emit(
         WANT_TO_SLASH_EVENT,
@@ -122,20 +125,25 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
           validator: attestor,
           amount: this.config.slashAttestDescendantOfInvalidPenalty,
           offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-          epochOrSlot: BigInt(SlotNumber(block.slotNumber)),
+          epochOrSlot: BigInt(SlotNumber(checkpoint.slotNumber)),
         })),
       );
     }
   }
 
-  private slashProposer(validationResult: ValidateBlockNegativeResult) {
-    const { reason, block } = validationResult;
-    const blockNumber = block.blockNumber;
-    const slot = block.slotNumber;
-    const proposer = this.epochCache.getProposerFromEpochCommittee(validationResult, slot);
+  private slashProposer(validationResult: ValidateCheckpointNegativeResult) {
+    const { reason, checkpoint } = validationResult;
+    const checkpointNumber = checkpoint.checkpointNumber;
+    const slot = checkpoint.slotNumber;
+    const epochCommitteeInfo = {
+      committee: validationResult.committee,
+      seed: validationResult.seed,
+      epoch: validationResult.epoch,
+    };
+    const proposer = this.epochCache.getProposerFromEpochCommittee(epochCommitteeInfo, slot);
 
     if (!proposer) {
-      this.log.warn(`No proposer found for block ${blockNumber} at slot ${slot}`);
+      this.log.warn(`No proposer found for checkpoint ${checkpointNumber} at slot ${slot}`);
       return;
     }
 
@@ -148,15 +156,15 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       epochOrSlot: BigInt(slot),
     };
 
-    this.log.info(`Want to slash proposer of block ${blockNumber} due to ${reason}`, {
-      ...block,
+    this.log.info(`Want to slash proposer of checkpoint ${checkpointNumber} due to ${reason}`, {
+      ...checkpoint,
       ...args,
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [args]);
   }
 
-  private getOffenseFromInvalidationReason(reason: ValidateBlockNegativeResult['reason']): OffenseType {
+  private getOffenseFromInvalidationReason(reason: ValidateCheckpointNegativeResult['reason']): OffenseType {
     switch (reason) {
       case 'invalid-attestation':
         return OffenseType.PROPOSED_INCORRECT_ATTESTATIONS;
@@ -169,11 +177,11 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     }
   }
 
-  private addInvalidBlock(block: L2BlockInfo) {
-    this.invalidArchiveRoots.add(block.archive.toString());
+  private addInvalidCheckpoint(checkpoint: CheckpointInfo) {
+    this.invalidArchiveRoots.add(checkpoint.archive.toString());
 
     // Prune old entries if we exceed the maximum
-    if (this.invalidArchiveRoots.size > this.maxInvalidBlocks) {
+    if (this.invalidArchiveRoots.size > this.maxInvalidCheckpoints) {
       const oldestKey = this.invalidArchiveRoots.keys().next().value!;
       this.invalidArchiveRoots.delete(oldestKey);
     }

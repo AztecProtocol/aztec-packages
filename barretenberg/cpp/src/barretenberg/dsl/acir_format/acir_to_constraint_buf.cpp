@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], date: 2025-12-04 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "acir_to_constraint_buf.hpp"
@@ -271,52 +271,29 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
 template <typename T>
-T deserialize_any_format(std::vector<uint8_t>&& buf,
-                         std::function<T(msgpack::object const&)> decode_msgpack,
-                         std::function<T(std::vector<uint8_t>)> decode_bincode)
+T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack)
 {
-    // We can't rely on exceptions to try to deserialize binpack, falling back to
-    // msgpack if it fails, because exceptions are (or were) not supported in Wasm
-    // and they are turned off in arch.cmake.
-    //
-    // For now our other option is to check if the data is valid msgpack,
-    // which slows things down, but we can't tell if the first byte of
-    // the data accidentally matches one of our format values.
-    //
-    // Unfortunately this doesn't seem to work either: `msgpack::parse`
-    // returns true for a `bincode` encoded program, and we have to check
-    // whether the value parsed is plausible.
+    BB_ASSERT(!buf.empty(), "deserialize_msgpack_compact: buffer is empty");
 
-    if (!buf.empty()) {
-        // Once we remove support for legacy bincode format, we should expect to always
-        // have a format marker corresponding to acir::serialization::Format::Msgpack,
-        // but until then a match could be pure coincidence.
-        const uint8_t FORMAT_MSGPACK = 2;
-        const uint8_t FORMAT_MSGPACK_COMPACT = 3;
-        uint8_t format = buf[0];
-        if (format == FORMAT_MSGPACK || format == FORMAT_MSGPACK_COMPACT) {
-            // Skip the format marker to get the data.
-            const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
-            size_t size = buf.size() - 1;
-            msgpack::null_visitor probe;
-            if (msgpack::parse(buffer, size, probe)) {
-                auto oh = msgpack::unpack(buffer, size);
-                // This has to be on a separate line, see
-                // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
-                auto o = oh.get();
-                // In experiments bincode data was parsed as 0, so a successful parse is not a guarnatee that it's
-                // msgpack. All the top level formats we look for are MAP or ARRAY types (depending on the format).
-                if (o.type == msgpack::type::MAP || o.type == msgpack::type::ARRAY) {
-                    return decode_msgpack(o);
-                }
-            }
-        }
-        // `buf[0] == 1` would indicate bincode starting with a format byte,
-        // but if it's a coincidence and it fails to parse then we can't recover
-        // from it, so let's just acknowledge that for now we don't want to
-        // exercise this code path and treat the whole data as bincode.
-    }
-    return decode_bincode(std::move(buf));
+    // Expect format marker for msgpack or msgpack-compact
+    const uint8_t FORMAT_MSGPACK = 2;
+    const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+    uint8_t format_u8 = buf[0];
+    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT,
+              "deserialize_msgpack_compact: expected msgpack format marker (2 or 3), got " + std::to_string(format_u8));
+
+    // Skip the format marker to get the data.
+    const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
+    size_t size = buf.size() - 1;
+
+    auto oh = msgpack::unpack(buffer, size);
+    auto o = oh.get();
+
+    // Expect ARRAY type for msgpack-compact format
+    BB_ASSERT(o.type == msgpack::type::ARRAY,
+              "deserialize_msgpack_compact: expected ARRAY type, got " + std::to_string(o.type));
+
+    return decode_msgpack(o);
 }
 
 AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
@@ -386,24 +363,20 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
 {
     // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
-    auto program = deserialize_any_format<Acir::Program>(
-        std::move(buf),
-        [](auto o) -> Acir::Program {
-            Acir::Program program;
-            try {
-                // Deserialize into a partial structure that ignores the Brillig parts,
-                // so that new opcodes can be added without breaking Barretenberg.
-                Acir::ProgramWithoutBrillig program_wob;
-                o.convert(program_wob);
-                program.functions = program_wob.functions;
-            } catch (const msgpack::type_error&) {
-                std::cerr << o << std::endl;
-                bb::assert_failure(
-                    "acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
-            }
-            return program;
-        },
-        &Acir::Program::bincodeDeserialize);
+    auto program = deserialize_msgpack_compact<Acir::Program>(std::move(buf), [](auto o) -> Acir::Program {
+        Acir::Program program;
+        try {
+            // Deserialize into a partial structure that ignores the Brillig parts,
+            // so that new opcodes can be added without breaking Barretenberg.
+            Acir::ProgramWithoutBrillig program_wob;
+            o.convert(program_wob);
+            program.functions = program_wob.functions;
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            bb::assert_failure("acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
+        }
+        return program;
+    });
     BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
 
     return circuit_serde_to_acir_format(program.functions[0]);
@@ -412,20 +385,17 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
 WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
 {
     // We need to deserialize into WitnessStack first because the buffer returned by Noir has this structure
-    auto witness_stack = deserialize_any_format<Witnesses::WitnessStack>(
-        std::move(buf),
-        [](auto o) {
-            Witnesses::WitnessStack witness_stack;
-            try {
-                o.convert(witness_stack);
-            } catch (const msgpack::type_error&) {
-                std::cerr << o << std::endl;
-                bb::assert_failure(
-                    "acir_format::witness_buf_to_witness_vector: failed to convert msgpack data to WitnessStack");
-            }
-            return witness_stack;
-        },
-        &Witnesses::WitnessStack::bincodeDeserialize);
+    auto witness_stack = deserialize_msgpack_compact<Witnesses::WitnessStack>(std::move(buf), [](auto o) {
+        Witnesses::WitnessStack witness_stack;
+        try {
+            o.convert(witness_stack);
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            bb::assert_failure(
+                "acir_format::witness_buf_to_witness_vector: failed to convert msgpack data to WitnessStack");
+        }
+        return witness_stack;
+    });
     BB_ASSERT_EQ(witness_stack.stack.size(),
                  1U,
                  "acir_format::witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
@@ -442,9 +412,11 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     for (size_t index = 0; const auto& e : witness_map.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        // which do not exist within the `WitnessMap` with the random values. We use random values instead of zero
+        // because unassigned witnesses indices are not supposed to be used in any constraint, so filling them with a
+        // random value helps catching bugs.
         while (index < e.first.value) {
-            witness_vector.emplace_back(0);
+            witness_vector.emplace_back(fr::random_element());
             index++;
         }
         witness_vector.emplace_back(from_buffer_with_bound_checks(e.second));
@@ -588,7 +560,7 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
         BB_ASSERT_GT(mul_quads.size(),
                      1U,
                      "acir_format::assert_zero_to_quad_constraints: expected multiple gates but found one.");
-        af.big_quad_constraints.push_back(mul_quads);
+        af.big_quad_constraints.push_back(BigQuadConstraint(mul_quads));
         af.original_opcode_indices.big_quad_constraints.push_back(opcode_index);
     }
 

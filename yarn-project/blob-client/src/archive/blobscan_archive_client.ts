@@ -25,22 +25,20 @@ export const BlobscanBlockResponseSchema = zodFor<BlobJson[]>()(
               commitment: z.string(),
               proof: z.string(),
               size: z.number().int(),
-              index: z.number().int().optional(), // This is the index within the tx, not within the block!
+              index: z.number().int().optional(), // Unused, kept for schema compatibility with blobscan API
             }),
           ),
         }),
       ),
     })
     .transform(data =>
-      data.transactions
-        .flatMap(tx =>
-          tx.blobs.map(blob => ({
-            blob: blob.data,
-            // eslint-disable-next-line camelcase
-            kzg_commitment: blob.commitment,
-          })),
-        )
-        .map((blob, index) => ({ ...blob, index: index.toString() })),
+      data.transactions.flatMap(tx =>
+        tx.blobs.map(blob => ({
+          blob: blob.data,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: blob.commitment,
+        })),
+      ),
     ),
 );
 

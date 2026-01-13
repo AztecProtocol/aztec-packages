@@ -14,6 +14,7 @@ workers='0'
 asm='on'
 show_only=0
 avm='off'
+rss_limit='2048'
 
 set_main_fuzzer() {
 	main_fuzzer=''
@@ -62,6 +63,7 @@ show_help() {
 	echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
 	echo "  -a, --asm <mode>            Set the flag to enable/disable asm instructions (on/off) (default: $asm)"
 	echo "  -A, --avm <mode>            Enable AVM fuzzing mode (uses build-fuzzing-avm) (on/off) (default: $avm)"
+	echo "  -r, --rss-limit <MB>        Set RSS limit in megabytes (default: 2048 MB)"
 	echo "  -h, --help                  Display this help and exit"
 	echo "  --show-fuzzers              Display the available fuzzers"
 	echo ""
@@ -111,6 +113,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-A | --avm)
 		avm="$2"
+		shift 2
+		;;
+	-r | --rss-limit)
+		rss_limit="$2"
 		shift 2
 		;;
 	-h | --help)
@@ -214,18 +220,21 @@ fuzz() {
 	MINDIR=""
 	trap 'rm -rf "$TMPOUT"' EXIT
 
-	log "Start $fuzzer with: max_total_time: $timeout, $jobs_ jobs and $workers workers"
-	"$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs_" -workers="$workers" -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 "$CORPUS" &>"$TMPOUT/session.log"
+
+	log "Start $fuzzer with: max_total_time: $timeout, $jobs_ jobs and $workers workers, rss_limit: $rss_limit MB"
+	log "Running command: $main_fuzzer -max_total_time=$timeout -verbosity=$verbosity -artifact_prefix=$TMPOUT/ -jobs=$jobs_ -workers=$workers -rss_limit_mb=$rss_limit -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 $CORPUS"
+	"$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs_" -workers="$workers" -rss_limit_mb="$rss_limit" -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 "$CORPUS" &>"$TMPOUT/session.log"
 	status=$?
 
 	log "Fuzzer stopped"
 
 	files=("$TMPOUT"/crash-*)
 	timeout_files=("$TMPOUT"/timeout-*)
+	oom_files=("$TMPOUT"/oom-*)
 
 	exit_code=0
 	if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
-		if [[ "$status" -ne 0 ]] && [ ! ${#timeout_files[@]} -eq "$workers" ]; then
+		if [[ "$status" -ne 0 ]] && [ ! ${#timeout_files[@]} -eq "$workers" ] && [ ! ${#oom_files[@]} -eq "$workers" ]; then
 			log "Something wrong with $fuzzer. Not related to fuzzing. Exit status: $status"
 			exit_code=1
 		else
@@ -239,7 +248,7 @@ fuzz() {
 
 			MINDIR=$(mktemp -d)
 			mv "$TMPOUT/$crash_name" "$MINDIR"
-			"$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>>"$TMPOUT/minimize.log"
+			"$main_fuzzer" -minimize_crash=1 -runs=10000 -rss_limit_mb="$rss_limit" -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>>"$TMPOUT/minimize.log"
 
 			smallest_crash=$(ls -S "$MINDIR/" | tail -n 1)
 			log "Minimized  $smallest_crash: $(wc -c <$MINDIR/$smallest_crash)B"
@@ -257,7 +266,7 @@ fuzz() {
 	MINCORP="$TMPOUT/corpus"
 	mkdir -p "$MINCORP"
 
-	"$main_fuzzer" -merge=1 -jobs="$jobs_" -workers="$workers" "$MINCORP" "$CORPUS"
+	"$main_fuzzer" -merge=1 -jobs="$jobs_" -rss_limit_mb="$rss_limit" -workers="$workers" "$MINCORP" "$CORPUS"
 	rm -rf "$CORPUS"
 	mv "$MINCORP" "$CORPUS"
 	log "Minimized the corpus to size $(find "$CORPUS" -type f | wc -l)"
@@ -270,9 +279,16 @@ fuzz() {
 	ARCHIVE_NAME="${fuzzer}.tar.gz"
 	if compgen -G "$CORPUS/*" >/dev/null || compgen -G "$CRASHES/*" >/dev/null; then
 		log "Packing corpus & crashes into $ARTIFACTS/$ARCHIVE_NAME"
-		tar -czf "$ARTIFACTS/$ARCHIVE_NAME" \
-			-C "$CORPUS" . \
-			-C "$CRASHES" .
+
+		STAGE="$(mktemp -d)"
+		mkdir -p "$STAGE/corpus" "$STAGE/crashes"
+
+		cp -a "$CORPUS/." "$STAGE/corpus/" 2>/dev/null || true
+		cp -a "$CRASHES/." "$STAGE/crashes/" 2>/dev/null || true
+
+		tar -czf "$ARTIFACTS/$ARCHIVE_NAME" -C "$STAGE" corpus crashes
+
+		rm -rf "$STAGE"
 	else
 		log "Corpus & crashes are empty, skipping packing"
 	fi
@@ -298,7 +314,7 @@ cov() {
 
 	log "Collecting coverage data on corpus..."
 	LLVM_PROFILE_FILE="$RAWCOV/${TS}-%p.profraw" \
-		"$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
+		"$cov_fuzzer" -merge=1 -rss_limit_mb="$rss_limit" "$TMPOUT" "$CORPUS/"
 
 	log "Merging coverage data..."
 	llvm-profdata-18 merge -sparse "$RAWCOV/"*.profraw \

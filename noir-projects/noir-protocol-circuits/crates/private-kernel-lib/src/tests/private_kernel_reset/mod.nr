@@ -24,7 +24,7 @@ use dep::types::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
         NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-        PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_KERNEL_INNER_VK_INDEX,
     },
     hash::{
         compute_app_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
@@ -72,7 +72,7 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
-        let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
+        let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_VK_INDEX);
 
         let note_hash_preimages = pad_end([
             NoteHashLeafPreimage { value: 111 },

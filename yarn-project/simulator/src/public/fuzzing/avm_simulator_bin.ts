@@ -9,10 +9,22 @@ import {
 import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { writeSync } from 'fs';
 import { createInterface } from 'readline';
 
 import { AvmFuzzerSimulator, FuzzerSimulationRequest } from './avm_fuzzer_simulator.js';
+
+/** Write data to stdout, letting Node handle buffering. */
+function writeOutput(data: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    process.stdout.write(data, err => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
 
 // This cache holds opened world states to avoid reopening them for each invocation.
 // It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
@@ -96,27 +108,46 @@ async function execute(base64Line: string): Promise<void> {
       revertReason: result.revertReason ?? '',
       endTreeSnapshots: result.publicInputs.endTreeSnapshots,
     });
-    writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
+    const base64Response = resultBuffer.toString('base64') + '\n';
+    await writeOutput(base64Response);
   } catch (error: any) {
     // If we error, treat as reverted
     const errorResult = serializeWithMessagePack({
       reverted: true,
-      output: [] as string[],
+      output: [] as Fr[],
       revertReason: `Unexpected Error ${error.message}`,
       endTreeSnapshots: TreeSnapshots.empty(),
     });
-    writeSync(process.stdout.fd, errorResult.toString('base64') + '\n');
+    await writeOutput(errorResult.toString('base64') + '\n');
   }
 }
 
 function mainLoop() {
   const rl = createInterface({ input: process.stdin, terminal: false });
+
+  // Process lines sequentially to avoid race conditions in responses
+  const lineQueue: string[] = [];
+  let processing = false;
+
+  async function processQueue() {
+    if (processing || lineQueue.length === 0) {
+      return;
+    }
+    processing = true;
+    while (lineQueue.length > 0) {
+      const line = lineQueue.shift()!;
+      await execute(line);
+    }
+    processing = false;
+  }
+
   rl.on('line', (line: string) => {
     if (line.trim()) {
-      void execute(line);
+      lineQueue.push(line);
+      void processQueue();
     }
   });
   rl.on('close', () => process.exit(0));
 }
 
-mainLoop();
+void mainLoop();

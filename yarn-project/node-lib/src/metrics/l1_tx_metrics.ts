@@ -1,14 +1,7 @@
 import type { IL1TxMetrics, L1TxState } from '@aztec/ethereum/l1-tx-utils';
 import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  Attributes,
-  type Histogram,
-  type Meter,
-  Metrics,
-  type UpDownCounter,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, type Histogram, type Meter, Metrics, type UpDownCounter } from '@aztec/telemetry-client';
 
 export type L1TxScope = 'sequencer' | 'prover' | 'other';
 
@@ -38,55 +31,23 @@ export class L1TxMetrics implements IL1TxMetrics {
     private scope: L1TxScope = 'other',
     private logger = createLogger('l1-tx-utils:metrics'),
   ) {
-    this.txMinedDuration = this.meter.createHistogram(Metrics.L1_TX_MINED_DURATION, {
-      description: 'Time from initial tx send until mined',
-      unit: 's',
-      valueType: ValueType.INT,
-    });
+    this.txMinedDuration = this.meter.createHistogram(Metrics.L1_TX_MINED_DURATION);
 
-    this.txAttemptsUntilMined = this.meter.createHistogram(Metrics.L1_TX_ATTEMPTS_UNTIL_MINED, {
-      description: 'Number of tx attempts (including speed-ups) until mined',
-      unit: 'attempts',
-      valueType: ValueType.INT,
-    });
+    this.txAttemptsUntilMined = this.meter.createHistogram(Metrics.L1_TX_ATTEMPTS_UNTIL_MINED);
 
-    this.txMinedCount = this.meter.createUpDownCounter(Metrics.L1_TX_MINED_COUNT, {
-      description: 'Count of transactions successfully mined',
-      valueType: ValueType.INT,
-    });
+    this.txMinedCount = this.meter.createUpDownCounter(Metrics.L1_TX_MINED_COUNT);
 
-    this.txRevertedCount = this.meter.createUpDownCounter(Metrics.L1_TX_REVERTED_COUNT, {
-      description: 'Count of transactions that reverted',
-      valueType: ValueType.INT,
-    });
+    this.txRevertedCount = this.meter.createUpDownCounter(Metrics.L1_TX_REVERTED_COUNT);
 
-    this.txCancelledCount = this.meter.createUpDownCounter(Metrics.L1_TX_CANCELLED_COUNT, {
-      description: 'Count of transactions cancelled',
-      valueType: ValueType.INT,
-    });
+    this.txCancelledCount = this.meter.createUpDownCounter(Metrics.L1_TX_CANCELLED_COUNT);
 
-    this.txNotMinedCount = this.meter.createUpDownCounter(Metrics.L1_TX_NOT_MINED_COUNT, {
-      description: 'Count of transactions not mined (timed out)',
-      valueType: ValueType.INT,
-    });
+    this.txNotMinedCount = this.meter.createUpDownCounter(Metrics.L1_TX_NOT_MINED_COUNT);
 
-    this.maxPriorityFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_MAX_PRIORITY_FEE, {
-      description: 'Max priority fee per gas at tx end state (in wei)',
-      unit: 'wei',
-      valueType: ValueType.INT,
-    });
+    this.maxPriorityFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_MAX_PRIORITY_FEE);
 
-    this.maxFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_MAX_FEE, {
-      description: 'Max fee per gas at tx end state (in wei)',
-      unit: 'wei',
-      valueType: ValueType.INT,
-    });
+    this.maxFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_MAX_FEE);
 
-    this.blobFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_BLOB_FEE, {
-      description: 'Max fee per blob gas at tx end state (in wei)',
-      unit: 'wei',
-      valueType: ValueType.INT,
-    });
+    this.blobFeeHistogram = this.meter.createHistogram(Metrics.L1_TX_BLOB_FEE);
   }
 
   /**

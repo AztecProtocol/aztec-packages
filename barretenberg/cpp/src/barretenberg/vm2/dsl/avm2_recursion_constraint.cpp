@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "avm2_recursion_constraint.hpp"
@@ -9,7 +9,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include "barretenberg/constants.hpp"
-#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"

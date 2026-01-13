@@ -65,7 +65,8 @@ include "../constants_gen.pil";
  */
 namespace emit_unencrypted_log;
 
-    pol commit sel;
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
@@ -78,16 +79,16 @@ namespace emit_unencrypted_log;
     pol commit contract_address;
     pol commit prev_num_unencrypted_log_fields;
     pol commit next_num_unencrypted_log_fields;
-    pol commit is_static;
-    pol commit error;
-    pol commit discard;
+    pol commit is_static; // @boolean (when start == 1, which is the destination selector of lookup from execution)
+    pol commit error; // @boolean (when start == 1, which is the destination selector of lookup from execution)
+    pol commit discard; // @boolean (when start == 1, which is the destination selector of lookup from execution)
     error * (1 - error) = 0;
 
     // =============== LIFECYCLE ===============
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
 
-    pol commit end;
+    pol commit end; // @boolean
     end * (1 - end) = 0;
     pol NOT_END = sel * (1 - end);
 
@@ -120,7 +121,7 @@ namespace emit_unencrypted_log;
     // =============== ERROR HANDLING ===============
     // Memory bounds check
 
-    pol commit error_out_of_bounds; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    pol commit error_out_of_bounds; // @boolean (by lookup into gt when start == 1)
 
     // TODO: Column needed until we support constants in lookups
     pol commit max_mem_size;
@@ -140,7 +141,7 @@ namespace emit_unencrypted_log;
 
     // Log fields count check
 
-    pol commit error_too_many_log_fields; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    pol commit error_too_many_log_fields; // @boolean (unconditionally via explicit constraint; also by lookup into gt when start == 1)
     error_too_many_log_fields * (1 - error_too_many_log_fields) = 0;
 
     pol TOTAL_LOG_FIELDS_SIZE = constants.PUBLIC_LOG_HEADER_LENGTH + log_size;
@@ -160,7 +161,7 @@ namespace emit_unencrypted_log;
     // Tag check
 
     // Tag mismatch is hinted in the start row and propagated down to be checked on end
-    pol commit error_tag_mismatch;
+    pol commit error_tag_mismatch; // @boolean
     error_tag_mismatch * (1 - error_tag_mismatch) = 0;
 
     #[ERROR_TAG_MISMATCH_CONSISTENCY]
@@ -170,7 +171,7 @@ namespace emit_unencrypted_log;
     // check on end if we've seen 1 or more wrong tags.
     // We'll use the WRONG_NEXT_TAG variable, which is a boolean indicating whether the tag is wrong for the next row.
     // WRONG_NEXT_TAG will be constrained in the memory section.
-    pol commit seen_wrong_tag;
+    pol commit seen_wrong_tag; // @boolean
     seen_wrong_tag * (1 - seen_wrong_tag) = 0;
     // Initial value of seen_wrong_tag is false
     start * seen_wrong_tag = 0;
@@ -188,7 +189,7 @@ namespace emit_unencrypted_log;
 
     // error = error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
     // we split the above computation in 2 to reduce the degree of the full relation
-    pol commit error_too_many_logs_wrong_tag_is_static;
+    pol commit error_too_many_logs_wrong_tag_is_static; // @boolean (by definition, when start == 1)
     start * ((1 - error_too_many_log_fields) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
     start * ((1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 
@@ -199,11 +200,11 @@ namespace emit_unencrypted_log;
     // We write the log length in the start row
     pol IS_WRITE_LOG_LENGTH = start;
     // is_write_contract_address will only be on in the row after start. There will always be a row after start, the contract address one.
-    pol commit is_write_contract_address;
+    pol commit is_write_contract_address; // @boolean
     is_write_contract_address * (1 - is_write_contract_address) = 0;
     is_write_contract_address' = start;
     // is_write_memory_value starts off and is turned on after is_write_contract_address
-    pol commit is_write_memory_value;
+    pol commit is_write_memory_value; // @boolean
     is_write_memory_value * (1 - is_write_memory_value) = 0;
     start * is_write_memory_value = 0;
     // if we are not ending, the next is_write_memory_value is equal to current is_write_memory_value or is_write_contract_address
@@ -220,7 +221,9 @@ namespace emit_unencrypted_log;
     // So what we landed with is to always read memory except we can't read memory due to the first case.
     // This should be fine since the user already paid for the memory reads
     pol commit sel_should_read_memory;
-    sel_should_read_memory = is_write_memory_value * (1 - error_out_of_bounds);
+    // Gate by sel to avoid ghost rows triggering memory reads.
+    #[SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR]
+    sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
 
     #[LOG_ADDRESS_INCREMENT]
     NOT_END * ((log_address + is_write_memory_value) - log_address') = 0;
@@ -250,7 +253,7 @@ namespace emit_unencrypted_log;
     sel * (1 - sel_should_read_memory) * (constants.MEM_TAG_FF - tag) = 0;
 
     // Tag should be zero since that's the FF tag.
-    pol commit correct_tag;
+    pol commit correct_tag; // @boolean
     correct_tag * (1 - correct_tag) = 0;
     pol WRONG_NEXT_TAG = 1 - correct_tag';
 
@@ -262,7 +265,7 @@ namespace emit_unencrypted_log;
     // We write to public inputs if we don't have an error at all and if discard is off.
     // Remember that we will always generate all rows necessary to process a log, it's just that we'll
     // gate the writes to public inputs based on the error and discard flags.
-    pol commit sel_should_write_to_public_inputs;
+    pol commit sel_should_write_to_public_inputs; // @boolean (by definition)
     start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
     #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
     NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
@@ -290,4 +293,3 @@ namespace emit_unencrypted_log;
         precomputed.clk,
         public_inputs.cols[0]
     };
-

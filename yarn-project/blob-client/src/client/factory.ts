@@ -58,10 +58,11 @@ export interface BlobClientWithFileStoresConfig extends BlobClientConfig {
  * 2. Creating read-only FileStore clients
  * 3. Creating a writable FileStore client for uploads
  * 4. Creating the BlobClient with these dependencies
+ * 5. Starting the client (uploads initial healthcheck file if upload client is configured)
  *
  * @param config - Configuration containing blob client settings and chain metadata
  * @param logger - Optional logger for the blob client
- * @returns A BlobClientInterface configured with file store support
+ * @returns A BlobClientInterface configured with file store support, already started
  */
 export async function createBlobClientWithFileStores(
   config: BlobClientWithFileStoresConfig,
@@ -80,9 +81,13 @@ export async function createBlobClientWithFileStores(
     createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, fileStoreMetadata, log),
   ]);
 
-  return createBlobClient(config, {
+  const client = createBlobClient(config, {
     logger: log,
     fileStoreClients,
     fileStoreUploadClient,
   });
+
+  await client.start?.();
+
+  return client;
 }

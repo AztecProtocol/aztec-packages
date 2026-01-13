@@ -1,5 +1,5 @@
 import { findNapiBinary } from '@aztec/bb.js';
-import { type LogLevel, LogLevels } from '@aztec/foundation/log';
+import { type LogLevel, LogLevels, type Logger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
@@ -90,12 +90,42 @@ const nativeAvmSimulate = nativeModule.avmSimulate as (
   contractProvider: ContractProvider,
   worldStateHandle: any,
   logLevel: number,
+  logFunction?: any,
+  cancellationToken?: any,
 ) => Promise<Buffer>;
 
 const nativeAvmSimulateWithHintedDbs = nativeModule.avmSimulateWithHintedDbs as (
   inputs: Buffer,
   logLevel: number,
 ) => Promise<Buffer>;
+
+const nativeCreateCancellationToken = nativeModule.createCancellationToken as () => any;
+const nativeCancelSimulation = nativeModule.cancelSimulation as (token: any) => void;
+
+/**
+ * Cancellation token handle used to cancel C++ AVM simulation.
+ * The token is created via createCancellationToken() and can be cancelled via cancelSimulation().
+ * Pass it to avmSimulate to enable cancellation support.
+ */
+export type CancellationToken = any;
+
+/**
+ * Create a new cancellation token for C++ simulation.
+ * This token can be passed to avmSimulate and later cancelled via cancelSimulation().
+ * @returns A handle to a cancellation token
+ */
+export function createCancellationToken(): CancellationToken {
+  return nativeCreateCancellationToken();
+}
+
+/**
+ * Signal cancellation to a C++ simulation.
+ * The simulation will stop at the next opcode or before the next WorldState write.
+ * @param token - The cancellation token previously passed to avmSimulate
+ */
+export function cancelSimulation(token: CancellationToken): void {
+  nativeCancelSimulation(token);
+}
 
 /**
  * Concurrency limiting for C++ AVM simulation to prevent libuv thread pool exhaustion.
@@ -118,7 +148,9 @@ const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
  * @param worldStateHandle - Native handle to WorldState instance
- * @param logLevel - Log level to control C++ verbosity
+ * @param logLevel - Optional log level to control C++ verbosity (only used if loggerFunction is provided)
+ * @param logger - Optional logger object for C++ logging callbacks
+ * @param cancellationToken - Optional token to enable cancellation support
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
 export async function avmSimulate(
@@ -126,10 +158,20 @@ export async function avmSimulate(
   contractProvider: ContractProvider,
   worldStateHandle: any,
   logLevel: LogLevel = 'info',
+  logger?: Logger,
+  cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
   await avmSimulationSemaphore.acquire();
+
   try {
-    return await nativeAvmSimulate(inputs, contractProvider, worldStateHandle, LogLevels.indexOf(logLevel));
+    return await nativeAvmSimulate(
+      inputs,
+      contractProvider,
+      worldStateHandle,
+      LogLevels.indexOf(logLevel),
+      logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
+      cancellationToken,
+    );
   } finally {
     avmSimulationSemaphore.release();
   }

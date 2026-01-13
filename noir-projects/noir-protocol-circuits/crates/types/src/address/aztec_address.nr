@@ -2,9 +2,7 @@ use crate::{
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
-    constants::{
-        AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE, MAX_PROTOCOL_CONTRACTS,
-    },
+    constants::{AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE},
     contract_class_id::ContractClassId,
     hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
@@ -115,10 +113,6 @@ impl AztecAddress {
         );
 
         AztecAddress::compute(public_keys, partial_address)
-    }
-
-    pub fn is_protocol_contract(self) -> bool {
-        self.inner.lt(MAX_PROTOCOL_CONTRACTS as Field)
     }
 
     pub fn is_zero(self) -> bool {

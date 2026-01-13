@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "barretenberg/api/file_io.hpp"
@@ -34,17 +35,13 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
         contract_db.add_contract_instance(contract_address, contract_instance);
     }
 
-    // Register the de-duplicated set of contract addresses to the world state
-    auto contract_addresses = tx_data.contract_addresses;
-    std::ranges::sort(contract_addresses.begin(),
-                      contract_addresses.end(),
-                      [](const AztecAddress& a, const AztecAddress& b) { return uint256_t(a) < uint256_t(b); });
-    contract_addresses.erase(std::unique(contract_addresses.begin(), contract_addresses.end()),
-                             contract_addresses.end());
-
-    for (const auto& addr : contract_addresses) {
-        fuzz_info("Registering contract address in world state: ", addr);
-        ws_mgr.register_contract_address(addr);
+    // Register the de-duplicated set of contract addresses to the world state (in insertion order)
+    std::unordered_set<AztecAddress> seen_addresses;
+    for (const auto& addr : tx_data.contract_addresses) {
+        if (seen_addresses.insert(addr).second) {
+            fuzz_info("Registering contract address in world state: ", addr);
+            ws_mgr.register_contract_address(addr);
+        }
     }
 }
 
@@ -188,9 +185,9 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
 }
 
 // Initialize FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng)
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context)
 {
-    FuzzerData fuzzer_data = generate_fuzzer_data(rng);
+    FuzzerData fuzzer_data = generate_fuzzer_data(rng, context);
     FuzzerTxData tx_data = {
         .input_programs = { fuzzer_data },
         .tx = create_default_tx(MSG_SENDER, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT),
@@ -208,10 +205,10 @@ FuzzerTxData create_default_tx_data(std::mt19937_64& rng)
     return tx_data;
 }
 
-FuzzerTxData create_default_tx_data()
+FuzzerTxData create_default_tx_data(const FuzzerContext& context)
 {
     std::mt19937_64 rng(0);
-    return create_default_tx_data(rng);
+    return create_default_tx_data(rng, context);
 }
 
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
@@ -246,7 +243,8 @@ ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
     return { bytecode, contract_class, contract_instance };
 }
 
-size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
+size_t mutate_tx_data(FuzzerContext& context,
+                      uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
                       unsigned int seed)
@@ -259,13 +257,13 @@ size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
             .convert(tx_data);
     } catch (const std::exception&) {
         fuzz_info("Failed to deserialize input in CustomMutator, creating default FuzzerTxData");
-        tx_data = create_default_tx_data(rng);
+        tx_data = create_default_tx_data(rng, context);
     }
 
     // Mutate the fuzzer data multiple times for better bytecode variety
     auto num_mutations = std::uniform_int_distribution<uint8_t>(1, 5)(rng);
     for (uint8_t i = 0; i < num_mutations; i++) {
-        mutate_fuzzer_data_vec(tx_data.input_programs, rng, 64);
+        mutate_fuzzer_data_vec(context, tx_data.input_programs, rng, 64);
     }
 
     // Build up bytecodes, contract classes and instances from the fuzzer data

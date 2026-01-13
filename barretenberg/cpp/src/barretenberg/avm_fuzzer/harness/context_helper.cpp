@@ -107,10 +107,14 @@ std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_enqueued_fuzzi
 
 // A lighter version of ContextProvider::make_nested_context
 std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_nested_fuzzing_context(
-    AztecAddress address, AztecAddress msg_sender, ContextInterface& parent_context, Gas gas_limit)
+    AztecAddress address, AztecAddress msg_sender, ContextInterface& parent_context, bool is_static, Gas gas_limit)
 {
 
-    auto merkle_db = make_empty_merkle_db();
+    HintedRawMerkleDB raw_merkle_db(hints);
+    PureMerkleDB base_merkle_db(
+        hints.tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
+    // TODO(MW): Using below causes segfault (probably stack too deep) with external call gadget fuzzer
+    // auto merkle_db = make_empty_merkle_db();
     // Note: not incremented between contexts
     uint32_t context_id = context_provider->get_next_context_id();
     return std::make_unique<NestedContext>(
@@ -118,13 +122,13 @@ std::unique_ptr<ContextInterface> GadgetFuzzerContextHelper::make_nested_fuzzing
         parent_context.get_address(),
         msg_sender,
         parent_context.get_transaction_fee(),
-        parent_context.get_is_static(),
+        is_static,
         gas_limit,
         parent_context.get_globals(),
         std::make_unique<BytecodeManager>(address, *tx_bytecode_manager),
         memory_provider.make_memory(static_cast<uint16_t>(context_id)),
         InternalCallStackManagerProvider(internal_call_stack_emitter).make_internal_call_stack_manager(context_id),
-        merkle_db,
+        base_merkle_db,
         written_public_data_slots_tree_check,
         retrieved_bytecodes_tree_check,
         side_effect_tracker,

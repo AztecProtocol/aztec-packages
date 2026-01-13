@@ -111,7 +111,7 @@ async function fetchNetworkConfigFromUrl(
 /**
  * Enriches environment variables with remote network configuration.
  * This function is called before node config initialization to set env vars
- * from the remote config, following the same pattern as enrichEnvironmentWithChainConfig().
+ * from the remote config.
  *
  * @param networkName - The network name to fetch remote config for
  * @throws Error if network config fetch fails (network errors, parse errors, etc.)

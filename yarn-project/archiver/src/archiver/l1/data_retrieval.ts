@@ -6,15 +6,20 @@ import {
   decodeCheckpointBlobDataFromBlobs,
   encodeBlockBlobData,
 } from '@aztec/blob-lib';
-import type { EpochProofPublicInputArgs } from '@aztec/ethereum/contracts';
-import type { ViemClient, ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
+import type {
+  CheckpointProposedLog,
+  EpochProofPublicInputArgs,
+  InboxContract,
+  MessageSentLog,
+  RollupContract,
+} from '@aztec/ethereum/contracts';
+import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -22,14 +27,7 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
-import {
-  type GetContractEventsReturnType,
-  type GetContractReturnType,
-  type Hex,
-  decodeFunctionData,
-  getAbiItem,
-  hexToBytes,
-} from 'viem';
+import { type Hex, decodeFunctionData, getAbiItem, hexToBytes } from 'viem';
 
 import { NoBlobBodiesFoundError } from '../errors.js';
 import type { ArchiverInstrumentation } from '../instrumentation.js';
@@ -137,7 +135,7 @@ export async function retrievedToPublishedCheckpoint({
 
 /**
  * Fetches new checkpoints.
- * @param rollup - The rollup contract instance.
+ * @param rollup - The rollup contract wrapper.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
  * @param blobClient - The blob client client for fetching blob data.
@@ -150,7 +148,7 @@ export async function retrievedToPublishedCheckpoint({
  * @returns An array of retrieved checkpoints.
  */
 export async function retrieveCheckpointsFromRollup(
-  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+  rollup: RollupContract,
   publicClient: ViemPublicClient,
   debugClient: ViemPublicDebugClient,
   blobClient: BlobClientInterface,
@@ -173,15 +171,7 @@ export async function retrieveCheckpointsFromRollup(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const checkpointProposedLogs = (
-      await rollup.getEvents.CheckpointProposed(
-        {},
-        {
-          fromBlock: searchStartBlock,
-          toBlock: searchEndBlock,
-        },
-      )
-    ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
+    const checkpointProposedLogs = await rollup.getCheckpointProposedEvents(searchStartBlock, searchEndBlock);
 
     if (checkpointProposedLogs.length === 0) {
       break;
@@ -189,19 +179,19 @@ export async function retrieveCheckpointsFromRollup(
 
     const lastLog = checkpointProposedLogs.at(-1)!;
     logger.debug(
-      `Got ${checkpointProposedLogs.length} processed logs for checkpoints  ${checkpointProposedLogs[0].args.checkpointNumber}-${lastLog.args.checkpointNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
+      `Got ${checkpointProposedLogs.length} processed logs for checkpoints ${checkpointProposedLogs[0].args.checkpointNumber}-${lastLog.args.checkpointNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
     if (rollupConstants === undefined) {
       const [chainId, version, targetCommitteeSize] = await Promise.all([
         publicClient.getChainId(),
-        rollup.read.getVersion(),
-        rollup.read.getTargetCommitteeSize(),
+        rollup.getVersion(),
+        rollup.getTargetCommitteeSize(),
       ]);
       rollupConstants = {
         chainId: new Fr(chainId),
         version: new Fr(version),
-        targetCommitteeSize: Number(targetCommitteeSize),
+        targetCommitteeSize,
       };
     }
 
@@ -218,7 +208,7 @@ export async function retrieveCheckpointsFromRollup(
       isHistoricalSync,
     );
     retrievedCheckpoints.push(...newCheckpoints);
-    searchStartBlock = lastLog.blockNumber! + 1n;
+    searchStartBlock = lastLog.l1BlockNumber + 1n;
   } while (searchStartBlock <= searchEndBlock);
 
   // The asyncPool from processCheckpointProposedLogs will not necessarily return the checkpoints in order, so we sort them before returning.
@@ -227,7 +217,7 @@ export async function retrieveCheckpointsFromRollup(
 
 /**
  * Processes newly received CheckpointProposed logs.
- * @param rollup - The rollup contract instance.
+ * @param rollup - The rollup contract wrapper.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param debugClient - The viem debug client to use for trace/debug RPC methods (optional).
  * @param blobClient - The blob client client for fetching blob data.
@@ -240,11 +230,11 @@ export async function retrieveCheckpointsFromRollup(
  * @returns An array of retrieved checkpoints.
  */
 async function processCheckpointProposedLogs(
-  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+  rollup: RollupContract,
   publicClient: ViemPublicClient,
   debugClient: ViemPublicDebugClient,
   blobClient: BlobClientInterface,
-  logs: GetContractEventsReturnType<typeof RollupAbi, 'CheckpointProposed'>,
+  logs: CheckpointProposedLog[],
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   contractAddresses: {
     governanceProposerAddress: EthAddress;
@@ -266,21 +256,21 @@ async function processCheckpointProposedLogs(
   );
 
   await asyncPool(10, logs, async log => {
-    const checkpointNumber = CheckpointNumber.fromBigInt(log.args.checkpointNumber!);
-    const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([BigInt(checkpointNumber)]);
-    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
+    const checkpointNumber = log.args.checkpointNumber;
+    const archive = log.args.archive;
+    const archiveFromChain = await rollup.archiveAt(checkpointNumber);
+    const blobHashes = log.args.versionedBlobHashes;
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
-    if (archive === archiveFromChain) {
+    if (archive.equals(archiveFromChain)) {
       // Build expected hashes object (fields may be undefined for backwards compatibility with older events)
       const expectedHashes = {
-        attestationsHash: log.args.attestationsHash,
-        payloadDigest: log.args.payloadDigest,
+        attestationsHash: log.args.attestationsHash?.toString(),
+        payloadDigest: log.args.payloadDigest?.toString(),
       };
 
       const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
-        log.transactionHash!,
+        log.l1TransactionHash,
         blobHashes,
         checkpointNumber,
         expectedHashes,
@@ -295,22 +285,22 @@ async function processCheckpointProposedLogs(
       );
 
       const l1 = new L1PublishedData(
-        log.blockNumber,
-        await getL1BlockTime(publicClient, log.blockNumber),
-        log.blockHash,
+        log.l1BlockNumber,
+        await getL1BlockTime(publicClient, log.l1BlockNumber),
+        log.l1BlockHash.toString(),
       );
 
       retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
-      logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.transactionHash}`, {
-        l1BlockNumber: log.blockNumber,
+      logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.l1TransactionHash}`, {
+        l1BlockNumber: log.l1BlockNumber,
         checkpointNumber,
         archive: archive.toString(),
         attestations: checkpoint.attestations,
       });
     } else {
       logger.warn(`Ignoring checkpoint ${checkpointNumber} due to archive root mismatch`, {
-        actual: archive,
-        expected: archiveFromChain,
+        actual: archive.toString(),
+        expected: archiveFromChain.toString(),
       });
     }
   });
@@ -331,7 +321,7 @@ export async function getCheckpointBlobDataFromBlobs(
   logger: Logger,
   isHistoricalSync: boolean,
 ): Promise<CheckpointBlobData> {
-  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, undefined, { isHistoricalSync });
+  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, { isHistoricalSync });
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
   }
@@ -339,7 +329,7 @@ export async function getCheckpointBlobDataFromBlobs(
   let checkpointBlobData: CheckpointBlobData;
   try {
     // Attempt to decode the checkpoint blob data.
-    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies.map(b => b.blob));
+    checkpointBlobData = decodeCheckpointBlobDataFromBlobs(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -355,12 +345,12 @@ export async function getCheckpointBlobDataFromBlobs(
 
 /** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */
 export async function retrieveL1ToL2Message(
-  inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
+  inbox: InboxContract,
   leaf: Fr,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<InboxMessage | undefined> {
-  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock, toBlock });
+  const logs = await inbox.getMessageSentEventByHash(leaf.toString(), fromBlock, toBlock);
 
   const messages = mapLogsInboxMessage(logs);
   return messages.length > 0 ? messages[0] : undefined;
@@ -368,47 +358,40 @@ export async function retrieveL1ToL2Message(
 
 /**
  * Fetch L1 to L2 messages.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param inboxAddress - The address of the inbox contract to fetch messages from.
- * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
+ * @param inbox - The inbox contract wrapper.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @returns An array of InboxLeaf and next eth block to search from.
  */
 export async function retrieveL1ToL2Messages(
-  inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
+  inbox: InboxContract,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
 ): Promise<InboxMessage[]> {
   const retrievedL1ToL2Messages: InboxMessage[] = [];
   while (searchStartBlock <= searchEndBlock) {
-    const messageSentLogs = (
-      await inbox.getEvents.MessageSent({}, { fromBlock: searchStartBlock, toBlock: searchEndBlock })
-    ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
+    const messageSentLogs = await inbox.getMessageSentEvents(searchStartBlock, searchEndBlock);
 
     if (messageSentLogs.length === 0) {
       break;
     }
 
     retrievedL1ToL2Messages.push(...mapLogsInboxMessage(messageSentLogs));
-    searchStartBlock = messageSentLogs.at(-1)!.blockNumber + 1n;
+    searchStartBlock = messageSentLogs.at(-1)!.l1BlockNumber + 1n;
   }
 
   return retrievedL1ToL2Messages;
 }
 
-function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 'MessageSent'>): InboxMessage[] {
-  return logs.map(log => {
-    const { index, hash, checkpointNumber, rollingHash } = log.args;
-    return {
-      index: index!,
-      leaf: Fr.fromHexString(hash!),
-      l1BlockNumber: log.blockNumber,
-      l1BlockHash: Buffer32.fromString(log.blockHash),
-      checkpointNumber: CheckpointNumber.fromBigInt(checkpointNumber!),
-      rollingHash: Buffer16.fromString(rollingHash!),
-    };
-  });
+function mapLogsInboxMessage(logs: MessageSentLog[]): InboxMessage[] {
+  return logs.map(log => ({
+    index: log.args.index,
+    leaf: log.args.leaf,
+    l1BlockNumber: log.l1BlockNumber,
+    l1BlockHash: log.l1BlockHash,
+    checkpointNumber: log.args.checkpointNumber,
+    rollingHash: log.args.rollingHash,
+  }));
 }
 
 /** Retrieves L2ProofVerified events from the rollup contract. */

@@ -66,9 +66,9 @@ class AvmFixedVKCommitments {
                 uint256_t(
                     "0x090dda25e7d64ab5cabe09fd80fbb731af2a98de7a608157dc10394b4fc022a4")), // precomputed_exec_opcode_dynamic_l2_gas
             Commitment(
-                uint256_t("0x1de2201730f35721687604adf0035c8213a4b19caf17756063b9e516a0904cca"),
+                uint256_t("0x1139e8df5eabbe4201a0d73a0cfa7e12833955b6e190ec05fcdc0002d2756736"),
                 uint256_t(
-                    "0x1efb2dc65f3d27cdde93c07d042a0da3050355239d3e2d7908797b1780c10f40")), // precomputed_exec_opcode_opcode_gas
+                    "0x1ed8930b01998a1ba6c2df226f9e9a2aa93606228ed6d74b568c93cbdd6fb77f")), // precomputed_exec_opcode_opcode_gas
             Commitment(
                 uint256_t("0x296def9415d1c96b4d8ab91df5f59ad8522a726f98461b1ab5c4d4c5b22471a4"),
                 uint256_t(
@@ -126,7 +126,6 @@ class AvmFixedVKCommitments {
                 uint256_t("0x0000000000000000000000000000000000000000000000000000000000000001"),
                 uint256_t(
                     "0x0000000000000000000000000000000000000000000000000000000000000002")), // precomputed_is_deployer
-            Commitment::infinity(), // precomputed_is_feeperl2gas
             Commitment(
                 uint256_t("0x020ad6e43ccd48a6a39e43897cc85187bd364919be8a3b82d4809715cfe489db"),
                 uint256_t(
@@ -451,9 +450,9 @@ class AvmFixedVKCommitments {
                 uint256_t(
                     "0x1f4f53d8c274f2019474fe304b7ec352663f08b2a128de79bdf7bc65e5db32b3")), // precomputed_sel_tag_parameters
             Commitment(
-                uint256_t("0x2437c8d0dbe47dc612ccf4a5ad9cee871c4f57bc794166dcfb96b127fed46398"),
+                uint256_t("0x122c377cad49f6338188909ccb858cf8304b3b00383bd44be42861a3d4158090"),
                 uint256_t(
-                    "0x1fc575fca116894d05b386b745949a6f438122e256d7dd889cc6bd0df5a4d20b")), // precomputed_sel_to_radix_p_limb_counts
+                    "0x2af6b300db680f1713472c2c931cd10ec804eb227a659b7928dbc2bc01a33791")), // precomputed_sel_to_radix_p_limb_counts
             Commitment(
                 uint256_t("0x1aad75d8502dcfee5df4a491c540577ad095025f94405a19bb3c314d9b88af45"),
                 uint256_t(

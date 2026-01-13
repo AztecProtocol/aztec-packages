@@ -1,6 +1,6 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -12,7 +12,10 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
-import { createL1TxUtilsFromEthSignerWithStore } from '@aztec/node-lib/factories';
+import {
+  createForwarderL1TxUtilsFromEthSigner,
+  createL1TxUtilsFromEthSignerWithStore,
+} from '@aztec/node-lib/factories';
 import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
@@ -36,7 +39,6 @@ export type ProverNodeDeps = {
   aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
   archiver?: Archiver;
   publisherFactory?: ProverPublisherFactory;
-  blobClient?: BlobClientInterface;
   broker?: ProvingJobBroker;
   l1TxUtils?: L1TxUtils;
   dateProvider?: DateProvider;
@@ -53,8 +55,7 @@ export async function createProverNode(
   const config = { ...userConfig };
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const dateProvider = deps.dateProvider ?? new DateProvider();
-  const blobClient =
-    deps.blobClient ?? createBlobClient(config, { logger: createLogger('prover-node:blob-client:client') });
+  const blobClient = await createBlobClientWithFileStores(config, createLogger('prover-node:blob-client:client'));
   const log = deps.log ?? createLogger('prover-node');
 
   // Build a key store from file if given or from environment otherwise
@@ -134,12 +135,20 @@ export async function createProverNode(
 
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]
-    : await createL1TxUtilsFromEthSignerWithStore(
-        publicClient,
-        proverSigners.signers,
-        { ...config, scope: 'prover' },
-        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
-      );
+    : config.publisherForwarderAddress
+      ? await createForwarderL1TxUtilsFromEthSigner(
+          publicClient,
+          proverSigners.signers,
+          config.publisherForwarderAddress,
+          { ...config, scope: 'prover' },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+        )
+      : await createL1TxUtilsFromEthSignerWithStore(
+          publicClient,
+          proverSigners.signers,
+          { ...config, scope: 'prover' },
+          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+        );
 
   const publisherFactory =
     deps.publisherFactory ??

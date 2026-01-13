@@ -77,12 +77,16 @@ function network_test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   echo $prefix $run_test_script simple src/spartan/smoke.test.ts
   echo $prefix $run_test_script simple src/spartan/transfer.test.ts
-  # echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
-  # echo $prefix $run_test_script simple src/spartan/gating-passive.test.ts
-  # echo $prefix $run_test_script simple src/spartan/proving.test.ts
-  # echo $prefix $run_test_script simple src/spartan/prover-node.test.ts
-  # echo $prefix $run_test_script simple src/spartan/invalidate_blocks.test.ts
-  # echo $prefix $run_test_script simple src/spartan/4epochs.test.ts
+  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
+  echo $prefix $run_test_script simple src/spartan/proving.test.ts
+  echo $prefix $run_test_script simple src/spartan/prover-node.test.ts #needs partial epoch proved first
+  echo $prefix $run_test_script simple src/spartan/invalidate_blocks.test.ts
+  # echo $prefix $run_test_script simple src/spartan/4epochs.test.ts #runs >~4 epochs
+  echo $prefix $run_test_script simple src/spartan/gating-passive.test.ts
+  echo $prefix $run_test_script simple src/spartan/mempool_limit.test.ts
+  echo $prefix $run_test_script simple src/spartan/upgrade_governance_proposer.test.ts
+  echo $prefix $run_test_script simple src/spartan/validator_nuke_and_suppression.test.ts
+  echo $prefix $run_test_script simple src/spartan/reorg.test.ts #runs >~5 epochs
 }
 
 function single_test {
@@ -103,6 +107,9 @@ function network_tests {
 
   # no parallelize here as we want to run the tests sequentially
   export SCENARIO_TESTS=1
+  # run all scenario tests even if one fails
+  : "${NO_FAIL_FAST:=1}"
+  export NO_FAIL_FAST
   source_network_env $env_file
 
   gcp_auth
@@ -110,7 +117,7 @@ function network_tests {
 }
 
 function network_bench_cmds {
-  echo "$hash:TIMEOUT=3600 BENCH_OUTPUT=bench-out/n_tps.bench.json TPS_TARGET=0.5,1,2 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  echo "$hash:TIMEOUT=7200 BENCH_OUTPUT=bench-out/n_tps.bench.json LOW_VALUE_TPS=0.2 HIGH_VALUE_TPS=0.1 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
 function network_bench {
@@ -172,11 +179,11 @@ case "$cmd" in
     source_env_basic "$env_file"
 
     # Run the network deploy script
-    ./scripts/network_deploy.sh "$env_file"
+    DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       echo "Running tests"
-      network_tests "$env_file"
+      denoise "./bootstrap.sh network_tests $env_file"
     fi
     ;;
   "single_test")
@@ -208,7 +215,7 @@ case "$cmd" in
     docker update --restart=no kind-control-plane >/dev/null || true
     ;;
   "chaos-mesh")
-    chaos-mesh/install.sh
+    scripts/deploy_chaos_mesh.sh
     ;;
   "metrics-kind")
     metrics/install-kind.sh
@@ -323,6 +330,13 @@ case "$cmd" in
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
+    ;;
+  "network_teardown")
+    env_file="$1"
+    # Sets up basic env vars like CLUSTER for gcp auth
+    source_env_basic "$env_file"
+    gcp_auth
+    ./scripts/network_teardown.sh
     ;;
   *)
     echo "Unknown command: $cmd"

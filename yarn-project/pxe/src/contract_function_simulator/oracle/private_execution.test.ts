@@ -45,9 +45,10 @@ import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNot
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeBlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeL2Tips } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -63,14 +64,15 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import type { AddressDataProvider } from '../../storage/address_data_provider/address_data_provider.js';
-import type { AnchorBlockDataProvider } from '../../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { CapsuleDataProvider } from '../../storage/capsule_data_provider/capsule_data_provider.js';
-import type { ContractDataProvider } from '../../storage/contract_data_provider/contract_data_provider.js';
-import type { NoteDataProvider } from '../../storage/note_data_provider/note_data_provider.js';
-import type { PrivateEventDataProvider } from '../../storage/private_event_data_provider/private_event_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../../storage/tagging_data_provider/recipient_tagging_data_provider.js';
-import type { SenderTaggingDataProvider } from '../../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { AddressStore } from '../../storage/address_store/address_store.js';
+import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
+import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
+import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
+import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
+import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 
 jest.setTimeout(60_000);
@@ -109,18 +111,18 @@ export const buildL1ToL2Message = async (
 describe('Private Execution test suite', () => {
   const simulator = new WASMSimulator();
 
-  let contractDataProvider: MockProxy<ContractDataProvider>;
-  let noteDataProvider: MockProxy<NoteDataProvider>;
-  let addressDataProvider: MockProxy<AddressDataProvider>;
+  let contractStore: MockProxy<ContractStore>;
+  let noteStore: MockProxy<NoteStore>;
+  let addressStore: MockProxy<AddressStore>;
   let keyStore: MockProxy<KeyStore>;
-  let senderTaggingDataProvider: MockProxy<SenderTaggingDataProvider>;
-  let recipientTaggingDataProvider: MockProxy<RecipientTaggingDataProvider>;
+  let senderTaggingStore: MockProxy<SenderTaggingStore>;
+  let recipientTaggingStore: MockProxy<RecipientTaggingStore>;
+  let senderAddressBookStore: MockProxy<SenderAddressBookStore>;
   let aztecNode: MockProxy<AztecNode>;
-  let anchorBlockDataProvider: MockProxy<AnchorBlockDataProvider>;
-  let capsuleDataProvider: MockProxy<CapsuleDataProvider>;
-  let privateEventDataProvider: MockProxy<PrivateEventDataProvider>;
+  let anchorBlockStore: MockProxy<AnchorBlockStore>;
+  let capsuleStore: MockProxy<CapsuleStore>;
+  let privateEventStore: MockProxy<PrivateEventStore>;
   let acirSimulator: ContractFunctionSimulator;
-
   let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
 
@@ -141,6 +143,8 @@ describe('Private Execution test suite', () => {
   let ownerIvskM: GrumpkinScalar;
   let recipientIvskM: GrumpkinScalar;
   let senderForTagsIvskM: GrumpkinScalar;
+
+  const TEST_JOB_ID = 'test-job-id';
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -167,7 +171,7 @@ describe('Private Execution test suite', () => {
     contracts[address.toString()] = artifact;
     const contractClass = await getContractClassFromArtifact(artifact);
 
-    contractDataProvider.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
+    contractStore.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
       currentContractClassId: contractClass.id,
       originalContractClassId: contractClass.id,
       address,
@@ -209,7 +213,16 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(txRequest, contractAddress, selector, msgSender, anchorBlockHeader, senderForTags);
+    return acirSimulator.run(
+      txRequest,
+      contractAddress,
+      selector,
+      msgSender,
+      anchorBlockHeader,
+      senderForTags,
+      undefined,
+      TEST_JOB_ID,
+    );
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -298,35 +311,43 @@ describe('Private Execution test suite', () => {
 
   beforeEach(async () => {
     trees = {};
-    contractDataProvider = mock<ContractDataProvider>();
-    noteDataProvider = mock<NoteDataProvider>();
-    noteDataProvider.getNotes.mockResolvedValue([]);
-    addressDataProvider = mock<AddressDataProvider>();
-    senderTaggingDataProvider = mock<SenderTaggingDataProvider>();
-    recipientTaggingDataProvider = mock<RecipientTaggingDataProvider>();
+    contractStore = mock<ContractStore>();
+    noteStore = mock<NoteStore>();
+    noteStore.getNotes.mockResolvedValue([]);
+    addressStore = mock<AddressStore>();
+    senderTaggingStore = mock<SenderTaggingStore>();
+    recipientTaggingStore = mock<RecipientTaggingStore>();
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
-    anchorBlockDataProvider = mock<AnchorBlockDataProvider>();
-    capsuleDataProvider = mock<CapsuleDataProvider>();
-    privateEventDataProvider = mock<PrivateEventDataProvider>();
+    anchorBlockStore = mock<AnchorBlockStore>();
+    capsuleStore = mock<CapsuleStore>();
+    privateEventStore = mock<PrivateEventStore>();
+    senderAddressBookStore = mock<SenderAddressBookStore>();
     contracts = {};
     anchorBlockHeader = makeBlockHeader();
-    anchorBlockDataProvider.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
-    capsuleDataProvider.readCapsuleArray.mockResolvedValue([]);
+    anchorBlockStore.getBlockHeader.mockImplementation(() => Promise.resolve(anchorBlockHeader));
+    capsuleStore.readCapsuleArray.mockResolvedValue([]);
 
     // Mock sender tagging data provider methods
-    senderTaggingDataProvider.getLastFinalizedIndex.mockResolvedValue(undefined);
-    senderTaggingDataProvider.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingDataProvider.getTxHashesOfPendingIndexes.mockResolvedValue([]);
-    senderTaggingDataProvider.storePendingIndexes.mockResolvedValue();
-    recipientTaggingDataProvider.getSenderAddresses.mockResolvedValue([]);
-    recipientTaggingDataProvider.getLastUsedIndexes.mockImplementation(secrets =>
-      Promise.resolve(new Array(secrets?.length ?? 0).fill(undefined)),
-    );
+    senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
+    senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
+    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.storePendingIndexes.mockResolvedValue();
+
+    senderAddressBookStore.getSenders.mockResolvedValue([]);
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
-    aztecNode.getLogsByTags.mockImplementation((tags: Fr[]) => Promise.resolve(tags.map(() => [])));
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
+
+    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
+    aztecNode.getBlockHeader.mockImplementation((blockNumber: BlockNumber | 'latest') => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(anchorBlockHeader);
+      }
+      return Promise.resolve(anchorBlockHeader);
+    });
 
     // TODO: refactor. Maybe it's worth stubbing a key store
     // and cleaning up the mess that is setting up keys.
@@ -380,7 +401,7 @@ describe('Private Execution test suite', () => {
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
 
-    addressDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+    addressStore.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
@@ -397,7 +418,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    contractDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
+    contractStore.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
       if (!contract) {
         throw new Error(`Contract not found: ${address}`);
@@ -408,15 +429,35 @@ describe('Private Execution test suite', () => {
       }
       return Promise.resolve(artifact);
     });
-    contractDataProvider.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
-      const artifact = await contractDataProvider.getFunctionArtifact(address, selector);
+    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
+      const artifact = await contractStore.getFunctionArtifact(address, selector);
       if (!artifact) {
         throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
       }
       return { ...artifact, debug: undefined };
     });
+    contractStore.getFunctionCall.mockImplementation(async (functionName, args, to) => {
+      const contract = contracts[to.toString()];
+      if (!contract) {
+        throw new Error(`Contract not found: ${to}`);
+      }
+      const functionArtifact = getFunctionArtifactByName(contract, functionName);
+      return {
+        name: functionArtifact.name,
+        args: encodeArguments(functionArtifact, args),
+        selector: await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters),
+        type: functionArtifact.functionType,
+        to,
+        hideMsgSender: false,
+        isStatic: functionArtifact.isStatic,
+        returnTypes: functionArtifact.returnTypes,
+      };
+    });
+    contractStore.syncPrivateState.mockImplementation(async (contractAddress, _functionSelector, _executor) => {
+      await contractStore.getFunctionCall('sync_private_state', [], contractAddress);
+    });
 
-    capsuleDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     aztecNode.getPublicStorageAt.mockImplementation(
       (_blockNumber: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
@@ -425,16 +466,17 @@ describe('Private Execution test suite', () => {
     );
 
     acirSimulator = new ContractFunctionSimulator(
-      contractDataProvider,
-      noteDataProvider,
+      contractStore,
+      noteStore,
       keyStore,
-      addressDataProvider,
+      addressStore,
       aztecNode,
-      anchorBlockDataProvider,
-      senderTaggingDataProvider,
-      recipientTaggingDataProvider,
-      capsuleDataProvider,
-      privateEventDataProvider,
+      anchorBlockStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      senderAddressBookStore,
+      capsuleStore,
+      privateEventStore,
       simulator,
     );
   });
@@ -504,7 +546,7 @@ describe('Private Execution test suite', () => {
         constructorArgs: initArgs,
         salt: Fr.random(),
       });
-      contractDataProvider.getContractInstance.mockResolvedValue(instance);
+      contractStore.getContractInstance.mockResolvedValue(instance);
       const executionResult = await runSimulator({
         args: initArgs,
         artifact: StatefulTestContractArtifact,
@@ -559,7 +601,7 @@ describe('Private Execution test suite', () => {
         buildNote(80n, ownerCompleteAddress.address, storageSlot),
       ]);
 
-      noteDataProvider.getNotes.mockResolvedValue(notes);
+      noteStore.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
         const noteHash = await computeNoteHash(note, owner, storageSlot, randomness);
@@ -606,7 +648,7 @@ describe('Private Execution test suite', () => {
       const storageSlot = StatefulTestContractArtifact.storageLayout['notes'].slot;
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot)]);
-      noteDataProvider.getNotes.mockResolvedValue(notes);
+      noteStore.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, noteNonce, randomness }) => {
         const noteHash = await computeNoteHash(note, owner, storageSlot, randomness);
@@ -670,17 +712,40 @@ describe('Private Execution test suite', () => {
         artifact: ParentContractArtifact,
         anchorBlockHeader,
         functionName: 'entry_point',
+        contractAddress: parentAddress,
       });
 
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       // First fetch of the function artifact is the parent contract
-      expect(contractDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
+      expect(contractStore.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(
         result.nestedExecutionResults[0].publicInputs.callContext,
       );
+    });
+
+    it('syncs private state for child in nested calls', async () => {
+      const childArtifact = getFunctionArtifactByName(ChildContractArtifact, 'value');
+      const parentAddress = await AztecAddress.random();
+      const childAddress = await AztecAddress.random();
+      const childSelector = await FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
+
+      await mockContractInstance(ChildContractArtifact, childAddress);
+
+      contractStore.getFunctionCall.mockClear();
+
+      const args = [childAddress, childSelector];
+      await runSimulator({
+        args,
+        artifact: ParentContractArtifact,
+        anchorBlockHeader,
+        functionName: 'entry_point',
+        contractAddress: parentAddress,
+      });
+
+      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_private_state', [], childAddress);
     });
   });
 
@@ -1039,7 +1104,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
-      noteDataProvider.getNotes.mockResolvedValue([]);
+      noteStore.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1088,7 +1153,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
-      noteDataProvider.getNotes.mockResolvedValue([]);
+      noteStore.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1155,7 +1220,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
-      noteDataProvider.getNotes.mockResolvedValue([]);
+      noteStore.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1180,7 +1245,7 @@ describe('Private Execution test suite', () => {
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
 
-      addressDataProvider.getCompleteAddress.mockResolvedValue(completeAddress);
+      addressStore.getCompleteAddress.mockResolvedValue(completeAddress);
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'get_master_incoming_viewing_public_key',
@@ -1195,7 +1260,7 @@ describe('Private Execution test suite', () => {
     it('fails if returning no notes', async () => {
       // call_get_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool)
       const args = [owner, 2n, true];
-      noteDataProvider.getNotes.mockResolvedValue([]);
+      noteStore.getNotes.mockResolvedValue([]);
 
       await expect(() =>
         runSimulator({ artifact: TestContractArtifact, functionName: 'call_get_notes', args, anchorBlockHeader }),

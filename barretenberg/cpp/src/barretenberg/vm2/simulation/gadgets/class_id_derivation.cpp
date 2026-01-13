@@ -21,8 +21,8 @@ void ClassIdDerivation::assert_derivation(const ContractClassWithCommitment& kla
                                             klass.artifact_hash,
                                             klass.private_functions_root,
                                             klass.public_bytecode_commitment });
-    (void)computed_class_id; // Silence unused variable warning when assert is stripped out
-    assert(computed_class_id == klass.id);
+    // This will throw an unexpected exception if it fails.
+    BB_ASSERT_EQ(computed_class_id, klass.id, "Computed class ID mismatch");
 
     // Cache this derivation so we don't repeat it
     cached_derivations.insert(klass.id);

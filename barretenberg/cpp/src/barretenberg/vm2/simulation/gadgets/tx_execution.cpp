@@ -107,6 +107,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                                                                   call.request.msg_sender,
                                                                   /*transaction_fee=*/FF(0),
                                                                   call.calldata,
+                                                                  call.request.calldata_hash,
                                                                   call.request.is_static_call,
                                                                   gas_limit,
                                                                   start_gas,
@@ -166,6 +167,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                                                                       call.request.msg_sender,
                                                                       /*transaction_fee=*/FF(0),
                                                                       call.calldata,
+                                                                      call.request.calldata_hash,
                                                                       call.request.is_static_call,
                                                                       gas_limit,
                                                                       start_gas,
@@ -229,6 +231,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                                                                   teardown_enqueued_call.request.msg_sender,
                                                                   fee,
                                                                   teardown_enqueued_call.calldata,
+                                                                  teardown_enqueued_call.request.calldata_hash,
                                                                   teardown_enqueued_call.request.is_static_call,
                                                                   teardown_gas_limit,
                                                                   start_gas,
@@ -255,7 +258,8 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         merkle_db.commit_checkpoint();
         contract_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
-        info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+        // TODO(fcarreiro): move these back to important log once/if we have log levels properly set up.
+        vinfo("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.revert_code = tx_context.revert_code == RevertCode::APP_LOGIC_REVERTED
                                      ? RevertCode::BOTH_REVERTED
                                      : RevertCode::TEARDOWN_REVERTED;

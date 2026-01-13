@@ -7,14 +7,14 @@ import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
   constructor(
-    private readonly noteDataProvider: NoteDataProvider,
+    private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
-    private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    private readonly anchorBlockStore: AnchorBlockStore,
   ) {}
 
   /**
@@ -33,7 +33,7 @@ export class NoteService {
     status: NoteStatus,
     scopes?: AztecAddress[],
   ) {
-    const noteDaos = await this.noteDataProvider.getNotes({
+    const noteDaos = await this.noteStore.getNotes({
       contractAddress,
       owner,
       storageSlot,
@@ -59,7 +59,7 @@ export class NoteService {
   /**
    * Looks for nullifiers of active contract notes and marks them as nullified if a nullifier is found.
    *
-   * Fetches notes from the NoteDataProvider and checks which nullifiers are present in the
+   * Fetches notes from the NoteStore and checks which nullifiers are present in the
    * onchain nullifier Merkle tree - up to the latest locally synced block. We use the
    * locally synced block instead of querying the chain's 'latest' block to ensure correctness:
    * notes are only marked nullified once their corresponding nullifier has been included in a
@@ -69,9 +69,9 @@ export class NoteService {
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
   public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
-    const syncedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
 
-    const contractNotes = await this.noteDataProvider.getNotes({ contractAddress });
+    const contractNotes = await this.noteStore.getNotes({ contractAddress });
 
     if (contractNotes.length === 0) {
       return;
@@ -105,7 +105,7 @@ export class NoteService {
       })
       .filter(nullifier => nullifier !== undefined) as DataInBlock<Fr>[];
 
-    await this.noteDataProvider.applyNullifiers(foundNullifiers);
+    await this.noteStore.applyNullifiers(foundNullifiers);
   }
 
   public async deliverNote(
@@ -120,7 +120,7 @@ export class NoteService {
     txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void> {
-    // We are going to store the new note in the NoteDataProvider, which will let us later return it via `getNotes`.
+    // We are going to store the new note in the NoteStore, which will let us later return it via `getNotes`.
     // There's two things we need to check before we do this however:
     //  - we must make sure the note does actually exist in the note hash tree
     //  - we need to check if the note has already been nullified
@@ -139,7 +139,7 @@ export class NoteService {
     // number which *should* be recent enough to be available, even for non-archive nodes.
     // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
     // logs up to the synced block making this only an additional safety check.
-    const syncedBlockNumber = (await this.anchorBlockDataProvider.getBlockHeader()).getBlockNumber();
+    const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
@@ -190,11 +190,11 @@ export class NoteService {
     );
 
     // The note was found by `recipient`, so we use that as the scope when storing the note.
-    await this.noteDataProvider.addNotes([noteDao], recipient);
+    await this.noteStore.addNotes([noteDao], recipient);
 
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteDataProvider.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }]);
+      await this.noteStore.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }]);
     }
   }
 }

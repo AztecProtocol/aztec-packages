@@ -41,14 +41,11 @@ export async function simulate(
       simulationResult.offchainEffects!,
       async (address: AztecAddress) => {
         const metadata = await wallet.getContractMetadata(address);
-        if (!metadata.contractInstance) {
+        if (!metadata.instance) {
           return undefined;
         }
-        const classMetadata = await wallet.getContractClassMetadata(
-          metadata.contractInstance.currentContractClassId,
-          true,
-        );
-        return classMetadata.artifact;
+        const artifact = await wallet.getContractArtifact(metadata.instance.currentContractClassId);
+        return artifact;
       },
       log,
     );

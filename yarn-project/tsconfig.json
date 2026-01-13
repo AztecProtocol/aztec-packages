@@ -29,6 +29,7 @@
     { "path": "aztec.js/tsconfig.json" },
     { "path": "aztec-node/tsconfig.json" },
     { "path": "validator-client/tsconfig.json" },
+    { "path": "validator-ha-signer/tsconfig.json" },
     { "path": "bb-prover/tsconfig.json" },
     { "path": "bot/tsconfig.json" },
     { "path": "constants/tsconfig.json" },

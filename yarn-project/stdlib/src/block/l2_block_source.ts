@@ -2,6 +2,7 @@ import {
   BlockNumber,
   BlockNumberSchema,
   CheckpointNumber,
+  CheckpointNumberSchema,
   type EpochNumber,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
@@ -14,6 +15,7 @@ import { z } from 'zod';
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
@@ -21,7 +23,7 @@ import type { TxReceipt } from '../tx/tx_receipt.js';
 import { type CheckpointedL2Block, PublishedL2Block } from './checkpointed_l2_block.js';
 import type { L2Block } from './l2_block.js';
 import type { L2BlockNew } from './l2_block_new.js';
-import type { ValidateBlockNegativeResult, ValidateBlockResult } from './validate_block_result.js';
+import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -66,6 +68,8 @@ export interface L2BlockSource {
    */
   getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined>;
 
+  getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
+
   /**
    * Retrieves a collection of published checkpoints
    * @param checkpointNumber The first checkpoint to be retrieved
@@ -93,6 +97,13 @@ export interface L2BlockSource {
    * @returns The requested block header (or undefined if not found).
    */
   getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Gets an L2 block by block number.
+   * @param number - The block number to return.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
   /**
    * Gets a tx effect.
@@ -154,10 +165,10 @@ export interface L2BlockSource {
   isPendingChainInvalid(): Promise<boolean>;
 
   /**
-   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive block
-   * that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
+   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive
+   * checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
    */
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult>;
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;
@@ -168,8 +179,13 @@ export interface L2BlockSource {
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
+   * @deprecated Use getL2BlockNew instead.
    */
   getBlock(number: BlockNumber): Promise<L2Block | undefined>;
+
+  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
+
+  getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
 
   /**
    * Returns all blocks for a given epoch.
@@ -224,23 +240,43 @@ export interface L2BlockSink {
 export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
-  [L2BlockSourceEvents.InvalidAttestationsBlockDetected]: (args: InvalidBlockDetectedEvent) => void;
+  [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
+  [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
 /**
  * Identifier for L2 block tags.
- * - latest: Latest block pushed to L1.
+ * - proposed: Latest block proposed on L2.
+ * - checkpointed: Checkpointed block on L1.
  * - proven: Proven block on L1.
  * - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
  */
-export type L2BlockTag = 'latest' | 'proven' | 'finalized';
+export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
+
+/**
+ * Reason for L2 block prune.
+ * - uncheckpointed: L2 blocks were pruned due to a failure to checkpoint.
+ * - unproven: L2 blocks were pruned due to a failure to prove.
+ */
+export type L2BlockPruneReason = 'uncheckpointed' | 'unproven';
 
 /** Tips of the L2 chain. */
-export type L2Tips = Record<L2BlockTag, L2BlockId>;
+export type L2Tips = {
+  proposed: L2BlockId;
+  checkpointed: L2TipId;
+  proven: L2TipId;
+  finalized: L2TipId;
+};
+
+export const GENESIS_CHECKPOINT_HEADER_HASH = CheckpointHeader.empty().hash();
 
 /** Identifies a block by number and hash. */
 export type L2BlockId = { number: BlockNumber; hash: string };
+
+export type CheckpointId = { number: CheckpointNumber; hash: string };
+
+export type L2TipId = { block: L2BlockId; checkpoint: CheckpointId };
 
 /** Creates an L2 block id */
 export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
@@ -250,21 +286,38 @@ export function makeL2BlockId(number: BlockNumber, hash?: string): L2BlockId {
   return { number, hash: hash! };
 }
 
+/** Creates an L2 checkpoint id */
+export function makeL2CheckpointId(number: CheckpointNumber, hash: string): CheckpointId {
+  return { number, hash };
+}
+
 const L2BlockIdSchema = z.object({
   number: BlockNumberSchema,
   hash: z.string(),
 });
 
+const L2CheckpointIdSchema = z.object({
+  number: CheckpointNumberSchema,
+  hash: z.string(),
+});
+
+const L2TipIdSchema = z.object({
+  block: L2BlockIdSchema,
+  checkpoint: L2CheckpointIdSchema,
+});
+
 export const L2TipsSchema = z.object({
-  latest: L2BlockIdSchema,
-  proven: L2BlockIdSchema,
-  finalized: L2BlockIdSchema,
+  proposed: L2BlockIdSchema,
+  checkpointed: L2TipIdSchema,
+  proven: L2TipIdSchema,
+  finalized: L2TipIdSchema,
 });
 
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
   L2BlockProven = 'l2BlockProven',
-  InvalidAttestationsBlockDetected = 'invalidBlockDetected',
+  L2BlocksCheckpointed = 'l2BlocksCheckpointed',
+  InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -277,10 +330,15 @@ export type L2BlockProvenEvent = {
 export type L2BlockPruneEvent = {
   type: 'l2PruneDetected';
   epochNumber: EpochNumber;
-  blocks: L2Block[];
+  blocks: L2BlockNew[];
 };
 
-export type InvalidBlockDetectedEvent = {
-  type: 'invalidBlockDetected';
-  validationResult: ValidateBlockNegativeResult;
+export type L2CheckpointEvent = {
+  type: 'l2BlocksCheckpointed';
+  checkpoint: PublishedCheckpoint;
+};
+
+export type InvalidCheckpointDetectedEvent = {
+  type: 'invalidCheckpointDetected';
+  validationResult: ValidateCheckpointNegativeResult;
 };

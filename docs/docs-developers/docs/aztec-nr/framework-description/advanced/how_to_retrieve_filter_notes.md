@@ -11,7 +11,13 @@ This guide shows you how to retrieve and filter notes from private storage using
 
 - Aztec contract with note storage
 - Understanding of note structure and properties
-- Familiarity with PropertySelector and Comparator
+
+## Required imports
+
+```rust
+use dep::aztec::note::note_getter_options::{NoteGetterOptions, NoteStatus, SortOrder};
+use dep::aztec::utils::comparison::Comparator;
+```
 
 ## Set up basic note retrieval
 
@@ -26,8 +32,20 @@ This returns up to `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` notes without filterin
 ### Step 2: Retrieve notes from storage
 
 ```rust
-let notes = storage.my_notes.at(owner).get_notes(options);
+// Returns BoundedVec<RetrievedNote<MyNote>, ...>
+let retrieved_notes = storage.my_notes.at(owner).get_notes(options);
 ```
+
+:::tip get_notes vs pop_notes
+
+- `get_notes`: Retrieves notes without nullifying. Note data is not guaranteed to be current or non-nullified—use when you only need to read note data without consuming it.
+- `pop_notes`: Retrieves AND nullifies notes in one operation. Use when consuming notes (e.g., spending tokens). More efficient than calling `get_notes` followed by manual nullification.
+
+:::
+
+Here's an example of `pop_notes` with filtering from the NFT contract:
+
+#include_code pop_notes noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ## Filter notes by properties
 
@@ -77,81 +95,50 @@ Database `select` is more efficient than custom filters. Use custom filters only
 
 ### Create and use a custom filter
 
+#include_code custom_filter noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr rust
+
+Then use it with `NoteGetterOptions`:
+
 ```rust
-fn filter_above_threshold(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTES],
-    min: Field,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTES] {
-    let mut result = [Option::none(); MAX_NOTES];
-    let mut count = 0;
-
-    for note in notes {
-        if note.is_some() & (note.unwrap().note.value >= min) {
-            result[count] = note;
-            count += 1;
-        }
-    }
-    result
-}
-
-// Use the filter
-let options = NoteGetterOptions::with_filter(filter_above_threshold, min_value);
+let options = NoteGetterOptions::with_filter(filter_notes_min_sum, min_value);
 ```
 
 :::warning Note Limits
-Maximum notes per call: `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` (currently 128)
+Maximum notes per call: `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` (currently 16)
 :::
 
 :::info Available Comparators
 
-- `EQ`: Equal to
-- `NEQ`: Not equal to
-- `LT`: Less than
-- `LTE`: Less than or equal
-- `GT`: Greater than
-- `GTE`: Greater than or equal
+- `Comparator.EQ`: Equal to
+- `Comparator.NEQ`: Not equal to
+- `Comparator.LT`: Less than
+- `Comparator.LTE`: Less than or equal
+- `Comparator.GT`: Greater than
+- `Comparator.GTE`: Greater than or equal
 
 :::
 
-## Use comparators effectively
+## Call from TypeScript
 
-### Available comparators
-
-```rust
-// Equal to
-options.select(MyNote::properties().value, Comparator.EQ, target_value)
-
-// Greater than or equal
-options.select(MyNote::properties().value, Comparator.GTE, min_value)
-
-// Less than
-options.select(MyNote::properties().value, Comparator.LT, max_value)
-```
-
-### Call from TypeScript with comparator
+You can pass comparator values from TypeScript to your contract functions:
 
 ```typescript
-// Pass comparator from client
-contract.methods.read_notes(Comparator.GTE, 5).simulate({ from: defaultAddress })
+import { Comparator } from '@aztec/aztec.js/note';
+
+// Pass comparator to a contract function that accepts it as a parameter
+await contract.methods.read_notes(Comparator.GTE, 5).simulate({ from: senderAddress });
 ```
 
 ## View notes without constraints
 
-```rust
-use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+Use `NoteViewerOptions` in unconstrained utility functions to query notes without generating proofs:
 
-#[external("utility")]
-unconstrained fn view_notes(comparator: u8, value: Field) -> auto {
-    let mut options = NoteViewerOptions::new();
-    options = options.select(MyNote::properties().value, comparator, value);
-    storage.my_notes.view_notes(options)
-}
-```
+#include_code view_notes noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 :::tip Viewer vs Getter
 
-- `NoteGetterOptions`: For constrained functions (private/public)
-- `NoteViewerOptions`: For unconstrained viewing (utilities)
+- `NoteGetterOptions`: For constrained private functions with proof generation (max 16 notes)
+- `NoteViewerOptions`: For unconstrained utility functions, no proofs (max 10 notes per page via `MAX_NOTES_PER_PAGE`)
 
 :::
 
@@ -161,7 +148,7 @@ unconstrained fn view_notes(comparator: u8, value: Field) -> auto {
 
 ```rust
 let mut options = NoteGetterOptions::new();
-options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
+options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
 ```
 
 :::info Note Status Options
@@ -171,34 +158,8 @@ options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
 
 :::
 
-## Optimize note retrieval
-
-:::tip Best Practices
-
-1. **Use select over filter** - Database-level filtering is more efficient
-2. **Set limits early** - Reduce unnecessary note processing
-3. **Sort before limiting** - Get the most relevant notes first
-4. **Batch operations** - Retrieve all needed notes in one call
-
-:::
-
-### Example: Optimized retrieval
-
-```rust
-// Get highest value note for owner
-let mut options = NoteGetterOptions::new();
-options = options
-    .select(MyNote::properties().owner, Comparator.EQ, owner)
-    .sort(MyNote::properties().value, SortOrder.DESC)
-    .set_limit(1);
-
-let notes = storage.my_notes.at(owner).get_notes(options);
-assert(notes.len() > 0, "No notes found");
-let highest_note = notes.get(0);
-```
-
 ## Next steps
 
 - Learn about [custom note implementations](../how_to_implement_custom_notes.md)
 - Explore [note discovery mechanisms](../../../foundational-topics/advanced/storage/note_discovery.md)
-- Understand [note lifecycle](../../../foundational-topics/advanced/storage/indexed_merkle_tree.mdx)
+- Understand [partial notes](./partial_notes.md)

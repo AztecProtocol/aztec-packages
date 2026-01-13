@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { inboundTransform, outboundTransform } from '../encoding/index.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
+import { HEALTHCHECK_CONTENT, HEALTHCHECK_FILENAME } from './healthcheck.js';
 
 /**
  * A blob client that uses a FileStore (S3/GCS/local) as the data source.
@@ -29,6 +29,14 @@ export class FileStoreBlobClient {
   }
 
   /**
+   * Get the path for the healthcheck file.
+   * Format: basePath/.healthcheck
+   */
+  private healthcheckPath(): string {
+    return `${this.basePath}/${HEALTHCHECK_FILENAME}`;
+  }
+
+  /**
    * Fetch blobs by their versioned hashes.
    * @param blobHashes - Array of versioned blob hashes (0x-prefixed hex strings)
    * @returns Array of BlobJson objects for found blobs
@@ -45,8 +53,7 @@ export class FileStoreBlobClient {
 
         const data = await this.store.read(path);
         const json = JSON.parse(inboundTransform(data).toString()) as BlobJson;
-        // We don't know the actual index when fetching from filestore - use -1 to indicate this deliberately
-        blobs.push({ ...json, index: '-1' });
+        blobs.push(json);
       } catch (err) {
         this.log.warn(`Failed to read blob ${blobHashes[i]} from filestore`, err);
       }
@@ -81,8 +88,7 @@ export class FileStoreBlobClient {
       return;
     }
 
-    // index=-1 is deliberate as we don't know the actual blob index in most cases when the filestores are used (blobs are saved in the filestores before we ever fetch them from L1)
-    const json = blob.toJson(-1);
+    const json = blob.toJSON();
     await (this.store as FileStore).save(
       this.blobPath(versionedHash),
       outboundTransform(Buffer.from(JSON.stringify(json))),
@@ -92,16 +98,11 @@ export class FileStoreBlobClient {
 
   /**
    * Save multiple blobs to the store in parallel.
-   * @param blobs - The blobs to save (either Blob[] or BlobWithIndex[])
+   * @param blobs - The blobs to save
    * @param skipIfExists - Skip saving if blob already exists (default: true)
    */
-  async saveBlobs(blobs: Blob[] | BlobWithIndex[], skipIfExists = true): Promise<void> {
-    await Promise.all(
-      blobs.map(b => {
-        const blob = 'blob' in b ? b.blob : b;
-        return this.saveBlob(blob, skipIfExists);
-      }),
-    );
+  async saveBlobs(blobs: Blob[], skipIfExists = true): Promise<void> {
+    await Promise.all(blobs.map(blob => this.saveBlob(blob, skipIfExists)));
   }
 
   /**
@@ -112,12 +113,31 @@ export class FileStoreBlobClient {
   }
 
   /**
-   * Test if the filestore connection is working.
+   * Test if the filestore connection is working by checking for healthcheck file.
+   * The healthcheck file is uploaded periodically by writable clients via HttpBlobClient.start().
+   * This provides a uniform connection test across all store types (S3/GCS/Local/HTTP).
    */
-  testConnection(): Promise<boolean> {
-    // This implementation will be improved in a separate PR
-    // Currently underlying filestore implementations do not expose an easy way to test connectivitiy
-    return Promise.resolve(true);
+  async testConnection(): Promise<boolean> {
+    try {
+      return await this.store.exists(this.healthcheckPath());
+    } catch (err: any) {
+      this.log.warn(`Connection test failed: ${err?.message ?? String(err)}`);
+      return false;
+    }
+  }
+
+  /**
+   * Upload the healthcheck file if it doesn't already exist.
+   * This enables read-only clients (HTTP) to verify connectivity.
+   */
+  async uploadHealthcheck(): Promise<void> {
+    if (!this.isWritable()) {
+      this.log.trace('Cannot upload healthcheck: store is read-only');
+      return;
+    }
+    const path = this.healthcheckPath();
+    await (this.store as FileStore).save(path, Buffer.from(HEALTHCHECK_CONTENT));
+    this.log.debug(`Uploaded healthcheck file to ${path}`);
   }
 
   /**

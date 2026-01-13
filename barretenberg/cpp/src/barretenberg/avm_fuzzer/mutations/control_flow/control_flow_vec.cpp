@@ -58,6 +58,11 @@ void mutate_finalize_with_return(FinalizeWithReturn& instr, std::mt19937_64& rng
     mutate_return_options(instr.return_options, rng, BASIC_RETURN_OPTIONS_MUTATION_CONFIGURATION);
 }
 
+void mutate_finalize_with_revert(FinalizeWithRevert& instr, std::mt19937_64& rng)
+{
+    mutate_return_options(instr.revert_options, rng, BASIC_RETURN_OPTIONS_MUTATION_CONFIGURATION);
+}
+
 void mutate_switch_to_non_terminated_block(SwitchToNonTerminatedBlock& instr, std::mt19937_64& rng)
 {
     mutate_uint16_t(instr.non_terminated_block_idx, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
@@ -86,6 +91,10 @@ CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
         return FinalizeWithReturn(ReturnOptions(generate_random_uint8(rng),
                                                 generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
                                                 generate_random_uint16(rng)));
+    case CFGInstructionGenerationOptions::FinalizeWithRevert:
+        return FinalizeWithRevert(ReturnOptions(generate_random_uint8(rng),
+                                                generate_memory_tag(rng, BASIC_MEMORY_TAG_GENERATION_CONFIGURATION),
+                                                generate_random_uint16(rng)));
     case CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock:
         return SwitchToNonTerminatedBlock(generate_random_uint16(rng));
     case CFGInstructionGenerationOptions::InsertInternalCall:
@@ -102,6 +111,7 @@ void mutate_cfg_instruction(CFGInstruction& cfg_instruction, std::mt19937_64& rn
                    [&](JumpToBlock& instr) { mutate_jump_to_block(instr, rng); },
                    [&](JumpIfToBlock& instr) { mutate_jump_if_to_block(instr, rng); },
                    [&](FinalizeWithReturn& instr) { mutate_finalize_with_return(instr, rng); },
+                   [&](FinalizeWithRevert& instr) { mutate_finalize_with_revert(instr, rng); },
                    [&](SwitchToNonTerminatedBlock& instr) { mutate_switch_to_non_terminated_block(instr, rng); },
                    [&](InsertInternalCall& instr) { mutate_insert_internal_call(instr, rng); } },
                cfg_instruction);

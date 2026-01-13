@@ -71,14 +71,15 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import type { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
-import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
-import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
-import type { RecipientTaggingDataProvider } from '../storage/tagging_data_provider/recipient_tagging_data_provider.js';
-import type { SenderTaggingDataProvider } from '../storage/tagging_data_provider/sender_tagging_data_provider.js';
+import type { AddressStore } from '../storage/address_store/address_store.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
+import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
+import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
+import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
@@ -95,16 +96,17 @@ export class ContractFunctionSimulator {
   private log: Logger;
 
   constructor(
-    private contractDataProvider: ContractDataProvider,
-    private noteDataProvider: NoteDataProvider,
+    private contractStore: ContractStore,
+    private noteStore: NoteStore,
     private keyStore: KeyStore,
-    private addressDataProvider: AddressDataProvider,
+    private addressStore: AddressStore,
     private aztecNode: AztecNode,
-    private anchorBlockDataProvider: AnchorBlockDataProvider,
-    private senderTaggingDataProvider: SenderTaggingDataProvider,
-    private recipientTaggingDataProvider: RecipientTaggingDataProvider,
-    private capsuleDataProvider: CapsuleDataProvider,
-    private privateEventDataProvider: PrivateEventDataProvider,
+    private anchorBlockStore: AnchorBlockStore,
+    private senderTaggingStore: SenderTaggingStore,
+    private recipientTaggingStore: RecipientTaggingStore,
+    private senderAddressBookStore: SenderAddressBookStore,
+    private capsuleStore: CapsuleStore,
+    private privateEventStore: PrivateEventStore,
     private simulator: CircuitSimulator,
   ) {
     this.log = createLogger('simulator');
@@ -121,6 +123,7 @@ export class ContractFunctionSimulator {
    * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
    * the `privateGetSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param jobId - The job ID for staged writes.
    * @returns The result of the execution.
    */
   public async run(
@@ -129,17 +132,19 @@ export class ContractFunctionSimulator {
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     anchorBlockHeader: BlockHeader,
-    senderForTags?: AztecAddress,
-    scopes?: AztecAddress[],
+    senderForTags: AztecAddress | undefined,
+    scopes: AztecAddress[] | undefined,
+    jobId: string,
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
-
-    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
-      contractAddress,
-      selector,
+    await this.contractStore.syncPrivateState(contractAddress, selector, privateSyncCall =>
+      this.runUtility(privateSyncCall, [], anchorBlockHeader, scopes, jobId),
     );
+
+    await verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader);
+
+    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
@@ -170,21 +175,26 @@ export class ContractFunctionSimulator {
       request.txContext,
       callContext,
       anchorBlockHeader,
+      async call => {
+        await this.runUtility(call, [], anchorBlockHeader, scopes, jobId);
+      },
       request.authWitnesses,
       request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       taggingIndexCache,
-      this.contractDataProvider,
-      this.noteDataProvider,
+      this.contractStore,
+      this.noteStore,
       this.keyStore,
-      this.addressDataProvider,
+      this.addressStore,
       this.aztecNode,
-      this.anchorBlockDataProvider,
-      this.senderTaggingDataProvider,
-      this.recipientTaggingDataProvider,
-      this.capsuleDataProvider,
-      this.privateEventDataProvider,
+      this.anchorBlockStore,
+      this.senderTaggingStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
+      jobId,
       0, // totalPublicArgsCount
       startSideEffectCounter,
       undefined, // log
@@ -254,14 +264,12 @@ export class ContractFunctionSimulator {
     call: FunctionCall,
     authwits: AuthWitness[],
     anchorBlockHeader: BlockHeader,
-    scopes?: AztecAddress[],
+    scopes: AztecAddress[] | undefined,
+    jobId: string,
   ): Promise<Fr[]> {
-    await verifyCurrentClassId(call.to, this.aztecNode, this.contractDataProvider, anchorBlockHeader);
+    await verifyCurrentClassId(call.to, this.aztecNode, this.contractStore, anchorBlockHeader);
 
-    const entryPointArtifact = await this.contractDataProvider.getFunctionArtifactWithDebugMetadata(
-      call.to,
-      call.selector,
-    );
+    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -272,16 +280,17 @@ export class ContractFunctionSimulator {
       authwits,
       [],
       anchorBlockHeader,
-      this.contractDataProvider,
-      this.noteDataProvider,
+      this.contractStore,
+      this.noteStore,
       this.keyStore,
-      this.addressDataProvider,
+      this.addressStore,
       this.aztecNode,
-      this.anchorBlockDataProvider,
-      this.senderTaggingDataProvider,
-      this.recipientTaggingDataProvider,
-      this.capsuleDataProvider,
-      this.privateEventDataProvider,
+      this.anchorBlockStore,
+      this.recipientTaggingStore,
+      this.senderAddressBookStore,
+      this.capsuleStore,
+      this.privateEventStore,
+      jobId,
       undefined,
       scopes,
     );
@@ -347,13 +356,13 @@ class OrderedSideEffect<T> {
  * @param privateExecutionResult - The result of the private execution.
  * @param nonceGenerator - A nonce generator for note hashes. According to the protocol rules,
  * it can either be the first nullifier in the tx or the hash of the initial tx request if there are none.
- * @param contractDataProvider - A provider for contract data in order to get function names and debug info.
+ * @param contractStore - A provider for contract data in order to get function names and debug info.
  * @returns The simulated proving result.
  */
 export async function generateSimulatedProvingResult(
   privateExecutionResult: PrivateExecutionResult,
   nonceGenerator: Fr,
-  contractDataProvider: ContractDataProvider,
+  contractStore: ContractStore,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
   const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
   const nullifiers: OrderedSideEffect<Fr>[] = [];
@@ -430,7 +439,7 @@ export async function generateSimulatedProvingResult(
       : execution.publicInputs.publicTeardownCallRequest;
 
     executionSteps.push({
-      functionName: await contractDataProvider.getDebugFunctionName(
+      functionName: await contractStore.getDebugFunctionName(
         execution.publicInputs.callContext.contractAddress,
         execution.publicInputs.callContext.functionSelector,
       ),

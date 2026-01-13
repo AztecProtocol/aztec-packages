@@ -1,3 +1,4 @@
+import { MAX_TXS_PER_BLOCK } from '../../constants.js';
 import { BitVector } from './bitvector.js';
 
 describe('BitVector', () => {
@@ -80,6 +81,28 @@ describe('BitVector', () => {
       expect(bitVector.isSet(-1)).toBe(false);
       expect(bitVector.isSet(8)).toBe(false);
       expect(bitVector.isSet(100)).toBe(false);
+    });
+  });
+
+  describe('fromBuffer validation', () => {
+    it('should throw when length exceeds MAX_TXS_PER_BLOCK', () => {
+      const length = MAX_TXS_PER_BLOCK + 1;
+      const buffer = Buffer.alloc(4 + Math.ceil(length / 8));
+      buffer.writeUInt32BE(length, 0);
+
+      expect(() => BitVector.fromBuffer(buffer)).toThrow(
+        `BitVector length ${length} exceeds maximum ${MAX_TXS_PER_BLOCK}`,
+      );
+    });
+
+    it('should accept length at MAX_TXS_PER_BLOCK boundary', () => {
+      const length = MAX_TXS_PER_BLOCK;
+      const byteLength = Math.ceil(length / 8);
+      const buffer = Buffer.alloc(4 + byteLength);
+      buffer.writeUInt32BE(length, 0);
+
+      const bitVector = BitVector.fromBuffer(buffer);
+      expect(bitVector.getLength()).toBe(length);
     });
   });
 });

@@ -39,23 +39,29 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes a contract', async () => {
     const owner = defaultAccountAddress;
     logger.debug(`Deploying stateful test contract`);
+    // docs:start:deploy_basic
     const contract = await StatefulTestContract.deploy(wallet, owner, 42)
       .send({ from: defaultAccountAddress })
       .deployed();
+    // docs:end:deploy_basic
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress }).wait();
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
-    const instance = (await wallet.getContractMetadata(contract.address)).contractInstance!;
-    expect(
-      (await wallet.getContractClassMetadata(instance.currentContractClassId)).isContractClassPubliclyRegistered,
-    ).toBeTrue();
+    // docs:start:verify_deployment
+    const metadata = await wallet.getContractMetadata(contract.address);
+    const classMetadata = await wallet.getContractClassMetadata(metadata.instance!.currentContractClassId);
+    const isPublished = classMetadata.isContractClassPubliclyRegistered;
+    // docs:end:verify_deployment
+    expect(isPublished).toBeTrue();
   });
 
   it('publicly universally deploys and initializes a contract', async () => {
     const owner = defaultAccountAddress;
+    // docs:start:deploy_universal
     const opts = { universalDeploy: true, from: defaultAccountAddress };
     const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts).deployed();
+    // docs:end:deploy_universal
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
     await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress }).wait();
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
@@ -63,9 +69,11 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys and calls a public function from the constructor', async () => {
     const owner = defaultAccountAddress;
+    // docs:start:deploy_token
     const token = await TokenContract.deploy(wallet, owner, 'TOKEN', 'TKN', 18)
       .send({ from: defaultAccountAddress })
       .deployed();
+    // docs:end:deploy_token
     expect(await token.methods.is_minter(owner).simulate({ from: defaultAccountAddress })).toEqual(true);
   });
 
@@ -112,17 +120,15 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {
     const owner = defaultAccountAddress;
+    // docs:start:deploy_batch
     // Create a contract instance and make the PXE aware of it
-    logger.debug(`Initializing deploy method`);
     const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
-    logger.debug(`Registering the not-yet-deployed contract to batch calls to`);
     const contract = await deployMethod.register();
 
-    // Batch registration, deployment, and public call into same TX
-    logger.debug(`Creating public calls to run in same batch as deployment`);
-    const init = contract.methods.increment_public_value(owner, 84);
-    logger.debug(`Deploying a contract and calling a public function in the same batched call`);
-    await new BatchCall(wallet, [deployMethod, init]).send({ from: defaultAccountAddress }).wait();
+    // Batch deployment and a public call into the same transaction
+    const publicCall = contract.methods.increment_public_value(owner, 84);
+    await new BatchCall(wallet, [deployMethod, publicCall]).send({ from: defaultAccountAddress }).wait();
+    // docs:end:deploy_batch
   }, 300_000);
 
   it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
