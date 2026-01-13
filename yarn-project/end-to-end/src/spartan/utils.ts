@@ -117,7 +117,7 @@ export async function startPortForward({
   );
 
   let isResolved = false;
-  const connected = new Promise<number>(resolve => {
+  const connected = new Promise<number>((resolve, reject) => {
     process.stdout?.on('data', data => {
       const str = data.toString() as string;
       if (!isResolved && str.includes('Forwarding from')) {
@@ -125,7 +125,8 @@ export async function startPortForward({
         logger.debug(`Port forward for ${resource}: ${str}`);
         const port = str.search(/:\d+/);
         if (port === -1) {
-          throw new Error('Port not found in port forward output');
+          reject(new Error('Port not found in port forward output'));
+          return;
         }
         const portNumber = parseInt(str.slice(port + 1));
         logger.verbose(`Port forwarded for ${resource} at ${portNumber}:${containerPort}`);
@@ -145,17 +146,26 @@ export async function startPortForward({
     process.on('close', () => {
       if (!isResolved) {
         isResolved = true;
-        logger.warn(`Port forward for ${resource} closed before connection established`);
-        resolve(0);
+        const msg = `Port forward for ${resource} closed before connection established`;
+        logger.warn(msg);
+        reject(new Error(msg));
       }
     });
     process.on('error', error => {
-      logger.error(`Port forward for ${resource} error: ${error}`);
-      resolve(0);
+      if (!isResolved) {
+        isResolved = true;
+        const msg = `Port forward for ${resource} error: ${error}`;
+        logger.error(msg);
+        reject(new Error(msg));
+      }
     });
     process.on('exit', code => {
-      logger.verbose(`Port forward for ${resource} exited with code ${code}`);
-      resolve(0);
+      if (!isResolved) {
+        isResolved = true;
+        const msg = `Port forward for ${resource} exited with code ${code}`;
+        logger.verbose(msg);
+        reject(new Error(msg));
+      }
     });
   });
 
@@ -195,6 +205,14 @@ export function getExternalIP(namespace: string, serviceName: string): Promise<s
   });
 
   return promise;
+}
+
+export function startPortForwardForPrometeheus(namespace: string) {
+  return startPortForward({
+    resource: `svc/${namespace}-prometheus-server`,
+    namespace,
+    containerPort: 80,
+  });
 }
 
 export function startPortForwardForRPC(namespace: string, index = 0) {
