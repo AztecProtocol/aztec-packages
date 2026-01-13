@@ -18,13 +18,20 @@ This is the lowest level of our ROM/RAM abstraction.
     d. `read_ROM_array`
     e. `read_ROM_array_pair`
     f. `create_RAM_array`
-    g. `init_RAM_array`
+    g. `init_RAM_element`
     h. `write_RAM_array`
     i. `read_RAM_array`
     j. `apply_memory_selectors`
+3. `relations/memory_relation.hpp`.
 
+The memory relation implements constraints that are evaluated during the sumcheck protocol. Rather than auditing the underlying sumcheck infrastructure, reviewers should focus on verifying that the polynomial identities themselves are correctly formulated. More precisely, the focus should be that the ROM consistency checks, RAM consistency checks, and timestamp checks properly enforce the memory semantics described in the comments.
+
+The relation's accumulate method receives univariate polynomial extensions as input and adds constraint contributions to accumulators; these accumulators are later evaluated by the sumcheck prover/verifier machinery, which is out-of-scope for this audit. Please audit the mathematical correctness/completeness of the constraint equations, not the underlying accumulator/sumcheck mechanisms.
 #### Testing
 1. `ultrahonk/rom_ram.test.cpp`.
+This is the main extensive end-to-end testing file. There are also several failure tests using the circuit-checker machinery.
+2. `circuit_checker/ultra_circuit_builder_memory.test.cpp`
+(This latter file uses the circuit-checker mechanism, which checks that the the relations hold on the circuit. This is in contrast to the first testing suite, which are primarily end-to-end tests.)
 ### In `stdlib/primitives/memory`
 One level of abstraction higher than in `stdlib_circuit_builders`. This is part of an API that is called by the code in `dsl`.
 
@@ -52,7 +59,7 @@ The relevant methods are:
 
 #### Testing
 The memory tests may be found
-1. `dsl/acir_format/block_constraints.test.cpp`
+1. `dsl/acir_format/block_constraint.test.cpp`
 
 Inside of this audit, the relevant tests are:
     a. `ROMTest`
