@@ -4,7 +4,7 @@ The AVM manages two categories of state during execution: **world state** (persi
 
 ## World State
 
-World state represents persistent changes that are committed to the blockchain when a transaction succeeds. These are tracked during execution and only finalized after the entire transaction completes successfully.
+World state represents persistent changes that are committed to Aztec when a transaction succeeds. These are tracked during execution and only finalized after the entire transaction completes successfully.
 
 | Component | Description |
 |-----------|-------------|
@@ -18,7 +18,7 @@ World state modifications accumulate during execution. If the top-level call rev
 
 ## Execution State
 
-Execution state is transient data that exists only during a call's execution. It is never persisted to the blockchain.
+Execution state is transient data that exists only during a call's execution.
 
 | Component | Description |
 |-----------|-------------|
@@ -42,3 +42,6 @@ When a contract makes an [external call](external-calls.md), the AVM creates a *
 This isolation means a reverted nested call cannot corrupt the caller's state. The caller can safely attempt calls and handle failures without risking its own accumulated state changes.
 
 See [External Calls](external-calls.md) for details on how calls execute and how state is merged or discarded.
+
+---
+← Previous: [Public Transaction Simulation](./public-tx-simulation.md) | Next: [Memory Model](./memory.md) →

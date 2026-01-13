@@ -16,11 +16,10 @@ Sets the program counter to the specified offset. The offset is an immediate val
 
 ## Gas Costs
 
-| Component | Value | Scales with |
-|-----------|-------|-------------|
-| L2 Base | 9 | - |
-| DA Base | 0 | - |
-| L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
+| Component | Value |
+|-----------|-------|
+| L2 Base | 9 |
+| DA Base | 0 |
 
 *See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
@@ -46,13 +45,6 @@ packet-beta
 0-7: "Opcode (0x23)"
 8-39: "Operand: jumpOffset"
 ```
-
-## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
-
-undefined
-
-Memory offset operands (`jumpOffset`) are encoded as follows:
 
 ---
 

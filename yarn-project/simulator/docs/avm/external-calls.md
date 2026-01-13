@@ -95,11 +95,11 @@ This isolation protects the caller from failed nested calls. A caller can attemp
 Both instructions halt the nested call and return control to the caller:
 
 | Aspect | [RETURN](opcodes/return.md) | [REVERT](opcodes/revert.md) | error |
-|--------|--------|--------|--------|
-| `nestedCallSuccess` | `true` | `false` | | `false` |
-| World state changes | Merged to caller | Discarded | | Discarded |
-| Gas refund | Unused gas returned | Unused gas returned | | All allocated gas consumed |
-| Output data | Return value(s) | Error message/data | | None |
+|--------|------------------------------|------------------------------|-------|
+| `nestedCallSuccess` | `true` | `false` | `false` |
+| World state changes | Merged to caller | Discarded | Discarded |
+| Gas refund | Unused gas returned | Unused gas returned | All allocated gas consumed |
+| Output data | Return value(s) | Error message/data | None |
 
 The caller retrieves the success flag via [SUCCESSCOPY](opcodes/successcopy.md) and the output data via [RETURNDATASIZE](opcodes/returndatasize.md) and [RETURNDATACOPY](opcodes/returndatacopy.md).
 
@@ -178,13 +178,5 @@ RETURNDATACOPY(...)           // Copy return data to memory
 done:
 ```
 
-## Related Instructions
-
-- [CALL](opcodes/call.md) — Call external contract
-- [STATICCALL](opcodes/staticcall.md) — Read-only call to external contract
-- [RETURN](opcodes/return.md) — Return from call successfully
-- [REVERT](opcodes/revert.md) — Revert execution with error data
-- [SUCCESSCOPY](opcodes/successcopy.md) — Get success status of last external call
-- [RETURNDATASIZE](opcodes/returndatasize.md) — Get size of return data
-- [RETURNDATACOPY](opcodes/returndatacopy.md) — Copy return data to memory
-- [Instruction Set: Quick Reference](avm-isa-quick-reference.md) — All AVM instructions
+---
+← Previous: [Errors](./errors.md) | Next: [Calldata and Return Data](./calldata-returndata.md) →

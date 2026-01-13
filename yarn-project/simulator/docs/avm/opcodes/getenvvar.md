@@ -12,7 +12,24 @@ M[dstOffset] = environmentVariable[varEnum]
 
 ## Details
 
-Retrieves environment variables from the currently executing context. "Environment" refers to information specific to the current execution context, with some information specific to the block (e.g., BLOCKNUMBER, TIMESTAMP), some to the transaction (e.g., TRANSACTIONFEE), and some to the currently executing contract call (e.g., ADDRESS, SENDER, gas remaining). The variable is specified by an immediate enum value. Supported enum values: `[ADDRESS=0, SENDER, TRANSACTIONFEE, CHAINID, VERSION, BLOCKNUMBER, TIMESTAMP, BASEFEEPERL2GAS, BASEFEEPERDAGAS, ISSTATICCALL, L2GASLEFT, DAGASLEFT]`.
+Retrieves environment variables from the currently executing context. The variable is specified by an immediate enum value.
+
+## Variable Reference
+
+| Index | Variable | Type | Description |
+|-------|----------|------|-------------|
+| 0 | `ADDRESS` | `FIELD` | Current executing contract address |
+| 1 | `SENDER` | `FIELD` | Immediate caller of this context |
+| 2 | `TRANSACTIONFEE` | `FIELD` | Total transaction fee |
+| 3 | `CHAINID` | `FIELD` | Chain identifier |
+| 4 | `VERSION` | `FIELD` | Protocol version |
+| 5 | `BLOCKNUMBER` | `UINT32` | Current block number |
+| 6 | `TIMESTAMP` | `UINT64` | Block timestamp |
+| 7 | `MINFEEPERL2GAS` | `UINT128` | Minimum fee per L2 gas unit |
+| 8 | `MINFEEPERDAGAS` | `UINT128` | Minimum fee per DA gas unit |
+| 9 | `ISSTATICCALL` | `UINT1` | Whether current call is static (1) or not (0) |
+| 10 | `L2GASLEFT` | `UINT32` | Remaining L2 gas at time of query |
+| 11 | `DAGASLEFT` | `UINT32` | Remaining DA gas at time of query |
 
 ## Gas Costs
 

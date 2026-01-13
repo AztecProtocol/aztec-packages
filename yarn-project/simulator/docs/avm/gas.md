@@ -100,3 +100,9 @@ Where:
 
 If an instruction attempts to charge gas that exceeds the remaining available gas, this triggers an execution error.
 
+## Gas in External Calls
+
+When a contract makes an external call via `CALL` or `STATICCALL`, gas is explicitly allocated to the nested call. The caller specifies how much L2 and DA gas to pass, and any unused gas is refunded when the nested call returns. See [External Calls](./external-calls.md) for details on gas allocation, charging, and refunds during nested contract calls.
+
+---
+← Previous: [Execution Lifecycle](./execution-lifecycle.md) | Next: [Errors](./errors.md) →

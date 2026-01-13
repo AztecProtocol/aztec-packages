@@ -25,30 +25,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { getBaseGasCost, getDynamicGasCost } from '../avm_gas.js';
-import {
-  EmitNoteHash,
-  EmitNullifier,
-  EmitUnencryptedLog,
-  L1ToL2MessageExists,
-  NoteHashExists,
-  NullifierExists,
-  SendL2ToL1Message,
-} from '../opcodes/accrued_substate.js';
-// Import all instruction classes
-import { Add, Div, FieldDiv, Mul, Shl, Shr, Sub } from '../opcodes/arithmetic.js';
-import { And, Not, Or, Xor } from '../opcodes/bitwise.js';
-import { Eq, Lt, Lte } from '../opcodes/comparators.js';
-import { GetContractInstance } from '../opcodes/contract.js';
-import { InternalCall, InternalReturn, Jump, JumpI } from '../opcodes/control_flow.js';
-import { ToRadixBE } from '../opcodes/conversion.js';
-import { EcAdd } from '../opcodes/ec_add.js';
-import { GetEnvVar } from '../opcodes/environment_getters.js';
-import { Call, Return, Revert, StaticCall, SuccessCopy } from '../opcodes/external_calls.js';
-import { KeccakF1600, Poseidon2, Sha256Compression } from '../opcodes/hashing.js';
-import { CalldataCopy, Cast, Mov, ReturndataCopy, ReturndataSize, Set } from '../opcodes/memory.js';
+// Import all exports from opcodes to auto-discover instruction classes
+import * as AllOpcodes from '../opcodes/index.js';
 import { MinimalMetadataRegistry } from '../opcodes/metadata_registry.js';
-import { DebugLog } from '../opcodes/misc.js';
-import { SLoad, SStore } from '../opcodes/storage.js';
 import { Opcode, OperandType, getOperandSize } from '../serialization/instruction_serialization.js';
 import { InstructionAnalyzer } from './instruction_analyzer.js';
 
@@ -248,74 +227,6 @@ function getFieldNameForOperandType(operandType: OperandType, index: number): st
       return `Field${index}`;
   }
 }
-
-/**
- * Extracts wire format variations from an instruction class.
- * Checks both the class itself and its prototype chain.
- */
-//function extractWireFormats(instructionClass: InstructionClass): WireFormatVariation[] {
-//  const variations: WireFormatVariation[] = [];
-//  const baseName = instructionClass.type;
-//
-//  // Look for wireFormat properties on the class and its prototype chain
-//  let currentClass: any = instructionClass;
-//  const wireFormatKeys: string[] = [];
-//
-//  // Walk up the prototype chain to find all wireFormat properties
-//  while (currentClass && currentClass !== Object.prototype) {
-//    for (const key of Object.getOwnPropertyNames(currentClass)) {
-//      if (key.startsWith('wireFormat') && wireFormatKeys.indexOf(key) === -1) {
-//        wireFormatKeys.push(key);
-//      }
-//    }
-//    currentClass = Object.getPrototypeOf(currentClass);
-//  }
-//
-//  // Determine if we have only one unnamed wireFormat
-//  const hasOnlyUnnamedWireFormat = wireFormatKeys.length === 1 && wireFormatKeys[0] === 'wireFormat';
-//
-//  // Process each wire format
-//  for (const key of wireFormatKeys) {
-//    const format = (instructionClass as any)[key] as OperandType[];
-//    if (!Array.isArray(format)) {continue;}
-//
-//    // Derive the opcode for this variation
-//    // The naming convention is: OPCODE_8, OPCODE_16, etc.
-//    let variantSuffix = key.replace('wireFormat', '');
-//    if (variantSuffix === '') {variantSuffix = '8';} // Default to 8 if no suffix
-//
-//    const variantName = `${baseName}_${variantSuffix.toUpperCase()}`;
-//
-//    // Try to look up the opcode - first try the variant name, then the base name
-//    let opcodeKey = variantName as keyof typeof Opcode;
-//    let opcodeValue = Opcode[opcodeKey];
-//
-//    // If variant doesn't exist in enum, try the base name (for single unnamed wireFormats)
-//    if (opcodeValue === undefined && hasOnlyUnnamedWireFormat) {
-//      opcodeKey = baseName as keyof typeof Opcode;
-//      opcodeValue = Opcode[opcodeKey];
-//    }
-//
-//    // If still not found, try using the instruction class's opcode directly
-//    if (opcodeValue === undefined) {
-//      opcodeValue = instructionClass.opcode;
-//    }
-//
-//    if (opcodeValue !== undefined) {
-//      // Use just the base name for both the name and diagram title if there's only one unnamed wireFormat
-//      const displayName = hasOnlyUnnamedWireFormat ? baseName : variantName;
-//
-//      variations.push({
-//        name: displayName,
-//        opcode: opcodeValue,
-//        format: format.map(getOperandTypeName),
-//        mermaidDiagram: generateMermaidDiagram(format, displayName, opcodeValue),
-//      });
-//    }
-//  }
-//
-//  return variations;
-//}
 
 /**
  * Generates documentation for a single instruction class using programmatic extraction (v2).
@@ -520,74 +431,47 @@ function generateWireFormatDocs(wireFormats: any[], operands: any[]): WireFormat
 }
 
 /**
+ * Check if a value is an instruction class (has required static properties).
+ */
+function isInstructionClass(value: unknown): value is InstructionClass {
+  if (typeof value !== 'function') {
+    return false;
+  }
+  const cls = value as unknown as Record<string, unknown>;
+  // Must have both 'type' (string) and 'opcode' (number) static properties
+  return typeof cls.type === 'string' && typeof cls.opcode === 'number';
+}
+
+/**
+ * Auto-discover all instruction classes from the opcodes module.
+ */
+function discoverInstructionClasses(): InstructionClass[] {
+  const classes: InstructionClass[] = [];
+  const seenTypes = new Set<string>();
+
+  for (const value of Object.values(AllOpcodes)) {
+    if (isInstructionClass(value)) {
+      // Avoid duplicates (same instruction exported multiple times)
+      if (!seenTypes.has(value.type)) {
+        seenTypes.add(value.type);
+        classes.push(value);
+      }
+    }
+  }
+
+  // Sort by opcode for consistent ordering
+  return classes.sort((a, b) => a.opcode - b.opcode);
+}
+
+/**
  * Main function to generate documentation for all opcodes using InstructionAnalyzer (v2).
  */
 function generateAllOpcodeDocs(): Record<string, OpcodeDocumentation> {
   // Create the analyzer
   const analyzer = new InstructionAnalyzer();
 
-  // List of all instruction classes to document
-  const instructionClasses: InstructionClass[] = [
-    // Arithmetic
-    Add,
-    Sub,
-    Mul,
-    Div,
-    FieldDiv,
-    Shl,
-    Shr,
-    // Memory
-    Set,
-    Cast,
-    Mov,
-    // Bitwise
-    And,
-    Or,
-    Xor,
-    Not,
-    // Comparison
-    Eq,
-    Lt,
-    Lte,
-    // Control Flow
-    Jump,
-    JumpI,
-    InternalCall,
-    InternalReturn,
-    // Environment
-    GetEnvVar,
-    CalldataCopy,
-    ReturndataSize,
-    ReturndataCopy,
-    SuccessCopy,
-    // Storage
-    SLoad,
-    SStore,
-    // World State / Accrued Substate
-    NoteHashExists,
-    EmitNoteHash,
-    NullifierExists,
-    EmitNullifier,
-    L1ToL2MessageExists,
-    EmitUnencryptedLog,
-    SendL2ToL1Message,
-    // Contract
-    GetContractInstance,
-    // External Calls
-    Call,
-    StaticCall,
-    Return,
-    Revert,
-    // Gadgets
-    Poseidon2,
-    Sha256Compression,
-    KeccakF1600,
-    EcAdd,
-    // Conversion
-    ToRadixBE,
-    // Misc
-    DebugLog,
-  ];
+  // Auto-discover all instruction classes from the opcodes module
+  const instructionClasses = discoverInstructionClasses();
 
   const docs: Record<string, OpcodeDocumentation> = {};
 
@@ -822,22 +706,25 @@ function generateQuickReference(docs: Record<string, OpcodeDocumentation>, opcod
   // Title and introduction
   lines.push('# Instruction Set: Quick Reference');
   lines.push('');
-  lines.push(
-    'Quick reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol.',
-  );
+  lines.push('Quick reference for all Aztec Virtual Machine (AVM) opcodes.');
   lines.push('');
-  lines.push('## Understanding the AVM');
+  lines.push('## Supporting Materials');
   lines.push('');
   lines.push('Before diving into the instruction set, familiarize yourself with these core concepts:');
   lines.push('');
   lines.push('- **[Introduction](index.md)**: What is the AVM and why do we need it?');
+  lines.push('- **[State](state.md)**: World state (persistent) vs execution state (transient)');
   lines.push('- **[Memory Model](memory.md)**: Memory notation and tagged memory (`M[x]` and `T[x]`)');
   lines.push(
     '- **[Addressing Modes](addressing.md)**: Direct, indirect, and relative addressing along with their gas implications',
   );
   lines.push(
+    '- **[Execution Lifecycle](execution-lifecycle.md)**: VM initialization, PC rules, halting, gas charging order',
+  );
+  lines.push(
     '- **[Gas Metering](gas.md)**: How L2 and DA gas costs are calculated and charged during instruction execution',
   );
+  lines.push('- **[Errors](errors.md)**: Error types, triggers, and gas/state behavior');
   lines.push(
     '- **[Wire Formats](wire-format.md)**: How instructions are encoded in bytecode and why opcodes have variants like `ADD_8` and `ADD_16`',
   );
@@ -1059,6 +946,16 @@ function generateSingleOpcodeMarkdown(doc: OpcodeDocumentation, standalone: bool
     lines.push('');
   }
 
+  // Notes
+  if (doc.notes && doc.notes.length > 0) {
+    lines.push(standalone ? '## Notes' : '#### Notes');
+    lines.push('');
+    for (const note of doc.notes) {
+      lines.push(`- ${note}`);
+    }
+    lines.push('');
+  }
+
   if (standalone) {
     // Add link back to quick reference at the bottom
     lines.push('---');
@@ -1217,9 +1114,8 @@ function main() {
     //console.log(`\nOptions:`);
     //console.log(`  --format json|md|both  Output format (default: json)`);
     //console.log(`  --output <file>        Output file path`);
-  } catch {
-    //console.error('Error generating documentation:');
-    //console.error(error);
+  } catch (error) {
+    console.error('Error generating documentation:', error);
     process.exit(1);
   }
 }

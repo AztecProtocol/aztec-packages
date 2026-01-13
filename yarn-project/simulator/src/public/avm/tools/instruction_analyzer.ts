@@ -83,7 +83,9 @@ export class InstructionAnalyzer {
     const wireFormats = this.extractWireFormats(instructionClass);
     const constructorParams = this.extractConstructorParams(instructionClass);
     const operands = this.inferOperands(wireFormats, constructorParams);
-    const addressingModeOperands = this.inferAddressingModeSupport(constructorParams);
+    // Derive addressingModeOperands from operands that actually have addressing mode support
+    // based on wire format (not just parameter naming convention)
+    const addressingModeOperands = operands.filter(op => op.supportsAddressingModes).map(op => op.name);
 
     return {
       type,
@@ -253,7 +255,7 @@ export class InstructionAnalyzer {
       operands.push({
         name,
         type: this.inferOperandType(name, type),
-        size: this.getOperandSizeInfo(type, wireFormats),
+        size: this.getOperandSizeInfo(type, wireFormats, i),
         supportsAddressingModes: supportsAddrModes,
         addressingModeBits: supportsAddrModes ? this.getAddressingModeBits(params, name) : undefined,
       });
@@ -292,13 +294,6 @@ export class InstructionAnalyzer {
   }
 
   /**
-   * Infer which operands support addressing modes based on naming convention.
-   */
-  private inferAddressingModeSupport(params: string[]): string[] {
-    return params.filter(p => p.endsWith('Offset'));
-  }
-
-  /**
    * Infer the operand type from its name and wire type.
    */
   private inferOperandType(name: string, wireType: OperandType): 'memory_offset' | 'immediate' | 'tag' {
@@ -325,7 +320,11 @@ export class InstructionAnalyzer {
    * Determine operand size information.
    * Returns 'variable' if the operand size changes across wire formats.
    */
-  private getOperandSizeInfo(type: OperandType, wireFormats: WireFormatInfo[]): number | 'variable' {
+  private getOperandSizeInfo(
+    type: OperandType,
+    wireFormats: WireFormatInfo[],
+    operandIndex: number,
+  ): number | 'variable' {
     // For semantic types, get the base size
     if (type === OperandType.OPCODE || type === OperandType.ADDRMODE8) {
       return 1;
@@ -339,10 +338,19 @@ export class InstructionAnalyzer {
       return 1;
     }
 
-    // Check if this operand type varies across wire formats
+    // Check if this operand has consistent size across all wire formats
     if (wireFormats.length > 1) {
-      // If we have multiple wire formats, the size is likely variable
-      // This is a simplification - could be more sophisticated
+      const sizes = new Set<number>();
+      for (const wf of wireFormats) {
+        if (operandIndex < wf.format.length) {
+          sizes.add(getOperandSize(wf.format[operandIndex]));
+        }
+      }
+      // If all wire formats have the same size at this position, return that size
+      if (sizes.size === 1) {
+        return [...sizes][0];
+      }
+      // Otherwise it truly is variable across wire formats
       return 'variable';
     }
 

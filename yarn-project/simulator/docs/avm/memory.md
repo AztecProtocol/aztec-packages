@@ -43,7 +43,7 @@ p = 2188824287183927522224640574525727508854836440041603434369820418657580849561
 
 `M[x]` denotes the value stored in memory at offset `x`. Memory is organized as a linear array of field elements, with each cell capable of holding a value from the BN254 field.
 
-Note that `M[x]` is often used as shorthand for "the memory value accessed after operand `x` is fully resolved", where the instruction's [addressing mode bitmask](addressing.md#addressing-mode-bitmask) indicates whether or not this operand actually uses indirect and/or relative addressing (_e.g._ `M[M[x]]` and/or `M[x + M[0]]`).
+Instructions may resolve operands using [addressing modes](addressing.md#addressing-modes) (direct, indirect, and/or relative) to determine the final memory offset.
 
 ### Type Tags
 
@@ -134,3 +134,6 @@ An out-of-bounds memory access can be encountered when:
 - An instruction operates on a _range_ of data (see [EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md))
 
 When this happens, the instruction will throw an error **MEMORY_ACCESS_OUT_OF_RANGE**.
+
+---
+← Previous: [State](./state.md) | Next: [Addressing Modes](./addressing.md) →

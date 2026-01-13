@@ -443,8 +443,24 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   GETENVVAR: {
     summary: 'Get environment variable',
     expression: 'M[dstOffset] = environmentVariable[varEnum]',
-    details:
-      'Retrieves environment variables from the currently executing context. "Environment" refers to information specific to the current execution context, with some information specific to the block (e.g., BLOCKNUMBER, TIMESTAMP), some to the transaction (e.g., TRANSACTIONFEE), and some to the currently executing contract call (e.g., ADDRESS, SENDER, gas remaining). The variable is specified by an immediate enum value. Supported enum values: `[ADDRESS=0, SENDER, TRANSACTIONFEE, CHAINID, VERSION, BLOCKNUMBER, TIMESTAMP, BASEFEEPERL2GAS, BASEFEEPERDAGAS, ISSTATICCALL, L2GASLEFT, DAGASLEFT]`.',
+    details: `Retrieves environment variables from the currently executing context. The variable is specified by an immediate enum value.
+
+## Variable Reference
+
+| Index | Variable | Type | Description |
+|-------|----------|------|-------------|
+| 0 | \`ADDRESS\` | \`FIELD\` | Current executing contract address |
+| 1 | \`SENDER\` | \`FIELD\` | Immediate caller of this context |
+| 2 | \`TRANSACTIONFEE\` | \`FIELD\` | Total transaction fee |
+| 3 | \`CHAINID\` | \`FIELD\` | Chain identifier |
+| 4 | \`VERSION\` | \`FIELD\` | Protocol version |
+| 5 | \`BLOCKNUMBER\` | \`UINT32\` | Current block number |
+| 6 | \`TIMESTAMP\` | \`UINT64\` | Block timestamp |
+| 7 | \`MINFEEPERL2GAS\` | \`UINT128\` | Minimum fee per L2 gas unit |
+| 8 | \`MINFEEPERDAGAS\` | \`UINT128\` | Minimum fee per DA gas unit |
+| 9 | \`ISSTATICCALL\` | \`UINT1\` | Whether current call is static (1) or not (0) |
+| 10 | \`L2GASLEFT\` | \`UINT32\` | Remaining L2 gas at time of query |
+| 11 | \`DAGASLEFT\` | \`UINT32\` | Remaining DA gas at time of query |`,
     errors: [
       { condition: 'INVALID_ENV_VAR', description: 'Env var enum is not in the range of valid enum values' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
@@ -466,6 +482,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'INVALID_TAG', description: 'Size operand is not Uint32' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
+    notes: [
+      'See [External Calls](../external-calls.md) for how calldata is passed to nested calls.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details.',
+    ],
     operandDescriptions: {
       cdStartOffset: 'Memory offset of the calldata start index to copy from',
       copySizeOffset: 'Memory offset of the number of elements to copy',
@@ -486,6 +506,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
+    notes: [
+      'See [External Calls](../external-calls.md) for more details on nested calls.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details on return data.',
+    ],
     operandDescriptions: {
       dstOffset: 'Memory offset for size will be written',
     },
@@ -502,6 +526,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'INVALID_TAG', description: 'Size operand is not Uint32' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
+    notes: [
+      'See [External Calls](../external-calls.md) for more details on nested calls.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details on return data.',
     ],
     operandDescriptions: {
       rdStartOffset: 'Memory offset of the return data start index to copy from',
@@ -523,6 +551,7 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
+    notes: ['See [External Calls](../external-calls.md) for more details on nested calls and success handling.'],
     operandDescriptions: {
       dstOffset: 'Memory offset for success status (0 or 1) will be written',
     },
@@ -671,8 +700,31 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
   GETCONTRACTINSTANCE: {
     summary: 'Get contract instance information',
     expression: 'M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]',
-    details:
-      'Looks up contract instance by address and retrieves the specified member. This opcode can get contract instance information for any contract address, not just the currently executing one. Returns existence flag (Uint1) and member value (FIELD). If the contract does not exist, the member value is set to 0. Supported enum values: `[DEPLOYER=0, CLASS_ID, INIT_HASH]`.',
+    details: `Looks up contract instance by address and retrieves the specified member. This opcode can get contract instance information for any contract address, not just the currently executing one. Returns existence flag (Uint1) and member value (FIELD). If the contract does not exist, the member value is set to 0. Supported enum values: \`[DEPLOYER=0, CLASS_ID, INIT_HASH]\`.
+
+## Contract Classes and Instances
+
+In Aztec, the logic of a contract is separated from its state-bearing instance, enabling a powerful model for code reuse and upgradeability. This is different from Ethereum's model where code and state are tightly coupled in a single address.
+
+- **Contract Class**: A template that defines a contract's public and private functions, its storage layout, and other logic. It is identified by a \`CLASS_ID\`. A single contract class can be used by many different contract instances.
+- **Contract Instance**: A deployed, stateful instance of a contract class at a specific address. Each instance has its own storage, but it executes the code of its associated contract class.
+
+This separation allows for:
+- **Upgradeability**: An instance can be upgraded to point to a new contract class, changing its logic while preserving its state and address.
+- **Code Reuse**: Multiple instances can share the same underlying code from a single class, which is more efficient.
+
+## Contract Instance Members
+
+| Member | Description |
+|---|---|
+| **Deployer Address** | The address of the account that deployed this contract instance. |
+| **Class ID** | The identifier of the contract class that this instance uses for its code. |
+| **Initialization Hash** | A hash of the constructor arguments used when the contract instance was deployed. |
+
+**Example**: To check if a contract at a given \`address\` is an instance of a known \`CLASS_ID\`:
+1. Use \`GETCONTRACTINSTANCE\` with the \`address\` and the \`CLASS_ID\` member enum.
+2. The opcode returns two values: an \`exists\` flag and the \`class_id\` of the instance.
+3. Compare the returned \`class_id\` with the known \`CLASS_ID\`.`,
     errors: [
       { condition: 'INVALID_TAG', description: 'Address operand is not FIELD' },
       { condition: 'INVALID_MEMBER_ENUM', description: 'Member enum is not in the range of valid enum values' },
@@ -753,6 +805,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
+    notes: [
+      'See [External Calls](../external-calls.md) for more details on execution flow.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details on passing data.',
+    ],
     operandDescriptions: {
       l2GasOffset: 'Memory offset of the L2 gas to allocate to the nested call',
       daGasOffset: 'Memory offset of the DA gas to allocate to the nested call',
@@ -789,6 +845,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
+    notes: [
+      'See [External Calls](../external-calls.md) for more details on execution flow.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details on passing data.',
+    ],
     operandDescriptions: {
       l2GasOffset: 'Memory offset of the L2 gas to allocate to the nested call',
       daGasOffset: 'Memory offset of the DA gas to allocate to the nested call',
@@ -814,6 +874,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
       { condition: 'INVALID_TAG', description: 'Return size operand is not Uint32' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
     ],
+    notes: [
+      'See [External Calls](../external-calls.md) for more details on execution flow.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details on passing data.',
+    ],
     operandDescriptions: {
       returnOffset: 'Memory offset of the start of the return data',
       returnSizeOffset: 'Memory offset of the return data size',
@@ -830,6 +894,10 @@ export const MinimalMetadataRegistry: Record<string, MinimalOpcodeMetadata> = {
     errors: [
       { condition: 'INVALID_TAG', description: 'Revert size operand is not Uint32' },
       { condition: 'MEMORY_ACCESS_OUT_OF_RANGE', description: 'Memory offset operand exceeds addressable memory' },
+    ],
+    notes: [
+      'See [External Calls](../external-calls.md) for more details on execution flow.',
+      'See [Calldata and Return Data](../calldata-returndata.md) for more details on passing data.',
     ],
     operandDescriptions: {
       returnOffset: 'Memory offset of the start of the revert data',

@@ -112,6 +112,11 @@ packet-beta
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum unique contract class IDs per transaction (MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
+## Notes
+
+- See [External Calls](../external-calls.md) for more details on execution flow.
+- See [Calldata and Return Data](../calldata-returndata.md) for more details on passing data.
+
 ---
 
 [&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)

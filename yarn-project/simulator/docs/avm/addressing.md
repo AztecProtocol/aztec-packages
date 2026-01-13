@@ -4,6 +4,8 @@
 
 The AVM supports three addressing modes that determine how memory offsets/addresses in instructions are resolved to their final memory addresses. Each instruction can use a mix of addressing modes for different operands.
 
+This page uses `M[x]` to denote the value at memory offset `x` (see [Memory Notation](memory.md#memory-notation)).
+
 
 ### Direct Addressing
 
@@ -33,6 +35,23 @@ Relative addressing adds the memory offset to the value stored at memory address
 1. The VM reads `M[0]` (e.g., `1000`)
 2. Adds the offset: `50 + 1000 = 1050`
 3. Uses `1050` as the actual memory address (reads/writes to `M[1050]`)
+
+### Indirect and Relative Addressing
+
+When both indirect and relative addressing modes are applied to an offset `x`, **relative addressing is resolved first, then indirect addressing**.
+
+**Notation**: `M[x + M[0]]` (resolved address)
+
+This means the VM first adds the base pointer `M[0]` to the offset to compute an intermediate address, then reads the pointer from that intermediate address to get the final address.
+
+**Example**:
+- `M[0]` (base pointer) = `1000`
+- Instruction specifies offset `x = 50` with both indirect and relative addressing.
+- `M[1050]` contains the value `200`.
+
+1. **Relative Resolution**: The VM adds the base pointer to the offset: `50 + M[0] = 50 + 1000 = 1050`.
+2. **Indirect Resolution**: The VM reads the pointer at the intermediate address: `M[1050] = 200`.
+3. The final memory address is `200`, so the VM reads/writes `M[200]`.
 
 ### Addressing Mode Bitmask
 
@@ -73,3 +92,5 @@ Each memory offset operand that uses non-direct addressing mode(s) incurs additi
 
 These costs are charged **before** operands are resolved, based on the addressing mode bitmask. If a memory offset operand is flagged as _both_ indirect _and_ relative via the bitmask, 6 additional L2 gas is charged for that operand's addressing.
 
+---
+← Previous: [Memory Model](./memory.md) | Next: [Execution Lifecycle](./execution-lifecycle.md) →

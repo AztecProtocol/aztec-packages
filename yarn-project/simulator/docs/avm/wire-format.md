@@ -4,14 +4,13 @@ The AVM bytecode uses a compact binary encoding where each instruction is serial
 
 ## Key Concept: Opcode Suffixes
 
-:::important
-Opcode suffixes like `ADD_8` and `ADD_16` refer to the **size of memory offset operands in the bytecode**, NOT the type of data being operated on.
-
-- `ADD_8`: Memory offsets fit in 8 bits (1 byte each)
-- `ADD_16`: Memory offsets fit in 16 bits (2 bytes each)
-
-Both execute the same ADD operation and work with any supported type (FIELD, UINT1, UINT8, UINT32, UINT64, UINT128, etc.). The difference is purely about bytecode compactness.
-:::
+>[!IMPORTANT]
+> Opcode suffixes like `ADD_8` and `ADD_16` refer to the **size of memory offset operands in the bytecode**, NOT the type of data being operated on.
+>
+> - `ADD_8`: Memory offsets fit in 8 bits (1 byte each)
+> - `ADD_16`: Memory offsets fit in 16 bits (2 bytes each)
+>
+> Both execute the same ADD operation and work with any supported type (FIELD, UINT1, UINT8, UINT32, UINT64, UINT128, etc.). The difference is purely about bytecode compactness.
 
 ### Example: `ADD_8` and `ADD_16`
 
@@ -81,3 +80,5 @@ packet-beta
   7: "Unused"
 ```
 
+---
+← Previous: [Instruction Set: Quick Reference](./avm-isa-quick-reference.md) | Next: [AVM vs EVM](./avm-vs-evm.md) →

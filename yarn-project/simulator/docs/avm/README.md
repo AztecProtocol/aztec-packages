@@ -32,14 +32,14 @@ execution must be provable and compatible with Aztec’s ZK-SNARK proving system
 The Aztec Virtual Machine was designed with all of these requirements in mind.
 
 The AVM features a custom Instruction Set Architecture (ISA). Contracts with public
-logic contain public bytecode, a sequence of AVM instruction with a bit-format optimized
+logic contain public bytecode, a sequence of AVM instructions with a bit-format optimized
 for efficient constraining in a zkVM. A contract’s public bytecode can be invoked by
 public execution requests.
 
 The AVM:
 * Executes specified public bytecode, instruction by instruction, given some arguments.
 * Meters execution by tracking gas costs per-executed-instruction.
-* Tracks both “mana” and “data availability” gas.
+* Tracks both “mana” (aka L2 gas) and “data availability” gas.
 * Supports nested contract calls and conditional error recovery.
 * Manages access to public state, L1↔L2 messages, public logs, and some limited private state.
 * Finalizes state updates initiated during private execution.
@@ -50,11 +50,31 @@ single AVM proof.
 
 ## Sections
 
-- **[Memory Model](./memory.md)**: Learn about memory, storage, and type tags
-- **[Addressing Modes](./addressing.md)**: Understand direct, indirect, and relative addressing
-- **[Wire Formats](./wire-format.md)**: How instructions are encoded in bytecode
-- **[Gas Metering](./gas.md)**: Explore how gas costs are calculated and charged
+### Overview of Public Simulation
+- **[Enqueued Calls](./enqueued-calls.md)**: How public calls are enqueued from private and delivered to the AVM
+- **[Public Transaction Simulation](./public-tx-simulation.md)**: Execution phases, rollback on reverts, fee payment, and finalization
+
+### The Machine Model
 - **[State](./state.md)**: World state (persistent) vs execution state (transient)
-- **[External Calls](./external-calls.md)**: How nested contract calls work (CALL, STATICCALL, RETURN, REVERT)
-- **[Instruction Set: Quick Reference](./avm-isa-quick-reference.md)**: A quick reference of all AVM instructions
-- **[Instruction Set: Full Reference](./avm-isa-full.md)**: Complete reference for all AVM instructions
+- **[Memory Model](./memory.md)**: Tagged memory and type system
+- **[Addressing Modes](./addressing.md)**: Direct, indirect, and relative addressing
+
+### Execution
+- **[Execution Lifecycle](./execution-lifecycle.md)**: VM initialization, PC rules, halting, gas charging order
+- **[Gas Metering](./gas.md)**: Two-dimensional gas (L2 + DA) calculation
+- **[Errors](./errors.md)**: Error types, triggers, and gas/state behavior
+
+### External Contract Calls
+- **[External Calls](./external-calls.md)**: Nested contract calls (CALL, STATICCALL, RETURN, REVERT)
+- **[Calldata and Return Data](./calldata-returndata.md)**: Passing data in and out of calls
+
+### Instruction Set Reference
+- **[Instruction Set: Quick Reference](./avm-isa-quick-reference.md)**: All AVM instructions (links to individual opcode docs)
+- **[Wire Formats](./wire-format.md)**: How instructions are encoded in bytecode
+
+### Miscellaneous
+- **[AVM vs EVM](./avm-vs-evm.md)**: Key differences for Ethereum developers
+- **[Tooling and Compilation](./tooling.md)**: Noir to AVM bytecode pipeline
+
+---
+Next: [Enqueued Calls](./enqueued-calls.md) →

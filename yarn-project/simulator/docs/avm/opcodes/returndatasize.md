@@ -82,6 +82,11 @@ packet-beta
 
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
+## Notes
+
+- See [External Calls](../external-calls.md) for more details on nested calls.
+- See [Calldata and Return Data](../calldata-returndata.md) for more details on return data.
+
 ---
 
 [&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)

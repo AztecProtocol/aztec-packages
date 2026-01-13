@@ -1,15 +1,18 @@
 # Instruction Set: Quick Reference
 
-Quick reference for all Aztec Virtual Machine (AVM) instructions. The AVM is the virtual machine used for **public execution** in the Aztec protocol.
+Quick reference for all Aztec Virtual Machine (AVM) opcodes.
 
-## Understanding the AVM
+## Supporting Materials
 
 Before diving into the instruction set, familiarize yourself with these core concepts:
 
 - **[Introduction](index.md)**: What is the AVM and why do we need it?
+- **[State](state.md)**: World state (persistent) vs execution state (transient)
 - **[Memory Model](memory.md)**: Memory notation and tagged memory (`M[x]` and `T[x]`)
 - **[Addressing Modes](addressing.md)**: Direct, indirect, and relative addressing along with their gas implications
+- **[Execution Lifecycle](execution-lifecycle.md)**: VM initialization, PC rules, halting, gas charging order
 - **[Gas Metering](gas.md)**: How L2 and DA gas costs are calculated and charged during instruction execution
+- **[Errors](errors.md)**: Error types, triggers, and gas/state behavior
 - **[Wire Formats](wire-format.md)**: How instructions are encoded in bytecode and why opcodes have variants like `ADD_8` and `ADD_16`
 
 ## Quick Reference

@@ -38,26 +38,7 @@ ADD: {
 }
 ```
 
-### 2. Instruction Metadata Interfaces (instruction_metadata.ts)
-
-Created TypeScript interfaces for instruction class metadata:
-
-- **Location**: `yarn-project/simulator/src/public/avm/opcodes/instruction_metadata.ts`
-- **Purpose**: Define structure for optional metadata on instruction classes
-
-**Key Interfaces**:
-```typescript
-interface InstructionMetadata {
-  name: string;
-  category: InstructionCategory;
-  operands: OperandDefinition[];
-  tagChecking?: TagCheckingRules;
-  supportedWireFormats: string[];
-  indirectSupport?: IndirectAddressingSupport;
-}
-```
-
-### 3. Base Instruction Class Updates (instruction.ts)
+### 2. Base Instruction Class Updates (instruction.ts)
 
 Updated the base Instruction class to document optional metadata:
 
@@ -65,7 +46,7 @@ Updated the base Instruction class to document optional metadata:
 - **Change**: Added documentation about optional static `metadata` property
 - **Approach**: Documentation-only (no actual property to avoid TypeScript override conflicts)
 
-### 4. Example Instruction Metadata
+### 3. Example Instruction Metadata
 
 Added metadata to 3 instruction classes as examples:
 
@@ -90,7 +71,7 @@ static readonly metadata = {
 
 **Similar metadata added to**: Sub, Set classes
 
-### 5. Documentation Generator (generate_opcode_docs.ts)
+### 4. Documentation Generator (generate_opcode_docs.ts)
 
 Created comprehensive documentation generator:
 
@@ -109,7 +90,7 @@ Created comprehensive documentation generator:
 - `extractWireFormats()` - Extracts wire formats from class hierarchy
 - `generateMermaidDiagram()` - Creates packet diagrams
 
-### 6. Documentation and Usage (README.md)
+### 5. Documentation and Usage (README.md)
 
 Created comprehensive README:
 
@@ -330,10 +311,10 @@ cat opcode-docs.json | jq '.SET.wireFormats | length'
 ### New Files Created
 
 1. `/yarn-project/simulator/src/public/avm/opcodes/metadata_registry.ts` (274 lines)
-2. `/yarn-project/simulator/src/public/avm/opcodes/instruction_metadata.ts` (67 lines)
-3. `/yarn-project/simulator/src/public/avm/tools/generate_opcode_docs.ts` (324 lines)
-4. `/yarn-project/simulator/src/public/avm/tools/README.md` (comprehensive documentation)
-5. `/yarn-project/simulator/src/public/avm/tools/IMPLEMENTATION_SUMMARY.md` (this file)
+2. `/yarn-project/simulator/src/public/avm/tools/generate_opcode_docs.ts` (324 lines)
+3. `/yarn-project/simulator/src/public/avm/tools/README.md` (comprehensive documentation)
+4. `/yarn-project/simulator/src/public/avm/tools/IMPLEMENTATION_SUMMARY.md` (this file)
+5. `/yarn-project/simulator/src/public/avm/tools/instruction_analyzer.ts` (programmatic metadata extraction)
 
 ### Modified Files
 

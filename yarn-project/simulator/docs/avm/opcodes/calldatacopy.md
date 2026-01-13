@@ -92,6 +92,11 @@ packet-beta
 - **INVALID_TAG**: Size operand is not Uint32
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
+## Notes
+
+- See [External Calls](../external-calls.md) for how calldata is passed to nested calls.
+- See [Calldata and Return Data](../calldata-returndata.md) for more details.
+
 ---
 
 [&larr; Back to Instruction Set: Quick Reference](../avm-isa-quick-reference.md)
