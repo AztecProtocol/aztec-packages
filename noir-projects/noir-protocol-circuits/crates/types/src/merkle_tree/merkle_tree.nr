@@ -1,4 +1,4 @@
-use crate::{hash::{accumulate_sha256, merkle_hash}, traits::Empty};
+use crate::{hash::{accumulate_sha256, merkle_hash}, traits::Empty, utils::math::is_power_of_2_u32};
 
 #[derive(Eq)]
 pub struct MerkleTree<let N: u32> {
@@ -63,11 +63,14 @@ pub fn sibling_index(index: u32) -> u32 {
     }
 }
 
-// Note: `N` must be a power of 2.
 fn compute_merkle_tree_nodes<let N: u32>(
     leaves: [Field; N],
     hasher: fn(Field, Field) -> Field,
 ) -> [Field; N - 1] {
+    // Note: `N` must be a power of 2.
+    std::static_assert(is_power_of_2_u32(N), "N must be a power of 2");
+    std::static_assert(N != 1, "2 must divide N");
+
     let mut nodes = [0; N - 1];
 
     let total_nodes = N - 1;

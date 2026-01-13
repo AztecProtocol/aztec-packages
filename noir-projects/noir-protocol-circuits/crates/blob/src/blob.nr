@@ -21,7 +21,7 @@ use types::constants::FIELDS_PER_BLOB;
  * - (1 / d)
  *
  * @param z
- * @param ys - the many y_i's of the blob.
+ * @param ys - ("ys" being the plural of "y") - the many y_i's of the blob.
  *
  * @return y = p(z)
  */
