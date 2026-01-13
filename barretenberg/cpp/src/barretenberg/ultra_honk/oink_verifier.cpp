@@ -59,8 +59,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 
     // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
     if constexpr (IsRecursiveFlavor<Flavor>) {
+        const bool is_write_vk_mode = vk_hash.get_context()->is_write_vk_mode();
         const bool vk_hash_consistency = verifier_instance->vk_and_hash->hash.get_value() == vk_hash.get_value();
-        if (!vk_hash_consistency) {
+        if (!vk_hash_consistency && !is_write_vk_mode) {
             info("Recursive Ultra Verifier: VK Hash Mismatch");
         }
         verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
