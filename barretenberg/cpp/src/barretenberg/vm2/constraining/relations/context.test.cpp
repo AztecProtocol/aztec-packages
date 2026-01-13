@@ -453,10 +453,10 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                                } });
 
     check_relation<context>(trace,
-                            context::SR_L2_GAS_USED_CONTINUITY,
+                            context::SR_L2_GAS_USED_DEFAULT_ROW,
                             context::SR_L2_GAS_USED_ZERO_AFTER_CALL,
                             context::SR_L2_GAS_USED_INGEST_AFTER_EXIT,
-                            context::SR_DA_GAS_USED_CONTINUITY,
+                            context::SR_DA_GAS_USED_DEFAULT_ROW,
                             context::SR_DA_GAS_USED_ZERO_AFTER_CALL,
                             context::SR_DA_GAS_USED_INGEST_AFTER_EXIT);
 
@@ -481,12 +481,12 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
 
     // Negative test: when no calls are made, prev gas used should be gas used of the previous row
     trace.set(C::execution_prev_l2_gas_used, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_CONTINUITY),
-                              "L2_GAS_USED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_DEFAULT_ROW),
+                              "L2_GAS_USED_DEFAULT_ROW");
 
     trace.set(C::execution_prev_da_gas_used, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_CONTINUITY),
-                              "DA_GAS_USED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_DEFAULT_ROW),
+                              "DA_GAS_USED_DEFAULT_ROW");
 }
 
 TEST(ContextConstrainingTest, TreeStateContinuity)

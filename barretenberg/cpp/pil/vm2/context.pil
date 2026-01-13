@@ -113,10 +113,7 @@ namespace execution;
 
     // ==== Helper columns ====
     pol NOT_LAST_EXEC = sel * sel';
-    // Optimized using the partition property:
-    // - sel, nested_failure, and enqueued_call_end form a partition on active rows
-    // - The last active row must have enqueued_call_end=1, so sel' gating is unnecessary
-    pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = sel - nested_failure - enqueued_call_end;
+
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call.
     // Note that DEFAULT_CTX_ROW selects also the first row of an enqueued call (when `enqueued_call_start == 1`).
     // We stress that the last active row of the execution trace is not a default context row (`enqueued_call_end == 1`
@@ -529,9 +526,9 @@ namespace execution;
     #[PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
 
-    // =============================
-    //    RETRIEVED BYTECODES TREE
-    // =============================
+    // ===================================
+    //   PREVIOUS RETRIEVED BYTECODES TREE
+    // ===================================
 
     // Here, we constrain the transition `retrieved_bytecodes_tree_root` to `prev_retrieved_bytecodes_tree_size`
     // for the next row. In execution.pil, the two constraints #[BYTECODE_RETRIEVAL_RESULT] and
@@ -546,6 +543,10 @@ namespace execution;
     (sel - enqueued_call_end) * (retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
     (sel - enqueued_call_end) * (retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
+
+    // =============================
+    //    CONTEXT STACK OPERATIONS
+    // =============================
 
     // Push a new context onto the context stack.
     #[CTX_STACK_CALL]
@@ -609,6 +610,8 @@ namespace execution;
 
     // If we are reverting or erroring a nested call, we restore the entire ctx from the stack.
     // Stack pop operation.
+    // `nested_failure` implies that this cannot be the last active row of the execution trace (otherwise,
+    // we would have `enqueued_call_end == 1`). Therefore, it is sound to set values on the next row.
     #[CTX_STACK_ROLLBACK]
     nested_failure {
         context_id,
@@ -671,6 +674,8 @@ namespace execution;
     // We restore a partial context on a nested return. We do not restore trees or side effects though,
     // since we adopt the nested state after end.
     // Pop the context stack (partially).
+    // `nested_return` implies that this cannot be the last active row of the execution trace (otherwise,
+    // we would have `enqueued_call_end == 1`). Therefore, it is sound to set values on the next row.
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,
@@ -705,38 +710,71 @@ namespace execution;
         context_stack.parent_da_gas_used
     };
 
-    // ==== GAS USED CONSTRAINING ====
+    // =============================
+    //    L2/DA GAS USED
+    // =============================
 
+    // `prev_l2_gas_used --> l2_gas_used` and `prev_da_gas_used --> da_gas_used` transitions.
+    // In gas.pil, `total_gas_l2` and `total_gas_da` are computed based on `prev_l2_gas_used`, `prev_da_gas_used`,
+    // `l2_gas_limit`, `da_gas_limit` and other values from execution.pil.
+    // Here, we finalize the computation of `l2_gas_used' and `da_gas_used'.
     // If any error happened during execution (i.e., sel_error=1), all gas should be consumed.
     pol SEL_CONSUMED_ALL_GAS = sel_error;
     (l2_gas_limit - total_gas_l2) * SEL_CONSUMED_ALL_GAS + total_gas_l2 - l2_gas_used = 0;
     (da_gas_limit - total_gas_da) * SEL_CONSUMED_ALL_GAS + total_gas_da - da_gas_used = 0;
 
-    // NESTED_EXIT_CALL = 1 <==> prev_gas_used' = parent_gas_used + gas_used
-    // sel_enter_call   = 1 <==> prev_gas_used' = 0
-    // otherwise        = 0 <==> prev_gas_used' = gas_used
-    #[L2_GAS_USED_CONTINUITY]
-    DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
+    // =============================
+    //    PREVIOUS L2/DA GAS USED
+    // =============================
+
+    // `l2_gas_used --> prev_l2_gas_used'` and `da_gas_used --> prev_da_gas_used'` transitions.
+
+    // Initialization of `prev_l2_gas_used' and `prev_da_gas_used' is perfomed on `enqueued_call_start == 1`
+    // as part of the permutation (#[DISPATCH_EXEC_START] in tx.pil).
+    // sel_enter_call   = 1 ==> prev_gas_used' = 0
+    // NESTED_EXIT_CALL = 1 ==> prev_gas_used' = parent_gas_used + gas_used
+    // default row          ==> prev_gas_used' = gas_used
+    // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
+    //       row (enqueued_call_start == 1) is initialized.
     #[L2_GAS_USED_ZERO_AFTER_CALL]
     sel_enter_call * prev_l2_gas_used' = 0;
     #[L2_GAS_USED_INGEST_AFTER_EXIT]
     NESTED_EXIT_CALL * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
-    #[DA_GAS_USED_CONTINUITY]
-    DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
+    #[L2_GAS_USED_DEFAULT_ROW]
+    DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
+
     #[DA_GAS_USED_ZERO_AFTER_CALL]
     sel_enter_call * prev_da_gas_used' = 0;
     #[DA_GAS_USED_INGEST_AFTER_EXIT]
     NESTED_EXIT_CALL * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
+    #[DA_GAS_USED_DEFAULT_ROW]
+    DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
 
-    // Tree and side effect state continuity constraints cover all non-failure rows.
+    // ====================================
+    // PREVIOUS TREE AND SIDE EFFECT STATES
+    // ====================================
+    // The following constraints set the different `prev_XXX` tree and side effect states on next row
+    // based on `XXX` state on the current row.
+    // The constraints which derive `XXX` from `prev_XXX` are handled in execution.pil and the respective
+    // opcodes. For instance, emit_notehash.pil handles constraints for the opcode emit_notehash while
+    // #[NOTE_HASH_TREE_ROOT_NOT_CHANGED] (execution.pil) covers all other opcodes.
+
+
+    // Tree and side effect state continuity constraints cover all rows except nested failure and enqueued call end.
     // The different cases form a partition:
     // - Default rows (no context change): state propagates unchanged
     // - Enter call (sel_enter_call=1): nested context inherits parent's tree state
     // - Nested return (nested_return=1): parent adopts child's tree state
-    // - Nested failure (nested_failure=1): state is restored via CTX_STACK_ROLLBACK lookup
+    // - Nested failure (nested_failure=1): state is restored via #[CTX_STACK_ROLLBACK] lookup
     // - Top-level exit (enqueued_call_end=1): no propagation needed because the next active
     //   row must have enqueued_call_start=1, which is initialized through the
     //   [DISPATCH_EXEC_START] constraint in tx.pil.
+
+    // Optimized using the partition property:
+    // - sel, nested_failure, and enqueued_call_end form a partition on active rows
+    // - The last active row must have enqueued_call_end=1, so sel' gating is unnecessary
+    pol NOT_LAST_NOT_FAILURE_NOT_ENQ_END = sel - nested_failure - enqueued_call_end;
+
     #[NOTE_HASH_TREE_ROOT_CONTINUITY]
     NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (note_hash_tree_root - prev_note_hash_tree_root') = 0;
     #[NOTE_HASH_TREE_SIZE_CONTINUITY]
@@ -757,11 +795,18 @@ namespace execution;
     NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (written_public_data_slots_tree_root - prev_written_public_data_slots_tree_root') = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY]
     NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
-    // L1 to L2 message tree is immutable in a tx
-    #[L1_L2_TREE_ROOT_CONTINUITY]
-    NOT_LAST_EXEC * (l1_l2_tree_root - l1_l2_tree_root') = 0;
-
     #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
     NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_NOT_FAILURE_NOT_ENQ_END * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
+
+    // =============================
+    //    L1 TO L2 MESSAGE TREE
+    // =============================
+
+    // L1 to L2 message tree is immutable in a tx
+    // Note: This constraint is overlapping with #[DISPATCH_EXEC_START] in tx.pil except for the very first
+    // execution row. Namely, tx.pil sends the l1_l2_tree_root to execution.pil through a public call request.
+    // tx_context.pil also constraints immutability of the l1_l2_tree_root in the tx context.
+    #[L1_L2_TREE_ROOT_CONTINUITY]
+    NOT_LAST_EXEC * (l1_l2_tree_root - l1_l2_tree_root') = 0;
