@@ -19,6 +19,9 @@ pub fn accumulate_out_hash(left_out_hash: Field, right_out_hash: Field) -> Field
     }
 }
 
+// Accumulates items that need to be accumulated to the next rollup circuit.
+// Constructs the public inputs of this circuit, taking care to ascribe left and right
+// subtree data to the correct start and end positions.
 pub fn merge_tx_rollups(
     left: TxRollupPublicInputs,
     right: TxRollupPublicInputs,
@@ -48,7 +51,7 @@ pub fn merge_tx_rollups(
 
     TxRollupPublicInputs {
         num_txs,
-        constants: left.constants,
+        constants: left.constants, // Checked to equal the right constants by this circuit's Validator.
         start_tree_snapshots: left.start_tree_snapshots,
         end_tree_snapshots: right.end_tree_snapshots,
         start_sponge_blob: left.start_sponge_blob,

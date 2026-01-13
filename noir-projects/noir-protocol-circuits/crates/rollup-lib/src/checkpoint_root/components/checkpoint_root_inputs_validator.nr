@@ -70,6 +70,8 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start blob sponge was not correctly initialized",
         );
 
+        // Note: we validate the correctness of the previous block header at the end of this function.
+
         assert_eq(
             first_rollup.start_state,
             self.previous_block_header.state,
@@ -97,7 +99,7 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
 
         // `previous_block_header` is provided as a private input and is used to validate the values above.
         // Here we make sure it's indeed the header of the previous block by checking it against the previous archive.
-        // The previous archive will be validated on L1.
+        // The correctness of the claimed previous archive will be validated when this epoch's proof is submitted to L1.
         self.validate_previous_block_header_in_archive();
     }
 

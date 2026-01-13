@@ -8,8 +8,9 @@ pub fn merge_checkpoint_rollups(
     let num_left_checkpoints = left.num_checkpoints() as u32;
     let num_right_checkpoints = right.num_checkpoints() as u32;
 
-    // Make sure that the total number of checkpoints does not exceed the maximum allowed in an epoch, preventing the
-    // merged arrays (`checkpoint_header_hashes`, `out_hashes`, `fees`) from being truncated.
+    // Make sure that the total number of checkpoints does not exceed the maximum allowed in an epoch, to prevent the
+    // merged arrays (`checkpoint_header_hashes`, `out_hashes`, `fees`) from being truncated within the below calls to
+    // `copy_items_into_array`.
     let num_checkpoints = num_left_checkpoints + num_right_checkpoints;
 
     assert(
