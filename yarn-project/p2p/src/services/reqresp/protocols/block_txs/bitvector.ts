@@ -1,5 +1,7 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { MAX_TXS_PER_BLOCK } from '../../constants.js';
+
 /**
  * BitVector helper class for representing and serializing bit vectors
  */
@@ -79,6 +81,13 @@ export class BitVector {
   static fromBuffer(buffer: Buffer | BufferReader): BitVector {
     const reader = BufferReader.asReader(buffer);
     const length = reader.readNumber();
+
+    if (length < 0) {
+      throw new Error(`BitVector length ${length} cannot be negative`);
+    }
+    if (length > MAX_TXS_PER_BLOCK) {
+      throw new Error(`BitVector length ${length} exceeds maximum ${MAX_TXS_PER_BLOCK}`);
+    }
 
     const bitBuffer = reader.readBytes(BitVector.byteLength(length));
     return new BitVector(bitBuffer, length);

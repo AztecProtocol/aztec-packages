@@ -4,6 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { Tx } from '../tx/tx.js';
 import {
   SignatureDomainSeparator,
@@ -64,7 +65,11 @@ export class SignedTxs {
 
   static fromBuffer(buf: Buffer | BufferReader): SignedTxs {
     const reader = BufferReader.asReader(buf);
-    const txs = reader.readArray(reader.readNumber(), Tx);
+    const txCount = reader.readNumber();
+    if (txCount > MAX_TXS_PER_BLOCK) {
+      throw new Error(`txs count ${txCount} exceeds maximum ${MAX_TXS_PER_BLOCK}`);
+    }
+    const txs = reader.readArray(txCount, Tx);
     const signature = reader.readObject(Signature);
     return new SignedTxs(txs, signature);
   }
