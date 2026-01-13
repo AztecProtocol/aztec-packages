@@ -19,14 +19,13 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
-  type ContractClassWithId,
   type ContractInstanceWithAddress,
   type PartialAddress,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
+import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -276,19 +275,6 @@ export class PXE {
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
   }
 
-  async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
-    return !!(await this.node.getContractClass(id));
-  }
-
-  async #isContractPublished(address: AztecAddress): Promise<boolean> {
-    return !!(await this.node.getContract(address));
-  }
-
-  async #isContractInitialized(address: AztecAddress): Promise<boolean> {
-    const initNullifier = await siloNullifier(address, address.toField());
-    return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
-  }
-
   // Executes the entrypoint private function, as well as all nested private
   // functions that might arise.
   async #executePrivate(
@@ -415,66 +401,12 @@ export class PXE {
   }
 
   /**
-   * Returns the contract class metadata given a contract class id.
-   * The metadata consists of its contract class, whether it has been publicly registered, and its artifact.
-   * @remark - it queries the node to check whether the contract class with the given id has been publicly registered.
-   * @param id - Identifier of the class.
-   * @param includeArtifact - Identifier of the class.
-   * @returns - It returns the contract class metadata, with the artifact field being optional, and will only be returned if true is passed in
-   * for `includeArtifact`
-   * TODO(@spalladino): The PXE actually holds artifacts and not classes, what should we return? Also,
-   * should the pxe query the node for contract public info, and merge it with its own definitions?
-   * TODO(@spalladino): This method is strictly needed to decide whether to publicly register a class or not
-   * during a public deployment. We probably want a nicer and more general API for this, but it'll have to
-   * do for the time being.
+   * Returns the contract artifact for a given contract class id, if it's registered in the PXE.
+   * @param id - Identifier of the contract class.
+   * @returns The contract artifact if found, undefined otherwise.
    */
-  public async getContractClassMetadata(
-    id: Fr,
-    includeArtifact: boolean = false,
-  ): Promise<{
-    contractClass: ContractClassWithId | undefined;
-    isContractClassPubliclyRegistered: boolean;
-    artifact: ContractArtifact | undefined;
-  }> {
-    const artifact = await this.contractStore.getContractArtifact(id);
-    if (!artifact) {
-      this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
-    }
-
-    return {
-      contractClass: artifact && (await getContractClassFromArtifact(artifact)),
-      isContractClassPubliclyRegistered: await this.#isContractClassPubliclyRegistered(id),
-      artifact: includeArtifact ? artifact : undefined,
-    };
-  }
-
-  /**
-   * Returns the contract metadata given an address.
-   * The metadata consists of its contract instance, which includes the contract class identifier,
-   * initialization hash, deployment salt, and public keys hash; whether the contract instance has been initialized;
-   * and whether the contract instance with the given address has been publicly deployed.
-   * @remark - it queries the node to check whether the contract instance has been initialized / publicly deployed through a node.
-   * This query is not dependent on the PXE.
-   * @param address - The address that the contract instance resides at.
-   * @returns - It returns the contract metadata
-   * TODO(@spalladino): Should we return the public keys in plain as well here?
-   */
-  public async getContractMetadata(address: AztecAddress): Promise<{
-    contractInstance: ContractInstanceWithAddress | undefined;
-    isContractInitialized: boolean;
-    isContractPublished: boolean;
-  }> {
-    let instance;
-    try {
-      instance = await this.contractStore.getContractInstance(address);
-    } catch {
-      this.log.warn(`No instance found for contract ${address.toString()} when looking for its metadata`);
-    }
-    return {
-      contractInstance: instance,
-      isContractInitialized: await this.#isContractInitialized(address),
-      isContractPublished: await this.#isContractPublished(address),
-    };
+  public async getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    return await this.contractStore.getContractArtifact(id);
   }
 
   /**

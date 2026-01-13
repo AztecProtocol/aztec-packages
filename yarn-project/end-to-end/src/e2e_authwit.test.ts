@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -17,6 +18,7 @@ describe('e2e_authwit_tests', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: TestWallet;
+  let aztecNode: AztecNode;
 
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
@@ -26,10 +28,12 @@ describe('e2e_authwit_tests', () => {
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {
-    const { wallet: defaultWallet, accounts, aztecNode } = await setup(2);
-    [account1Address, account2Address] = accounts;
-    wallet = defaultWallet as TestWallet;
-    await ensureAccountContractsPublished(wallet, accounts.slice(0, 2));
+    ({
+      wallet,
+      accounts: [account1Address, account2Address],
+      aztecNode,
+    } = await setup(2));
+    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
     const nodeInfo = await aztecNode.getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
