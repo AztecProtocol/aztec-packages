@@ -8,7 +8,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
@@ -51,7 +51,7 @@ describe('a test that passively observes the network in the presence of network 
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
   let ETHEREUM_HOST: string;
-  let alertChecker: AlertChecker;
+  let alertChecker: GrafanaClient;
   let spartanDir: string;
   const forwardProcesses: ChildProcess[] = [];
   const podChaosInstances: string[] = [];
@@ -89,7 +89,7 @@ describe('a test that passively observes the network in the presence of network 
       forwardProcesses.push(promProc);
       const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
       const grafanaCredentials = '';
-      alertChecker = new AlertChecker(debugLogger, { grafanaEndpoint, grafanaCredentials });
+      alertChecker = new GrafanaClient(debugLogger, { grafanaEndpoint, grafanaCredentials });
     } else {
       debugLogger.warn('Prometheus not reachable; skipping QoS alert checks for this run.');
     }

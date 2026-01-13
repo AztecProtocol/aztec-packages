@@ -138,7 +138,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
   }
 
-  async build(oracle: PrivateKernelOracle, noteHashLeafIndexMap: Map<bigint, bigint>) {
+  async build(oracle: PrivateKernelOracle) {
     if (privateKernelResetDimensionNames.every(name => !this.requestedDimensions[name])) {
       throw new Error('Reset is not required.');
     }
@@ -190,7 +190,6 @@ export class PrivateKernelResetPrivateInputsBuilder {
           this.previousKernel.validationRequests.noteHashReadRequests,
           this.previousKernel.end.noteHashes,
           this.noteHashResetActions,
-          noteHashLeafIndexMap,
         ),
         await buildNullifierReadRequestHintsFromResetActions(
           { getNullifierMembershipWitness: getNullifierMembershipWitnessResolver(oracle) },

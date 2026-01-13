@@ -319,7 +319,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       await node.setConfig({
         skipInvalidateBlockAsProposer: true,
         skipCollectingAttestations: true,
-        skipValidateBlockAttestations: true,
+        skipValidateCheckpointAttestations: true,
         minTxsPerBlock: 0,
       });
     }
@@ -389,7 +389,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         await node.setConfig({
           skipInvalidateBlockAsProposer: false,
           skipCollectingAttestations: false,
-          skipValidateBlockAttestations: false,
+          skipValidateCheckpointAttestations: false,
         });
       }),
     );

@@ -175,8 +175,7 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
-        run:
-          ./.github/ci3.sh network-teardown next-scenario "$NAMESPACE"
+        run: ./.github/ci3.sh network-teardown next-scenario "$NAMESPACE"
 
       #############
       # Benchmarks

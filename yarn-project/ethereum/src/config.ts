@@ -1,15 +1,16 @@
 import {
   type ConfigMappingsType,
-  // type NetworkNames,
   bigintConfigHelper,
   booleanConfigHelper,
   enumConfigHelper,
   getConfigFromMappings,
+  getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
+import { l1ContractsDefaultEnv } from './generated/l1-contracts-defaults.js';
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils/config.js';
 
 export type GenesisStateConfig = {
@@ -76,116 +77,96 @@ export type L1ContractsConfig = {
   exitDelaySeconds: number;
 } & L1TxUtilsConfig;
 
-export const DefaultL1ContractsConfig = {
-  ethereumSlotDuration: 12,
-  aztecSlotDuration: 36,
-  aztecEpochDuration: 32,
-  aztecTargetCommitteeSize: 48,
-  lagInEpochsForValidatorSet: 2,
-  lagInEpochsForRandao: 2, // For PROD, this value should be > lagInEpochsForValidatorSet
-  inboxLag: 1, // Default inbox lag to prevent sequencer DOS attacks
-  aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  activationThreshold: 100n * 10n ** 18n,
-  ejectionThreshold: 50n * 10n ** 18n,
-  localEjectionThreshold: 98n * 10n ** 18n,
-  slashAmountSmall: 10n * 10n ** 18n,
-  slashAmountMedium: 20n * 10n ** 18n,
-  slashAmountLarge: 50n * 10n ** 18n,
-  slashingRoundSizeInEpochs: 4,
-  slashingLifetimeInRounds: 5,
-  slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
-  slashingVetoer: EthAddress.ZERO,
-  governanceProposerRoundSize: 300,
-  manaTarget: BigInt(100e6),
-  provingCostPerMana: BigInt(100),
-  exitDelaySeconds: 2 * 24 * 60 * 60,
-  slasherFlavor: 'tally' as const,
-  slashingOffsetInRounds: 2,
-  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
-} satisfies L1ContractsConfig;
-
+/**
+ * Config mappings for L1ContractsConfig.
+ * Default values come from generated l1-contracts-defaults.json (source: defaults.yml).
+ * Real deployments use forge scripts which require explicit env vars (vm.envUint).
+ */
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',
     description: 'How many seconds an L1 slot lasts.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.ethereumSlotDuration),
+    ...numberConfigHelper(l1ContractsDefaultEnv.ETHEREUM_SLOT_DURATION),
   },
   aztecSlotDuration: {
     env: 'AZTEC_SLOT_DURATION',
     description: 'How many seconds an L2 slots lasts (must be multiple of ethereum slot duration).',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecSlotDuration),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLOT_DURATION),
   },
   aztecEpochDuration: {
     env: 'AZTEC_EPOCH_DURATION',
     description: `How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION).`,
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochDuration),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EPOCH_DURATION),
   },
   aztecTargetCommitteeSize: {
     env: 'AZTEC_TARGET_COMMITTEE_SIZE',
     description: 'The target validator committee size.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_TARGET_COMMITTEE_SIZE),
   },
   lagInEpochsForValidatorSet: {
     env: 'AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET',
     description: 'The number of epochs to lag behind the current epoch for validator selection.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForValidatorSet),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET),
   },
   lagInEpochsForRandao: {
     env: 'AZTEC_LAG_IN_EPOCHS_FOR_RANDAO',
     description: 'The number of epochs to lag behind the current epoch for randao selection.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochsForRandao),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO),
   },
   inboxLag: {
     env: 'AZTEC_INBOX_LAG',
     description: 'The number of checkpoints to lag in the inbox (prevents sequencer DOS attacks).',
-    ...numberConfigHelper(DefaultL1ContractsConfig.inboxLag),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_INBOX_LAG),
   },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionEpochs),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_PROOF_SUBMISSION_EPOCHS),
   },
   activationThreshold: {
     env: 'AZTEC_ACTIVATION_THRESHOLD',
     description: 'The deposit amount for a validator',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.activationThreshold),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_ACTIVATION_THRESHOLD)),
   },
   ejectionThreshold: {
     env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_EJECTION_THRESHOLD)),
   },
   localEjectionThreshold: {
     env: 'AZTEC_LOCAL_EJECTION_THRESHOLD',
     description:
       'The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.localEjectionThreshold),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_LOCAL_EJECTION_THRESHOLD)),
   },
   slashingOffsetInRounds: {
     env: 'AZTEC_SLASHING_OFFSET_IN_ROUNDS',
     description:
       'How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset)',
-    ...numberConfigHelper(DefaultL1ContractsConfig.slashingOffsetInRounds),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_OFFSET_IN_ROUNDS),
   },
   slasherFlavor: {
     env: 'AZTEC_SLASHER_FLAVOR',
     description: 'Type of slasher proposer (empire, tally, or none)',
-    ...enumConfigHelper(['empire', 'tally', 'none'] as const, DefaultL1ContractsConfig.slasherFlavor),
+    ...enumConfigHelper(
+      ['empire', 'tally', 'none'] as const,
+      l1ContractsDefaultEnv.AZTEC_SLASHER_FLAVOR as 'empire' | 'tally' | 'none',
+    ),
   },
   slashAmountSmall: {
     env: 'AZTEC_SLASH_AMOUNT_SMALL',
     description: 'Small slashing amount for light offenses',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.slashAmountSmall),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_SLASH_AMOUNT_SMALL)),
   },
   slashAmountMedium: {
     env: 'AZTEC_SLASH_AMOUNT_MEDIUM',
     description: 'Medium slashing amount for moderate offenses',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.slashAmountMedium),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_SLASH_AMOUNT_MEDIUM)),
   },
   slashAmountLarge: {
     env: 'AZTEC_SLASH_AMOUNT_LARGE',
     description: 'Large slashing amount for severe offenses',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.slashAmountLarge),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_SLASH_AMOUNT_LARGE)),
   },
   slashingQuorum: {
     env: 'AZTEC_SLASHING_QUORUM',
@@ -195,28 +176,28 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   slashingRoundSizeInEpochs: {
     env: 'AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS',
     description: 'The slashing round size',
-    ...numberConfigHelper(DefaultL1ContractsConfig.slashingRoundSizeInEpochs),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS),
   },
   slashingLifetimeInRounds: {
     env: 'AZTEC_SLASHING_LIFETIME_IN_ROUNDS',
     description: 'The slashing lifetime in rounds',
-    ...numberConfigHelper(DefaultL1ContractsConfig.slashingLifetimeInRounds),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_LIFETIME_IN_ROUNDS),
   },
   slashingExecutionDelayInRounds: {
     env: 'AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS',
     description: 'The slashing execution delay in rounds',
-    ...numberConfigHelper(DefaultL1ContractsConfig.slashingExecutionDelayInRounds),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS),
   },
   slashingVetoer: {
     env: 'AZTEC_SLASHING_VETOER',
     description: 'The slashing vetoer',
     parseEnv: (val: string) => EthAddress.fromString(val),
-    defaultValue: DefaultL1ContractsConfig.slashingVetoer,
+    defaultValue: EthAddress.fromString(l1ContractsDefaultEnv.AZTEC_SLASHING_VETOER),
   },
   slashingDisableDuration: {
     env: 'AZTEC_SLASHING_DISABLE_DURATION',
     description: 'How long slashing can be disabled for in seconds when vetoer disables it',
-    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_DISABLE_DURATION),
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
@@ -226,25 +207,31 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   governanceProposerRoundSize: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE',
     description: 'The governance proposing round size',
-    ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE),
   },
   manaTarget: {
     env: 'AZTEC_MANA_TARGET',
     description: 'The mana target for the rollup',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.manaTarget),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_MANA_TARGET)),
   },
   provingCostPerMana: {
     env: 'AZTEC_PROVING_COST_PER_MANA',
     description: 'The proving cost per mana',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
+    ...bigintConfigHelper(BigInt(l1ContractsDefaultEnv.AZTEC_PROVING_COST_PER_MANA)),
   },
   exitDelaySeconds: {
     env: 'AZTEC_EXIT_DELAY_SECONDS',
     description: 'The delay before a validator can exit the set',
-    ...numberConfigHelper(DefaultL1ContractsConfig.exitDelaySeconds),
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
   ...l1TxUtilsConfigMappings,
 };
+
+/**
+ * Default L1 contracts configuration derived from l1ContractsConfigMappings.
+ * Source of truth: spartan/environments/defaults.yml -> defaults.l1-contracts
+ */
+export const DefaultL1ContractsConfig = getDefaultConfig(l1ContractsConfigMappings);
 
 export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> = {
   testAccounts: {

@@ -9,7 +9,7 @@ abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
-    OperandType.UINT16, // Indirect
+    OperandType.UINT16, // addressing_mode
     OperandType.UINT16, // L2 gas offset
     OperandType.UINT16, // DA gas offset
     OperandType.UINT16, // Address offset
@@ -18,7 +18,7 @@ abstract class ExternalCall extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private l2GasOffset: number,
     private daGasOffset: number,
     private addrOffset: number,
@@ -30,7 +30,7 @@ abstract class ExternalCall extends Instruction {
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -137,7 +137,7 @@ export class SuccessCopy extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
   ) {
     super();
@@ -145,7 +145,7 @@ export class SuccessCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -174,7 +174,7 @@ export class Return extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private returnSizeOffset: number,
     private returnOffset: number,
   ) {
@@ -183,7 +183,7 @@ export class Return extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -223,7 +223,7 @@ export class Revert extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private retSizeOffset: number,
     private returnOffset: number,
   ) {
@@ -232,7 +232,7 @@ export class Revert extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

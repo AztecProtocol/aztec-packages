@@ -5,10 +5,9 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
 
-import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
 import { describeAttestationPool } from './attestation_pool_test_suite.js';
 import { ATTESTATION_CAP_BUFFER, KvAttestationPool, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
-import { mockAttestation } from './mocks.js';
+import { mockCheckpointAttestation } from './mocks.js';
 
 describe('KV Attestation Pool', () => {
   let kvAttestationPool: KvAttestationPool;
@@ -23,30 +22,30 @@ describe('KV Attestation Pool', () => {
 
   describeAttestationPool(() => kvAttestationPool);
 
-  describe('BlockProposal cap exceeded', () => {
-    it('should throw when adding more than capped unique proposals for the same slot; duplicates are idempotent', async () => {
+  describe('BlockProposal behavior', () => {
+    it('should allow adding multiple block proposals for the same slot without cap', async () => {
       const slotNumber = 100;
       const header = makeL2BlockHeader(1, 2, slotNumber);
 
-      // Add 1 proposal and re-add it (duplicate) → should not count against cap and not throw
-      const p0 = makeBlockProposal({ header, archive: Fr.random() });
+      // Add 1 proposal and re-add it (duplicate) → should be idempotent
+      const p0 = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
       await kvAttestationPool.addBlockProposal(p0);
       await kvAttestationPool.addBlockProposal(p0); // idempotent
 
-      // Add up to the cap: add (MAX_PROPOSALS_PER_SLOT - 1) more unique proposals
-      for (let i = 0; i < MAX_PROPOSALS_PER_SLOT - 1; i++) {
-        const p = makeBlockProposal({ header, archive: Fr.random() });
+      // Add more unique proposals - all should succeed without cap
+      for (let i = 0; i < MAX_PROPOSALS_PER_SLOT + 5; i++) {
+        const p = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
         await kvAttestationPool.addBlockProposal(p);
       }
 
-      // Adding one more unique proposal for same slot should throw (exceeds cap)
-      const overflow = makeBlockProposal({ header, archive: Fr.random() });
-      await expect(kvAttestationPool.addBlockProposal(overflow)).rejects.toBeInstanceOf(ProposalSlotCapExceededError);
+      // canAddProposal should always return true
+      const overflow = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });
+      expect(await kvAttestationPool.canAddProposal(overflow)).toBe(true);
     });
   });
 
-  describe('Attestation cap exceeded', () => {
-    it('should cap unique attestations per (slot, proposalId) at committeeSize + buffer', async () => {
+  describe('Checkpoint Attestation cap exceeded', () => {
+    it('should cap unique checkpoint attestations per (slot, proposalId) at committeeSize + buffer', async () => {
       const slotNumber = 100;
       const archive = Fr.random();
 
@@ -55,22 +54,26 @@ describe('KV Attestation Pool', () => {
       const buffer = ATTESTATION_CAP_BUFFER;
       const limit = committeeSize + buffer;
 
-      // Create 'limit' distinct attestations for the same (slot, proposalId)
+      // Create 'limit' distinct checkpoint attestations for the same (slot, proposalId)
       const signers = Array.from({ length: limit }, () => Secp256k1Signer.random());
-      const attestations = signers.map(s => mockAttestation(s, slotNumber, archive));
-      await kvAttestationPool.addAttestations(attestations);
+      const attestations = signers.map(s => mockCheckpointAttestation(s, slotNumber, archive));
+      await kvAttestationPool.addCheckpointAttestations(attestations);
 
       // We should now be at cap
       expect(
-        await kvAttestationPool.hasReachedAttestationCap(SlotNumber(slotNumber), archive.toString(), committeeSize),
+        await kvAttestationPool.hasReachedCheckpointAttestationCap(
+          SlotNumber(slotNumber),
+          archive.toString(),
+          committeeSize,
+        ),
       ).toBe(true);
 
       // A new attestation from a new signer should not be accepted (per validation helper semantics)
-      const extra = mockAttestation(Secp256k1Signer.random(), slotNumber, archive);
-      expect(await kvAttestationPool.canAddAttestation(extra, committeeSize)).toBe(false);
+      const extra = mockCheckpointAttestation(Secp256k1Signer.random(), slotNumber, archive);
+      expect(await kvAttestationPool.canAddCheckpointAttestation(extra, committeeSize)).toBe(false);
 
       // Re-adding an existing attestation should be allowed
-      expect(await kvAttestationPool.canAddAttestation(attestations[0], committeeSize)).toBe(true);
+      expect(await kvAttestationPool.canAddCheckpointAttestation(attestations[0], committeeSize)).toBe(true);
     });
   });
 });

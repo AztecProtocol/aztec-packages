@@ -19,7 +19,7 @@ export class NoteHashExists extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private noteHashOffset: number,
     private leafIndexOffset: number,
     private existsOffset: number,
@@ -29,7 +29,7 @@ export class NoteHashExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -55,7 +55,7 @@ export class EmitNoteHash extends Instruction {
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private noteHashOffset: number,
   ) {
     super();
@@ -63,7 +63,7 @@ export class EmitNoteHash extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -95,7 +95,7 @@ export class NullifierExists extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private nullifierOffset: number,
     private addressOffset: number,
     private existsOffset: number,
@@ -105,7 +105,7 @@ export class NullifierExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -130,7 +130,7 @@ export class EmitNullifier extends Instruction {
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private nullifierOffset: number,
   ) {
     super();
@@ -142,7 +142,7 @@ export class EmitNullifier extends Instruction {
     }
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -181,7 +181,7 @@ export class L1ToL2MessageExists extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private msgHashOffset: number,
     private msgLeafIndexOffset: number,
     private existsOffset: number,
@@ -191,7 +191,7 @@ export class L1ToL2MessageExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -218,7 +218,7 @@ export class EmitUnencryptedLog extends Instruction {
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private logSizeOffset: number,
     private logOffset: number,
   ) {
@@ -231,7 +231,7 @@ export class EmitUnencryptedLog extends Instruction {
     }
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -258,7 +258,7 @@ export class SendL2ToL1Message extends Instruction {
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private recipientOffset: number,
     private contentOffset: number,
   ) {
@@ -271,7 +271,7 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

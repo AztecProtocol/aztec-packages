@@ -31,8 +31,6 @@
 <li><a href="fn.check_permutation.html">check_permutation</a></div></li>
 <li><a href="fn.copy_items_into_array.html">copy_items_into_array</a></div></li>
 <li><a href="fn.find_first_index.html">find_first_index</a></div></li>
-<li><a href="fn.find_index_hint.html">find_index_hint</a></div></li>
-<li><a href="fn.find_index_hint_in_reverse.html">find_index_hint_in_reverse</a></div></li>
 <li><a href="fn.find_last_index.html">find_last_index</a></div></li>
 <li><a href="fn.get_sorted_tuples.html">get_sorted_tuples</a></div></li>
 <li><a href="fn.subarray.html">subarray</a></div></li>
@@ -48,7 +46,8 @@
 
 <div class="comments">
 <p>This function assumes that <code>array1</code> and <code>array2</code> contain no more than N non-empty elements between them,
-if this is not the case then elements from the end of <code>array2</code> will be dropped.</p>
+if this is not the case then elements from the end of <code>array2</code> will be dropped.
+Danger: This is only safe to call if the input arrays have been &quot;validated&quot; (dense lhs, empty rhs).</p>
 </div>
 </main>
 </span>

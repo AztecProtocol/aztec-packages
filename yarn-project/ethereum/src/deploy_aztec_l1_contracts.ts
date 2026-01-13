@@ -10,7 +10,9 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
-import { dirname, resolve } from 'path';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join, resolve } from 'path';
 import readline from 'readline';
 import type { Hex } from 'viem';
 import { foundry, mainnet, sepolia } from 'viem/chains';
@@ -107,15 +109,64 @@ export interface ValidatorJson {
 }
 
 /**
- * Gets the path to the l1-contracts directory.
+ * Gets the path to the l1-contracts foundry artifacts directory.
+ * These are copied from l1-contracts to yarn-project/l1-artifacts/l1-contracts
+ * during build to make yarn-project self-contained.
  */
 export function getL1ContractsPath(): string {
-  // Try to find l1-contracts relative to this file
   const currentDir = dirname(fileURLToPath(import.meta.url));
-
-  // Go up from yarn-project/ethereum/src to yarn-project, then to repo root, then to l1-contracts
-  const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
+  // Go up from yarn-project/ethereum/dest to yarn-project, then to l1-artifacts/l1-contracts
+  const l1ContractsPath = resolve(currentDir, '..', '..', 'l1-artifacts', 'l1-contracts');
   return l1ContractsPath;
+}
+
+// Cached deployment directory
+let preparedDeployDir: string | undefined;
+
+function cleanupDeployDir() {
+  if (preparedDeployDir) {
+    try {
+      rmSync(preparedDeployDir, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup errors
+    }
+    preparedDeployDir = undefined;
+  }
+}
+
+/**
+ * Prepares a temp directory for forge deployment.
+ * Copies all artifacts with preserved timestamps (required for forge cache validity).
+ * A fresh broadcast/ directory is created for deployment outputs.
+ */
+export function prepareL1ContractsForDeployment(): string {
+  if (preparedDeployDir && existsSync(preparedDeployDir)) {
+    return preparedDeployDir;
+  }
+
+  const basePath = getL1ContractsPath();
+  const tempDir = mkdtempSync(join(tmpdir(), '.foundry-deploy-'));
+  preparedDeployDir = tempDir;
+  process.on('exit', cleanupDeployDir);
+
+  // Copy all dirs with preserved timestamps (required for forge cache validity)
+  const copyOpts = { recursive: true, preserveTimestamps: true };
+  cpSync(join(basePath, 'out'), join(tempDir, 'out'), copyOpts);
+  cpSync(join(basePath, 'lib'), join(tempDir, 'lib'), copyOpts);
+  cpSync(join(basePath, 'cache'), join(tempDir, 'cache'), copyOpts);
+  cpSync(join(basePath, 'src'), join(tempDir, 'src'), copyOpts);
+  cpSync(join(basePath, 'script'), join(tempDir, 'script'), copyOpts);
+  cpSync(join(basePath, 'generated'), join(tempDir, 'generated'), copyOpts);
+  cpSync(join(basePath, 'foundry.toml'), join(tempDir, 'foundry.toml'));
+  cpSync(join(basePath, 'foundry.lock'), join(tempDir, 'foundry.lock'));
+  for (const file of readdirSync(basePath)) {
+    if (file.startsWith('solc-')) {
+      cpSync(join(basePath, file), join(tempDir, file));
+    }
+  }
+
+  mkdirSync(join(tempDir, 'broadcast'));
+  return tempDir;
 }
 
 /**
@@ -211,7 +262,6 @@ export async function deployAztecL1Contracts(
         'Initial validator funding requires minting tokens, which is not possible with an external token.',
     );
   }
-  const currentDir = dirname(fileURLToPath(import.meta.url));
   const chain = createEthereumChain([rpcUrl], chainId);
 
   const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain.chainInfo);
@@ -240,8 +290,8 @@ export async function deployAztecL1Contracts(
     }
   }
 
-  // Relative location of l1-contracts in monorepo or docker image.
-  const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
+  // Use foundry-artifacts from l1-artifacts package
+  const l1ContractsPath = prepareL1ContractsForDeployment();
 
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
@@ -258,7 +308,7 @@ export async function deployAztecL1Contracts(
   }
 
   // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 12;
+  const MAGIC_ANVIL_BATCH_SIZE = 8;
   // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
   const forgeArgs = [
     'script',
@@ -481,6 +531,7 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_PROOF_SUBMISSION_EPOCHS: args.aztecProofSubmissionEpochs.toString(),
     AZTEC_LOCAL_EJECTION_THRESHOLD: args.localEjectionThreshold.toString(),
     AZTEC_SLASHING_LIFETIME_IN_ROUNDS: args.slashingLifetimeInRounds.toString(),
+    AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: args.slashingExecutionDelayInRounds.toString(),
     AZTEC_SLASHING_VETOER: args.slashingVetoer.toString(),
     AZTEC_SLASHING_DISABLE_DURATION: args.slashingDisableDuration.toString(),
     AZTEC_MANA_TARGET: args.manaTarget.toString(),
@@ -513,10 +564,8 @@ export const deployRollupForUpgrade = async (
     | 'zkPassportArgs'
   >,
 ) => {
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-
-  // Relative location of l1-contracts in monorepo or docker image.
-  const l1ContractsPath = resolve(currentDir, '..', '..', '..', 'l1-contracts');
+  // Use foundry-artifacts from l1-artifacts package
+  const l1ContractsPath = prepareL1ContractsForDeployment();
 
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);

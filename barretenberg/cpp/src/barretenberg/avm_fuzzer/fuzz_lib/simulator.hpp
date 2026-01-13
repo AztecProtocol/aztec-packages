@@ -91,6 +91,6 @@ Tx create_default_tx(const AztecAddress& contract_address,
                      bool is_static_call,
                      const Gas& gas_limit);
 
-bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);
+bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2);
 
 GlobalVariables create_default_globals();

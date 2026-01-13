@@ -13,16 +13,16 @@ function compile_project {
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
 }
 
-# Returns a list of projects to compile/lint/publish.
+# Returns a list of project paths to compile/lint/publish.
 # Ensure exclusions are matching in both cases.
 function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
       --exclude @aztec/scripts \
-      exec 'basename $(pwd)' | cat | grep -v "Done"
+      exec 'echo $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated
+    dirname */src | xargs realpath
   fi
 }
 
@@ -94,6 +94,9 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    cli \
+    ethereum \
+    slasher \
     stdlib \
     ivc-integration \
     l1-artifacts \

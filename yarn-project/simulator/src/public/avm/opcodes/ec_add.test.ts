@@ -31,7 +31,7 @@ describe('EC Instructions', () => {
         ...Buffer.from('1239', 'hex'), // dstOffset
       ]);
       const inst = new EcAdd(
-        /*indirect=*/ 0x1234,
+        /*addressing_mode=*/ 0x1234,
         /*p1X=*/ 0x1235,
         /*p1Y=*/ 0x1236,
         /*p1IsInfinite=*/ 0,
@@ -59,7 +59,7 @@ describe('EC Instructions', () => {
       // context.machineState.memory.set(6, new Uint32(6));
 
       await new EcAdd(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         /*p1X=*/ 0,
         /*p1Y=*/ 1,
         /*p1IsInfinite=*/ 2,
@@ -98,7 +98,7 @@ describe('EC Instructions', () => {
       context.machineState.memory.set(6, new Uint32(6));
 
       await new EcAdd(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         /*p1X=*/ 0,
         /*p1Y=*/ 1,
         /*p1IsInfinite=*/ 2,
@@ -138,7 +138,7 @@ describe('EC Instructions', () => {
 
       await expect(
         new EcAdd(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           p1xOffset,
           p1yOffset,
           p1IsInfiniteOffset,
@@ -168,7 +168,7 @@ describe('EC Instructions', () => {
 
       await expect(
         new EcAdd(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           p1xOffset,
           p1yOffset,
           p1IsInfiniteOffset,

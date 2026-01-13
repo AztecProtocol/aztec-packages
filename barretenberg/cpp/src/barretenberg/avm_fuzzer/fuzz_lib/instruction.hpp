@@ -462,9 +462,6 @@ struct SLOAD_Instruction {
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)
 struct GETENVVAR_Instruction {
     AddressRef result_address;
-    // msgpack cannot pack enum classes, so we pack that as a uint8_t
-    // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
-    // 7 -> MINFEEPERDAGAS, 8 -> MINFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
     uint8_t type;
     MSGPACK_FIELDS(result_address, type);
 };
@@ -636,6 +633,15 @@ struct TORADIXBE_Instruction {
     MSGPACK_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
 };
 
+struct DEBUGLOG_Instruction {
+    ParamRef level_offset;
+    ParamRef message_offset;
+    ParamRef fields_offset;
+    ParamRef fields_size_offset;
+    uint16_t message_size;
+    MSGPACK_FIELDS(level_offset, message_offset, fields_offset, fields_size_offset, message_size);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -693,7 +699,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      POSEIDON2PERM_Instruction,
                                      KECCAKF1600_Instruction,
                                      SHA256COMPRESSION_Instruction,
-                                     TORADIXBE_Instruction>;
+                                     TORADIXBE_Instruction,
+                                     DEBUGLOG_Instruction>;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -904,6 +911,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                 os << "TORADIXBE_Instruction " << arg.value_address << " " << arg.radix_address << " "
                    << arg.num_limbs_address << " " << arg.output_bits_address << " " << arg.dst_address << " "
                    << arg.is_output_bits;
+            },
+            [&](DEBUGLOG_Instruction arg) {
+                os << "DEBUGLOG_Instruction " << arg.level_offset << " " << arg.message_offset << " "
+                   << arg.fields_offset << " " << arg.fields_size_offset << " " << arg.message_size;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

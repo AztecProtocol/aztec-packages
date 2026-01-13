@@ -1,7 +1,7 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { CommitteeAttestation } from '../block/index.js';
-import type { BlockAttestation } from './block_attestation.js';
+import type { CheckpointAttestation } from './checkpoint_attestation.js';
 
 /**
  * Returns attestation signatures in the order of a series of provided ethereum addresses
@@ -9,10 +9,10 @@ import type { BlockAttestation } from './block_attestation.js';
  * @todo: perform this logic within the memory attestation store instead?
  */
 export function orderAttestations(
-  attestations: BlockAttestation[],
+  attestations: CheckpointAttestation[],
   orderAddresses: EthAddress[],
 ): CommitteeAttestation[] {
-  // Create a map of sender addresses to BlockAttestations
+  // Create a map of sender addresses to attestations
   const attestationMap = new Map<string, CommitteeAttestation>();
 
   for (const attestation of attestations) {

@@ -12,14 +12,9 @@ Aztec.js is a library that provides APIs for managing accounts and interacting w
 ## Installing
 
 ```bash
-npm install @aztec/aztec.js
+npm install @aztec/aztec.js@3.0.0-devnet.20251212
 ```
 
-## Flow
+## Guides
 
-These are some of the important functions you'll need to use in your Aztec.js:
-
-- [Create an account with `@aztec/accounts`](./how_to_create_account.md)
-- [Deploy a contract](./how_to_deploy_contract.md)
-- [Simulate a function call](./how_to_simulate_function.md)
-- [Send a transaction](./how_to_send_transaction.md)
+<DocCardList />

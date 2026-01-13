@@ -154,8 +154,9 @@ PublicInputsBuilder& PublicInputsBuilder::extract_outputs(const LowLevelMerkleDB
     std::ranges::copy(side_effects.l2_to_l1_messages, public_inputs_.accumulated_data.l2_to_l1_msgs.begin());
     public_inputs_.accumulated_data.public_logs = side_effects.public_logs;
     // We need to copy the storage writes slot to value in the order of the slots by insertion.
-    for (uint32_t i = 0; i < side_effects.storage_writes_slots_by_insertion.size(); i++) {
-        const auto& slot = side_effects.storage_writes_slots_by_insertion.at(i);
+    const size_t num_storage_writes = side_effects.storage_writes_slots_by_insertion.size();
+    for (size_t i = 0; i < num_storage_writes; i++) {
+        const auto& slot = side_effects.storage_writes_slots_by_insertion[i];
         const auto& value = side_effects.storage_writes_slot_to_value.at(slot);
         public_inputs_.accumulated_data.public_data_writes[i] = PublicDataWrite{ .leaf_slot = slot, .value = value };
     }

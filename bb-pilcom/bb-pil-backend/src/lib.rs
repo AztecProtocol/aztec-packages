@@ -6,3 +6,4 @@ pub mod permutation_builder;
 mod relation_builder;
 mod utils;
 pub mod vm_builder;
+pub mod checks;

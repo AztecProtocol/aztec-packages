@@ -3,9 +3,9 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
@@ -15,11 +15,11 @@ using namespace bb::avm2::fuzzer;
 
 FuzzerWorldStateManager* ws_mgr = nullptr;
 
-void register_functions()
+void register_functions(FuzzerContext& context)
 {
     for (auto& function : PREDEFINED_FUNCTIONS) {
         try {
-            ContractDBProxy::register_contract_from_bytecode(function);
+            context.register_contract_from_bytecode(function);
         } catch (...) {
             std::cout << "Failed to register predefined function: " << function.size() << std::endl;
             continue;
@@ -27,63 +27,97 @@ void register_functions()
     }
 }
 
-SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
-{
-    FuzzerWorldStateManager::initialize();
-    if (ws_mgr == nullptr) {
-        ws_mgr = FuzzerWorldStateManager::getInstance();
+class FuzzTest : public ::testing::Test {
+  protected:
+    void SetUp() override
+    {
+        FuzzerWorldStateManager::initialize();
+        if (ws_mgr == nullptr) {
+            ws_mgr = FuzzerWorldStateManager::getInstance();
+        }
+        ws_mgr->fork();
+        context = FuzzerContext();
+        register_functions(context);
     }
-    ws_mgr->fork();
 
-    register_functions();
+    void TearDown() override { ws_mgr->reset_world_state(); }
 
-    ContractDBProxy* contract_db_proxy = ContractDBProxy::get_instance();
-    auto contract_address = ContractDBProxy::register_contract_from_bytecode(bytecode);
-    FuzzerContractDB contract_db = *contract_db_proxy->get_contract_db();
+    SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
+    {
+        ws_mgr->checkpoint();
 
-    auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
-    FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
-    FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
-    ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
-    auto cpp_simulator = CppSimulator();
+        auto contract_address = context.register_contract_from_bytecode(bytecode);
+        FuzzerContractDB contract_db = context.get_contract_db();
 
-    ws_mgr->checkpoint();
-    try {
+        auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+        FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
+        FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
+        ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
+        auto cpp_simulator = CppSimulator();
+
         auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+
         ws_mgr->revert();
-        ws_mgr->reset_world_state();
+
         return result;
-    } catch (...) {
-        ws_mgr->revert();
-        throw;
     }
-}
+
+    FuzzerContext context;
+};
 
 namespace arithmetic {
+class ArithmeticFuzzTest : public FuzzTest {
+  protected:
+    // set(addr 0, 5) set(addr 1, 2) OP(addr 0, addr 1, addr 2) return(addr 2)
+    FF get_result_of_instruction(FuzzInstruction instruction,
+                                 bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::U8)
+    {
+        auto set_instruction_1 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                                                    .result_address = AddressRef{ .address = 0 },
+                                                    .value = 5 };
+        auto set_instruction_2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                                                    .result_address = AddressRef{ .address = 1 },
+                                                    .value = 2 };
+        auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
+        auto return_options =
+            ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 2 };
+        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+        auto control_flow = ControlFlow(instruction_blocks);
+        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+        auto bytecode = control_flow.build_bytecode(return_options);
 
-// set(addr 0, 5) set(addr 1, 2) OP(addr 0, addr 1, addr 2) return(addr 2)
-FF get_result_of_instruction(FuzzInstruction instruction,
-                             bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::U8)
-{
-    auto set_instruction_1 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                                                .result_address = AddressRef{ .address = 0 },
-                                                .value = 5 };
-    auto set_instruction_2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                                                .result_address = AddressRef{ .address = 1 },
-                                                .value = 2 };
-    auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
-    auto return_options =
-        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 2 };
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-    auto control_flow = ControlFlow(instruction_blocks);
-    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-    auto bytecode = control_flow.build_bytecode(return_options);
+        auto result = simulate_with_default_tx(bytecode, {});
+        return result.output.at(0);
+    }
 
-    auto result = simulate_with_default_tx(bytecode, {});
-    return result.output.at(0);
-}
+    // Helper function for 16-bit instructions
+    // set(addr 0, 5) set(addr 1, 2) OP_16(addr 0, addr 1, addr 2) return(addr 2)
+    FF get_result_of_instruction_16(FuzzInstruction instruction,
+                                    bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::U8)
+    {
+        auto set_instruction_1 =
+            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                               .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                               .value = 5 };
+        auto set_instruction_2 =
+            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                               .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                               .value = 2 };
+        auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
 
-TEST(fuzz, ADD8)
+        auto return_options =
+            ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 2 };
+        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+        auto control_flow = ControlFlow(instruction_blocks);
+        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+        auto bytecode = control_flow.build_bytecode(return_options);
+
+        auto result = simulate_with_default_tx(bytecode, {});
+        return result.output.at(0);
+    }
+};
+
+TEST_F(ArithmeticFuzzTest, ADD8)
 {
     auto add_instruction = ADD_8_Instruction{
         .a_address =
@@ -99,7 +133,7 @@ TEST(fuzz, ADD8)
     EXPECT_EQ(result, 7);
 }
 
-TEST(fuzz, SUB8)
+TEST_F(ArithmeticFuzzTest, SUB8)
 {
     auto sub_instruction = SUB_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -110,7 +144,7 @@ TEST(fuzz, SUB8)
     EXPECT_EQ(result, 3);
 }
 
-TEST(fuzz, MUL8)
+TEST_F(ArithmeticFuzzTest, MUL8)
 {
     auto mul_instruction = MUL_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -121,7 +155,7 @@ TEST(fuzz, MUL8)
     EXPECT_EQ(result, 10);
 }
 
-TEST(fuzz, DIV8)
+TEST_F(ArithmeticFuzzTest, DIV8)
 {
     auto div_instruction = DIV_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -132,7 +166,7 @@ TEST(fuzz, DIV8)
     EXPECT_EQ(result, 2);
 }
 
-TEST(fuzz, EQ8)
+TEST_F(ArithmeticFuzzTest, EQ8)
 {
     auto eq_instruction = EQ_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -143,7 +177,7 @@ TEST(fuzz, EQ8)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, LT8)
+TEST_F(ArithmeticFuzzTest, LT8)
 {
     auto lt_instruction = LT_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -154,7 +188,7 @@ TEST(fuzz, LT8)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, LTE8)
+TEST_F(ArithmeticFuzzTest, LTE8)
 {
     auto lte_instruction = LTE_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -165,7 +199,7 @@ TEST(fuzz, LTE8)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, AND8)
+TEST_F(ArithmeticFuzzTest, AND8)
 {
     auto and_instruction = AND_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -176,7 +210,7 @@ TEST(fuzz, AND8)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, OR8)
+TEST_F(ArithmeticFuzzTest, OR8)
 {
     auto or_instruction = OR_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -187,7 +221,7 @@ TEST(fuzz, OR8)
     EXPECT_EQ(result, 7);
 }
 
-TEST(fuzz, XOR8)
+TEST_F(ArithmeticFuzzTest, XOR8)
 {
     auto xor_instruction = XOR_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -198,7 +232,7 @@ TEST(fuzz, XOR8)
     EXPECT_EQ(result, 7);
 }
 
-TEST(fuzz, SHL8)
+TEST_F(ArithmeticFuzzTest, SHL8)
 {
     auto shl_instruction = SHL_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -209,7 +243,7 @@ TEST(fuzz, SHL8)
     EXPECT_EQ(result, 20);
 }
 
-TEST(fuzz, SHR8)
+TEST_F(ArithmeticFuzzTest, SHR8)
 {
     auto shr_instruction = SHR_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -221,7 +255,7 @@ TEST(fuzz, SHR8)
 }
 
 // set(0, 4, FF) set(1, 2, FF) fdiv(FF, 0, 1, 2) return(2)
-TEST(fuzz, FDIV8)
+TEST_F(ArithmeticFuzzTest, FDIV8)
 {
     auto fdiv_instruction = FDIV_8_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
@@ -250,7 +284,7 @@ TEST(fuzz, FDIV8)
 }
 
 // set(0, 0, U8) not(U8, 0, 1) return(1)
-TEST(fuzz, NOT8)
+TEST_F(ArithmeticFuzzTest, NOT8)
 {
     auto set_instruction =
         SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
@@ -272,33 +306,7 @@ TEST(fuzz, NOT8)
     EXPECT_EQ(result.output.at(0), 255);
 }
 
-// Helper function for 16-bit instructions
-// set(addr 0, 5) set(addr 1, 2) OP_16(addr 0, addr 1, addr 2) return(addr 2)
-FF get_result_of_instruction_16(FuzzInstruction instruction,
-                                bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::U8)
-{
-    auto set_instruction_1 =
-        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                           .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                           .value = 5 };
-    auto set_instruction_2 =
-        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                           .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
-                           .value = 2 };
-    auto instructions = std::vector<FuzzInstruction>{ set_instruction_1, set_instruction_2, instruction };
-
-    auto return_options =
-        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 2 };
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
-    auto control_flow = ControlFlow(instruction_blocks);
-    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-    auto bytecode = control_flow.build_bytecode(return_options);
-
-    auto result = simulate_with_default_tx(bytecode, {});
-    return result.output.at(0);
-}
-
-TEST(fuzz, ADD16)
+TEST_F(ArithmeticFuzzTest, ADD16)
 {
     auto add_instruction = ADD_16_Instruction{
         .a_address =
@@ -314,7 +322,7 @@ TEST(fuzz, ADD16)
     EXPECT_EQ(result, 7);
 }
 
-TEST(fuzz, SUB16)
+TEST_F(ArithmeticFuzzTest, SUB16)
 {
     auto sub_instruction = SUB_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -325,7 +333,7 @@ TEST(fuzz, SUB16)
     EXPECT_EQ(result, 3);
 }
 
-TEST(fuzz, MUL16)
+TEST_F(ArithmeticFuzzTest, MUL16)
 {
     auto mul_instruction = MUL_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -336,7 +344,7 @@ TEST(fuzz, MUL16)
     EXPECT_EQ(result, 10);
 }
 
-TEST(fuzz, DIV16)
+TEST_F(ArithmeticFuzzTest, DIV16)
 {
     auto div_instruction = DIV_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -347,7 +355,7 @@ TEST(fuzz, DIV16)
     EXPECT_EQ(result, 2);
 }
 
-TEST(fuzz, EQ16)
+TEST_F(ArithmeticFuzzTest, EQ16)
 {
     auto eq_instruction = EQ_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -358,7 +366,7 @@ TEST(fuzz, EQ16)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, LT16)
+TEST_F(ArithmeticFuzzTest, LT16)
 {
     auto lt_instruction = LT_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -369,7 +377,7 @@ TEST(fuzz, LT16)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, LTE16)
+TEST_F(ArithmeticFuzzTest, LTE16)
 {
     auto lte_instruction = LTE_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -380,7 +388,7 @@ TEST(fuzz, LTE16)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, AND16)
+TEST_F(ArithmeticFuzzTest, AND16)
 {
     auto and_instruction = AND_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -391,7 +399,7 @@ TEST(fuzz, AND16)
     EXPECT_EQ(result, 0);
 }
 
-TEST(fuzz, OR16)
+TEST_F(ArithmeticFuzzTest, OR16)
 {
     auto or_instruction = OR_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -402,7 +410,7 @@ TEST(fuzz, OR16)
     EXPECT_EQ(result, 7);
 }
 
-TEST(fuzz, XOR16)
+TEST_F(ArithmeticFuzzTest, XOR16)
 {
     auto xor_instruction = XOR_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -413,7 +421,7 @@ TEST(fuzz, XOR16)
     EXPECT_EQ(result, 7);
 }
 
-TEST(fuzz, SHL16)
+TEST_F(ArithmeticFuzzTest, SHL16)
 {
     auto shl_instruction = SHL_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -424,7 +432,7 @@ TEST(fuzz, SHL16)
     EXPECT_EQ(result, 20);
 }
 
-TEST(fuzz, SHR16)
+TEST_F(ArithmeticFuzzTest, SHR16)
 {
     auto shr_instruction = SHR_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::U8, .index = 0, .mode = AddressingMode::Direct },
@@ -436,7 +444,7 @@ TEST(fuzz, SHR16)
 }
 
 // set(0, 4, FF) set(1, 2, FF) fdiv_16(FF, 0, 1, 2) return(2)
-TEST(fuzz, FDIV16)
+TEST_F(ArithmeticFuzzTest, FDIV16)
 {
     auto fdiv_instruction = FDIV_16_Instruction{
         .a_address = VariableRef{ .tag = bb::avm2::MemoryTag::FF, .index = 0, .mode = AddressingMode::Direct },
@@ -465,7 +473,7 @@ TEST(fuzz, FDIV16)
 }
 
 // set(0, 0, U8) not_16(U8, 0, 1) return(1)
-TEST(fuzz, NOT16)
+TEST_F(ArithmeticFuzzTest, NOT16)
 {
     auto set_instruction =
         SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
@@ -486,13 +494,14 @@ TEST(fuzz, NOT16)
     auto result = simulate_with_default_tx(bytecode, {});
     EXPECT_EQ(result.output.at(0), 255);
 }
+
 } // namespace arithmetic
 
 namespace type_conversion {
 // set(10, 1, U16) set(0, 2, U8) cast_8(U8, 0, 1, U16) return(1)
 // if cast worked, should return 2 (the U8 value cast to U16)
 // if cast failed, should return 1 (the original U16 value)
-TEST(fuzz, CAST8)
+TEST_F(FuzzTest, CAST8)
 {
     auto set_u16 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U16,
                                       .result_address = AddressRef{ .address = 10, .mode = AddressingMode::Direct },
@@ -520,7 +529,7 @@ TEST(fuzz, CAST8)
 // set(10, 1, U16) set(0, 2, U8) cast_16(U8, 0, 1, U16) return(1)
 // if cast worked, should return 2 (the U8 value cast to U16)
 // if cast failed, should return 1 (the original U16 value)
-TEST(fuzz, CAST16)
+TEST_F(FuzzTest, CAST16)
 {
     auto set_u16 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U16,
                                       .result_address = AddressRef{ .address = 10, .mode = AddressingMode::Direct },
@@ -548,7 +557,7 @@ TEST(fuzz, CAST16)
 
 namespace machine_memory {
 // set(0, 0xabcd, U16) return(0)
-TEST(fuzz, SET16)
+TEST_F(FuzzTest, SET16)
 {
     const uint16_t test_value = 0xABCD;
     auto set_instruction =
@@ -567,7 +576,7 @@ TEST(fuzz, SET16)
     EXPECT_EQ(result.output.at(0), test_value);
 }
 // set(0, 0x12345678, U32) return(0)
-TEST(fuzz, SET32)
+TEST_F(FuzzTest, SET32)
 {
     const uint32_t test_value = 0x12345678UL;
     auto set_instruction =
@@ -587,7 +596,7 @@ TEST(fuzz, SET32)
 }
 
 // set(0, 0xabcdef0123456789, U64) return(0)
-TEST(fuzz, SET64)
+TEST_F(FuzzTest, SET64)
 {
     const uint64_t test_value = 0xABCDEF0123456789ULL;
     auto set_instruction =
@@ -607,7 +616,7 @@ TEST(fuzz, SET64)
 }
 
 // set(0, something, U128) return(0)
-TEST(fuzz, SET128)
+TEST_F(FuzzTest, SET128)
 {
     const uint64_t test_value_low = 0xFEDCBA9876543210ULL;
     const uint64_t test_value_high = 0x123456789ABCDEF0ULL;
@@ -632,7 +641,7 @@ TEST(fuzz, SET128)
 }
 
 // set(0, 123456789, FF) return(0)
-TEST(fuzz, SETFF)
+TEST_F(FuzzTest, SETFF)
 {
     const bb::avm2::FF test_value = bb::avm2::FF(123456789);
     auto set_instruction =
@@ -652,7 +661,7 @@ TEST(fuzz, SETFF)
 }
 
 // set(0, 0x42, U8) set(1, 0x43, U8) mov_8(U8, 0, 1) return(1)
-TEST(fuzz, MOV8)
+TEST_F(FuzzTest, MOV8)
 {
     const uint8_t test_value = 0x42;
     const uint8_t test_value2 = 0x43;
@@ -680,7 +689,7 @@ TEST(fuzz, MOV8)
 }
 
 // set(0, 0xbabe, U16) set(1, 0xc0fe, U16) mov_16(U16, 0, 1) return(1)
-TEST(fuzz, MOV16)
+TEST_F(FuzzTest, MOV16)
 {
     const uint16_t test_value = 0xbabe;
     const uint16_t test_value2 = 0xc0fe;
@@ -712,10 +721,86 @@ TEST(fuzz, MOV16)
 
 namespace control_flow {
 
+class ControlFlowFuzzTest : public FuzzTest {
+  protected:
+    //     set u1 condition value b1
+    //      ↙        ↘
+    //    set u1 b2     return 4
+    //    ↙   ↘
+    // ret 2 ret 3
+    FF simulate_jump_if_depth_2_helper(uint8_t first_boolean_value, uint8_t second_boolean_value)
+    {
+        auto set_instruction_block_1 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                                                          .result_address = AddressRef{ .address = 1 },
+                                                          .value = first_boolean_value };
+        auto instruction_block_1 = std::vector<FuzzInstruction>{ set_instruction_block_1 };
+        auto set_instruction_block_2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                                                          .result_address = AddressRef{ .address = 2 },
+                                                          .value = second_boolean_value };
+        auto instruction_block_2 = std::vector<FuzzInstruction>{ set_instruction_block_2 };
+        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instruction_block_1, instruction_block_2 };
+        for (uint8_t i = 2; i < 5; i++) {
+            auto set_instruction =
+                SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
+                                   .result_address = AddressRef{ .address = i, .mode = AddressingMode::Direct },
+                                   .value = i };
+            instruction_blocks.push_back({ set_instruction });
+        }
+        auto return_options = ReturnOptions{ .return_size = 1,
+                                             .return_value_tag = bb::avm2::MemoryTag::U8,
+                                             .return_value_offset_index = 1 };
+        auto control_flow = ControlFlow(instruction_blocks);
+        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+        control_flow.process_cfg_instruction(
+            JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 1, // set second boolean
+                              .else_program_block_instruction_block_idx = 4, // set 4
+                              .condition_offset_index = 0 });
+        control_flow.process_cfg_instruction(JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 2, // set 2
+                                                               .else_program_block_instruction_block_idx = 3, // set 3
+                                                               .condition_offset_index = 1 });
+        auto bytecode = control_flow.build_bytecode(return_options);
+
+        auto result = simulate_with_default_tx(bytecode, {});
+        return result.output.at(0);
+    }
+
+    //     set u1 condition
+    //      ↙        ↘
+    //    nop  ----→  return 2
+    FF simulate_jump_to_block_helper(uint8_t condition_value)
+    {
+        auto set_instruction_block_1 =
+            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
+                               .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                               .value = condition_value };
+        auto set_return_value_block = std::vector<FuzzInstruction>{ SET_8_Instruction{
+            .value_tag = bb::avm2::MemoryTag::U8,
+            .result_address = AddressRef{ .address = 10, .mode = AddressingMode::Direct },
+            .value = 2 } };
+        auto instruction_block_1 = std::vector<FuzzInstruction>{ set_instruction_block_1 };
+        auto instruction_blocks =
+            std::vector<std::vector<FuzzInstruction>>{ instruction_block_1, {}, set_return_value_block };
+        auto return_options = ReturnOptions{ .return_size = 1,
+                                             .return_value_tag = bb::avm2::MemoryTag::U8,
+                                             .return_value_offset_index = 1 };
+        auto control_flow = ControlFlow(instruction_blocks);
+        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+        control_flow.process_cfg_instruction(
+            JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 1, // noop
+                              .else_program_block_instruction_block_idx = 2, // set return value
+                              .condition_offset_index = 0 });
+        control_flow.process_cfg_instruction(JumpToBlock{ .target_block_idx = 2 });
+        auto bytecode = control_flow.build_bytecode(return_options);
+
+        auto result = simulate_with_default_tx(bytecode, {});
+        return result.output.at(0);
+    }
+};
+
 // block1 set return value 10
 //   ↓
 // block2 set return value 11 and return return value
-TEST(fuzz, JumpToNewBlockSmoke)
+TEST_F(ControlFlowFuzzTest, JumpToNewBlockSmoke)
 {
     auto block1_instructions = std::vector<FuzzInstruction>{ SET_8_Instruction{
         .value_tag = bb::avm2::MemoryTag::U8,
@@ -742,7 +827,7 @@ TEST(fuzz, JumpToNewBlockSmoke)
 // block2 set return value 11
 //   ↓
 // block3 set return value 12 and return return value
-TEST(fuzz, JumpToNewBlockSmoke2)
+TEST_F(ControlFlowFuzzTest, JumpToNewBlockSmoke2)
 {
     auto block1_instructions = std::vector<FuzzInstruction>{ SET_8_Instruction{
         .value_tag = bb::avm2::MemoryTag::U8,
@@ -774,7 +859,7 @@ TEST(fuzz, JumpToNewBlockSmoke2)
 //   ↓
 // block2 tries to return u8
 // if blocks does not share defined variables, block2 will return 0
-TEST(fuzz, JumpToNewBlockSharesVariables)
+TEST_F(ControlFlowFuzzTest, JumpToNewBlockSharesVariables)
 {
     auto block1_instructions = std::vector<FuzzInstruction>{ SET_8_Instruction{
         .value_tag = bb::avm2::MemoryTag::U8,
@@ -796,7 +881,7 @@ TEST(fuzz, JumpToNewBlockSharesVariables)
 //     block1 set u1 condition value
 //   ↙        ↘
 // return 11    return 12
-TEST(fuzz, JumpIfToNewBlockSmoke)
+TEST_F(ControlFlowFuzzTest, JumpIfToNewBlockSmoke)
 {
     auto set_true_block = std::vector<FuzzInstruction>{ SET_8_Instruction{
         .value_tag = bb::avm2::MemoryTag::U1,
@@ -840,47 +925,7 @@ TEST(fuzz, JumpIfToNewBlockSmoke)
     EXPECT_EQ(result_2.output.at(0), 12);
 }
 
-//     set u1 condition value b1
-//      ↙        ↘
-//    set u1 b2     return 4
-//    ↙   ↘
-// ret 2 ret 3
-FF simulate_jump_if_depth_2_helper(uint8_t first_boolean_value, uint8_t second_boolean_value)
-{
-    auto set_instruction_block_1 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
-                                                      .result_address = AddressRef{ .address = 1 },
-                                                      .value = first_boolean_value };
-    auto instruction_block_1 = std::vector<FuzzInstruction>{ set_instruction_block_1 };
-    auto set_instruction_block_2 = SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
-                                                      .result_address = AddressRef{ .address = 2 },
-                                                      .value = second_boolean_value };
-    auto instruction_block_2 = std::vector<FuzzInstruction>{ set_instruction_block_2 };
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instruction_block_1, instruction_block_2 };
-    for (uint8_t i = 2; i < 5; i++) {
-        auto set_instruction =
-            SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U8,
-                               .result_address = AddressRef{ .address = i, .mode = AddressingMode::Direct },
-                               .value = i };
-        instruction_blocks.push_back({ set_instruction });
-    }
-    auto return_options =
-        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U8, .return_value_offset_index = 1 };
-    auto control_flow = ControlFlow(instruction_blocks);
-    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-    control_flow.process_cfg_instruction(
-        JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 1, // set second boolean
-                          .else_program_block_instruction_block_idx = 4, // set 4
-                          .condition_offset_index = 0 });
-    control_flow.process_cfg_instruction(JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 2, // set 2
-                                                           .else_program_block_instruction_block_idx = 3, // set 3
-                                                           .condition_offset_index = 1 });
-    auto bytecode = control_flow.build_bytecode(return_options);
-
-    auto result = simulate_with_default_tx(bytecode, {});
-    return result.output.at(0);
-}
-
-TEST(fuzz, JumpIfDepth2Smoke)
+TEST_F(ControlFlowFuzzTest, JumpIfDepth2Smoke)
 {
     EXPECT_EQ(simulate_jump_if_depth_2_helper(1, 1), 2);
     EXPECT_EQ(simulate_jump_if_depth_2_helper(1, 0), 3);
@@ -888,38 +933,7 @@ TEST(fuzz, JumpIfDepth2Smoke)
     EXPECT_EQ(simulate_jump_if_depth_2_helper(0, 0), 4);
 }
 
-//     set u1 condition
-//      ↙        ↘
-//    nop  ----→  return 2
-FF simulate_jump_to_block_helper(uint8_t condition_value)
-{
-    auto set_instruction_block_1 =
-        SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
-                           .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
-                           .value = condition_value };
-    auto set_return_value_block = std::vector<FuzzInstruction>{ SET_8_Instruction{
-        .value_tag = bb::avm2::MemoryTag::U8,
-        .result_address = AddressRef{ .address = 10, .mode = AddressingMode::Direct },
-        .value = 2 } };
-    auto instruction_block_1 = std::vector<FuzzInstruction>{ set_instruction_block_1 };
-    auto instruction_blocks =
-        std::vector<std::vector<FuzzInstruction>>{ instruction_block_1, {}, set_return_value_block };
-    auto return_options =
-        ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U8, .return_value_offset_index = 1 };
-    auto control_flow = ControlFlow(instruction_blocks);
-    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-    control_flow.process_cfg_instruction(
-        JumpIfToNewBlock{ .then_program_block_instruction_block_idx = 1, // noop
-                          .else_program_block_instruction_block_idx = 2, // set return value
-                          .condition_offset_index = 0 });
-    control_flow.process_cfg_instruction(JumpToBlock{ .target_block_idx = 2 });
-    auto bytecode = control_flow.build_bytecode(return_options);
-
-    auto result = simulate_with_default_tx(bytecode, {});
-    return result.output.at(0);
-}
-
-TEST(fuzz, JumpToBlockSmoke)
+TEST_F(ControlFlowFuzzTest, JumpToBlockSmoke)
 {
     EXPECT_EQ(simulate_jump_to_block_helper(1), 2);
     EXPECT_EQ(simulate_jump_to_block_helper(0), 2);
@@ -930,7 +944,7 @@ TEST(fuzz, JumpToBlockSmoke)
 //     set u1 condition value
 //   ↙        ↘
 // set FF, ret  set U128, ret
-TEST(fuzz, JumpIfToNewBlockWithReturn)
+TEST_F(ControlFlowFuzzTest, JumpIfToNewBlockWithReturn)
 {
     // Block 0: Set condition (U1)
     auto set_condition_block = std::vector<FuzzInstruction>{ SET_8_Instruction{
@@ -1027,7 +1041,7 @@ TEST(fuzz, JumpIfToNewBlockWithReturn)
 } // namespace control_flow
 
 namespace public_storage {
-TEST(fuzz, SstoreThenSload)
+TEST_F(FuzzTest, SstoreThenSload)
 {
     // M[10] = 10
     auto set_value_instruction =
@@ -1070,30 +1084,32 @@ TEST(fuzz, SstoreThenSload)
 } // namespace public_storage
 
 namespace execution_environment {
-FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
+
+class ExecutionEnvironmentFuzzTest : public FuzzTest {
+  protected:
+    FF getenvvar_helper(uint8_t type, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
+    {
+        auto getenvvar_instruction =
+            GETENVVAR_Instruction{ .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                                   .type = type };
+        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { getenvvar_instruction } };
+        auto control_flow = ControlFlow(instruction_blocks);
+        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+        auto return_options =
+            ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 0 };
+        auto bytecode = control_flow.build_bytecode(return_options);
+
+        auto result = simulate_with_default_tx(bytecode, {});
+        return result.output.at(0);
+    }
+};
+
+TEST_F(ExecutionEnvironmentFuzzTest, GetEnvVarSmoke)
 {
-
-    auto getenvvar_instruction =
-        GETENVVAR_Instruction{ .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                               .type = type };
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { getenvvar_instruction } };
-    auto control_flow = ControlFlow(instruction_blocks);
-    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-    auto return_options =
-        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 0 };
-    auto bytecode = control_flow.build_bytecode(return_options);
-
-    auto result = simulate_with_default_tx(bytecode, {});
-    return result.output.at(0);
-}
-
-TEST(fuzz, GetEnvVarSmoke)
-{
-    EXPECT_EQ(
-        getenvvar_helper(0),
-        FF("0x02fea672ef18fe4b8d13dcfd8943797c99b9885da7b338d224dd5136a0cc8a6f")); // address with bytecode commitment
-    EXPECT_EQ(getenvvar_helper(1), MSG_SENDER);                                    // sender, see simulator.cpp globals
-    EXPECT_EQ(getenvvar_helper(2), TRANSACTION_FEE);                   // transaction fee, see simulator.cpp globals
+    EXPECT_EQ(getenvvar_helper(0),
+              FF("0x02fea672ef18fe4b8d13dcfd8943797c99b9885da7b338d224dd5136a0cc8a6f")); // address with bytecode
+    EXPECT_EQ(getenvvar_helper(1), MSG_SENDER);                                          // sender, see simulator.cpp
+    EXPECT_EQ(getenvvar_helper(2), TRANSACTION_FEE);                   // transaction fee, see simulator.cpp
     EXPECT_EQ(getenvvar_helper(3), CHAIN_ID);                          // chain id, see simulator.cpp globals
     EXPECT_EQ(getenvvar_helper(4), VERSION);                           // version, see simulator.cpp globals
     EXPECT_EQ(getenvvar_helper(5), BLOCK_NUMBER);                      // block number, see simulator.cpp globals
@@ -1107,7 +1123,7 @@ TEST(fuzz, GetEnvVarSmoke)
 } // namespace execution_environment
 
 namespace notes_and_nullifiers {
-TEST(fuzz, EmitNullifierThenNullifierExists)
+TEST_F(FuzzTest, EmitNullifierThenNullifierExists)
 {
     auto set_field_instruction =
         SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1132,7 +1148,7 @@ TEST(fuzz, EmitNullifierThenNullifierExists)
     EXPECT_EQ(result.output.at(0), 1);
 }
 
-TEST(fuzz, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
+TEST_F(FuzzTest, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
 {
     auto set_field_instruction =
         SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1157,7 +1173,7 @@ TEST(fuzz, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
     EXPECT_EQ(result.output.at(0), 0);
 }
 
-TEST(fuzz, EmitNoteHashThenNoteHashExists)
+TEST_F(FuzzTest, EmitNoteHashThenNoteHashExists)
 {
     auto emit_note_hash_instruction =
         EMITNOTEHASH_Instruction{ .note_hash_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
@@ -1185,7 +1201,7 @@ TEST(fuzz, EmitNoteHashThenNoteHashExists)
 } // namespace notes_and_nullifiers
 
 namespace calldata_returndata {
-TEST(fuzz, CopyCalldataThenReturnData)
+TEST_F(FuzzTest, CopyCalldataThenReturnData)
 {
     auto calldatacopy_instruction = CALLDATACOPY_Instruction{ .dst_address = AddressRef{ .address = 0 },
                                                               .copy_size = 1,
@@ -1203,7 +1219,7 @@ TEST(fuzz, CopyCalldataThenReturnData)
 }
 
 // call internal function overwrites memory address
-TEST(fuzz, InternalCall)
+TEST_F(FuzzTest, InternalCall)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1229,7 +1245,7 @@ TEST(fuzz, InternalCall)
 namespace internal_calls {
 
 // check if internal call does not halt execution on return
-TEST(fuzz, InternalCalledBlockUsesInternalReturn)
+TEST_F(FuzzTest, InternalCalledBlockUsesInternalReturn)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1259,7 +1275,7 @@ TEST(fuzz, InternalCalledBlockUsesInternalReturn)
 // SSTORE(0, 1337); call f1; return SLOAD(0);
 // f1: SSTORE(0, 31337); call f2; INTERNALRETURN
 // f2: SSTORE(0, 313373); INTERNALRETURN
-TEST(fuzz, SeveralInternalCalls)
+TEST_F(FuzzTest, SeveralInternalCalls)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1305,7 +1321,7 @@ TEST(fuzz, SeveralInternalCalls)
 /// f1: SSTORE(0, 1337); call f2; SSTORE(0, 1337); INTERNALRETURN
 /// f2: SSTORE(0, 31337); INTERNALRETURN
 /// f3: SSTORE(0, 313373); INTERNALRETURN
-TEST(fuzz, Reentrancy)
+TEST_F(FuzzTest, Reentrancy)
 {
     auto set_field_instruction0 =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1359,7 +1375,7 @@ TEST(fuzz, Reentrancy)
 } // namespace internal_calls
 
 namespace avm_addressing {
-TEST(fuzz, DirectWithIndirect)
+TEST_F(FuzzTest, DirectWithIndirect)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1387,7 +1403,7 @@ TEST(fuzz, DirectWithIndirect)
     EXPECT_EQ(result.output.at(0), 30);
 }
 
-TEST(fuzz, DirectWithIndirectRelative)
+TEST_F(FuzzTest, DirectWithIndirectRelative)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1416,7 +1432,7 @@ TEST(fuzz, DirectWithIndirectRelative)
     EXPECT_EQ(result.output.at(0), 30);
 }
 
-TEST(fuzz, IndirectResultCanBeUsedInNextInstruction)
+TEST_F(FuzzTest, IndirectResultCanBeUsedInNextInstruction)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1442,7 +1458,7 @@ TEST(fuzz, IndirectResultCanBeUsedInNextInstruction)
     EXPECT_EQ(result.output.at(0), 400);
 }
 
-TEST(fuzz, Memoryaddressing32BitWidth)
+TEST_F(FuzzTest, Memoryaddressing32BitWidth)
 {
     auto set_field_instruction =
         SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
@@ -1474,7 +1490,7 @@ TEST(fuzz, Memoryaddressing32BitWidth)
 
 namespace misc {
 // TODO(defkit): get info from world state to be sure that the message will be sent / log emitted
-TEST(fuzz, SendL2ToL1Msg)
+TEST_F(FuzzTest, SendL2ToL1Msg)
 {
     auto sendl2tol1msg_instruction =
         SENDL2TOL1MSG_Instruction{ .recipient = 100,
@@ -1490,7 +1506,7 @@ TEST(fuzz, SendL2ToL1Msg)
     EXPECT_EQ(result.reverted, false);
 }
 
-TEST(fuzz, EmitUnencryptedLog)
+TEST_F(FuzzTest, EmitUnencryptedLog)
 {
     auto log_size_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct };
     auto log_values_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
@@ -1520,12 +1536,37 @@ TEST(fuzz, EmitUnencryptedLog)
 
 namespace external_calls {
 
+class ExternalCallsFuzzTest : public FuzzTest {
+  protected:
+    FF get_contract_instance_helper(uint8_t member_enum, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
+    {
+        FF address = context.get_contract_address(0);
+        std::vector<FuzzInstruction> instructions;
+        instructions.push_back(
+            SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                .result_address = AddressRef{ .address = 123, .mode = AddressingMode::Direct },
+                                .value = address });
+        instructions.push_back(GETCONTRACTINSTANCE_Instruction{
+            .contract_address_address = AddressRef{ .address = 123, .mode = AddressingMode::Direct },
+            .member_enum = member_enum,
+            .dst_address = AddressRef{ .address = 124, .mode = AddressingMode::Direct } });
+
+        auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ instructions };
+        auto control_flow = ControlFlow(instruction_blocks);
+        control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
+        auto bytecode = control_flow.build_bytecode(
+            ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 1 });
+        auto result = simulate_with_default_tx(bytecode, {});
+        return result.output.at(0);
+    }
+};
+
 /// call(ADD8), returndatacopy, return
 /// ADD8: 1 + 1
-TEST(fuzz, ExternalCallToAdd8)
+TEST_F(ExternalCallsFuzzTest, ExternalCallToAdd8)
 {
     std::vector<FuzzInstruction> instructions;
-    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(0);
+    auto contract_address = context.get_contract_address(0);
     AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
@@ -1564,25 +1605,7 @@ TEST(fuzz, ExternalCallToAdd8)
     EXPECT_EQ(result.output.at(0), 2);
 }
 
-FF get_contract_instance_helper(uint8_t member_enum, bb::avm2::MemoryTag return_value_tag = bb::avm2::MemoryTag::FF)
-{
-    auto get_contract_instance_instruction =
-        GETCONTRACTINSTANCE_Instruction{ .contract_index = 0,
-                                         .contract_address_address =
-                                             AddressRef{ .address = 123, .mode = AddressingMode::Direct },
-                                         .dst_address = AddressRef{ .address = 124, .mode = AddressingMode::Direct },
-                                         .member_enum = member_enum };
-
-    auto instruction_blocks = std::vector<std::vector<FuzzInstruction>>{ { get_contract_instance_instruction } };
-    auto control_flow = ControlFlow(instruction_blocks);
-    control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
-    auto bytecode = control_flow.build_bytecode(
-        ReturnOptions{ .return_size = 1, .return_value_tag = return_value_tag, .return_value_offset_index = 1 });
-    auto result = simulate_with_default_tx(bytecode, {});
-    return result.output.at(0);
-}
-
-TEST(fuzz, GetContractInstance)
+TEST_F(ExternalCallsFuzzTest, GetContractInstance)
 {
 
     EXPECT_EQ(get_contract_instance_helper(0),
@@ -1595,10 +1618,10 @@ TEST(fuzz, GetContractInstance)
 }
 
 // Calls add8, sucesscopy, return
-TEST(fuzz, SuccessCopy)
+TEST_F(ExternalCallsFuzzTest, SuccessCopy)
 {
     std::vector<FuzzInstruction> instructions;
-    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(0);
+    auto contract_address = context.get_contract_address(0);
     AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
@@ -1639,10 +1662,10 @@ TEST(fuzz, SuccessCopy)
 
 // Performs static call to ZERO_DIVISION, SUCCESSCOPY, RETURN
 // The result should be 0
-TEST(fuzz, CallToZeroDivisionSuccessCopy)
+TEST_F(ExternalCallsFuzzTest, CallToZeroDivisionSuccessCopy)
 {
     std::vector<FuzzInstruction> instructions;
-    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(1);
+    auto contract_address = context.get_contract_address(1);
     AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });
@@ -1681,10 +1704,10 @@ TEST(fuzz, CallToZeroDivisionSuccessCopy)
 }
 
 /// Performs static call to SSTORE_FUNCTION, SUCCESSCOPY, RETURN
-TEST(fuzz, StaticCallToNonStaticFunctionSuccessCopy)
+TEST_F(ExternalCallsFuzzTest, StaticCallToNonStaticFunctionSuccessCopy)
 {
     std::vector<FuzzInstruction> instructions;
-    auto contract_address = bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(2);
+    auto contract_address = context.get_contract_address(2);
     AddressRef contract_address_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct };
     instructions.push_back(SET_FF_Instruction{
         .value_tag = bb::avm2::MemoryTag::FF, .result_address = contract_address_address, .value = contract_address });

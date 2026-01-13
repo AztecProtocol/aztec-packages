@@ -14,7 +14,7 @@ template <typename FF_> class get_contract_instanceImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3, 4, 3, 3, 2, 2 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 3, 3, 4, 3, 3, 2, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,8 +37,10 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_WRITE_OUT_OF_BOUNDS_CHECK = 2;
     static constexpr size_t SR_IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP = 3;
-    static constexpr size_t SR_ERROR_AGGREGATION = 4;
-    static constexpr size_t SR_SELECTED_MEMBER = 5;
+    static constexpr size_t SR_IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL = 4;
+    static constexpr size_t SR_ERROR_AGGREGATION = 5;
+    static constexpr size_t SR_SELECTED_MEMBER = 6;
+    static constexpr size_t SR_MEMBER_WRITE_OFFSET = 7;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -47,10 +49,14 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
             return "WRITE_OUT_OF_BOUNDS_CHECK";
         case SR_IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP:
             return "IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP";
+        case SR_IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL:
+            return "IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL";
         case SR_ERROR_AGGREGATION:
             return "ERROR_AGGREGATION";
         case SR_SELECTED_MEMBER:
             return "SELECTED_MEMBER";
+        case SR_MEMBER_WRITE_OFFSET:
+            return "MEMBER_WRITE_OFFSET";
         }
         return std::to_string(index);
     }

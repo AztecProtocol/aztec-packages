@@ -69,7 +69,7 @@ import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
 } from './private_kernel/private_kernel_execution_prover.js';
-import { PrivateKernelOracleImpl } from './private_kernel/private_kernel_oracle_impl.js';
+import { PrivateKernelOracle } from './private_kernel/private_kernel_oracle.js';
 import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
@@ -148,6 +148,7 @@ export class PXE {
     const tipsStore = new L2TipsKVStore(store, 'pxe');
     const synchronizer = new BlockSynchronizer(
       node,
+      store,
       anchorBlockStore,
       noteStore,
       privateEventStore,
@@ -157,6 +158,7 @@ export class PXE {
     );
 
     const jobCoordinator = new JobCoordinator(store);
+    jobCoordinator.registerStores([capsuleStore]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
@@ -395,12 +397,7 @@ export class PXE {
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const simulationAnchorBlock = privateExecutionResult.getSimulationAnchorBlockNumber();
-    const kernelOracle = new PrivateKernelOracleImpl(
-      this.contractStore,
-      this.keyStore,
-      this.node,
-      simulationAnchorBlock,
-    );
+    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, simulationAnchorBlock);
     const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);

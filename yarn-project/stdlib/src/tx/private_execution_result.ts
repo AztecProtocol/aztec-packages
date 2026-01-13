@@ -129,8 +129,6 @@ export class PrivateCallExecutionResult {
     // Needed for the verifier (kernel)
     /** The call stack item. */
     public publicInputs: PrivateCircuitPublicInputs,
-    /** Mapping of note hash to its index in the note hash tree. Used for building hints for note hash read requests. */
-    public noteHashLeafIndexMap: Map<bigint, bigint>,
     /** The notes created in the executed function. */
     public newNotes: NoteAndSlot[],
     /** Mapping of note hash counter to the counter of its nullifier. */
@@ -159,7 +157,6 @@ export class PrivateCallExecutionResult {
         vk: schemas.Buffer,
         partialWitness: mapSchema(z.coerce.number(), z.string()),
         publicInputs: PrivateCircuitPublicInputs.schema,
-        noteHashLeafIndexMap: mapSchema(schemas.BigInt, schemas.BigInt),
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
@@ -177,7 +174,6 @@ export class PrivateCallExecutionResult {
       fields.vk,
       fields.partialWitness,
       fields.publicInputs,
-      fields.noteHashLeafIndexMap,
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
@@ -194,7 +190,6 @@ export class PrivateCallExecutionResult {
       randomBytes(4),
       new Map([[1, 'one']]),
       PrivateCircuitPublicInputs.empty(),
-      new Map([[1n, 1n]]),
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
@@ -208,16 +203,6 @@ export class PrivateCallExecutionResult {
       [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );
   }
-}
-
-export function collectNoteHashLeafIndexMap(execResult: PrivateExecutionResult) {
-  const accum: Map<bigint, bigint> = new Map();
-  const collectNoteHashLeafIndexMapRecursive = (callResult: PrivateCallExecutionResult, accum: Map<bigint, bigint>) => {
-    callResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
-    callResult.nestedExecutionResults.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
-  };
-  collectNoteHashLeafIndexMapRecursive(execResult.entrypoint, accum);
-  return accum;
 }
 
 export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionResult) {

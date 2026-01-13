@@ -77,6 +77,10 @@ function build_verifier {
   local artifact=l1-contracts-verifier-$hash.tar.gz
   if ! cache_download $artifact; then
     mkdir -p generated
+
+    # Generate network defaults from spartan (canonical source of truth for config values)
+    yq -o json 'explode(.) | ."l1-contracts" // {}' ../spartan/environments/network-defaults.yml > generated/default.json
+
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
     if [ -f "$rollup_verifier_path" ]; then

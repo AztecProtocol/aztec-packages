@@ -19,3 +19,4 @@ noir-protocol-circuits-types/src/private_kernel_reset_vks.ts
 noir-protocol-circuits-types/src/vk_tree.ts
 noir-protocol-circuits-types/src/client_artifacts_helper.ts
 constants/src/constants.gen.ts
+cli/src/config/generated

@@ -14,9 +14,11 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
+  GENESIS_CHECKPOINT_HEADER_HASH,
   L2BlockNew,
+  type L2BlockSink,
   type L2BlockSource,
-  type ValidateBlockNegativeResult,
+  type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -30,17 +32,16 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
-import type { ValidatorClient } from '@aztec/validator-client';
+import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { MockCheckpointBuilder, MockCheckpointsBuilder } from '../test/utils.js';
 import * as TestUtils from '../test/utils.js';
-import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
@@ -53,7 +54,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
-  let l2BlockSource: MockProxy<L2BlockSource>;
+  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
@@ -90,12 +91,16 @@ describe('sequencer', () => {
 
   const getSignatures = () => [mockedAttestation];
 
-  const getAttestations = () => {
-    return [TestUtils.createBlockAttestation(block, mockedSig, committee[0])];
+  const getCheckpointAttestations = () => {
+    return [TestUtils.createCheckpointAttestation(block, mockedSig, committee[0])];
   };
 
   const createBlockProposal = () => {
     return TestUtils.createBlockProposal(block, mockedSig);
+  };
+
+  const createCheckpointProposal = () => {
+    return TestUtils.createCheckpointProposal(block, mockedSig);
   };
 
   const makeBlock = async (txs: Tx[]) => {
@@ -226,10 +231,24 @@ describe('sequencer', () => {
     // Use blockProvider so the mock returns whatever `block` is set to at call time
     checkpointBuilder.setBlockProvider(() => block);
 
-    l2BlockSource = mock<L2BlockSource>({
+    l2BlockSource = mock<L2BlockSource & L2BlockSink>({
       getL2BlockNew: mockFn().mockResolvedValue(L2BlockNew.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
-      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
+      getL2Tips: mockFn().mockResolvedValue({
+        proposed: { number: lastBlockNumber, hash },
+        checkpointed: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        proven: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        finalized: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+      }),
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
@@ -237,13 +256,27 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
+      getL2Tips: mockFn().mockResolvedValue({
+        proposed: { number: lastBlockNumber, hash },
+        checkpointed: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        proven: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        finalized: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+      }),
     });
 
     validatorClient = mock<ValidatorClient>();
-    validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getAttestations()));
+    validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getCheckpointAttestations()));
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
-    validatorClient.createCheckpointProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
+    validatorClient.createCheckpointProposal.mockImplementation(() => Promise.resolve(createCheckpointProposal()));
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
 
     slasherClient = mock<SlasherClientInterface>();
@@ -577,23 +610,22 @@ describe('sequencer', () => {
     });
   });
 
-  describe('consider invalidating block', () => {
+  describe('consider invalidating checkpoint', () => {
     const validator1 = EthAddress.random();
     const validator2 = EthAddress.random();
     const validator3 = EthAddress.random();
 
-    let invalidValidationResult: ValidateBlockNegativeResult;
+    let invalidValidationResult: ValidateCheckpointNegativeResult;
 
     beforeEach(() => {
       invalidValidationResult = {
         valid: false,
-        block: {
-          blockNumber: lastBlockNumber,
+        checkpoint: {
+          checkpointNumber: CheckpointNumber(1),
           timestamp: 1000n,
           archive: Fr.random(),
           lastArchive: Fr.random(),
           slotNumber: SlotNumber(newSlotNumber),
-          txCount: 0,
         },
         committee: [validator2],
         epoch: EpochNumber(1),
@@ -615,7 +647,7 @@ describe('sequencer', () => {
       // Setup validator client
       validatorClient.getValidatorAddresses.mockReturnValue([validator1, validator2, validator3]);
 
-      // Make sure we're NOT the proposer so considerInvalidatingBlock is called
+      // Make sure we're NOT the proposer so considerInvalidatingCheckpoint is called
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(EthAddress.random());
 
       // Setup publisher factory
@@ -626,15 +658,15 @@ describe('sequencer', () => {
         });
       });
 
-      publisher.simulateInvalidateBlock.mockResolvedValue({
-        forcePendingBlockNumber: lastBlockNumber,
-      } as InvalidateBlockRequest);
+      publisher.simulateInvalidateCheckpoint.mockResolvedValue({
+        forcePendingCheckpointNumber: CheckpointNumber(1),
+      } as InvalidateCheckpointRequest);
     });
 
     it('should use committee member when invalidating as committee member', async () => {
       // Set time past the committee member threshold
       const timePastThreshold = 3; // seconds
-      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
 
       sequencer.updateConfig({
         secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
@@ -645,7 +677,7 @@ describe('sequencer', () => {
 
       // Should create publisher with the committee member validator
       expect(publisherFactory.create).toHaveBeenCalledWith(validator2);
-      expect(publisher.enqueueInvalidateBlock).toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateCheckpoint).toHaveBeenCalled();
       expect(publisher.sendRequests).toHaveBeenCalled();
     });
 
@@ -659,7 +691,7 @@ describe('sequencer', () => {
 
       // Set time past the non-committee member threshold
       const timePastThreshold = 5; // seconds
-      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
 
       sequencer.updateConfig({
         secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
@@ -670,14 +702,14 @@ describe('sequencer', () => {
 
       // Should create publisher with the first validator
       expect(publisherFactory.create).toHaveBeenCalledWith(validator1);
-      expect(publisher.enqueueInvalidateBlock).toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateCheckpoint).toHaveBeenCalled();
       expect(publisher.sendRequests).toHaveBeenCalled();
     });
 
     it('should not invalidate when time thresholds not met', async () => {
       // Set time before any threshold
       const timePastThreshold = 1;
-      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
 
       sequencer.updateConfig({
         secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
@@ -688,7 +720,7 @@ describe('sequencer', () => {
 
       // Should not create publisher or invalidate
       expect(publisherFactory.create).not.toHaveBeenCalled();
-      expect(publisher.enqueueInvalidateBlock).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
     });
 
     it('should not invalidate when pending chain is valid', async () => {
@@ -697,7 +729,7 @@ describe('sequencer', () => {
 
       // Set time past threshold
       const timePastThreshold = 5; // seconds
-      dateProvider.setTime(Number(invalidValidationResult.block.timestamp) * 1000 + timePastThreshold * 1000);
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
 
       sequencer.updateConfig({
         secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
@@ -708,7 +740,7 @@ describe('sequencer', () => {
 
       // Should not create publisher or invalidate
       expect(publisherFactory.create).not.toHaveBeenCalled();
-      expect(publisher.enqueueInvalidateBlock).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
     });
   });
 

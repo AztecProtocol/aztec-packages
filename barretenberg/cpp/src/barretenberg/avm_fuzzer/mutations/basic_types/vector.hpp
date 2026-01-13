@@ -8,7 +8,6 @@
 #pragma once
 
 #include <algorithm>
-#include <functional>
 #include <random>
 #include <vector>
 
@@ -16,10 +15,8 @@
 
 /// @brief Insert a random element at a random index
 struct RandomInsertion {
-    template <typename T>
-    static void mutate(std::mt19937_64& rng,
-                       std::vector<T>& vec,
-                       std::function<T(std::mt19937_64&)> generate_random_element_function)
+    template <typename T, typename GenerateFn>
+    static void mutate(std::mt19937_64& rng, std::vector<T>& vec, GenerateFn&& generate_random_element_function)
     {
         T element = generate_random_element_function(rng);
         if (!vec.empty()) {
@@ -59,10 +56,8 @@ struct RandomSwap {
 
 /// @brief Mutate a random element at a random index
 struct RandomElementMutation {
-    template <typename T>
-    static void mutate(std::mt19937_64& rng,
-                       std::vector<T>& vec,
-                       std::function<void(T&, std::mt19937_64&)> mutate_element_function)
+    template <typename T, typename MutateFn>
+    static void mutate(std::mt19937_64& rng, std::vector<T>& vec, MutateFn&& mutate_element_function)
     {
         if (!vec.empty()) {
             std::uniform_int_distribution<size_t> dist(0, vec.size() - 1);
@@ -72,23 +67,23 @@ struct RandomElementMutation {
     }
 };
 
-template <typename T>
+template <typename T, typename MutateFn, typename GenerateFn>
 void mutate_vec(std::vector<T>& vec,
                 std::mt19937_64& rng,
-                std::function<void(T&, std::mt19937_64&)> mutate_element_function,
-                std::function<T(std::mt19937_64&)> generate_random_element_function,
+                MutateFn&& mutate_element_function,
+                GenerateFn&& generate_random_element_function,
                 const VecMutationConfig& config)
 {
     // If vector is empty, force insertion (other mutations do nothing on empty vectors)
     if (vec.empty()) {
-        RandomInsertion::mutate(rng, vec, generate_random_element_function);
+        RandomInsertion::mutate(rng, vec, std::forward<GenerateFn>(generate_random_element_function));
         return;
     }
 
     VecMutationOptions option = config.select(rng);
     switch (option) {
     case VecMutationOptions::Insertion:
-        RandomInsertion::mutate(rng, vec, generate_random_element_function);
+        RandomInsertion::mutate(rng, vec, std::forward<GenerateFn>(generate_random_element_function));
         break;
     case VecMutationOptions::Deletion:
         RandomDeletion::mutate(rng, vec);
@@ -97,7 +92,7 @@ void mutate_vec(std::vector<T>& vec,
         RandomSwap::mutate(rng, vec);
         break;
     case VecMutationOptions::ElementMutation:
-        RandomElementMutation::mutate(rng, vec, mutate_element_function);
+        RandomElementMutation::mutate(rng, vec, std::forward<MutateFn>(mutate_element_function));
         break;
     }
 }
