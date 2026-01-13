@@ -6,6 +6,7 @@
 
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
@@ -69,7 +70,6 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                 create_mock_honk_proof<NativeFlavor, IO>(/*acir_public_inputs_size=*/input.public_inputs.size()),
                 create_mock_honk_vk<NativeFlavor, IO>(
                     /*dyadic_size=*/1 << NativeFlavor::VIRTUAL_LOG_N,
-                    /*pub_inputs_offset=*/NativeFlavor::has_zero_row ? 1 : 0,
                     /*acir_public_inputs_size=*/input.public_inputs.size()));
         }
 

@@ -6,6 +6,7 @@
 #include "hypernova_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
@@ -94,8 +95,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
     using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
 
-    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;         // maybe doesnt need to be correct
-    size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0; // always 1
+    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N; // maybe doesnt need to be correct
 
     // Construct a mock Oink or HN proof and a mock MegaHonk verification key
     std::vector<FF> proof;
@@ -111,7 +111,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
         bool include_fold = true;
         proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
 
-        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
+        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
@@ -120,7 +120,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
         bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
         proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
 
-        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
+        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size);
     }
 
     return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };

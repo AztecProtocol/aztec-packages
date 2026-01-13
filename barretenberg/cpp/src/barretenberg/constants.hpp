@@ -62,4 +62,7 @@ static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 // increase the `round_index` of the original transcript by `BRANCHING_JUMP`, so that there is a gap of `BRANCHING_JUMP`
 // round indices between what happened before and after the branching. This constant is arbitrary.
 static constexpr size_t BRANCHING_JUMP = 5;
+
+// The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
+static constexpr size_t NUM_ZERO_ROWS = 1;
 } // namespace bb

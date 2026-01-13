@@ -181,8 +181,6 @@ class SumcheckTestFlavor_ {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     using SubrelationSeparator = FF;
 
-    static constexpr bool has_zero_row = false;
-
     /**
      * @brief Precomputed polynomials (selectors)
      * @details Includes selectors for both relations
