@@ -181,12 +181,6 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
 
-    // Explicitly constrain words not already constrained via lookups during extension:
-    // - w[0], w[62], w[63]: Never accessed as w[i-15] or w[i-2] in the extension loop
-    apply_32_bit_range_constraint_via_lookup(w_sparse[0].normal);
-    apply_32_bit_range_constraint_via_lookup(w_sparse[62].normal);
-    apply_32_bit_range_constraint_via_lookup(w_sparse[63].normal);
-
     std::array<field_pt, 64> w_extended;
     for (size_t i = 0; i < 64; ++i) {
         w_extended[i] = w_sparse[i].normal;
@@ -366,12 +360,8 @@ field_t<Builder> SHA256<Builder>::add_normalize_unsafe(const field_t<Builder>& a
  * This is the only public entry point for the stdlib SHA-256 implementation. We implement only the compression function
  * (rather than a full hash) because this is all that is required in DSL.
  *
- * @note  All 24 inputs (8 hash state + 16 message words) are 32-bit constrained via lookups:
- *        - h_init[0,4]: via majority_with_sigma0/choose_with_sigma1 in round 0
- *        - h_init[1,2,5,6]: via map_into_maj/choose_sparse_form at initialization
- *        - h_init[3,7]: explicitly via apply_32_bit_range_constraint_via_lookup
- *        - input[1..15]: via convert_witness when accessed as w[i-15] or w[i-2] in extend_witness
- *        - input[0]: explicitly via apply_32_bit_range_constraint_via_lookup
+ * @note It is assumed that all 24 inputs (8 hash state + 16 message words) are 32-bit constrained externally so that
+ * the input has a unique representation.
  *
  * @param h_init The 8-word (256-bit) initial hash state. For the first block of a message,
  *               this should be the standard SHA-256 IV. For subsequent blocks, this is the
@@ -398,10 +388,6 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     auto f = map_into_choose_sparse_form(h_init[5]);
     auto g = map_into_choose_sparse_form(h_init[6]);
     sparse_value h = sparse_value(h_init[7]);
-
-    // Constrain h_init[3] and h_init[7] which are not lookup-constrained via sparse form conversion.
-    apply_32_bit_range_constraint_via_lookup(h_init[3]);
-    apply_32_bit_range_constraint_via_lookup(h_init[7]);
 
     // Extend the 16-word message block to 64 words per SHA-256 specification
     const std::array<field_t<Builder>, 64> w = extend_witness(input);

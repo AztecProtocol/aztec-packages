@@ -19,7 +19,8 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     std::array<field_ct, 16> inputs;     // message block to compress
 
     // Get the witness assignment for each witness index.
-    // No explicit range checks here - sha256_block constrains all inputs to 32 bits which ensures input uniqueness.
+    // It is assumed that the caller (Noir) separately constrains all 24 inputs (8 hash state + 16 message words) to 32
+    // bits, e.g. via instantiating them as u32 types.
     for (auto [input, witness_or_constant] : zip_view(inputs, constraint.inputs)) {
         input = to_field_ct(witness_or_constant, builder);
     }
