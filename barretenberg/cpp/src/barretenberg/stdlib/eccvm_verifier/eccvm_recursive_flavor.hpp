@@ -69,20 +69,17 @@ class ECCVMRecursiveFlavor {
     };
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
      *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
      */
-    class VerificationKey : public FixedStdlibVerificationKey_<CircuitBuilder,
-                                                               ECCVMFlavor::PrecomputedEntities<Commitment>,
-                                                               NativeVerificationKey> {
-        using Base = FixedStdlibVerificationKey_<CircuitBuilder,
-                                                 ECCVMFlavor::PrecomputedEntities<Commitment>,
-                                                 NativeVerificationKey>;
+    class VerificationKey : public FixedStdlibVKAndHash_<CircuitBuilder,
+                                                         ECCVMFlavor::PrecomputedEntities<Commitment>,
+                                                         NativeVerificationKey> {
+        using Base =
+            FixedStdlibVKAndHash_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
 
       public:
         Commitment pcs_g1_identity;

@@ -842,35 +842,20 @@ class TranslatorFlavor {
     /**
      * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
      * @details Translator has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
-     * Uses FixedVerificationKey_ as base since circuit size and public inputs are known constants.
+     * Uses FixedVKAndHash_ as base since circuit size and public inputs are known constants.
      */
-    class VerificationKey : public FixedVerificationKey_<PrecomputedEntities<Commitment>, FF> {
-        using Base = FixedVerificationKey_<PrecomputedEntities<Commitment>, FF>;
+    class VerificationKey : public FixedVKAndHash_<PrecomputedEntities<Commitment>, FF> {
+        using Base = FixedVKAndHash_<PrecomputedEntities<Commitment>, FF>;
 
       public:
-        // Default construct the fixed VK from hardcoded commitments
+        // Default construct the fixed VK from hardcoded commitments and precomputed hash
         VerificationKey()
-            : Base(compute_vk_hash())
+            : Base(TranslatorFixedVKAndHash::vk_hash())
         {
             for (auto [vk_commitment, fixed_commitment] :
-                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
+                 zip_view(this->get_all(), TranslatorFixedVKAndHash::get_all())) {
                 vk_commitment = fixed_commitment;
             }
-        }
-
-      private:
-        // Compute VK hash from commitments only (no metadata since it's fixed/constant)
-        static FF compute_vk_hash()
-        {
-            std::vector<FF> elements;
-            // Serialize commitments using the Codec
-            for (const auto& commitment : TranslatorFixedVKCommitments::get_all()) {
-                auto frs = Codec::serialize_to_fields(commitment);
-                for (const auto& fr : frs) {
-                    elements.push_back(fr);
-                }
-            }
-            return HashFunction::hash(elements);
         }
     };
 

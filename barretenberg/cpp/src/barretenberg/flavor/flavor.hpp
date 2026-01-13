@@ -131,17 +131,16 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  * @tparam PrecomputedCommitments The precomputed entities containing VK commitments
  * @tparam HashType The field type for the precomputed hash (e.g., fr for both ECCVM and Translator)
  */
-template <typename PrecomputedCommitments, typename HashType>
-class FixedVerificationKey_ : public PrecomputedCommitments {
+template <typename PrecomputedCommitments, typename HashType> class FixedVKAndHash_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
 
     HashType vk_hash{};
 
-    bool operator==(const FixedVerificationKey_&) const = default;
+    bool operator==(const FixedVKAndHash_&) const = default;
 
-    FixedVerificationKey_() = default;
-    explicit FixedVerificationKey_(HashType precomputed_hash)
+    FixedVKAndHash_() = default;
+    explicit FixedVKAndHash_(HashType precomputed_hash)
         : vk_hash(precomputed_hash)
     {}
 
@@ -376,7 +375,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
  * @tparam NativeVerificationKey The native VK type for construction from native key
  */
 template <typename Builder_, typename PrecomputedCommitments, typename NativeVerificationKey>
-class FixedStdlibVerificationKey_ : public PrecomputedCommitments {
+class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
   public:
     using Builder = Builder_;
     using Commitment = typename PrecomputedCommitments::DataType;
@@ -384,13 +383,13 @@ class FixedStdlibVerificationKey_ : public PrecomputedCommitments {
 
     FF vk_hash; // Precomputed VK hash as a witness
 
-    bool operator==(const FixedStdlibVerificationKey_&) const = default;
-    FixedStdlibVerificationKey_() = default;
+    bool operator==(const FixedStdlibVKAndHash_&) const = default;
+    FixedStdlibVKAndHash_() = default;
 
     /**
      * @brief Construct from native verification key and fix all witnesses (VK is constant for fixed circuits)
      */
-    FixedStdlibVerificationKey_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+    FixedStdlibVKAndHash_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         : vk_hash(FF::from_witness(builder, native_key->hash()))
     {
         for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {

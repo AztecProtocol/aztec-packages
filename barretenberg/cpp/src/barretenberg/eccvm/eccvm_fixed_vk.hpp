@@ -14,13 +14,18 @@ namespace bb {
 /**
  * @brief Stores the fixed ECCVM VK commitments (to precomputed polynomials) that depend only on the circuit size
  * constant ECCVM_FIXED_SIZE.
- * @details If the constant ECCVM_FIXED_SIZE changes, these commitments must be updated accordingly. Their values can be
- * obtained from the test ECCVMTests::FixedVK.
+ * @details If the constant ECCVM_FIXED_SIZE changes, these commitments and VK_HASH must be updated accordingly.
+ * Their values can be obtained from the test ECCVMTests::FixedVK.
  *
  */
-class ECCVMFixedVKCommitments {
+class ECCVMFixedVKAndHash {
   public:
     using Commitment = curve::Grumpkin::AffineElement;
+    // BF = Grumpkin base field = BN254 scalar field (fr) - this is what the VK hash uses
+    using BF = curve::Grumpkin::BaseField;
+
+    // Precomputed VK hash (hash of all commitments below). Update via ECCVMTests::FixedVK if commitments change.
+    static BF vk_hash() { return BF(uint256_t("0x129bcf94e91edaa6c74121e0d9c44154e87c332e5deef9d6d60c54bdd1186c6c")); }
 
     static constexpr std::vector<Commitment> get_all()
     {

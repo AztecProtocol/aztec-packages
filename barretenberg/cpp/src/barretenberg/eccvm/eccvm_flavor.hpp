@@ -811,10 +811,9 @@ class ECCVMFlavor {
     /**
      * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
      * @details ECCVM has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
-     * Uses FixedVerificationKey_ as base since circuit size and public inputs are known constants.
      */
-    class VerificationKey : public FixedVerificationKey_<PrecomputedEntities<Commitment>, BF> {
-        using Base = FixedVerificationKey_<PrecomputedEntities<Commitment>, BF>;
+    class VerificationKey : public FixedVKAndHash_<PrecomputedEntities<Commitment>, BF> {
+        using Base = FixedVKAndHash_<PrecomputedEntities<Commitment>, BF>;
 
       public:
         bool operator==(const VerificationKey&) const = default;
@@ -825,27 +824,13 @@ class ECCVMFlavor {
             return pcs_vk.get_g1_identity();
         }();
 
-        // Default construct the fixed VK from hardcoded commitments
+        // Default construct the fixed VK from hardcoded commitments and precomputed hash
         VerificationKey()
-            : Base(compute_vk_hash())
+            : Base(ECCVMFixedVKAndHash::vk_hash())
         {
-            for (auto [vk_commitment, fixed_commitment] :
-                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
+            for (auto [vk_commitment, fixed_commitment] : zip_view(this->get_all(), ECCVMFixedVKAndHash::get_all())) {
                 vk_commitment = fixed_commitment;
             }
-        }
-
-      private:
-        // Compute VK hash from commitments only (no metadata since it's fixed/constant)
-        static BF compute_vk_hash()
-        {
-            std::vector<BF> elements;
-            // Serialize commitments (each Grumpkin point -> 2 field elements)
-            for (const auto& commitment : ECCVMFixedVKCommitments::get_all()) {
-                elements.push_back(commitment.x);
-                elements.push_back(commitment.y);
-            }
-            return HashFunction::hash(elements);
         }
     };
 

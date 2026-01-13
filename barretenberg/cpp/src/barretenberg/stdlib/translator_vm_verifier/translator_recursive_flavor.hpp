@@ -97,16 +97,13 @@ class TranslatorRecursiveFlavor {
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
      */
-    class VerificationKey : public FixedStdlibVerificationKey_<CircuitBuilder,
-                                                               TranslatorFlavor::PrecomputedEntities<Commitment>,
-                                                               NativeVerificationKey> {
-        using Base = FixedStdlibVerificationKey_<CircuitBuilder,
-                                                 TranslatorFlavor::PrecomputedEntities<Commitment>,
-                                                 NativeVerificationKey>;
+    class VerificationKey : public FixedStdlibVKAndHash_<CircuitBuilder,
+                                                         TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                         NativeVerificationKey> {
+        using Base = FixedStdlibVKAndHash_<CircuitBuilder,
+                                           TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                           NativeVerificationKey>;
 
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
