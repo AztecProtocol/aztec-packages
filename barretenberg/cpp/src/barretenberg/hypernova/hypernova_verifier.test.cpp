@@ -211,12 +211,12 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         // Round 25: evaluations + unshifted batching challenges
         manifest.add_entry(25, "Sumcheck:evaluations", 60);
-        for (size_t i = 0; i < 55; ++i) {
+        for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(25, "unshifted_challenge_" + std::to_string(i));
         }
 
         // Round 26: shifted batching challenges
-        for (size_t i = 0; i < 5; ++i) {
+        for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(26, "shifted_challenge_" + std::to_string(i));
         }
 
