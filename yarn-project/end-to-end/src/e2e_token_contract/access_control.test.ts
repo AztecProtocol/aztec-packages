@@ -4,7 +4,7 @@ describe('e2e_token_contract access control', () => {
   const t = new TokenContractTest('access_control');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
   });
 
