@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Luke, Raju], commit: }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -31,7 +31,8 @@ namespace bb::plookup::dummy_tables {
  */
 template <uint64_t id> inline std::array<bb::fr, 2> get_value_from_key(const std::array<uint64_t, 2> key)
 {
-    return { key[0] * 3 + key[1] * 4 + id * 0x1337ULL, 0ULL };
+    // Coefficients (3, 4, 0x1337) are arbitrary; just need distinct outputs per (key, id) pair
+    return { (key[0] * 3) + (key[1] * 4) + (id * 0x1337ULL), 0ULL };
 }
 
 /**
@@ -52,7 +53,7 @@ inline BasicTable generate_honk_dummy_table(const BasicTableId id, const size_t 
     // We do the assertion, since this function is templated, but the general API for these functions contains the id,
     // too. This helps us ensure that the correct instantion is used for a particular BasicTableId
     BB_ASSERT_EQ(table_id, static_cast<uint64_t>(id));
-    const size_t base = 1 << 1; // Probably has to be a power of 2
+    const size_t base = 2; // must be >= 2 so table key columns include non-zero values
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
@@ -61,7 +62,7 @@ inline BasicTable generate_honk_dummy_table(const BasicTableId id, const size_t 
         for (uint64_t j = 0; j < base; ++j) {
             table.column_1.emplace_back(i);
             table.column_2.emplace_back(j);
-            table.column_3.emplace_back(i * 3 + j * 4 + static_cast<uint64_t>(id) * 0x1337ULL);
+            table.column_3.emplace_back((i * 3) + (j * 4) + (static_cast<uint64_t>(id) * 0x1337ULL));
         }
     }
 
@@ -83,8 +84,8 @@ inline BasicTable generate_honk_dummy_table(const BasicTableId id, const size_t 
 inline MultiTable get_honk_dummy_multitable()
 {
     const MultiTableId id = HONK_DUMMY_MULTI;
-    const size_t number_of_elements_in_argument = 1 << 1; // Probably has to be a power of 2
-    const size_t number_of_lookups = 2;
+    const size_t number_of_elements_in_argument = 2; // must be >= 2 so table key columns include non-zero values
+    const size_t number_of_lookups = 2; // need 2 basic tables so table_4 (table index column) has non-zero values
     MultiTable table(number_of_elements_in_argument,
                      number_of_elements_in_argument,
                      number_of_elements_in_argument,
