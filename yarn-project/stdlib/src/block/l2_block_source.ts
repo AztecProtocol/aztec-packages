@@ -243,7 +243,9 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
 }>;
-export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
+export interface L2BlockSourceEventEmitter extends L2BlockSource {
+  events: ArchiverEmitter;
+}
 
 /**
  * Identifier for L2 block tags.

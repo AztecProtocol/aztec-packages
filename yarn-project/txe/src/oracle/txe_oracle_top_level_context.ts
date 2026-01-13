@@ -156,7 +156,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeGetLastTxEffects() {
-    const block = await this.stateMachine.archiver.getL2Block('latest');
+    const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
+    const block = await this.stateMachine.archiver.getBlock(latestBlockNumber);
 
     if (block!.body.txEffects.length != 1) {
       // Note that calls like env.mine() will result in blocks with no transactions, hitting this

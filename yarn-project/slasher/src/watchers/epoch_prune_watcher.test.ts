@@ -93,7 +93,7 @@ describe('EpochPruneWatcher', () => {
       epoch: epochNumber,
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -146,7 +146,7 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -209,7 +209,7 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [blockFromL1],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -224,8 +224,8 @@ describe('EpochPruneWatcher', () => {
   });
 });
 
-class MockL2BlockSource extends EventEmitter {
-  constructor() {
-    super();
-  }
+class MockL2BlockSource {
+  public readonly events = new EventEmitter();
+
+  constructor() {}
 }
