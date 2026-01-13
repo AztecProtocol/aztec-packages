@@ -9,6 +9,19 @@ pub global D_INV: BLS12_381_Fr = BLS12_381_Fr::from_limbs([
     0x73e6,
 ]);
 
+#[test]
+fn test_d() {
+    let limbs = D.get_limbs();
+    assert(limbs[0] == FIELDS_PER_BLOB as u128);
+    assert(limbs[1] == 0);
+    assert(limbs[2] == 0);
+}
+
+#[test]
+fn test_log_fields_per_blob() {
+    assert(1 << LOG_FIELDS_PER_BLOB == FIELDS_PER_BLOB, "Incorrect LOG_FIELDS_PER_BLOB");
+}
+
 pub global ROOTS: [BLS12_381_Fr; FIELDS_PER_BLOB] = [
     BLS12_381_Fr::from_limbs([
         0x000000000000000000000000000001,
