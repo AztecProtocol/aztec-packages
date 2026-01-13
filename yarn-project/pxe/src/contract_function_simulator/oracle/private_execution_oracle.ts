@@ -428,6 +428,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,
+        isPending: true, // This note has just been created and hence is not settled yet.
       },
       counter,
     );
