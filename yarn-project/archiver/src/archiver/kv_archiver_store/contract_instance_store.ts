@@ -12,7 +12,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 type ContractInstanceUpdateKey = [string, string] | [string, string, number];
 
 /**
- * LMDB implementation of the ArchiverDataStore interface.
+ * LMDB-based contract instance storage for the archiver.
  */
 export class ContractInstanceStore {
   #contractInstances: AztecAsyncMap<string, Buffer>;

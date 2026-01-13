@@ -76,7 +76,7 @@ export type CheckpointData = {
 };
 
 /**
- * LMDB implementation of the ArchiverDataStore interface.
+ * LMDB-based block storage for the archiver.
  */
 export class BlockStore {
   /** Map block number to block data */

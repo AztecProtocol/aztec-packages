@@ -12,7 +12,7 @@ import type {
 import { Vector } from '@aztec/stdlib/types';
 
 /**
- * LMDB implementation of the ArchiverDataStore interface.
+ * LMDB-based contract class storage for the archiver.
  */
 export class ContractClassStore {
   #contractClasses: AztecAsyncMap<string, Buffer>;

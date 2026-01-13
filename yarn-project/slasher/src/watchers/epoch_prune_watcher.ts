@@ -63,12 +63,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 

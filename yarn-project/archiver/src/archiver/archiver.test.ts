@@ -33,7 +33,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
-import type { ArchiverDataStore } from './archiver_store.js';
 import { InitialBlockNumberNotSequentialError } from './errors.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
@@ -149,7 +148,7 @@ describe('Archiver', () => {
   let blobClient: MockProxy<BlobClientInterface>;
   let epochCache: MockProxy<EpochCache>;
   let dateProvider: TestDateProvider;
-  let archiverStore: ArchiverDataStore;
+  let archiverStore: KVArchiverDataStore;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let now: number;
 
