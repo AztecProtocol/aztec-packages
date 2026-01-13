@@ -29,6 +29,8 @@ struct FuzzerSimulationRequest {
     std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
     // Note hashes to be applied before simulation
     std::vector<FF> note_hashes;
+    // Protocol contracts mapping (canonical address index -> derived address)
+    ProtocolContracts protocol_contracts;
 
     MSGPACK_CAMEL_CASE_FIELDS(ws_data_dir,
                               ws_map_size_kb,
@@ -37,7 +39,8 @@ struct FuzzerSimulationRequest {
                               contract_classes,
                               contract_instances,
                               public_data_writes,
-                              note_hashes);
+                              note_hashes,
+                              protocol_contracts);
 };
 
 struct SimulatorResult {
@@ -63,7 +66,8 @@ class Simulator {
         const Tx& tx,
         const GlobalVariables& globals,
         const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-        const std::vector<FF>& note_hashes) = 0;
+        const std::vector<FF>& note_hashes,
+        const ProtocolContracts& protocol_contracts) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
@@ -74,7 +78,8 @@ class CppSimulator : public Simulator {
                              const Tx& tx,
                              const GlobalVariables& globals,
                              const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-                             const std::vector<FF>& note_hashes) override;
+                             const std::vector<FF>& note_hashes,
+                             const ProtocolContracts& protocol_contracts) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -101,7 +106,8 @@ class JsSimulator : public Simulator {
                              const Tx& tx,
                              const GlobalVariables& globals,
                              const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-                             const std::vector<FF>& note_hashes) override;
+                             const std::vector<FF>& note_hashes,
+                             const ProtocolContracts& protocol_contracts) override;
 };
 
 GlobalVariables create_default_globals();

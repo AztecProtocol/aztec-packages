@@ -39,7 +39,8 @@ std::string serialize_simulation_request(
     const GlobalVariables& globals,
     const FuzzerContractDB& contract_db,
     const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    const std::vector<FF>& note_hashes)
+    const std::vector<FF>& note_hashes,
+    const ProtocolContracts& protocol_contracts)
 {
     // Build vectors from contract_db
     std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
@@ -54,6 +55,7 @@ std::string serialize_simulation_request(
         .contract_instances = std::move(instances_vec),
         .public_data_writes = public_data_writes,
         .note_hashes = note_hashes,
+        .protocol_contracts = protocol_contracts,
     };
 
     auto [buffer, size] = msgpack_encode_buffer(request);
@@ -83,7 +85,8 @@ SimulatorResult CppSimulator::simulate(
     const Tx& tx,
     const GlobalVariables& globals,
     [[maybe_unused]] const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    [[maybe_unused]] const std::vector<FF>& note_hashes)
+    [[maybe_unused]] const std::vector<FF>& note_hashes,
+    const ProtocolContracts& protocol_contracts)
 {
     // Note: public_data_writes and note_hashes are already applied to C++ world state in setup_fuzzer_state
 
@@ -95,8 +98,6 @@ SimulatorResult CppSimulator::simulate(
             .max_returndata_size_in_fields = MAX_RETURN_DATA_SIZE_IN_FIELDS,
         },
     };
-
-    ProtocolContracts protocol_contracts{};
 
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
@@ -157,9 +158,11 @@ SimulatorResult JsSimulator::simulate(
     const Tx& tx,
     const GlobalVariables& globals,
     const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    const std::vector<FF>& note_hashes)
+    const std::vector<FF>& note_hashes,
+    const ProtocolContracts& protocol_contracts)
 {
-    std::string serialized = serialize_simulation_request(tx, globals, contract_db, public_data_writes, note_hashes);
+    std::string serialized =
+        serialize_simulation_request(tx, globals, contract_db, public_data_writes, note_hashes, protocol_contracts);
 
     // Send the request
     process.write_line(serialized);
