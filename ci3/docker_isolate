@@ -76,6 +76,7 @@ cid=$(docker run -d \
   -e MEM \
   -e TMPFS_SIZE \
   -e USE_HOME_TMP \
+  -e AVM \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")
