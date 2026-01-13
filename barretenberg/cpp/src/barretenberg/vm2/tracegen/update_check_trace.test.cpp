@@ -126,8 +126,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                        mock_l1_to_l2_message_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(
-        poseidon2, range_check, gt, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
+    const GlobalVariables globals = GlobalVariables{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, gt, merkle_db, update_check_event_emitter, globals);
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
