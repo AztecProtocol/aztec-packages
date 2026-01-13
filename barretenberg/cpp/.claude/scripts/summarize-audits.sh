@@ -124,9 +124,18 @@ critical_count=0
 high_count=0
 medium_count=0
 low_count=0
+informational_count=0
 skills_with_findings=0
 skills_no_findings=0
 skills_error=0
+
+# Exploitability tracking for nuanced view
+exp_none=0          # False positives / not exploitable
+exp_very_low=0      # Practically not exploitable
+exp_low=0           # Low exploitability
+exp_medium=0        # Medium exploitability
+exp_high=0          # High exploitability
+exp_other=0         # Categorical markers (completeness, soundness, etc.)
 
 for f in "${audit_files[@]}"; do
     skill_name=$(basename "$f" .md)
@@ -152,12 +161,32 @@ for f in "${audit_files[@]}"; do
         skill_high=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"high"' || true)
         skill_medium=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"medium"' || true)
         skill_low=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"low"' || true)
+        skill_info=$(echo "$json_block" | grep -c '"severity"[[:space:]]*:[[:space:]]*"informational"' || true)
 
         ((critical_count += skill_critical)) || true
         ((high_count += skill_high)) || true
         ((medium_count += skill_medium)) || true
         ((low_count += skill_low)) || true
-        ((total_findings += skill_critical + skill_high + skill_medium + skill_low)) || true
+        ((informational_count += skill_info)) || true
+        ((total_findings += skill_critical + skill_high + skill_medium + skill_low + skill_info)) || true
+
+        # Count by exploitability for nuanced view
+        skill_exp_none=$(echo "$json_block" | grep -c '"exploitability"[[:space:]]*:[[:space:]]*"none"' || true)
+        skill_exp_not_exp=$(echo "$json_block" | grep -c '"exploitability"[[:space:]]*:[[:space:]]*"not-exploitable"' || true)
+        skill_exp_very_low=$(echo "$json_block" | grep -c '"exploitability"[[:space:]]*:[[:space:]]*"very_low"' || true)
+        skill_exp_low=$(echo "$json_block" | grep -c '"exploitability"[[:space:]]*:[[:space:]]*"low"' || true)
+        skill_exp_medium=$(echo "$json_block" | grep -c '"exploitability"[[:space:]]*:[[:space:]]*"medium"' || true)
+        skill_exp_high=$(echo "$json_block" | grep -c '"exploitability"[[:space:]]*:[[:space:]]*"high"' || true)
+
+        ((exp_none += skill_exp_none + skill_exp_not_exp)) || true
+        ((exp_very_low += skill_exp_very_low)) || true
+        ((exp_low += skill_exp_low)) || true
+        ((exp_medium += skill_exp_medium)) || true
+        ((exp_high += skill_exp_high)) || true
+        # Other = total findings minus known exploitability categories
+        skill_exp_known=$((skill_exp_none + skill_exp_not_exp + skill_exp_very_low + skill_exp_low + skill_exp_medium + skill_exp_high))
+        skill_exp_other=$((skill_critical + skill_high + skill_medium + skill_low + skill_info - skill_exp_known))
+        ((exp_other += skill_exp_other > 0 ? skill_exp_other : 0)) || true
     else
         # No JSON file found - skill didn't produce JSON output
         echo -e "${YELLOW}  WARN: $skill_name - no JSON file found${NC}"
@@ -181,12 +210,29 @@ done
 # Close the combined JSON structure
 echo '' >> "$JSON_FINDINGS_FILE"
 echo '  ],' >> "$JSON_FINDINGS_FILE"
+# Calculate actionable vs informational findings
+actionable_findings=$((exp_medium + exp_high))
+likely_fp=$((exp_none + exp_very_low))
+
 echo '  "totals": {' >> "$JSON_FINDINGS_FILE"
 echo '    "findings": '$total_findings',' >> "$JSON_FINDINGS_FILE"
-echo '    "critical": '$critical_count',' >> "$JSON_FINDINGS_FILE"
-echo '    "high": '$high_count',' >> "$JSON_FINDINGS_FILE"
-echo '    "medium": '$medium_count',' >> "$JSON_FINDINGS_FILE"
-echo '    "low": '$low_count',' >> "$JSON_FINDINGS_FILE"
+echo '    "by_severity": {' >> "$JSON_FINDINGS_FILE"
+echo '      "critical": '$critical_count',' >> "$JSON_FINDINGS_FILE"
+echo '      "high": '$high_count',' >> "$JSON_FINDINGS_FILE"
+echo '      "medium": '$medium_count',' >> "$JSON_FINDINGS_FILE"
+echo '      "low": '$low_count',' >> "$JSON_FINDINGS_FILE"
+echo '      "informational": '$informational_count >> "$JSON_FINDINGS_FILE"
+echo '    },' >> "$JSON_FINDINGS_FILE"
+echo '    "by_exploitability": {' >> "$JSON_FINDINGS_FILE"
+echo '      "high": '$exp_high',' >> "$JSON_FINDINGS_FILE"
+echo '      "medium": '$exp_medium',' >> "$JSON_FINDINGS_FILE"
+echo '      "low": '$exp_low',' >> "$JSON_FINDINGS_FILE"
+echo '      "very_low": '$exp_very_low',' >> "$JSON_FINDINGS_FILE"
+echo '      "none_or_false_positive": '$exp_none',' >> "$JSON_FINDINGS_FILE"
+echo '      "other_categorical": '$exp_other >> "$JSON_FINDINGS_FILE"
+echo '    },' >> "$JSON_FINDINGS_FILE"
+echo '    "actionable_findings": '$actionable_findings',' >> "$JSON_FINDINGS_FILE"
+echo '    "likely_false_positives": '$likely_fp',' >> "$JSON_FINDINGS_FILE"
 echo '    "skills_with_findings": '$skills_with_findings',' >> "$JSON_FINDINGS_FILE"
 echo '    "skills_no_findings": '$skills_no_findings',' >> "$JSON_FINDINGS_FILE"
 echo '    "skills_error_or_no_output": '$skills_error >> "$JSON_FINDINGS_FILE"
@@ -221,7 +267,23 @@ Critical: $critical_count
 High: $high_count
 Medium: $medium_count
 Low: $low_count
+Informational: $informational_count
 TOTAL: $total_findings
+
+Findings by Exploitability
+--------------------------
+High exploitability: $exp_high
+Medium exploitability: $exp_medium
+Low exploitability: $exp_low
+Very low exploitability: $exp_very_low
+None / False positives: $exp_none
+Other (categorical): $exp_other
+
+Actionability Summary
+---------------------
+Actionable (medium+ exploitability): $actionable_findings
+Likely false positives (none/very_low): $likely_fp
+Low exploitability (needs review): $exp_low
 
 Result File Sizes
 -----------------
@@ -283,32 +345,49 @@ else
 
 ## Audit Summary
 - Total findings: '$total_findings'
+
+### By Severity:
 - Critical: '$critical_count'
 - High: '$high_count'
 - Medium: '$medium_count'
 - Low: '$low_count'
+- Informational: '$informational_count'
+
+### By Exploitability (key for prioritization):
+- High exploitability: '$exp_high' (definitely actionable)
+- Medium exploitability: '$exp_medium' (likely actionable)
+- Low exploitability: '$exp_low' (needs human review)
+- Very low exploitability: '$exp_very_low' (likely false positive)
+- None / False positives: '$exp_none' (ruled out)
+
+### Actionability:
+- Actionable findings (medium+ exploitability): '$actionable_findings'
+- Likely false positives (none/very_low): '$likely_fp'
 - Skills with findings: '$skills_with_findings'
 - Skills with no findings: '$skills_no_findings'
 
 Create a summary with these sections:
 
 ## Executive Summary
-2-3 sentences on overall security posture.
+2-3 sentences on overall security posture. Distinguish between total findings and actionable findings.
 
-## Critical Findings
-For each critical finding: ID, file:line, description, impact, fix suggestion.
+## Actionable Findings (exploitability: medium or high)
+For each: ID, file:line, severity, exploitability, description, impact, fix suggestion.
 
-## High Severity Findings
-Same format as Critical.
+## Findings Needing Review (exploitability: low)
+Brief list (ID + severity + one-liner). These need human judgment.
 
-## Medium/Low Severity Findings
-Brief list (ID + one-liner).
+## Likely False Positives (exploitability: none, very_low, not-exploitable)
+Brief count and list of categories. Include why they were ruled out if clear from the data.
+
+## Informational / Low Severity Findings
+Brief list (ID + one-liner) for findings with low severity AND low/no exploitability.
 
 ## Skills With No Findings
 List clean skills.
 
 ## Top 5 Recommendations
-Prioritized by severity and fix effort.
+Prioritized by exploitability first, then severity.
 
 ## Deduplication Notes
 Note if multiple skills found the same underlying issue.
@@ -415,10 +494,13 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo "Results:"
 echo "  Total findings: $total_findings"
-echo "    Critical: $critical_count"
-echo "    High: $high_count"
-echo "    Medium: $medium_count"
-echo "    Low: $low_count"
+echo "    By Severity:       Critical=$critical_count  High=$high_count  Medium=$medium_count  Low=$low_count  Info=$informational_count"
+echo "    By Exploitability: High=$exp_high  Medium=$exp_medium  Low=$exp_low  VeryLow=$exp_very_low  None/FP=$exp_none"
+echo ""
+echo "  Actionability:"
+echo "    Actionable (medium+ exploitability): $actionable_findings"
+echo "    Likely false positives:              $likely_fp"
+echo "    Low exploitability (needs review):   $exp_low"
 echo ""
 echo "Output files:"
 echo "  JSON Findings: $JSON_FINDINGS_FILE"
