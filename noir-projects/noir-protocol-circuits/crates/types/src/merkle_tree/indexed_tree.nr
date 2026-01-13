@@ -30,7 +30,10 @@ where
     Leaf: IndexedTreeLeafPreimage<Value>,
 {
     // Sanity check: ensure this function is called with correct generics.
-    assert_eq(SubtreeWidth, 1 << SubtreeHeight, "subtree items must be 2^subtree height");
+    std::static_assert(
+        SubtreeWidth == 1 << SubtreeHeight,
+        "subtree items must be 2^subtree height",
+    );
 
     // Check that `sorted_values` is a permutation of `values_to_insert`.
     // Values must be sorted by key in descending order. Failing to do so will still pass the permutation check,

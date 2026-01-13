@@ -30,6 +30,7 @@ pub struct TreeSnapshotDiffHints {
     pub fee_payer_balance_membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
 }
 
+/// Builds the _end_ tree snapshots,
 pub fn build_tree_snapshots(
     start_tree_snapshots: PartialStateReference,
     note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
