@@ -3,7 +3,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { deriveSharedKey, exportPublicKey, generateKeyPair, hashSharedSecret, importPublicKey } from '../../crypto.js';
-import type { DiscoveryRequest, DiscoveryResponse, WalletInfo } from '../../types.js';
+import { type DiscoveryRequest, type DiscoveryResponse, type WalletInfo, WalletMessageType } from '../../types.js';
 
 /**
  * A discovered wallet with its secure channel components.
@@ -105,7 +105,7 @@ export class ExtensionProvider {
         return;
       }
 
-      if (data.type === 'aztec-wallet-discovery-response' && data.requestId === requestId) {
+      if (data.type === WalletMessageType.DISCOVERY_RESPONSE && data.requestId === requestId) {
         // Get the MessagePort from the event
         const port = event.ports?.[0];
         if (!port) {
@@ -148,7 +148,7 @@ export class ExtensionProvider {
 
     // Send discovery message with our public key
     const discoveryMessage: DiscoveryRequest = {
-      type: 'aztec-wallet-discovery',
+      type: WalletMessageType.DISCOVERY,
       requestId,
       chainInfo,
       publicKey: exportedPublicKey,
