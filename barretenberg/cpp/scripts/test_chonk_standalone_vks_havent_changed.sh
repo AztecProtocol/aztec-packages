@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
-cd $(dirname $0)/..
+cd $root/barretenberg/cpp
 export bb=$(./scripts/find-bb)
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
