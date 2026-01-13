@@ -11,18 +11,16 @@ fn main() {
 
         println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
-        // Use link group to handle circular dependencies between static libraries
-        // libbarretenberg contains vm2_stub when built without AVM
-        // libvm2 is only present when AVM is enabled
-        // libenv provides logstr/throw_or_abort_impl
+        // Use --start-group/--end-group to handle circular dependencies between static libraries.
+        // libbarretenberg.a is a mega-library containing most symbols.
+        // env provides logstr, throw_or_abort_impl, env_hardware_concurrency
+        // vm2_stub provides create_avm2_recursion_constraints_goblin stub (throws at runtime)
+        // --allow-multiple-definition is needed because some objects are partially in libbarretenberg.a
+        println!("cargo:rustc-link-arg=-Wl,--allow-multiple-definition");
         println!("cargo:rustc-link-arg=-Wl,--start-group");
         println!("cargo:rustc-link-lib=static=barretenberg");
-        // Only link vm2 if it exists (AVM enabled builds)
-        if lib_dir.join("libvm2.a").exists() {
-            println!("cargo:rustc-link-lib=static=vm2");
-        }
-        println!("cargo:rustc-link-lib=static=common");
         println!("cargo:rustc-link-lib=static=env");
+        println!("cargo:rustc-link-lib=static=vm2_stub");
         println!("cargo:rustc-link-arg=-Wl,--end-group");
         println!("cargo:rustc-link-lib=dylib=stdc++");
     }
