@@ -13,13 +13,7 @@ import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
-import {
-  type SubsystemsContext,
-  deployAccounts,
-  publicDeployAccounts,
-  setupFromFresh,
-  teardown,
-} from '../fixtures/snapshot_manager.js';
+import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 export class Role {
@@ -53,7 +47,7 @@ export class BlacklistTokenContractTest {
   // This value MUST match the same value that we have in the contract
   static CHANGE_ROLES_DELAY = 86400;
 
-  context!: SubsystemsContext;
+  context!: EndToEndContext;
   logger: Logger;
   wallet!: TestWallet;
   asset!: TokenBlacklistContract;
@@ -98,8 +92,8 @@ export class BlacklistTokenContractTest {
     });
 
     this.cheatCodes = this.context.cheatCodes;
-    this.aztecNode = this.context.aztecNode;
-    this.sequencer = this.context.sequencer;
+    this.aztecNode = this.context.aztecNodeService!;
+    this.sequencer = this.context.sequencer!;
     this.wallet = this.context.wallet;
     this.adminAddress = deployedAccounts[0].address;
     this.otherAddress = deployedAccounts[1].address;
@@ -137,7 +131,10 @@ export class BlacklistTokenContractTest {
 
   async setup() {
     this.logger.info('Setting up fresh context');
-    this.context = await setupFromFresh(this.logger);
+    this.context = await setup(0, {
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+    });
     await this.applyBaseSetup();
   }
 

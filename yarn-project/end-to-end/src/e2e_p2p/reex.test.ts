@@ -57,7 +57,7 @@ describe('e2e_p2p_reex', () => {
     await t.applyBaseSetup();
 
     t.logger.info('Stopping main node sequencer');
-    await t.ctx.aztecNode.getSequencer()?.stop();
+    await t.ctx.aztecNodeService!.getSequencer()?.stop();
 
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
@@ -71,7 +71,7 @@ describe('e2e_p2p_reex', () => {
         minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BASE_BOOT_NODE_UDP_PORT,
@@ -233,7 +233,7 @@ describe('e2e_p2p_reex', () => {
 
         // Start a fresh slot and resume proposals
         const [ts] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-        t.ctx.dateProvider.setTime(Number(ts) * 1000);
+        t.ctx.dateProvider!.setTime(Number(ts) * 1000);
 
         await resumeProposals();
 
