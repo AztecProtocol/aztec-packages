@@ -11,6 +11,7 @@ import {
   deserializeCheckpointInfo,
   serializeCheckpointInfo,
 } from '../checkpoint/checkpoint_info.js';
+import { MAX_COMMITTEE_SIZE } from '../deserialization/index.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /** Subtype for invalid checkpoint validation results */
@@ -109,13 +110,13 @@ export function deserializeValidateCheckpointResult(bufferOrReader: Buffer | Buf
   if (valid) {
     return { valid };
   }
-  const reason = reader.readString() as 'insufficient-attestations' | 'invalid-attestation';
+  const reason = reader.readString(64) as 'insufficient-attestations' | 'invalid-attestation';
   const checkpoint = deserializeCheckpointInfo(reader.readBuffer());
-  const committee = reader.readVector(EthAddress);
+  const committee = reader.readVector(EthAddress, MAX_COMMITTEE_SIZE);
   const epoch = EpochNumber(reader.readNumber());
   const seed = reader.readBigInt();
-  const attestors = reader.readVector(EthAddress);
-  const attestations = reader.readVector(CommitteeAttestation);
+  const attestors = reader.readVector(EthAddress, MAX_COMMITTEE_SIZE);
+  const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
   const invalidIndex = reader.readNumber();
   if (reason === 'insufficient-attestations') {
     return { valid, reason, checkpoint, committee, epoch, seed, attestors, attestations };
