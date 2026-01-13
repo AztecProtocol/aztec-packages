@@ -15,13 +15,13 @@ class UpdateCheck : public UpdateCheckInterface {
                 GreaterThanInterface& gt,
                 HighLevelMerkleDBInterface& merkle_db,
                 EventEmitterInterface<UpdateCheckEvent>& read_event_emitter,
-                const GlobalVariables& globals)
+                const GlobalVariables& globals_)
         : update_check_events(read_event_emitter)
         , poseidon2(poseidon2)
         , range_check(range_check)
         , gt(gt)
         , merkle_db(merkle_db)
-        , globals(globals)
+        , globals(globals_)
     {}
 
     void check_current_class_id(const AztecAddress& address, const ContractInstance& instance) override;
@@ -32,7 +32,7 @@ class UpdateCheck : public UpdateCheckInterface {
     RangeCheckInterface& range_check;
     GreaterThanInterface& gt;
     HighLevelMerkleDBInterface& merkle_db;
-    const GlobalVariables& globals;
+    GlobalVariables globals;
 };
 
 } // namespace bb::avm2::simulation
