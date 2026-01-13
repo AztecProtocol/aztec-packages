@@ -15,7 +15,6 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address, rollup } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, user1Address, user2Address, ownerAddress, rollup } = t);

@@ -31,10 +31,10 @@ describe('e2e_fees gas_estimation', () => {
   const t = new FeesTest('gas_estimation');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
+    await t.setup();
+    await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = await t.setup());
+    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);
   });
 
   beforeEach(async () => {
