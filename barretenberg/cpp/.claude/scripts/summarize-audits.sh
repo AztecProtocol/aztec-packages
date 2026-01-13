@@ -71,6 +71,15 @@ COMBINED_FILE="$OUTPUT_DIR/.combined-findings.txt"
 JSON_FINDINGS_FILE="$OUTPUT_DIR/findings.json"
 STATS_FILE="$OUTPUT_DIR/STATS.txt"
 
+# Temp files for large prompts (avoids "Argument list too long" errors)
+PROMPT_FILE=""
+CONSENSUS_PROMPT_FILE=""
+cleanup_temp_files() {
+    [[ -n "$PROMPT_FILE" && -f "$PROMPT_FILE" ]] && rm -f "$PROMPT_FILE"
+    [[ -n "$CONSENSUS_PROMPT_FILE" && -f "$CONSENSUS_PROMPT_FILE" ]] && rm -f "$CONSENSUS_PROMPT_FILE"
+}
+trap cleanup_temp_files EXIT
+
 echo -e "${BLUE}Gathering audit results from: $OUTPUT_DIR${NC}"
 
 # Count findings by collecting all .md files (excluding SUMMARY.md)
@@ -306,19 +315,27 @@ Note if multiple skills found the same underlying issue.
 
 Use the finding IDs exactly as they appear in the JSON.'
 
-    # Run claude with JSON data
-    if claude -p "$SUMMARIZE_PROMPT
+    # Run claude with JSON data via stdin (avoids "Argument list too long" for large findings)
+    # Use streaming append to avoid heredoc backslash interpretation issues with JSON
+    PROMPT_FILE=$(mktemp)
 
-## JSON Findings Data
-\`\`\`json
-$(cat "$JSON_FINDINGS_FILE")
-\`\`\`
+    {
+        echo "$SUMMARIZE_PROMPT"
+        echo ""
+        echo "## JSON Findings Data"
+        echo '```json'
+    } > "$PROMPT_FILE"
+    cat "$JSON_FINDINGS_FILE" >> "$PROMPT_FILE"
+    {
+        echo '```'
+        echo ""
+        echo "Please provide the summary."
+    } >> "$PROMPT_FILE"
 
-Please provide the summary." \
+    if claude -p - \
         --model "$MODEL" \
         --output-format text \
-        > "$SUMMARY_FILE" 2>&1; then
-
+        < "$PROMPT_FILE" > "$SUMMARY_FILE" 2>&1; then
         echo -e "${GREEN}Summary written to: $SUMMARY_FILE${NC}"
     else
         echo -e "${RED}Summarization failed. Check $SUMMARY_FILE for errors.${NC}"
@@ -344,33 +361,38 @@ if [[ "$JSON_ONLY" != "true" ]] && { [[ "$EXTRA_MULTI_MODEL_SUMMARY" == "true" ]
     MULTI_MODEL_LOG="$OUTPUT_DIR/.multi-model-validate.log"
     MULTI_MODEL_START=$(date +%s)
 
-    CONSENSUS_PROMPT='Cross-validate these VM2/AVM security audit findings using the mcp__pal__consensus tool.
+    # Use temp file for prompt to avoid "Argument list too long" with large JSON
+    # Use streaming append to avoid heredoc backslash interpretation issues with JSON
+    CONSENSUS_PROMPT_FILE=$(mktemp)
 
-Use models: [{"model":"gemini-3-pro-preview","stance":"neutral"},{"model":"gpt-5.2","stance":"neutral"}]
+    {
+        echo 'Cross-validate these VM2/AVM security audit findings using the mcp__pal__consensus tool.'
+        echo ''
+        echo 'Use models: [{"model":"gemini-3-pro-preview","stance":"neutral"},{"model":"gpt-5.2","stance":"neutral"}]'
+        echo ''
+        echo 'For each finding, have models assess:'
+        echo '1. CONFIRMED / DISPUTED / UNCERTAIN'
+        echo '2. Their severity (Critical/High/Medium/Low/False Positive)'
+        echo '3. Brief reasoning'
+        echo ''
+        echo 'Output the complete summary as markdown with:'
+        echo '- Consensus table (Finding ID | Claude Severity | Gemini | GPT | Consensus)'
+        echo '- High-confidence findings (all models agree)'
+        echo '- Disputed findings (models disagree)'
+        echo '- Potential false positives'
+        echo '- Prioritized recommendations based on consensus'
+        echo ''
+        echo 'Findings JSON:'
+        echo '```json'
+    } > "$CONSENSUS_PROMPT_FILE"
+    cat "$JSON_FINDINGS_FILE" >> "$CONSENSUS_PROMPT_FILE"
+    echo '```' >> "$CONSENSUS_PROMPT_FILE"
 
-For each finding, have models assess:
-1. CONFIRMED / DISPUTED / UNCERTAIN
-2. Their severity (Critical/High/Medium/Low/False Positive)
-3. Brief reasoning
-
-Output the complete summary as markdown with:
-- Consensus table (Finding ID | Claude Severity | Gemini | GPT | Consensus)
-- High-confidence findings (all models agree)
-- Disputed findings (models disagree)
-- Potential false positives
-- Prioritized recommendations based on consensus
-
-Findings JSON:
-```json
-'"$(cat "$JSON_FINDINGS_FILE")"'
-```'
-
-    if claude -p "$CONSENSUS_PROMPT" \
+    if claude -p - \
         --model "$MODEL" \
         --allowedTools "mcp__pal__consensus,mcp__pal__chat" \
         --output-format text \
-        > "$MULTI_MODEL_SUMMARY" 2>"$MULTI_MODEL_LOG"; then
-
+        < "$CONSENSUS_PROMPT_FILE" > "$MULTI_MODEL_SUMMARY" 2>"$MULTI_MODEL_LOG"; then
         MULTI_MODEL_END=$(date +%s)
         MULTI_MODEL_DURATION=$((MULTI_MODEL_END - MULTI_MODEL_START))
         echo -e "${GREEN}Multi-model validation complete (${MULTI_MODEL_DURATION}s)${NC}"

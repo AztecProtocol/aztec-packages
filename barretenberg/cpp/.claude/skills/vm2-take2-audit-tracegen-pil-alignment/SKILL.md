@@ -8,6 +8,15 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 Audits for tracegen-PIL misalignment - **completeness issue** where trace generation doesn't match PIL constraints.
 
+## Severity Assessment
+
+**Assess severity case-by-case** based on impact and reachability:
+
+- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
+- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+
 ## Common Misalignment Types
 
 | Type | Example | Impact |
@@ -71,6 +80,22 @@ row.tag_diff = static_cast<uint64_t>(tag_a - tag_b);  // Wrong for negative!
 row.tag_diff = FF(tag_a) - FF(tag_b);  // Field subtraction
 ```
 
+### False Positive: Start-Row-Only Columns (NO FIX NEEDED)
+
+Columns without propagation are SAFE if influence is strictly limited to start rows:
+```pil
+// SAFE: offset gated by sel_start, never referenced when sel_start=0
+offset_plus_size = sel_start * (offset + copy_size);
+```
+
+**Before flagging missing propagation**:
+1. Find ALL references (direct + transitive via intermediate defs)
+2. Verify EVERY reference is gated by start-row selector (`sel_start * expr`)
+3. Confirm gating selector is boolean-constrained and only active on start rows
+4. Check column is NOT in lookups/permutations outside start-row gating
+5. IF any ungated usage OR next-row reference (`col'`) → Flag Vulnerability
+6. ELSE → Mark False Positive
+
 ## Examples
 
 ### Example 1: Missing Column (PR #18864)
@@ -104,7 +129,7 @@ You MUST produce TWO output files:
 
 | Item | Value |
 |------|-------|
-| Skill | `{skill-name}` |
+| Skill | `vm2-audit-tracegen-pil-alignment` |
 | Target | `{path audited}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
@@ -112,7 +137,7 @@ You MUST produce TWO output files:
 
 #### Findings Format
 
-- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **ID**: `vm2-audit-tracegen-pil-alignment-filename-123-issue-type` (MUST use full skill name: `vm2-audit-tracegen-pil-alignment`)
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
@@ -120,15 +145,15 @@ You MUST produce TWO output files:
 
 ### 2. JSON File (REQUIRED - separate file)
 
-Write a `{skill-name}.json` file to the output directory with:
+Write a `vm2-audit-tracegen-pil-alignment.json` file to the output directory with:
 
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-tracegen-pil-alignment",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "id": "vm2-audit-tracegen-pil-alignment-filename-123-issue-type",
       "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
@@ -143,7 +168,7 @@ Write a `{skill-name}.json` file to the output directory with:
 For no findings:
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-tracegen-pil-alignment",
   "status": "COMPLETED_NO_FINDINGS",
   "findings": []
 }

@@ -10,6 +10,15 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 Write tests that verify **lookup and permutation interactions** work correctly. These tests check that source rows match destination rows in count and tuple values.
 
+## Severity Assessment
+
+**Assess severity case-by-case** based on impact and reachability:
+
+- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
+- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+
 ## Key Concepts
 
 ### Lookups vs Permutations

@@ -8,6 +8,15 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 Audits for tracegen-PIL misalignment - **completeness issue** where trace generation doesn't match PIL constraints, causing valid executions to fail verification.
 
+## Severity Assessment
+
+**Assess severity case-by-case** based on impact and reachability:
+
+- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
+- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+
 ## Common Misalignment Types
 
 ### Type 1: Missing Column Assignment
@@ -47,17 +56,53 @@ if (event.error == ErrorType::None) {
 // But tracegen doesn't toggle it
 ```
 
-### Type 5: Wrong Selector Condition
+### Type 5: Wrong Selector Condition (Partition Derivation Error)
+
+When PIL defines `sel = A + B + C` (partition), derive each sub-selector algebraically:
 
 ```cpp
-// VULNERABLE: Selector condition doesn't match PIL semantics
-// PIL: sel = double_op + add_op + INFINITY_PRED (exactly one must be 1)
+// PIL: sel = double_op + add_op + INFINITY_PRED
 // Where: double_op = x_match * y_match, INFINITY_PRED = x_match * (1 - y_match)
-// Therefore: add_op = 1 when x_match = 0 (regardless of y_match)
+// Derivation: add_op = sel - x_match, so add_op = 1 when x_match = 0
 
-bool add_predicate = (!x_match && !y_match);  // WRONG: requires both to differ
-bool add_predicate = !x_match;                 // CORRECT: only x must differ
+bool add_predicate = (!x_match && !y_match);  // WRONG
+bool add_predicate = !x_match;                 // CORRECT
 ```
+
+### Type 6: Conditional Column Assignment Mismatch
+
+PIL `column = flag * expr` requires tracegen to apply the same condition:
+
+```cpp
+// PIL: member_write_offset = is_valid * (dst_offset + 1)
+row.member_write_offset = dst_offset + 1;                        // WRONG
+row.member_write_offset = is_valid ? (dst_offset + 1) : 0;       // CORRECT
+```
+
+### Type 7: Wrong Selector Used in Accumulation
+
+```cpp
+// PIL uses should_apply_indirection[i], tracegen uses wrong selector
+batched_tags_diff += FF(is_indirect_effective[i] ? 1 : 0) * ...;  // WRONG
+if (should_apply_indirection[i]) { batched_tags_diff += ...; }    // CORRECT
+```
+
+### Type 8: False Positive - Start-Row-Only Columns (NO FIX NEEDED)
+
+Columns without propagation are SAFE if influence is strictly limited to start rows.
+
+```pil
+// SAFE: offset gated by sel_start, never referenced when sel_start=0
+offset_plus_size = sel_start * (offset + copy_size);
+```
+
+**Validation Protocol**:
+1. Find ALL references (direct + transitive via intermediate defs like `tmp = col + x`)
+2. Verify EVERY reference is gated by a start-row selector (`sel_start * expr`)
+3. Confirm gating selector is boolean-constrained and only active on start rows
+4. Check column is NOT in lookups/permutations outside start-row gating
+5. IF any ungated usage OR next-row reference (`col'`) → Flag Vulnerability
+6. ELSE → Mark False Positive (Start-Row-Only Input)
 
 ## Instructions
 
@@ -133,17 +178,17 @@ grep -n "sel_.*= 1\|sel_.*= true" barretenberg/cpp/src/barretenberg/vm2/tracegen
 grep -n "sel_" barretenberg/cpp/pil/vm2/<component>.pil
 ```
 
-### Step 7: Derive Selector Conditions from PIL
+### Step 7: Derive Selector Conditions from PIL Partitions
 
-For constraints like `sel = A + B + C` (sum of selectors equals parent selector):
-1. Each sub-selector must be boolean and mutually exclusive
-2. Work backwards: when should each be 1?
-3. Verify tracegen boolean conditions match the derived requirements
+For `sel = A + B + C` partitions: algebraically derive each sub-selector, then verify tracegen boolean matches.
 
-Example: `sel = double_op + add_op + INFINITY_PRED` where:
-- `double_op = x_match * y_match` → both coords match
-- `INFINITY_PRED = x_match * (1 - y_match)` → x matches, y doesn't
-- `add_op` → must be 1 in remaining case: `x_match = 0`
+```bash
+grep -rn "sel.*=.*+.*+" barretenberg/cpp/pil/vm2/ --include="*.pil"
+```
+
+### Step 8: Check Conditional Column Assignments
+
+For PIL `column = flag * expr`, verify tracegen applies the same condition.
 
 ## Patterns
 
@@ -260,37 +305,35 @@ throw Sha256CompressionException("SHA256 error");
 ```
 **Impact**: Error handling path broken, trace not generated.
 
-### Example 5: Wrong Selector Condition (ECC add_predicate)
+### Example 5: Wrong Partition Derivation - ECC add_predicate (PR #19471)
 
 ```cpp
-// BEFORE: Required both coordinates to differ
-bool add_predicate = (!x_match && !y_match);
-
-// AFTER: Only x-coordinate matters (derived from PIL constraint)
-bool add_predicate = !x_match;
+// PIL: sel = double_op + add_op + INFINITY_PRED
+// Algebraic derivation shows: add_op = 1 when x_match = 0
+bool add_predicate = (!x_match && !y_match);  // WRONG
+bool add_predicate = !x_match;                 // CORRECT
 ```
-**Impact**: Adding points with same y but different x (possible via cube roots of unity) failed constraint `sel = double_op + add_op + INFINITY_PRED`.
+
+### Example 6: Conditional Assignment - GetContractInstance (PR #19527)
+
+```cpp
+// PIL: member_write_offset = is_valid * (dst_offset + 1)
+row.member_write_offset = dst_offset + 1;                    // WRONG
+row.member_write_offset = is_valid ? (dst_offset + 1) : 0;   // CORRECT
+```
+
+### Example 7: Wrong Selector in Accumulation (Commit 9fa812c)
+
+```cpp
+// PIL uses should_apply_indirection, tracegen used is_indirect_effective
+if (should_apply_indirection[i]) { ... }  // CORRECT selector
+```
 
 ## Debugging Tips
 
-1. **Print trace row when constraint fails**:
-   ```cpp
-   // In test, log the failing row
-   std::cerr << "Row " << i << ": " << row << std::endl;
-   ```
-
-2. **Compare expected vs actual**:
-   ```cpp
-   // Add debug output in tracegen
-   LOG("Setting column_a = " << value);
-   ```
-
-3. **Check constraint evaluation**:
-   ```cpp
-   // Evaluate constraint manually
-   auto result = lhs - rhs;  // Should be 0
-   if (result != 0) { LOG("Constraint violated: " << result); }
-   ```
+1. **Print trace row when constraint fails** - log the failing row values
+2. **Compare expected vs actual** - add debug output in tracegen
+3. **For selector partitions** - verify sum of sub-selectors equals parent selector
 
 ## REQUIRED OUTPUT FORMAT
 
@@ -302,7 +345,7 @@ You MUST produce TWO output files:
 
 | Item | Value |
 |------|-------|
-| Skill | `{skill-name}` |
+| Skill | `vm2-audit-tracegen-pil-alignment` |
 | Target | `{path audited}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
@@ -310,7 +353,7 @@ You MUST produce TWO output files:
 
 #### Findings Format
 
-- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **ID**: `vm2-audit-tracegen-pil-alignment-filename-123-issue-type` (MUST use full skill name: `vm2-audit-tracegen-pil-alignment`)
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
@@ -318,15 +361,15 @@ You MUST produce TWO output files:
 
 ### 2. JSON File (REQUIRED - separate file)
 
-Write a `{skill-name}.json` file to the output directory with:
+Write a `vm2-audit-tracegen-pil-alignment.json` file to the output directory with:
 
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-tracegen-pil-alignment",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "id": "vm2-audit-tracegen-pil-alignment-filename-123-issue-type",
       "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
@@ -341,7 +384,7 @@ Write a `{skill-name}.json` file to the output directory with:
 For no findings:
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-tracegen-pil-alignment",
   "status": "COMPLETED_NO_FINDINGS",
   "findings": []
 }
