@@ -1,14 +1,7 @@
-import {
-  INITIAL_CHECKPOINT_NUMBER,
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NOTE_HASHES_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-} from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
+import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
@@ -23,15 +16,14 @@ import {
   L2BlockNew,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint, L1PublishedData, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
-import { ContractClassLog, LogId, PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { ContractClassLog, LogId } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   makeContractClassPublic,
@@ -40,9 +32,20 @@ import {
 } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { type IndexedTxEffect, PartialStateReference, StateReference, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { makeInboxMessage, makeInboxMessages } from '../../test/mock_structs.js';
+import {
+  makeCheckpointWithLogs,
+  makeInboxMessage,
+  makeInboxMessages,
+  makeInboxMessagesWithFullBlocks,
+  makePrivateLog,
+  makePrivateLogTag,
+  makePublicLog,
+  makePublicLogTag,
+  makePublishedCheckpoint,
+  makeStateForBlock,
+} from '../../test/mock_structs.js';
 import {
   BlockArchiveNotConsistentError,
   BlockIndexNotSequentialError,
@@ -65,33 +68,6 @@ describe('KVArchiverDataStore', () => {
     [10, () => publishedCheckpoints[9].checkpoint.blocks[0]],
     [5, () => publishedCheckpoints[4].checkpoint.blocks[0]],
   ];
-
-  const makeBlockHash = (blockNumber: number) => `0x${blockNumber.toString(16).padStart(64, '0')}`;
-
-  // Create a state reference with properly calculated noteHashTree.nextAvailableLeafIndex
-  // This is needed because the log store calculates dataStartIndexForBlock as:
-  //   noteHashTree.nextAvailableLeafIndex - txEffects.length * MAX_NOTE_HASHES_PER_TX
-  // If nextAvailableLeafIndex is too small (random values 0-1000), this becomes negative
-  const makeStateForBlock = (blockNumber: number, txsPerBlock: number): StateReference => {
-    // Ensure nextAvailableLeafIndex is large enough for all blocks up to this point
-    const noteHashIndex = blockNumber * txsPerBlock * MAX_NOTE_HASHES_PER_TX;
-    return new StateReference(
-      AppendOnlyTreeSnapshot.random(),
-      new PartialStateReference(
-        new AppendOnlyTreeSnapshot(Fr.random(), noteHashIndex),
-        AppendOnlyTreeSnapshot.random(),
-        AppendOnlyTreeSnapshot.random(),
-      ),
-    );
-  };
-
-  const makePublishedCheckpoint = (checkpoint: Checkpoint, l1BlockNumber: number): PublishedCheckpoint => {
-    return new PublishedCheckpoint(
-      checkpoint,
-      new L1PublishedData(BigInt(l1BlockNumber), BigInt(l1BlockNumber * 1000), makeBlockHash(l1BlockNumber)),
-      times(3, CommitteeAttestation.random),
-    );
-  };
 
   const expectCheckpointedBlockEquals = (
     actual: CheckpointedL2Block,
@@ -1798,22 +1774,6 @@ describe('KVArchiverDataStore', () => {
       expect(await store.getTotalL1ToL2MessageCount()).toEqual(BigInt(msgs.length));
     };
 
-    const makeInboxMessagesWithFullBlocks = (
-      blockCount: number,
-      opts: { initialCheckpointNumber?: CheckpointNumber } = {},
-    ) =>
-      makeInboxMessages(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * blockCount, {
-        overrideFn: (msg, i) => {
-          const checkpointNumber = CheckpointNumber(
-            (opts.initialCheckpointNumber ?? initialCheckpointNumber) +
-              Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-          );
-          const index =
-            InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(i % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-          return { ...msg, checkpointNumber, index };
-        },
-      });
-
     it('stores first message ever', async () => {
       const msg = makeInboxMessage(Buffer16.ZERO, { index: 0n, checkpointNumber: CheckpointNumber(1) });
       await store.addL1ToL2Messages([msg]);
@@ -2195,60 +2155,18 @@ describe('KVArchiverDataStore', () => {
 
     let logsCheckpoints: PublishedCheckpoint[];
 
-    const makePrivateLogTag = (blockNumber: number, txIndex: number, logIndex: number): SiloedTag =>
-      new SiloedTag(
-        blockNumber === 1 && txIndex === 0 && logIndex === 0
-          ? Fr.ZERO // Shared tag
-          : new Fr(blockNumber * 100 + txIndex * 10 + logIndex),
-      );
-
-    const makePrivateLog = (tag: SiloedTag) =>
-      PrivateLog.from({
-        fields: makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, i => (!i ? tag.value : new Fr(tag.value.toBigInt() + BigInt(i)))),
-        emittedLength: PRIVATE_LOG_SIZE_IN_FIELDS,
-      });
-
-    const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
-      return times(numPrivateLogsPerTx, (logIndex: number) => {
-        const tag = makePrivateLogTag(blockNumber, txIndex, logIndex);
-        return makePrivateLog(tag);
-      });
-    };
-
-    const mockCheckpointWithLogs = async (
-      blockNumber: number,
-      previousArchive?: AppendOnlyTreeSnapshot,
-    ): Promise<PublishedCheckpoint> => {
-      const block = await L2BlockNew.random(BlockNumber(blockNumber), {
-        checkpointNumber: CheckpointNumber(blockNumber),
-        indexWithinCheckpoint: 0,
-        state: makeStateForBlock(blockNumber, numTxsPerBlock),
-        ...(previousArchive ? { lastArchive: previousArchive } : {}),
-      });
-      block.header.globalVariables.blockNumber = BlockNumber(blockNumber);
-
-      block.body.txEffects = await timesParallel(numTxsPerBlock, async (txIndex: number) => {
-        const txEffect = await TxEffect.random();
-        txEffect.privateLogs = mockPrivateLogs(blockNumber, txIndex);
-        txEffect.publicLogs = []; // No public logs needed for private log tests
-        return txEffect;
-      });
-
-      const checkpoint = new Checkpoint(
-        AppendOnlyTreeSnapshot.random(),
-        CheckpointHeader.random(),
-        [block],
-        CheckpointNumber(blockNumber),
-      );
-      return makePublishedCheckpoint(checkpoint, blockNumber);
-    };
-
     beforeEach(async () => {
       // Create checkpoints sequentially to chain archive roots
       logsCheckpoints = [];
       for (let i = 0; i < numBlocksForLogs; i++) {
         const previousArchive = i > 0 ? logsCheckpoints[i - 1].checkpoint.blocks[0].archive : undefined;
-        logsCheckpoints.push(await mockCheckpointWithLogs(i + 1, previousArchive));
+        logsCheckpoints.push(
+          await makeCheckpointWithLogs(i + 1, {
+            previousArchive,
+            numTxsPerBlock,
+            privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+          }),
+        );
       }
 
       await store.addCheckpoints(logsCheckpoints);
@@ -2283,7 +2201,11 @@ describe('KVArchiverDataStore', () => {
       // Chain from the last checkpoint's archive
       const newBlockNumber = numBlocksForLogs + 1;
       const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
-      const newCheckpoint = await mockCheckpointWithLogs(newBlockNumber, previousArchive);
+      const newCheckpoint = await makeCheckpointWithLogs(newBlockNumber, {
+        previousArchive,
+        numTxsPerBlock,
+        privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+      });
       const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1];
       newLog.fields[0] = tags[0].value;
       newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1] = newLog;
@@ -2333,61 +2255,18 @@ describe('KVArchiverDataStore', () => {
 
     let logsCheckpoints: PublishedCheckpoint[];
 
-    const makePublicLogTag = (blockNumber: number, txIndex: number, logIndex: number): Tag =>
-      new Tag(
-        blockNumber === 1 && txIndex === 0 && logIndex === 0
-          ? Fr.ZERO // Shared tag
-          : new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * 123),
-      );
-
-    const makePublicLog = (tag: Tag) =>
-      PublicLog.from({
-        contractAddress: contractAddress,
-        // Arbitrary length
-        fields: new Array(10).fill(null).map((_, i) => (!i ? tag.value : new Fr(tag.value.toBigInt() + BigInt(i)))),
-      });
-
-    const mockPublicLogs = (blockNumber: number, txIndex: number) => {
-      return times(numPublicLogsPerTx, (logIndex: number) => {
-        const tag = makePublicLogTag(blockNumber, txIndex, logIndex);
-        return makePublicLog(tag);
-      });
-    };
-
-    const mockCheckpointWithLogs = async (
-      blockNumber: number,
-      previousArchive?: AppendOnlyTreeSnapshot,
-    ): Promise<PublishedCheckpoint> => {
-      const block = await L2BlockNew.random(BlockNumber(blockNumber), {
-        checkpointNumber: CheckpointNumber(blockNumber),
-        indexWithinCheckpoint: 0,
-        state: makeStateForBlock(blockNumber, numTxsPerBlock),
-        ...(previousArchive ? { lastArchive: previousArchive } : {}),
-      });
-      block.header.globalVariables.blockNumber = BlockNumber(blockNumber);
-
-      block.body.txEffects = await timesParallel(numTxsPerBlock, async (txIndex: number) => {
-        const txEffect = await TxEffect.random();
-        txEffect.privateLogs = []; // No private logs needed for public log tests
-        txEffect.publicLogs = mockPublicLogs(blockNumber, txIndex);
-        return txEffect;
-      });
-
-      const checkpoint = new Checkpoint(
-        AppendOnlyTreeSnapshot.random(),
-        CheckpointHeader.random(),
-        [block],
-        CheckpointNumber(blockNumber),
-      );
-      return makePublishedCheckpoint(checkpoint, blockNumber);
-    };
-
     beforeEach(async () => {
       // Create checkpoints sequentially to chain archive roots
       logsCheckpoints = [];
       for (let i = 0; i < numBlocksForLogs; i++) {
         const previousArchive = i > 0 ? logsCheckpoints[i - 1].checkpoint.blocks[0].archive : undefined;
-        logsCheckpoints.push(await mockCheckpointWithLogs(i + 1, previousArchive));
+        logsCheckpoints.push(
+          await makeCheckpointWithLogs(i + 1, {
+            previousArchive,
+            numTxsPerBlock,
+            publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+          }),
+        );
       }
 
       await store.addCheckpoints(logsCheckpoints);
@@ -2422,7 +2301,11 @@ describe('KVArchiverDataStore', () => {
       // Chain from the last checkpoint's archive
       const newBlockNumber = numBlocksForLogs + 1;
       const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
-      const newCheckpoint = await mockCheckpointWithLogs(newBlockNumber, previousArchive);
+      const newCheckpoint = await makeCheckpointWithLogs(newBlockNumber, {
+        previousArchive,
+        numTxsPerBlock,
+        publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+      });
       const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1];
       newLog.fields[0] = tags[0].value;
       newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1] = newLog;
