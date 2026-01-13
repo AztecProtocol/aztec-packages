@@ -163,7 +163,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,
       validatorReexecute: true,
-      validatorReexecuteDeadlineMs: 1000,
       disableTransactions: false,
     });
   }

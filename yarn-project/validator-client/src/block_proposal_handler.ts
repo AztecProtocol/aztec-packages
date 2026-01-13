@@ -414,8 +414,7 @@ export class BlockProposalHandler {
 
   private getReexecutionDeadline(slot: SlotNumber, config: { l1GenesisTime: bigint; slotDuration: number }): Date {
     const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
-    const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
-    return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
+    return new Date(nextSlotTimestampSeconds * 1000);
   }
 
   /**

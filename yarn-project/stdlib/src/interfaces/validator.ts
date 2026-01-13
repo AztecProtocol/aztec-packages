@@ -43,9 +43,6 @@ export interface ValidatorClientConfig {
   /** Whether to re-execute transactions in a block proposal before attesting */
   validatorReexecute: boolean;
 
-  /** Will re-execute until this many milliseconds are left in the slot */
-  validatorReexecuteDeadlineMs: number;
-
   /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
   alwaysReexecuteBlockProposals?: boolean;
 
@@ -78,7 +75,6 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     disabledValidators: z.array(schemas.EthAddress),
     attestationPollingIntervalMs: z.number().min(0),
     validatorReexecute: z.boolean(),
-    validatorReexecuteDeadlineMs: z.number().min(0),
     alwaysReexecuteBlockProposals: z.boolean().optional(),
     fishermanMode: z.boolean().optional(),
     skipCheckpointProposalValidation: z.boolean().optional(),
