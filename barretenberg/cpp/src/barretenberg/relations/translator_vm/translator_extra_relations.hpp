@@ -194,8 +194,8 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
         // All contributions are identically zero if outside the minicircuit and masked area or when we have a
         // no-op (i.e. op is zero at an even index)
         static constexpr auto minus_one = -FF(1);
-        return (in.lagrange_even_in_minicircuit + in.op + minus_one).is_zero() ||
-               (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
+        return (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_mini_masking + minus_one)
+            .is_zero();
     }
     /**
      * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit
