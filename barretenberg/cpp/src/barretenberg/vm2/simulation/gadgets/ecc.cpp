@@ -23,13 +23,16 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
     // Check if points are on the curve. These will throw an unexpected exception if they fail.
     BB_ASSERT(p.on_curve(), "Point p is not on the curve");
     BB_ASSERT(q.on_curve(), "Point q is not on the curve");
+    // Check if the points are normalized (infinity points must be (0, 0, true))
+    if (p.is_infinity()) {
+        BB_ASSERT((p.x() == 0) && (p.y() == 0), "Point p is not normalized");
+    }
+    if (q.is_infinity()) {
+        BB_ASSERT((q.x() == 0) && (q.y() == 0), "Point q is not normalized");
+    }
 
-    // Normalize input infinity points.
-    EmbeddedCurvePoint p_input = p.is_infinity() ? EmbeddedCurvePoint::infinity() : p;
-    EmbeddedCurvePoint q_input = q.is_infinity() ? EmbeddedCurvePoint::infinity() : q;
-
-    EmbeddedCurvePoint result = p_input + q_input;
-    add_events.emit({ .p = p_input, .q = q_input, .result = result });
+    EmbeddedCurvePoint result = p + q;
+    add_events.emit({ .p = p, .q = q, .result = result });
     return result;
 }
 
@@ -92,7 +95,11 @@ void Ecc::add(MemoryInterface& memory,
             throw InternalEccException("One of the points is not on the curve");
         }
 
-        EmbeddedCurvePoint result = add(p, q); // Cannot throw.
+        // Normalize input infinity points.
+        EmbeddedCurvePoint p_input = p.is_infinity() ? EmbeddedCurvePoint::infinity() : p;
+        EmbeddedCurvePoint q_input = q.is_infinity() ? EmbeddedCurvePoint::infinity() : q;
+
+        EmbeddedCurvePoint result = add(p_input, q_input); // Cannot throw.
 
         memory.set(dst_address, MemoryValue::from<FF>(result.x()));
         memory.set(dst_address + 1, MemoryValue::from<FF>(result.y()));

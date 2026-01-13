@@ -1347,6 +1347,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
 TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
 {
     EccTraceBuilder builder;
+    MemoryStore memory;
 
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
@@ -1363,6 +1364,7 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
                                ecc_add_event_emitter,
                                scalar_mul_event_emitter,
                                ecc_add_memory_event_emitter);
+    MemoryAddress dst_address = 5;
 
     // Point P is infinity
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
@@ -1371,20 +1373,20 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
     TestTraceContainer trace;
 
-    // Coordinates are normalised in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
+    // Internal add() expects normalized points:
+    EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(inf, inf_alt), "normalized");
+
+    // Coordinates are normalized in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
     // correctly assigns double_op = true when doubling inf:
-    ecc_simulator.add(inf, inf_alt);
+    ecc_simulator.add(memory, inf, inf_alt, dst_address);
+    // As above for the noir (0, 0) and bb (x, 0) inf reps:
+    ecc_simulator.add(memory, inf, inf_bb, dst_address + 3);
+
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
     check_relation<ecc>(trace);
     EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
 
-    // As above for the noir (0, 0) and bb (x, 0) inf reps:
-    ecc_simulator.add(inf, inf_bb);
-    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
-    check_relation<ecc>(trace);
-
-    MemoryStore memory;
-    MemoryAddress dst_address = 5;
+    // Set memory reads:
     trace.set(0,
               { { // Execution
                   { C::execution_sel, 1 },
@@ -1393,24 +1395,39 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
                   { C::execution_register_0_, inf.x() },
                   { C::execution_register_1_, inf.y() },
                   { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
-                  { C::execution_register_3_, inf_bb.x() },
-                  { C::execution_register_4_, inf_bb.y() },
-                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_alt.x() },
+                  { C::execution_register_4_, inf_alt.y() },
+                  { C::execution_register_5_, inf_alt.is_infinity() ? 1 : 0 },
                   // GT - dst out of range check
                   { C::gt_sel, 1 },
                   { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
                   { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
                   { C::gt_res, 0 } } });
-    ecc_simulator.add(memory, inf, inf_bb, dst_address);
+    trace.set(1,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address + 3 },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_bb.x() },
+                  { C::execution_register_4_, inf_bb.y() },
+                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 5 },
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+
     builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
-    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
     // The original coordinates are stored in memory for the read...
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 0), inf_bb.x());
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 0), inf_bb.y());
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
     // ...but normalised coordinates are sent to the ecc subtrace:
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 0), 0);
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 0), 0);
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
     check_relation<mem_aware_ecc>(trace);
     check_relation<ecc>(trace);
     check_all_interactions<EccTraceBuilder>(trace);
