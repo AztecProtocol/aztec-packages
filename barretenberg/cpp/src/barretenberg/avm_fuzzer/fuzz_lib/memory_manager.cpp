@@ -30,13 +30,29 @@ std::optional<std::ranges::range_value_t<Range>> get_nth_filtered(Range&& range,
     return *std::ranges::next(filtered.begin(), static_cast<long>(index % static_cast<size_t>(count)));
 }
 
-uint32_t get_max_variable_address(AddressingMode mode, uint32_t literal_max_value)
+uint32_t get_max_variable_address(AddressingMode mode, uint32_t base_offset, uint32_t max_operand_address)
 {
-    if (mode == AddressingMode::Direct) {
-        return literal_max_value;
+    switch (mode) {
+    case AddressingMode::Direct:
+        return max_operand_address;
+    case AddressingMode::Relative:
+        return base_offset + max_operand_address;
+    case AddressingMode::Indirect:
+    case AddressingMode::IndirectRelative:
+        return AVM_HIGHEST_MEM_ADDRESS;
     }
-    // In relative addressing, and indirect addressing, we can reach any variable address.
-    return AVM_HIGHEST_MEM_ADDRESS;
+}
+
+uint32_t get_min_variable_address(AddressingMode mode, uint32_t base_offset)
+{
+    switch (mode) {
+    case AddressingMode::Relative:
+        return base_offset;
+    case AddressingMode::Direct:
+    case AddressingMode::Indirect:
+    case AddressingMode::IndirectRelative:
+        return 0;
+    }
 }
 
 uint32_t trimmed_pointer_address(uint32_t pointer_address_seed, uint32_t max_operand_address)
@@ -44,17 +60,11 @@ uint32_t trimmed_pointer_address(uint32_t pointer_address_seed, uint32_t max_ope
     return pointer_address_seed % (max_operand_address + 1);
 }
 
-uint32_t trimmed_relative_operand_address(uint32_t base_offset_seed,
-                                          uint32_t relative_target,
+uint32_t trimmed_relative_pointer_address(uint32_t pointer_address_seed,
+                                          uint32_t base_offset,
                                           uint32_t max_operand_address)
 {
-    uint32_t max_operand = std::min(relative_target, max_operand_address);
-    return (base_offset_seed % (max_operand + 1));
-}
-
-uint32_t trimmed_base_pointer(uint32_t base_offset_seed, uint32_t relative_target, uint32_t max_operand_address)
-{
-    return relative_target - trimmed_relative_operand_address(base_offset_seed, relative_target, max_operand_address);
+    return base_offset + (pointer_address_seed % (max_operand_address + 1));
 }
 
 } // namespace
@@ -107,19 +117,20 @@ ResolvedAddress MemoryManager::resolve_address(VariableRef variable,
         break;
     }
     case AddressingMode::Relative:
-        resolved_address.base_pointer =
-            trimmed_base_pointer(variable.base_offset_seed, absolute_address, max_operand_address);
-        resolved_address.operand_address =
-            trimmed_relative_operand_address(variable.base_offset_seed, absolute_address, max_operand_address);
+        // TODO(Alvaro): Maybe delete this or prevent wraparound
+        BB_ASSERT_LTE(absolute_address, base_offset + max_operand_address);
+        resolved_address.operand_address = absolute_address - base_offset;
+        resolved_address.via_relative = true;
         break;
-    case AddressingMode::IndirectRelative:
-        resolved_address.pointer_address = variable.pointer_address_seed;
+    case AddressingMode::IndirectRelative: {
+        uint32_t trimmed_pointer_address_value =
+            trimmed_relative_pointer_address(variable.pointer_address_seed, base_offset, max_operand_address);
+        resolved_address.pointer_address = trimmed_pointer_address_value;
         // Relative addressing target is the pointer
-        resolved_address.base_pointer =
-            trimmed_base_pointer(variable.base_offset_seed, variable.pointer_address_seed, max_operand_address);
-        resolved_address.operand_address = trimmed_relative_operand_address(
-            variable.base_offset_seed, variable.pointer_address_seed, max_operand_address);
+        resolved_address.operand_address = trimmed_pointer_address_value - base_offset;
+        resolved_address.via_relative = true;
         break;
+    }
     case AddressingMode::Direct:
         // We can't change the absolute address, or it won't find anything useful there.
         resolved_address.operand_address = absolute_address;
@@ -136,7 +147,7 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
     };
     switch (address.mode) {
     case AddressingMode::Indirect: {
-        // Trim the pointer to 16 bits for it to be writable by SET_32
+        // Trim the pointer to max_operand_address bits for it to be reachable by the instruction
         uint32_t trimmed_pointer_address_value =
             trimmed_pointer_address(address.pointer_address_seed, max_operand_address);
         resolved_address.pointer_address = trimmed_pointer_address_value;
@@ -144,22 +155,24 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
         break;
     }
     case AddressingMode::Relative:
-        resolved_address.base_pointer =
-            trimmed_base_pointer(address.base_offset_seed, resolved_address.absolute_address, max_operand_address);
-        resolved_address.operand_address = trimmed_relative_operand_address(
-            address.base_offset_seed, resolved_address.absolute_address, max_operand_address);
+        // TODO(Alvaro): Maybe delete this or prevent wraparound
+        BB_ASSERT_LTE(address.address, base_offset + max_operand_address);
+        resolved_address.operand_address = address.address - base_offset;
+        resolved_address.via_relative = true;
         break;
-    case AddressingMode::IndirectRelative:
-        resolved_address.pointer_address = address.pointer_address_seed;
+    case AddressingMode::IndirectRelative: {
         // Relative addressing target is the pointer
-        resolved_address.base_pointer =
-            trimmed_base_pointer(address.base_offset_seed, address.pointer_address_seed, max_operand_address);
-        resolved_address.operand_address = trimmed_relative_operand_address(
-            address.base_offset_seed, address.pointer_address_seed, max_operand_address);
+        uint32_t trimmed_pointer_address_value =
+            trimmed_relative_pointer_address(address.pointer_address_seed, base_offset, max_operand_address);
+        resolved_address.pointer_address = trimmed_pointer_address_value;
+
+        resolved_address.operand_address = trimmed_pointer_address_value - base_offset;
+        resolved_address.via_relative = true;
         break;
+    }
     case AddressingMode::Direct:
         // Do not delete this assert, if it fails, it means that some address was generated / mutated incorrectly in
-        // instruction.cpp. Check all the `max_operand` parameters that you're passing to generate_address_ref.
+        // instruction_block.cpp. Check all the `max_operand` parameters that you're passing to generate_address_ref.
         BB_ASSERT_LTE(address.address, max_operand_address);
         resolved_address.operand_address = resolved_address.absolute_address;
         break;
@@ -197,7 +210,10 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
 std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
     get_resolved_address_and_operand_8(VariableRef address)
 {
-    auto actual_address = get_variable_address(address.tag, address.index, get_max_variable_address(address.mode, 255));
+    auto actual_address = get_variable_address(address.tag,
+                                               address.index,
+                                               get_min_variable_address(address.mode, base_offset),
+                                               get_max_variable_address(address.mode, base_offset, 255));
     if (!actual_address.has_value()) {
         return std::nullopt;
     }
@@ -214,6 +230,9 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     get_resolved_address_and_operand_8(AddressRef address)
 {
     auto resolved_address = resolve_address(address, 255);
+
+    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 255 });
+
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
 }
@@ -229,8 +248,10 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
 std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> MemoryManager::
     get_resolved_address_and_operand_16(VariableRef address)
 {
-    auto actual_address =
-        get_variable_address(address.tag, address.index, get_max_variable_address(address.mode, 65535));
+    auto actual_address = get_variable_address(address.tag,
+                                               address.index,
+                                               get_min_variable_address(address.mode, base_offset),
+                                               get_max_variable_address(address.mode, base_offset, 65535));
     if (!actual_address.has_value()) {
         return std::nullopt;
     }
@@ -246,18 +267,26 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     get_resolved_address_and_operand_16(AddressRef address)
 {
     auto resolved_address = resolve_address(address, 65535);
+    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 65535 });
+
     auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
 }
 
-std::optional<uint32_t> MemoryManager::get_variable_address(bb::avm2::MemoryTag tag, uint32_t index, uint32_t max_value)
+std::optional<uint32_t> MemoryManager::get_variable_address(bb::avm2::MemoryTag tag,
+                                                            uint32_t index,
+                                                            uint32_t min_value,
+                                                            uint32_t max_value)
 {
-    return get_nth_filtered(this->stored_variables[tag], [max_value](uint32_t val) { return val <= max_value; }, index);
+    return get_nth_filtered(
+        this->stored_variables[tag],
+        [min_value, max_value](uint32_t val) { return val >= min_value && val <= max_value; },
+        index);
 }
 
 std::optional<uint8_t> MemoryManager::get_memory_offset_8(bb::avm2::MemoryTag tag, uint32_t index)
 {
-    auto value = get_variable_address(tag, index, 255);
+    auto value = get_variable_address(tag, index, 0, 255);
     if (!value.has_value()) {
         return std::nullopt;
     }
@@ -267,7 +296,7 @@ std::optional<uint8_t> MemoryManager::get_memory_offset_8(bb::avm2::MemoryTag ta
 
 std::optional<uint16_t> MemoryManager::get_memory_offset_16(bb::avm2::MemoryTag tag, uint32_t index)
 {
-    auto value = get_variable_address(tag, index, 65535);
+    auto value = get_variable_address(tag, index, 0, 65535);
     if (!value.has_value()) {
         return std::nullopt;
     }
@@ -307,4 +336,9 @@ std::optional<uint16_t> MemoryManager::get_leaf_index(uint16_t note_hash_index)
         return std::nullopt;
     }
     return note_hash_index % emitted_note_hashes.size();
+}
+
+void MemoryManager::set_base_offset(uint32_t base_offset)
+{
+    this->base_offset = base_offset;
 }
