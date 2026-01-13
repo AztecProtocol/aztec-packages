@@ -1,6 +1,0 @@
-[package]
-name = "first"
-type = "bin"
-authors = [""]
-
-[dependencies]

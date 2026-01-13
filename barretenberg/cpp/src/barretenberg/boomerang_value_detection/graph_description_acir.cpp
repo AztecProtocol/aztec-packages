@@ -407,12 +407,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(
     uint32_t final_bits = constraint->num_bits % 32;
     if (final_bits != 0) {
         auto first_chunk_gates = analyzer.get_variable_gates(analyzer.to_real(result_chunks[0]));
-        for (const auto& [key, value]: first_chunk_gates) {
-            info("fist chunk block idx ==", key);
-            for (const auto& gt_idx: value) {
-               info("gate index in this block == ", gt_idx);
-            }
-        }
         auto first_lookup_it = first_chunk_gates.find(*lookup_blk_idx);
         if (first_lookup_it == first_chunk_gates.end()) {
             return false;
@@ -421,15 +415,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(
         bool found_chunks = false;
         for (const auto& gate : first_lookup_it->second) {
             if (analyzer.to_real(lookup_block.w_o()[gate]) == analyzer.to_real(result_chunks[0])) {
-                info("raw a_chunk == ", lookup_block.w_l()[gate]);
-                info("raw b_chunk == ", lookup_block.w_r()[gate]);
                 uint32_t a_chunk = analyzer.to_real(lookup_block.w_l()[gate]);
                 uint32_t b_chunk = analyzer.to_real(lookup_block.w_r()[gate]);
-                info("a_chunk witness index in processing ACIR == ", a_chunk);
-                info("b_chunk witness index in processing ACIR == ", b_chunk);
-                info("res_chunk witness index in processing ACIR == ", result_chunks[0]);
-                if (!validate_range_constraint(a_chunk, final_bits) ||
-                    !validate_range_constraint(b_chunk, final_bits)) {
+                if (!analyzer.validate_decompose_chain(a_chunk, final_bits) ||
+                    !analyzer.validate_decompose_chain(b_chunk, final_bits)) {
                     return false;
                 }
                 found_chunks = true;
@@ -465,14 +454,14 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_range_constraint(uint32_t
     const auto& variable_gates = analyzer.get_variable_gates(witness);
 
     if (num_bits == 1) {
-        // Boolean constraint: should have exactly one boolean gate
-        if (variable_gates.size() != 1) {
-            return false;
+        for (const auto& [block_idx, gate_indices] : variable_gates) {
+            for (const auto& gate_idx : gate_indices) {
+                if (is_boolean_gate(block_idx, gate_idx)) {
+                    return true;
+                }
+            }
         }
-        if (variable_gates.begin()->second.size() != 1) {
-            return false;
-        }
-        return is_boolean_gate(variable_gates.begin()->first, variable_gates.begin()->second[0]);
+        return false;
     } else if (num_bits <= bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM) {
         // Small range: arithmetic gate + range list entry
         uint64_t target_range = (1ULL << num_bits) - 1;

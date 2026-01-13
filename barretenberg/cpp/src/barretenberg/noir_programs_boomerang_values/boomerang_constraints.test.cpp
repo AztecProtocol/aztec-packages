@@ -1,12 +1,11 @@
 #include <gtest/gtest.h>
-#include <vector>
-
 #include "barretenberg/boomerang_value_detection/graph_description_acir.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder_utils.hpp"
+#include <vector>
 
 using namespace bb;
 using namespace acir_format;
@@ -160,12 +159,12 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapXorAndCase)
         }
     }
 
-    EXPECT_EQ(xor_count, 1) << "Should have exactly one XOR constraint";
-    EXPECT_EQ(and_count, 1) << "Should have exactly one AND constraint";
-    EXPECT_EQ(range_count, 4) << "Should have exactly four RANGE constraints";
+    EXPECT_EQ(xor_count, 1);
+    EXPECT_EQ(and_count, 1);
+    EXPECT_EQ(range_count, 4);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0);
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -200,7 +199,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap64BitXorCase)
     EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "64-bit XOR should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -232,10 +231,10 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), 3u);
+    EXPECT_EQ(opcode_map.size(), 3U);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "1-bit XOR should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -270,7 +269,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
     EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "8-bit AND should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -305,7 +304,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
     EXPECT_EQ(opcode_map.size(), 3u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0);
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -357,7 +356,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapMixedBitWidths)
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     const auto& opcode_map = analyzer.build_opcode_type_map();
 
-    EXPECT_EQ(opcode_map.size(), 9u);
+    EXPECT_EQ(opcode_map.size(), 9U);
 
     size_t logic_count = 0;
     size_t range_count = 0;
@@ -369,11 +368,11 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapMixedBitWidths)
         }
     }
 
-    EXPECT_EQ(logic_count, 3);
-    EXPECT_EQ(range_count, 6);
+    EXPECT_EQ(logic_count, 3U);
+    EXPECT_EQ(range_count, 6U);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0);
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -407,7 +406,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand32Bit)
     EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "32-bit XOR with constant operand should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -441,7 +440,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand1Bit)
     EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "1-bit XOR with constant operand should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -475,7 +474,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand8Bit)
     EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "8-bit AND with constant operand should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -509,7 +508,7 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand64Bit)
     EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "64-bit XOR with constant operand should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }
 
 /**
@@ -543,5 +542,5 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand128Bit)
     EXPECT_EQ(opcode_map.size(), 2u);
 
     std::unordered_set<size_t> opcodes = analyzer.get_incorrect_opcodes();
-    EXPECT_EQ(opcodes.size(), 0) << "128-bit AND with constant operand should be processed correctly";
+    EXPECT_TRUE(opcodes.empty());
 }

@@ -1,6 +1,0 @@
-[package]
-name = "hello_world"
-type = "bin"
-authors = [""]
-
-[dependencies]

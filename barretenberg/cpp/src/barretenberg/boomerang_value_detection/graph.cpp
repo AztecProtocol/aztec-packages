@@ -69,7 +69,6 @@ template <typename FF, typename CircuitBuilder>
 std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(
     uint32_t var_idx) const
 {
-    var_idx = to_real(var_idx);
     std::unordered_map<size_t, std::vector<size_t>> result;
     auto search = variable_gate_count.find(var_idx);
     if (search != variable_gate_count.end() && search->second != 0) {

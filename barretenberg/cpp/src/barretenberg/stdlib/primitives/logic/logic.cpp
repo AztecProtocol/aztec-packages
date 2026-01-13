@@ -90,11 +90,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
 
         field_pt a_chunk = witness_pt(ctx, left_chunk);
         field_pt b_chunk = witness_pt(ctx, right_chunk);
-        info("a_chunk witness index == ", a_chunk.get_witness_index());
-        info("b_chunk witness index == ", b_chunk.get_witness_index());
         const auto multi_table_id = is_xor_gate ? plookup::MultiTableId::UINT32_XOR : plookup::MultiTableId::UINT32_AND;
         field_pt result_chunk = stdlib::plookup_read<Builder>::read_from_2_to_1_table(multi_table_id, a_chunk, b_chunk);
-        info("result chunk witness index == ", result_chunk.get_witness_index());
 
         auto scaling_factor = uint256_t(1) << (32 * i);
         a_accumulator += a_chunk * scaling_factor;
