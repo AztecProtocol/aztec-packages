@@ -70,7 +70,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsgo -b",
+    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
     "generate": "./scripts/copy-contracts.sh",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -109,7 +109,7 @@
     "@types/lodash.times": "^4.3.9",
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "eslint": "^9.26.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",

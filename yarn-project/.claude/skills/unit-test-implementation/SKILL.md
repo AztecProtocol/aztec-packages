@@ -384,7 +384,7 @@ it("retries after delay", async () => {
 
 ```bash
 cd <package-name>
-yarn tsc -b                                    # Always compile first
+yarn build                                     # Always compile first
 yarn test my-class.test.ts                     # Run specific test file
 yarn test my-class.test.ts -t 'test name'      # Run specific test
 env LOG_LEVEL=verbose yarn test my-class.test.ts  # With debug logging

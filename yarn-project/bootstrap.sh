@@ -114,7 +114,7 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
+  cmds=('format --check' './scripts/tsc.sh --emitDeclarationOnly')
   if [ "${CI:-0}" -eq 1 ]; then
     cmds+=('lint --check')
   fi
@@ -190,6 +190,9 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+
+  # Test the tsc.sh build script
+  echo "$hash yarn-project/scripts/tsc.test.sh"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"

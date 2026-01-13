@@ -33,15 +33,15 @@ cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
 ### Compile Before Testing
 
 ```bash
-yarn tsc -b                      # Full project (from yarn-project)
-cd <package-name> && yarn tsc -b  # Specific package
+./scripts/tsc.sh                      # Full project (from yarn-project)
+cd <package-name> && yarn build       # Specific package
 ```
 
 ### Before Committing (Quality Checklist)
 
 Run from `yarn-project`:
 
-1. **Build**: Ensure entire project compiles (`yarn tsgo -b --emitDeclarationOnly`)
+1. **Build**: Ensure entire project compiles (`tsgo -b --emitDeclarationOnly`)
 2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
 3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
 4. **Test**: Run unit tests for modified packages
