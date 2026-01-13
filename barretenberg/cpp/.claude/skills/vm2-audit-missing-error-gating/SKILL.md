@@ -2,107 +2,118 @@
 name: vm2-audit-missing-error-gating
 description: Audit VM2/AVM PIL files for missing error gating on lookup/permutation interactions. Completeness issue where source selectors fire even when errors occur, causing interaction failures because the destination event was not emitted on the error path.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
+version: 1.0.0
 ---
 
 # VM2 Missing Error Gating Audit
 
-Audits for missing error gating on interactions. **Completeness issue** - when errors occur, simulation doesn't emit destination events, but ungated source selectors still fire.
+Audits for missing error gating on interactions. **Completeness issue** - when errors occur, simulation doesn't emit destination events, but ungated source selectors still fire, causing lookup/permutation failures.
 
 ## Severity Assessment
-
-**Assess severity case-by-case** based on impact and reachability:
 
 - **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
 - **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
 
-**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical**.
+
+## When Usually NOT Needed
+
+- Lookups to precomputed tables (these always emit rows regardless of error state)
+- Operations that cannot produce errors (e.g., simple memory reads without type checks)
+- If unsure whether an operation can error, still audit and verify destination emission
 
 ## The Problem
 
 ```pil
 // VULNERABLE: Lookup fires even on error
-pol SOURCE = sel_operation;
 #[OPERATION_LOOKUP]
-SOURCE { input } in dest.sel { dest.input };
+sel_operation { input } in dest.sel { dest.input };
 
-// When sel_operation = 1 and sel_err = 1:
+// When sel_operation = 1 AND an error occurs:
 // - Source selector fires (sel_operation = 1)
-// - But destination event was not emitted (error path)
-// - Interaction fails!
+// - But destination event was NOT emitted (error path skipped it)
+// - Lookup fails: source row has no matching destination!
 ```
 
-## Instructions
+## Error Flags Reference
 
-> **Note**: Use `find pil/vm2 -name "*.pil"` to list all PIL files.
+| Flag | Meaning | Common in |
+|------|---------|-----------|
+| `sel_err` | General error | execution.pil |
+| `sel_tag_err` | Type tag mismatch | alu.pil, execution.pil |
+| `sel_div_0_err` | Division by zero | alu.pil |
+| `sel_overflow_err` | Arithmetic overflow | alu.pil |
+| `sel_bytecode_retrieval_failure` | Bytecode fetch failed | execution.pil |
+| `sel_instruction_fetching_failure` | Instruction parse failed | execution.pil |
+
+## Workflow
 
 ### Step 1: Identify All Interactions
 
 ```bash
 # Find all lookup/permutation interactions
-grep -nP '}\s*(in|is)\b' barretenberg/cpp/pil/vm2/<component>.pil
+grep -nP '}\s*(in|is)\b' pil/vm2/<component>.pil
 ```
 
-### Step 2: Trace Source Selectors
+### Step 2: For Each Interaction, Trace Source Selector
 
-For each interaction found:
 1. Identify the source selector (left side of `in` or `is`)
-2. Check if it's raw (`sel_op`) or derived (`sel_op * condition`)
+2. Check if it's raw (`sel_op`) or derived (`sel_op * (1 - sel_err)`)
 3. Determine what error conditions can occur during this operation
 
-### Step 3: List All Error Flags
+### Step 3: Check Simulation Code
+
+For each interaction:
+1. Find the corresponding simulation code
+2. Determine if errors can occur during this operation
+3. If errors can occur, check if the destination event is emitted on error path
+4. If destination NOT emitted on error, source MUST be gated
 
 ```bash
-# Find error-related columns
-grep -rn "sel_err\|sel_.*_err\|err\|fail" barretenberg/cpp/pil/vm2/ --include="*.pil"
+# Find simulation code for the operation
+grep -rn "<operation_name>" src/barretenberg/vm2/simulation/ --include="*.cpp"
 ```
-
-Common error flags to check:
-| Flag | Meaning |
-|------|---------|
-| `sel_err` | General error |
-| `sel_tag_err` | Type tag mismatch |
-| `sel_div_0_err` | Division by zero |
-| `sel_overflow_err` | Arithmetic overflow |
-| `sel_bytecode_retrieval_failure` | Bytecode fetch failed |
-| `sel_instruction_fetching_failure` | Instruction parse failed |
 
 ### Step 4: Verify Error Gating
 
-For each interaction, verify the source selector is gated by relevant error flags:
+For each interaction where errors can occur and destination is not emitted:
 
 ```bash
-# Check if selector is gated by error
-grep -rn "sel_op.*1 - sel_err\|sel_op.*(1 - sel" barretenberg/cpp/pil/vm2/ --include="*.pil"
+# Check if source selector is gated by error flags
+grep -B5 "<interaction_name>" pil/vm2/<component>.pil
 ```
 
-### Step 5: Check Simulation Code
+Look for patterns like:
+- `sel_op * (1 - sel_err)` - gated by general error
+- `sel_op * (1 - sel_tag_err) * (1 - sel_err)` - gated by multiple errors
 
-Review the corresponding simulation code to understand:
-- Does the error path emit the destination event?
-- If not, the source selector MUST be gated
+## Pattern Checklist
 
-## Patterns
-
-### Vulnerable Pattern
-
+### VULNERABLE: Ungated Lookup
 ```pil
-// VULNERABLE: Lookup fires even on error
 #[MY_LOOKUP]
 sel_op { input } in dest.sel { output };
+// If sel_op=1 when error occurs, lookup fails
 ```
 
-### Secure Pattern
-
+### SECURE: Error-Gated Lookup
 ```pil
-// SECURE: Gate source by no-error condition
 pol SEL_OP_NO_ERR = sel_op * (1 - sel_err);
 #[MY_LOOKUP]
 SEL_OP_NO_ERR { input } in dest.sel { output };
+// Source only fires when no error
 ```
 
-## Examples
+### SECURE: Multi-Error Gating
+```pil
+pol SEL_DIV_NO_ERR = sel_div * (1 - sel_err) * (1 - sel_tag_err) * (1 - sel_div_0_err);
+#[GT_DIV_REMAINDER]
+SEL_DIV_NO_ERR { ... } in gt.sel { ... };
+// Gated by all possible error types for division
+```
 
-### Example 1: ALU Lookups (PR #18192)
+## Real Example: ALU Lookups (PR #18192)
+
 ```pil
 // BEFORE: Lookups not gated by error
 #[GT_DIV_REMAINDER]
@@ -113,26 +124,14 @@ pol SEL_DIV_NO_ERR = sel_div * (1 - sel_err) * (1 - sel_tag_err);
 #[GT_DIV_REMAINDER]
 SEL_DIV_NO_ERR { ... } in gt.sel { ... };
 ```
-**Impact**: MUL, DIV, SHL, SHR operations failed on tag mismatch.
 
-### Example 2: Execution Dispatch
-```pil
-// Gate bytecode/instruction lookups by error
-pol SEL_FETCH = sel * (1 - sel_bytecode_retrieval_failure);
-SEL_FETCH { ... } in bc_retrieval.sel { ... };
-```
-
-## References
-
-- [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
+**Impact**: MUL, DIV, SHL, SHR operations failed on tag mismatch because lookups fired but destinations weren't emitted.
 
 ## REQUIRED OUTPUT FORMAT
 
 You MUST produce TWO output files:
 
 ### 1. Markdown Report (stdout)
-
-#### Summary Table
 
 | Item | Value |
 |------|-------|
@@ -144,7 +143,7 @@ You MUST produce TWO output files:
 
 #### Findings Format
 
-- **ID**: `vm2-audit-missing-error-gating-filename-123-issue-type` (MUST use full skill name: `vm2-audit-missing-error-gating`)
+- **ID**: `vm2-audit-missing-error-gating-filename-123-issue-type`
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
@@ -152,7 +151,7 @@ You MUST produce TWO output files:
 
 ### 2. JSON File (REQUIRED - separate file)
 
-Write a `vm2-audit-missing-error-gating.json` file to the output directory with:
+Write `vm2-audit-missing-error-gating.json` to the output directory:
 
 ```json
 {
@@ -171,14 +170,3 @@ Write a `vm2-audit-missing-error-gating.json` file to the output directory with:
   ]
 }
 ```
-
-For no findings:
-```json
-{
-  "skill": "vm2-audit-missing-error-gating",
-  "status": "COMPLETED_NO_FINDINGS",
-  "findings": []
-}
-```
-
-**IMPORTANT**: The audit prompt will specify where to write the JSON file. Use the Write tool to create the JSON at that path.
