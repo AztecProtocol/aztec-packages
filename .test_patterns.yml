@@ -322,7 +322,8 @@ tests:
       - *palla
 
   # http://ci.aztec-labs.com/963635a09039594f
-  - regex: "boxes/scripts/run_test.sh react"
+  # http://ci.aztec-labs.com/d3b12131764bce18
+  - regex: "boxes/scripts/run_test.sh"
     error_regex: "sending signal TERM to command"
     owners:
       - *adam
