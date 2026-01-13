@@ -777,13 +777,19 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
         }
     }
 
-    if (!queue_entry.is_kernel) {
-        native_verifier_accum_hash = native_verifier_accum.hash_with_origin_tagging("", *verifier_transcript);
-    }
-
     info("Chonk accumulate: prover and verifier accumulators match: ",
          prover_accumulator.compare_with_verifier_claim(native_verifier_accum) ? "true" : "false");
-    info("Chonk accumulate: hash of verifier accumulator computed natively ", native_verifier_accum_hash);
+
+    // Update the native verifier accumulator hash if we are accumulating an app (i.e. the previous circuit was a
+    // kernel) or if the last app has been accumulated (i.e. the current circuit is the tail kernel)
+    bool update_verifier_accum_hash = is_previous_circuit_a_kernel || has_last_app_been_accumulated;
+    if (update_verifier_accum_hash) {
+        native_verifier_accum_hash = native_verifier_accum.hash_with_origin_tagging("", *verifier_transcript);
+        info("Chonk accumulate: hash of verifier accumulator computed natively set in previous kernel IO: ",
+             native_verifier_accum_hash);
+    }
+    has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 4;
+    is_previous_circuit_a_kernel = queue_entry.is_kernel;
 
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 }

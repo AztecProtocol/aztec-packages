@@ -280,6 +280,8 @@ class Chonk : public IVCBase {
 #ifndef NDEBUG
     VerifierAccumulator native_verifier_accum; //  native verifier accumulator used in prover folding
     FF native_verifier_accum_hash; // hash of the native verifier accumulator when entering recursive verification
+    bool is_previous_circuit_a_kernel = true;
+    bool has_last_app_been_accumulated = false;
 #endif
 
     // PARALLEL QUEUES: These two queues must stay synchronized.
