@@ -10,10 +10,11 @@
 namespace bb {
 
 /**
- * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8} (nop, eq and reset, mul or add)
- * @details This relation enforces the opcode to be one of described values. Since we don't care about even
- * values in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify
- * the relation to be enforced just at odd indices, which brings the degree down by 1.
+ * @brief Enforces two constraints on the opcode value:
+ *          1. opcode ∈ {0,3,4,8} (nop, eq and reset, mul or add) (including op = 0 on odd rows)
+ *          2. at even indices when op = 0 (no-op), accumulator limbs stay the same
+ *
+ * @details We check the first relation at all rows. On odd rows, op = 0 is always valid, so the check is trivial.
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -32,7 +33,7 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     using View = typename Accumulator::View;
 
     auto op = View(in.op);
-    auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    const auto lagrange_mini_masking = View(in.lagrange_mini_masking);
     static const FF minus_three = FF(-3);
     static const FF minus_four = FF(-4);
     static const FF minus_eight = FF(-8);
@@ -46,7 +47,7 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
 
-    auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
@@ -98,10 +99,11 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
 /**
  * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
  * evaluation of polynomials in non-native field)
+ *
  * @details This relation enforces three pieces of logic:
- * 1) Accumulator starts as zero before we start accumulating stuff
- * 2) Accumulator limbs stay the same if accumulation is not occurring (at even indices)
- * 3) Accumulator limbs result in the values specified by relation parameters after accumulation
+ *            1) Accumulator starts as zero before we start accumulating stuff
+ *            2) Accumulator limbs are propagated correctly from an odd row to the next even row
+ *            3) Accumulator limbs result in the expected values specified by relation parameters after accumulation
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -121,15 +123,15 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     using ShorterAccumulator = std::tuple_element_t<4, ContainerOverSubrelations>;
     using ShorterView = typename ShorterAccumulator::View;
     // We use combination of lagrange polynomials at odd indices in the minicircuit for copying the accumulator
-    auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
+    const auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
     // Lagrange ensuring the accumulator result is validated at the correct row
-    auto lagrange_result_row_shorter = ShorterView(in.lagrange_result_row);
+    const auto lagrange_result_row_shorter = ShorterView(in.lagrange_result_row);
 
     // Lagrange at index (size of minicircuit without masking - 1) is used to enforce that the accumulator starts from
-    // zero
-    auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
-    auto lagrange_last_in_minicircuit_shorter = ShorterView(in.lagrange_last_in_minicircuit);
+    // zero (recall that we accumulate in the reverse order of the ops)
+    const auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
+    const auto lagrange_last_in_minicircuit_shorter = ShorterView(in.lagrange_last_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
@@ -145,9 +147,8 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     auto accumulators_binary_limbs_2_shorter = ShorterView(in.accumulators_binary_limbs_2);
     auto accumulators_binary_limbs_3_shorter = ShorterView(in.accumulators_binary_limbs_3);
 
-    FF minus_one = FF(-1);
+    const FF minus_one = FF(-1);
 
-    // Contribution (0) (0-12 ensure that the accumulator is transferred correctly
     // Contribution (1) (1-4 ensure transfer of accumulator limbs at odd indices of the minicircuit)
     auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
     tmp_1 *= lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
@@ -171,7 +172,7 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     std::get<3>(accumulators) += tmp_4;
 
     // Contribution (5) (5-9 ensure that accumulator starts with zeroed-out limbs)
-    auto lagrange_last_in_minicircuit_by_scaling_factor = lagrange_last_in_minicircuit_shorter * scaling_factor;
+    const auto lagrange_last_in_minicircuit_by_scaling_factor = lagrange_last_in_minicircuit_shorter * scaling_factor;
     auto tmp_5 = accumulators_binary_limbs_0_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
     std::get<4>(accumulators) += tmp_5;
 
@@ -188,8 +189,8 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     std::get<7>(accumulators) += tmp_8;
 
     // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
-    // // proof)
-    auto lagrange_result_row_by_scaling_factor = lagrange_result_row_shorter * scaling_factor;
+    // proof)
+    const auto lagrange_result_row_by_scaling_factor = lagrange_result_row_shorter * scaling_factor;
     auto tmp_9 =
         (accumulators_binary_limbs_0_shorter - params.accumulated_result[0]) * lagrange_result_row_by_scaling_factor;
     std::get<8>(accumulators) += tmp_9;
@@ -211,7 +212,7 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
 };
 
 /**
- * @brief Relation enforcing all the range-constraint  and op queue polynomials to be zero after the minicircuit
+ * @brief Relation enforcing all the range-constraint and op queue polynomials to be zero outside the minicircuit
 
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -229,10 +230,10 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
     using View = typename Accumulator::View;
 
     // Minus one
-    static auto minus_one = -FF(1);
+    static const auto minus_one = -FF(1);
 
-    auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
-    auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
+    const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    const auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
     auto p_x_low_limbs_range_constraint_0 = View(in.p_x_low_limbs_range_constraint_0);
     auto p_x_low_limbs_range_constraint_1 = View(in.p_x_low_limbs_range_constraint_1);
@@ -302,7 +303,7 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
     auto x_lo_y_hi = View(in.x_lo_y_hi);
     auto x_hi_z_1 = View(in.x_hi_z_1);
     auto y_lo_z_2 = View(in.y_lo_z_2);
-    auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    const auto lagrange_mini_masking = View(in.lagrange_mini_masking);
 
     // 0 in the minicircuit, -1 outside
     auto not_in_mininicircuit_or_masked = (lagrange_odd_in_minicircuit + lagrange_even_in_minicircuit + minus_one) *
