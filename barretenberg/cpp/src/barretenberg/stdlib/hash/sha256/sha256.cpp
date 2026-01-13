@@ -24,6 +24,7 @@
 #include "sha256.hpp"
 
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
@@ -71,14 +72,23 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
  *
  * @details This is more efficient in the context of SHA-256 operations than explicit 32-bit range constraints since the
  * lookup table is already in use. We use the SHA256_MAJ_INPUT MultiTable since it results in only 3 lookup gates per
- * lookup. The result of the lookup is not used.
+ * lookup.
+ *
+ * @note The result of the lookup is not used, but the accumulator outputs are marked as intentionally unused to
+ * avoid false positives in the boomerang value detection analysis.
  *
  * @param input The field element to constrain to 32 bits.
  */
 template <typename Builder>
 void SHA256<Builder>::apply_32_bit_range_constraint_via_lookup(const field_t<Builder>& input)
 {
-    (void)plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_MAJ_INPUT, input);
+    auto lookup_data = plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_MAJ_INPUT, input);
+    // Mark all accumulator outputs as intentionally unused (they exist only for the range constraint side-effect)
+    for (auto& col : lookup_data.columns) {
+        for (auto& elem : col) {
+            mark_witness_as_used(elem);
+        }
+    }
 }
 
 /**
