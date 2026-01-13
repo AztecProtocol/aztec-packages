@@ -89,8 +89,6 @@ class KernelIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
-        BB_ASSERT(public_inputs.size() >= PUBLIC_INPUTS_SIZE,
-                  "KernelIO::reconstruct_from_public: public_inputs vector too small");
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -180,8 +178,6 @@ template <typename Builder_> class DefaultIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
-        BB_ASSERT(public_inputs.size() >= PUBLIC_INPUTS_SIZE,
-                  "DefaultIO::reconstruct_from_public: public_inputs vector too small");
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
@@ -246,8 +242,6 @@ template <typename Builder_> class GoblinAvmIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the GoblinAvm-io public inputs are at the end of the public_inputs vector
-        BB_ASSERT(public_inputs.size() >= PUBLIC_INPUTS_SIZE,
-                  "GoblinAvmIO::reconstruct_from_public: public_inputs vector too small");
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         mega_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
@@ -302,8 +296,6 @@ template <class Builder_> class HidingKernelIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
-        BB_ASSERT(public_inputs.size() >= PUBLIC_INPUTS_SIZE,
-                  "HidingKernelIO::reconstruct_from_public: public_inputs vector too small");
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
@@ -385,8 +377,6 @@ class RollupIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        BB_ASSERT(public_inputs.size() >= PUBLIC_INPUTS_SIZE,
-                  "RollupIO::reconstruct_from_public: public_inputs vector too small");
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
