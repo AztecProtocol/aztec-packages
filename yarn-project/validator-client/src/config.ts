@@ -53,11 +53,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
   },
-  validatorReexecuteDeadlineMs: {
-    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
-    description: 'Will re-execute until this many milliseconds are left in the slot',
-    ...numberConfigHelper(6000),
-  },
   alwaysReexecuteBlockProposals: {
     env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
     description:

@@ -2,7 +2,7 @@
 // docs:start:simple_nft
 pragma solidity >=0.8.27;
 
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721} from "@oz/token/ERC721/ERC721.sol";
 
 contract SimpleNFT is ERC721 {
     uint256 private _currentTokenId;

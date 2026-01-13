@@ -70,7 +70,12 @@ export class CheckpointBuilder {
     const blockBuildingTimer = new Timer();
     const slot = this.checkpointBuilder.constants.slotNumber;
 
-    log.verbose(`Building block ${blockNumber} for slot ${slot} within checkpoint`, { slot, blockNumber, ...opts });
+    log.verbose(`Building block ${blockNumber} for slot ${slot} within checkpoint`, {
+      slot,
+      blockNumber,
+      ...opts,
+      currentTime: new Date(this.dateProvider.now()),
+    });
 
     const constants = this.checkpointBuilder.constants;
     const globalVariables = GlobalVariables.from({

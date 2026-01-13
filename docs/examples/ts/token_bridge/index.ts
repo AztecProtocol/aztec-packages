@@ -1,17 +1,7 @@
-// @ts-nocheck
-
 // docs:start:setup
-import { privateKeyToAccount } from "viem/accounts";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  pad,
-  getAbiItem,
-  toEventHash,
-} from "viem";
-import { foundry } from "viem/chains";
-import { EthAddress } from "@aztec/aztec.js/addresses";
+import { decodeEventLog, pad } from "@aztec/viem";
+import { foundry } from "@aztec/viem/chains";
+import { AztecAddress, EthAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { computeSecretHash } from "@aztec/stdlib/hash";
@@ -20,27 +10,22 @@ import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
 import { TestWallet } from "@aztec/test-wallet/server";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
-import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json";
-import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json";
-import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
-import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
+import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
+import { CheckpointNumber } from "@aztec/foundation/branded-types";
+import { RollupContract } from "@aztec/ethereum/contracts";
+import SimpleNFT from "../../../target/solidity/nft_bridge/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
+import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
+import { NFTPunkContract } from "./artifacts/NFTPunk.js";
+import { NFTBridgeContract } from "./artifacts/NFTBridge.js";
 
-// Setup L1 clients using anvil's 1st account which should have a ton of ETH already
-const l1Account = privateKeyToAccount(
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-);
-const publicClient = createPublicClient({
-  chain: foundry,
-  transport: http("http://localhost:8545"),
-});
-const ethWallet = createWalletClient({
-  account: l1Account,
-  chain: foundry,
-  transport: http("http://localhost:8545"),
-});
+// Setup L1 client using anvil's default mnemonic (same as e2e tests)
+const MNEMONIC = "test test test test test test test test test test test junk";
+const l1Client = createExtendedL1Client(["http://localhost:8545"], MNEMONIC);
+const ownerEthAddress = l1Client.account.address;
 
 // Setup L2 using Aztec's local network and one of its initial accounts
-console.log("🔮 Setting up L2...\n");
+console.log("Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
 const aztecWallet = await TestWallet.create(node);
 const [accData] = await getInitialTestAccountsData();
@@ -48,41 +33,39 @@ const account = await aztecWallet.createSchnorrAccount(
   accData.secret,
   accData.salt
 );
-console.log(`✅ Account: ${account.address.toString()}\n`);
+console.log(`Account: ${account.address.toString()}\n`);
 
 // Get node info
 const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
+const rollupAddress = nodeInfo.l1ContractAddresses.rollupAddress.toString();
+
+// Create rollup contract instance for querying epoch information
+const rollup = new RollupContract(l1Client, rollupAddress);
 // docs:end:setup
 
 // docs:start:deploy_l1_contracts
-console.log("📦 Deploying L1 contracts...\n");
+console.log("Deploying L1 contracts...\n");
 
-const nftDeploymentHash = await ethWallet.deployContract({
-  abi: SimpleNFT.abi,
-  bytecode: SimpleNFT.bytecode as `0x${string}`,
-});
-const nftReceipt = await publicClient.waitForTransactionReceipt({
-  hash: nftDeploymentHash,
-});
-const nftAddress = nftReceipt.contractAddress!;
+const { address: nftAddress } = await deployL1Contract(
+  l1Client,
+  SimpleNFT.abi,
+  SimpleNFT.bytecode.object as `0x${string}`
+);
 
-const portalDeploymentHash = await ethWallet.deployContract({
-  abi: NFTPortal.abi,
-  bytecode: NFTPortal.bytecode as `0x${string}`,
-});
-const portalReceipt = await publicClient.waitForTransactionReceipt({
-  hash: portalDeploymentHash,
-});
-const portalAddress = portalReceipt.contractAddress!;
+const { address: portalAddress } = await deployL1Contract(
+  l1Client,
+  NFTPortal.abi,
+  NFTPortal.bytecode.object as `0x${string}`
+);
 
-console.log(`✅ SimpleNFT: ${nftAddress}`);
-console.log(`✅ NFTPortal: ${portalAddress}\n`);
+console.log(`SimpleNFT: ${nftAddress}`);
+console.log(`NFTPortal: ${portalAddress}\n`);
 // docs:end:deploy_l1_contracts
 
 // docs:start:deploy_l2_contracts
-console.log("📦 Deploying L2 contracts...\n");
+console.log("Deploying L2 contracts...\n");
 
 const l2Nft = await NFTPunkContract.deploy(aztecWallet, account.address)
   .send({ from: account.address })
@@ -92,33 +75,31 @@ const l2Bridge = await NFTBridgeContract.deploy(aztecWallet, l2Nft.address)
   .send({ from: account.address })
   .deployed();
 
-console.log(`✅ L2 NFT: ${l2Nft.address.toString()}`);
-console.log(`✅ L2 Bridge: ${l2Bridge.address.toString()}\n`);
+console.log(`L2 NFT: ${l2Nft.address.toString()}`);
+console.log(`L2 Bridge: ${l2Bridge.address.toString()}\n`);
 // docs:end:deploy_l2_contracts
 
 // docs:start:initialize_portal
-console.log("🔧 Initializing portal...");
+console.log("Initializing portal...");
 
-const hash = await ethWallet.writeContract({
-  address: portalAddress as `0x${string}`,
+// Initialize the portal contract
+// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+const initHash = await l1Client.writeContract({
+  address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "initialize",
-  args: [
-    registryAddress as `0x${string}`,
-    nftAddress as `0x${string}`,
-    l2Bridge.address.toString() as `0x${string}`,
-  ],
+  args: [registryAddress, nftAddress.toString(), l2Bridge.address.toString()],
 });
-await publicClient.waitForTransactionReceipt({ hash });
+await l1Client.waitForTransactionReceipt({ hash: initHash });
 
-console.log("✅ Portal initialized\n");
+console.log("Portal initialized\n");
 // docs:end:initialize_portal
 
 // docs:start:initialize_l2_bridge
-console.log("🔧 Setting up L2 bridge...");
+console.log("Setting up L2 bridge...");
 
 await l2Bridge.methods
-  .set_portal(EthAddress.fromString(portalAddress))
+  .set_portal(EthAddress.fromString(portalAddress.toString()))
   .send({ from: account.address })
   .wait();
 
@@ -127,50 +108,52 @@ await l2Nft.methods
   .send({ from: account.address })
   .wait();
 
-console.log("✅ Bridge configured\n");
+console.log("Bridge configured\n");
 // docs:end:initialize_l2_bridge
 
 // docs:start:mint_nft_l1
-console.log("🎨 Minting NFT on L1...");
+console.log("Minting NFT on L1...");
 
-const mintHash = await ethWallet.writeContract({
-  address: nftAddress as `0x${string}`,
+// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+const mintHash = await l1Client.writeContract({
+  address: nftAddress.toString() as `0x${string}`,
   abi: SimpleNFT.abi,
   functionName: "mint",
-  args: [l1Account.address],
+  args: [ownerEthAddress],
 });
-await publicClient.waitForTransactionReceipt({ hash: mintHash });
+await l1Client.waitForTransactionReceipt({ hash: mintHash });
 
 // no need to parse logs, this will be tokenId 0 since it's a fresh contract
 const tokenId = 0n;
 
-console.log(`✅ Minted tokenId: ${tokenId}\n`);
+console.log(`Minted tokenId: ${tokenId}\n`);
 // docs:end:mint_nft_l1
 
 // docs:start:deposit_to_aztec
-console.log("🌉 Depositing NFT to Aztec...");
+console.log("Depositing NFT to Aztec...");
 
 const secret = Fr.random();
 const secretHash = await computeSecretHash(secret);
 
-const approveHash = await ethWallet.writeContract({
-  address: nftAddress as `0x${string}`,
+// Approve portal to transfer the NFT
+// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+const approveHash = await l1Client.writeContract({
+  address: nftAddress.toString() as `0x${string}`,
   abi: SimpleNFT.abi,
   functionName: "approve",
-  args: [portalAddress as `0x${string}`, tokenId],
+  args: [portalAddress.toString(), tokenId],
 });
-await publicClient.waitForTransactionReceipt({ hash: approveHash });
+await l1Client.waitForTransactionReceipt({ hash: approveHash });
 
-const depositHash = await ethWallet.writeContract({
-  address: portalAddress as `0x${string}`,
+// Deposit to Aztec
+// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+const depositHash = await l1Client.writeContract({
+  address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "depositToAztec",
-  args: [
-    tokenId,
-    pad(secretHash.toString() as `0x${string}`, { dir: "left", size: 32 }),
-  ],
+  args: [tokenId, pad(secretHash.toString() as `0x${string}`, { dir: "left", size: 32 })],
 });
-const depositReceipt = await publicClient.waitForTransactionReceipt({
+const depositReceipt = await l1Client.waitForTransactionReceipt({
   hash: depositHash,
 });
 // docs:end:deposit_to_aztec
@@ -188,19 +171,30 @@ const INBOX_ABI = [
     ],
   },
 ] as const;
-const messageSentTopic = toEventHash(INBOX_ABI[0]);
-const messageSentLog = depositReceipt.logs!.find(
-  (log: any) =>
-    log.address.toLowerCase() === inboxAddress.toLowerCase() &&
-    log.topics[0] === messageSentTopic
-);
 
-const indexHex = messageSentLog!.data!.slice(0, 66);
-const messageLeafIndex = new Fr(BigInt(indexHex));
+// Find and decode the MessageSent event from the Inbox contract
+const messageSentLogs = depositReceipt.logs
+  .filter((log) => log.address.toLowerCase() === inboxAddress.toLowerCase())
+  .map((log: any) => {
+    try {
+      const decoded = decodeEventLog({
+        abi: INBOX_ABI,
+        data: log.data,
+        topics: log.topics,
+      });
+      return { log, decoded };
+    } catch {
+      // Not a decodable event from this ABI
+      return null;
+    }
+  })
+  .filter((item): item is { log: any; decoded: any } => item !== null && (item.decoded as any).eventName === "MessageSent");
+
+const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
 // docs:end:get_message_leaf_index
 
 // docs:start:mine_blocks
-async function mine2Blocks(aztecWallet: TestWallet, accountAddress: any) {
+async function mine2Blocks(aztecWallet: TestWallet, accountAddress: AztecAddress) {
   await NFTPunkContract.deploy(aztecWallet, accountAddress)
     .send({ from: accountAddress, contractAddressSalt: Fr.random() })
     .deployed();
@@ -215,21 +209,21 @@ async function mine2Blocks(aztecWallet: TestWallet, accountAddress: any) {
 await mine2Blocks(aztecWallet, account.address);
 
 // Check notes before claiming (should be 0)
-console.log("📝 Checking notes before claim...");
+console.log("Checking notes before claim...");
 const notesBefore = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesBefore}`);
 
-console.log("🎯 Claiming NFT on L2...");
+console.log("Claiming NFT on L2...");
 await l2Bridge.methods
   .claim(account.address, new Fr(Number(tokenId)), secret, messageLeafIndex)
   .send({ from: account.address })
   .wait();
-console.log("✅ NFT claimed on L2\n");
+console.log("NFT claimed on L2\n");
 
 // Check notes after claiming (should be 1)
-console.log("📝 Checking notes after claim...");
+console.log("Checking notes after claim...");
 const notesAfterClaim = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
@@ -237,22 +231,22 @@ console.log(`   Notes count: ${notesAfterClaim}\n`);
 // docs:end:claim_on_l2
 
 // docs:start:exit_from_l2
-// L2 → L1 flow
-console.log("🚪 Exiting NFT from L2...");
+// L2 -> L1 flow
+console.log("Exiting NFT from L2...");
 // Mine blocks, not necessary on devnet, but must wait for 2 blocks
 await mine2Blocks(aztecWallet, account.address);
 
-const recipientEthAddress = EthAddress.fromString(l1Account.address);
+const recipientEthAddress = EthAddress.fromString(ownerEthAddress);
 
 const exitReceipt = await l2Bridge.methods
   .exit(new Fr(Number(tokenId)), recipientEthAddress)
   .send({ from: account.address })
   .wait();
 
-console.log(`✅ Exit message sent (block: ${exitReceipt.blockNumber})\n`);
+console.log(`Exit message sent (block: ${exitReceipt.blockNumber})\n`);
 
 // Check notes after burning (should be 0 again)
-console.log("📝 Checking notes after burn...");
+console.log("Checking notes after burn...");
 const notesAfterBurn = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
@@ -272,16 +266,17 @@ const content = sha256ToField([
 ]);
 
 // Get rollup version from the portal contract (it stores it during initialize)
-const version = (await publicClient.readContract({
-  address: portalAddress as `0x${string}`,
+// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+const version = (await l1Client.readContract({
+  address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "rollupVersion",
-})) as number;
+})) as bigint;
 
-// Compute the L2→L1 message hash
+// Compute the L2->L1 message hash
 const msgLeaf = computeL2ToL1MessageHash({
   l2Sender: l2Bridge.address,
-  l1Recipient: EthAddress.fromString(portalAddress),
+  l1Recipient: EthAddress.fromString(portalAddress.toString()),
   content,
   rollupVersion: new Fr(version),
   chainId: new Fr(foundry.id),
@@ -289,7 +284,7 @@ const msgLeaf = computeL2ToL1MessageHash({
 
 // Wait for the block to be proven before withdrawing
 // Waiting for the block to be proven is not necessary on the local network, but it is necessary on devnet
-console.log("⏳ Waiting for block to be proven...");
+console.log("Waiting for block to be proven...");
 console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
 
 let provenBlockNumber = await node.getProvenBlockNumber();
@@ -303,12 +298,19 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
   provenBlockNumber = await node.getProvenBlockNumber();
 }
 
-console.log("✅ Block proven!\n");
+console.log("Block proven!\n");
 
-// Compute the membership witness using the message hash
+// Get the epoch for the exit block's checkpoint
+// In Aztec, checkpoint number equals block number (1:1 mapping)
+const epoch = await rollup.getEpochNumberForCheckpoint(
+  CheckpointNumber.fromBlockNumber(exitReceipt.blockNumber!)
+);
+console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
+
+// Compute the membership witness using the message hash and epoch
 const witness = await computeL2ToL1MembershipWitness(
   node,
-  exitReceipt.blockNumber!,
+  epoch,
   msgLeaf
 );
 const siblingPathHex = witness!.siblingPath
@@ -317,18 +319,14 @@ const siblingPathHex = witness!.siblingPath
 // docs:end:get_withdrawal_witness
 
 // docs:start:withdraw_on_l1
-console.log("💰 Withdrawing NFT on L1...");
-const withdrawHash = await ethWallet.writeContract({
-  address: portalAddress as `0x${string}`,
+console.log("Withdrawing NFT on L1...");
+// @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
+const withdrawHash = await l1Client.writeContract({
+  address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "withdraw",
-  args: [
-    tokenId,
-    BigInt(exitReceipt.blockNumber!),
-    BigInt(witness!.leafIndex),
-    siblingPathHex,
-  ],
+  args: [tokenId, BigInt(epoch), BigInt(witness!.leafIndex), siblingPathHex],
 });
-await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
-console.log("✅ NFT withdrawn to L1\n");
+await l1Client.waitForTransactionReceipt({ hash: withdrawHash });
+console.log("NFT withdrawn to L1\n");
 // docs:end:withdraw_on_l1
