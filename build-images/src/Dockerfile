@@ -271,6 +271,9 @@ FROM basebox AS devbox
 # Install gosu so we can start as root, adjust uid/gid, and then use gosu to become aztec-dev.
 RUN apt install -y gosu
 
+# Install Claude Code CLI.
+RUN npm install -g @anthropic-ai/claude-code
+
 # Detect if the host machine is Mac, if so set an env var, and disable prompts vcs info for performance.
 RUN echo ' \
   if mount | grep -q /host_mark/Users; then \
