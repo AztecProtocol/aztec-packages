@@ -62,7 +62,7 @@ class MemoryManager {
     // Get slot from storage_addresses
     std::optional<bb::avm2::FF> get_slot(uint16_t slot_offset_index);
 
-    // Append emitted note hash to emitted_note_hashesget_variable_address
+    // Append emitted note hash to emitted_note_hashes
     void append_emitted_note_hash(bb::avm2::FF note_hash);
     // Get emitted note hash from emitted_note_hashes
     std::optional<bb::avm2::FF> get_emitted_note_hash(uint16_t note_hash_index);
