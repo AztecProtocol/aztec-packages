@@ -146,8 +146,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
      * @param collected_sublimbs Output: the sublimb indices found in the decompose chain
      * @return true if the decompose chain is valid, false otherwise
      */
-    bool validate_decompose_chain(uint32_t witness,
-                                  uint64_t num_bits);
+    bool validate_decompose_chain(uint32_t witness, uint64_t num_bits);
     void remove_unnecessary_plookup_variables();
     void remove_unnecessary_range_constrains_variables();
     void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);

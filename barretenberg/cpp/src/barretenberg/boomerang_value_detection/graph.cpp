@@ -1262,9 +1262,8 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::validate_decompose_chain(uint32_t witn
 
         const auto& range_list = range_it->second;
         bool found = false;
-        if (std::find(range_list.variable_indices.begin(),
-                      range_list.variable_indices.end(),
-                      collected_sublimbs[i]) != range_list.variable_indices.end()) {
+        if (std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), collected_sublimbs[i]) !=
+            range_list.variable_indices.end()) {
             found = true;
             break;
         }
@@ -1955,11 +1954,9 @@ template class StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
 template class StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
 
 // Explicit instantiations for find_block_index with specific block types used by StaticAnalyzerAcir
-template std::optional<size_t>
-StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<bb::UltraTraceLookupBlock>(
-    bb::UltraTraceLookupBlock const&);
-template std::optional<size_t>
-StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<bb::UltraTraceArithmeticBlock>(
-    bb::UltraTraceArithmeticBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<
+    bb::UltraTraceLookupBlock>(bb::UltraTraceLookupBlock const&);
+template std::optional<size_t> StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>::find_block_index<
+    bb::UltraTraceArithmeticBlock>(bb::UltraTraceArithmeticBlock const&);
 
 } // namespace cdg

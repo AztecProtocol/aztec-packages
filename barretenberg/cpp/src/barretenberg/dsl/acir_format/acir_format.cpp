@@ -60,7 +60,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
 
     // Add logic constraint
     for (const auto& [constraint, opcode_idx] :
-        zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {
+         zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
@@ -78,7 +78,7 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
 
     // Add aes128 constraints
     for (const auto& [constraint, opcode_idx] :
-        zip_view(constraints.aes128_constraints, constraints.original_opcode_indices.aes128_constraints)) {
+         zip_view(constraints.aes128_constraints, constraints.original_opcode_indices.aes128_constraints)) {
         create_aes128_constraints(builder, constraint);
         gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
     }

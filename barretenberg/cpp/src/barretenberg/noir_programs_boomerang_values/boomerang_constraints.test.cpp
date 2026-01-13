@@ -1,10 +1,10 @@
-#include <gtest/gtest.h>
 #include "barretenberg/boomerang_value_detection/graph_description_acir.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder_utils.hpp"
+#include <gtest/gtest.h>
 #include <vector>
 
 using namespace bb;
@@ -134,8 +134,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapXorAndCase)
         .public_inputs = {},
         .logic_constraints = { xor_constraint, and_constraint },
         .range_constraints = { range_0, range_1, range_3, range_4 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1 },
-                                                                    .range_constraints = { 2, 3, 4, 5 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0, 1 }, .range_constraints = { 2, 3, 4, 5 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -189,8 +189,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap64BitXorCase)
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1, 2 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -224,8 +224,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap1BitXorCase)
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1, 2 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -259,8 +259,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap8BitAndCase)
         .public_inputs = {},
         .logic_constraints = { and_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1, 2 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -294,8 +294,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMap128BitXorCase)
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0, range_1 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1, 2 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1, 2 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -396,8 +396,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand32Bit)
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -430,8 +430,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand1Bit)
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -464,8 +464,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand8Bit)
         .public_inputs = {},
         .logic_constraints = { and_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -498,8 +498,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand64Bit)
         .public_inputs = {},
         .logic_constraints = { xor_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -532,8 +532,8 @@ TEST_F(BoomerangConstraintsTests, OpcodeTypeMapConstantOperand128Bit)
         .public_inputs = {},
         .logic_constraints = { and_constraint },
         .range_constraints = { range_0 },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 },
-                                                                    .range_constraints = { 1 } },
+        .original_opcode_indices =
+            AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 }, .range_constraints = { 1 } },
     };
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));

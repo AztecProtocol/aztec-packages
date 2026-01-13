@@ -113,4 +113,4 @@ OpcodeConstraintMap build_opcode_type_map(const AcirFormat& constraint_system)
     return opcode_constraint_map;
 }
 
-} //namespace cdg
+} // namespace cdg

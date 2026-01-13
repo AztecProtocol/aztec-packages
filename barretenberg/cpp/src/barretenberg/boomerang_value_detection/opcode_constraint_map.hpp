@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include <variant>
 #include <map>
+#include <variant>
 
 using namespace acir_format;
 namespace cdg {
@@ -64,4 +64,4 @@ using OpcodeConstraintMap = std::map<size_t, ConstraintInfo>;
  */
 OpcodeConstraintMap build_opcode_type_map(const acir_format::AcirFormat& constraint_system);
 
-} //namespace cdg
+} // namespace cdg
