@@ -35,7 +35,7 @@ function test {
   fi
 
   # Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
-  cargo test --release
+  denoise "cargo test --release"
 }
 
 case "$cmd" in
