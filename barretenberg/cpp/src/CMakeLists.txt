@@ -213,7 +213,7 @@ if(NOT WASM)
         bb-external
         STATIC
         ${BARRETENBERG_TARGET_OBJECTS}
-        $<TARGET_OBJECTS:env>
+        $<TARGET_OBJECTS:env_objects>
         $<TARGET_OBJECTS:vm2_stub>
     )
 endif()
