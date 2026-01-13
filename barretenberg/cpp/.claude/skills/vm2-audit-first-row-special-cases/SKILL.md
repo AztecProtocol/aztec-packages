@@ -8,6 +8,15 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 Audits for first row special case issues with skippable conditions. Constraints involving `precomputed.first_row` don't nullify when `sel = 0` on row 0 because `first_row = 1`. This is a **completeness** issue - valid traces fail verification.
 
+## Severity Assessment
+
+**Assess severity case-by-case** based on impact and reachability:
+
+- **Soundness** (malicious prover exploits): Typically Critical/High based on exploitability
+- **Completeness** (honest prover fails): Ranges from Low (theoretical/unreachable) to Critical (blocks valid inputs)
+
+**Key principle**: Completeness bugs reachable via canonical simulation and tracegen on valid inputs are **Critical** - the system doesn't work.
+
 ## The Problem Explained
 
 Skippable optimization skips sumcheck accumulation when `sel = 0` on both merged rows. But row 0 has `precomputed.first_row = 1`, which can prevent constraint nullification:
@@ -268,7 +277,7 @@ You MUST produce TWO output files:
 
 | Item | Value |
 |------|-------|
-| Skill | `{skill-name}` |
+| Skill | `vm2-audit-first-row-special-cases` |
 | Target | `{path audited}` |
 | Files Scanned | `{number}` |
 | Findings | `{e.g., "2 Critical, 1 High" or "None"}` |
@@ -276,7 +285,7 @@ You MUST produce TWO output files:
 
 #### Findings Format
 
-- **ID**: `{skill-name}-{file}-{line}-{subtype}`
+- **ID**: `vm2-audit-first-row-special-cases-filename-123-issue-type` (MUST use full skill name: `vm2-audit-first-row-special-cases`)
 - **Severity**: Critical / High / Medium / Low
 - **File**: `path/to/file.pil:line`
 - **Description**: Brief description
@@ -284,15 +293,15 @@ You MUST produce TWO output files:
 
 ### 2. JSON File (REQUIRED - separate file)
 
-Write a `{skill-name}.json` file to the output directory with:
+Write a `vm2-audit-first-row-special-cases.json` file to the output directory with:
 
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-first-row-special-cases",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "{skill-name}-{file}-{line}-{subtype}",
+      "id": "vm2-audit-first-row-special-cases-filename-123-issue-type",
       "severity": "critical",
       "file": "path/to/file.pil",
       "line": 123,
@@ -307,7 +316,7 @@ Write a `{skill-name}.json` file to the output directory with:
 For no findings:
 ```json
 {
-  "skill": "{skill-name}",
+  "skill": "vm2-audit-first-row-special-cases",
   "status": "COMPLETED_NO_FINDINGS",
   "findings": []
 }
