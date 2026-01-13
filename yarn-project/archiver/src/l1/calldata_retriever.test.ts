@@ -25,7 +25,7 @@ import {
   toFunctionSelector,
 } from 'viem';
 
-import type { ArchiverInstrumentation } from '../instrumentation.js';
+import type { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import { CalldataRetriever } from './calldata_retriever.js';
 import {
   EIP1967_IMPLEMENTATION_SLOT,

@@ -30,7 +30,7 @@ import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } f
 import { type Hex, decodeFunctionData, getAbiItem, hexToBytes } from 'viem';
 
 import { NoBlobBodiesFoundError } from '../errors.js';
-import type { ArchiverInstrumentation } from '../instrumentation.js';
+import type { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { DataRetrieval } from '../structs/data_retrieval.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { CalldataRetriever } from './calldata_retriever.js';

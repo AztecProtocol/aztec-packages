@@ -20,11 +20,11 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { EventEmitter } from 'events';
 import { createPublicClient, fallback, http } from 'viem';
 
-import { Archiver, type ArchiverDeps } from './archiver/archiver.js';
-import { ArchiverL1Synchronizer } from './archiver/archiver_l1_synchronizer.js';
-import { type ArchiverConfig, mapArchiverConfig } from './archiver/config.js';
-import { ArchiverInstrumentation } from './archiver/instrumentation.js';
-import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './archiver/kv_archiver_store/kv_archiver_store.js';
+import { Archiver, type ArchiverDeps } from './archiver.js';
+import { type ArchiverConfig, mapArchiverConfig } from './config.js';
+import { ArchiverInstrumentation } from './modules/instrumentation.js';
+import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './store/kv_archiver_store.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 

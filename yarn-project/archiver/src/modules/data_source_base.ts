@@ -23,18 +23,18 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-import type { ArchiveSource } from './archiver.js';
-import type { CheckpointData } from './kv_archiver_store/block_store.js';
-import type { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
+import type { ArchiverDataSource } from '../interfaces.js';
+import type { CheckpointData } from '../store/block_store.js';
+import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
 import type { ValidateCheckpointResult } from './validation.js';
 
 /**
- * Abstract base class implementing ArchiveSource using a KVArchiverDataStore.
+ * Abstract base class implementing ArchiverDataSource using a KVArchiverDataStore.
  * Provides implementations for all store-delegating methods and declares abstract methods
  * for L1-dependent functionality that subclasses must implement.
  */
-export abstract class ArchiveSourceBase
-  implements ArchiveSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource
+export abstract class ArchiverDataSourceBase
+  implements ArchiverDataSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource
 {
   constructor(
     protected readonly store: KVArchiverDataStore,

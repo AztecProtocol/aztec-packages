@@ -35,6 +35,17 @@ import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import {
+  BlockArchiveNotConsistentError,
+  BlockIndexNotSequentialError,
+  BlockNumberNotSequentialError,
+  CheckpointNumberNotConsistentError,
+  CheckpointNumberNotSequentialError,
+  InitialBlockNumberNotSequentialError,
+  InitialCheckpointNumberNotSequentialError,
+} from '../errors.js';
+import { MessageStoreError } from '../store/message_store.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
+import {
   makeCheckpointWithLogs,
   makeInboxMessage,
   makeInboxMessages,
@@ -45,18 +56,7 @@ import {
   makePublicLogTag,
   makePublishedCheckpoint,
   makeStateForBlock,
-} from '../../test/mock_structs.js';
-import {
-  BlockArchiveNotConsistentError,
-  BlockIndexNotSequentialError,
-  BlockNumberNotSequentialError,
-  CheckpointNumberNotConsistentError,
-  CheckpointNumberNotSequentialError,
-  InitialBlockNumberNotSequentialError,
-  InitialCheckpointNumberNotSequentialError,
-} from '../errors.js';
-import { MessageStoreError } from '../kv_archiver_store/message_store.js';
-import type { InboxMessage } from '../structs/inbox_message.js';
+} from '../test/mock_structs.js';
 import { type ArchiverL1SynchPoint, KVArchiverDataStore } from './kv_archiver_store.js';
 
 describe('KVArchiverDataStore', () => {

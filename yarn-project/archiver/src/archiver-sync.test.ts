@@ -27,9 +27,9 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { ArchiverL1Synchronizer } from './archiver_l1_synchronizer.js';
-import type { ArchiverInstrumentation } from './instrumentation.js';
-import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
+import type { ArchiverInstrumentation } from './modules/instrumentation.js';
+import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { KVArchiverDataStore } from './store/kv_archiver_store.js';
 import { FakeL1State, type FakeL1StateConfig } from './test/fake_l1_state.js';
 
 describe('Archiver Sync', () => {

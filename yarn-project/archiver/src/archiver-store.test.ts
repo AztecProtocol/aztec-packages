@@ -17,12 +17,12 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { EventEmitter } from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { makeChainedCheckpoints } from '../test/mock_structs.js';
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { ArchiverL1Synchronizer } from './archiver_l1_synchronizer.js';
 import { InitialBlockNumberNotSequentialError } from './errors.js';
-import type { ArchiverInstrumentation } from './instrumentation.js';
-import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
+import type { ArchiverInstrumentation } from './modules/instrumentation.js';
+import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { makeChainedCheckpoints } from './test/mock_structs.js';
 
 describe('Archiver Store', () => {
   const rollupAddress = EthAddress.random();

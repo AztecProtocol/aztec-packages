@@ -19,12 +19,10 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
   L2BlockNew,
   type L2BlockSink,
-  type L2BlockSource,
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
 import {
   type L1RollupConstants,
   getEpochNumberAtTimestamp,
@@ -32,27 +30,16 @@ import {
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { ArchiveSourceBase } from './archive_source_base.js';
-import type { ArchiverL1Synchronizer } from './archiver_l1_synchronizer.js';
-import {
-  addBlocksWithContractData,
-  addCheckpointsWithContractData,
-  unwindCheckpointsWithContractData,
-} from './archiver_store_updates.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { NoBlobBodiesFoundError } from './errors.js';
-import type { ArchiverInstrumentation } from './instrumentation.js';
-import type { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
-
-/**
- * Helper interface to combine all sources this archiver implementation provides.
- */
-export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
+import { ArchiverDataSourceBase } from './modules/data_source_base.js';
+import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
+import type { ArchiverInstrumentation } from './modules/instrumentation.js';
+import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import type { KVArchiverDataStore } from './store/kv_archiver_store.js';
 
 /** Export ArchiverEmitter for use in factory and tests. */
 export type { ArchiverEmitter };
@@ -76,7 +63,7 @@ export type ArchiverDeps = {
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver extends ArchiveSourceBase implements L2BlockSink, Traceable {
+export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Traceable {
   /** Event emitter for archiver events (L2BlockProven, L2PruneDetected, etc). */
   public readonly events: ArchiverEmitter;
 
@@ -91,6 +78,9 @@ export class Archiver extends ArchiveSourceBase implements L2BlockSink, Traceabl
 
   /** Queue of blocks to be added to the store, processed by the sync loop. */
   private blockQueue: AddBlockRequest[] = [];
+
+  /** Helper to handle updates to the store */
+  private readonly updater: ArchiverDataStoreUpdater;
 
   public readonly tracer: Tracer;
 
@@ -139,6 +129,7 @@ export class Archiver extends ArchiveSourceBase implements L2BlockSink, Traceabl
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore);
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
@@ -223,7 +214,7 @@ export class Archiver extends ArchiveSourceBase implements L2BlockSink, Traceabl
     // Process each block individually to properly resolve/reject each promise
     for (const { block, resolve, reject } of queuedItems) {
       try {
-        await addBlocksWithContractData(this.store, [block]);
+        await this.updater.addBlocksWithContractData([block]);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
@@ -364,14 +355,14 @@ export class Archiver extends ArchiveSourceBase implements L2BlockSink, Traceabl
   }
 
   public unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
-    return unwindCheckpointsWithContractData(this.store, from, checkpointsToUnwind);
+    return this.updater.unwindCheckpointsWithContractData(from, checkpointsToUnwind);
   }
 
   public addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
-    return addCheckpointsWithContractData(this.store, checkpoints, pendingChainValidationStatus);
+    return this.updater.addCheckpointsWithContractData(checkpoints, pendingChainValidationStatus);
   }
 
   public async getL2Tips(): Promise<L2Tips> {
@@ -512,7 +503,7 @@ export class Archiver extends ArchiveSourceBase implements L2BlockSink, Traceabl
     }
     const targetL1BlockHash = Buffer32.fromString(targetL1Block.hash);
     this.log.info(`Unwinding ${blocksToUnwind} checkpoints from L2 block ${currentL2Block}`);
-    await unwindCheckpointsWithContractData(this.store, CheckpointNumber(currentL2Block), blocksToUnwind);
+    await this.updater.unwindCheckpointsWithContractData(CheckpointNumber(currentL2Block), blocksToUnwind);
     this.log.info(`Unwinding L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);

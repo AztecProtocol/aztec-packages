@@ -1,4 +1,4 @@
-import { ArchiveSourceBase, KVArchiverDataStore, addCheckpointsWithContractData } from '@aztec/archiver';
+import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, KVArchiverDataStore } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -13,7 +13,9 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
  * Provides most of the endpoints needed by the node for reading from and writing to state,
  * without needing any of the extra overhead that the Archiver itself requires (i.e. an L1 client).
  */
-export class TXEArchiver extends ArchiveSourceBase {
+export class TXEArchiver extends ArchiverDataSourceBase {
+  private readonly updater = new ArchiverDataStoreUpdater(this.store);
+
   constructor(db: AztecAsyncKVStore) {
     const store = new KVArchiverDataStore(db, 9999);
     super(store);
@@ -21,7 +23,7 @@ export class TXEArchiver extends ArchiveSourceBase {
 
   // TXE-specific method for adding checkpoints
   public addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
-    return addCheckpointsWithContractData(this.store, checkpoints, result);
+    return this.updater.addCheckpointsWithContractData(checkpoints, result);
   }
 
   // Abstract method implementations

@@ -22,7 +22,7 @@ import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { PartialStateReference, StateReference, TxEffect } from '@aztec/stdlib/tx';
 
-import { type InboxMessage, updateRollingHash } from '../archiver/structs/inbox_message.js';
+import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
 
 export function makeInboxMessage(
   previousRollingHash = Buffer16.ZERO,

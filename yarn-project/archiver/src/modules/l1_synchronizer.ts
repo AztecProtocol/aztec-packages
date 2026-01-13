@@ -20,17 +20,17 @@ import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-help
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
-import { addCheckpointsWithContractData, unwindCheckpointsWithContractData } from './archiver_store_updates.js';
-import { InitialCheckpointNumberNotSequentialError } from './errors.js';
-import type { ArchiverInstrumentation } from './instrumentation.js';
-import type { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
+import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
 import {
   retrieveCheckpointsFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
   retrievedToPublishedCheckpoint,
-} from './l1/data_retrieval.js';
-import type { InboxMessage } from './structs/inbox_message.js';
+} from '../l1/data_retrieval.js';
+import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
+import { ArchiverDataStoreUpdater } from './data_store_updater.js';
+import type { ArchiverInstrumentation } from './instrumentation.js';
 import { validateCheckpointAttestations } from './validation.js';
 
 type RollupStatus = {
@@ -51,6 +51,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
 
+  private readonly updater: ArchiverDataStoreUpdater;
   public readonly tracer: Tracer;
 
   constructor(
@@ -77,6 +78,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     tracer: Tracer,
     private readonly log: Logger = createLogger('archiver:l1-sync'),
   ) {
+    this.updater = new ArchiverDataStoreUpdater(this.store);
     this.tracer = tracer;
   }
 
@@ -281,7 +283,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.debug(
         `L2 prune from ${provenCheckpointNumber + 1} to ${localPendingCheckpointNumber} will occur on next checkpoint submission.`,
       );
-      await unwindCheckpointsWithContractData(this.store, localPendingCheckpointNumber, checkpointsToUnwind);
+      await this.updater.unwindCheckpointsWithContractData(localPendingCheckpointNumber, checkpointsToUnwind);
       this.log.warn(
         `Unwound ${count(checkpointsToUnwind, 'checkpoint')} from checkpoint ${localPendingCheckpointNumber} ` +
           `to ${provenCheckpointNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
@@ -633,7 +635,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         }
 
         const checkpointsToUnwind = localPendingCheckpointNumber - tipAfterUnwind;
-        await unwindCheckpointsWithContractData(this.store, localPendingCheckpointNumber, checkpointsToUnwind);
+        await this.updater.unwindCheckpointsWithContractData(localPendingCheckpointNumber, checkpointsToUnwind);
 
         this.log.warn(
           `Unwound ${count(checkpointsToUnwind, 'checkpoint')} from checkpoint ${localPendingCheckpointNumber} ` +
@@ -764,7 +766,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
         const [processDuration] = await elapsed(() =>
           execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>
-            addCheckpointsWithContractData(this.store, validCheckpoints, updatedValidationResult),
+            this.updater.addCheckpointsWithContractData(validCheckpoints, updatedValidationResult),
           ),
         );
         this.instrumentation.processNewBlocks(
