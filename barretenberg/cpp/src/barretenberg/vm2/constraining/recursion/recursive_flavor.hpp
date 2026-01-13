@@ -242,8 +242,8 @@ class AvmRecursiveFlavor {
          * @details Before hashing, if the proof is padded, add to the transcript the padding values.
          *
          */
-        static stdlib::field_t<Builder> hash_transcript(const std::shared_ptr<TemplatedTranscript<Builder>>& transcript,
-                                                        const stdlib::Proof<Builder>& stdlib_proof)
+        static stdlib::field_t<Builder> pad_and_hash_avm_transcript(
+            const std::shared_ptr<TemplatedTranscript<Builder>>& transcript, const stdlib::Proof<Builder>& stdlib_proof)
         {
             if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
                 // If the proof is padded, we need to add the padding values to the transcript because recursive
@@ -270,7 +270,7 @@ class AvmRecursiveFlavor {
             const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs)
         {
             auto transcript = perform_avm_transcript_operations(builder, stdlib_proof, public_inputs);
-            return hash_transcript(transcript, stdlib_proof);
+            return pad_and_hash_avm_transcript(transcript, stdlib_proof);
         }
 
         /**
@@ -281,7 +281,7 @@ class AvmRecursiveFlavor {
         static stdlib::field_t<Builder> hash_avm_transcript(
             const std::shared_ptr<TemplatedTranscript<Builder>>& transcript, const stdlib::Proof<Builder>& stdlib_proof)
         {
-            return hash_transcript(transcript, stdlib_proof);
+            return pad_and_hash_avm_transcript(transcript, stdlib_proof);
         }
 
         /**
@@ -296,7 +296,7 @@ class AvmRecursiveFlavor {
         {
             auto transcript = perform_avm_transcript_operations(builder, stdlib_proof, public_inputs, true);
 
-            return { hash_transcript(transcript, stdlib_proof), transcript };
+            return { pad_and_hash_avm_transcript(transcript, stdlib_proof), transcript };
         }
     };
 

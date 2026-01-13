@@ -236,13 +236,20 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
  * @brief Check that the size of a mock AVM proof matches expectation
  *
  */
-TEST(MockVerifierInputsTest, MockAVMProofSize)
+// TODO(@fcarreiro): Re-enable this test once proof size is fixed.
+TEST(MockVerifierInputsTest, DISABLED_MockAVMProofSize)
 {
-    // TODO(@fcarreiro): Re-enable this once the proof size of the AVM is fixed
-    // size_t CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16040;
-    // const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/false);
-    // EXPECT_EQ(avm_proof.size(), CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS) << "The length of the AVM proof changed.";
+    size_t CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16040;
+    const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/false);
+    EXPECT_EQ(avm_proof.size(), CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS) << "The length of the AVM proof changed.";
+}
 
+/**
+ * @brief Check that the size of a padded mock AVM proof matches expectation
+ *
+ */
+TEST(MockVerifierInputsTest, MockAVMProofSizePadded)
+{
     size_t CURRENT_PADDED_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16200;
     const HonkProof padded_avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true);
     EXPECT_EQ(padded_avm_proof.size(), CURRENT_PADDED_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS)

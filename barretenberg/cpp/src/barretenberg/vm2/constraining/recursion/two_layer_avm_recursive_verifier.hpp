@@ -224,6 +224,8 @@ class TwoLayerAvmRecursiveVerifier {
         }
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
+        // The constructor of AvmRecursiveVerifier hard-codes the VK and the VK hash of the AVM2 by copying the values
+        // into the selectors.
         AvmRecursiveVerifier recursive_verifier{ inner_builder };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(inner_stdlib_proof, inner_public_inputs);
 
