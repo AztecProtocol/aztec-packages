@@ -41,7 +41,7 @@ constexpr bool is_hypernova_proof_type(uint32_t proof_type)
 
 // Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Throws for non-HyperNova types.
 // Note: QUEUE_TYPE::MEGA is internal to Chonk and has no ACIR equivalent.
-inline Chonk::QUEUE_TYPE proof_type_to_queue_type(uint32_t proof_type)
+inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
 {
     switch (proof_type) {
     case PROOF_TYPE::OINK:
@@ -53,11 +53,11 @@ inline Chonk::QUEUE_TYPE proof_type_to_queue_type(uint32_t proof_type)
     case PROOF_TYPE::HN_FINAL:
         return Chonk::QUEUE_TYPE::HN_FINAL;
     default:
-        throw_or_abort("proof_type_to_queue_type: invalid type " + std::to_string(proof_type));
+        throw_or_abort("proof_type_to_chonk_queue_type: invalid type " + std::to_string(proof_type));
     }
 }
 
-// Inverse of proof_type_to_queue_type. Throws for MEGA (no ACIR equivalent).
+// Inverse of proof_type_to_chonk_queue_type. Throws for MEGA (no ACIR equivalent).
 inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
 {
     switch (queue_type) {

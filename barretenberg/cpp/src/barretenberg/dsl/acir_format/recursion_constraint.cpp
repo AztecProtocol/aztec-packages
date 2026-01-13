@@ -193,8 +193,12 @@ void process_hn_recursion_constraints(
         // verifications).
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
             // Validate ACIR constraint proof_type matches IVC queue type
-            BB_ASSERT(proof_type_to_queue_type(constraint.proof_type) == queue_entry.type,
+            BB_ASSERT(proof_type_to_chonk_queue_type(constraint.proof_type) == queue_entry.type,
                       "ACIR constraint proof_type does not match IVC queue type");
+
+            // Validate proof has enough elements for public inputs
+            BB_ASSERT(queue_entry.proof.size() >= constraint.public_inputs.size(),
+                      "process_hn_recursion_constraints: proof vector too small for public inputs");
 
             std::vector<StdlibFF> public_inputs_from_proof(queue_entry.proof.begin(),
                                                            queue_entry.proof.begin() +

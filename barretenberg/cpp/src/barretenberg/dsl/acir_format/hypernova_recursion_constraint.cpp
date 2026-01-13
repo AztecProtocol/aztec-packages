@@ -23,7 +23,7 @@ using namespace bb;
 /**
  * @brief Create a Chonk instance with mocked state corresponding to a set of IVC recursion constraints
  *
- * @details Aztec kernel circuits require a Chonk (IVC) instance containing proofs and VKs for recursive
+ * @details Aztec kernel circuits require a Chonk instance containing proofs and VKs for recursive
  * verification. During VK generation, we don't have real proofs, so we create mock data with the correct
  * structure. This function analyzes the recursion constraints to determine the appropriate mock state.
  *
@@ -41,10 +41,9 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
 {
     auto ivc = std::make_shared<Chonk>(constraints.size());
 
-    // Helper to check constraint proof type using centralized conversion
-    // Throws if proof_type is not a valid HyperNova type
+    // Check constraint proof type. Throws if proof_type is not a valid HyperNova type
     auto constraint_has_type = [](const RecursionConstraint& c, Chonk::QUEUE_TYPE expected) {
-        return proof_type_to_queue_type(c.proof_type) == expected;
+        return proof_type_to_chonk_queue_type(c.proof_type) == expected;
     };
 
     // Match constraint patterns to kernel types and populate appropriate mock data:
@@ -93,7 +92,7 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
  *
  * @details Constructs a VerifierInputs entry containing:
  * - A mock HyperNova proof with the correct field count for the proof type
- * - A mock MegaHonk verification key with the correct commitment count
+ * - A mock MegaHonk verification key
  *
  * The proof structure depends on:
  * - Whether it's a kernel (always includes folding proof) or app circuit
@@ -111,7 +110,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
     using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
 
-    // VK metadata: dyadic circuit size and public inputs offset (always 1 due to zero row)
+    // VK metadata: dyadic circuit size and public inputs offset (always 1)
     size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;
     size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
 
@@ -148,7 +147,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
  * 1. Initializes the recursive verifier accumulator (challenge vector, evaluations, commitments)
  *    - This is hashed in-circuit to bind the accumulator state
  * 2. Adds a mock verification queue entry (proof + VK) for the accumulated circuit
- * 3. Adds a mock merge proof for the Goblin ECCVM accumulation
+ * 3. Adds a mock merge proof
  * 4. For HN_FINAL: also adds a mock decider/PCS proof
  *
  * @param ivc The Chonk instance to populate
@@ -160,26 +159,19 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
 
-    // Initialize verifier accumulator with zero/identity values
-    // The accumulator state is hashed into the circuit, so it must have valid structure
+    // Initialize verifier accumulator with proper structure
     ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
     ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
 
-    // Add mock proof and VK to the verification queue
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
-
-    // Add mock merge proof for Goblin ECCVM accumulation
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
-
-    // HN_FINAL additionally requires a decider proof for the final PCS opening
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
     }
-
     ivc->num_circuits_accumulated++;
 }
 
