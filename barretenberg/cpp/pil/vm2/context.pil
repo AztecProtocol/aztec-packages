@@ -4,6 +4,7 @@ include "context_stack.pil";
 // This subtrace is focused on managing the changes to the context.
 // By default (i.e. when not executing a context-changing opcode),
 // the context object is propagated downwards
+// This subtrace has interactions with context_stack.pil.
 namespace execution;
 
     // This the same sel as in execution
