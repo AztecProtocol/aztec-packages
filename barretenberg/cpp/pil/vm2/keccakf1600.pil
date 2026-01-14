@@ -76,10 +76,13 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
+#[TRACE_CONTINUITY]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
 // error is defined below after round function
 pol commit sel_no_error; // @boolean (by definition)
 #[SEL_NO_ERROR]
-start * (sel_no_error - 1 + error) = 0;
+sel * (sel_no_error - 1 + error) = 0;
 
 // Round number which starts at 1 and ends at AVM_KECCAKF1600_NUM_ROUNDS (24).
 pol commit round;
@@ -96,21 +99,36 @@ start * (round - 1) = 0;
 pol commit round_inv;
 #[KECCAK_SEL_ROUND_NON_ZERO]
 round * ((1 - sel) * (1 - round_inv) + round_inv) - sel = 0;
-
-#[KECCAK_ROUND_INCREMENT]
-// Note: sel factor is required for an empty row to satisfy this relation
-sel * (1 - last) * (round' - round - 1) = 0;
+// This implies that `start == 1 ==> sel == 1`.
 
 // Selector for the last round of a keccak permutation
 // If no error is detected in row where `start == 1`, we have last == 1 <==> round == AVM_KECCAKF1600_NUM_ROUNDS (24)
-// Otherwise, `last` is unconstrained but witness generator will toggle it on the initial row.
 // This is achieved through #[SEL_SLICE_WRITE] and #[WRITE_TO_SLICE]. If there is no error,
 // the former guarantees that the write slice is active whenever `last == 1`. The latter guarantees
 // that `round` is equal to 24 (by fixing a constant 24 in the destination permutation tuple).
 pol commit last; // @boolean
 last * (1 - last) = 0;
 
-// TODO: We need this temporarily while we do not allow for constants in the lookup tuple
+// We enforce that `last == 1` whenever `error == 1`.
+// Note that error is constrained only on the start row.
+#[LAST_ON_ERROR]
+error * (last - 1) = 0;
+
+#[START_AFTER_LATCH]
+sel' * (start' - LATCH_CONDITION) = 0;
+
+#[LAST_HAS_SEL_ON]
+last * (1 - sel) = 0;
+
+// `sel == 0` on the first row because of shift relations and thus `last` is mutually
+// exclusive with `precomputed.first_row`.
+pol LATCH_CONDITION = last + precomputed.first_row;
+
+#[KECCAK_ROUND_INCREMENT]
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (1 - LATCH_CONDITION) * (round' - round - 1) = 0;
+
+// Lookup tuple constants: We need this temporarily while we do not allow for constants in the lookup tuple
 pol commit bitwise_xor_op_id;
 sel * (bitwise_xor_op_id - constants.AVM_BITWISE_XOR_OP_ID) = 0;
 pol commit bitwise_and_op_id;
@@ -1280,59 +1298,59 @@ bitwise.start_keccak { bitwise.op_id, bitwise.acc_ia, bitwise.acc_ib, bitwise.ac
 // the output state, otherwise we initialize the next state_in values for the next round.
 
 #[NEXT_STATE_IN_00]
-(1 - last) * (state_in_00' - state_iota_00) = 0;
+(1 - LATCH_CONDITION) * (state_in_00' - state_iota_00) = 0;
 #[NEXT_STATE_IN_01]
-(1 - last) * (state_in_01' - state_chi_01) = 0;
+(1 - LATCH_CONDITION) * (state_in_01' - state_chi_01) = 0;
 #[NEXT_STATE_IN_02]
-(1 - last) * (state_in_02' - state_chi_02) = 0;
+(1 - LATCH_CONDITION) * (state_in_02' - state_chi_02) = 0;
 #[NEXT_STATE_IN_03]
-(1 - last) * (state_in_03' - state_chi_03) = 0;
+(1 - LATCH_CONDITION) * (state_in_03' - state_chi_03) = 0;
 #[NEXT_STATE_IN_04]
-(1 - last) * (state_in_04' - state_chi_04) = 0;
+(1 - LATCH_CONDITION) * (state_in_04' - state_chi_04) = 0;
 
 #[NEXT_STATE_IN_10]
-(1 - last) * (state_in_10' - state_chi_10) = 0;
+(1 - LATCH_CONDITION) * (state_in_10' - state_chi_10) = 0;
 #[NEXT_STATE_IN_11]
-(1 - last) * (state_in_11' - state_chi_11) = 0;
+(1 - LATCH_CONDITION) * (state_in_11' - state_chi_11) = 0;
 #[NEXT_STATE_IN_12]
-(1 - last) * (state_in_12' - state_chi_12) = 0;
+(1 - LATCH_CONDITION) * (state_in_12' - state_chi_12) = 0;
 #[NEXT_STATE_IN_13]
-(1 - last) * (state_in_13' - state_chi_13) = 0;
+(1 - LATCH_CONDITION) * (state_in_13' - state_chi_13) = 0;
 #[NEXT_STATE_IN_14]
-(1 - last) * (state_in_14' - state_chi_14) = 0;
+(1 - LATCH_CONDITION) * (state_in_14' - state_chi_14) = 0;
 
 #[NEXT_STATE_IN_20]
-(1 - last) * (state_in_20' - state_chi_20) = 0;
+(1 - LATCH_CONDITION) * (state_in_20' - state_chi_20) = 0;
 #[NEXT_STATE_IN_21]
-(1 - last) * (state_in_21' - state_chi_21) = 0;
+(1 - LATCH_CONDITION) * (state_in_21' - state_chi_21) = 0;
 #[NEXT_STATE_IN_22]
-(1 - last) * (state_in_22' - state_chi_22) = 0;
+(1 - LATCH_CONDITION) * (state_in_22' - state_chi_22) = 0;
 #[NEXT_STATE_IN_23]
-(1 - last) * (state_in_23' - state_chi_23) = 0;
+(1 - LATCH_CONDITION) * (state_in_23' - state_chi_23) = 0;
 #[NEXT_STATE_IN_24]
-(1 - last) * (state_in_24' - state_chi_24) = 0;
+(1 - LATCH_CONDITION) * (state_in_24' - state_chi_24) = 0;
 
 #[NEXT_STATE_IN_30]
-(1 - last) * (state_in_30' - state_chi_30) = 0;
+(1 - LATCH_CONDITION) * (state_in_30' - state_chi_30) = 0;
 #[NEXT_STATE_IN_31]
-(1 - last) * (state_in_31' - state_chi_31) = 0;
+(1 - LATCH_CONDITION) * (state_in_31' - state_chi_31) = 0;
 #[NEXT_STATE_IN_32]
-(1 - last) * (state_in_32' - state_chi_32) = 0;
+(1 - LATCH_CONDITION) * (state_in_32' - state_chi_32) = 0;
 #[NEXT_STATE_IN_33]
-(1 - last) * (state_in_33' - state_chi_33) = 0;
+(1 - LATCH_CONDITION) * (state_in_33' - state_chi_33) = 0;
 #[NEXT_STATE_IN_34]
-(1 - last) * (state_in_34' - state_chi_34) = 0;
+(1 - LATCH_CONDITION) * (state_in_34' - state_chi_34) = 0;
 
 #[NEXT_STATE_IN_40]
-(1 - last) * (state_in_40' - state_chi_40) = 0;
+(1 - LATCH_CONDITION) * (state_in_40' - state_chi_40) = 0;
 #[NEXT_STATE_IN_41]
-(1 - last) * (state_in_41' - state_chi_41) = 0;
+(1 - LATCH_CONDITION) * (state_in_41' - state_chi_41) = 0;
 #[NEXT_STATE_IN_42]
-(1 - last) * (state_in_42' - state_chi_42) = 0;
+(1 - LATCH_CONDITION) * (state_in_42' - state_chi_42) = 0;
 #[NEXT_STATE_IN_43]
-(1 - last) * (state_in_43' - state_chi_43) = 0;
+(1 - LATCH_CONDITION) * (state_in_43' - state_chi_43) = 0;
 #[NEXT_STATE_IN_44]
-(1 - last) * (state_in_44' - state_chi_44) = 0;
+(1 - LATCH_CONDITION) * (state_in_44' - state_chi_44) = 0;
 
 //#############################################################################
 //                  Read-Write to memory slice and error handling
@@ -1373,16 +1391,16 @@ start { dst_addr, highest_slice_address, dst_out_of_range_error } in gt.sel_othe
 error = 1 - (1 - src_out_of_range_error) * (1 - dst_out_of_range_error) * (1 - tag_error);
 
 #[DST_ADDR_PROPAGATION]
-(1 - last) * (dst_addr' - dst_addr) = 0;
+(1 - LATCH_CONDITION) * (dst_addr' - dst_addr) = 0;
 #[CLK_PROPAGATION]
-(1 - last) * (clk' - clk) = 0;
+(1 - LATCH_CONDITION) * (clk' - clk) = 0;
 #[SPACE_ID_PROPAGATION]
-(1 - last) * (space_id' - space_id) = 0;
+(1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
 
 // It is crucial to propagate sel_no_error to the bottom (last == 1) as to properly
 // activate the slice write lookup (see below).
 #[SEL_NO_ERROR_PROPAGATION]
-(1 - last) * (sel_no_error' - sel_no_error) = 0;
+(1 - LATCH_CONDITION) * (sel_no_error' - sel_no_error) = 0;
 
 // Note that we do not propagate src_out_of_range_error, dst_out_of_range_error, tag_error, error
 // as they are not affecting constraints in the other rows. Error propagation to the caller
@@ -1398,6 +1416,23 @@ pol commit sel_slice_write;
 sel_slice_read = start * (1 - src_out_of_range_error) * (1 - dst_out_of_range_error);
 #[SEL_SLICE_WRITE]
 sel_slice_write = sel_no_error * last;
+
+// Prevention of illegitimate writes to memory:
+// sel_slice_write == 1 ==> round == 24 (by #[WRITE_TO_SLICE])
+// From #[KECCAK_SEL_ROUND_NON_ZERO], we have `sel == 1`.
+// Since `last` is a boolean and `sel_no_error` is boolean on an active row,
+// `last == 1` and `sel_no_error == 1`.
+// This row must have `start == 0` because otherwise `round` would be equal to 1 instead of 24.
+// As a consequence, the previous row must have `LATCH_CONDITION == 0` by #[START_AFTER_LATCH]
+// which enforces a bottom-up propagation of `sel_no_error` and a decreasing counter for `round`
+// by #[SEL_NO_ERROR_PROPAGATION] and #[KECCAK_ROUND_INCREMENT]. When the propagation reaches
+// `round == 1`, we have `sel == 1` (#[KECCAK_SEL_ROUND_NON_ZERO]) two possible cases:
+// 1) The row above is `precomputed.first_row == 1` which implies that `start == 1`.
+// 2) Otherwise, by #[TRACE_CONTINUITY], the above row must be active (sel == 1)
+//    and we cannot decrement `round` anymore (would be zero which contradicts #[KECCAK_SEL_ROUND_NON_ZERO]).
+//    As a consequence, the above row must have `last == LATCH_CONDITION == 1` which implies that `start == 1`.
+// This shows that any "slice write to memroy" operation was triggered by a legitimate keccak permutation
+// because `start` is the destination selector for the keccak permutation.
 
 #[READ_TO_SLICE]
 // Standard Keccak layout: memory[(y * 5) + x] = A[x][y]
