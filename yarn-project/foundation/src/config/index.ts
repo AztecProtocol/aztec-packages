@@ -150,6 +150,23 @@ export function floatConfigHelper(
 }
 
 /**
+ * Parses an environment variable to a 0-1 percentage value
+ */
+export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string): number => {
+      const parsed = safeParseFloat(val, defaultVal);
+      if (parsed < 0 || parsed > 1) {
+        throw new TypeError(`Invalid percentage value: ${parsed} should be between 0 and 1`);
+      }
+
+      return parsed;
+    },
+    defaultValue: defaultVal,
+  };
+}
+
+/**
  * Generates parseEnv and default values for a numerical config value.
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
