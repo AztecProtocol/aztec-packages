@@ -11,6 +11,11 @@ namespace bb::avm2 {
  * BB, however, uses only the two coordinates to represent points. Infinity in barretenberg is represented as (P+1)/2,0.
  * This class is a wrapper of the BB representation, needed to operate with points, that allows to extract the standard
  * representation that AVM bytecode expects.
+ * NOTE: When constructing infinity from BB's two element representation, is_infinity() will be true but the coordinates
+ * will remain (P+1)/2,0.
+ * NOTE: When constructing infinity via BaseFields, input coordinates are maintained and can be any values, so may
+ * mismatch the underlying AffinePoint. Always check is_infinity() before ECC operations on coordinates. See test
+ * InfinityPreservesRawCoordinates for an example.
  */
 template <typename AffinePoint> class StandardAffinePoint {
   public:
