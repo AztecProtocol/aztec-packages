@@ -45,20 +45,21 @@ typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& 
 }
 
 /**
- * @brief Convert scalar out of Montgomery form. Populate `consolidated_indices` with nonzero scalar indices
+ * @brief Populate `consolidated_indices` with indices of nonzero scalars
+ * @details Scalars must already be in non-Montgomery (standard) form for correct zero-detection
  *
  * @tparam Curve
- * @param scalars
+ * @param scalars (must be in non-Montgomery form)
  * @param consolidated_indices
  */
 template <typename Curve>
-void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
-                                                                 std::vector<uint32_t>& consolidated_indices) noexcept
+void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::ScalarField> scalars,
+                                            std::vector<uint32_t>& consolidated_indices) noexcept
 {
     const size_t num_threads = get_num_cpus();
     std::vector<size_t> thread_counts(num_threads, 0);
 
-    // Pass 1: Convert scalars and count non-zero entries per thread (no per-thread vector allocation)
+    // Pass 1: Count non-zero entries per thread
     parallel_for([&](const ThreadChunk& chunk) {
         BB_ASSERT_EQ(chunk.total_threads, num_threads);
         auto range = chunk.range(scalars.size());
@@ -68,10 +69,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
         size_t count = 0;
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
-            auto& scalar = scalars[i];
-            scalar.self_from_montgomery_form();
-
-            if (!scalar.is_zero()) {
+            if (!scalars[i].is_zero()) {
                 count++;
             }
         }
@@ -87,7 +85,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
     const size_t num_entries = thread_offsets[num_threads];
     consolidated_indices.resize(num_entries);
 
-    // Pass 2: Fill consolidated_indices directly (no intermediate vector-of-vectors)
+    // Pass 2: Fill consolidated_indices directly
     parallel_for([&](const ThreadChunk& chunk) {
         BB_ASSERT_EQ(chunk.total_threads, num_threads);
         auto range = chunk.range(scalars.size());
@@ -114,7 +112,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
  *          We will split up an MSM into multiple MSMs if this is required.
  *
  * @tparam Curve
- * @param scalars
+ * @param scalars (must be in non-Montgomery form)
  * @param msm_scalar_indices
  * @return std::vector<typename MSM<Curve>::ThreadWorkUnits>
  */
@@ -127,7 +125,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     msm_scalar_indices.resize(num_msms);
     for (size_t i = 0; i < num_msms; ++i) {
         BB_ASSERT_LT(i, scalars.size());
-        transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
+        get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
     }
 
     size_t total_work = 0;

@@ -281,6 +281,7 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
 
     const size_t num_points = 2;
     std::vector<ScalarField> scalars(num_points);
+    std::vector<ScalarField> scalars_montgomery(num_points); // Keep a copy in Montgomery form for expected computation
     constexpr size_t NUM_BITS_IN_FIELD = fr::modulus.get_msb() + 1;
     const size_t normal_slice_size = 7; // stop hardcoding
     const size_t num_buckets = 1 << normal_slice_size;
@@ -301,17 +302,20 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
                 lo_bit = 0;
             }
             uint64_t slice = engine.get_random_uint64() & ((1 << num_bits_in_slice) - 1);
-            // at this point in the algo, scalars has been converted out of montgomery form
+            // Scalars in non-Montgomery form (as expected by MSM internals)
             uint256_t scalar = uint256_t(slice) << lo_bit;
             scalars[i].data[0] = scalar.data[0];
             scalars[i].data[1] = scalar.data[1];
             scalars[i].data[2] = scalar.data[2];
             scalars[i].data[3] = scalar.data[3];
-            scalars[i].self_to_montgomery_form();
+            // Keep Montgomery form copy for expected computation
+            scalars_montgomery[i] = scalars[i];
+            scalars_montgomery[i].self_to_montgomery_form();
         }
 
         std::vector<uint32_t> indices;
-        scalar_multiplication::MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(scalars, indices);
+        // get_nonzero_scalar_indices expects non-Montgomery form scalars
+        scalar_multiplication::MSM<Curve>::get_nonzero_scalar_indices(scalars, indices);
 
         Element previous_round_output;
         previous_round_output.self_set_infinity();
@@ -326,8 +330,7 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
         Element expected;
         expected.self_set_infinity();
         for (size_t i = 0; i < num_points; ++i) {
-            ScalarField baz = scalars[i].to_montgomery_form();
-            expected += (TestFixture::generators[i] * baz);
+            expected += (TestFixture::generators[i] * scalars_montgomery[i]);
         }
         size_t num_doublings = NUM_BITS_IN_FIELD - (normal_slice_size * (round_index + 1));
         if (round_index == num_rounds - 1) {
@@ -605,4 +608,220 @@ TEST(ScalarMultiplication, SmallInputsExplicit)
     grumpkin::g1::element expected = (points[0] * scalars[0]) + (points[1] * scalars[1]);
 
     EXPECT_EQ(result, grumpkin::g1::affine_element(expected));
+}
+
+// Test that scalars remain unchanged after MSM (Montgomery form preservation)
+TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterMSM)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 100;
+    std::vector<ScalarField> scalars(num_points);
+    std::vector<ScalarField> scalars_copy(num_points);
+
+    for (size_t i = 0; i < num_points; ++i) {
+        scalars[i] = TestFixture::scalars[i];
+        scalars_copy[i] = scalars[i];
+    }
+
+    std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+    // Call MSM
+    scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+    // Verify scalars are unchanged
+    for (size_t i = 0; i < num_points; ++i) {
+        EXPECT_EQ(scalars[i], scalars_copy[i]) << "Scalar at index " << i << " was modified";
+    }
+}
+
+// Test scalar = 1 (identity multiplication)
+TYPED_TEST(ScalarMultiplicationTest, ScalarOne)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 5;
+    std::vector<ScalarField> scalars(num_points, ScalarField::one());
+    std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+    // Expected: sum of all points
+    typename Curve::Element expected;
+    expected.self_set_infinity();
+    for (size_t i = 0; i < num_points; ++i) {
+        expected += points[i];
+    }
+
+    EXPECT_EQ(result, AffineElement(expected));
+}
+
+// Test scalar = -1 (negation)
+TYPED_TEST(ScalarMultiplicationTest, ScalarMinusOne)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 5;
+    std::vector<ScalarField> scalars(num_points, -ScalarField::one());
+    std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+    // Expected: sum of negated points
+    typename Curve::Element expected;
+    expected.self_set_infinity();
+    for (size_t i = 0; i < num_points; ++i) {
+        expected -= points[i];
+    }
+
+    EXPECT_EQ(result, AffineElement(expected));
+}
+
+// Test single point MSM (n=1)
+TYPED_TEST(ScalarMultiplicationTest, SinglePoint)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    std::vector<ScalarField> scalars = { TestFixture::scalars[0] };
+    std::span<const AffineElement> points(&TestFixture::generators[0], 1);
+
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+    AffineElement expected(points[0] * scalars[0]);
+    EXPECT_EQ(result, expected);
+}
+
+// Test size thresholds - exercises different code paths
+// n < 16: small_mul path
+// n < 128: small_pippenger (no affine trick)
+// n >= 128: pippenger with affine trick
+TYPED_TEST(ScalarMultiplicationTest, SizeThresholds)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    // Test sizes around algorithm thresholds
+    std::vector<size_t> test_sizes = { 1, 2, 15, 16, 17, 50, 127, 128, 129, 256, 512 };
+
+    for (size_t num_points : test_sizes) {
+        ASSERT_LE(num_points, TestFixture::num_points);
+
+        std::vector<ScalarField> scalars(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            scalars[i] = TestFixture::scalars[i];
+        }
+
+        std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+        PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+        AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+        AffineElement expected = TestFixture::naive_msm(scalars, points);
+
+        EXPECT_EQ(result, expected) << "Failed for size " << num_points;
+    }
+}
+
+// Test with duplicate points (same point, different scalars)
+TYPED_TEST(ScalarMultiplicationTest, DuplicatePoints)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 10;
+    AffineElement base_point = TestFixture::generators[0];
+
+    // All points are the same
+    std::vector<AffineElement> points(num_points, base_point);
+    std::vector<ScalarField> scalars(num_points);
+    ScalarField scalar_sum = ScalarField::zero();
+
+    for (size_t i = 0; i < num_points; ++i) {
+        scalars[i] = TestFixture::scalars[i];
+        scalar_sum += scalars[i];
+    }
+
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+    AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+
+    // Expected: base_point * (sum of all scalars)
+    AffineElement expected(base_point * scalar_sum);
+    EXPECT_EQ(result, expected);
+}
+
+// Test mixed zero and non-zero scalars
+TYPED_TEST(ScalarMultiplicationTest, MixedZeroScalars)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 100;
+    std::vector<ScalarField> scalars(num_points);
+    typename Curve::Element expected;
+    expected.self_set_infinity();
+
+    // Alternate between zero and non-zero scalars
+    for (size_t i = 0; i < num_points; ++i) {
+        if (i % 2 == 0) {
+            scalars[i] = ScalarField::zero();
+        } else {
+            scalars[i] = TestFixture::scalars[i];
+            expected += TestFixture::generators[i] * scalars[i];
+        }
+    }
+
+    std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+    AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
+    EXPECT_EQ(result, AffineElement(expected));
+}
+
+// Test pippenger free function (uses handle_edge_cases=true by default)
+TYPED_TEST(ScalarMultiplicationTest, PippengerFreeFunction)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 200;
+    std::vector<ScalarField> scalars(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        scalars[i] = TestFixture::scalars[i];
+    }
+
+    std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+    auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points);
+
+    AffineElement expected = TestFixture::naive_msm(scalars, points);
+    EXPECT_EQ(AffineElement(result), expected);
+}
+
+// Test pippenger_unsafe free function
+TYPED_TEST(ScalarMultiplicationTest, PippengerUnsafeFreeFunction)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_points = 200;
+    std::vector<ScalarField> scalars(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        scalars[i] = TestFixture::scalars[i];
+    }
+
+    std::span<const AffineElement> points(&TestFixture::generators[0], num_points);
+    PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+    auto result = scalar_multiplication::pippenger_unsafe<Curve>(scalar_span, points);
+
+    AffineElement expected = TestFixture::naive_msm(scalars, points);
+    EXPECT_EQ(AffineElement(result), expected);
 }
