@@ -157,7 +157,7 @@ export class PXE {
     );
 
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore]);
+    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
@@ -673,7 +673,7 @@ export class PXE {
           // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
           const txHash = (await txProvingResult.toTx()).txHash;
 
-          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash);
+          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash, jobId);
           this.log.debug(`Stored used pre-tags as sender for the tx`, {
             preTagsUsedInTheTx,
           });
