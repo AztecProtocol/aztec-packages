@@ -156,8 +156,12 @@ container_script=$(
     cpu_pid=\$!
 
     # Capture mem load.
-    vmstat -w -S M 2 > >(cache_log memfile) &
+    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
     mem_pid=\$!
+
+    # Dump process tree every 10s.
+    bash -c "while true; do pstree -ag; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
+    pstree_pid=\$!
 
     set +e
     set -x
@@ -166,7 +170,7 @@ container_script=$(
     set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    kill \$cpu_pid \$mem_pid &>/dev/null
+    kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null
 
     return \$code
   }
