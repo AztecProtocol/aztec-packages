@@ -106,6 +106,10 @@ namespace sha256;
     start * (1 - err) * (h - init_h) = 0;
 
     // Propagate initial state values across all rounds.
+    // Initial states must be propagated correctly becuse they are used in the `last` row
+    // when adding to the compression output.  `last` is mutually exclusive to `perform_round` but 
+    // these constraints don't need to use `last`  because on the 64th row of `perform_round` we
+    // will constrain the next row (i.e. the `last` row) to be correct.
     #[PROPAGATE_INIT_A]
     perform_round * (init_a' - init_a) = 0;
     #[PROPAGATE_INIT_B]
