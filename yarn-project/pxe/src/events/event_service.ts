@@ -15,7 +15,7 @@ export class EventService {
     private readonly privateEventStore: PrivateEventStore,
   ) {}
 
-  public async deliverEvent(
+  public async storeEvent(
     contractAddress: AztecAddress,
     selector: EventSelector,
     randomness: Fr,
