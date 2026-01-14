@@ -29,7 +29,7 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, transcript, merge_settings, commitment_key };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 

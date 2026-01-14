@@ -4,9 +4,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { jest } from '@jest/globals';
 import type { Hex } from 'viem';
 
-import traceTransactionMultipleProposeFixture from '../../test/fixtures/trace_transaction-multiplePropose.json' with { type: 'json' };
-import traceTransactionFixture from '../../test/fixtures/trace_transaction-proxied.json' with { type: 'json' };
-import traceTransactionRevertFixture from '../../test/fixtures/trace_transaction-randomRevert.json' with { type: 'json' };
+import traceTransactionMultipleProposeFixture from '../test/fixtures/trace_transaction-multiplePropose.json' with { type: 'json' };
+import traceTransactionFixture from '../test/fixtures/trace_transaction-proxied.json' with { type: 'json' };
+import traceTransactionRevertFixture from '../test/fixtures/trace_transaction-randomRevert.json' with { type: 'json' };
 import { getSuccessfulCallsFromTrace } from './trace_tx.js';
 
 describe('getSuccessfulCallsFromTrace', () => {

@@ -6,13 +6,12 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';
-import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { orderAttestations } from '@aztec/stdlib/p2p';
-import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 
+import { makeSignedPublishedCheckpoint } from '../test/mock_structs.js';
 import { getAttestationInfoFromPublishedCheckpoint, validateCheckpointAttestations } from './validation.js';
 
 describe('validateCheckpointAttestations', () => {
@@ -25,9 +24,7 @@ describe('validateCheckpointAttestations', () => {
 
   const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
     const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
-    const attestations = signers.map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer));
-    const committeeAttestations = orderAttestations(attestations, committee);
-    return new PublishedCheckpoint(checkpoint, L1PublishedData.random(), committeeAttestations);
+    return makeSignedPublishedCheckpoint(checkpoint, signers, committee);
   };
 
   const setCommittee = (committee: EthAddress[]) => {

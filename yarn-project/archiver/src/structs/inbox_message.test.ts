@@ -1,4 +1,4 @@
-import { makeInboxMessage } from '../../test/mock_structs.js';
+import { makeInboxMessage } from '../test/mock_structs.js';
 import { deserializeInboxMessage, serializeInboxMessage } from './inbox_message.js';
 
 describe('InboxMessage', () => {

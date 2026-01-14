@@ -1,27 +1,21 @@
-import { ArchiveSourceBase, KVArchiverDataStore, addCheckpointsWithContractData } from '@aztec/archiver';
+import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, KVArchiverDataStore } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import {
-  type CheckpointId,
-  L2Block,
-  type L2BlockId,
-  type L2TipId,
-  type L2Tips,
-  type ValidateCheckpointResult,
-} from '@aztec/stdlib/block';
-import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CheckpointId, L2BlockId, L2TipId, L2Tips, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
  * TXE Archiver implementation.
  * Provides most of the endpoints needed by the node for reading from and writing to state,
  * without needing any of the extra overhead that the Archiver itself requires (i.e. an L1 client).
  */
-export class TXEArchiver extends ArchiveSourceBase {
+export class TXEArchiver extends ArchiverDataSourceBase {
+  private readonly updater = new ArchiverDataStoreUpdater(this.store);
+
   constructor(db: AztecAsyncKVStore) {
     const store = new KVArchiverDataStore(db, 9999);
     super(store);
@@ -29,7 +23,7 @@ export class TXEArchiver extends ArchiveSourceBase {
 
   // TXE-specific method for adding checkpoints
   public addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
-    return addCheckpointsWithContractData(this.store, checkpoints, result);
+    return this.updater.addCheckpointsWithContractData(checkpoints, result);
   }
 
   // Abstract method implementations
@@ -92,18 +86,6 @@ export class TXEArchiver extends ArchiveSourceBase {
 
   public getL2EpochNumber(): Promise<EpochNumber | undefined> {
     throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
-  }
-
-  public getCheckpointsForEpoch(_epochNumber: EpochNumber): Promise<Checkpoint[]> {
-    throw new Error('TXE Archiver does not implement "getCheckpointsForEpoch"');
-  }
-
-  public getBlocksForEpoch(_epochNumber: EpochNumber): Promise<L2Block[]> {
-    throw new Error('TXE Archiver does not implement "getBlocksForEpoch"');
-  }
-
-  public getBlockHeadersForEpoch(_epochNumber: EpochNumber): Promise<BlockHeader[]> {
-    throw new Error('TXE Archiver does not implement "getBlockHeadersForEpoch"');
   }
 
   public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
