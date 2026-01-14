@@ -14,9 +14,7 @@ Keccak-f[1600] (`keccakf1600(internal)`) operates on a 1600-bit state arranged a
 4. χ (CHI): non-linear step
 5. ι (IOTA): XOR a round constant into lane 0
 
-The implementation uses sparse base-11 representation. Instead of representing a 64-bit lane as a binary integer $\sum_{i=0}^{63} b_i \cdot 2^i$, it is represented in a sparse base-11 form as $\sum_{i=0}^{63} b_i \cdot 11^i$. Here, each digit $b_i$ is ideally a bit (0 or 1), but it may take values between $0-10$ for intermediate computations.
-
-Operations in Keccak's permutation are dominated by bitwise logic and rotations. These operations are expensive in circuit. The sparse base-11 representation allows performing these operations via additions and lookup-based normalization.
+The implementation uses sparse base-11 representation to implement Keccak’s bitwise logic using cheaper arithmetic operations on digits without generating carries. Instead of representing a 64-bit lane as a binary integer $\sum_{i=0}^{63} b_i \cdot 2^i$, it is represented in a sparse base-11 form as $\sum_{i=0}^{63} b_i \cdot 11^i$. Choosing 11 ensures that when we implement Keccak’s bitwise logic using small arithmetic expressions on digits, the digits don’t produce carries into neighboring positions. During these equivalent sparse form computations, each digit can temporarily take a small value (${0,\dots,10}$), and is then normalized back to ${0,1}$ digitwise using lookup tables.
 
 ### Bitwise operations
 - XOR can be computed by first adding sparse integers, and then normalizing each digit back to $0/1$ using lookups (even maps to $0$, odd maps to $1$).
