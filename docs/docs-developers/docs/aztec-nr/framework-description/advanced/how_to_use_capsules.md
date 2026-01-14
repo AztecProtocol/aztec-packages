@@ -12,8 +12,8 @@ Capsules provide per-contract non-volatile storage in the PXE. Data is stored lo
 ```rust
 use aztec::oracle::capsules;
 
-// Inside a contract function, use context.this_address() for contract_address
-let contract_address: AztecAddress = context.this_address();
+// Inside a contract function, use self.address for contract_address
+let contract_address: AztecAddress = self.address;
 let slot: Field = 1;
 
 // Store data at a slot (overwrites existing data)
