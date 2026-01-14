@@ -223,6 +223,11 @@ tests:
     owners:
       - *adam
 
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+    error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
+    owners:
+      - *adam
+
   # boxes
   - regex: "vanilla-all-browsers box boxes"
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
