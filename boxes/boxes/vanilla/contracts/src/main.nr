@@ -36,10 +36,10 @@ pub contract PrivateVoting {
 
     #[external("private")]
     fn cast_vote(candidate: Field) {
-        let msg_sender_npk_m_hash = get_public_keys(self.msg_sender().unwrap()).npk_m.hash();
+        let msg_sender_npk_m_hash = get_public_keys(self.msg_sender()).npk_m.hash();
 
         let secret = self.context.request_nsk_app(msg_sender_npk_m_hash); // get secret key of caller of function
-        let nullifier = std::hash::pedersen_hash([self.msg_sender().unwrap().to_field(), secret]); // derive nullifier from sender and secret
+        let nullifier = std::hash::pedersen_hash([self.msg_sender().to_field(), secret]); // derive nullifier from sender and secret
         self.context.push_nullifier(nullifier);
         self.enqueue_self.add_to_tally_public(candidate);
     }
@@ -54,7 +54,7 @@ pub contract PrivateVoting {
 
     #[external("public")]
     fn end_vote() {
-        assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "Only admin can end votes"); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is admin
         self.storage.vote_ended.write(true);
     }
 

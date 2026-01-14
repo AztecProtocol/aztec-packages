@@ -27,7 +27,7 @@ contract Updated {
 
     #[external("private")]
     fn set_private_value() {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
 
         self.storage.private_value.at(owner).replace(|_old| FieldNote { value: 27 }).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,

@@ -29,7 +29,7 @@ pub contract Escrow {
     // Withdraws balance. Requires that msg.sender is the owner.
     #[external("private")]
     fn withdraw(token: AztecAddress, amount: u128, recipient: AztecAddress) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
 
         let note = self.storage.owner.get_note();
         assert(note.address == sender);
