@@ -50,22 +50,4 @@ TEST(boomerang_stdlib_keccak, test_graph_for_keccakf1600)
 
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-
-    /*
-    // check all variables in one gate should be in input or output
-
-    std::unordered_set<uint32_t> allowed;
-    allowed.reserve(state.size() + out_state.size());
-    // allow inputs
-    for (const auto& elem : state) {
-        allowed.insert(elem.get_witness_index());
-    }
-    // allow outputs
-    for (const auto& elem : out_state) {
-        allowed.insert(elem.get_witness_index());
-    }
-    for (const auto& var_idx : variables_in_one_gate) {
-        EXPECT_TRUE(allowed.contains(var_idx));
-    }
-    */
 }
