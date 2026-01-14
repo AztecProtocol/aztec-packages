@@ -1,7 +1,7 @@
 ---
 name: vm2-audit-tracegen-pil-alignment
 description: Audit VM2/AVM for tracegen-PIL alignment issues. Completeness issue where trace generation code does not match PIL constraints, causing valid executions to fail verification due to missing column assignments, incorrect value computation, or event handling mismatches.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # VM2 Tracegen-PIL Alignment Audit
@@ -20,133 +20,126 @@ Find completeness bugs where tracegen doesn't match PIL constraints, causing val
 ## Severity
 **Completeness bugs reachable via canonical simulation on valid inputs are Critical.**
 
-## Misalignment Types
+## CRITICAL: Performance Anti-Patterns
 
-| Type | Signal | Check |
-|------|--------|-------|
-| **Missing Column** | `pol commit` vs `row.col =` | Column declared but never assigned |
-| **Wrong Computation** | `static_cast`, integer on field | Tracegen integer math, PIL expects field |
-| **Event Not Handled** | `switch`/`if` in handlers | Missing error/edge case |
-| **Selector Not Toggled** | `sel_*` assignments | PIL expects sel=1, tracegen doesn't set |
-| **Wrong Partition** | `sel = A + B + C` in PIL | Sub-selector boolean != algebraic derivation |
-| **Conditional Missing** | `col = flag * expr` in PIL | FALSE POSITIVE if simulation struct defaults provide implicit gating |
-| **Wrong Selector** | Accumulation loops | Tracegen uses different selector than PIL |
-| **Start-Row-Only** | Gated by `sel_start *` | FALSE POSITIVE if ALL refs gated |
-| **Missing Propagation** | No `CONTINUITY_X` constraint | FALSE POSITIVE if column only used on start row |
-| **Zero Inverse** | `_inv` column = 0 when source = 0 | FALSE POSITIVE: sparse storage + IS_ZERO pattern |
-| **Error Path Default** | Error handling sets defaults | Wrong value on abort/overflow |
-| **Wrong Boolean** | `is_X` vs `should_X` | Different selector in accumulation |
-| **Horizontal Unroll** | Loop writes same row, distinct cols | FALSE POSITIVE: intentional single-row design |
-| **Unset Defaults Zero** | Error path doesn't set `sel`/`ctr` | FALSE POSITIVE if constraints satisfied at 0 |
-| **Perm DST Selector** | `sel_X` never assigned in tracegen | FALSE POSITIVE if DST_SELECTOR in MultiPermutation |
+**DO NOT** perform per-column or per-constraint grepping. This causes 30+ minute runtimes.
 
-### Partition Derivation (Type 5)
-For `sel = A + B + C`, derive algebraically:
-```
-sel = double_op + add_op + INFINITY_PRED
-double_op = x_match * y_match
-INFINITY_PRED = x_match * (1 - y_match)
-=> add_op = sel - x_match (NOT intuitive guess!)
-```
+**DO NOT** try to "verify all code paths" or "trace all constraints" - this is unbounded.
 
-### False Positive Check (Type 8 - Start-Row-Only)
-1. Find ALL references (direct + transitive)
-2. Verify EVERY reference gated by `sel_start * expr`
-3. Any ungated or `col'` reference -> real bug
+**DO**: Read files once → analyze in memory → batch operations → bounded sampling.
 
-### False Positive Check (Missing Propagation)
-Missing `CONTINUITY_X` constraint is NOT a bug when:
-1. Column is only used in expressions gated by `start` (e.g., `start * (col + 7)`)
-2. Permutations using column fire only on `start` rows
-3. Contrast: `output_addr` NEEDS propagation (used on `latch` row); `state_addr` does NOT (only used on `start`)
-4. Check: grep all uses of column in PIL - if ALL are `start * ...` or `STATE_READ_CONDITION * ...`, no propagation needed
+## Misalignment Types (Reference Only)
 
-### False Positive Check (Zero Inverse)
-`X_inv = 0` when `X = 0` is NOT a bug:
-1. TraceContainer sparse storage erases zeros (never stored)
-2. `invert_column` only iterates non-zero values
-3. IS_ZERO pattern: `X * (IS_ZERO * (1 - inv) + inv) - 1 + IS_ZERO = 0`
-   - When X=0, IS_ZERO=1: constraint becomes `0 - 1 + 1 = 0` ✓ (inv irrelevant)
-4. Examples: `path_len_min_one_inv`, `next_nullifier_inv`, `next_slot_inv`
+| Type | Signal | Quick Check |
+|------|--------|-------------|
+| **Missing Column** | `pol commit` vs `row.col =` | Set difference |
+| **Missing Conditional** | `col = flag * expr` in PIL | Shape match: C++ has `if`/`?` |
+| **Selector Not Toggled** | `sel_*` in PIL | Presence check in C++ |
+| **Event Not Handled** | `switch` in handlers | Check for `Error` case |
+| **Wrong Type Cast** | `static_cast` on field | Grep for `static_cast` |
 
-### False Positive Check (Horizontal Unrolling)
-Loop writes to same row without `row++` is NOT a bug when:
-1. Each iteration writes to DIFFERENT columns (e.g., `T_0_*`, `T_1_*`, `T_2_*`)
-2. PIL chains columns horizontally: `round_N_input = round_N-1_output`
-3. One logical operation = one row with many columns (not many rows with few columns)
-4. Examples: Poseidon2 (64 rounds in 1 row), unrolled hash functions
+**Note**: Types like "Wrong Partition Derivation" and "Wrong Boolean in Accumulation" require deep analysis. Use bounded sampling (Step 4) for these.
 
-### False Positive Check (Unset Defaults Zero)
-Error path not setting `sel`/`ctr` columns is NOT a bug when:
-1. TraceContainer returns 0 for unset columns (sparse storage)
-2. Constraints gated by `sel * (...)` are satisfied when sel=0
-3. `#[skippable_if] sel = 0` skips most relations when sel=0
-4. Check: `ctr * (...) - sel = 0` satisfied at ctr=0, sel=0
-5. PIL may explicitly document: "ctr is left unconstrained (0 is optimal)"
+## Optimized Workflow
 
-### False Positive Check (Permutation DST Selectors)
-Permutation destination selector columns NOT assigned in tracegen is NOT a bug when:
-1. Column is a `DST_SELECTOR` in a `MultiPermutationBuilder` configuration
-2. Check: `*_trace.cpp` for `.add<InteractionType::MultiPermutation, ...settings...>`
-3. Check: Generated `perms_*.hpp` for `DST_SELECTOR = Column::the_missing_column`
-4. `MultiPermutationBuilder::set_destination_selector()` auto-sets these during interaction processing
-5. Examples: `memory_sel_addressing_*`, `memory_sel_register_op_*`, `bc_decomposition_sel_packed_read_*`
+### Step 1: Batch Column Presence Check (REQUIRED)
 
-### False Positive Check (Conditional Missing - Implicit Gating)
-Tracegen "unconditional" assignment is NOT a bug when:
-1. **Exception path provides default values**: When simulation throws before populating a struct, C++ default initialization (often 0) matches PIL's gated value
-2. **Trace the actual data flow**: Exception → struct defaults → event → tracegen. The "gating" happens in simulation, not tracegen
-3. **PIL gating may intentionally exclude errors**: e.g., `PARSING_ERROR_EXCEPT_TAG_ERROR` excludes `tag_out_of_range` because instruction was validly parsed
-4. Check: What values does the event struct contain when each error type occurs?
+Read files once, compute set differences:
 
-## Workflow
-
-### 1. Map PIL Columns to Tracegen
 ```bash
-grep -n "pol commit" pil/vm2/<component>.pil
-grep -n "row\\.<column>" src/barretenberg/vm2/tracegen/<component>*.cpp
+# Extract PIL columns (one read)
+grep -oE "pol commit [a-z_][a-z0-9_]*" pil/vm2/<component>.pil | cut -d' ' -f3 | sort -u > /tmp/pil_cols.txt
+
+# Extract tracegen assignments (one read, robust regex)
+grep -oE "row\.[a-z_][a-z0-9_]*\s*=" src/barretenberg/vm2/tracegen/<component>*.cpp | cut -d'.' -f2 | cut -d'=' -f1 | tr -d ' ' | sort -u > /tmp/cpp_cols.txt
+
+# Set difference
+comm -23 /tmp/pil_cols.txt /tmp/cpp_cols.txt  # Missing in C++
 ```
 
-### 2. Trace Constraints to Tracegen
-For each constraint: What values? How computed in tracegen? Satisfied for all paths?
+**Output**: List of columns in PIL but not assigned in tracegen → potential bugs.
 
-### 3. Check All Code Paths (CRITICAL for missed bugs)
-- Normal execution
-- Error handling (correct exception types?)
-- Edge cases (zero, max, empty, overflow)
-- **Error path defaults**: When error occurs, are aborted columns set to correct defaults?
-- **Cascaded errors**: If A fails, does B still try to execute and set wrong columns?
+### Step 2: Batch Conditional Shape Check (REQUIRED)
 
-### 4. Verify Event Handling
+For columns used with multiplication in PIL (`sel * col`):
+
+1. Read PIL file, identify columns in `sel * X` or `flag * X` patterns
+2. For each, check if C++ assignment contains `if`, `?`, or `switch`
+3. **DO NOT verify the math** - only check for presence of control flow
+
 ```bash
-grep -rn "struct.*Event" src/barretenberg/vm2/simulation/ --include="*.hpp"
-grep -rn "process.*event" src/barretenberg/vm2/tracegen/ --include="*.cpp"
+# Find conditional columns in PIL
+grep -E "[a-z_]+ \* [a-z_]+" pil/vm2/<component>.pil | head -20
+
+# Check C++ has conditionals (batch)
+grep -n "row\.<flagged_col>" src/barretenberg/vm2/tracegen/<component>*.cpp
+# Look for ? or if on same/nearby lines
 ```
 
-### 5. Check Type Conversions
+**Output**: Columns where PIL expects conditional but C++ assigns unconditionally → potential bugs.
+
+### Step 3: Event Handler Completeness (REQUIRED)
+
+Quick check for missing error handling:
+
 ```bash
-grep -rn "static_cast" src/barretenberg/vm2/tracegen/ --include="*.cpp"
+# Find event handlers
+grep -rn "process.*Event" src/barretenberg/vm2/tracegen/<component>*.cpp
+
+# Check switch statements handle Error cases
+grep -A 20 "switch.*type" src/barretenberg/vm2/tracegen/<component>*.cpp | grep -E "Error|default"
 ```
 
-### 6. Verify Partition Derivations
+**Output**: Event handlers missing error cases → potential bugs.
+
+### Step 3b: Type Conversion Safety (REQUIRED)
+
+Search for dangerous integer casting on field elements:
+
 ```bash
-grep -rn "sel.*=.*+.*+" pil/vm2/ --include="*.pil"
+grep -n "static_cast" src/barretenberg/vm2/tracegen/<component>*.cpp
 ```
 
-### 7. Check MultiPermutation DST Selectors
-Before flagging "missing" selector columns, verify not auto-set:
-```bash
-grep -rn "MultiPermutation" src/barretenberg/vm2/tracegen/*_trace.cpp
-grep -rn "DST_SELECTOR.*Column::the_column" src/barretenberg/vm2/generated/relations/perms_*.hpp
-```
+**Action**: If `static_cast` is used on a variable that flows into a `row.` assignment for a field element, flag as **Suspected (High)**. Integer math on field elements can cause overflow/underflow bugs.
 
-### 8. Check Batched/Accumulated Values
-For `batched_X = sum of (selector[i] * value[i])`:
-- Tracegen must use SAME selector as PIL (e.g., `should_apply_X` not `is_X_effective`)
-- Check each index includes correct condition
+### Step 4: Bounded Deep Analysis (OPTIONAL - Max 3 Items)
+
+If Steps 1-3 found potential issues, select **at most 3** for deep verification:
+
+1. Pick the 3 most suspicious findings from Steps 1-3
+2. For each, trace the specific constraint through PIL → C++
+3. Check the known-issues.md patterns against these 3 only
+4. **STOP after 3** regardless of other potential issues
+
+**Rationale**: Deep analysis is expensive. Report the 3 verified issues; note others as "needs manual review."
+
+### Step 5: Termination (REQUIRED)
+
+The audit is COMPLETE when:
+- Step 1 set difference computed
+- Step 2 conditional shape check done
+- Step 3 event handlers checked
+- Step 3b type conversions checked
+- Step 4 deep analysis on ≤3 items (or skipped if no findings)
+
+**DO NOT** continue searching for more issues after these steps.
+
+## False Positive Quick Filters
+
+Before reporting, apply these **name-based** filters (no deep analysis):
+
+| Pattern | Action |
+|---------|--------|
+| Column ends in `_inv` | Likely valid (IS_ZERO pattern) - note as "likely FP" |
+| Column starts with `sel_start` or `init_` | Low Priority - start-row-only columns |
+| Column matches `*_sel_*` in perms_*.hpp | Auto-set DST selector - skip |
+| Tracegen has `// TODO` near assignment | Known incomplete - note severity as Low |
+
+**DO NOT** perform transitive reference analysis or graph traversal for FP checks.
 
 ## Extended Examples
-Read `references/known-issues.md` for detailed examples from PRs #18864, #19001, #19254, #19471, #19527.
+
+See `references/known-issues.md` for patterns. Use these for **pattern matching during Step 4 only**, not exhaustive checking.
 
 ## Output Format
 
@@ -156,15 +149,16 @@ Read `references/known-issues.md` for detailed examples from PRs #18864, #19001,
 |------|-------|
 | Skill | `vm2-audit-tracegen-pil-alignment` |
 | Target | `{path}` |
-| Files Scanned | `{n}` |
-| Findings | `{e.g., "2 Critical" or "None"}` |
+| Columns Checked | `{n}` |
+| Findings | `{e.g., "2 Critical, 1 Needs Review" or "None"}` |
 | Status | `COMPLETED_WITH_FINDINGS` / `COMPLETED_NO_FINDINGS` / `ERROR` |
 
 **Finding format**:
 - **ID**: `vm2-audit-tracegen-pil-alignment-{file}-{line}-{type}`
-- **Severity**: Critical / High / Medium / Low
+- **Severity**: Critical / High / Medium / Low / Needs Manual Review
 - **File**: `path/to/file:line`
 - **Description**: Brief description
+- **Confidence**: Verified (from Step 4) / Suspected (from Steps 1-3)
 - **Fix**: One-line suggestion
 
 ### JSON File (REQUIRED)
@@ -177,14 +171,18 @@ Write to output directory as `vm2-audit-tracegen-pil-alignment.json`:
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [
     {
-      "id": "vm2-audit-tracegen-pil-alignment-addressing-123-error-path",
+      "id": "vm2-audit-tracegen-pil-alignment-addressing-123-missing-column",
       "severity": "critical",
+      "confidence": "verified",
       "file": "src/barretenberg/vm2/tracegen/addressing_trace.cpp",
       "line": 123,
-      "description": "Column toggled before error check, PIL expects off on error",
-      "exploitability": "high",
-      "fix": "Move column assignment after error check"
+      "description": "Column X in PIL but not assigned in tracegen",
+      "fix": "Add row.X = ... assignment"
     }
+  ],
+  "notes": [
+    "Deep analysis performed on 3 items.",
+    "Skipped deep analysis on 12 items - manual review recommended for: [list IDs]"
   ]
 }
 ```
