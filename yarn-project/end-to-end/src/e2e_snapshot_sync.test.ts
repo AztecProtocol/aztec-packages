@@ -75,6 +75,7 @@ describe('e2e_snapshot_sync', () => {
       context.config,
       { ...config, realProofs: false, dataDirectory },
       context.aztecNode,
+      context.prefilledPublicData ?? [],
     );
   };
 

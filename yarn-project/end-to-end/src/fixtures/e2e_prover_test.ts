@@ -30,13 +30,15 @@ import { TokenSimulator } from '../simulators/token_simulator.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import {
-  type SubsystemsContext,
+  type EndToEndContext,
   deployAccounts,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
   publicDeployAccounts,
-  setupFromFresh,
+  setup,
+  setupPXEAndGetWallet,
   teardown,
-} from './snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEAndGetWallet } from './utils.js';
+} from './setup.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -70,7 +72,7 @@ export class FullProverTest {
   private acvmConfigCleanup?: () => Promise<void>;
   circuitProofVerifier?: ClientProtocolCircuitVerifier;
   provenAsset!: TokenContract;
-  context!: SubsystemsContext;
+  context!: EndToEndContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
@@ -130,11 +132,13 @@ export class FullProverTest {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setupFromFresh(
-      this.logger,
-      { startProverNode: true, coinbase: this.coinbase },
-      { realVerifier: this.realProofs },
-    );
+    this.context = await setup(0, {
+      startProverNode: true,
+      coinbase: this.coinbase,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      l1ContractsArgs: { realVerifier: this.realProofs },
+    });
 
     await this.applyBaseSetup();
     await this.applyMint();
@@ -142,7 +146,7 @@ export class FullProverTest {
     this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
 
     // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher.setIsMarkingAsProven(false);
+    this.context.watcher!.setIsMarkingAsProven(false);
 
     this.simulatedProverNode = this.context.proverNode!;
     ({
@@ -150,7 +154,7 @@ export class FullProverTest {
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
-    this.aztecNodeAdmin = this.context.aztecNode;
+    this.aztecNodeAdmin = this.context.aztecNodeService!;
 
     const config = this.context.aztecNodeConfig;
     const blobClient = await createBlobClientWithFileStores(config, this.logger);
@@ -223,7 +227,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobClient, dateProvider: this.context.dateProvider },
+      { blobClient, dateProvider: this.context.dateProvider! },
       { blockUntilSync: true },
     );
 

@@ -102,7 +102,7 @@ describe('veto slash', () => {
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
       BOOT_NODE_UDP_PORT,
@@ -117,7 +117,7 @@ describe('veto slash', () => {
     );
     vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
       logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
+      dateProvider: t.ctx.dateProvider!,
     });
 
     ({ rollup } = await t.getContracts());
@@ -201,7 +201,7 @@ describe('veto slash', () => {
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
     const txUtils = createL1TxUtilsFromViemWallet(deployerClient, {
       logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
+      dateProvider: t.ctx.dateProvider!,
     });
     await txUtils.sendAndMonitorTransaction({
       to: slasher.toString(),

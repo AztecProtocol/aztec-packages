@@ -110,7 +110,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     t.logger.warn(`Creating ${NUM_VALIDATORS} new nodes`);
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,

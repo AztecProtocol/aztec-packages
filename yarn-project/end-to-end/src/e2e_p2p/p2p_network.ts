@@ -35,12 +35,19 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  type EndToEndContext,
+  type SetupOptions,
+  deployAccounts,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
+import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
-import { type SubsystemsContext, deployAccounts, setupFromFresh, teardown } from '../fixtures/snapshot_manager.js';
-import { type SetupOptions, getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -55,14 +62,14 @@ export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
 };
 
 export class P2PNetworkTest {
-  public context!: SubsystemsContext;
+  public context!: EndToEndContext;
   public baseAccountPrivateKey: `0x${string}`;
   public baseAccount;
 
   public logger: Logger;
   public monitor!: ChainMonitor;
 
-  public ctx!: SubsystemsContext;
+  public ctx!: EndToEndContext;
   public attesterPrivateKeys: `0x${string}`[] = [];
   public attesterPublicKeys: string[] = [];
   public peerIdPrivateKeys: string[] = [];
@@ -196,7 +203,7 @@ export class P2PNetworkTest {
       BOOTSTRAP_NODE_PRIVATE_KEY,
       this.bootNodePort,
       telemetry,
-      this.context.aztecNodeConfig,
+      this.context.config,
     );
     // Overwrite enr with updated info
     this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
@@ -325,9 +332,9 @@ export class P2PNetworkTest {
     const block = await this.context.deployL1ContractsValues.l1Client.getBlock({
       blockNumber: receipt.blockNumber,
     });
-    this.context.dateProvider.setTime(Number(block.timestamp) * 1000);
+    this.context.dateProvider!.setTime(Number(block.timestamp) * 1000);
 
-    await this.context.aztecNode.stop();
+    await this.context.aztecNodeService!.stop();
   }
 
   async sendDummyTx() {
@@ -344,7 +351,14 @@ export class P2PNetworkTest {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setupFromFresh(this.logger, this.setupOptions, this.deployL1ContractsArgs);
+    this.context = await setup(0, {
+      ...this.setupOptions,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
+      aztecTargetCommitteeSize: 0,
+      l1ContractsArgs: this.deployL1ContractsArgs,
+    });
     this.ctx = this.context;
 
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
@@ -354,8 +368,8 @@ export class P2PNetworkTest {
     this.prefilledPublicData = prefilledPublicData;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
-    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();
-    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider.setTime(Number(timestamp) * 1000));
+    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider!).start();
+    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider!.setTime(Number(timestamp) * 1000));
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
