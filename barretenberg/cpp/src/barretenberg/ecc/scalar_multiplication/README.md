@@ -1,6 +1,6 @@
 # Pippenger Multi-Scalar Multiplication (MSM)
 
-This document describes the Pippenger MSM implementation in barretenberg, including its architecture, performance characteristics, and optimization opportunities.
+This document describes the Pippenger MSM implementation in barretenberg.
 
 ## Overview
 
@@ -13,6 +13,10 @@ where $s_i$ are scalars and $P_i$ are elliptic curve points.
 **Complexity**: $O(n / \log n)$ group operations, compared to $O(n)$ for naive scalar multiplication.
 
 ## Algorithm
+
+### Terminology
+
+**Bucket**: An accumulator (elliptic curve point) that collects all input points whose scalar slice equals a particular value. For $c$-bit slices, there are $2^c$ buckets indexed $0, 1, \ldots, 2^c - 1$. Bucket $k$ accumulates the sum of all points $P_i$ where the scalar slice $s_i^{(j)} = k$.
 
 ### Step 1: Scalar Decomposition
 
@@ -27,11 +31,11 @@ where:
 
 ### Step 2: Bucket Accumulation
 
-For each round $j$, points are grouped into $2^c$ buckets based on their scalar slice:
+For each round $j$, points are added into buckets based on their scalar slice value:
 
 $$B_k^{(j)} = \sum_{\{i : s_i^{(j)} = k\}} P_i$$
 
-This groups all points whose scalar has value $k$ in bit-slice $j$.
+Each bucket $B_k$ accumulates the sum of all points whose scalar has slice value $k$ in round $j$.
 
 ### Step 3: Bucket Reduction
 
@@ -78,7 +82,7 @@ Affine point addition $P + Q$ requires computing:
 
 $$\lambda = \frac{Q_y - P_y}{Q_x - P_x}$$
 
-Each addition needs one field inversion, which is expensive (~100× a multiplication).
+Each addition needs one field inversion, which is expensive.
 
 ### Solution: Batch Inversion
 
@@ -97,6 +101,28 @@ For $m$ independent additions $(P_1 + Q_1), \ldots, (P_m + Q_m)$:
    $$\vdots$$
 
 **Cost**: 1 inversion + $3(m-1)$ multiplications, instead of $m$ inversions.
+
+## Algorithm Variants
+
+The implementation provides two algorithm variants selected via `handle_edge_cases`:
+
+### Small Pippenger (`handle_edge_cases=true`)
+
+Uses **Jacobian coordinates** for bucket accumulators (`JacobianBucketAccumulators`).
+
+- **Pros**: Handles all edge cases (point doubling, point at infinity) correctly
+- **Cons**: Slower due to Jacobian arithmetic overhead
+- **When to use**: When input points may have dependencies (e.g., same point appears multiple times, or P and -P both appear)
+
+### Pippenger with Affine Trick (`handle_edge_cases=false`)
+
+Uses **affine coordinates** for bucket accumulators (`BucketAccumulators`) with Montgomery's batch inversion trick.
+
+- **Pros**: Faster due to batch inversion optimization
+- **Cons**: Assumes no edge cases (incomplete addition formula)
+- **When to use**: When input points are guaranteed to be linearly independent (e.g., SRS points)
+
+The `msm()` function defaults to `handle_edge_cases=false` for performance, while `pippenger()` defaults to `handle_edge_cases=true` for safety.
 
 ## Implementation Details
 
@@ -188,49 +214,6 @@ Measured breakdown for single-threaded MSM ($2^{17}$ to $2^{24}$ points):
 | `schedule_fill` | <3% | Building schedule entries |
 | doublings | <0.1% | Round combination |
 
-### Memory Bandwidth Analysis
-
-The bottleneck is memory bandwidth in `consume_point_schedule`.
-
-**Per point processed**:
-- Read: 128 bytes from `points[]`
-- Write: 128 bytes to scratch or bucket
-- Plus cache misses from random bucket access
-
-**Theoretical minimum** (memory-bound estimate):
-
-For $n$ points, ~$2 \times 128 \times n$ bytes moved per round, with $r \approx 254/c$ rounds:
-
-$$T_{\text{min}} \approx \frac{256 \cdot n \cdot r}{\text{bandwidth}}$$
-
-At 50 GB/s bandwidth, $n = 2^{20}$, $r = 20$:
-
-$$T_{\text{min}} \approx \frac{256 \times 2^{20} \times 20}{50 \times 10^9} \approx 107 \text{ ms}$$
-
-Actual measured: ~480 ms (4.5× theoretical minimum due to cache misses, computation overhead).
-
-## Optimization Attempts and Results
-
-### Attempted: Conditionalize rhs copy
-- **Change**: Skip copy to `null_location` when `!do_affine_add`
-- **Result**: No measurable improvement
-- **Reason**: Branch predictor handles conditional well; copy was already cheap
-
-### Attempted: Ref-based scratch
-- **Change**: Store 8-byte refs instead of 128-byte copies during iteration, materialize before batch addition
-- **Result**: No measurable improvement
-- **Reason**: Same total bytes moved; just different timing. Memory subsystem handles both patterns similarly.
-
-### Not Attempted: Per-bucket run reduction
-- **Idea**: For $k$ consecutive points targeting same bucket, reduce in-place before moving to scratch
-- **Potential benefit**: Reduces copies by average run length factor
-- **Trade-off**: Requires algorithm restructuring
-
-### Not Attempted: Jacobian bucket accumulators
-- **Idea**: Store buckets in Jacobian coordinates $(X:Y:Z)$ instead of affine $(x, y)$
-- **Benefit**: Faster mixed additions (no inversions during accumulation)
-- **Trade-off**: 50% more memory per bucket
-
 ## File Structure
 
 ```
@@ -245,12 +228,30 @@ scalar_multiplication/
 ## Usage
 
 ```cpp
-// Single MSM
-auto result = MSM<curve::BN254>::msm(points, scalars);
+// Single MSM - scalars in Montgomery form (standard representation)
+// msm() handles Montgomery conversion internally and leaves scalars unchanged
+std::vector<fr> scalars = ...;  // Montgomery form
+std::vector<g1::affine_element> points = ...;
+PolynomialSpan<fr> scalar_span(0, scalars);
+auto result = MSM<curve::BN254>::msm(points, scalar_span);
+// scalars are still in Montgomery form here
 
 // Batch MSM (multiple MSMs, better parallelization)
+// Note: batch_multi_scalar_mul expects scalars in NON-Montgomery form
 auto results = MSM<curve::BN254>::batch_multi_scalar_mul(points_spans, scalars_spans);
 ```
+
+### Montgomery Form Handling
+
+The MSM implementation requires scalars in **non-Montgomery form** internally. The API handles this as follows:
+
+| Function | Input Scalar Form | Converts Internally? | Scalars Modified? |
+|----------|-------------------|---------------------|-------------------|
+| `msm()` | Montgomery | Yes (from/to) | No (restored) |
+| `pippenger()` | Montgomery | Yes (via msm) | No (restored) |
+| `batch_multi_scalar_mul()` | Non-Montgomery | No | N/A |
+
+For most users, `msm()` or `pippenger()` are the recommended entry points as they handle Montgomery conversion automatically.
 
 ## Testing & Benchmarking
 

@@ -189,6 +189,21 @@ template <class Params_> struct alignas(32) field {
         return { data[0], data[1], data[2], data[3] };
     }
 
+    /**
+     * @brief Extract a slice of bits from raw limbs (no Montgomery conversion)
+     * @details Returns bits [lo_bit, hi_bit) from the raw limb representation.
+     *          Useful for algorithms like Pippenger MSM that need to slice scalars
+     *          that have already been converted out of Montgomery form.
+     *
+     * @param lo_bit Starting bit position (inclusive)
+     * @param hi_bit Ending bit position (exclusive)
+     * @return uint32_t The extracted bit slice
+     */
+    [[nodiscard]] constexpr uint32_t get_bit_slice_raw(size_t lo_bit, size_t hi_bit) const noexcept
+    {
+        return static_cast<uint32_t>(uint256_t_no_montgomery_conversion().slice(lo_bit, hi_bit).data[0]);
+    }
+
     constexpr field(const field& other) noexcept = default;
     constexpr field(field&& other) noexcept = default;
     constexpr field& operator=(const field& other) & noexcept = default;

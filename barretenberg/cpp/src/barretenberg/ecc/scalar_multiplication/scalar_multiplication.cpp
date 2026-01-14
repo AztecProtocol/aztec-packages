@@ -22,12 +22,13 @@
 namespace bb::scalar_multiplication {
 
 /**
- * @brief Fallback method for very small numbers of input points
+ * @brief Fallback method for very small numbers of input points (< PIPPENGER_THRESHOLD)
  *
  * @tparam Curve
- * @param scalars
+ * @param scalars (in non-Montgomery form)
  * @param points
- * @param range
+ * @param scalar_indices indices of nonzero scalars to process
+ * @param range number of indices to process
  * @return Curve::Element
  */
 template <typename Curve>
@@ -180,14 +181,16 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
 }
 
 /**
- * @brief Given a scalar that is *NOT* in Montgomery form, extract a `slice_size`-bit chunk
- * @brief At round i, we extract `slice_size * (i-1)` to `slice_sice * i` most significant bits.
+ * @brief Given a scalar in non-Montgomery form, extract a `slice_size`-bit chunk for a given round
+ * @details At round 0 (most significant), extracts bits [NUM_BITS - slice_size, NUM_BITS).
+ *          At round i, extracts bits [NUM_BITS - (i+1)*slice_size, NUM_BITS - i*slice_size).
+ *          The last round may extract fewer bits if NUM_BITS is not divisible by slice_size.
  *
  * @tparam Curve
- * @param scalar
- * @param round
- * @param normal_slice_size
- * @return uint32_t
+ * @param scalar (must be in non-Montgomery form)
+ * @param round round index (0 = most significant bits)
+ * @param slice_size number of bits per slice
+ * @return uint32_t the extracted slice value (bucket index)
  */
 template <typename Curve>
 uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
@@ -195,88 +198,70 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
                                       size_t slice_size) noexcept
 {
     size_t hi_bit = NUM_BITS_IN_FIELD - (round * slice_size);
-    // todo remove
-    bool last_slice = hi_bit < slice_size;
-    size_t target_slice_size = last_slice ? hi_bit : slice_size;
-    size_t lo_bit = last_slice ? 0 : hi_bit - slice_size;
-    size_t start_limb = lo_bit / 64;
-    size_t end_limb = hi_bit / 64;
-    size_t lo_slice_offset = lo_bit & 63;
-    size_t lo_slice_bits = std::min(target_slice_size, 64 - lo_slice_offset);
-    size_t hi_slice_bits = target_slice_size - lo_slice_bits;
-    size_t lo_slice = (scalar.data[start_limb] >> lo_slice_offset) & ((static_cast<size_t>(1) << lo_slice_bits) - 1);
-    size_t hi_slice = (scalar.data[end_limb] & ((static_cast<size_t>(1) << hi_slice_bits) - 1));
-
-    uint32_t lo = static_cast<uint32_t>(lo_slice);
-    uint32_t hi = static_cast<uint32_t>(hi_slice);
-
-    uint32_t result = lo + (hi << lo_slice_bits);
-    return result;
+    size_t lo_bit = (hi_bit < slice_size) ? 0 : hi_bit - slice_size;
+    return scalar.get_bit_slice_raw(lo_bit, hi_bit);
 }
 
 /**
- * @brief For a given number of points, compute the optimal Pippenger bucket size
+ * @brief For a given number of points, compute the optimal Pippenger bucket size (bits per slice)
+ * @details Minimizes total cost = (num_rounds * num_points) + (num_rounds * num_buckets * bucket_op_cost)
  *
  * @tparam Curve
- * @param num_points
- * @return constexpr size_t
+ * @param num_points number of points in the MSM
+ * @return size_t optimal number of bits per scalar slice (log2 of bucket count)
  */
 template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points) noexcept
 {
-    // We do 2 group operations per bucket, and they are full 3D Jacobian adds which are ~2x more than an affine add
-    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 5;
-    size_t cached_cost = static_cast<size_t>(-1);
-    size_t target_bit_slice = 0;
-    for (size_t bit_slice = 1; bit_slice < 20; ++bit_slice) {
-        const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bit_slice);
-        const size_t num_buckets = 1 << bit_slice;
-        const size_t addition_cost = num_rounds * num_points;
-        const size_t bucket_cost = num_rounds * num_buckets * COST_OF_BUCKET_OP_RELATIVE_TO_POINT;
-        const size_t total_cost = addition_cost + bucket_cost;
-        if (total_cost < cached_cost) {
-            cached_cost = total_cost;
-            target_bit_slice = bit_slice;
+    // Cost model: total_cost = num_rounds * (num_points + num_buckets * BUCKET_ACCUMULATION_COST)
+    auto compute_cost = [&](size_t bits) {
+        size_t rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits);
+        size_t buckets = size_t{ 1 } << bits;
+        return rounds * (num_points + buckets * BUCKET_ACCUMULATION_COST);
+    };
+
+    size_t best_bits = 1;
+    size_t best_cost = compute_cost(1);
+    for (size_t bits = 2; bits < MAX_SLICE_BITS; ++bits) {
+        size_t cost = compute_cost(bits);
+        if (cost < best_cost) {
+            best_cost = cost;
+            best_bits = bits;
         }
     }
-    return target_bit_slice;
+    return best_bits;
 }
 
 /**
- * @brief Given a number of points and an optimal bucket size, should we use the affine trick?
+ * @brief Determine if the affine batch inversion trick is beneficial for given MSM parameters
+ * @details The affine trick requires log(N) inversions per round but saves field multiplications
+ *          per point addition. Returns false if num_points < 128 (not enough points to amortize).
  *
  * @tparam Curve
- * @param num_points
- * @param num_buckets
- * @return true
- * @return false
+ * @param num_points number of points in the MSM
+ * @param num_buckets number of buckets (2^bits_per_slice)
+ * @return true if affine trick saves computation, false otherwise
  */
 template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept
 {
-    if (num_points < 128) {
+    if (num_points < AFFINE_TRICK_THRESHOLD) {
         return false;
     }
 
     // Affine trick requires log(N) modular inversions per Pippenger round.
-    // It saves NUM_POINTS * COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION field muls
-    // It also saves NUM_BUCKETS * EXTRA_COST_OF_JACOBIAN_GROUP_OPERATION_IF_Z2_IS_NOT_1 field muls
-    // due to all our buckets having Z=1 if we use the affine trick
+    // It saves num_points * AFFINE_TRICK_SAVINGS_PER_OP field muls, plus
+    // num_buckets * JACOBIAN_Z_NOT_ONE_PENALTY field muls (buckets have Z=1 with affine trick)
 
-    // COST_OF_INVERSION cost:
-    // Requires NUM_BITS_IN_FIELD sqarings
-    // We use 4-bit windows = ((NUM_BITS_IN_FIELD + 3) / 4) multiplications
-    // Computing 4-bit window table requires 14 muls
-    constexpr size_t COST_OF_INVERSION = NUM_BITS_IN_FIELD + ((NUM_BITS_IN_FIELD + 3) / 4) + 14;
-    constexpr size_t COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION = 5;
-    constexpr size_t EXTRA_COST_OF_JACOBIAN_GROUP_OPERATION_IF_Z2_IS_NOT_1 = 5;
+    // Cost of modular inversion via exponentiation:
+    // - NUM_BITS_IN_FIELD squarings
+    // - (NUM_BITS_IN_FIELD + 3) / 4 multiplications (4-bit windows)
+    // - INVERSION_TABLE_COST multiplications for lookup table
+    constexpr size_t COST_OF_INVERSION = NUM_BITS_IN_FIELD + ((NUM_BITS_IN_FIELD + 3) / 4) + INVERSION_TABLE_COST;
 
-    double num_points_f = static_cast<double>(num_points);
-    double log2_num_points_f = log2(num_points_f);
+    double log2_num_points = log2(static_cast<double>(num_points));
+    size_t savings_per_round = (num_points * AFFINE_TRICK_SAVINGS_PER_OP) + (num_buckets * JACOBIAN_Z_NOT_ONE_PENALTY);
+    double inversion_cost_per_round = log2_num_points * static_cast<double>(COST_OF_INVERSION);
 
-    size_t group_op_cost_saving_per_round = (num_points * COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION) +
-                                            (num_buckets * EXTRA_COST_OF_JACOBIAN_GROUP_OPERATION_IF_Z2_IS_NOT_1);
-    double inversion_cost_per_round = log2_num_points_f * static_cast<double>(COST_OF_INVERSION);
-
-    return static_cast<double>(group_op_cost_saving_per_round) > inversion_cost_per_round;
+    return static_cast<double>(savings_per_round) > inversion_cost_per_round;
 }
 
 /**
@@ -362,11 +347,13 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
 }
 
 /**
- * @brief Top-level Pippenger algorithm where number of points is small and we are not using the Affine trick
+ * @brief Pippenger algorithm using Jacobian bucket accumulators (handles edge cases)
+ * @details Used when handle_edge_cases=true or when num_points < 128 (affine trick not beneficial).
+ *          Uses Jacobian coordinates which correctly handle point doubling and point at infinity.
  *
  * @tparam Curve
- * @param msm_data
- * @return Curve::AffineElement
+ * @param msm_data contains scalars (non-Montgomery), points, and nonzero scalar indices
+ * @return Curve::Element MSM result in Jacobian coordinates
  */
 template <typename Curve>
 typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
@@ -375,14 +362,7 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
     const size_t size = nonzero_scalar_indices.size();
     const size_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = 1 << bits_per_slice;
-
-    // Use thread-local storage to avoid per-call allocations
-    static thread_local JacobianBucketAccumulators bucket_data(0);
-    if (bucket_data.buckets.size() < num_buckets) {
-        bucket_data.buckets.resize(num_buckets);
-        bucket_data.bucket_exists.resize(num_buckets);
-    }
-
+    JacobianBucketAccumulators bucket_data = JacobianBucketAccumulators(num_buckets);
     Element round_output = Curve::Group::point_at_infinity;
 
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
@@ -394,11 +374,14 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
 }
 
 /**
- * @brief Top-level Pippenger algorithm
+ * @brief Pippenger algorithm using affine bucket accumulators with batch inversion (faster, no edge case handling)
+ * @details Used when handle_edge_cases=false and num_points >= 128. Falls back to small_pippenger if
+ *          affine trick is not beneficial. Uses Montgomery's batch inversion trick for efficient
+ *          affine point additions.
  *
  * @tparam Curve
- * @param msm_data
- * @return Curve::AffineElement
+ * @param msm_data contains scalars (non-Montgomery), points, and nonzero scalar indices
+ * @return Curve::Element MSM result in Jacobian coordinates
  */
 template <typename Curve>
 typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
@@ -583,21 +566,15 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     auto& output_point_schedule = affine_data.addition_result_bucket_destinations;
     AffineElement null_location{};
     // We do memory prefetching, `prefetch_max` ensures we do not overflow our containers
-    size_t prefetch_max = (num_points - 32);
-    if (num_points < 32) {
-        prefetch_max = 0;
-    }
-    size_t end = num_points - 1;
-    if (num_points == 0) {
-        end = 0;
-    }
+    size_t prefetch_max = (num_points >= PREFETCH_LOOKAHEAD) ? (num_points - PREFETCH_LOOKAHEAD) : 0;
+    size_t end = (num_points > 0) ? (num_points - 1) : 0;
 
     // Step 1: Fill up `affine_addition_scratch_space` with up to AffineAdditionData::BATCH_SIZE/2 independent additions
     while (((affine_input_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < end)) {
 
-        // we prefetchin'
+        // Prefetch points we'll need soon (every 16 iterations, prefetch the next 16-32 points)
         if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
-            for (size_t i = 16; i < 32; ++i) {
+            for (size_t i = PREFETCH_LOOKAHEAD / 2; i < PREFETCH_LOOKAHEAD; ++i) {
                 __builtin_prefetch(&points[(point_schedule[point_it + i] >> 32ULL)]);
             }
         }
@@ -797,8 +774,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 point_schedule.resize(msm.size);
                 MSMData msm_data(work_scalars, work_points, work_indices, std::span<uint64_t>(point_schedule));
                 Element msm_result = Curve::Group::point_at_infinity;
-                constexpr size_t SINGLE_MUL_THRESHOLD = 16;
-                if (msm.size < SINGLE_MUL_THRESHOLD) {
+                if (msm.size < PIPPENGER_THRESHOLD) {
                     msm_result = small_mul<Curve>(work_scalars, work_points, msm_data.scalar_indices, msm.size);
                 } else {
                     // Our non-affine method implicitly handles cases where Weierstrass edge cases may occur

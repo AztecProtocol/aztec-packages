@@ -28,6 +28,43 @@ template <typename Curve> class MSM {
     using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
 
+    // ======================= Algorithm Tuning Constants =======================
+    //
+    // These constants control the behavior of the Pippenger MSM algorithm.
+    // They are empirically tuned for performance on typical hardware.
+
+    // Below this threshold, use naive scalar multiplication instead of Pippenger
+    static constexpr size_t PIPPENGER_THRESHOLD = 16;
+
+    // Below this threshold, the affine batch inversion trick is not beneficial
+    // (cost of inversions exceeds savings from cheaper affine additions)
+    static constexpr size_t AFFINE_TRICK_THRESHOLD = 128;
+
+    // Maximum bits per scalar slice (2^20 = 1M buckets, far beyond practical use)
+    static constexpr size_t MAX_SLICE_BITS = 20;
+
+    // Number of points to look ahead for memory prefetching
+    static constexpr size_t PREFETCH_LOOKAHEAD = 32;
+
+    // ======================= Cost Model Constants =======================
+    //
+    // These constants define the relative costs of various operations,
+    // used to decide between algorithm variants.
+
+    // Cost of bucket accumulation relative to a single point addition
+    // (2 Jacobian adds per bucket, each ~2.5x cost of affine add)
+    static constexpr size_t BUCKET_ACCUMULATION_COST = 5;
+
+    // Field multiplications saved per group operation when using affine trick
+    static constexpr size_t AFFINE_TRICK_SAVINGS_PER_OP = 5;
+
+    // Extra cost of Jacobian group operation when Z coordinate != 1
+    static constexpr size_t JACOBIAN_Z_NOT_ONE_PENALTY = 5;
+
+    // Cost of computing 4-bit lookup table for modular exponentiation (14 muls)
+    static constexpr size_t INVERSION_TABLE_COST = 14;
+    // ===========================================================================
+
     // Offset generator used in bucket accumulation to avoid incomplete addition edge cases
     static const AffineElement& get_offset_generator() noexcept
     {
@@ -194,5 +231,4 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
 
-// NEXT STEP ACCUMULATE BUVKETS
 } // namespace bb::scalar_multiplication
