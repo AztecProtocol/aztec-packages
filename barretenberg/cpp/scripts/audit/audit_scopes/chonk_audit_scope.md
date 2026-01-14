@@ -39,23 +39,22 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 23. `chonk/chonk_proof.hpp`
 
 ### Relations
-24. `relations/databus_lookup_relation.hpp`
-25. `relations/multilinear_batching/multilinear_batching_relation.hpp`
+24. `relations/multilinear_batching/multilinear_batching_relation.hpp`
 
 ### Special Public Inputs
-26. `special_public_inputs/special_public_inputs.hpp`
-27. `stdlib/primitives/public_input_component/public_input_component.hpp`
+25. `special_public_inputs/special_public_inputs.hpp`
+26. `stdlib/primitives/public_input_component/public_input_component.hpp`
 
 ### Flavor
-28. `flavor/multilinear_batching_flavor.hpp`
-29. `flavor/multilinear_batching_flavor.cpp`
-30. `flavor/multilinear_batching_recursive_flavor.hpp`
+27. `flavor/multilinear_batching_flavor.hpp`
+28. `flavor/multilinear_batching_flavor.cpp`
+29. `flavor/multilinear_batching_recursive_flavor.hpp`
 
 ### ACIR Integration
-31. `dsl/acir_format/hypernova_recursion_constraint.hpp`
-32. `dsl/acir_format/hypernova_recursion_constraint.cpp`
-33. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
-34. `dsl/acir_format/recursion_constraint.cpp`
+30. `dsl/acir_format/hypernova_recursion_constraint.hpp`
+31. `dsl/acir_format/hypernova_recursion_constraint.cpp`
+32. `dsl/acir_format/recursion_constraint.cpp` (only `process_hn_recursion_constraints()` method)
+33. `dsl/acir_format/recursion_constraint.cpp`
 ---
 
 ## Critical Files

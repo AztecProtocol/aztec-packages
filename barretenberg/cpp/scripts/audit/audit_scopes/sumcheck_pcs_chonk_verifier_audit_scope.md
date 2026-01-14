@@ -23,54 +23,55 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 10. `relations/nested_containers.hpp`
 11. `relations/relation_types.hpp`
 12. `relations/utils.hpp`
+13. `flavor/partially_evaluated_multivariates.hpp`
 
 ### PCS (Polynomial Commitment Schemes)
-13. `commitment_schemes/shplonk/shplemini.hpp`
-14. `commitment_schemes/shplonk/shplonk.hpp`
-15. `commitment_schemes/gemini/gemini.hpp`
-16. `commitment_schemes/gemini/gemini_impl.hpp`
-17. `commitment_schemes/kzg/kzg.hpp`
-18. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp`
-19. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp`
-20. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp`
-21. `commitment_schemes/claim_batcher.hpp`
-22. `commitment_schemes/claim.hpp`
-23. `commitment_schemes/pairing_points.hpp`
-24. `commitment_schemes/verification_key.hpp`
-25. `stdlib/primitives/pairing_points.hpp`
+14. `commitment_schemes/shplonk/shplemini.hpp`
+15. `commitment_schemes/shplonk/shplonk.hpp`
+16. `commitment_schemes/gemini/gemini.hpp`
+17. `commitment_schemes/gemini/gemini_impl.hpp`
+18. `commitment_schemes/kzg/kzg.hpp`
+19. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp`
+20. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp`
+21. `commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp`
+22. `commitment_schemes/claim_batcher.hpp`
+23. `commitment_schemes/claim.hpp`
+24. `commitment_schemes/pairing_points.hpp`
+25. `commitment_schemes/verification_key.hpp`
+26. `stdlib/primitives/pairing_points.hpp`
 
 ### ECCVM Prover
-26. `eccvm/eccvm_prover.hpp`
-27. `eccvm/eccvm_prover.cpp`
+27. `eccvm/eccvm_prover.hpp`
+28. `eccvm/eccvm_prover.cpp`
 
 ### Translator Prover
-28. `translator_vm/translator_prover.hpp`
-29. `translator_vm/translator_prover.cpp`
+29. `translator_vm/translator_prover.hpp`
+30. `translator_vm/translator_prover.cpp`
 
 ### Chonk Prover/Verifier
-30. `chonk/chonk.cpp` (**limit to:** `prove()` method)
-31. `goblin/goblin_verifier.hpp`
-32. `goblin/goblin_verifier.cpp`
-33. `goblin/merge_verifier.hpp`
-34. `goblin/merge_verifier.cpp`
-35. `eccvm/eccvm_verifier.hpp`
-36. `eccvm/eccvm_verifier.cpp`
-37. `eccvm/eccvm_fixed_vk.hpp`
-38. `translator_vm/translator_verifier.hpp`
-39. `translator_vm/translator_verifier.cpp`
-40. `translator_vm/translator_fixed_vk.hpp`
-41. `chonk/chonk_verifier.hpp`
-42. `chonk/chonk_verifier.cpp`
+31. `chonk/chonk.cpp` (**limit to:** `prove()` method)
+32. `goblin/goblin_verifier.hpp`
+33. `goblin/goblin_verifier.cpp`
+34. `goblin/merge_verifier.hpp`
+35. `goblin/merge_verifier.cpp`
+36. `eccvm/eccvm_verifier.hpp`
+37. `eccvm/eccvm_verifier.cpp`
+38. `eccvm/eccvm_fixed_vk.hpp`
+39. `translator_vm/translator_verifier.hpp`
+40. `translator_vm/translator_verifier.cpp`
+41. `translator_vm/translator_fixed_vk.hpp`
+42. `chonk/chonk_verifier.hpp`
+43. `chonk/chonk_verifier.cpp`
 
 ### In-Circuit (Recursive) Verifier Components
-43. `stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp`
-44. `stdlib/eccvm_verifier/verifier_commitment_key.hpp`
-45. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
-46. `stdlib/honk_verifier/ipa_accumulator.hpp`
-47. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
+44. `stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp`
+45. `stdlib/eccvm_verifier/verifier_commitment_key.hpp`
+46. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
+47. `stdlib/honk_verifier/ipa_accumulator.hpp`
+48. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
 
 ### Supporting Types
-48. `goblin/types.hpp`
+49. `goblin/types.hpp`
 
 ---
 
