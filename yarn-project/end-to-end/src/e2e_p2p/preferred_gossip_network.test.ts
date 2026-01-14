@@ -134,6 +134,8 @@ describe('e2e_p2p_preferred_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
+        aztecEpochDuration: 4,
         listenAddress: '127.0.0.1',
         p2pDisableStatusHandshake: false,
         // Just for testing be aggressive here, don't allow any auth handshake failures
