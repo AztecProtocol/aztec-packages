@@ -1,91 +1,53 @@
 ---
-id: index
-sidebar_position: 0
-title: Introduction
-description: Learn about the Aztec network, node types, roles, best practices, and how to participate in the network.
+title: The Aztec Network
+description: Learn about and participate in the Aztec network - a decentralized privacy-focused rollup on Ethereum.
+hide_table_of_contents: true
 ---
 
-## Overview
+import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
-The Aztec network is a decentralized privacy-focused rollup on Ethereum. Network nodes work together to process transactions, maintain state, and generate proofs that ensure rollup integrity. This guide provides an overview of node types, their roles, best practices, and how to get started.
+# The Aztec Network
 
-## Actors and Roles
+The Aztec network is a decentralized privacy-focused rollup on Ethereum. Network participants work together to process transactions, maintain state, generate proofs, and govern the protocol.
 
-The Aztec network consists of several types of actors, each serving a specific purpose:
+Choose your path based on how you want to engage with the network:
 
-### Full Nodes
+<div className="portal-grid">
 
-Full nodes provide users with the ability to connect and interact with the network. They maintain a complete copy of the blockchain state and allow users to send and receive transactions without relying on third parties.
+<div className="portal-card">
+<h3>Operate</h3>
+<p>Run network infrastructure: full nodes, sequencers, provers. Set up monitoring and manage your validator.</p>
+<Link to={useBaseUrl('/network/dev/operators')}>Run infrastructure →</Link>
+</div>
 
-**Key responsibilities:**
-- Maintain synchronized copy of the blockchain state
-- Provide RPC interface for transaction submission
-- Validate and relay transactions
-- Offer privacy-preserving interaction with the network
+<div className="portal-card">
+<h3>Participate</h3>
+<p>Stake tokens, delegate to operators, vote on governance proposals, and help shape the future of Aztec.</p>
+<Link to={useBaseUrl('/network/dev/users')}>Get started as a participant →</Link>
+</div>
 
-[Learn more about running a full node →](./setup/running_a_node.md)
+<div className="portal-card">
+<h3>Concepts</h3>
+<p>Understand how the network works: architecture, proof of stake, governance, and the contracts that power Aztec.</p>
+<Link to={useBaseUrl('/network/dev/concepts')}>Learn the fundamentals →</Link>
+</div>
 
-### Sequencer Nodes
+</div>
 
-Sequencer nodes order transactions and produce blocks. Selected via a proof-of-stake mechanism, they play a critical role in the consensus process.
+## Quick Links
 
-**Key responsibilities:**
-- Assemble unprocessed transactions and propose new blocks
-- Execute public functions in transactions
-- Attest to correct execution when part of the sequencer committee
-- Submit successfully attested blocks to L1
+### For Token Holders
+- <Link to={useBaseUrl('/network/dev/users/staking')}>Stake your tokens</Link> to participate in network security
+- <Link to={useBaseUrl('/network/dev/users/delegation')}>Delegate to operators</Link> if you don't want to run infrastructure
+- <Link to={useBaseUrl('/network/dev/users/voting')}>Vote on proposals</Link> to influence protocol upgrades
 
-Before publication, blocks must be validated by a committee of sequencer nodes who re-execute public transactions and verify private function proofs. Committee members attest to validity by signing the block header. Once sufficient attestations are collected (two-thirds of the committee plus one), the block can be submitted to L1.
+### For Operators
+- <Link to={useBaseUrl('/network/dev/operators/setup/running_a_node')}>Run a full node</Link> to interact with the network
+- <Link to={useBaseUrl('/network/dev/operators/setup/sequencer_management')}>Become a sequencer</Link> to produce blocks and earn rewards
+- <Link to={useBaseUrl('/network/dev/operators/monitoring')}>Set up monitoring</Link> to keep your infrastructure healthy
 
-[Learn more about running a sequencer →](./setup/sequencer_management.md)
-
-### Provers
-
-Provers generate cryptographic proofs that attest to transaction correctness. They produce the final rollup proof submitted to Ethereum, ensuring rollup integrity.
-
-**Key components and responsibilities:**
-- **Prover node**: Polls L1 for unproven epochs, creates prover jobs, and submits final proofs
-- **Prover broker**: Manages job queues and distributes work to agents
-- **Prover agents**: Execute proof generation jobs in a stateless manner
-
-Note that running provers require:
-- High-performance hardware (typically data center-grade)
-- Significant computational resources for proof generation
-- Technical expertise in operating distributed systems
-
-[Learn more about running a prover →](./setup/running_a_prover.md)
-
-## How Nodes Work Together
-
-The Aztec network operates through the coordinated interaction of these different node types:
-
-1. **Transaction Flow**: Users submit transactions to full nodes, which validate and propagate them through the P2P network
-2. **Block Production**: Sequencer nodes collect transactions from the mempool, order them, and propose new blocks
-3. **Consensus**: The sequencer committee validates proposed blocks and provides attestations
-4. **Proof Generation**: Prover nodes generate cryptographic proofs for epochs of blocks
-5. **L1 Submission**: Sequencers submit attested blocks and provers submit epoch proofs to Ethereum
-
-## Using Your Own L1 Node
-
-For optimal performance and reliability, it's highly recommended to run your own Ethereum L1 node rather than relying on third-party RPC providers.
-
-**Benefits:**
-- Better performance and lower latency
-- No rate limiting or request throttling
-- Greater reliability and uptime control
-- Enhanced privacy for your node operations
-
-**Requirements:**
-- Access to both execution and consensus client endpoints
-- Endpoints must support high throughput
-- Must be connected to Sepolia testnet for Aztec testnet
-
-See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) for setting up your own L1 node.
-
-## Next Steps
-
-- **Check Prerequisites**: Review the [prerequisites guide](./prerequisites.md) to ensure you have everything needed
-- **Run a Full Node**: Follow the [complete full node guide](./setup/running_a_node.md) for detailed setup instructions
-- **Operate a Sequencer**: Learn how to [run a sequencer node](./setup/sequencer_management.md) and join the validator set
-- **Operate a Prover**: Set up [prover infrastructure](./setup/running_a_prover.md) to generate rollup proofs
-- **Join the Community**: Connect with other operators on [Discord](https://discord.gg/aztec)
+### Understanding the Network
+- <Link to={useBaseUrl('/network/dev/concepts/architecture/block-production')}>How block production works</Link>
+- <Link to={useBaseUrl('/network/dev/concepts/proof-of-stake')}>Proof of stake mechanism</Link>
+- <Link to={useBaseUrl('/network/dev/concepts/governance')}>Governance and upgrades</Link>
