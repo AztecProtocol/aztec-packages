@@ -2,8 +2,8 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
-cd $root/barretenberg/cpp
-export bb=$(./scripts/find-bb)
+export bb=$(./find-bb)
+cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
 # This allows us to compare the generated VKs here with ones we compute freshly, detecting breaking protocol changes.
