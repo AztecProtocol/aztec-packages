@@ -1,8 +1,8 @@
 use super::TestBuilder;
-use types::{hash::accumulate_sha256, tests::utils::assert_array_eq};
 
 // Note: We only test a few cases here to ensure the code path is triggered. More comprehensive tests for merging and
 // validating consecutive block rollups can be found in `block_merge/tests/consecutive_block_rollups_tests.nr`.
+// Tests for merging out hashes can be found in `out_hash_tests.nr`.
 
 #[test(should_fail_with = "Right rollup must not carry in_hash")]
 fn non_zero_in_hash_in_right_rollup() {
@@ -31,57 +31,4 @@ fn mismatch_timestamps() {
     builder.right_rollup.timestamp = builder.left_rollup.timestamp + 1;
 
     builder.execute_with_mock_and_fail();
-}
-
-// --- out_hashes ---
-
-#[test]
-fn accumulated_out_hash_correctly() {
-    let mut builder = TestBuilder::default();
-
-    builder.left_rollup.out_hash = 456;
-    builder.right_rollup.out_hash = 123;
-
-    let (pi, _) = builder.execute_with_mock();
-    builder.assert_expected_public_inputs(pi);
-
-    assert_array_eq(pi.out_hashes, [accumulate_sha256(456, 123)]);
-}
-
-#[test]
-fn propagate_left_out_hash_when_right_is_zero() {
-    let mut builder = TestBuilder::default();
-
-    builder.left_rollup.out_hash = 456;
-    builder.right_rollup.out_hash = 0;
-
-    let (pi, _) = builder.execute_with_mock();
-    builder.assert_expected_public_inputs(pi);
-
-    assert_array_eq(pi.out_hashes, [456]);
-}
-
-#[test]
-fn propagate_right_out_hash_when_left_is_zero() {
-    let mut builder = TestBuilder::default();
-
-    builder.left_rollup.out_hash = 0;
-    builder.right_rollup.out_hash = 123;
-
-    let (pi, _) = builder.execute_with_mock();
-    builder.assert_expected_public_inputs(pi);
-
-    assert_array_eq(pi.out_hashes, [123]);
-}
-
-#[test]
-fn output_zero_when_both_out_hashes_are_zero() {
-    let mut builder = TestBuilder::default();
-
-    builder.left_rollup.out_hash = 0;
-    builder.right_rollup.out_hash = 0;
-
-    let (pi, _) = builder.execute_with_mock();
-
-    assert_array_eq(pi.out_hashes, []);
 }

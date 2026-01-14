@@ -1,4 +1,16 @@
-use crate::{hash::{accumulate_sha256, merkle_hash}, traits::Empty, utils::math::is_power_of_2_u32};
+use crate::{
+    hash::{accumulate_sha256, poseidon2_hash},
+    traits::Empty,
+    utils::math::is_power_of_2_u32,
+};
+
+pub fn merkle_hash(left: Field, right: Field) -> Field {
+    poseidon2_hash([left, right])
+}
+
+pub fn sha_merkle_hash(left: Field, right: Field) -> Field {
+    accumulate_sha256(left, right)
+}
 
 #[derive(Eq)]
 pub struct MerkleTree<let N: u32> {
@@ -19,7 +31,7 @@ impl<let N: u32> MerkleTree<N> {
     }
 
     pub fn new_sha(leaves: [Field; N]) -> Self {
-        let nodes = compute_merkle_tree_nodes(leaves, accumulate_sha256);
+        let nodes = compute_merkle_tree_nodes(leaves, sha_merkle_hash);
         MerkleTree { leaves, nodes }
     }
 
@@ -63,7 +75,7 @@ pub fn sibling_index(index: u32) -> u32 {
     }
 }
 
-fn compute_merkle_tree_nodes<let N: u32>(
+pub fn compute_merkle_tree_nodes<let N: u32>(
     leaves: [Field; N],
     hasher: fn(Field, Field) -> Field,
 ) -> [Field; N - 1] {

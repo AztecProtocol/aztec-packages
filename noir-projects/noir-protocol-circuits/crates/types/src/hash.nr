@@ -156,10 +156,6 @@ pub fn compute_app_secret_key(
     )
 }
 
-pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
-}
-
 pub fn compute_l2_to_l1_hash(
     contract_address: AztecAddress,
     recipient: EthAddress,

@@ -7,7 +7,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import {
+  accumulateCheckpointOutHashes,
+  computeCheckpointOutHash,
+  computeInHashFromL1ToL2Messages,
+} from '@aztec/stdlib/messaging';
 import { CheckpointHeader, computeBlockHeadersHash } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -41,6 +45,7 @@ export class LightweightCheckpointBuilder {
     public readonly checkpointNumber: CheckpointNumber,
     public readonly constants: CheckpointGlobalVariables,
     public readonly l1ToL2Messages: Fr[],
+    private readonly previousCheckpointOutHashes: Fr[],
     public readonly db: MerkleTreeWriteOperations,
   ) {
     this.spongeBlob = SpongeBlob.init();
@@ -51,6 +56,7 @@ export class LightweightCheckpointBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
   ): Promise<LightweightCheckpointBuilder> {
     // Insert l1-to-l2 messages into the tree.
@@ -59,7 +65,13 @@ export class LightweightCheckpointBuilder {
       padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
 
-    return new LightweightCheckpointBuilder(checkpointNumber, constants, l1ToL2Messages, db);
+    return new LightweightCheckpointBuilder(
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      db,
+    );
   }
 
   /**
@@ -72,10 +84,17 @@ export class LightweightCheckpointBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
     existingBlocks: L2BlockNew[],
   ): Promise<LightweightCheckpointBuilder> {
-    const builder = new LightweightCheckpointBuilder(checkpointNumber, constants, l1ToL2Messages, db);
+    const builder = new LightweightCheckpointBuilder(
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      db,
+    );
 
     builder.logger.debug('Resuming checkpoint from existing blocks', {
       checkpointNumber,
@@ -210,6 +229,10 @@ export class LightweightCheckpointBuilder {
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
 
     const { slotNumber, coinbase, feeRecipient, gasFees } = this.constants;
+    const checkpointOutHash = computeCheckpointOutHash(
+      blocks.map(block => block.body.txEffects.map(tx => tx.l2ToL1Msgs)),
+    );
+    const epochOutHash = accumulateCheckpointOutHashes([...this.previousCheckpointOutHashes, checkpointOutHash]);
 
     // TODO(palla/mbps): Should we source this from the constants instead?
     // timestamp of a checkpoint is the timestamp of the last block in the checkpoint.
@@ -221,6 +244,7 @@ export class LightweightCheckpointBuilder {
       lastArchiveRoot: this.lastArchives[0].root,
       blobsHash,
       inHash,
+      epochOutHash,
       blockHeadersHash,
       slotNumber,
       timestamp,
@@ -238,6 +262,7 @@ export class LightweightCheckpointBuilder {
       this.checkpointNumber,
       this.constants,
       [...this.l1ToL2Messages],
+      [...this.previousCheckpointOutHashes],
       this.db,
     );
     clone.lastArchives = [...this.lastArchives];

@@ -151,8 +151,11 @@ describe('prover/orchestrator/rollup-structure', () => {
       expect(result.publicInputs.endArchiveRoot).toEqual(epochEndArchive.root);
 
       const firstMessage = l1ToL2MessagesInEpoch.flat(4)[0];
-      const { root: outHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(l1ToL2MessagesInEpoch, firstMessage);
-      expect(result.publicInputs.outHash).toEqual(outHash);
+      const { root: epochOutHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(
+        l1ToL2MessagesInEpoch,
+        firstMessage,
+      );
+      expect(result.publicInputs.outHash).toEqual(epochOutHash);
 
       const expectedCheckpointHeaderHashes = checkpoints.map(c => c.header.hash());
       expect(result.publicInputs.checkpointHeaderHashes).toEqual(

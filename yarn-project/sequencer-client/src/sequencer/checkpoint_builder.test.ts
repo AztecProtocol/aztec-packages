@@ -1,3 +1,4 @@
+import { EMPTY_EPOCH_OUT_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -9,6 +10,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EthAddress } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
+import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -94,6 +96,7 @@ describe('CheckpointBuilder', () => {
 
       const constants = makeCheckpointConstants(slotNumber);
       const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
 
       const fork = await worldState.fork();
 
@@ -102,6 +105,7 @@ describe('CheckpointBuilder', () => {
         checkpointNumber,
         constants,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         fork,
       );
 
@@ -117,6 +121,62 @@ describe('CheckpointBuilder', () => {
       expect(checkpoint.blocks.length).toBe(1);
       expect(checkpoint.blocks[0].number).toEqual(blockNumber);
 
+      // There is no previous checkpoints (previousCheckpointOutHashes == []), so the epoch out hash is empty.
+      expect(checkpoint.header.epochOutHash).toEqual(new Fr(EMPTY_EPOCH_OUT_HASH));
+      // The checkpoint's out hash is zero, since there are no txs/msgs.
+      expect(checkpoint.getCheckpointOutHash()).toEqual(Fr.ZERO);
+
+      await fork.close();
+    });
+
+    it('builds a checkpoint a single block with a single tx, with two checkpoints preceding it', async () => {
+      const checkpointNumber = CheckpointNumber(1);
+      const slotNumber = SlotNumber(15);
+      const blockNumber = BlockNumber(1);
+
+      const constants = makeCheckpointConstants(slotNumber);
+      const l1ToL2Messages: Fr[] = [];
+      // There are two checkpoints before this one.
+      const previousCheckpointOutHashes = [Fr.random(), Fr.random()];
+
+      const fork = await worldState.fork();
+
+      const checkpointBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
+        checkpointNumber,
+        constants,
+        l1ToL2Messages,
+        previousCheckpointOutHashes,
+        fork,
+      );
+
+      // This checkpoint has a block with 1 tx.
+      const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
+      const tx = await makeProcessedTx(globalVariables, 1000);
+      // Add some random l2-to-l1 messages to the tx.
+      const msgs = [Fr.random(), Fr.random()];
+      tx.txEffect.l2ToL1Msgs.push(...msgs);
+
+      // Build block with tx - insertTxsEffects will handle inserting side effects
+      const block = await checkpointBuilder.addBlock(globalVariables, [tx], {
+        insertTxsEffects: true,
+      });
+
+      expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
+      expect(block.body.txEffects.length).toBe(1);
+
+      // Complete checkpoint
+      const checkpoint = await checkpointBuilder.completeCheckpoint();
+      expect(checkpoint.number).toEqual(checkpointNumber);
+      expect(checkpoint.blocks.length).toBe(1);
+      expect(checkpoint.blocks[0].number).toEqual(blockNumber);
+
+      // The epoch out hash in the header is computed from the previous checkpoint out hashes and the current
+      // checkpoint's out hash.
+      const checkpointOutHash = checkpoint.getCheckpointOutHash();
+      expect(checkpointOutHash).not.toEqual(Fr.ZERO);
+      const epochOutHash = accumulateCheckpointOutHashes([...previousCheckpointOutHashes, checkpointOutHash]);
+      expect(checkpoint.header.epochOutHash).toEqual(epochOutHash);
+
       await fork.close();
     });
 
@@ -127,6 +187,7 @@ describe('CheckpointBuilder', () => {
 
       const constants = makeCheckpointConstants(slotNumber);
       const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
 
       const fork = await worldState.fork();
 
@@ -134,6 +195,7 @@ describe('CheckpointBuilder', () => {
         checkpointNumber,
         constants,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         fork,
       );
 
@@ -164,6 +226,7 @@ describe('CheckpointBuilder', () => {
 
       const constants = makeCheckpointConstants(slotNumber);
       const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
 
       const fork = await worldState.fork();
 
@@ -171,6 +234,7 @@ describe('CheckpointBuilder', () => {
         checkpointNumber,
         constants,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         fork,
       );
 
@@ -215,6 +279,7 @@ describe('CheckpointBuilder', () => {
 
       const constants = makeCheckpointConstants(slotNumber);
       const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
 
       const fork = await worldState.fork();
 
@@ -222,6 +287,7 @@ describe('CheckpointBuilder', () => {
         checkpointNumber,
         constants,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         fork,
       );
 
@@ -237,6 +303,7 @@ describe('CheckpointBuilder', () => {
 
       const constants = makeCheckpointConstants(slotNumber);
       const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
 
       const fork = await worldState.fork();
 
@@ -244,6 +311,7 @@ describe('CheckpointBuilder', () => {
         checkpointNumber,
         constants,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         fork,
       );
 

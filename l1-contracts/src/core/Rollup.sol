@@ -332,6 +332,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       archive: STFLib.getStorage().archives[_checkpointNumber],
       headerHash: tempCheckpointLog.headerHash,
       blobCommitmentsHash: tempCheckpointLog.blobCommitmentsHash,
+      outHash: tempCheckpointLog.outHash,
       attestationsHash: tempCheckpointLog.attestationsHash,
       payloadDigest: tempCheckpointLog.payloadDigest,
       slotNumber: tempCheckpointLog.slotNumber,

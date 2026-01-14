@@ -11,7 +11,7 @@ use dep::types::{
         PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::{append_only_tree, calculate_tree_root, indexed_tree, MembershipWitness},
+    merkle_tree::{append_only_tree, compute_tree_root, indexed_tree, MembershipWitness},
 };
 use update_public_data_tree_leaf::update_public_data_tree_leaf;
 
@@ -40,7 +40,7 @@ pub fn build_tree_snapshots(
     hints: TreeSnapshotDiffHints,
 ) -> PartialStateReference {
     // Insert note hashes.
-    let note_hash_subtree_root = calculate_tree_root(note_hashes);
+    let note_hash_subtree_root = compute_tree_root(note_hashes);
     let end_note_hash_tree_snapshot = append_only_tree::insert_subtree_root_to_snapshot::<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT>(
         start_tree_snapshots.note_hash_tree,
         hints.note_hash_subtree_root_sibling_path,

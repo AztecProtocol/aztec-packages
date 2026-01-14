@@ -48,8 +48,8 @@ export class BlockRollupPublicInputs {
     public timestamp: UInt64,
     /**
      * Hash of the headers of all blocks in this block range. It will be combined with the `blockHeadersHash` from
-     * other blocks in the same checkpoint to form a wonky tree. The root of that tree becomes the final hash stored in
-     * the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
+     * other blocks in the same checkpoint to form an unbalanced tree. The root of that tree becomes the final hash
+     * stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
      */
     public blockHeadersHash: Fr,
     /**

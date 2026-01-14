@@ -170,7 +170,7 @@ describe('EpochPruneWatcher', () => {
       },
     ] satisfies WantToSlashArgs[]);
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], block.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], block.header.globalVariables, {}, fork);
   });
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
@@ -220,7 +220,7 @@ describe('EpochPruneWatcher', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], blockFromL1.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], blockFromL1.header.globalVariables, {}, fork);
   });
 });
 
