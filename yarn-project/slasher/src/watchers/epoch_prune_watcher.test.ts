@@ -93,7 +93,7 @@ describe('EpochPruneWatcher', () => {
       epoch: epochNumber,
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -146,7 +146,7 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -170,7 +170,7 @@ describe('EpochPruneWatcher', () => {
       },
     ] satisfies WantToSlashArgs[]);
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], block.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], block.header.globalVariables, {}, fork);
   });
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
@@ -209,7 +209,7 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [blockFromL1],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -220,12 +220,12 @@ describe('EpochPruneWatcher', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], blockFromL1.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], blockFromL1.header.globalVariables, {}, fork);
   });
 });
 
-class MockL2BlockSource extends EventEmitter {
-  constructor() {
-    super();
-  }
+class MockL2BlockSource {
+  public readonly events = new EventEmitter();
+
+  constructor() {}
 }

@@ -2,7 +2,7 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 ; We are passed three pointers and one usize.
                 ; d0 points to the points. Points are represented by (x: Field, y: Field, is_infinite: bool)
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
-                ; d2 contains the length of the points array. This will be the number of points * 3, since each point is represented by 3 fields.
+                ; d2 contains the number of points.
                 ; d3 points to the result. The result is a point.
                 ADD d3, /*the reserved register 'one_usize'*/ $2, d4; Compute the pointer to the result y.
                 ADD d4, $2, d5; Compute the pointer to the result is_infinite
@@ -20,7 +20,6 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 SET d12, 0 u1; Initialize a constant false
                 SET d13, 2 u32; Initialize a constant 2
                 SET d14, 3 u32; Initialize a constant 3 for computing pointers to the point components
-                DIV d2, d14, d2; Divide the length of the points array by 3 to get the number of points
                 ; Main loop: iterate over the points/scalars
 OUTER_HEAD:     LT d6, d2, d15 ; Check if we are done with the outer loop
                 JUMPI d15, OUTER_BODY

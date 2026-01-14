@@ -845,6 +845,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
+    "@aztec/builder": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"

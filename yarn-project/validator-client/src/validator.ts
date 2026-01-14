@@ -17,6 +17,7 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
   Validator,
@@ -190,6 +191,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1ToL2MessageSource,
       txProvider,
       blockProposalValidator,
+      epochCache,
       config,
       metrics,
       dateProvider,
@@ -558,6 +560,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
+    // Compute the previous checkpoint out hashes for the epoch.
+    // TODO: There can be a more efficient way to get the previous checkpoint out hashes without having to fetch the
+    // actual checkpoints and the blocks/txs in them.
+    const epoch = getEpochAtSlot(slot, this.epochCache.getL1Constants());
+    const previousCheckpoints = (await this.blockSource.getCheckpointsForEpoch(epoch))
+      .filter(b => b.number < checkpointNumber)
+      .sort((a, b) => a.number - b.number);
+    const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
+
     // Fork world state at the block before the first block
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
     const fork = await this.worldState.fork(parentBlockNumber);
@@ -568,6 +579,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         checkpointNumber,
         constants,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         fork,
         blocks,
       );
@@ -593,6 +605,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           proposal: proposal.archive.toString(),
         });
         return { isValid: false, reason: 'archive_mismatch' };
+      }
+
+      // Check that the accumulated out hash matches the value in the proposal.
+      const computedOutHash = computedCheckpoint.getCheckpointOutHash();
+      const proposalOutHash = proposal.checkpointHeader.epochOutHash;
+      if (!computedOutHash.equals(proposalOutHash)) {
+        this.log.warn(`Epoch out hash mismatch`, {
+          proposalOutHash: proposalOutHash.toString(),
+          computedOutHash: computedOutHash.toString(),
+          ...proposalInfo,
+        });
+        return { isValid: false, reason: 'out_hash_mismatch' };
       }
 
       this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);

@@ -693,14 +693,14 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
         .filter(({ deployed }) => !deployed)
         .map(({ address }) => wallet.getContractMetadata(address)),
     )
-  ).map(contractMetadata => contractMetadata.contractInstance);
+  ).map(contractMetadata => contractMetadata.instance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await wallet.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
     await (await publishContractClass(wallet, SchnorrAccountContractArtifact))
       .send({ from: accountsToDeploy[0] })
       .wait();
   }
-  const requests = await Promise.all(instances.map(async instance => await publishInstance(wallet, instance!)));
+  const requests = instances.map(instance => publishInstance(wallet, instance!));
   const batch = new BatchCall(wallet, requests);
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }

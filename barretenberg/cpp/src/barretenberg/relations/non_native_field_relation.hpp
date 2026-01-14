@@ -10,12 +10,30 @@
 
 namespace bb {
 
+/**
+ * @brief Non-Native Field Relation for emulating arithmetic over fields larger than the native circuit field.
+ *
+ * @details This relation enables arithmetic operations (multiplication, reduction) on "bigfield" elements,
+ * which represent values in a field larger than the circuit's native field (e.g., secp256k1's base field
+ * when proving over BN254). A bigfield element is decomposed into 68-bit limbs that fit within the native
+ * field, and this relation enforces correct limb-wise arithmetic with carry propagation.
+ *
+ * The relation handles two types of constraints:
+ *
+ * 1. **Bigfield Product Gates** (3 variants): Verify that limb products and cross-terms combine correctly
+ *    when multiplying two bigfield elements. The product of two 4-limb numbers produces terms that must
+ *    be accumulated with appropriate powers of 2^68.
+ *
+ * 2. **Limb Accumulation Gates** (2 variants): Verify that 14-bit sublimbs correctly reconstruct a 68-bit
+ *    limb. Each 68-bit limb is decomposed into five 14-bit chunks (with 2 bits of slack), enabling
+ *    efficient range checks via the delta range constraint relation.
+ */
 template <typename FF_> class NonNativeFieldRelationImpl {
   public:
     using FF = FF_;
 
     static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
-        6 // nnf sub-relation;
+        6 // combined non-native field sub-relation
     };
 
     /**
@@ -25,12 +43,9 @@ template <typename FF_> class NonNativeFieldRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_nnf.is_zero(); }
 
     /**
-     * @brief Non-native field arithmetic relation
-     * @details Adds contributions for identities associated with non-native field arithmetic:
-     *  * Bigfield product evaluation (3 in total)
-     *  * Bigfield limb accumulation (2 in total)
+     * @brief Accumulates constraints for non-native field multiplication and limb decomposition.
      *
-     * Multiple selectors are used to 'switch' nnf gates on/off according to the following pattern:
+     * @details Multiple selectors toggle different gate types within this single relation:
      *
      * | gate type                    | q_nnf | q_2 | q_3 | q_4 | q_m |
      * | ---------------------------- | ----- | --- | --- | --- | --- |
@@ -41,15 +56,15 @@ template <typename FF_> class NonNativeFieldRelationImpl {
      * | Bigfield Product 3           | 1     | 1   | 0   | 0   | 1   |
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the Totaly extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
+     * @param in an std::array containing the fully extended Univariate edges.
+     * @param parameters unused
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-    inline static void accumulate(ContainerOverSubrelations& accumulators,
-                                  const AllEntities& in,
-                                  [[maybe_unused]] const Parameters& params,
-                                  const FF& scaling_factor)
+    static void accumulate(ContainerOverSubrelations& accumulators,
+                           const AllEntities& in,
+                           BB_UNUSED const Parameters& params,
+                           const FF& scaling_factor)
     {
         // all accumulators are of the same length, so we set our accumulator type to (arbitrarily) be the first one.
         // if there were one that were shorter, we could also profitably use a `ShortAccumulator` type. however,
@@ -75,16 +90,10 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
-        /**
-         * Non native field arithmetic gate 2
-         * deg 4
-         *
-         *             _                                                                               _
-         *            /   _                   _                               _       14                \
-         * q_2 . q_4 |   (w_1 . w_2) + (w_1 . w_2) + (w_1 . w_4 + w_2 . w_3 - w_3) . 2    - w_3 - w_4   |
-         *            \_                                                                               _/
-         *
-         **/
+        // Bigfield Product Gate 2 (selected by q_2 * q_4):
+        // Computes cross-term contributions in limb multiplication.
+        // Formula: (w_1 * w_2') + (w_1' * w_2) + (w_1 * w_4 + w_2 * w_3 - w_3') * 2^14 - w_3 - w_4' = 0
+        // where primed values (') denote shifted wires from the next row.
         auto limb_subproduct = w_1_m * w_2_shift_m + w_1_shift_m * w_2_m;
         auto non_native_field_gate_2_m = (w_1_m * w_4_m + w_2_m * w_3_m - w_3_shift_m);
         non_native_field_gate_2_m *= LIMB_SIZE;
@@ -92,15 +101,19 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         non_native_field_gate_2_m += limb_subproduct;
         auto non_native_field_gate_2 = Accumulator(non_native_field_gate_2_m) * Accumulator(q_4_m);
 
+        // Bigfield Product Gate 1 (selected by q_2 * q_3):
+        // Accumulates limb products with 2^68 scaling for high-order terms.
+        // Formula: (w_1 * w_2') + (w_1' * w_2) * 2^68 + (w_1' * w_2') - w_3 - w_4 = 0
         limb_subproduct *= LIMB_SIZE;
         limb_subproduct += (w_1_shift_m * w_2_shift_m);
         auto non_native_field_gate_1_m = limb_subproduct;
         non_native_field_gate_1_m -= (w_3_m + w_4_m);
-        // We transform into Accumulator to extend the degree of `non_native_field_gate_1` beyond degree-2
-        // (CoefficientAccumulator only supports univariate polynomials of up to degree 2; it is not efficient to peform
-        // higher-degree computations in the coefficient basis.)
+        // Transform to Accumulator for degree > 2 (CoefficientAccumulator limited to degree 2)
         auto non_native_field_gate_1 = Accumulator(non_native_field_gate_1_m) * Accumulator(q_3_m);
 
+        // Bigfield Product Gate 3 (selected by q_2 * q_m):
+        // Handles remaining cross-terms in the limb product expansion.
+        // Formula: limb_subproduct + w_4 - w_3' - w_4' = 0
         auto non_native_field_gate_3_m = limb_subproduct;
         non_native_field_gate_3_m += w_4_m;
         non_native_field_gate_3_m -= (w_3_shift_m + w_4_shift_m);
@@ -109,8 +122,10 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         auto non_native_field_identity = non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3;
         non_native_field_identity *= Accumulator(q_2_m);
 
-        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * q_4
-        // deg 2
+        // Limb Accumulation Gate 1 (selected by q_3 * q_4):
+        // Reconstructs a 68-bit limb from five 14-bit sublimbs stored across wires.
+        // Constraint: w_2' * 2^56 + w_1' * 2^42 + w_3 * 2^28 + w_2 * 2^14 + w_1 - w_4 = 0
+        // Horner form: ((((w_2' * 2^14 + w_1') * 2^14 + w_3) * 2^14 + w_2) * 2^14 + w_1) - w_4 = 0
         auto limb_accumulator_1_m = w_2_shift_m * SUBLIMB_SHIFT;
         limb_accumulator_1_m += w_1_shift_m;
         limb_accumulator_1_m *= SUBLIMB_SHIFT;
@@ -122,8 +137,10 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         limb_accumulator_1_m -= w_4_m;
         auto limb_accumulator_1_m_full = limb_accumulator_1_m * q_4_m;
 
-        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * q_m
-        // deg 2
+        // Limb Accumulation Gate 2 (selected by q_3 * q_m):
+        // Reconstructs a second 68-bit limb from five 14-bit sublimbs.
+        // Constraint: w_3' * 2^56 + w_2' * 2^42 + w_1' * 2^28 + w_4 * 2^14 + w_3 - w_4' = 0
+        // Horner form: ((((w_3' * 2^14 + w_2') * 2^14 + w_1') * 2^14 + w_4) * 2^14 + w_3) - w_4' = 0
         auto limb_accumulator_2_m = w_3_shift_m * SUBLIMB_SHIFT;
         limb_accumulator_2_m += w_2_shift_m;
         limb_accumulator_2_m *= SUBLIMB_SHIFT;

@@ -28,7 +28,7 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
  * @param randomness - The randomness injected into the note to get the hiding property of commitments
  * @param storageSlot - The storage slot of the note
  * @param noteNonce - The nonce injected into the note hash preimage by kernels.
- * @param index - Optional index in the note hash tree. If undefined, indicates a transient note
+ * @param isPending - True if the note is pending, false if settled
  * @param note - The note content containing the actual note data
  * @returns The packed note as an array of field elements
  */
@@ -38,7 +38,7 @@ export function packAsRetrievedNote({
   randomness,
   storageSlot,
   noteNonce,
-  index,
+  isPending,
   note,
 }: {
   contractAddress: AztecAddress;
@@ -46,14 +46,14 @@ export function packAsRetrievedNote({
   randomness: Fr;
   storageSlot: Fr;
   noteNonce: Fr;
-  index?: bigint;
+  isPending: boolean;
   note: Note;
 }) {
-  // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
-  const nonzeroNoteHashCounter = index === undefined;
+  // If the note is pending it means it has a non-zero note hash counter associated with it.
+  const nonZeroNoteHashCounter = isPending;
 
   // To pack the note as retrieved note we first need to reconstruct the note metadata.
-  const noteMetadata = fromRawData(nonzeroNoteHashCounter, noteNonce);
+  const noteMetadata = fromRawData(nonZeroNoteHashCounter, noteNonce);
 
   // Pack in order: note, contract_address, owner, randomness, storage_slot, metadata (stage, maybe_note_nonce)
   return [

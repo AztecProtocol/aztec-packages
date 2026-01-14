@@ -1,8 +1,9 @@
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     merkle_tree::{
-        membership::{check_membership, MembershipWitness},
-        root::{calculate_empty_tree_root, root_from_sibling_path},
+        membership::{check_membership_with_hasher, MembershipWitness},
+        merkle_tree::{merkle_hash, sha_merkle_hash},
+        root::{compute_empty_tree_root_with_hasher, root_from_sibling_path_with_hasher},
     },
 };
 
@@ -14,10 +15,37 @@ pub fn append_leaf_to_snapshot<let TreeHeight: u32>(
     insert_subtree_root_to_snapshot::<TreeHeight, 0>(snapshot, sibling_path, leaf_to_append)
 }
 
+pub fn append_leaf_to_snapshot_sha<let TreeHeight: u32>(
+    snapshot: AppendOnlyTreeSnapshot,
+    sibling_path: [Field; TreeHeight],
+    leaf_to_append: Field,
+) -> AppendOnlyTreeSnapshot {
+    insert_subtree_root_to_snapshot_with_hasher::<TreeHeight, 0>(
+        snapshot,
+        sibling_path,
+        leaf_to_append,
+        sha_merkle_hash,
+    )
+}
+
 pub fn insert_subtree_root_to_snapshot<let TreeHeight: u32, let SubtreeHeight: u32>(
     snapshot: AppendOnlyTreeSnapshot,
     sibling_path: [Field; TreeHeight - SubtreeHeight],
     subtree_root_to_insert: Field,
+) -> AppendOnlyTreeSnapshot {
+    insert_subtree_root_to_snapshot_with_hasher(
+        snapshot,
+        sibling_path,
+        subtree_root_to_insert,
+        merkle_hash,
+    )
+}
+
+fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeHeight: u32>(
+    snapshot: AppendOnlyTreeSnapshot,
+    sibling_path: [Field; TreeHeight - SubtreeHeight],
+    subtree_root_to_insert: Field,
+    hasher: fn(Field, Field) -> Field,
 ) -> AppendOnlyTreeSnapshot {
     // Sanity check: ensure the tree height is not greater than 64, since we later cast the leaf index to u64.
     // If this function is called with a tree of height greater than 64, the subtree root will be inserted at the wrong
@@ -33,21 +61,23 @@ pub fn insert_subtree_root_to_snapshot<let TreeHeight: u32, let SubtreeHeight: u
         (snapshot.next_available_leaf_index as u64 >> SubtreeHeight as u64) as Field;
 
     // Check that there is an empty subtree at the insertion location against the current root.
-    let empty_subtree_root = calculate_empty_tree_root(SubtreeHeight);
+    let empty_subtree_root = compute_empty_tree_root_with_hasher::<SubtreeHeight>(hasher);
     assert(
-        check_membership(
+        check_membership_with_hasher(
             empty_subtree_root,
             MembershipWitness { leaf_index: subtree_root_index_at_depth, sibling_path },
             snapshot.root,
+            hasher,
         ),
         "Membership check failed: empty subtree root not found at insertion index",
     );
 
     // Compute the new root by inserting the subtree root at `subtree_root_index_at_depth`.
-    let new_root = root_from_sibling_path(
+    let new_root = root_from_sibling_path_with_hasher(
         subtree_root_to_insert,
         subtree_root_index_at_depth,
         sibling_path,
+        hasher,
     );
 
     // Advance the next available leaf index by the number of leaves in the subtree.

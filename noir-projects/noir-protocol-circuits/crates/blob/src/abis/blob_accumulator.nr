@@ -64,7 +64,7 @@ impl BlobAccumulator {
     * Init the first accumulation state of the epoch.
     *
     * First state of the accumulator:
-    * - v_acc := sha256(C_0)
+    * - blob_commitments_hash_acc := sha256(C_0)
     * - z_acc := z_0
     * - y_acc := gamma^0 * y_0 = y_0
     * - c_acc := gamma^0 * c_0 = c_0
@@ -94,7 +94,7 @@ impl BlobAccumulator {
     * NB: blob_commitments_hash is written as v below
     *
     * Each accumulation:
-    * - v_acc := sha256(v_acc, C_i)
+    * - blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, C_i)
     * - z_acc := poseidon2(z_acc, z_i)
     * - y_acc := y_acc + (gamma^i * y_i)
     * - c_acc := c_acc + (gamma^i * c_i)
@@ -102,7 +102,7 @@ impl BlobAccumulator {
     * - gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow_acc
     *
     * Final accumulated values (from last blob of last checkpoint of epoch):
-    * - v := v_acc (hash of all commitments (C_i s) to be checked on L1)
+    * - blob_commitments_hash := blob_commitments_hash_acc (hash of all commitments (C_i s) to be checked on L1)
     * - z := z_acc (final challenge, at which all blobs are evaluated)
     * - y := y_acc (final opening to be checked on L1)
     * - c := c_acc (final commitment to be checked on L1)

@@ -26,11 +26,8 @@ describe('e2e_fees bridging_race', () => {
   });
 
   beforeAll(async () => {
-    await t.applyInitialAccountsSnapshot();
-    await t.applyPublicDeployAccountsSnapshot();
-    await t.applySetupFeeJuiceSnapshot();
-
-    ({ wallet, logger } = await t.setup());
+    await t.setup();
+    ({ wallet, logger } = t);
   });
 
   afterAll(async () => {

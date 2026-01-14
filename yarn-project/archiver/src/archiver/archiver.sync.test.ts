@@ -26,7 +26,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver } from './archiver.js';
-import type { ArchiverDataStore } from './archiver_store.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 import { FakeL1State, type FakeL1StateConfig } from './test/fake_l1_state.js';
@@ -47,7 +46,7 @@ describe('Archiver Sync', () => {
   let inboxContract: MockProxy<InboxContract>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let dateProvider: TestDateProvider;
-  let archiverStore: ArchiverDataStore;
+  let archiverStore: KVArchiverDataStore;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let archiver: Archiver;
   let logger: Logger;
@@ -608,7 +607,7 @@ describe('Archiver Sync', () => {
 
       // Setup spy to listen for InvalidCheckpointDetected events
       const invalidCheckpointDetectedSpy = jest.fn();
-      archiver.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointDetectedSpy);
+      archiver.events.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointDetectedSpy);
 
       // Add valid checkpoint 1 with correct attestations
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {

@@ -158,7 +158,7 @@ describe('Utility Execution test suite', () => {
     });
     noteStore.getNotes.mockResolvedValue(
       notes.map(
-        (note, index) =>
+        note =>
           new NoteDao(
             note,
             contractAddress,
@@ -171,7 +171,8 @@ describe('Utility Execution test suite', () => {
             TxHash.random(),
             BlockNumber(42),
             L2BlockHash.random().toString(),
-            BigInt(index),
+            0,
+            0,
           ),
       ),
     );

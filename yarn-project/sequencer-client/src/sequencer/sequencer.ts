@@ -202,7 +202,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot, ts, now, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
-    const checkpointProposalJob = await this.prepareCheckpointProposal(slot, ts, now);
+    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now);
     if (!checkpointProposalJob) {
       return;
     }
@@ -234,6 +234,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   @trackSpan('Sequencer.prepareCheckpointProposal')
   private async prepareCheckpointProposal(
+    epoch: EpochNumber,
     slot: SlotNumber,
     ts: bigint,
     now: bigint,
@@ -357,6 +358,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Create and return the checkpoint proposal job
     return this.createCheckpointProposalJob(
+      epoch,
       slot,
       checkpointNumber,
       syncedTo.blockNumber,
@@ -368,6 +370,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   protected createCheckpointProposalJob(
+    epoch: EpochNumber,
     slot: SlotNumber,
     checkpointNumber: CheckpointNumber,
     syncedToBlockNumber: BlockNumber,
@@ -377,6 +380,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
+      epoch,
       slot,
       checkpointNumber,
       syncedToBlockNumber,
@@ -389,6 +393,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient,
       this.worldState,
       this.l1ToL2MessageSource,
+      this.l2BlockSource,
       this.checkpointsBuilder,
       this.l2BlockSource,
       this.l1Constants,

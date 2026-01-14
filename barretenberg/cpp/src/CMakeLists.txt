@@ -207,6 +207,19 @@ add_library(
     ${BARRETENBERG_TARGET_OBJECTS}
 )
 
+# bb-external: A complete static library for external consumers (e.g. barretenberg-rs).
+# Includes everything from libbarretenberg.a plus env and vm2_stub.
+# This provides a single library file that external bindings can link against.
+if(NOT WASM)
+    add_library(
+        bb-external
+        STATIC
+        ${BARRETENBERG_TARGET_OBJECTS}
+        $<TARGET_OBJECTS:env_objects>
+        $<TARGET_OBJECTS:vm2_stub>
+    )
+endif()
+
 if(WASM)
     # When building this wasm "executable", we include the wasi module but exclude the env module.
     # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment

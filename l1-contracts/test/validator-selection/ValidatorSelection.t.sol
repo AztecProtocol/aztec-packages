@@ -741,7 +741,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: parentCheckpointLog.archive,
       endArchive: endFull.checkpoint.archive,
-      outHash: bytes32(0),
+      outHash: endFull.checkpoint.header.outHash,
       proverId: prover
     });
 

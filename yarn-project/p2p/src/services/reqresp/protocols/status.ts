@@ -7,6 +7,8 @@ import type { WorldStateSyncStatus, WorldStateSynchronizer } from '@aztec/stdlib
 
 import type { PeerId } from '@libp2p/interface';
 
+import { MAX_BLOCK_HASH_STRING_LENGTH, MAX_VERSION_STRING_LENGTH } from '../constants.js';
+
 /*
  * P2P Status Message
  * It is used to establish Status handshake between to peers
@@ -32,12 +34,12 @@ export class StatusMessage {
   static fromBuffer(buffer: Buffer | BufferReader): StatusMessage {
     const reader = BufferReader.asReader(buffer);
     return new StatusMessage(
-      reader.readString(), // compressedComponentsVersion
+      reader.readString(MAX_VERSION_STRING_LENGTH), // compressedComponentsVersion
       BlockNumber(reader.readNumber()), // latestBlockNumber
-      reader.readString(), // latestBlockHash
+      reader.readString(MAX_BLOCK_HASH_STRING_LENGTH), // latestBlockHash
       BlockNumber(reader.readNumber()), // finalizedBlockNumber
       //TODO: add finalizedBlockHash
-      //reader.readString(), // finalizedBlockHash
+      //reader.readString(MAX_BLOCK_HASH_STRING_LENGTH), // finalizedBlockHash
     );
   }
 

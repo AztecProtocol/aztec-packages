@@ -50,8 +50,8 @@ describe('e2e_deploy_contract deploy method', () => {
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
     // docs:start:verify_deployment
     const metadata = await wallet.getContractMetadata(contract.address);
-    const isPublished = (await wallet.getContractClassMetadata(metadata.contractInstance!.currentContractClassId))
-      .isContractClassPubliclyRegistered;
+    const classMetadata = await wallet.getContractClassMetadata(metadata.instance!.currentContractClassId);
+    const isPublished = classMetadata.isContractClassPubliclyRegistered;
     // docs:end:verify_deployment
     expect(isPublished).toBeTrue();
   });

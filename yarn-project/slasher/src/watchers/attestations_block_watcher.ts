@@ -67,12 +67,15 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, this.boundHandleInvalidCheckpoint);
+    this.l2BlockSource.events.on(
+      L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
+      this.boundHandleInvalidCheckpoint,
+    );
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(
+    this.l2BlockSource.events.removeListener(
       L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
       this.boundHandleInvalidCheckpoint,
     );

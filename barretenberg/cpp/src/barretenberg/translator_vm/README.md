@@ -142,21 +142,21 @@ These columns directly represent the EccOpQueue transcript:
 
 These columns store finer-grained limb decompositions for non-native arithmetic:
 
-| Column Group                  | Even Row $(2i)$       | Odd Row $(2i+1)$      | Bits   | Purpose                                  |
-| ----------------------------- | --------------------- | --------------------- | ------ | ---------------------------------------- |
-| `P_X_LOW_LIMBS`               | $P_{x,0}^{\text{lo}}$ | $P_{x,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{x}$                   |
-| `P_X_HIGH_LIMBS`              | $P_{x,0}^{\text{hi}}$ | $P_{x,1}^{\text{hi}}$ | 68, 50 | Limbs 2 & 3 of $P_{x}$                   |
-| `P_Y_LOW_LIMBS`               | $P_{y,0}^{\text{lo}}$ | $P_{y,1}^{\text{lo}}$ | 68     | Limbs 0 & 1 of $P_{y}$                   |
-| `P_Y_HIGH_LIMBS`              | $P_{y,0}^{\text{hi}}$ | $P_{y,1}^{\text{hi}}$ | 68, 50 | Limbs 2 & 3 of $P_{y}$                   |
-| `Z_LOW_LIMBS`                 | $z_{1,0}$             | $z_{2,0}$             | 68     | Low limbs of $z_1$ and $z_2$             |
-| `Z_HIGH_LIMBS`                | $z_{1,1}$             | $z_{2,1}$             | 60     | High limbs of $z_1$ and $z_2$            |
-| `ACCUMULATORS_BINARY_LIMBS_0` | $a_0^{\text{curr}}$   | $a_0^{\text{prev}}$   | 68     | Limb 0 of current/previous accumulator   |
-| `ACCUMULATORS_BINARY_LIMBS_1` | $a_1^{\text{curr}}$   | $a_1^{\text{prev}}$   | 68     | Limb 1 of current/previous accumulator   |
-| `ACCUMULATORS_BINARY_LIMBS_2` | $a_2^{\text{curr}}$   | $a_2^{\text{prev}}$   | 68     | Limb 2 of current/previous accumulator   |
-| `ACCUMULATORS_BINARY_LIMBS_3` | $a_3^{\text{curr}}$   | $a_3^{\text{prev}}$   | 50     | Limb 3 of current/previous accumulator   |
-| `QUOTIENT_LOW_BINARY_LIMBS`   | $q_0$                 | $q_1$                 | 68     | Limbs 0 & 1 of quotient $\mathcal{Q}$    |
-| `QUOTIENT_HIGH_BINARY_LIMBS`  | $q_2$                 | $q_3$                 | 68, 52 | Limbs 2 & 3 of quotient $\mathcal{Q}$    |
-| `RELATION_WIDE_LIMBS`         | $c^{\text{lo}}$       | $c^{\text{hi}}$       | 84     | Carry/overflow from mod $2^{136}$ checks |
+| Column Group                  | Even Row $(2i)$                   | Odd Row $(2i+1)$                 | Bits   | Purpose                                  |
+| ----------------------------- | --------------------------------- | -------------------------------- | ------ | ---------------------------------------- |
+| `P_X_LOW_LIMBS`               | $P_{x,0}^{\text{lo}} = P_{x, 0}$  | $P_{x,1}^{\text{lo}} = P_{x, 1}$ | 68     | Limbs 0 & 1 of $P_{x}$                   |
+| `P_X_HIGH_LIMBS`              | $P_{x,0}^{\text{hi}} =  P_{x, 2}$ | $P_{x,1}^{\text{hi}} = P_{x, 3}$ | 68, 50 | Limbs 2 & 3 of $P_{x}$                   |
+| `P_Y_LOW_LIMBS`               | $P_{y,0}^{\text{lo}} = P_{y, 0}$  | $P_{y,1}^{\text{lo}} = P_{y, 1}$ | 68     | Limbs 0 & 1 of $P_{y}$                   |
+| `P_Y_HIGH_LIMBS`              | $P_{y,0}^{\text{hi}} = P_{y, 2}$  | $P_{y,1}^{\text{hi}} = P_{y, 3}$ | 68, 50 | Limbs 2 & 3 of $P_{y}$                   |
+| `Z_LOW_LIMBS`                 | $z_{1,0}$                         | $z_{2,0}$                        | 68     | Low limbs of $z_1$ and $z_2$             |
+| `Z_HIGH_LIMBS`                | $z_{1,1}$                         | $z_{2,1}$                        | 60     | High limbs of $z_1$ and $z_2$            |
+| `ACCUMULATORS_BINARY_LIMBS_0` | $a_0^{\text{curr}}$               | $a_0^{\text{prev}}$              | 68     | Limb 0 of current/previous accumulator   |
+| `ACCUMULATORS_BINARY_LIMBS_1` | $a_1^{\text{curr}}$               | $a_1^{\text{prev}}$              | 68     | Limb 1 of current/previous accumulator   |
+| `ACCUMULATORS_BINARY_LIMBS_2` | $a_2^{\text{curr}}$               | $a_2^{\text{prev}}$              | 68     | Limb 2 of current/previous accumulator   |
+| `ACCUMULATORS_BINARY_LIMBS_3` | $a_3^{\text{curr}}$               | $a_3^{\text{prev}}$              | 50     | Limb 3 of current/previous accumulator   |
+| `QUOTIENT_LOW_BINARY_LIMBS`   | $q_0$                             | $q_1$                            | 68     | Limbs 0 & 1 of quotient $\mathcal{Q}$    |
+| `QUOTIENT_HIGH_BINARY_LIMBS`  | $q_2$                             | $q_3$                            | 68, 52 | Limbs 2 & 3 of quotient $\mathcal{Q}$    |
+| `RELATION_WIDE_LIMBS`         | $c^{\text{lo}}$                   | $c^{\text{hi}}$                  | 84     | Carry/overflow from mod $2^{136}$ checks |
 
 **Key insight**: The accumulator columns demonstrate the shift mechanism:
 
@@ -643,6 +643,14 @@ $$
 The quotient is then decomposed into 4 limbs (68 + 68 + 68 + 52 bits):
 
 $$\mathcal{Q} = q_0 + 2^{68} \cdot q_1 + 2^{136} \cdot q_2 + 2^{204} \cdot q_3$$
+
+> **Why 256 bits suffices for the quotient:** The scalars $z_1, z_2$ are constrained to be 128-bit values while the points $P_x, P_y$ are constrained to be less than the field modulus $q$. The evaluation challenge $x$ and batching challenge $v$ both should be 127-bit values (derived from Fiat-Shamir), however a malicious prover can try to set them close to $q$ to maximize the numerator.
+> Thus, the maximum numerator in the quotient calculation can be approximated as follows:
+> The evaluation challenge $x$ and batching challenge $v$ are both 128-bit values (derived from Fiat-Shamir). The maximum numerator in the accumulation step is dominated by the term $P_y \cdot v^2$, giving approximately:
+> $$N_{\max} \approx 3 \cdot q^2 + 2 \cdot q \cdot 2^{128}$$
+> Therefore, the maximum quotient is:
+> $$\mathcal{Q}_{\max} = \left\lfloor \frac{N_{\max}}{q} \right\rfloor \approx 3q + 2^{129} < 3 \cdot2^{254} + 2^{129} < 2^{256}$$
+> Thus, 256 bits provides sufficient range with a 2-bit safety margin. The circuit enforces this constraint via range checks on the quotient limbs (see [RELATIONS.md](RELATIONS.md#decomposition-relation)).
 
 **Carry computation:** The relation-wide limbs $c^{\text{lo}}$ and $c^{\text{hi}}$ (84 bits each) capture overflow from the mod $2^{136}$ checks:
 

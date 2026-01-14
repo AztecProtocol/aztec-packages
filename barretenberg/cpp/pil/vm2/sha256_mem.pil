@@ -136,6 +136,12 @@ namespace sha256;
     #[CONTINUITY_OUTPUT_ADDR] // Propagate output addr down
     (1 - LATCH_CONDITION) * (output_addr' - output_addr) = 0;
 
+    // Enforce input_addr increments by 1 during input rounds (first 16 rows)
+    // and stays constant otherwise. This prevents malicious provers from
+    // setting arbitrary memory addresses during SHA256 input loading.
+    #[CONTINUITY_INPUT_ADDR]
+    (1 - LATCH_CONDITION) * (input_addr' - (input_addr + sel_is_input_round)) = 0;
+
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////

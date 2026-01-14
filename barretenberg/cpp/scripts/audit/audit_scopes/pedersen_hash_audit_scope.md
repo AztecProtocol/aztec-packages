@@ -8,14 +8,7 @@ Commit hash: 4a956ceb179c2fe855e4f1fd78f2594e7fc3f5ea
 #### Native implementation
 1. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.hpp```
 2. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.cpp```
-3. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/c_bind.hpp```
-4. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/c_bind.cpp```
-
-#### Tests
-5. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.test.cpp```
-    - Test vectors for Pedersen hash implementation
-
-
+3. ```barretenberg/cpp/src/barretenberg/crypto/generators/generator_data.hpp```
 
 ### Summary of the module
 
@@ -38,6 +31,9 @@ Key features:
 - Ensures output is never the point at infinity
 - Uses precomputed generator points for efficiency
 - Based on the hardness of the discrete logarithm problem
+
+#### Tests
+- ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.test.cpp```
 
 ### Documentation
 

@@ -158,11 +158,11 @@ describe('e2e_block_building', () => {
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
-      // Assert all contracts got deployed
-      const isContractDeployed = async (address: AztecAddress) =>
-        !!(await wallet.getContractMetadata(address)).contractInstance;
-      const areDeployed = await Promise.all(addresses.map(a => isContractDeployed(a)));
-      expect(areDeployed).toEqual(times(TX_COUNT, () => true));
+      // Assert all contracts got initialized
+      const areInitialized = await Promise.all(
+        addresses.map(async a => (await wallet.getContractMetadata(a)).isContractInitialized),
+      );
+      expect(areInitialized).toEqual(times(TX_COUNT, () => true));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {
