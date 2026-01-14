@@ -57,11 +57,11 @@ template <typename Flavor> class ECCVMVerifier_ {
         if constexpr (IsRecursive) {
             builder = proof.back().get_context();
             key = std::make_shared<VerificationKey>(builder, native_vk);
-            vk_hash = key->vk_hash;
+            vk_hash = key->get_hash();
             pcs_g1_identity = Commitment(native_pcs_g1_identity);
         } else {
             key = native_vk;
-            vk_hash = native_vk->vk_hash;
+            vk_hash = native_vk->get_hash();
             pcs_g1_identity = native_pcs_g1_identity;
         }
     }

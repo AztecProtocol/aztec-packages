@@ -130,24 +130,28 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  *
  * @tparam PrecomputedCommitments The precomputed entities containing VK commitments
  * @tparam HashType The field type for the precomputed hash (e.g., fr for both ECCVM and Translator)
+ * @tparam HardcodedVKAndHash Class containing static vk_hash() and get_all() methods with hardcoded values
  */
-template <typename PrecomputedCommitments, typename HashType> class FixedVKAndHash_ : public PrecomputedCommitments {
+template <typename PrecomputedCommitments, typename HashType, typename HardcodedVKAndHash>
+class FixedVKAndHash_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
 
-    HashType vk_hash{};
-
     bool operator==(const FixedVKAndHash_&) const = default;
 
-    FixedVKAndHash_() = default;
-    explicit FixedVKAndHash_(HashType precomputed_hash)
-        : vk_hash(precomputed_hash)
-    {}
+    // Default construct the fixed VK from hardcoded commitments and precomputed hash
+    FixedVKAndHash_()
+        : hash(HardcodedVKAndHash::vk_hash())
+    {
+        for (auto [vk_commitment, fixed_commitment] : zip_view(this->get_all(), HardcodedVKAndHash::get_all())) {
+            vk_commitment = fixed_commitment;
+        }
+    }
 
-    /**
-     * @brief Return the precomputed VK hash
-     */
-    HashType hash() const { return vk_hash; }
+    HashType get_hash() const { return hash; }
+
+  private:
+    HashType hash{};
 };
 
 /**
@@ -381,8 +385,6 @@ class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
     using Commitment = typename PrecomputedCommitments::DataType;
     using FF = stdlib::field_t<Builder>;
 
-    FF vk_hash; // Precomputed VK hash as a witness
-
     bool operator==(const FixedStdlibVKAndHash_&) const = default;
     FixedStdlibVKAndHash_() = default;
 
@@ -390,17 +392,22 @@ class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
      * @brief Construct from native verification key and fix all witnesses (VK is constant for fixed circuits)
      */
     FixedStdlibVKAndHash_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        : vk_hash(FF::from_witness(builder, native_key->hash()))
+        : hash(FF::from_witness(builder, native_key->get_hash()))
     {
         for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
             comm = Commitment::from_witness(builder, native_comm);
         }
         // Fix all witnesses since fixed VKs are always constant
-        vk_hash.fix_witness();
+        hash.fix_witness();
         for (Commitment& commitment : this->get_all()) {
             commitment.fix_witness();
         }
     }
+
+    FF get_hash() const { return hash; }
+
+  private:
+    FF hash;
 };
 
 /**

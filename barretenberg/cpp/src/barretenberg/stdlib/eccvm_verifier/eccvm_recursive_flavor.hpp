@@ -73,19 +73,9 @@ class ECCVMRecursiveFlavor {
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
-     *
      */
-    class VerificationKey : public FixedStdlibVKAndHash_<CircuitBuilder,
-                                                         ECCVMFlavor::PrecomputedEntities<Commitment>,
-                                                         NativeVerificationKey> {
-        using Base =
-            FixedStdlibVKAndHash_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
-
-      public:
-        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-            : Base(builder, native_key)
-        {}
-    };
+    using VerificationKey =
+        FixedStdlibVKAndHash_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
 
     /**
      * @brief A container for the witness commitments.

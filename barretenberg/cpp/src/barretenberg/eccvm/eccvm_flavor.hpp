@@ -812,19 +812,7 @@ class ECCVMFlavor {
      * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
      * @details ECCVM has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
      */
-    class VerificationKey : public FixedVKAndHash_<PrecomputedEntities<Commitment>, BF> {
-        using Base = FixedVKAndHash_<PrecomputedEntities<Commitment>, BF>;
-
-      public:
-        // Default construct the fixed VK from hardcoded commitments and precomputed hash
-        VerificationKey()
-            : Base(ECCVMFixedVKAndHash::vk_hash())
-        {
-            for (auto [vk_commitment, fixed_commitment] : zip_view(this->get_all(), ECCVMFixedVKAndHash::get_all())) {
-                vk_commitment = fixed_commitment;
-            }
-        }
-    };
+    using VerificationKey = FixedVKAndHash_<PrecomputedEntities<Commitment>, BF, ECCVMHardcodedVKAndHash>;
 
     /**
      * @brief A container for commitment labels.

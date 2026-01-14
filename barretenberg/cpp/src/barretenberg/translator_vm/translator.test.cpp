@@ -33,7 +33,7 @@ TranslatorFlavor::FF compute_translator_vk_hash()
 {
     std::vector<TranslatorFlavor::FF> elements;
     // Serialize commitments using the Codec
-    for (const auto& commitment : TranslatorFixedVKAndHash::get_all()) {
+    for (const auto& commitment : TranslatorHardcodedVKAndHash::get_all()) {
         auto frs = TranslatorFlavor::Codec::serialize_to_fields(commitment);
         for (const auto& fr : frs) {
             elements.push_back(fr);
@@ -353,7 +353,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
  * circuit
  * @note If this test fails, it may be because the constant CONST_TRANSLATOR_LOG_N has changed and the fixed VK
- * commitments in TranslatorFixedVKAndHash must be updated accordingly. Their values can be taken right from the
+ * commitments in TranslatorHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the
  * output of this test.
  *
  */
@@ -397,9 +397,9 @@ TEST_F(TranslatorTests, FixedVK)
 
     // Verify that the hardcoded VK hash matches the computed hash
     auto computed_hash = compute_translator_vk_hash();
-    auto hardcoded_hash = TranslatorFixedVKAndHash::vk_hash();
+    auto hardcoded_hash = TranslatorHardcodedVKAndHash::vk_hash();
     if (computed_hash != hardcoded_hash) {
-        info("VK hash mismatch! Update TranslatorFixedVKAndHash::vk_hash() with:");
+        info("VK hash mismatch! Update TranslatorHardcodedVKAndHash::vk_hash() with:");
         info("0x", computed_hash);
     }
     EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";

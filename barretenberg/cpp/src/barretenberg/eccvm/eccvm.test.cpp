@@ -41,7 +41,7 @@ ECCVMFlavor::BF compute_eccvm_vk_hash()
 {
     std::vector<ECCVMFlavor::BF> elements;
     // Serialize commitments using the Codec
-    for (const auto& commitment : ECCVMFixedVKAndHash::get_all()) {
+    for (const auto& commitment : ECCVMHardcodedVKAndHash::get_all()) {
         auto frs = ECCVMFlavor::Codec::serialize_to_fields(commitment);
         for (const auto& fr : frs) {
             elements.push_back(fr);
@@ -395,7 +395,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 /**
  * @brief Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit.
  * @note If this test fails, it may be because the constant ECCVM_FIXED_SIZE has changed and the fixed VK commitments in
- * ECCVMFixedVKAndHash must be updated accordingly. Their values can be taken right from the output of this test.
+ * ECCVMHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the output of this test.
  *
  */
 TEST_F(ECCVMTests, FixedVK)
@@ -427,9 +427,9 @@ TEST_F(ECCVMTests, FixedVK)
 
     // Verify that the hardcoded VK hash matches the computed hash
     auto computed_hash = compute_eccvm_vk_hash();
-    auto hardcoded_hash = ECCVMFixedVKAndHash::vk_hash();
+    auto hardcoded_hash = ECCVMHardcodedVKAndHash::vk_hash();
     if (computed_hash != hardcoded_hash) {
-        info("VK hash mismatch! Update ECCVMFixedVKAndHash::vk_hash() with:");
+        info("VK hash mismatch! Update ECCVMHardcodedVKAndHash::vk_hash() with:");
         info("0x", computed_hash);
     }
     EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";

@@ -17,7 +17,7 @@ namespace bb {
  * Their values can be obtained from the test TranslatorTests::FixedVK.
  *
  */
-struct TranslatorFixedVKAndHash {
+struct TranslatorHardcodedVKAndHash {
     using Commitment = curve::BN254::AffineElement;
     using FF = curve::BN254::ScalarField;
 

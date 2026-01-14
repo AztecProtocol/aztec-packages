@@ -18,7 +18,7 @@ namespace bb {
  * Their values can be obtained from the test ECCVMTests::FixedVK.
  *
  */
-class ECCVMFixedVKAndHash {
+class ECCVMHardcodedVKAndHash {
   public:
     using Commitment = curve::Grumpkin::AffineElement;
     // BF = Grumpkin base field = BN254 scalar field (fr) - this is what the VK hash uses
