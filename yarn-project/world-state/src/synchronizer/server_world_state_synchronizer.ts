@@ -48,7 +48,6 @@ export class ServerWorldStateSynchronizer
   private latestBlockNumberAtStart = BlockNumber.ZERO;
   private historyToKeep: number | undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
-  private latestBlockHashQuery: { blockNumber: BlockNumber; hash: string | undefined } | undefined = undefined;
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
@@ -241,21 +240,24 @@ export class ServerWorldStateSynchronizer
     if (number === BlockNumber.ZERO) {
       return (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     }
-    if (this.latestBlockHashQuery?.hash === undefined || number !== this.latestBlockHashQuery.blockNumber) {
-      this.latestBlockHashQuery = {
-        hash: await this.merkleTreeCommitted
-          .getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number))
-          .then(leaf => leaf?.toString()),
-        blockNumber: number,
-      };
-    }
-    return this.latestBlockHashQuery.hash;
+    return this.merkleTreeCommitted.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number)).then(leaf => leaf?.toString());
   }
 
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
   public async getL2Tips(): Promise<L2Tips> {
     const status = await this.merkleTreeDb.getStatusSummary();
-    const unfinalizedBlockHash = await this.getL2BlockHash(status.unfinalizedBlockNumber);
+    const unfinalizedBlockHashPromise = this.getL2BlockHash(status.unfinalizedBlockNumber);
+    const finalizedBlockHashPromise = this.getL2BlockHash(status.finalizedBlockNumber);
+
+    const provenBlockNumber = this.provenBlockNumber ?? status.finalizedBlockNumber;
+    const provenBlockHashPromise =
+      this.provenBlockNumber === undefined ? finalizedBlockHashPromise : this.getL2BlockHash(this.provenBlockNumber);
+
+    const [unfinalizedBlockHash, finalizedBlockHash, provenBlockHash] = await Promise.all([
+      unfinalizedBlockHashPromise,
+      finalizedBlockHashPromise,
+      provenBlockHashPromise,
+    ]);
     const latestBlockId: L2BlockId = { number: status.unfinalizedBlockNumber, hash: unfinalizedBlockHash! };
 
     // World state doesn't track checkpointed blocks or checkpoints themselves.
@@ -269,13 +271,13 @@ export class ServerWorldStateSynchronizer
         checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
       },
       finalized: {
-        block: { number: status.finalizedBlockNumber, hash: '' },
+        block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
         checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
       },
       proven: {
-        block: { number: this.provenBlockNumber ?? status.finalizedBlockNumber, hash: '' },
+        block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
         checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
-      }, // TODO(palla/reorg): Using finalized as proven for now
+      },
     };
   }
 
@@ -383,7 +385,6 @@ export class ServerWorldStateSynchronizer
   private async handleChainPruned(blockNumber: BlockNumber) {
     this.log.warn(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(blockNumber);
-    this.latestBlockHashQuery = undefined;
     this.provenBlockNumber = undefined;
     this.instrumentation.updateWorldStateMetrics(status);
   }
