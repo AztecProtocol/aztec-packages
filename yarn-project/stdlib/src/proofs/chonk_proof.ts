@@ -1,4 +1,5 @@
 import { CHONK_PROOF_LENGTH } from '@aztec/constants';
+import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -31,12 +32,15 @@ export class ChonkProof {
 
   static random() {
     // NB: Not using Fr.random here because it slows down some tests that require a large number of txs significantly.
+    // NB2: generate one fewer random bytes to not have to deal with buffers representing numbers greater than the field modulus
+    // NB3: a chonk proof can be compressed. Simulate this by filling 1/4 of the proof with zero data
     const reducedFrSize = Fr.SIZE_IN_BYTES - 1;
-    const randomFields = randomBytes(CHONK_PROOF_LENGTH * reducedFrSize);
-    const proof = Array.from(
-      { length: CHONK_PROOF_LENGTH },
-      (_, i) => new Fr(randomFields.subarray(i * reducedFrSize, (i + 1) * reducedFrSize)),
-    );
+    const nonZeroFields = Math.floor((3 * CHONK_PROOF_LENGTH) / 4);
+    const randomFields = randomBytes(nonZeroFields * Fr.SIZE_IN_BYTES);
+    const proof = [
+      ...times(nonZeroFields, i => new Fr(randomFields.subarray(i * reducedFrSize, (i + 1) * reducedFrSize))),
+      ...times(CHONK_PROOF_LENGTH - nonZeroFields, () => Fr.ZERO),
+    ];
     return new ChonkProof(proof);
   }
 
