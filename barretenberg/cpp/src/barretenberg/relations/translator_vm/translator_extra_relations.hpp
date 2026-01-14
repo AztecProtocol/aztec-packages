@@ -29,14 +29,18 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // All contributions are zero outside the minicircuit or at odd indices not masked
+        // Skip evaluation when not at even indices in the minicircuit and not in the masking area
+        // as the contribution is zero in these regions.
         return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
     }
     /**
-     * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8}
-     * @details This relation enforces the opcode to be one of described values. Since we don't care about even
-     * values in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify
-     * the relation to be enforced just at odd indices, which brings the degree down by 1.
+     * @brief Enforces two constraints on the opcode value:
+     *          1. opcode ∈ {0,3,4,8} (nop, eq and reset, mul or add)
+     *          2. at even indices when op = 0 (no-op), accumulator limbs stay the same
+     *
+     * @details The first constraint validates that the opcode is one of the described values on even rows.
+     * On odd rows, the opcode value is set to 0 and so it is always valid, so the check is trivial. The second
+     * constraint ensures that at even indices when the opcode is 0 (no-op), the accumulator limbs do not change
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
@@ -76,7 +80,7 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      * @details This has a negligible chance of failing in sumcheck (not in the first round) because effectively
-     * transfrom original coefficients into a random linear combination. But checking each individually is noticeably
+     * transform original coefficients into a random linear combination. But checking each individually is noticeably
      * slower.
      *
      */
@@ -91,7 +95,7 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      * evaluation of polynomials in non-native field)
      * @details This relation enforces three pieces of logic:
      * 1) Accumulator starts as zero before we start accumulating stuff
-     * 2) Accumulator limbs stay the same if accumulation is not occurring (at odd indices)
+     * 2) Accumulator limbs are propagated correctly from an odd row to the next even row
      * 3) Accumulator limbs result in the values specified by relation parameters after accumulation
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
@@ -191,8 +195,8 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // All contributions are identically zero if outside the minicircuit and masked area or when we have a
-        // no-op (i.e. op is zero at an even index)
+        // Skip evaluation when inside the minicircuit or in the masking area. The relation constrains
+        // polynomials to be zero outside these regions.
         static constexpr auto minus_one = -FF(1);
         return (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_mini_masking + minus_one)
             .is_zero();
