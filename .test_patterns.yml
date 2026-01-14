@@ -109,6 +109,11 @@ tests:
     owners:
       - *tom
 
+  - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::emit_and_discover_event"
+    error_regex: "Failed to solve brillig function"
+    owners:
+      - *nico
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
