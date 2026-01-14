@@ -25,7 +25,7 @@ template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
 void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
                                                             const AllEntities& in,
-                                                            const Parameters&,
+                                                            const Parameters& /*unused*/,
                                                             const FF& scaling_factor)
 {
 
@@ -224,7 +224,7 @@ template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
 void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
                                                            const AllEntities& in,
-                                                           const Parameters&,
+                                                           const Parameters& /*unused*/,
                                                            const FF& scaling_factor)
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -232,7 +232,6 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
 
     // Minus one
     static const auto minus_one = -FF(1);
-
     const auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
     const auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
