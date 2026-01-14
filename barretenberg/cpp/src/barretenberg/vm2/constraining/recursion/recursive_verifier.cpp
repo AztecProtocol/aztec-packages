@@ -24,8 +24,9 @@
 
 namespace bb::avm2 {
 
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
+    , transcript(transcript)
 {
     auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
 
@@ -214,7 +215,15 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         info("AVM Recursive verifier builder failed with error: ", builder.err());
     }
 
+    is_verification_complete = true;
+
     return pairing_points;
 }
+
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+{
+    BB_ASSERT(is_verification_complete, "Transcript can only be hashed after verification is complete");
+    return Transcript::hash_avm_transcript(transcript, stdlib_proof);
+};
 
 } // namespace bb::avm2
