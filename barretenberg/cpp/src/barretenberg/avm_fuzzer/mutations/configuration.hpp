@@ -105,22 +105,20 @@ constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = Memo
     { MemoryTagOptions::FF, 1 },
 });
 
-enum class VariableRefMutationOptions { tag, index, pointer_address, base_offset, mode };
-using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 5>;
+enum class VariableRefMutationOptions { tag, index, pointer_address, mode };
+using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 4>;
 constexpr VariableRefMutationConfig BASIC_VARIABLE_REF_MUTATION_CONFIGURATION = VariableRefMutationConfig({
     { VariableRefMutationOptions::tag, 3 },
     { VariableRefMutationOptions::index, 4 },
     { VariableRefMutationOptions::pointer_address, 1 },
-    { VariableRefMutationOptions::base_offset, 1 },
     { VariableRefMutationOptions::mode, 2 },
 });
 
-enum class AddressRefMutationOptions { address, pointer_address, base_offset, mode };
-using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
+enum class AddressRefMutationOptions { address, pointer_address, mode };
+using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 3>;
 constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
     { AddressRefMutationOptions::address, 1 },
     { AddressRefMutationOptions::pointer_address, 1 },
-    { AddressRefMutationOptions::base_offset, 1 },
     { AddressRefMutationOptions::mode, 1 },
 });
 

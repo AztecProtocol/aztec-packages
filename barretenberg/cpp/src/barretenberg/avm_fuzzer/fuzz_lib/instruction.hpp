@@ -105,13 +105,9 @@ struct VariableRef {
     /// Used for Indirect/IndirectRelative modes only
     uint16_t pointer_address_seed = 0;
 
-    /// @brief A seed for the generation of the base offset
-    /// Used for Relative/IndirectRelative modes only
-    /// Sets M[0] = base_offset
-    uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
 
-    MSGPACK_FIELDS(tag, index, pointer_address_seed, base_offset_seed, mode);
+    MSGPACK_FIELDS(tag, index, pointer_address_seed, mode);
 };
 
 struct AddressRef {
@@ -121,12 +117,8 @@ struct AddressRef {
     /// Used for Indirect/IndirectRelative modes only
     uint16_t pointer_address_seed = 0;
 
-    /// @brief A seed for the generation of the base offset
-    /// Used for Relative/IndirectRelative modes only
-    /// Sets M[0] = base_offset
-    uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
-    MSGPACK_FIELDS(address, pointer_address_seed, base_offset_seed, mode);
+    MSGPACK_FIELDS(address, pointer_address_seed, mode);
 };
 
 using ParamRef = std::variant<VariableRef, AddressRef>;
@@ -138,9 +130,20 @@ using ParamRef = std::variant<VariableRef, AddressRef>;
 struct ResolvedAddress {
     uint32_t absolute_address = 0;
     uint32_t operand_address = 0;
-    std::optional<uint32_t> base_pointer = std::nullopt;
     std::optional<uint32_t> pointer_address = std::nullopt;
+    bool via_relative = false;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const ResolvedAddress& address)
+{
+    os << "ResolvedAddress {\n";
+    os << "  absolute_address: " << address.absolute_address << ",\n";
+    os << "  operand_address: " << address.operand_address << ",\n";
+    os << "  pointer_address: " << address.pointer_address.value() << ",\n";
+    os << "  via_relative: " << address.via_relative << ",\n";
+    os << "}";
+    return os;
+}
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
 struct ADD_8_Instruction {
@@ -715,7 +718,7 @@ inline std::ostream& operator<<(std::ostream& os, const MemoryTagWrapper& tag)
 
 inline std::ostream& operator<<(std::ostream& os, const VariableRef& variable)
 {
-    os << "VariableRef " << variable.tag << " " << variable.index << " " << variable.base_offset_seed << " "
+    os << "VariableRef " << variable.tag << " " << variable.index << " "
        << static_cast<int>(static_cast<AddressingMode>(variable.mode));
     return os;
 }
