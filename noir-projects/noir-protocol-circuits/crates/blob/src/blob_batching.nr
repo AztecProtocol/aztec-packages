@@ -22,6 +22,9 @@ fn evaluate_blob_for_batching(
     challenge_z: Field,
 ) -> (Field, BLS12_381_Fr) {
     let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
+
+    // Note: this conversion is lossless: the size of a native BN Fr `Field` is 254 bits, whereas
+    // the BLS_12_381_Fr scalar field is 255 bits.
     let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
 
     let y_i = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
