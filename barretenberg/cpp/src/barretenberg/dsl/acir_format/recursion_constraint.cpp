@@ -9,6 +9,7 @@
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 
 namespace acir_format {
 
@@ -199,7 +200,8 @@ void process_hn_recursion_constraints(
         if (builder.is_write_vk_mode()) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
-                populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
+                auto key_fields = fields_from_witnesses(builder, constraint.key);
+                populate_fields(builder, key_fields, queue_entry.honk_vk->to_field_elements());
                 builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
             }
         }

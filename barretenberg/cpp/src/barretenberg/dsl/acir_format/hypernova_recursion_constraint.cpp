@@ -175,34 +175,4 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     ivc->num_circuits_accumulated++;
 }
 
-/**
- * @brief Write mock VK field values to witness indices specified by a recursion constraint
- *
- * @details When an ACIR program contains a recursive verification constraint, the constraint
- * specifies witness indices where the VK fields should be stored. This function serializes
- * a mock VK to field elements and writes them to those witness locations.
- *
- * The witness indices come from the ACIR constraint's `key` field, which lists indices
- * in the order expected by the recursive verifier circuit.
- *
- * @param builder The circuit builder whose witness will be populated
- * @param mock_verification_key The VK to serialize and write
- * @param key_witness_indices Witness indices from the recursion constraint's key field
- */
-void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
-                                     const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
-                                     const std::vector<uint32_t>& key_witness_indices)
-{
-    using FF = Chonk::FF;
-
-    // Serialize VK to field elements (metadata + commitments)
-    std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
-    BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
-
-    // Write each field value to its corresponding witness index
-    for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
-        builder.set_variable(witness_idx, value);
-    }
-}
-
 } // namespace acir_format

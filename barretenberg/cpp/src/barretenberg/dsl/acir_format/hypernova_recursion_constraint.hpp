@@ -52,17 +52,4 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
  */
 void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel);
 
-/**
- * @brief Set witness values for a VK in a recursion constraint
- * @details Converts a native VerificationKey to field elements and writes them to the builder's
- * witness at the indices specified by the constraint.
- *
- * @param builder The circuit builder containing the witness
- * @param mock_verification_key The VK to serialize into witness values
- * @param key_witness_indices The witness indices where VK fields should be written
- */
-void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
-                                     const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
-                                     const std::vector<uint32_t>& key_witness_indices);
-
 } // namespace acir_format
