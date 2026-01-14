@@ -65,11 +65,11 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
 
     // New polynomials
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1604): Optimize new claim computation
-    auto new_non_shifted_polynomial = bb::Polynomial<FF>(key.circuit_size);
+    bb::Polynomial<FF> new_non_shifted_polynomial(key.circuit_size);
     new_non_shifted_polynomial += key.polynomials.batched_unshifted_instance;
     new_non_shifted_polynomial.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
 
-    auto new_shifted_polynomial = bb::Polynomial<FF>::shiftable(key.circuit_size);
+    bb::Polynomial<FF> new_shifted_polynomial(bb::Polynomial<FF>::shiftable(key.circuit_size));
     new_shifted_polynomial += key.preshifted_instance;
     new_shifted_polynomial.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
 

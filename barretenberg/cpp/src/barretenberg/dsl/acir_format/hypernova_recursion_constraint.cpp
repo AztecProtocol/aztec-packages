@@ -31,7 +31,7 @@ using namespace bb;
  * - INIT kernel: Single OINK constraint (verifies first app, no prior accumulator)
  * - INNER kernel: Two HN constraints (verifies previous kernel + new app)
  * - RESET kernel: Single HN constraint (verifies kernel only, resets accumulation)
- * - TAIL kernel: Single HN_TAIL constraint (final kernel before tube proof)
+ * - TAIL kernel: Single HN_TAIL constraint (final kernel before hiding kernel)
  * - HIDING kernel: Single HN_FINAL constraint (adds ZK hiding)
  *
  * @param constraints The IVC recursion constraints extracted from an Aztec kernel's ACIR
@@ -110,7 +110,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
     using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
 
-    // VK metadata: dyadic circuit size and public inputs offset (always 1)
+    // VK metadata: dyadic circuit size and public inputs offset
     size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;
     size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
 
