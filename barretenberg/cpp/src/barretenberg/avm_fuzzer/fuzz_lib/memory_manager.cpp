@@ -117,7 +117,6 @@ ResolvedAddress MemoryManager::resolve_address(VariableRef variable,
         break;
     }
     case AddressingMode::Relative:
-        BB_ASSERT_LTE(absolute_address, base_offset + max_operand_address);
         resolved_address.operand_address = absolute_address - base_offset;
         resolved_address.via_relative = true;
         break;
@@ -135,6 +134,7 @@ ResolvedAddress MemoryManager::resolve_address(VariableRef variable,
         resolved_address.operand_address = absolute_address;
         break;
     }
+    BB_ASSERT_LTE(resolved_address.operand_address, max_operand_address);
     return resolved_address;
 }
 
@@ -154,7 +154,6 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
         break;
     }
     case AddressingMode::Relative:
-        BB_ASSERT_LTE(address.address, base_offset + max_operand_address);
         resolved_address.operand_address = address.address - base_offset;
         resolved_address.via_relative = true;
         break;
@@ -169,12 +168,10 @@ ResolvedAddress MemoryManager::resolve_address(AddressRef address, uint32_t max_
         break;
     }
     case AddressingMode::Direct:
-        // Do not delete this assert, if it fails, it means that some address was generated / mutated incorrectly in
-        // instruction_block.cpp. Check all the `max_operand` parameters that you're passing to generate_address_ref.
-        BB_ASSERT_LTE(address.address, max_operand_address);
         resolved_address.operand_address = resolved_address.absolute_address;
         break;
     }
+    BB_ASSERT_LTE(resolved_address.operand_address, max_operand_address);
     return resolved_address;
 }
 
@@ -217,8 +214,6 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     }
     auto resolved_address = resolve_address(address, actual_address.value(), 255);
 
-    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 255 });
-
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
 
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
@@ -228,8 +223,6 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     get_resolved_address_and_operand_8(AddressRef address)
 {
     auto resolved_address = resolve_address(address, 255);
-
-    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 255 });
 
     auto operand = OperandBuilder::from<uint8_t>(static_cast<uint8_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
@@ -256,7 +249,6 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
 
     auto resolved_address = resolve_address(address, actual_address.value(), 65535);
 
-    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 65535 });
     auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
 }
@@ -265,7 +257,6 @@ std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> Mem
     get_resolved_address_and_operand_16(AddressRef address)
 {
     auto resolved_address = resolve_address(address, 65535);
-    BB_ASSERT_LTE(resolved_address.operand_address, uint32_t{ 65535 });
 
     auto operand = OperandBuilder::from<uint16_t>(static_cast<uint16_t>(resolved_address.operand_address));
     return std::make_pair(resolved_address, get_memory_address_operand(operand, address.mode));
@@ -288,7 +279,6 @@ std::optional<uint8_t> MemoryManager::get_memory_offset_8(bb::avm2::MemoryTag ta
     if (!value.has_value()) {
         return std::nullopt;
     }
-    BB_ASSERT_LTE(value.value(), uint8_t{ 255 });
     return static_cast<uint8_t>(value.value());
 }
 
@@ -298,7 +288,6 @@ std::optional<uint16_t> MemoryManager::get_memory_offset_16(bb::avm2::MemoryTag 
     if (!value.has_value()) {
         return std::nullopt;
     }
-    BB_ASSERT_LTE(value.value(), uint16_t{ 65535 });
     return static_cast<uint16_t>(value.value());
 }
 
