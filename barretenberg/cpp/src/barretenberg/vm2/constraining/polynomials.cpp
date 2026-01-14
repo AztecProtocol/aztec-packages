@@ -22,10 +22,11 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
                                     "To be shifted columns array size mismatch");
 
                        // NOTE: we can't parallelize because Polynomial construction uses parallelism.
-                       for (size_t i = 0; i < to_be_shifted.size(); i++) {
+                       const size_t num_to_be_shifted = to_be_shifted.size();
+                       for (size_t i = 0; i < num_to_be_shifted; i++) {
                            auto& poly = to_be_shifted[i];
                            // WARNING! Column-Polynomials order matters!
-                           Column col = static_cast<Column>(TO_BE_SHIFTED_COLUMNS_ARRAY.at(i));
+                           Column col = static_cast<Column>(TO_BE_SHIFTED_COLUMNS_ARRAY[i]);
                            uint32_t num_rows = trace.get_column_rows(col);
                            // Since we are shifting, we need to allocate one less row.
                            // The first row is always zero.

@@ -54,6 +54,7 @@ export async function writeJson(
         blockHeadersHash: asHex(block.header.blockHeadersHash),
         blobsHash: asHex(block.header.blobsHash),
         inHash: asHex(block.header.inHash),
+        outHash: asHex(block.header.epochOutHash),
         slotNumber: Number(block.header.globalVariables.slotNumber),
         timestamp: Number(block.header.globalVariables.timestamp),
         coinbase: asHex(block.header.globalVariables.coinbase, 40),

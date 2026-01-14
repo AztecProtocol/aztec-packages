@@ -5,7 +5,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockHeader } from '@aztec/stdlib/block';
 import type { IBlockFactory, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import {
+  accumulateCheckpointOutHashes,
+  computeBlockOutHash,
+  computeInHashFromL1ToL2Messages,
+} from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { GlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -38,6 +42,7 @@ export class LightweightBlockFactory implements IBlockFactory {
   private readonly logger = createLogger('lightweight-block-factory');
 
   constructor(
+    private previousCheckpointOutHashes: Fr[],
     private db: MerkleTreeWriteOperations,
     private telemetry: TelemetryClient = getTelemetryClient(),
   ) {}
@@ -87,6 +92,10 @@ export class LightweightBlockFactory implements IBlockFactory {
     await this.db.updateArchive(header);
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
+    const blockOutHash = computeBlockOutHash(txs.map(tx => tx.txEffect.l2ToL1Msgs));
+    // There's only one block per checkpoint, so the checkpoint out hash equals the block out hash.
+    const checkpointOutHash = blockOutHash;
+    const epochOutHash = accumulateCheckpointOutHashes([...this.previousCheckpointOutHashes, checkpointOutHash]);
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
     const numBlobFields = blockBlobFields.length + 1;
     const blobFields = blockBlobFields.concat([encodeCheckpointEndMarker({ numBlobFields })]);
@@ -97,6 +106,7 @@ export class LightweightBlockFactory implements IBlockFactory {
       blockHeadersHash: blockHeaderHash,
       blobsHash,
       inHash,
+      epochOutHash,
     });
 
     const block = new L2Block(newArchive, l2BlockHeader, body);
@@ -124,7 +134,7 @@ export async function buildBlockWithCleanDB(
   db: MerkleTreeWriteOperations,
   telemetry: TelemetryClient = getTelemetryClient(),
 ) {
-  const builder = new LightweightBlockFactory(db, telemetry);
+  const builder = new LightweightBlockFactory([], db, telemetry);
   await builder.startNewBlock(globalVariables, l1ToL2Messages);
 
   for (const tx of txs) {

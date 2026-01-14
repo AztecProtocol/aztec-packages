@@ -11,6 +11,39 @@
 
 namespace bb {
 
+/**
+ * @brief Expression for elliptic curve point addition and doubling.
+ * @details This relation implements elliptic curve addition/subtraction and doubling operations in short
+ * Weierstrass form: y^2 = x^3 + b. Given two distinct points P1 = (x1, y1) and P2 = (x2, y2), compute P3 = P1 ± P2
+ * = (x3, y3) or given a point P1 = (x1, y1), compute P3 = 2*P1 = (x3, y3).
+ *
+ * Addition/doubling subrelation constraints are toggled on and off via scaling by: q_elliptic * (1 - q_is_double)
+ * and q_elliptic * q_is_double respectively.
+ *
+ * Point addition constraints:
+ * ---------------------------
+ * Subrelation 0 (x-coordinate):
+ *   Formula: x3 = lambda^2 - x1 - x2, where lambda = (q_sign * y2 - y1) / (x2 - x1)
+ *   Constraint (via cancellation of denominator and assumption that q_sign^2 = 1):
+ *      (x3 + x1 + x2)(x2 - x1)^2 - (y2^2 - y1^2 + 2*q_sign*y2*y1) = 0
+ *
+ * Subrelation 1 (y-coordinate):
+ *   Formula: y3 = lambda * (x1 - x3) - y1
+ *   Constraint:
+ *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
+ *
+ * Point doubling constraints:
+ * ---------------------------
+ * Subrelation 0 (x-coordinate):
+ *   Formula: x3 = lambda^2 - 2*x1, where lambda = (3*x1^2) / (2*y1)
+ *   Constraint (via cancellation of denominator and using x1^3 = y1^2 - b):
+ *      (x3 + 2*x1)*4*y1^2 - 9*x1*(y1^2 - b) = 0
+ *
+ * Subrelation 1 (y-coordinate):
+ *   Formula: y3 = lambda * (x1 - x3) - y1
+ *   Constraint:
+ *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
+ */
 template <typename FF_> class EllipticRelationImpl {
   public:
     using FF = FF_;
@@ -26,7 +59,6 @@ template <typename FF_> class EllipticRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_elliptic.is_zero(); }
 
-    // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
     {
         if constexpr (FF::modulus == bb::fq::modulus) {
@@ -34,43 +66,11 @@ template <typename FF_> class EllipticRelationImpl {
         } else if constexpr (FF::modulus == grumpkin::fq::modulus) {
             return grumpkin::g1::curve_b;
         } else {
-            return 0;
+            static_assert(!std::is_same_v<FF, FF>, "Unsupported field type for elliptic relation");
         }
     }
 
     /**
-     * @brief Expression for elliptic curve point addition and doubling.
-     * @details This relation implements elliptic curve addition/subtraction and doubling operations in short
-     * Weierstrass form: y^2 = x^3 + b. Given two distinct points P1 = (x1, y1) and P2 = (x2, y2), compute P3 = P1 ± P2
-     * = (x3, y3) or given a point P1 = (x1, y1), compute P3 = 2*P1 = (x3, y3).
-     *
-     * Addition/doubling subrelation constraints are toggled on and off via scaling by: q_elliptic * (1 - q_is_double)
-     * and q_elliptic * q_is_double respectively.
-     *
-     * Point addition constraints:
-     * ---------------------------
-     * Subrelation 0 (x-coordinate):
-     *   Formula: x3 = lambda^2 - x1 - x2, where lambda = (q_sign * y2 - y1) / (x2 - x1)
-     *   Constraint (via cancellation of denominator and assumption that q_sign^2 = 1):
-     *      (x3 + x1 + x2)(x2 - x1)^2 - (y2^2 - y1^2 + 2*q_sign*y2*y1) = 0
-     *
-     * Subrelation 1 (y-coordinate):
-     *   Formula: y3 = lambda * (x1 - x3) - y1
-     *   Constraint:
-     *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
-     *
-     * Point doubling constraints:
-     * ---------------------------
-     * Subrelation 0 (x-coordinate):
-     *   Formula: x3 = lambda^2 - 2*x1, where lambda = (3*x1^2) / (2*y1)
-     *   Constraint (via cancellation of denominator and using x1^3 = y1^2 - b):
-     *      (x3 + 2*x1)*4*y1^2 - 9*x1*(y1^2 - b) = 0
-     *
-     * Subrelation 1 (y-coordinate):
-     *   Formula: y3 = lambda * (x1 - x3) - y1
-     *   Constraint:
-     *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
-     *
      * @param accumulators transformed to `accumulators + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....

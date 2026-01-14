@@ -28,7 +28,12 @@ pub fn mark_as_initialized_private(context: &mut PrivateContext) {
 // Used by `create_init_check` (you won't find it through searching)
 pub fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
-    assert(context.nullifier_exists(init_nullifier, context.this_address()), "Not initialized");
+    // Safety: TODO(F-239) - this is currently unsafe, we cannot rely on the nullifier existing to determine that any
+    // public component of contract initialization has been complete.
+    assert(
+        context.nullifier_exists_unsafe(init_nullifier, context.this_address()),
+        "Not initialized",
+    );
 }
 
 // Used by `create_init_check` (you won't find it through searching)

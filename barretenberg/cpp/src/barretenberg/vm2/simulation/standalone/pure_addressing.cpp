@@ -40,7 +40,7 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
         }
 
         // Handle relative addressing
-        if (is_operand_relative(instruction.indirect, i)) {
+        if (is_operand_relative(instruction.addressing_mode, i)) {
             if (!base_address) {
                 MemoryValue maybe_base_address = memory.get(0);
                 if (!memory.is_valid_address(maybe_base_address)) {
@@ -63,7 +63,7 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
         }
 
         // Handle indirection
-        if (is_operand_indirect(instruction.indirect, i)) {
+        if (is_operand_indirect(instruction.addressing_mode, i)) {
             const MemoryValue& indirect_value = memory.get(operand.as<MemoryAddress>());
             if (!memory.is_valid_address(indirect_value)) {
                 throw AddressingException(

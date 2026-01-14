@@ -155,6 +155,40 @@ describe('prover/orchestrator', () => {
         expect(result.proof).toBeDefined();
       });
 
+      it('cleans up all world state forks', async () => {
+        const numBlocks = 1;
+        const {
+          constants,
+          blocks: [{ header, txs }],
+          previousBlockHeader,
+        } = await context.makeCheckpoint(numBlocks);
+
+        const finalBlobChallenges = await context.getFinalBlobChallenges();
+        orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+
+        await orchestrator.startNewCheckpoint(
+          0, // checkpointIndex
+          constants,
+          [],
+          numBlocks,
+          previousBlockHeader,
+        );
+
+        const { blockNumber, timestamp } = header.globalVariables;
+        await orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
+
+        // wait for the block root proof to try to be enqueued
+        await sleep(1000);
+
+        // now finish the block
+        await orchestrator.setBlockCompleted(blockNumber);
+
+        const result = await orchestrator.finalizeEpoch();
+        expect(result.proof).toBeDefined();
+        const numForks = orchestrator.getNumActiveForks();
+        expect(numForks).toEqual(0);
+      });
+
       it('can start chonk verifier proofs before adding processed txs', async () => {
         const getChonkVerifierSpy = jest.spyOn(prover, 'getPublicChonkVerifierProof');
 

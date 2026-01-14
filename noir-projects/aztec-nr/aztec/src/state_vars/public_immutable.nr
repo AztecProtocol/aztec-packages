@@ -174,7 +174,12 @@ impl<T> PublicImmutable<T, PublicContext> {
 
     fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
-        self.context.nullifier_exists(nullifier, self.context.this_address())
+
+        // Safety: it is safe to assume that the state variable has been initialized if the initialization nullifier
+        // exists because the nullifier was emitted in a public function, at the same time the state variable's public
+        // storage was written to. This would only be unsafe if the nullifier was emitted in a private function which
+        // then enqueued the public storage write, which is not the case.
+        self.context.nullifier_exists_unsafe(nullifier, self.context.this_address())
     }
 }
 

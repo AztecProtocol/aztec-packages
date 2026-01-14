@@ -97,8 +97,8 @@ describe('veto slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,

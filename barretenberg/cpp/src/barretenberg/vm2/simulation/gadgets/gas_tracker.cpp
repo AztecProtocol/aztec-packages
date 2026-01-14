@@ -53,7 +53,7 @@ GasTracker::GasTracker(GasEvent& gas_event,
     , greater_than(greater_than)
     , gas_event(gas_event)
 {
-    gas_event.addressing_gas = static_cast<uint32_t>(compute_addressing_gas(instruction.indirect));
+    gas_event.addressing_gas = static_cast<uint32_t>(compute_addressing_gas(instruction.addressing_mode));
 }
 
 /**

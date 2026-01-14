@@ -7,6 +7,10 @@ description: Deploy smart contracts to Aztec using generated TypeScript classes.
 
 This guide shows you how to deploy compiled contracts to Aztec using the generated TypeScript interfaces.
 
+## Overview
+
+Deploying a contract to Aztec involves publishing the contract class (the bytecode) and creating a contract instance at a specific address. The generated TypeScript classes handle this process through an API: you call `deploy()` with constructor arguments, `send()` with transaction options, and `deployed()` to wait for completion. The contract address is deterministically computed from the contract class, constructor arguments, salt, and deployer address.
+
 ## Prerequisites
 
 - Compiled contract artifacts (see [How to Compile](../aztec-nr/how_to_compile_contract.md))
@@ -38,22 +42,26 @@ The codegen command creates a TypeScript class with typed methods for deployment
 import { MyContract } from "./artifacts/MyContract";
 ```
 
+:::note[About wallets and accounts]
+In the examples below, `wallet` refers to a `Wallet` instance that manages keys and signs transactions. The `from` option in `send()` specifies which account pays for the transaction. This account must be registered in the wallet and have sufficient fee juice. On a local network, test accounts are pre-funded; on testnet, you typically use sponsored fees.
+:::
+
 ### Step 2: Deploy the contract
 
-Deploying the contract really depends on how you're paying for it. If paying using an account's fee juice (like a test account on the local network):
+How you deploy depends on how you pay for it. When paying using an account's fee juice (like a test account on the local network):
 
 ```typescript
 // Deploy with constructor arguments
 const contract = await MyContract.deploy(
-  deployer_wallet,
+  wallet,
   constructorArg1,
   constructorArg2
 )
-  .send({ from: testAccount.address }) // testAccount has fee juice and is registered in the deployer_wallet
+  .send({ from: testAccount.address })
   .deployed();
 ```
 
-On the testnet, you'll likely not have funds in `testAccount` to pay for fee Juice. You want to instead pay fees using the [Sponsored Fee Payment Contract method](./how_to_pay_fees.md), for example:
+On testnet, you likely won't have funds in `testAccount` to pay for fee juice. Instead, pay fees using the [Sponsored Fee Payment Contract method](./how_to_pay_fees.md):
 
 ```typescript
 const contract = await MyContract.deploy(
@@ -61,7 +69,16 @@ const contract = await MyContract.deploy(
   constructorArg1,
   constructorArg2
 )
-  .send({ from: alice.address, fee: { paymentMethod: sponsoredPaymentMethod } }) // using the Sponsored FPC
+  .send({ from: alice.address, fee: { paymentMethod: sponsoredPaymentMethod } })
+  .deployed();
+```
+
+Here's a complete example:
+
+```typescript
+const owner = defaultAccountAddress;
+const contract = await StatefulTestContract.deploy(wallet, owner, 42)
+  .send({ from: defaultAccountAddress })
   .deployed();
 ```
 
@@ -86,15 +103,12 @@ const contract = await MyContract.deploy(wallet, arg1, arg2)
 
 ### Deploy universally
 
-Deploy to the same address across networks:
+Deploy to the same address across networks by setting `universalDeploy: true`:
 
 ```typescript
-const contract = await MyContract.deploy(wallet, arg1, arg2)
-  .send({
-    from: testAccount.address,
-    universalDeploy: true,
-    contractAddressSalt: salt,
-  })
+const opts = { universalDeploy: true, from: defaultAccountAddress };
+const contract = await StatefulTestContract.deploy(wallet, owner, 42)
+  .send(opts)
   .deployed();
 ```
 
@@ -129,11 +143,10 @@ await contract.methods
 import { Fr } from "@aztec/aztec.js/fields";
 
 const salt = Fr.random();
-const deployer = testAccount.address;
 
 // Calculate address without deploying
-const deployer = MyContract.deploy(wallet, arg1, arg2);
-const instance = await deployer.getInstance();
+const deployMethod = MyContract.deploy(wallet, arg1, arg2);
+const instance = await deployMethod.getInstance({ contractAddressSalt: salt });
 const address = instance.address;
 
 console.log(`Contract will deploy at: ${address}`);
@@ -167,26 +180,36 @@ console.log(`Contract address: ${contract.address}`);
 
 ## Deploy multiple contracts
 
+### Deploy a token contract
+
+Here's an example deploying a `TokenContract` with constructor arguments for admin, name, symbol, and decimals:
+
+```typescript
+const owner = defaultAccountAddress;
+const token = await TokenContract.deploy(wallet, owner, "TOKEN", "TKN", 18)
+  .send({ from: defaultAccountAddress })
+  .deployed();
+```
+
 ### Deploy contracts with dependencies
+
+When one contract depends on another, deploy them sequentially and pass the first contract's address:
 
 ```typescript
 // Deploy first contract
 const token = await TokenContract.deploy(
   wallet,
-  wallet.address,
+  admin.address,
   "MyToken",
   "MTK",
-  18n
+  18
 )
-  .send({ from: testAccount.address })
+  .send({ from: admin.address })
   .deployed();
 
 // Deploy second contract with reference to first
-const vault = await VaultContract.deploy(
-  wallet,
-  token.address // Pass first contract's address
-)
-  .send({ from: wallet.address })
+const vault = await VaultContract.deploy(wallet, token.address)
+  .send({ from: admin.address })
   .deployed();
 ```
 
@@ -195,9 +218,9 @@ const vault = await VaultContract.deploy(
 ```typescript
 // Start all deployments simultaneously
 const deployments = [
-  Contract1.deploy(wallet, arg1).send({ from: testAccount.address }),
-  Contract2.deploy(wallet, arg2).send({ from: testAccount.address }),
-  Contract3.deploy(wallet, arg3).send({ from: testAccount.address }),
+  Contract1.deploy(wallet, arg1).send({ from: deployer.address }),
+  Contract2.deploy(wallet, arg2).send({ from: deployer.address }),
+  Contract3.deploy(wallet, arg3).send({ from: deployer.address }),
 ];
 
 // Wait for all to complete
@@ -207,23 +230,53 @@ const receipts = await Promise.all(deployments.map((d) => d.wait()));
 const contracts = await Promise.all(deployments.map((d) => d.deployed()));
 ```
 
-:::tip
-Parallel deployment is faster but be aware of nonce management if deploying many contracts from the same account.
+:::tip[Parallel deployment considerations]
+Parallel deployment is faster, but transactions from the same account share a nonce sequence. The wallet handles nonce assignment automatically, but if one deployment fails, subsequent deployments may also fail due to nonce gaps. For reliable parallel deployments:
+
+- Use separate accounts for each deployment, or
+- Handle failures gracefully and retry with fresh nonces
+- Consider using `BatchCall` to bundle multiple operations into a single transaction (see below)
 :::
+
+### Deploy with BatchCall
+
+Use `BatchCall` to bundle a deployment with other calls into a single transaction. This is useful when you need to deploy a contract and immediately call methods on it:
+
+```typescript
+import { BatchCall } from "@aztec/aztec.js";
+
+const owner = defaultAccountAddress;
+// Create a contract instance and make the PXE aware of it
+const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
+const contract = await deployMethod.register();
+
+// Batch deployment and a public call into the same transaction
+const publicCall = contract.methods.increment_public_value(owner, 84);
+await new BatchCall(wallet, [deployMethod, publicCall])
+  .send({ from: defaultAccountAddress })
+  .wait();
+```
 
 ## Verify deployment
 
 ### Check contract registration
 
-At the moment the easiest way to get contract data is by querying a wallet directly:
+Query the wallet to verify the contract was deployed and its class is published:
 
 ```typescript
-// Get contract metadata
-const metadata = await wallet.getContractMetadata(myContractInstance.address);
-if (metadata) {
-  console.log("Contract metadata found");
-}
+const metadata = await wallet.getContractMetadata(contract.address);
+const isPublished = (
+  await wallet.getContractClassMetadata(
+    metadata.contractInstance!.currentContractClassId
+  )
+).isContractClassPubliclyRegistered;
 ```
+
+The `getContractMetadata` method returns:
+
+- `contractInstance` - The contract instance details (if found)
+- `isContractInitialized` - Whether the constructor has been called
+- `isContractPublished` - Whether the contract class is publicly registered
 
 ### Verify contract is callable
 
@@ -246,38 +299,35 @@ try {
 If a contract was deployed by another account:
 
 ```typescript
-import { loadContractArtifact } from "@aztec/stdlib/abi";
-
-const artifact = loadContractArtifact(MyContract.artifact);
 const contract = await MyContract.at(contractAddress, wallet);
 
-// To register an existing contract instance, you need to know
-// its exact deployment parameters. The registerContract method
-// requires both the artifact and instance details.
-// This is typically handled automatically when deploying.
-await wallet.registerContract({
-  instance: contract.instance,
-  artifact: artifact,
-});
+// Register the contract with the wallet
+// The registerContract method takes positional parameters:
+// - instance: ContractInstanceWithAddress (required)
+// - artifact: ContractArtifact (optional)
+// - secretKey: Fr (optional)
+await wallet.registerContract(contract.instance, MyContract.artifact);
 ```
 
 :::warning
-You need the exact deployment parameters (salt, initialization hash, etc.) to correctly register an externally deployed contract.
-
-For example:
+You need the exact deployment parameters (salt, initialization hash, etc.) to correctly register an externally deployed contract. If you don't have access to the contract instance, you can reconstruct it:
 
 ```typescript
-import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contracts";
-const contract = await getContractInstanceFromInstantiationParams(
-  contractArtifact,
+import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
+import { PublicKeys } from "@aztec/stdlib/keys";
+
+const instance = await getContractInstanceFromInstantiationParams(
+  MyContract.artifact,
   {
     publicKeys: PublicKeys.default(),
-    constructorArtifact: initializer,
-    constructorArgs: parameters,
-    deployer: from,
-    salt,
+    constructorArtifact: "constructor", // or the initializer function name
+    constructorArgs: [arg1, arg2],
+    deployer: deployerAddress,
+    salt: deploymentSalt,
   }
 );
+
+await wallet.registerContract(instance, MyContract.artifact);
 ```
 
 :::

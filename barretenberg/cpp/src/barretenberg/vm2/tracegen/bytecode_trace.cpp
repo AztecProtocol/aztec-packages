@@ -340,7 +340,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bytecode_id, bytecode_id },
                       { C::instr_fetching_pc, event.pc },
                       // indirect + operands.
-                      { C::instr_fetching_indirect, event.instruction.indirect },
+                      { C::instr_fetching_addressing_mode, event.instruction.addressing_mode },
                       { C::instr_fetching_op1, get_operand(0) },
                       { C::instr_fetching_op2, get_operand(1) },
                       { C::instr_fetching_op3, get_operand(2) },

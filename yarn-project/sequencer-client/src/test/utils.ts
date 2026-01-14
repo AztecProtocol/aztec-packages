@@ -8,7 +8,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import type { P2P } from '@aztec/p2p';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
-import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
@@ -80,6 +80,7 @@ function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
     Fr.random(), // blockHeadersHash - mock value for testing
     Fr.random(), // blobsHash - mock value for testing
     Fr.random(), // inHash - mock value for testing
+    Fr.random(), // outHash - mock value for testing
     gv.slotNumber,
     gv.timestamp,
     gv.coinbase,
@@ -93,23 +94,49 @@ function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
  * Creates a block proposal from a block and signature
  */
 export function createBlockProposal(block: L2BlockNew, signature: Signature): BlockProposal {
-  const checkpointHeader = createCheckpointHeaderFromBlock(block);
-  const consensusPayload = new ConsensusPayload(checkpointHeader, block.archive.root);
   const txHashes = block.body.txEffects.map(tx => tx.txHash);
-  return new BlockProposal(consensusPayload, signature, txHashes);
+  return new BlockProposal(
+    block.header,
+    block.indexWithinCheckpoint,
+    Fr.ZERO, // inHash - using zero for testing
+    block.archive.root,
+    txHashes,
+    signature,
+  );
 }
 
 /**
- * Creates a block attestation from a block and signature.
+ * Creates a checkpoint proposal from a block and signature
+ */
+export function createCheckpointProposal(
+  block: L2BlockNew,
+  checkpointSignature: Signature,
+  blockSignature?: Signature,
+): CheckpointProposal {
+  const txHashes = block.body.txEffects.map(tx => tx.txHash);
+  const checkpointHeader = createCheckpointHeaderFromBlock(block);
+  return new CheckpointProposal(checkpointHeader, block.archive.root, checkpointSignature, {
+    blockHeader: block.header,
+    indexWithinCheckpoint: block.indexWithinCheckpoint,
+    txHashes,
+    signature: blockSignature ?? checkpointSignature, // Use checkpoint signature as block signature if not provided
+  });
+}
+
+/**
+ * Creates a checkpoint attestation from a block and signature.
  * Note: We manually set the sender since we use random signatures in tests.
  * In production, the sender is recovered from the signature.
  */
-export function createBlockAttestation(block: L2BlockNew, signature: Signature, sender: EthAddress): BlockAttestation {
+export function createCheckpointAttestation(
+  block: L2BlockNew,
+  signature: Signature,
+  sender: EthAddress,
+): CheckpointAttestation {
   const checkpointHeader = createCheckpointHeaderFromBlock(block);
-  const consensusPayload = new ConsensusPayload(checkpointHeader, block.archive.root);
-  const attestation = new BlockAttestation(consensusPayload, signature, signature);
+  const payload = new ConsensusPayload(checkpointHeader, block.archive.root);
+  const attestation = new CheckpointAttestation(payload, signature, signature);
   // Set sender directly for testing (bypasses signature recovery)
-
   (attestation as any).sender = sender;
   return attestation;
 }

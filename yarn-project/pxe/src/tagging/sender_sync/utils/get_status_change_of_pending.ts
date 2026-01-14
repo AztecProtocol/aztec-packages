@@ -10,7 +10,7 @@ export async function getStatusChangeOfPending(
   aztecNode: AztecNode,
 ): Promise<{ txHashesToFinalize: TxHash[]; txHashesToDrop: TxHash[] }> {
   // Get receipts for all pending tx hashes and the finalized block number.
-  const [receipts, { finalized }] = await Promise.all([
+  const [receipts, tips] = await Promise.all([
     Promise.all(pending.map(pendingTxHash => aztecNode.getTxReceipt(pendingTxHash))),
     aztecNode.getL2Tips(),
   ]);
@@ -22,7 +22,11 @@ export async function getStatusChangeOfPending(
     const receipt = receipts[i];
     const txHash = pending[i];
 
-    if (receipt.status === TxStatus.SUCCESS && receipt.blockNumber && receipt.blockNumber <= finalized.number) {
+    if (
+      receipt.status === TxStatus.SUCCESS &&
+      receipt.blockNumber &&
+      receipt.blockNumber <= tips.finalized.block.number
+    ) {
       // Tx has been included in a block and the corresponding block is finalized --> we mark the indexes as
       // finalized.
       txHashesToFinalize.push(txHash);

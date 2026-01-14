@@ -21,7 +21,7 @@ use types::constants::FIELDS_PER_BLOB;
  * - (1 / d)
  *
  * @param z
- * @param ys - the many y_i's of the blob.
+ * @param ys - ("ys" being the plural of "y") - the many y_i's of the blob.
  *
  * @return y = p(z)
  */
@@ -160,35 +160,50 @@ pub(crate) fn barycentric_evaluate_blob_at_z(
     factor.mul(sum)
 }
 
-unconstrained fn __compute_factor_helper(z_pow_d: BLS12_381_Fr) -> BLS12_381_Fr {
-    let one = BLS12_381_Fr::one();
-    z_pow_d.__sub(one).__mul(D_INV)
-}
+fn z_pow_d(z: BLS12_381_Fr) -> BLS12_381_Fr {
+    // z ^ d:
+    // z ^ 4096 = z ^ (2 ^ 12)
 
-fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
-    // z ^ D:
     let mut t = z.mul(z);
 
     for _ in 0..LOG_FIELDS_PER_BLOB - 1 {
         t = t.mul(t);
     }
 
-    let z_pow_d = t;
+    t
+}
+
+unconstrained fn __compute_factor_helper(z_pow_d: BLS12_381_Fr) -> BLS12_381_Fr {
+    let one = BLS12_381_Fr::one();
+    z_pow_d.__sub(one).__mul(D_INV)
+}
+
+fn validate_factor(z_pow_d: BLS12_381_Fr, factor: BLS12_381_Fr) {
+    // (z_pow_d - one) * (D_INV) - factor = 0
+    // z_pow_d * D_INV - D_INV - factor = 0
+    bignum::bignum::evaluate_quadratic_expression(
+        [[z_pow_d]],
+        [[false]],
+        [[D_INV]],
+        [[false]],
+        [factor, D_INV],
+        [true, true],
+    );
+}
+
+/// Computes the so-called "factor":
+///
+///  z^d - 1
+/// ---------
+///     d
+fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
+    let z_pow_d = z_pow_d(z);
 
     // Safety: We immediately check that this result is correct in the following `evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
-    // (z_pow_d - one) * (D_INV) - factor = 0
-    // z_pow_d * D_INV - D_INV - factor = 0
     if !std::runtime::is_unconstrained() {
-        bignum::bignum::evaluate_quadratic_expression(
-            [[z_pow_d]],
-            [[false]],
-            [[D_INV]],
-            [[false]],
-            [factor, D_INV],
-            [true, true],
-        );
+        validate_factor(z_pow_d, factor);
     }
 
     factor
@@ -204,7 +219,7 @@ unconstrained fn __compute_fracs(
     }
     let inv_denoms: [BLS12_381_Fr; FIELDS_PER_BLOB] = bignum::bignum::batch_invert(denoms); // 1 / (z - w^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
-    let mut fracs: [BLS12_381_Fr; FIELDS_PER_BLOB] = denoms; // y_i / (z - w^i), for all i
+    let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // aiming for: y_i / (z - w^i), for all i
     for i in 0..FIELDS_PER_BLOB {
         let num = ys[i];
         let inv_denom = inv_denoms[i]; // 1 / (z - w^i)
@@ -214,6 +229,46 @@ unconstrained fn __compute_fracs(
     fracs
 }
 
+// Extracted into a standalone fn to enable testing of invalid fracs.
+fn validate_fracs(
+    z: BLS12_381_Fr,
+    ys: [BLS12_381_Fr; FIELDS_PER_BLOB],
+    fracs: [BLS12_381_Fr; FIELDS_PER_BLOB],
+) {
+    for i in 0..FIELDS_PER_BLOB {
+        // frac <-- ys[i] / (z + ROOTS[i].neg())
+        // frac * (z + ROOTS[i].neg()) - ys[i] == 0
+        //
+        // Note: technically, if z is equal to any of the negated roots of unity, then this circuit is under-constrained,
+        // because:
+        // - The constraint becomes fracs[i] * 0 - y_i = 0
+        // - If y_i != 0: unsatisfiable (safe)
+        // - If y_i = 0: the constraint is 0 = 0, satisfied for any value of fracs[i], meaning fracs[i] is completely
+        //   unconstrained, allowing the prover to inject arbitrary values into the sum.
+        // We _could_ spend 4096 constraints asserting that z is _not_ equal to a root of unity, but...
+        // the challenge z is derived from poseidon2_hash([blob_fields_hash, kzg_commitment[0], kzg_commitment[1]]).
+        // Finding a blob where this hash equals a specific root of unity requires a preimage attack on Poseidon2, which
+        // is assumed to be computationally infeasible.
+        bignum::bignum::evaluate_quadratic_expression(
+            [[fracs[i]]],
+            [[false]],
+            [[z, ROOTS[i].neg()]],
+            [[false, false]],
+            [ys[i]],
+            [true],
+        );
+    }
+}
+
+/// Compute an array of the d `frac` items which contribute to this sum:
+///
+///    ___d-1
+///    \     /    y_i    \
+///    /    |  ---------  | . w^i
+///   /____  \  z - w^i  /
+///    i=0
+///            ^^^^^^^^^
+///              frac
 fn compute_fracs(
     z: BLS12_381_Fr,
     ys: [BLS12_381_Fr; FIELDS_PER_BLOB],
@@ -222,24 +277,12 @@ fn compute_fracs(
     let fracs: [BLS12_381_Fr; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys) };
 
     if !std::runtime::is_unconstrained() {
-        for i in 0..FIELDS_PER_BLOB {
-            // frac <-- ys[i] / (z + neg_roots[i])
-            // frac * (z + neg_roots[i]) - ys[i] = 0
-            bignum::bignum::evaluate_quadratic_expression(
-                [[fracs[i]]],
-                [[false]],
-                [[z, ROOTS[i].neg()]],
-                [[false, false]],
-                [ys[i]],
-                [true],
-            );
-        }
+        validate_fracs(z, ys, fracs);
     }
 
     fracs
 }
 
-// TODO: Clean me
 unconstrained fn __compute_partial_sums(
     fracs: [BLS12_381_Fr; FIELDS_PER_BLOB],
 ) -> [BLS12_381_Fr; FIELDS_PER_BLOB / 8] {
@@ -305,10 +348,23 @@ unconstrained fn __compute_sum(fracs: [BLS12_381_Fr; FIELDS_PER_BLOB]) -> BLS12_
 }
 
 mod tests {
-    use crate::{blob::barycentric_evaluate_blob_at_z, config::{D, D_INV}};
-    use super::{__compute_partial_sums, __compute_sum};
+    use crate::{
+        blob::barycentric_evaluate_blob_at_z,
+        config::{D, D_INV, LOG_FIELDS_PER_BLOB, ROOTS},
+    };
+    use super::{
+        __compute_fracs, __compute_partial_sums, __compute_sum, compute_factor, validate_factor,
+        validate_fracs, z_pow_d,
+    };
     use bignum::{BigNum, BLS12_381_Fr};
+    use std::ops::Neg;
     use types::{constants::FIELDS_PER_BLOB, hash::poseidon2_hash};
+
+    #[test]
+    fn test_multiple_of_8() {
+        // If this ever changes (e.g. an eth hard-fork, you'll need to change the limits of the partial sums in this file).
+        assert(FIELDS_PER_BLOB % 8 == 0, "8 should divide FIELDS_PER_BLOB");
+    }
 
     // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
     // we don't actually need to operate on it so we've simply encoded it as fitting inside a
@@ -475,5 +531,306 @@ mod tests {
 
             assert_eq(partial_sums[FIELDS_PER_BLOB / 8 - 1], sum);
         }
+    }
+
+    #[test]
+    fn test_log_fields_per_blob_consistency() {
+        // Verify that 2^LOG_FIELDS_PER_BLOB == FIELDS_PER_BLOB
+        assert_eq(1 << LOG_FIELDS_PER_BLOB, FIELDS_PER_BLOB);
+    }
+
+    #[test]
+    unconstrained fn test_compute_factor_direct() {
+        // Directly test compute_factor: verify factor = (z^d - 1) / d
+        let z = BLS12_381_Fr::from_limbs([7, 0, 0]);
+        let factor = compute_factor(z);
+
+        // Compute z^d manually
+        let mut z_pow_d = z;
+        for _ in 0..LOG_FIELDS_PER_BLOB {
+            z_pow_d = z_pow_d.__mul(z_pow_d);
+        }
+
+        // Verify: factor * d = z^d - 1
+        let factor_times_d = factor.__mul(D);
+        let z_pow_d_minus_1 = z_pow_d.__sub(BLS12_381_Fr::one());
+        assert_eq(factor_times_d, z_pow_d_minus_1);
+    }
+
+    #[test]
+    unconstrained fn test_compute_fracs_direct() {
+        // Directly test __compute_fracs: verify fracs[i] * (z - w^i) = y_i
+        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
+        ys[1] = BLS12_381_Fr::from_limbs([200, 0, 0]);
+        ys[100] = BLS12_381_Fr::from_limbs([300, 0, 0]);
+
+        let fracs = __compute_fracs(z, ys);
+
+        // Verify the division relationship for non-zero entries
+        let indices_to_check = [0, 1, 100];
+        for j in 0..indices_to_check.len() {
+            let i = indices_to_check[j];
+            let denom = z.__sub(ROOTS[i]); // z - w^i
+            let product = fracs[i].__mul(denom); // fracs[i] * (z - w^i)
+            assert_eq(product, ys[i]);
+        }
+    }
+
+    #[test]
+    unconstrained fn test_zero_blob() {
+        // Test that evaluating an all-zeros blob returns zero
+        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
+        let ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+
+        let y = barycentric_evaluate_blob_at_z(z, ys);
+
+        assert_eq(y, BLS12_381_Fr::zero());
+    }
+
+    #[test]
+    unconstrained fn test_single_element_at_arbitrary_position() {
+        // Test with a single non-zero element at position 1000 (not position 0)
+        // This tests that the formula works for arbitrary positions, not just position 0
+        // where w^0 = 1 is special.
+        let z = BLS12_381_Fr::from_limbs([123, 0, 0]);
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        let position: u32 = 1000;
+        ys[position] = BLS12_381_Fr::one();
+
+        let y = barycentric_evaluate_blob_at_z(z, ys);
+
+        // For a single element y_k = 1 at position k, the formula becomes:
+        // p(z) = factor * (w^k / (z - w^k))
+        // where factor = (z^d - 1) / d
+        //
+        // So: p(z) * (z - w^k) = factor * w^k
+        let factor = compute_factor(z);
+        let w_k = ROOTS[position];
+        let z_minus_w_k = z.__sub(w_k);
+
+        let lhs = y.__mul(z_minus_w_k);
+        let rhs = factor.__mul(w_k);
+        assert_eq(lhs, rhs);
+    }
+
+    #[test]
+    unconstrained fn test_z_equals_zero() {
+        // Test edge case where z = 0
+        // p(0) should still be computable
+        let z = BLS12_381_Fr::zero();
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        ys[0] = BLS12_381_Fr::from_limbs([1, 0, 0]);
+        ys[1] = BLS12_381_Fr::from_limbs([2, 0, 0]);
+
+        let y = barycentric_evaluate_blob_at_z(z, ys);
+
+        // When z = 0:
+        // - z^d = 0, so factor = (0 - 1) / d = -1/d = -D_INV
+        // - fracs[i] = y_i / (0 - w^i) = -y_i / w^i
+        // - sum = SUM( w^i * (-y_i / w^i) ) = -SUM(y_i)
+        // - result = factor * sum = (-D_INV) * (-SUM(y_i)) = D_INV * SUM(y_i)
+        //
+        // For ys = [1, 2, 0, 0, ...]: SUM(y_i) = 3
+        // So result = D_INV * 3
+
+        let three = BLS12_381_Fr::from_limbs([3, 0, 0]);
+        let expected = D_INV.__mul(three);
+        assert_eq(y, expected);
+    }
+
+    #[test]
+    unconstrained fn test_large_field_elements() {
+        // Test with field elements that are large (close to the modulus)
+        // BLS12-381 scalar field modulus is approximately 2^255
+        let z = BLS12_381_Fr::from_limbs([2, 0, 0]);
+
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        // Use a large value (but still valid in the field)
+        // The modulus is 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
+        // Use a value that's large but less than the modulus
+        ys[0] =
+            BLS12_381_Fr::from_limbs([0xffffffffffffff00000000, 0xffffffffffffff00000000, 0x73ed]);
+
+        // Just verify it doesn't panic and produces a result
+        let _y = barycentric_evaluate_blob_at_z(z, ys);
+        // If we got here without panicking, the test passes
+    }
+
+    #[test]
+    fn test_barycentric_constrained() {
+        // This is a CONSTRAINED test - it actually exercises the constraint system
+        // Unlike the other tests which are mostly unconstrained
+        let z = BLS12_381_Fr::from_limbs([2, 0, 0]);
+
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        ys[0] = BLS12_381_Fr::from_limbs([0x1234, 0, 0]);
+        ys[1] = BLS12_381_Fr::from_limbs([0xabcd, 0, 0]);
+        ys[2] = BLS12_381_Fr::from_limbs([0x69, 0, 0]);
+
+        // This call will exercise all the evaluate_quadratic_expression constraints
+        let y = barycentric_evaluate_blob_at_z(z, ys);
+
+        // Verify against known value (same as test_barycentric)
+        let expected_y: [u128; 3] =
+            [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
+        assert(y.get_limbs() == expected_y);
+    }
+
+    #[test]
+    fn test_compute_factor_constrained() {
+        // Constrained test for compute_factor
+        let z = BLS12_381_Fr::from_limbs([7, 0, 0]);
+
+        // This exercises the constraint in compute_factor
+        let factor = compute_factor(z);
+
+        // Verify the result is non-zero (basic sanity check)
+        assert(factor.get_limbs() != [0, 0, 0]);
+    }
+
+    #[test]
+    unconstrained fn test_fracs_constraint_relationship() {
+        // Verify that the constraint frac * (z - w^i) - y = 0 holds
+        // This tests the mathematical relationship that the constraint checks
+        let z = BLS12_381_Fr::from_limbs([999, 0, 0]);
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+
+        // Set some non-zero values
+        for i in 0..10 {
+            ys[i] = BLS12_381_Fr::from_limbs([(i + 1) as u128 * 111, 0, 0]);
+        }
+
+        let fracs = __compute_fracs(z, ys);
+
+        // For each non-zero y, verify: frac * (z - w^i) = y
+        for i in 0..10 {
+            let z_minus_root = z.__sub(ROOTS[i]);
+            let computed_y = fracs[i].__mul(z_minus_root);
+            assert_eq(computed_y, ys[i]);
+        }
+
+        // Also verify that for zero y values, frac * (z - w^i) = 0
+        for i in 10..20 {
+            let z_minus_root = z.__sub(ROOTS[i]);
+            let computed_y = fracs[i].__mul(z_minus_root);
+            assert_eq(computed_y, BLS12_381_Fr::zero());
+        }
+    }
+
+    #[test]
+    unconstrained fn test_negated_root_computation() {
+        // Verify that ROOTS[i].neg() correctly computes -w^i in the field
+        // This is important because compute_fracs uses ROOTS[i].neg()
+        let one = BLS12_381_Fr::one();
+
+        for i in 0..10 {
+            let root = ROOTS[i];
+            let neg_root = root.neg();
+
+            // Verify: root + neg_root = 0 (mod p)
+            let sum = root.__add(neg_root);
+            assert_eq(sum, BLS12_381_Fr::zero());
+
+            // Verify: root * (-1) = neg_root
+            let minus_one = BLS12_381_Fr::zero().__sub(one);
+            let root_times_minus_one = root.__mul(minus_one);
+            assert_eq(root_times_minus_one, neg_root);
+        }
+    }
+
+    // ==================== SOUNDNESS TESTS ====================
+    // These tests verify that invalid hints are rejected by the constraints.
+    // The BigNum library's evaluate_quadratic_expression asserts `remainder == [0; N]`
+    // when the constraint is not satisfied.
+
+    #[test(should_fail)]
+    fn test_validate_factor_rejects_invalid_factor() {
+        // Test that validate_factor rejects an incorrect factor hint
+        let z = BLS12_381_Fr::from_limbs([7, 0, 0]);
+        let z_pow_d_val = z_pow_d(z);
+
+        // Compute the correct factor, then corrupt it
+        // Safety: computing correct value first
+        let correct_factor = unsafe { super::__compute_factor_helper(z_pow_d_val) };
+
+        // Add 1 to corrupt the factor
+        let invalid_factor = unsafe { correct_factor.__add(BLS12_381_Fr::one()) };
+
+        // This should fail because the constraint won't be satisfied
+        validate_factor(z_pow_d_val, invalid_factor);
+    }
+
+    #[test(should_fail)]
+    fn test_validate_factor_rejects_zero_factor() {
+        // Test that validate_factor rejects a zero factor (when it shouldn't be zero)
+        let z = BLS12_381_Fr::from_limbs([7, 0, 0]);
+        let z_pow_d_val = z_pow_d(z);
+
+        // Use zero as the factor (incorrect for z != root of unity)
+        let invalid_factor = BLS12_381_Fr::zero();
+
+        // This should fail
+        validate_factor(z_pow_d_val, invalid_factor);
+    }
+
+    #[test(should_fail)]
+    fn test_validate_fracs_rejects_invalid_frac() {
+        // Test that validate_fracs rejects incorrect frac hints
+        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
+
+        // Compute correct fracs, then corrupt one
+        // Safety: computing correct values first
+        let mut fracs = unsafe { __compute_fracs(z, ys) };
+
+        // Corrupt fracs[0] by adding 1
+        fracs[0] = unsafe { fracs[0].__add(BLS12_381_Fr::one()) };
+
+        // This should fail because fracs[0] * (z - w^0) != ys[0]
+        validate_fracs(z, ys, fracs);
+    }
+
+    #[test(should_fail)]
+    fn test_validate_fracs_rejects_swapped_fracs() {
+        // Test that validate_fracs rejects fracs that are swapped between positions
+        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
+        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
+        ys[1] = BLS12_381_Fr::from_limbs([200, 0, 0]);
+
+        // Compute correct fracs
+        // Safety: computing correct values first
+        let mut fracs = unsafe { __compute_fracs(z, ys) };
+
+        // Swap fracs[0] and fracs[1]
+        let temp = fracs[0];
+        fracs[0] = fracs[1];
+        fracs[1] = temp;
+
+        // This should fail because the constraints check each position independently
+        validate_fracs(z, ys, fracs);
+    }
+
+    #[test(should_fail)]
+    fn test_validate_fracs_rejects_nonzero_frac_for_zero_y() {
+        // Test that when y[i] = 0, fracs[i] must also satisfy the constraint
+        // (which means fracs[i] * (z - w^i) = 0)
+        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
+        let ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // All zeros
+
+        // Compute correct fracs (should all be zero)
+        // Safety: computing correct values first
+        let mut fracs = unsafe { __compute_fracs(z, ys) };
+
+        // Set fracs[0] to a non-zero value
+        // Since y[0] = 0, the constraint is fracs[0] * (z - w^0) = 0
+        // For this to hold with non-zero fracs[0], we'd need z = w^0 = 1
+        // But z = 42, so this should fail
+        fracs[0] = BLS12_381_Fr::from_limbs([999, 0, 0]);
+
+        validate_fracs(z, ys, fracs);
     }
 }

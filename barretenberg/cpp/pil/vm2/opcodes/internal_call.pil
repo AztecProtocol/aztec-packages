@@ -35,9 +35,10 @@ namespace execution;
     // If we encounter a sel_execute_internal_call, the next internal_call_id is the current next_internal_call_id
     #[NEW_CALL_ID_ON_CALL]
     sel_execute_internal_call * (internal_call_id' - next_internal_call_id) = 0;
-    // If we encounter a sel_return_call, the next internal_call_id is the current internal_call_return_id
+    // If we unwind the call stack (i.e. sel_internal_return_call that does not error), the next internal_call_id is the current internal_call_return_id
+    // This is gated by (1 - sel_opcode_error) so we don't enforce the constraint when the callstack is empty
     #[RESTORE_INTERNAL_ID_ON_RETURN]
-    sel_execute_internal_return * (internal_call_id' - internal_call_return_id) = 0;
+    sel_read_unwind_call_stack * (internal_call_id' - internal_call_return_id) = 0;
     // Otherwise it's propagated down
     #[DEFAULT_PROPAGATE_CALL_ID]
     NOT_LAST_EXEC * PROPAGATE_CALL_ID * (internal_call_id' - internal_call_id) = 0;

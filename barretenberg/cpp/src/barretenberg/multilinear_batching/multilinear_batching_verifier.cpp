@@ -28,15 +28,16 @@ MultilinearBatchingVerifier<Flavor_>::FF MultilinearBatchingVerifier<Flavor_>::c
     const FF& accumulator_shifted_evaluation) const
 {
     // Compute new target sum as:
-    // accumulator_non_shifted_evaluation
-    //  + alpha * accumulator_shifted_evaluation
-    //     + alpha^2 sum( instance_sumcheck.claimed_unshifted_evals * unshifted_challenges )
-    //       + alpha^3 sum( instance_sumcheck.claimed_shifted_evals * shifted_challenges )
+    //   accumulator_non_shifted_evaluation
+    // + alpha   * accumulator_shifted_evaluation
+    // + alpha^2 * sum(instance_sumcheck.claimed_unshifted_evals * unshifted_challenges)
+    // + alpha^3 * sum(instance_sumcheck.claimed_shifted_evals * shifted_challenges)
     FF target_sum(0);
     for (auto [eval, challenge] : zip_view(instance_sumcheck.claimed_evaluations.get_shifted(), shifted_challenges)) {
         target_sum += eval * challenge;
     }
     target_sum *= alpha;
+
     for (auto [eval, challenge] :
          zip_view(instance_sumcheck.claimed_evaluations.get_unshifted(), unshifted_challenges)) {
         target_sum += eval * challenge;
@@ -49,25 +50,31 @@ MultilinearBatchingVerifier<Flavor_>::FF MultilinearBatchingVerifier<Flavor_>::c
     return target_sum;
 }
 
+/**
+ * @brief Compute: Σ(commitments[i] * scalars[i]) + accumulator_commitment * batching_challenge
+ */
 template <typename Flavor_>
 template <size_t N>
-MultilinearBatchingVerifier<Flavor_>::Commitment MultilinearBatchingVerifier<Flavor_>::batch_mul(
-    RefArray<Commitment, N> instance_commitments,
-    const Commitment& accumulator_commitment,
-    std::vector<FF>& scalars,
-    const FF& batching_challenge)
+MultilinearBatchingVerifier<Flavor_>::Commitment MultilinearBatchingVerifier<
+    Flavor_>::batch_instance_commitments_with_accumulator(RefArray<Commitment, N> instance_commitments,
+                                                          const std::vector<FF>& instance_batching_scalars,
+                                                          const Commitment& accumulator_commitment,
+                                                          const FF& batching_challenge)
 {
-    std::vector<Commitment> points(N + 1);
-    for (size_t idx = 0; auto point : instance_commitments) {
-        points[idx++] = point;
+    std::vector<Commitment> commitments;
+    commitments.reserve(N + 1);
+    for (const auto& commitment : instance_commitments) {
+        commitments.emplace_back(commitment);
     }
-    points.back() = accumulator_commitment;
+    commitments.emplace_back(accumulator_commitment);
+
+    std::vector<FF> scalars(instance_batching_scalars);
     scalars.emplace_back(batching_challenge);
 
     if constexpr (IsRecursiveFlavor<Flavor>) {
-        return Curve::Group::batch_mul(points, scalars);
+        return Curve::Group::batch_mul(commitments, scalars);
     } else {
-        return batch_mul_native<Curve>(points, scalars);
+        return batch_mul_native<Curve>(commitments, scalars);
     }
 }
 
@@ -75,21 +82,23 @@ template <typename Flavor_>
 MultilinearBatchingVerifier<Flavor_>::VerifierClaim MultilinearBatchingVerifier<Flavor_>::compute_new_claim(
     const SumcheckOutput<Flavor>& sumcheck_result,
     InstanceCommitments& verifier_commitments,
-    std::vector<InstanceFF>& unshifted_challenges,
-    std::vector<InstanceFF>& shifted_challenges,
+    const std::vector<InstanceFF>& unshifted_challenges,
+    const std::vector<InstanceFF>& shifted_challenges,
     const Commitment& non_shifted_accumulator_commitment,
     const Commitment& shifted_accumulator_commitment,
     const FF& batching_challenge)
 {
     // Compute new claim as instance + challenge * accumulator
-    Commitment non_shifted_commitment = batch_mul<NUM_UNSHIFTED_ENTITIES>(verifier_commitments.get_unshifted(),
-                                                                          non_shifted_accumulator_commitment,
-                                                                          unshifted_challenges,
+    Commitment non_shifted_commitment =
+        batch_instance_commitments_with_accumulator<NUM_UNSHIFTED_ENTITIES>(verifier_commitments.get_unshifted(),
+                                                                            unshifted_challenges,
+                                                                            non_shifted_accumulator_commitment,
+                                                                            batching_challenge);
+    Commitment shifted_commitment =
+        batch_instance_commitments_with_accumulator<NUM_SHIFTED_ENTITIES>(verifier_commitments.get_to_be_shifted(),
+                                                                          shifted_challenges,
+                                                                          shifted_accumulator_commitment,
                                                                           batching_challenge);
-    Commitment shifted_commitment = batch_mul<NUM_SHIFTED_ENTITIES>(verifier_commitments.get_to_be_shifted(),
-                                                                    shifted_accumulator_commitment,
-                                                                    shifted_challenges,
-                                                                    batching_challenge);
 
     FF shifted_evaluation = sumcheck_result.claimed_evaluations.batched_shifted_instance +
                             sumcheck_result.claimed_evaluations.batched_shifted_accumulator * batching_challenge;
@@ -110,8 +119,8 @@ template <typename Flavor_>
 std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> MultilinearBatchingVerifier<
     Flavor_>::verify_proof(SumcheckOutput<InstanceFlavor>& instance_sumcheck,
                            InstanceCommitments& verifier_commitments,
-                           std::vector<InstanceFF>& unshifted_challenges,
-                           std::vector<InstanceFF>& shifted_challenges)
+                           const std::vector<InstanceFF>& unshifted_challenges,
+                           const std::vector<InstanceFF>& shifted_challenges)
 {
     // Receive commitments
     auto non_shifted_accumulator_commitment =
@@ -121,12 +130,12 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
 
     // Receive challenges and evaluations
     std::vector<FF> accumulator_challenges(Flavor::VIRTUAL_LOG_N);
-    std::vector<FF> accumulator_evaluations(2);
+    std::vector<FF> accumulator_evaluations(Flavor::NUM_ACCUMULATOR_EVALUATIONS);
     for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
         accumulator_challenges[i] =
             transcript->template receive_from_prover<FF>("accumulator_challenge_" + std::to_string(i));
     }
-    for (size_t i = 0; i < 2; i++) {
+    for (size_t i = 0; i < Flavor::NUM_ACCUMULATOR_EVALUATIONS; i++) {
         accumulator_evaluations[i] =
             transcript->template receive_from_prover<FF>("accumulator_evaluation_" + std::to_string(i));
     }

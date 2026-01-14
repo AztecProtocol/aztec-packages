@@ -2,6 +2,6 @@
 members = [
     "examples/contracts/counter_contract",
     "examples/contracts/bob_token_contract",
-    "examples/tutorials/token_bridge_contract/contracts/aztec/nft",
-    "examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge"
+    "examples/contracts/nft",
+    "examples/contracts/nft_bridge"
 ]

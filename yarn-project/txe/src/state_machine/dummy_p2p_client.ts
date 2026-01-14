@@ -4,6 +4,7 @@ import type {
   ENR,
   P2P,
   P2PBlockReceivedCallback,
+  P2PCheckpointReceivedCallback,
   P2PConfig,
   P2PSyncState,
   PeerId,
@@ -14,14 +15,10 @@ import type {
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
-  public broadcastAttestations(_attestations: BlockAttestation[]): Promise<void> {
-    return Promise.resolve();
-  }
-
   public validate(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
@@ -46,8 +43,20 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
+  public broadcastCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {
+    throw new Error('DummyP2P does not implement "broadcastCheckpointProposal"');
+  }
+
+  public broadcastCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "broadcastCheckpointAttestations"');
+  }
+
   public registerBlockProposalHandler(_handler: P2PBlockReceivedCallback): void {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
+  }
+
+  public registerCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
+    throw new Error('DummyP2P does not implement "registerCheckpointProposalHandler"');
   }
 
   public requestTxs(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -120,16 +129,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<BlockAttestation[]> {
-    throw new Error('DummyP2P does not implement "getAttestationForSlot"');
+  public getCheckpointAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<CheckpointAttestation[]> {
+    throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 
-  public deleteAttestation(_attestation: BlockAttestation): Promise<void> {
-    return Promise.resolve();
-  }
-
-  public addAttestations(_attestations: BlockAttestation[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "addAttestations"');
+  public addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addCheckpointAttestations"');
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {

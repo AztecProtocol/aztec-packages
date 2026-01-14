@@ -1,11 +1,8 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { P2PClient, type PeerId, type TxPool, TxProvider } from '@aztec/p2p';
-import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { mockTx } from '@aztec/stdlib/testing';
+import type { BlockProposal } from '@aztec/stdlib/p2p';
+import { makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { Tx, type TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -36,9 +33,8 @@ describe('TxProvider', () => {
     return await Promise.all(times(numTxs, () => mockTx()));
   };
 
-  const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
-    const payload = new ConsensusPayload(CheckpointHeader.empty(), Fr.random());
-    return new BlockProposal(payload, Signature.empty(), txHashes, txs);
+  const buildProposal = (txs: Tx[], txHashes: TxHash[]): Promise<BlockProposal> => {
+    return makeBlockProposal({ txHashes, txs });
   };
 
   const setupTxPools = (txsInPool: number, txsOnP2P: number, txs: Tx[]) => {
@@ -119,7 +115,7 @@ describe('TxProvider', () => {
     // Random shuffle the txs so we test that the collection handles gaps in where txs are found
     const txs = shuffleTxs(original);
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const proposal = buildProposal([], hashes);
+    const proposal = await buildProposal([], hashes);
     const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs, missingTxs: [] };
     await checkResults(results, expected);
@@ -134,7 +130,7 @@ describe('TxProvider', () => {
     const txs = original;
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
-    const proposal = buildProposal([], hashes);
+    const proposal = await buildProposal([], hashes);
     const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 5), missingTxs: originalHashes.slice(5) };
     await checkResults(results, expected);
@@ -148,7 +144,7 @@ describe('TxProvider', () => {
 
     const txs = original;
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const proposal = buildProposal([], hashes);
+    const proposal = await buildProposal([], hashes);
     const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 6), missingTxs: originalHashes.slice(6) };
     await checkResults(results, expected);
@@ -162,7 +158,7 @@ describe('TxProvider', () => {
     // Random shuffle the txs so we test that the collection handles gaps in where txs are found
     const txs = shuffleTxs([...original]);
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const proposal = buildProposal(original.slice(6), hashes);
+    const proposal = await buildProposal(original.slice(6), hashes);
     const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs, missingTxs: [] };
     await checkResults(results, expected);
@@ -179,7 +175,7 @@ describe('TxProvider', () => {
 
     const proposalTxs = txs.slice(0, 6).map(tx => Object.assign(Tx.clone(tx) as Tx, { source: 'proposal' })); // 6 txs in proposal
     const proposalTxHashes = txs.map(tx => tx.txHash);
-    const proposal = buildProposal(proposalTxs, proposalTxHashes);
+    const proposal = await buildProposal(proposalTxs, proposalTxHashes);
 
     const p2pTxs = txs.slice(0, 8).map(tx => Object.assign(Tx.clone(tx) as Tx, { source: 'network' })); // 8 txs on p2p
     additionalP2PTxs.push(...p2pTxs);
@@ -215,7 +211,7 @@ describe('TxProvider', () => {
     // Random shuffle the txs so we test that the collection handles gaps in where txs are found
     const txs = original;
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const proposal = buildProposal(txs.slice(4, 8), hashes);
+    const proposal = await buildProposal(txs.slice(4, 8), hashes);
     const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 8), missingTxs: originalHashes.slice(8) };
     await checkResults(results, expected);
@@ -234,7 +230,7 @@ describe('TxProvider', () => {
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     // Add additional txs and these should not be added to the pool and not in the results
-    const proposal = buildProposal(txs.slice(4, 8).concat(additional), hashes);
+    const proposal = await buildProposal(txs.slice(4, 8).concat(additional), hashes);
     const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 8), missingTxs: originalHashes.slice(8) };
     await checkResults(results, expected);

@@ -16,6 +16,12 @@ export interface WalletInfo {
   version: string;
   /** Wallet's ECDH public key for secure channel establishment */
   publicKey: ExportedPublicKey;
+  /**
+   * Hash of the shared secret for anti-MITM verification.
+   * Both dApp and wallet independently compute this from the ECDH shared secret.
+   * Use {@link hashToEmoji} to convert to a visual representation for user verification.
+   */
+  verificationHash?: string;
 }
 
 /**
@@ -60,6 +66,8 @@ export interface DiscoveryRequest {
   requestId: string;
   /** Chain information to check if wallet supports this network */
   chainInfo: ChainInfo;
+  /** dApp's ECDH public key for deriving shared secret */
+  publicKey: ExportedPublicKey;
 }
 
 /**
@@ -72,18 +80,4 @@ export interface DiscoveryResponse {
   requestId: string;
   /** Wallet information */
   walletInfo: WalletInfo;
-}
-
-/**
- * Connection request to establish secure channel
- */
-export interface ConnectRequest {
-  /** Message type for connection */
-  type: 'aztec-wallet-connect';
-  /** Target wallet ID */
-  walletId: string;
-  /** Application ID */
-  appId: string;
-  /** dApp's ECDH public key for deriving shared secret */
-  publicKey: ExportedPublicKey;
 }

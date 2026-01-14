@@ -96,7 +96,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // ordered_range_constraint_i up to the given capacity and the remaining elements to the last range constraint.
     // Sorting is done by converting the elements to uint for efficiency.
     auto ordering_function = [&](size_t i) {
-        auto group = to_be_interleaved_groups[i];
+        const auto& group = to_be_interleaved_groups[i];
         std::vector<uint32_t> ordered_vectors_uint(dyadic_circuit_size_without_masking);
 
         // Calculate how much space there is for values from the group polynomials given we also need to append the
@@ -193,13 +193,12 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
     const size_t num_random_values_per_ordered = total_num_random_values / num_ordered_polynomials;
     const size_t remaining_random_values = total_num_random_values % num_ordered_polynomials;
 
-    std::array<FF, NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE>
-        random_values = {};
+    std::array<FF, total_num_random_values> random_values = {};
 
     // Add the random values from all interleaved polynomials to an array
     parallel_for(Flavor::NUM_INTERLEAVED_WIRES, [&](size_t i) {
         size_t idx = i * num_random_values_per_interleaved;
-        auto current_interleaved = interleaved[i];
+        const auto& current_interleaved = interleaved[i];
         for (size_t j = dyadic_circuit_size_without_masking; j < current_interleaved.end_index(); j++) {
             random_values[idx] = current_interleaved.at(j);
             idx++;

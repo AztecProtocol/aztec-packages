@@ -8,7 +8,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockSource } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -149,14 +149,20 @@ describe('prover-node', () => {
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
     l2BlockSource.getPublishedCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
+    const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
+    const latestHash = checkpoints.at(-1)!.hash().toString();
+    const genesisTipId = {
+      block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+    };
     l2BlockSource.getL2Tips.mockResolvedValue({
-      latest: {
-        number: BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number),
-        // TODO: This should be the actual block hash
-        hash: checkpoints.at(-1)!.hash().toString(),
+      proposed: { number: latestBlockNumber, hash: latestHash },
+      checkpointed: {
+        block: { number: latestBlockNumber, hash: latestHash },
+        checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
       },
-      proven: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-      finalized: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+      proven: genesisTipId,
+      finalized: genesisTipId,
     });
     l2BlockSource.getBlockHeader.mockImplementation(number =>
       Promise.resolve(number === checkpoints[0].blocks[0].number - 1 ? previousBlockHeader : undefined),

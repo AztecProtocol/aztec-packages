@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "generate": "./scripts/generate.sh"
+  }
+}

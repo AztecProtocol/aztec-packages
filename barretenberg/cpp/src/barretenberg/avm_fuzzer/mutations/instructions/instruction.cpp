@@ -533,6 +533,19 @@ std::vector<FuzzInstruction> generate_getcontractinstance_instruction(std::mt199
     return instructions;
 }
 
+uint8_t generate_envvar_type(std::mt19937_64& rng)
+{
+    bool valid_type = std::uniform_int_distribution<int>(0, 9)(rng) != 0;
+
+    if (valid_type) {
+        // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
+        // 7 -> MINFEEPERDAGAS, 8 -> MINFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
+        return std::uniform_int_distribution<uint8_t>(0, 11)(rng);
+    } else {
+        return generate_random_uint8(rng);
+    }
+}
+
 namespace bb::avm2::fuzzer {
 std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng, const FuzzerContext& context)
 {
@@ -671,7 +684,7 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng, const Fu
         return generate_sload_instruction(rng);
     case InstructionGenerationOptions::GETENVVAR:
         return { GETENVVAR_Instruction{ .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                        .type = generate_random_uint8(rng) } };
+                                        .type = generate_envvar_type(rng) } };
     case InstructionGenerationOptions::EMITNULLIFIER:
         return { EMITNULLIFIER_Instruction{ .nullifier_address = generate_variable_ref(rng) } };
     case InstructionGenerationOptions::NULLIFIEREXISTS:
@@ -724,6 +737,12 @@ std::vector<FuzzInstruction> generate_instruction(std::mt19937_64& rng, const Fu
         return generate_sha256compression_instruction(rng);
     case InstructionGenerationOptions::TORADIXBE:
         return generate_toradixbe_instruction(rng);
+    case InstructionGenerationOptions::DEBUGLOG:
+        return { { DEBUGLOG_Instruction{ .level_offset = generate_variable_ref(rng),
+                                         .message_offset = generate_variable_ref(rng),
+                                         .fields_offset = generate_variable_ref(rng),
+                                         .fields_size_offset = generate_variable_ref(rng),
+                                         .message_size = generate_random_uint16(rng) } } };
     }
 }
 /// Most of the tags will be equal to the default tag
@@ -1060,7 +1079,7 @@ void mutate_getenvvar_instruction(GETENVVAR_Instruction& instruction, std::mt199
         mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
         break;
     case GetEnvVarMutationOptions::type:
-        mutate_uint8_t(instruction.type, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
+        instruction.type = generate_envvar_type(rng);
         break;
     }
 }
@@ -1357,6 +1376,28 @@ void mutate_toradixbe_instruction(TORADIXBE_Instruction& instruction, std::mt199
     }
 }
 
+void mutate_debuglog_instruction(DEBUGLOG_Instruction& instruction, std::mt19937_64& rng)
+{
+    DebugLogMutationOptions option = BASIC_DEBUGLOG_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case DebugLogMutationOptions::level_offset:
+        mutate_param_ref(instruction.level_offset, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case DebugLogMutationOptions::message_offset:
+        mutate_param_ref(instruction.message_offset, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case DebugLogMutationOptions::fields_offset:
+        mutate_param_ref(instruction.fields_offset, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case DebugLogMutationOptions::fields_size_offset:
+        mutate_param_ref(instruction.fields_size_offset, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case DebugLogMutationOptions::message_size:
+        mutate_uint16_t(instruction.message_size, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
+
 void mutate_instruction(FuzzInstruction& instruction,
                         std::mt19937_64& rng,
                         [[maybe_unused]] const FuzzerContext& context)
@@ -1423,6 +1464,7 @@ void mutate_instruction(FuzzInstruction& instruction,
             [&rng](KECCAKF1600_Instruction& instr) { mutate_keccakf1600_instruction(instr, rng); },
             [&rng](SHA256COMPRESSION_Instruction& instr) { mutate_sha256compression_instruction(instr, rng); },
             [&rng](TORADIXBE_Instruction& instr) { mutate_toradixbe_instruction(instr, rng); },
+            [&rng](DEBUGLOG_Instruction& instr) { mutate_debuglog_instruction(instr, rng); },
             [](auto&) { throw std::runtime_error("Unknown instruction"); } },
         instruction);
 }

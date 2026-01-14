@@ -6,6 +6,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import { MAX_BLOCK_HASH_STRING_LENGTH, MAX_COMMITTEE_SIZE } from '../deserialization/index.js';
 import { L2Block } from './l2_block.js';
 import { L2BlockNew } from './l2_block_new.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
@@ -36,9 +37,9 @@ export class CheckpointedL2Block {
     const checkpointNumber = reader.readNumber();
     const block = reader.readObject(L2BlockNew);
     const l1BlockNumber = reader.readBigInt();
-    const l1BlockHash = reader.readString();
+    const l1BlockHash = reader.readString(MAX_BLOCK_HASH_STRING_LENGTH);
     const l1Timestamp = reader.readBigInt();
-    const attestations = reader.readVector(CommitteeAttestation);
+    const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
     return new CheckpointedL2Block(
       CheckpointNumber(checkpointNumber),
       block,
@@ -89,9 +90,9 @@ export class PublishedL2Block {
     const reader = BufferReader.asReader(bufferOrReader);
     const block = reader.readObject(L2Block);
     const l1BlockNumber = reader.readBigInt();
-    const l1BlockHash = reader.readString();
+    const l1BlockHash = reader.readString(MAX_BLOCK_HASH_STRING_LENGTH);
     const l1Timestamp = reader.readBigInt();
-    const attestations = reader.readVector(CommitteeAttestation);
+    const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
     return new PublishedL2Block(block, new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash), attestations);
   }
 

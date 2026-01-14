@@ -277,7 +277,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     pos++; // move after opcode byte
 
-    uint16_t indirect = 0;
+    uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
     for (const OperandType op_type : inst_format) {
         const auto operand_size = get_operand_type_size_bytes().at(op_type);
@@ -291,14 +291,14 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
             break;
         }
         case OperandType::INDIRECT8: {
-            indirect = bytecode[pos];
+            addressing_mode = bytecode[pos];
             break;
         }
         case OperandType::INDIRECT16: {
             uint16_t operand_u16 = 0;
             uint8_t const* pos_ptr = &bytecode[pos];
             serialize::read(pos_ptr, operand_u16);
-            indirect = operand_u16;
+            addressing_mode = operand_u16;
             break;
         }
         case OperandType::UINT16: {
@@ -341,7 +341,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     return {
         .opcode = opcode,
-        .indirect = indirect,
+        .addressing_mode = addressing_mode,
         .operands = std::move(operands),
     };
 };
@@ -353,10 +353,10 @@ std::string Instruction::to_string() const
     for (size_t operand_pos = 0; operand_pos < operands.size(); ++operand_pos) {
         const auto& operand = operands[operand_pos];
         oss << std::to_string(operand);
-        if (is_operand_relative(indirect, static_cast<uint8_t>(operand_pos))) {
+        if (is_operand_relative(addressing_mode, static_cast<uint8_t>(operand_pos))) {
             oss << "R";
         }
-        if (is_operand_indirect(indirect, static_cast<uint8_t>(operand_pos))) {
+        if (is_operand_indirect(addressing_mode, static_cast<uint8_t>(operand_pos))) {
             oss << "I";
         }
         oss << " ";
@@ -386,13 +386,13 @@ std::vector<uint8_t> Instruction::serialize() const
     for (const auto& operand_type : get_wire_opcode_wire_format().at(opcode)) {
         switch (operand_type) {
         case OperandType::INDIRECT8:
-            output.emplace_back(static_cast<uint8_t>(indirect));
+            output.emplace_back(static_cast<uint8_t>(addressing_mode));
             break;
         case OperandType::INDIRECT16: {
-            const auto indirect_vec = to_buffer(indirect);
+            const auto addressing_mode_vec = to_buffer(addressing_mode);
             output.insert(output.end(),
-                          std::make_move_iterator(indirect_vec.begin()),
-                          std::make_move_iterator(indirect_vec.end()));
+                          std::make_move_iterator(addressing_mode_vec.begin()),
+                          std::make_move_iterator(addressing_mode_vec.end()));
         } break;
         case OperandType::TAG:
         case OperandType::UINT8:

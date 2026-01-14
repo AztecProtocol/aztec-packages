@@ -10,10 +10,12 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/get_contract_instance.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_contract_instance.hpp"
+#include "barretenberg/vm2/generated/relations/perms_get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -24,6 +26,7 @@ namespace {
 using simulation::EventEmitter;
 using simulation::GetContractInstanceEvent;
 using tracegen::GetContractInstanceTraceBuilder;
+using tracegen::MemoryTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
@@ -396,6 +399,126 @@ TEST(GetContractInstanceConstrainingTest, IntegrationTracegenOutOfBounds)
     precomputed_builder.process_get_contract_instance_table(trace);
 
     check_relation<get_contract_instance>(trace);
+}
+
+// =====================================================================
+// Ghost Row Injection Vulnerability Tests
+// =====================================================================
+// These tests verify that ghost rows (sel=0) cannot fire permutations.
+// The fix: is_valid_member_enum * (1 - sel) = 0 ensures is_valid_member_enum
+// is forced to 0 when sel=0, preventing ghost rows from firing permutations.
+//
+// Test that the fix blocks ghost row injection attacks.
+// Attack pattern:
+// 1. Create legitimate memory WRITE events (destination side)
+// 2. Build memory trace from those events
+// 3. Inject ghost get_contract_instance row with sel=0 but is_valid_member_enum=1
+// 4. The fix should cause the relation check to fail
+TEST(GetContractInstanceConstrainingTest, NegativeGhostRowInjectionBlocked)
+{
+    TestTraceContainer trace;
+    MemoryTraceBuilder memory_trace_builder;
+    PrecomputedTraceBuilder precomputed_trace_builder;
+
+    // Attacker-controlled values
+    uint32_t malicious_clk = 42;
+    uint16_t malicious_space_id = 1;
+    MemoryAddress malicious_dst_offset = 0x100;
+    uint1_t malicious_instance_exists = 1;
+    MemoryTag exists_tag = MemoryTag::U1;
+
+    // Create legitimate memory events
+    std::vector<simulation::MemoryEvent> mem_events = {
+        {
+            .execution_clk = malicious_clk,
+            .mode = simulation::MemoryMode::WRITE,
+            .addr = malicious_dst_offset,
+            .value = MemoryValue::from<uint1_t>(malicious_instance_exists),
+            .space_id = malicious_space_id,
+        },
+    };
+
+    // Build memory trace (destination side)
+    precomputed_trace_builder.process_sel_range_8(trace);
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+    precomputed_trace_builder.process_tag_parameters(trace);
+    memory_trace_builder.process(mem_events, trace);
+
+    // Find where the memory row was placed
+    uint32_t memory_row = 0;
+    for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
+        if (trace.get(C::memory_sel, row) == 1) {
+            memory_row = row;
+            break;
+        }
+    }
+
+    // Inject ghost get_contract_instance row
+    // Ghost row: sel = 0, but is_valid_member_enum = 1 (attack attempt)
+    uint32_t ghost_row = 0;
+    trace.set(ghost_row,
+              std::vector<std::pair<Column, FF>>{
+                  { C::precomputed_first_row, 1 },
+                  { C::precomputed_clk, ghost_row },
+                  { C::get_contract_instance_sel, 0 },
+                  { C::get_contract_instance_is_valid_member_enum, 1 },
+                  { C::get_contract_instance_is_valid_writes_in_bounds, 1 },
+                  { C::get_contract_instance_exists_tag, static_cast<uint8_t>(exists_tag) },
+                  { C::get_contract_instance_clk, malicious_clk },
+                  { C::get_contract_instance_space_id, malicious_space_id },
+                  { C::get_contract_instance_dst_offset, malicious_dst_offset },
+                  { C::get_contract_instance_instance_exists, static_cast<uint64_t>(malicious_instance_exists) },
+                  { C::get_contract_instance_sel_error, 0 },
+                  { C::get_contract_instance_is_deployer, 0 },
+                  { C::get_contract_instance_is_class_id, 0 },
+                  { C::get_contract_instance_is_init_hash, 0 },
+                  { C::get_contract_instance_selected_member, 0 },
+                  { C::get_contract_instance_member_write_offset, malicious_dst_offset + 1 },
+                  { C::get_contract_instance_member_tag, static_cast<uint8_t>(MemoryTag::FF) },
+              });
+
+    trace.set(C::memory_sel_get_contract_instance_exists_write, memory_row, 1);
+
+    // The fix: is_valid_writes_in_bounds * (1 - sel) = 0 should cause the relation check to fail
+    // (in conjunction with WRITES_OUT_OF_BOUNDS * is_valid_member_enum = 0)
+    EXPECT_THROW_WITH_MESSAGE(check_relation<get_contract_instance>(trace), "IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL");
+}
+
+// M-1: Verifies tracegen sets member_write_offset = 0 when writes are out of bounds.
+// PIL constraint: member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1)
+TEST(GetContractInstanceConstrainingTest, TracegenMemberWriteOffsetOutOfBounds)
+{
+    EventEmitter<GetContractInstanceEvent> emitter;
+    emitter.emit(GetContractInstanceEvent{
+        .execution_clk = 1,
+        .contract_address = 0x1234,
+        .dst_offset = AVM_HIGHEST_MEM_ADDRESS, // Boundary case: writes out of bounds
+        .member_enum = static_cast<uint8_t>(ContractInstanceMember::DEPLOYER),
+        .space_id = 1,
+        .nullifier_tree_root = 0x5678,
+        .public_data_tree_root = 0x9ABC,
+        .instance_exists = true,
+        .retrieved_deployer_addr = 0xDEAD,
+        .retrieved_class_id = 0xBEEF,
+        .retrieved_init_hash = 0xCAFE,
+    });
+
+    TestTraceContainer trace;
+    GetContractInstanceTraceBuilder().process(emitter.dump_events(), trace);
+    PrecomputedTraceBuilder().process_get_contract_instance_table(trace);
+
+    // Row 1 has the data (row 0 is skippable setup)
+    constexpr uint32_t data_row = 1;
+    EXPECT_EQ(trace.get(C::get_contract_instance_is_valid_writes_in_bounds, data_row), FF(0));
+    EXPECT_EQ(trace.get(C::get_contract_instance_member_write_offset, data_row), FF(0));
+    check_relation<get_contract_instance>(trace);
+
+    // Negative: incorrect value fails the constraint
+    trace.set(C::get_contract_instance_member_write_offset, data_row, FF(AVM_HIGHEST_MEM_ADDRESS) + FF(1));
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET),
+        "MEMBER_WRITE_OFFSET");
 }
 
 } // namespace

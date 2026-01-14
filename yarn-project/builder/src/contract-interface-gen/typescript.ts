@@ -11,6 +11,7 @@ import {
   isBoundedVecStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
+  isPublicKeysStruct,
   isWrappedFieldStruct,
 } from '@aztec/stdlib/abi';
 
@@ -43,6 +44,11 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';
+      }
+      if (isPublicKeysStruct(type)) {
+        // PublicKeys are special cased due to them being part of the preimage of contract addresses.
+        // The proper type is expected by the TS code that deals with the ContractInstanceRegistry protocol contract.
+        return 'PublicKeys';
       }
       if (isBoundedVecStruct(type)) {
         // To make BoundedVec easier to work with, we expect a simple array on the input and then we encode it

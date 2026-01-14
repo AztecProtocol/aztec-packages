@@ -62,7 +62,7 @@ export class TestWallet extends BaseTestWallet {
     const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
+    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }

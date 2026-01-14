@@ -56,8 +56,8 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
 

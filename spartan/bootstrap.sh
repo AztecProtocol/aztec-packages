@@ -117,7 +117,7 @@ function network_tests {
 }
 
 function network_bench_cmds {
-  echo "$hash:TIMEOUT=7200 BENCH_OUTPUT=bench-out/n_tps.bench.json TPS_TARGET=0.1,0.2,0.5 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  echo "$hash:TIMEOUT=7200 BENCH_OUTPUT=bench-out/n_tps.bench.json LOW_VALUE_TPS=0.2 HIGH_VALUE_TPS=0.1 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
 function network_bench {

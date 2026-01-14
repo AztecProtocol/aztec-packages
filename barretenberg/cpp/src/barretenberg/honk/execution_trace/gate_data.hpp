@@ -1,18 +1,16 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Luke], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <cstdint>
 
-// TODO(#557): The field-specific aliases for gates should be removed and the type could be explicit when this
-// structures are used to avoid having foo_gate and foo_gate_grumpkin (i.e. use foo_gate<field> instead). Moreover, we
-// need to ensure the read/write functions handle grumpkin gates as well.
 namespace bb {
+
+// 3-wire addition gate: a*a_scaling + b*b_scaling + c*c_scaling + const_scaling = 0
 template <typename FF> struct add_triple_ {
     uint32_t a;
     uint32_t b;
@@ -23,6 +21,7 @@ template <typename FF> struct add_triple_ {
     FF const_scaling;
 };
 
+// 4-wire addition gate: a*a_scaling + b*b_scaling + c*c_scaling + d*d_scaling + const_scaling = 0
 template <typename FF> struct add_quad_ {
     uint32_t a;
     uint32_t b;
@@ -34,6 +33,8 @@ template <typename FF> struct add_quad_ {
     FF d_scaling;
     FF const_scaling;
 };
+
+// 4-wire mul-add gate: a*b*mul_scaling + a*a_scaling + b*b_scaling + c*c_scaling + d*d_scaling + const_scaling = 0
 template <typename FF> struct mul_quad_ {
     uint32_t a;
     uint32_t b;
@@ -46,14 +47,8 @@ template <typename FF> struct mul_quad_ {
     FF d_scaling;
     FF const_scaling;
 };
-template <typename FF> struct mul_triple_ {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    FF mul_scaling;
-    FF c_scaling;
-    FF const_scaling;
-};
+
+// Arithmetic gate with standard selector naming: q_m*a*b + q_l*a + q_r*b + q_o*c + q_c = 0
 template <typename FF> struct arithmetic_triple_ {
     uint32_t a;
     uint32_t b;
@@ -66,7 +61,10 @@ template <typename FF> struct arithmetic_triple_ {
 
     friend bool operator==(arithmetic_triple_<FF> const& lhs, arithmetic_triple_<FF> const& rhs) = default;
 };
+
 using arithmetic_triple = arithmetic_triple_<bb::fr>;
+
+// Goblin ECCVM operation: stores op type, point coordinates (split into limbs), and scalar
 struct ecc_op_tuple {
     uint32_t op;
     uint32_t x_lo;
@@ -78,52 +76,7 @@ struct ecc_op_tuple {
     bool return_is_infinity;
 };
 
-template <typename B, typename FF> inline void read(B& buf, arithmetic_triple_<FF>& constraint)
-{
-    using serialize::read;
-    read(buf, constraint.a);
-    read(buf, constraint.b);
-    read(buf, constraint.c);
-    read(buf, constraint.q_m);
-    read(buf, constraint.q_l);
-    read(buf, constraint.q_r);
-    read(buf, constraint.q_o);
-    read(buf, constraint.q_c);
-}
-template <typename B, typename FF> inline void write(B& buf, arithmetic_triple_<FF> const& constraint)
-{
-    using serialize::write;
-    write(buf, constraint.a);
-    write(buf, constraint.b);
-    write(buf, constraint.c);
-    write(buf, constraint.q_m);
-    write(buf, constraint.q_l);
-    write(buf, constraint.q_r);
-    write(buf, constraint.q_o);
-    write(buf, constraint.q_c);
-}
-
-template <typename FF> struct fixed_group_add_quad_ {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
-    FF q_x_1;
-    FF q_x_2;
-    FF q_y_1;
-    FF q_y_2;
-};
-template <typename FF> struct fixed_group_init_quad_ {
-    FF q_x_1;
-    FF q_x_2;
-    FF q_y_1;
-    FF q_y_2;
-};
-template <typename FF> struct accumulator_triple_ {
-    std::vector<uint32_t> left;
-    std::vector<uint32_t> right;
-    std::vector<uint32_t> out;
-};
+// Embedded curve point addition: (x1, y1) + sign_coefficient * (x2, y2) = (x3, y3)
 template <typename FF> struct ecc_add_gate_ {
     uint32_t x1;
     uint32_t y1;
@@ -133,6 +86,8 @@ template <typename FF> struct ecc_add_gate_ {
     uint32_t y3;
     FF sign_coefficient;
 };
+
+// Embedded curve point doubling: 2 * (x1, y1) = (x3, y3)
 template <typename FF> struct ecc_dbl_gate_ {
     uint32_t x1;
     uint32_t y1;
@@ -140,12 +95,13 @@ template <typename FF> struct ecc_dbl_gate_ {
     uint32_t y3;
 };
 
+// Databus lookup gate: reads value at index from calldata/returndata
 template <typename FF> struct databus_lookup_gate_ {
     uint32_t index;
     uint32_t value;
 };
 
-/* External gate data for poseidon2 external round*/
+// External gate data for poseidon2 external round
 template <typename FF> struct poseidon2_external_gate_ {
     uint32_t a;
     uint32_t b;
@@ -154,7 +110,7 @@ template <typename FF> struct poseidon2_external_gate_ {
     size_t round_idx;
 };
 
-/* Internal gate data for poseidon2 internal round*/
+// Internal gate data for poseidon2 internal round
 template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t a;
     uint32_t b;

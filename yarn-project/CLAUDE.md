@@ -92,29 +92,27 @@ env LOG_LEVEL='info; debug:sequencer,archiver' yarn test src/file.test.ts
 
 ## Format & Lint
 
-All commands run from `yarn-project`.
+**IMPORTANT**: These commands are run from the root of `yarn-project`, NOT the git root.
 
-### Single Package (Preferred)
+### Format
 
 ```bash
-./bootstrap.sh format <package-name>
-./bootstrap.sh lint <package-name>
+./bootstrap.sh format                  # All packages
+./bootstrap.sh format <package-name>   # Single package (faster)
+./bootstrap.sh format <package-name> --check  # Check only, no changes
 ```
 
-### All Packages
-
-Only when multiple packages are modified:
+### Lint
 
 ```bash
-./bootstrap.sh format
-./bootstrap.sh lint
+yarn lint                              # Same command CI uses - run this before pushing
 ```
 
-### Check Mode (No Changes)
+For faster iteration during development:
 
 ```bash
-./bootstrap.sh format <package-name> --check
-./bootstrap.sh lint <package-name> --check
+./bootstrap.sh lint <package-name>     # Single package (faster)
+./bootstrap.sh lint                    # All packages
 ```
 
 ## Dependency Management
@@ -194,6 +192,19 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 - **Production**: `master` branch
 - **Backport**: Fix in release branch -> forward-port to `next`
 - **Forward-port**: Fix in `next` -> backport if needed
+
+### Determining the Base Branch
+
+**Never assume the base branch is `master`**. Most branches are based on `next`, not `master`. When you need to compare commits or understand changes on a branch:
+
+```bash
+# If there's an open PR, check its base branch
+gh pr view --json baseRefName -q '.baseRefName'
+
+# Compare against the correct base
+git log origin/<base-branch>..HEAD   # commits on this branch
+git diff origin/<base-branch>...HEAD  # changes on this branch
+```
 
 ### Port Commits
 

@@ -14,7 +14,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -31,14 +31,7 @@ import {
 } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import {
-  BlockBuilder,
-  GlobalVariableBuilder,
-  SequencerClient,
-  type SequencerPublisher,
-  createValidatorForAcceptingTxs,
-} from '@aztec/sequencer-client';
-import { CheckpointsBuilder } from '@aztec/sequencer-client';
+import { BlockBuilder, GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -52,11 +45,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockParameter,
   type DataInBlock,
-  type L2Block,
+  L2Block,
   L2BlockHash,
+  L2BlockHeader,
+  L2BlockNew,
   type L2BlockSource,
   type PublishedL2Block,
 } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -111,10 +107,13 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 import {
+  FullNodeCheckpointsBuilder as CheckpointsBuilder,
+  FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
   ValidatorClient,
   createBlockProposalHandler,
   createValidatorClient,
+  createValidatorForAcceptingTxs,
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -130,6 +129,7 @@ import { NodeMetrics } from './node_metrics.js';
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
+  private initialHeaderHashPromise: Promise<Fr> | undefined = undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -311,9 +311,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
+    // Create BlockBuilder for EpochPruneWatcher (slasher functionality)
     const blockBuilder = new BlockBuilder(
       { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
+    // Create FullNodeCheckpointsBuilder for validator and non-validator block proposal handling
+    const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       archiver,
       dateProvider,
       telemetry,
@@ -324,11 +333,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // Create validator client if required
     const validatorClient = createValidatorClient(config, {
+      checkpointsBuilder: validatorCheckpointsBuilder,
+      worldState: worldStateSynchronizer,
       p2pClient,
       telemetry,
       dateProvider,
       epochCache,
-      blockBuilder,
       blockSource: archiver,
       l1ToL2MessageSource: archiver,
       keyStoreManager,
@@ -350,7 +360,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!validatorClient && config.alwaysReexecuteBlockProposals) {
       log.info('Setting up block proposal reexecution for monitoring');
       createBlockProposalHandler(config, {
-        blockBuilder,
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
         epochCache,
         blockSource: archiver,
         l1ToL2MessageSource: archiver,
@@ -577,6 +588,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async getBlock(number: BlockParameter): Promise<L2Block | undefined> {
     const blockNumber = number === 'latest' ? await this.getBlockNumber() : (number as BlockNumber);
+    if (blockNumber === BlockNumber.ZERO) {
+      return this.buildInitialBlock();
+    }
     return await this.blockSource.getBlock(blockNumber);
   }
 
@@ -586,8 +600,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const initialBlockHash = await this.#getInitialHeaderHash();
+    if (blockHash.equals(initialBlockHash)) {
+      return this.buildInitialBlock();
+    }
     const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
     return publishedBlock?.block;
+  }
+
+  private buildInitialBlock(): L2Block {
+    const initialHeader = this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    // TODO: (pw/mbps) Clean this up when we move completely to the new types.
+    // return L2BlockNew.empty(initialHeader);
+    const oldBlockHeader = L2BlockHeader.empty();
+    oldBlockHeader.state.l1ToL2MessageTree.root = initialHeader.state.l1ToL2MessageTree.root;
+    oldBlockHeader.state.partial.noteHashTree.root = initialHeader.state.partial.noteHashTree.root;
+    oldBlockHeader.state.partial.nullifierTree.root = initialHeader.state.partial.nullifierTree.root;
+    oldBlockHeader.state.partial.nullifierTree.nextAvailableLeafIndex =
+      initialHeader.state.partial.nullifierTree.nextAvailableLeafIndex;
+    oldBlockHeader.state.partial.publicDataTree.root = initialHeader.state.partial.publicDataTree.root;
+    oldBlockHeader.state.partial.publicDataTree.nextAvailableLeafIndex =
+      initialHeader.state.partial.publicDataTree.nextAvailableLeafIndex;
+    return L2Block.empty(oldBlockHeader);
   }
 
   /**
@@ -612,6 +646,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
     return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
+  }
+
+  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
+  }
+
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit, proven)) ?? [];
   }
 
   /**
@@ -1135,6 +1181,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block header.
    */
   public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    const initialBlockHash = await this.#getInitialHeaderHash();
+    if (blockHash.equals(initialBlockHash)) {
+      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    }
     return await this.blockSource.getBlockHeaderByHash(blockHash);
   }
 
@@ -1316,7 +1366,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // And it has an L2 block hash
-    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.proposed.hash);
     if (!l2BlockHash) {
       this.metrics.recordSnapshotError();
       throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
@@ -1350,7 +1400,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error('Archiver implementation does not support rollbacks.');
     }
 
-    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.number);
+    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.block.number);
     if (targetBlock < finalizedBlock) {
       if (force) {
         this.log.warn(`Clearing world state database to allow rolling back behind finalized block ${finalizedBlock}`);
@@ -1409,6 +1459,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }
+  }
+
+  #getInitialHeaderHash(): Promise<Fr> {
+    if (!this.initialHeaderHashPromise) {
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
+    }
+    return this.initialHeaderHashPromise;
   }
 
   /**

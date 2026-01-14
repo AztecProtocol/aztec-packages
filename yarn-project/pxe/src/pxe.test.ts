@@ -1,8 +1,7 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { omit } from '@aztec/foundation/collection';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -11,7 +10,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
+import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockHash } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
@@ -117,12 +116,10 @@ describe('PXE', () => {
     const instance = await randomContractInstanceWithAddress({ contractClassId });
 
     await pxe.registerContractClass(artifact);
-    expect((await pxe.getContractClassMetadata(contractClassId)).contractClass).toMatchObject(
-      omit(contractClass, 'privateFunctionsRoot', 'publicBytecodeCommitment'),
-    );
+    expect(await pxe.getContractArtifact(contractClassId)).toEqual(artifact);
 
     await pxe.registerContract({ instance });
-    expect((await pxe.getContractMetadata(instance.address)).contractInstance).toEqual(instance);
+    expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
   });
 
   it('refuses to register a class with a mismatched address', async () => {
@@ -163,7 +160,6 @@ describe('PXE', () => {
     let l2BlockHash: L2BlockHash;
     let scope: AztecAddress;
     let privateEventStore: PrivateEventStore;
-    let eventIndex = 0;
 
     beforeEach(async () => {
       // Set up basic state
@@ -177,10 +173,15 @@ describe('PXE', () => {
       node.getBlockHeader.mockResolvedValue(blockHeader);
 
       // Mock getL2Tips which is needed for syncing tagged logs
+      const tipId = {
+        block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: CheckpointNumber(lastKnownBlockNumber), hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      };
       node.getL2Tips.mockResolvedValue({
-        latest: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        proven: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        finalized: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpointed: tipId,
+        proven: tipId,
+        finalized: tipId,
       });
 
       // This is read when PXE tries to resolve the
@@ -209,6 +210,8 @@ describe('PXE', () => {
       privateEventStore = new PrivateEventStore(kvStore);
     });
 
+    let eventCounter = 0;
+
     async function storeEvent(blockNumber?: number): Promise<PackedPrivateEvent> {
       const event = {
         packedEvent: [Fr.random(), Fr.random()],
@@ -219,14 +222,23 @@ describe('PXE', () => {
       };
 
       const randomness = Fr.random();
+      const siloedEventCommitment = Fr.random();
 
-      await privateEventStore.storePrivateEventLog(eventSelector, randomness, event.packedEvent, eventIndex++, {
-        contractAddress,
-        scope,
-        txHash: event.txHash,
-        l2BlockNumber: event.l2BlockNumber,
-        l2BlockHash: event.l2BlockHash,
-      });
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        event.packedEvent,
+        siloedEventCommitment,
+        {
+          contractAddress,
+          scope,
+          txHash: event.txHash,
+          l2BlockNumber: event.l2BlockNumber,
+          l2BlockHash: event.l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: eventCounter++,
+        },
+      );
 
       return event;
     }

@@ -63,6 +63,7 @@ describe('Logs', () => {
       const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
       const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
 
+      // docs:start:get_private_events
       const eventFilter: PrivateEventFilter = {
         contractAddress: testLogContract.address,
         fromBlock: BlockNumber(firstBlockNumber),
@@ -81,6 +82,7 @@ describe('Logs', () => {
         TestLogContract.events.ExampleEvent1,
         eventFilter,
       );
+      // docs:end:get_private_events
 
       expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
       expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
@@ -132,6 +134,7 @@ describe('Logs', () => {
         .send({ from: account1Address })
         .wait();
 
+      // docs:start:get_public_events
       const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
         aztecNode,
         TestLogContract.events.ExampleEvent0,
@@ -145,6 +148,7 @@ describe('Logs', () => {
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
+      // docs:end:get_public_events
 
       expect(collectedEvent0s.length).toBe(5);
       expect(collectedEvent1s.length).toBe(5);

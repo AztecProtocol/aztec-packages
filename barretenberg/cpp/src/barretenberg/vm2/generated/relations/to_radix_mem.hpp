@@ -14,9 +14,9 @@ template <typename FF_> class to_radix_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 38> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3,
+    static constexpr std::array<size_t, 39> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3,
                                                                             3, 3, 3, 5, 3, 5, 3, 5, 3, 6, 3, 4, 4,
-                                                                            3, 3, 4, 4, 4, 4, 4, 4, 7, 4, 4, 3 };
+                                                                            3, 3, 4, 4, 4, 4, 4, 4, 7, 4, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -56,6 +56,7 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 33;
     static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 34;
     static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_CONTINUITY = 36;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL = 37;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -98,6 +99,8 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
             return "LAST_ROW_VALID_COMPUTATION";
         case SR_SEL_SHOULD_WRITE_MEM_CONTINUITY:
             return "SEL_SHOULD_WRITE_MEM_CONTINUITY";
+        case SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL:
+            return "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL";
         }
         return std::to_string(index);
     }

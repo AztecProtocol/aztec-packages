@@ -845,6 +845,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
+    "@aztec/builder": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -948,7 +949,7 @@ __metadata:
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
   bin:
-    aztec: ./dest/bin/index.js
+    aztec: ./scripts/aztec.sh
   languageName: unknown
   linkType: soft
 
@@ -1160,6 +1161,8 @@ __metadata:
     "@aztec/node-lib": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/test-wallet": "workspace:^"
@@ -2267,7 +2270,11 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
+    "@aztec/simulator": "workspace:^"
     "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"

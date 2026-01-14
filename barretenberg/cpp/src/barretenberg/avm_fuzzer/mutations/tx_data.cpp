@@ -6,6 +6,7 @@
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/accumulated_data.hpp"
+#include "barretenberg/avm_fuzzer/mutations/tx_types/gas.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/public_call_request.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
@@ -58,20 +59,6 @@ void mutate_teardown(std::optional<PublicCallRequestWithCalldata>& teardown_call
 
 namespace bb::avm2::fuzzer {
 
-// Gas bounds for mutation
-constexpr uint32_t MIN_GAS = 1000;
-constexpr uint32_t MAX_GAS = 10000000;
-
-// Fee bounds for mutation
-constexpr uint128_t MIN_FEE = 1;
-constexpr uint128_t MAX_FEE = 1000;
-
-constexpr uint32_t AVM_MAX_PROCESSABLE_DA_GAS = (MAX_NOTE_HASHES_PER_TX * AVM_EMITNOTEHASH_BASE_DA_GAS) +
-                                                (MAX_NULLIFIERS_PER_TX * AVM_EMITNULLIFIER_BASE_DA_GAS) +
-                                                (MAX_L2_TO_L1_MSGS_PER_TX * AVM_SENDL2TOL1MSG_BASE_DA_GAS) +
-                                                (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * AVM_SSTORE_DYN_DA_GAS) +
-                                                (PUBLIC_LOGS_LENGTH * AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS);
-
 void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt19937_64& rng)
 {
     auto choice = TX_MUTATION_CONFIGURATION.select(rng);
@@ -102,98 +89,35 @@ void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt199
         fuzz_info("Mutating revertible accumulated data");
         mutate_revertible_accumulated_data(tx.revertible_accumulated_data, rng);
         break;
-
-        // case 2:
-        //     // Mutate gas_settings
-        //     mutate_gas_settings(tx.gas_settings, rng);
-        //     break;
-        // case 3:
-        //     // Mutate effective_gas_fees
-        //     mutate_gas_fees(tx.effective_gas_fees, rng);
-        //     break;
-        // case 4:
-        //     // Mutate Deployment data
-        //     break;
-        // case 8:
-        //     // Mutate gas_used_by_private
-        //     break;
-        // case 9:
-        //     // Mutate fee_payer
-        //     break;
-        //}
-    }
-}
-
-void mutate_gas_settings(GasSettings& gas_settings, std::mt19937_64& rng)
-{
-    auto choice = std::uniform_int_distribution<uint8_t>(0, 3)(rng);
-
-    switch (choice) {
-    case 0:
-        // Pick a Gas Limit between [0, AVM_MAX_PROCESSABLE_L2_GAS]
-        // fixme: probably should not mutate both l2_gas and da_gas to max in one go
-        gas_settings.gas_limits.l2_gas = std::uniform_int_distribution<uint32_t>(0, AVM_MAX_PROCESSABLE_L2_GAS)(rng);
-        gas_settings.gas_limits.da_gas = std::uniform_int_distribution<uint32_t>(0, AVM_MAX_PROCESSABLE_DA_GAS)(rng);
+    case TxMutationOptions::GasSettings:
+        // Mutate gas_settings
+        fuzz_info("Mutating gas settings");
+        mutate_gas_settings(tx.gas_settings, rng);
+        // Ensure effective_gas_fees <= max_fees_per_gas after mutation
+        tx.effective_gas_fees.fee_per_da_gas =
+            std::min(tx.effective_gas_fees.fee_per_da_gas, tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
+        tx.effective_gas_fees.fee_per_l2_gas =
+            std::min(tx.effective_gas_fees.fee_per_l2_gas, tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
         break;
-    case 1:
-        // Mutate teardown_gas_limits
-        gas_settings.teardown_gas_limits.l2_gas =
-            std::uniform_int_distribution<uint32_t>(0, AVM_MAX_PROCESSABLE_L2_GAS)(rng);
-        gas_settings.teardown_gas_limits.da_gas =
-            std::uniform_int_distribution<uint32_t>(0, AVM_MAX_PROCESSABLE_DA_GAS)(rng);
+    case TxMutationOptions::GasFees:
+        // Mutate effective_gas_fees
+        fuzz_info("Mutating effective gas fees");
+        mutate_gas_fees(tx.effective_gas_fees, rng);
+        // Ensure effective_gas_fees <= max_fees_per_gas after mutation
+        tx.effective_gas_fees.fee_per_da_gas =
+            std::min(tx.effective_gas_fees.fee_per_da_gas, tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
+        tx.effective_gas_fees.fee_per_l2_gas =
+            std::min(tx.effective_gas_fees.fee_per_l2_gas, tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
         break;
-    case 2:
-        // Mutate max_fees_per_gas
-        // mutate_gas_fees(gas_settings.max_fees_per_gas, rng);
+    case TxMutationOptions::GasUsedByPrivate:
+        // Mutate gas_used_by_private
+        fuzz_info("Mutating gas used by private");
+        mutate_gas(tx.gas_used_by_private, rng, tx.gas_settings.gas_limits);
         break;
-    case 3:
-        // Mutate max_priority_fees_per_gas
-        // mutate_gas_fees(gas_settings.max_priority_fees_per_gas, rng);
-        break;
-    }
-}
-
-void mutate_gas(Gas& gas, std::mt19937_64& rng)
-{
-    auto choice = std::uniform_int_distribution<uint8_t>(0, 2)(rng);
-
-    switch (choice) {
-    case 0:
-        // Mutate l2_gas
-        gas.l2_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, MAX_GAS)(rng);
-        break;
-    case 1:
-        // Mutate da_gas
-        gas.da_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, MAX_GAS)(rng);
-        break;
-    case 2:
-        // Set both to same value
-        gas.l2_gas = gas.da_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, MAX_GAS)(rng);
-        break;
-    }
-}
-
-void mutate_gas_fees(GasFees& fees, std::mt19937_64& rng)
-{
-    auto choice = std::uniform_int_distribution<uint8_t>(0, 3)(rng);
-
-    switch (choice) {
-    case 0:
-        // Mutate fee_per_da_gas
-        fees.fee_per_da_gas = std::uniform_int_distribution<uint64_t>(MIN_FEE, MAX_FEE)(rng);
-        break;
-    case 1:
-        // Mutate fee_per_l2_gas
-        fees.fee_per_l2_gas = std::uniform_int_distribution<uint64_t>(MIN_FEE, MAX_FEE)(rng);
-        break;
-    case 2:
-        // Set both to zero
-        fees.fee_per_da_gas = 0;
-        fees.fee_per_l2_gas = 0;
-        break;
-    case 3:
-        // Set both to same non-zero value
-        fees.fee_per_da_gas = fees.fee_per_l2_gas = std::uniform_int_distribution<uint64_t>(1, MAX_FEE)(rng);
+    case TxMutationOptions::FeePayer:
+        // Mutate fee_payer
+        fuzz_info("Mutating fee payer");
+        mutate_field(tx.fee_payer, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     }
 }
