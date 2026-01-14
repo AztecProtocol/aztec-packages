@@ -103,24 +103,24 @@ impl TestBuilder {
         assert_eq(pi.new_archive, right.new_archive);
         assert(pi.previous_archive != pi.new_archive);
 
+        assert_eq(pi.previous_out_hash, left.previous_out_hash);
+        assert_eq(pi.new_out_hash, right.new_out_hash);
+        assert(pi.previous_out_hash != pi.new_out_hash);
+
         let mut expected_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
-        let mut expected_out_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         let mut expected_fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
         for i in 0..self.num_left_checkpoints as u32 {
             expected_header_hashes[i] = left.checkpoint_header_hashes[i];
-            expected_out_hashes[i] = left.out_hashes[i];
             expected_fees[i] = left.fees[i];
             assert(left.checkpoint_header_hashes[i] != 0);
         }
         let offset = self.num_left_checkpoints as u32;
         for i in 0..self.num_right_checkpoints as u32 {
             expected_header_hashes[i + offset] = right.checkpoint_header_hashes[i];
-            expected_out_hashes[i + offset] = right.out_hashes[i];
             expected_fees[i + offset] = right.fees[i];
             assert(right.checkpoint_header_hashes[i] != 0);
         }
         assert_eq(pi.checkpoint_header_hashes, expected_header_hashes);
-        assert_eq(pi.out_hashes, expected_out_hashes);
         assert_eq(pi.fees, expected_fees);
 
         assert_eq(pi.start_blob_accumulator, left.start_blob_accumulator);

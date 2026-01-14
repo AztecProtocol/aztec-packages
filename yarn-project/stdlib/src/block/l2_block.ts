@@ -177,6 +177,7 @@ export class L2Block {
       new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, block.number),
       checkpointHeader.blobsHash,
       checkpointHeader.inHash,
+      checkpointHeader.epochOutHash,
       block.header.state,
       block.header.globalVariables,
       block.header.totalFees,

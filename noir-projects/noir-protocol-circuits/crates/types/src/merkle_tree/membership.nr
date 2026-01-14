@@ -1,7 +1,8 @@
 use crate::{
     merkle_tree::{
-        indexed_tree::low_leaf::is_valid_low_leaf, leaf_preimage::IndexedTreeLeafPreimage,
-        root::root_from_sibling_path,
+        indexed_tree::low_leaf::is_valid_low_leaf,
+        leaf_preimage::IndexedTreeLeafPreimage,
+        root::{root_from_sibling_path, root_from_sibling_path_with_hasher},
     },
     traits::Empty,
 };
@@ -32,6 +33,27 @@ pub fn check_membership<let TREE_HEIGHT: u32>(
         leaf,
         membership_witness.leaf_index,
         membership_witness.sibling_path,
+    );
+    calculated_root == root
+}
+
+/// Check whether a leaf exists in the tree with the given `root`.
+/// Same as `check_membership` but uses a custom hasher.
+/// `membership_witness` is a hint to prove that the `leaf` exists in the tree with the given `root`.
+///
+/// Returns:
+/// - bool: `true` if the leaf exists in the tree, `false` otherwise.
+pub fn check_membership_with_hasher<let TREE_HEIGHT: u32>(
+    leaf: Field,
+    membership_witness: MembershipWitness<TREE_HEIGHT>,
+    root: Field,
+    hasher: fn(Field, Field) -> Field,
+) -> bool {
+    let calculated_root = root_from_sibling_path_with_hasher(
+        leaf,
+        membership_witness.leaf_index,
+        membership_witness.sibling_path,
+        hasher,
     );
     calculated_root == root
 }

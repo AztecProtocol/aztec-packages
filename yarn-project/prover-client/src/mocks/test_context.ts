@@ -44,6 +44,7 @@ import { getEnvironmentConfig, getSimulator, makeCheckpointConstants, makeGlobal
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
   private checkpoints: Checkpoint[] = [];
+  private checkpointOutHashes: Fr[] = [];
   private nextCheckpointIndex = 0;
   private nextCheckpointNumber = CheckpointNumber(1);
   private nextBlockNumber = 1;
@@ -151,6 +152,7 @@ export class TestContext {
 
   public startNewEpoch() {
     this.checkpoints = [];
+    this.checkpointOutHashes = [];
     this.nextCheckpointIndex = 0;
     this.epochNumber++;
   }
@@ -245,10 +247,12 @@ export class TestContext {
     });
 
     const cleanFork = await this.worldState.fork();
+    const previousCheckpointOutHashes = this.checkpointOutHashes;
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       constants,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       cleanFork,
     );
 
@@ -274,6 +278,7 @@ export class TestContext {
 
     const checkpoint = await builder.completeCheckpoint();
     this.checkpoints.push(checkpoint);
+    this.checkpointOutHashes.push(checkpoint.getCheckpointOutHash());
 
     return {
       constants,

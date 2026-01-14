@@ -80,6 +80,7 @@ function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
     Fr.random(), // blockHeadersHash - mock value for testing
     Fr.random(), // blobsHash - mock value for testing
     Fr.random(), // inHash - mock value for testing
+    Fr.random(), // outHash - mock value for testing
     gv.slotNumber,
     gv.timestamp,
     gv.coinbase,
