@@ -45,8 +45,9 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockParameter,
   type DataInBlock,
-  type L2Block,
+  L2Block,
   L2BlockHash,
+  L2BlockHeader,
   L2BlockNew,
   type L2BlockSource,
   type PublishedL2Block,
@@ -128,6 +129,7 @@ import { NodeMetrics } from './node_metrics.js';
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
+  private initialHeaderHashPromise: Promise<Fr> | undefined = undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -586,6 +588,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async getBlock(number: BlockParameter): Promise<L2Block | undefined> {
     const blockNumber = number === 'latest' ? await this.getBlockNumber() : (number as BlockNumber);
+    if (blockNumber === BlockNumber.ZERO) {
+      return this.buildInitialBlock();
+    }
     return await this.blockSource.getBlock(blockNumber);
   }
 
@@ -595,8 +600,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const initialBlockHash = await this.#getInitialHeaderHash();
+    if (blockHash.equals(initialBlockHash)) {
+      return this.buildInitialBlock();
+    }
     const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
     return publishedBlock?.block;
+  }
+
+  private buildInitialBlock(): L2Block {
+    const initialHeader = this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    // TODO: (pw/mbps) Clean this up when we move completely to the new types.
+    // return L2BlockNew.empty(initialHeader);
+    const oldBlockHeader = L2BlockHeader.empty();
+    oldBlockHeader.state.l1ToL2MessageTree.root = initialHeader.state.l1ToL2MessageTree.root;
+    oldBlockHeader.state.partial.noteHashTree.root = initialHeader.state.partial.noteHashTree.root;
+    oldBlockHeader.state.partial.nullifierTree.root = initialHeader.state.partial.nullifierTree.root;
+    oldBlockHeader.state.partial.nullifierTree.nextAvailableLeafIndex =
+      initialHeader.state.partial.nullifierTree.nextAvailableLeafIndex;
+    oldBlockHeader.state.partial.publicDataTree.root = initialHeader.state.partial.publicDataTree.root;
+    oldBlockHeader.state.partial.publicDataTree.nextAvailableLeafIndex =
+      initialHeader.state.partial.publicDataTree.nextAvailableLeafIndex;
+    return L2Block.empty(oldBlockHeader);
   }
 
   /**
@@ -1156,6 +1181,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block header.
    */
   public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    const initialBlockHash = await this.#getInitialHeaderHash();
+    if (blockHash.equals(initialBlockHash)) {
+      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    }
     return await this.blockSource.getBlockHeaderByHash(blockHash);
   }
 
@@ -1430,6 +1459,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } else {
       return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
     }
+  }
+
+  #getInitialHeaderHash(): Promise<Fr> {
+    if (!this.initialHeaderHashPromise) {
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
+    }
+    return this.initialHeaderHashPromise;
   }
 
   /**

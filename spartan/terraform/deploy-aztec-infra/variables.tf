@@ -623,9 +623,9 @@ variable "P2P_DROP_TX" {
 }
 
 variable "P2P_DROP_TX_CHANCE" {
-  description = "The chance (0-100) of dropping an incoming transaction in the P2P layer (for testing)"
-  type        = string
-  default     = "0"
+  description = "The chance (0-1) of dropping an incoming transaction in the P2P layer (for testing)"
+  type        = number
+  default     = 0
 }
 
 variable "WS_NUM_HISTORIC_BLOCKS" {

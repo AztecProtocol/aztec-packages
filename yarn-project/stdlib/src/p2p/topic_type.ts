@@ -31,7 +31,7 @@ export function getTopicTypeForClientType(clientType: P2PClientType) {
   if (clientType === P2PClientType.Full) {
     return [TopicType.tx, TopicType.block_proposal, TopicType.checkpoint_proposal, TopicType.checkpoint_attestation];
   } else if (clientType === P2PClientType.Prover) {
-    return [TopicType.tx, TopicType.block_proposal];
+    return [TopicType.tx, TopicType.block_proposal, TopicType.checkpoint_proposal];
   } else {
     const _: never = clientType;
     return [TopicType.tx];
