@@ -164,11 +164,6 @@ case "$cmd" in
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-release amd64' \
       'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
-
-    # If we were triggered by a PR with ci-release-pr label, remove the label now we've succeeded.
-    if [ -n "${PR_NUMBER:-}" ]; then
-      gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
-    fi
     ;;
 
   ##################

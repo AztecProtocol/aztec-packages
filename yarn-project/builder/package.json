@@ -14,9 +14,6 @@
     "name": "Aztec builder",
     "tsconfig": "./tsconfig.json"
   },
-  "bin": {
-    "aztec-builder": "dest/bin/cli.js"
-  },
   "scripts": {
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",

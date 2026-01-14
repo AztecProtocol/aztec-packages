@@ -35,44 +35,12 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
     program.addHelpText(
       'after',
       `
+Additional commands:
 
-  Additional commands:
-
-    init [folder] [options]: creates a new Noir project
-      Options:
-        --name <name>       Name of the package
-        --contract          Use a contract template (default)
-        --lib               Use a library template
-        --bin               Use a binary template
-      Examples:
-        $ aztec init                    # creates a contract project in current directory
-        $ aztec init --lib              # creates a library project
-
-    new <path> [options]: creates a new Noir project in a new directory
-      Options:
-        --name <name>       Name of the package
-        --contract          Use a contract template (default)
-        --lib               Use a library template
-        --bin               Use a binary template
-      Examples:
-        $ aztec new my-project          # creates a contract project in ./my-project
-        $ aztec new my-lib --lib        # creates a library project in ./my-lib
-
-    compile [options]: compiles Aztec Noir contracts
-      Compiles contracts with nargo compile and then postprocesses them to generate Aztec-specific artifacts including:
-        - Transpiled contract artifacts
-        - Verification keys
-      The compiled contracts will be placed in the target/ directory by default.
-      Supports standard nargo compile options.
-
-    test [options]: starts a dockerized TXE node via
-      $ aztec start --txe
-    then runs
-      $ aztec test --silence-warnings --oracle-resolver=<TXE_ADDRESS> [options]
-
-    preload-crs: Downloads and caches the Common Reference String (CRS) data required for zero-knowledge proofs.
-      Example:
-        $ aztec preload-crs             # preloads CRS data
+  init [folder] [options]  creates a new Aztec Noir project.
+  new <path> [options]     creates a new Aztec Noir project in a new directory.
+  compile [options]        compiles Aztec Noir contracts.
+  test [options]           starts a TXE and runs "nargo test" using it as the oracle resolver.
     `,
     );
   }
