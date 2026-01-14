@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 #pragma once
 
 #include "barretenberg/common/zip_view.hpp"
@@ -19,19 +24,6 @@ namespace bb {
 template <typename AllEntitiesBase, typename ProverPolynomialsType, typename Polynomial>
 class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
   public:
-    PartiallyEvaluatedMultivariatesBase() = default;
-
-    /**
-     * @brief Construct from circuit size only, allocating polynomials of size circuit_size/2.
-     */
-    explicit PartiallyEvaluatedMultivariatesBase(const size_t circuit_size)
-    {
-        // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-        for (auto& poly : this->get_all()) {
-            poly = Polynomial(circuit_size / 2);
-        }
-    }
-
     /**
      * @brief Construct from full polynomials, allocating based on their actual sizes.
      * @details After the initial sumcheck round, the new size is CEIL(size/2).

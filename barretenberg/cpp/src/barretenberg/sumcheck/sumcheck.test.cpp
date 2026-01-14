@@ -158,29 +158,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
          not, say F(u2, u1, u0). This is in accordance with Adrian's thesis (cf page 9).
           */
 
-        // Get the values of the Lagrange basis polys L_i defined
-        // by: L_i(v) = 1 if i = v, 0 otherwise, for v from 0 to 7.
-        FF one{ 1 };
-        // clang-format off
-        FF l_0 = (one - u_0) * (one - u_1) * (one - u_2);
-        FF l_1 = (u_0) * (one - u_1) * (one - u_2);
-        FF l_2 = (one - u_0) * (u_1) * (one - u_2);
-        FF l_3 = (u_0) * (u_1) * (one - u_2);
-        FF l_4 = (one - u_0) * (one - u_1) * (u_2);
-        FF l_5 = (u_0) * (one - u_1) * (u_2);
-        FF l_6 = (one - u_0) * (u_1) * (u_2);
-        FF l_7 = (u_0) * (u_1) * (u_2);
-        // clang-format on
-        FF hand_computed_value;
-        for (auto [full_poly, partial_eval_poly] :
-             zip_view(full_polynomials.get_all(), sumcheck.partially_evaluated_polynomials.get_all())) {
-            // full_polynomials[0][0] = w_l[0], full_polynomials[1][1] = w_r[1], and so on.
-            hand_computed_value = l_0 * full_poly[0] + l_1 * full_poly[1] + l_2 * full_poly[2] + l_3 * full_poly[3] +
-                                  l_4 * full_poly[4] + l_5 * full_poly[5] + l_6 * full_poly[6] + l_7 * full_poly[7];
-            EXPECT_EQ(hand_computed_value, partial_eval_poly[0]);
-        }
-
-        // We can also check the correctness of the multilinear evaluations produced by Sumcheck by directly evaluating
+        // Check the correctness of the multilinear evaluations produced by Sumcheck by directly evaluating
         // the full polynomials at challenge u via the evaluate_mle() function
         std::vector<FF> u_challenge = { u_0, u_1, u_2 };
         for (auto [full_poly, claimed_eval] :
