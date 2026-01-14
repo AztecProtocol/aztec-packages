@@ -69,7 +69,7 @@ template <class Params_> struct alignas(32) field {
     }
 
     constexpr field(const uint128_t& input) noexcept
-        : field(uint256_t::from_uint128(input))
+        : field(static_cast<uint256_t>(input))
     {}
 
     // NOLINTNEXTLINE (unsigned long is platform dependent, which we want in this case)
