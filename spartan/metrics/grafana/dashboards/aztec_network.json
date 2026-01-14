@@ -31,7 +31,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 0,
   "links": [],
   "panels": [
     {
@@ -319,6 +319,72 @@
     {
       "datasource": {
         "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Estimates the percentage of block proposals seen on the p2p layer the get mined on L1.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 4,
+        "x": 7,
+        "y": 7
+      },
+      "id": 39,
+      "interval": "5m",
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "avg_over_time((clamp(increase(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_status=\"\"}[$__range]) / on(service_name) (increase(aztec_p2p_gossip_message_validation_count{k8s_namespace_name=\"$namespace\", service_name=\"prover-node\", aztec_gossip_topic_name=\"block_proposal\"}[$__range])), 0, 1))[15m:1m])",
+          "hide": false,
+          "legendFormat": "Mined block proposals",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Mined block proposals",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
         "uid": "spartan-metrics-prometheus"
       },
       "fieldConfig": {
@@ -383,8 +449,8 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 9,
-        "x": 7,
+        "w": 6,
+        "x": 11,
         "y": 7
       },
       "id": 34,
@@ -406,8 +472,8 @@
       "pluginVersion": "12.3.0",
       "targets": [
         {
-          "editorMode": "builder",
-          "expr": "avg by(aztec_gossip_topic_name) (increase(aztec_p2p_gossip_message_validation_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "expr": "avg_over_time(\n  avg by(aztec_gossip_topic_name) (\n    increase(aztec_p2p_gossip_message_validation_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval])\n  )[5m:1m]\n)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -463,6 +529,7 @@
             }
           },
           "mappings": [],
+          "min": 0,
           "noValue": "0",
           "thresholds": {
             "mode": "absolute",
@@ -479,8 +546,8 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 8,
-        "x": 16,
+        "w": 7,
+        "x": 17,
         "y": 7
       },
       "id": 27,
@@ -508,8 +575,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "avg(aztec_sequencer_block_build_mana_per_second{k8s_namespace_name=\"$namespace\"} > 0)",
-          "legendFormat": "{{k8s_pod_name}}",
+          "expr": "avg(avg_over_time(aztec_sequencer_block_build_mana_per_second{k8s_namespace_name=\"$namespace\"}[5m:1m]))",
+          "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
@@ -808,6 +875,331 @@
         "x": 0,
         "y": 27
       },
+      "id": 35,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 9,
+            "x": 0,
+            "y": 28
+          },
+          "id": 36,
+          "interval": "5m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${data_source}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum(rate(aztec_sequencer_block_attestation_delay_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+              "legendFormat": "P95",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Attestation delay",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 9,
+            "y": 28
+          },
+          "id": 37,
+          "interval": "5m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${data_source}"
+              },
+              "editorMode": "builder",
+              "expr": "histogram_quantile(0.95, sum(rate(aztec_tx_collector_txs_requested_fraction_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Fraction of txs requested from peers",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 7,
+            "x": 17,
+            "y": 28
+          },
+          "id": 38,
+          "interval": "5m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${data_source}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+              "legendFormat": "P95",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${data_source}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.5, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+              "hide": false,
+              "legendFormat": "Median",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Peer connection duration",
+          "type": "timeseries"
+        }
+      ],
+      "title": "P2P",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
       "id": 12,
       "panels": [
         {
@@ -878,7 +1270,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 36
+            "y": 29
           },
           "id": 8,
           "interval": "1m",
@@ -986,7 +1378,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 36
+            "y": 29
           },
           "id": 9,
           "interval": "1m",
@@ -1089,7 +1481,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 44
+            "y": 37
           },
           "id": 21,
           "options": {
@@ -1170,7 +1562,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 44
+            "y": 37
           },
           "id": 33,
           "interval": "1m",
@@ -1224,7 +1616,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 29
       },
       "id": 13,
       "panels": [],
@@ -1263,7 +1655,7 @@
         "h": 8,
         "w": 4,
         "x": 0,
-        "y": 29
+        "y": 30
       },
       "id": 5,
       "interval": "5m",
@@ -1334,7 +1726,7 @@
         "h": 8,
         "w": 4,
         "x": 4,
-        "y": 29
+        "y": 30
       },
       "id": 6,
       "options": {
@@ -1405,7 +1797,7 @@
         "h": 8,
         "w": 4,
         "x": 8,
-        "y": 29
+        "y": 30
       },
       "id": 7,
       "options": {
@@ -1520,7 +1912,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 29
+        "y": 30
       },
       "id": 4,
       "interval": "1m",
@@ -1625,7 +2017,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 29
+        "y": 30
       },
       "id": 29,
       "interval": "1m",
@@ -1667,7 +2059,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 38
       },
       "id": 17,
       "panels": [],
@@ -1739,7 +2131,7 @@
         "h": 8,
         "w": 14,
         "x": 0,
-        "y": 38
+        "y": 39
       },
       "id": 19,
       "options": {
@@ -1803,7 +2195,7 @@
         "h": 16,
         "w": 10,
         "x": 14,
-        "y": 38
+        "y": 39
       },
       "id": 16,
       "options": {
@@ -1920,7 +2312,7 @@
         "h": 8,
         "w": 14,
         "x": 0,
-        "y": 46
+        "y": 47
       },
       "id": 18,
       "options": {
@@ -1964,7 +2356,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 55
       },
       "id": 14,
       "panels": [],
@@ -2038,7 +2430,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 56
       },
       "id": 1,
       "options": {
@@ -2140,7 +2532,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 55
+        "y": 56
       },
       "id": 11,
       "options": {
@@ -2245,7 +2637,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 63
+        "y": 64
       },
       "id": 24,
       "interval": "1m",
@@ -2307,8 +2699,8 @@
       },
       {
         "current": {
-          "text": "alpha-testnet",
-          "value": "alpha-testnet"
+          "text": "mainnet",
+          "value": "mainnet"
         },
         "datasource": {
           "type": "prometheus",
@@ -2332,12 +2724,12 @@
     ]
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Network overview",
-  "uid": "aztec-network",
-  "version": 1
+  "title": "Network overview Copy",
+  "uid": "ad9zqsd",
+  "version": 16
 }

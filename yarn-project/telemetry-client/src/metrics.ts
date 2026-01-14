@@ -836,7 +836,7 @@ export const PUBLIC_PROCESSOR_GAS_RATE: MetricDefinition = {
   name: 'aztec.public_processor.gas_rate',
   description: 'Gas rate in public processor',
   unit: 'gas/s',
-  valueType: ValueType.INT,
+  valueType: ValueType.DOUBLE,
 };
 export const PUBLIC_PROCESSOR_TREE_INSERTION: MetricDefinition = {
   name: 'aztec.public_processor.tree_insertion',
