@@ -11,6 +11,7 @@ pub contract ContractInstanceRegistry {
                 CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DEFAULT_UPDATE_DELAY, MINIMUM_UPDATE_DELAY,
             },
             contract_class_id::ContractClassId,
+            point::validate_on_curve,
             public_keys::PublicKeys,
             traits::{Serialize, ToField},
         },
@@ -116,6 +117,14 @@ pub contract ContractInstanceRegistry {
 
         let partial_address =
             PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
+
+        // Note: Out of all the public keys, only the Ivpk_m is checked to be on the curve
+        // (implicitly as part of the `add` operation of deriving the address). This at least
+        // protects the AVM against DoS attacks.
+        // For thoroughness, we also ensure the other points are on the curve:
+        validate_on_curve(public_keys.npk_m.inner);
+        validate_on_curve(public_keys.ovpk_m.inner);
+        validate_on_curve(public_keys.tpk_m.inner);
 
         let address = AztecAddress::compute(public_keys, partial_address);
 
