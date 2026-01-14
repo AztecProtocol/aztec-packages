@@ -4,7 +4,6 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/chonk/chonk_verifier.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"

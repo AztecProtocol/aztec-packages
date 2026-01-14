@@ -6,7 +6,6 @@
 #include "hypernova_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
