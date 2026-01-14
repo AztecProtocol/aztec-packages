@@ -8,7 +8,7 @@ version: 1.0.0
 # VM2 Ghost Row Injection Audit
 
 ## Purpose
-Determine if a selector-outside-active vulnerability is exploitable by injecting ghost source rows that match legitimate destination rows created via simulation gadgets.
+Determine if a selector-outside-active vulnerability is exploitable by injecting ghost source rows that match legitimate destination rows. **Key insight**: For multi-row gadgets, proving "if side-effect occurs → came from legitimate call" requires trace shape enforcement, not just single-row checks.
 
 ## When to Use
 - After `vm2-audit-selector-outside-active` finds sub-selector fires **PERMUTATION** from inactive rows
@@ -20,11 +20,20 @@ Determine if a selector-outside-active vulnerability is exploitable by injecting
 
 ## Attack Concept
 
-Ghost row injection exploits permutations by:
-1. Placing a ghost row at `main_sel=0` with attacker-controlled values
+### Single-Row Ghost Injection
+1. Place ghost row at `main_sel=0` with attacker-controlled values
 2. Sub-selector fires permutation source from ghost row
-3. Using simulation gadgets to create legitimate destination rows that match
+3. Use simulation gadgets to create legitimate destination rows that match
 4. CLK trick: place ghost at row N where N equals destination's committed `clk`
+
+### Multi-Row Ghost Trace Injection (Harder to Detect)
+For multi-row gadgets (keccak, merkle, data_copy), attacker injects **entire ghost sequence**:
+1. Ghost `start` row at row N (main_sel=0)
+2. Ghost intermediate rows at N+1, N+2, ...
+3. Ghost `last` row fires side-effect permutation
+4. All matching legitimate destinations via simulation gadgets
+
+**Why this is harder**: Previous reasoning focused on "if gadget called → right thing happens". New requirement: "if side-effect occurs → must prove legitimate gadget call". This requires constraining the **trace shape**, not just individual rows.
 
 ## Workflow
 
@@ -68,7 +77,45 @@ Permutation tuples often include clock:
 | Cryptographic constraints | No | Simulation gadgets provide valid proofs |
 | Other tuple fields constrained | Check | May require gadget to set specific values |
 
-### Step 6: Document Result
+### Step 6: Multi-Row Gadget Trace Shape (Critical for keccak, merkle, etc.)
+
+For multi-row gadgets, check these **defensive ingredients**:
+
+**Ingredient 1: Trace Continuity**
+```pil
+#[TRACE_CONTINUITY]
+sel * (1 - sel') * (1 - end) = 0;
+// Cannot exit trace until end=1
+```
+
+**Ingredient 2: Start After Latch**
+```pil
+#[START_AFTER_LATCH]
+sel_start' * (1 - latch) * (1 - precomputed.last_row) = 0;
+// If NEXT row starts, CURRENT row must have latched (or be last_row)
+// Correct temporal direction: constrain start' based on current latch
+```
+
+**Ingredient 3: Terminal Row Implication**
+```pil
+#[START_REQUIRES_ACTIVE]
+sel_start * (1 - sel) = 0;
+#[LAST_REQUIRES_ACTIVE]
+sel_last * (1 - sel) = 0;
+// Terminal rows must be on active main selector
+```
+
+**Ingredient 4: Active Implies Entry (Reverse Continuity)**
+```pil
+#[ACTIVE_IMPLIES_ENTRY]
+sel' * (1 - sel) * (1 - sel_start') = 0;
+// If next row is active, it MUST be a start OR continue from previous active
+// Prevents "floating" ghost traces that bypass start conditions
+```
+
+**Missing any ingredient** → Ghost trace sequence injection possible.
+
+### Step 7: Document Result
 
 - **Exploitable**: CRITICAL - ghost rows can inject arbitrary operations
 - **Blocked**: Document specific constraint that prevents exploitation

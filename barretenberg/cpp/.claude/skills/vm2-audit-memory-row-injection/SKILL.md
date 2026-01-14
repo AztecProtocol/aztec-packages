@@ -8,13 +8,13 @@ version: 1.0.0
 # VM2 Memory Row Injection Audit
 
 ## Purpose
-Detect memory row injection vulnerabilities where fake rows in memory trace allow arbitrary reads/writes, giving complete control over VM state.
+Detect memory row injection vulnerabilities where fake rows allow arbitrary reads/writes. **Key insight**: Must verify legitimacy at ALL layers - "if write occurs → prove it came from legitimate gadget call".
 
 ## When to Use
 - Auditing memory-related PIL files (memory.pil, *_mem.pil)
 - Reviewing memory interactions/permutations in PIL
 - Checking memory selector constraints
-- Verifying memory trace integrity
+- Verifying caller-chain bounds for write legitimacy
 
 ## When NOT to Use
 - General PIL syntax issues (use linting)
@@ -54,6 +54,22 @@ sel_mem_access * (1 - sel_mem_access) = 0;  // Boolean but...
 
 ### Vector 4: Unconstrained Memory Rows
 Memory trace rows not accounted for by permutations allow injecting arbitrary state.
+
+### Vector 5: Unbounded Caller Chain (Multi-Layer Attack)
+```pil
+// gadget.pil - Memory constraints are perfect, BUT...
+sel_write { data } is memory.sel { memory.data };
+// If sel_write can fire from ghost rows in gadget trace,
+// memory write is illegitimate despite correct memory.pil
+```
+**Insight**: Must verify legitimacy at EVERY layer in the caller chain.
+
+### Vector 6: Multi-Row Gadget Shape Violation
+For multi-row gadgets (keccak, merkle), attacker injects ghost trace sequence:
+- Ghost `start` row
+- Ghost intermediate rows
+- Ghost `last` row fires memory write
+All matching legitimate destinations via simulation gadgets.
 
 ## Workflow
 
@@ -98,6 +114,28 @@ grep -n "addr'\|same_addr\|ordering" barretenberg/cpp/pil/vm2/memory*.pil
 grep -n "context\|space_id\|call_id" barretenberg/cpp/pil/vm2/memory*.pil
 ```
 
+### Step 8: Verify Caller Chain Bounds (Multi-Layer)
+For each memory write permutation, trace ALL callers:
+```bash
+# Find what fires permutations to memory
+grep -rn "is memory\." pil/vm2/ --include="*.pil"
+# For each caller, verify selector bounded by implication constraint
+grep -n "sel_write.*(1 - sel)" pil/vm2/<caller>.pil
+```
+
+### Step 9: Multi-Row Gadget Trace Shape
+For multi-row computations (keccak, merkle, data_copy), verify these 4 ingredients:
+```bash
+# 1. Trace continuity: sel * (1 - sel') * (1 - end) = 0
+grep -rn "sel.*(1 - sel').*end\|CONTINUITY" pil/vm2/ --include="*.pil"
+# 2. Start after latch: sel_start' * (1 - latch) = 0 (correct temporal direction)
+grep -rn "start'.*(1 - latch)\|START.*LATCH" pil/vm2/ --include="*.pil"
+# 3. Terminal rows require active sel
+grep -rn "start.*(1 - sel)\|last.*(1 - sel)" pil/vm2/ --include="*.pil"
+# 4. Active implies entry (reverse continuity): sel' * (1 - sel) * (1 - sel_start') = 0
+grep -rn "sel'.*(1 - sel).*(1 - .*start)\|ACTIVE_IMPLIES" pil/vm2/ --include="*.pil"
+```
+
 ## Secure Pattern
 ```pil
 pol commit sel;
@@ -113,6 +151,8 @@ sel_mem_op { clk, addr, value, rw } is memory.sel { memory.clk, memory.addr, mem
 3. No duplicate rows (permutation enforces 1:1)
 4. Proper ordering (reads see most recent writes)
 5. Context isolation (operations bound to context)
+6. **Caller chain bounded** - every selector in permutation chain has implication constraint
+7. **Multi-row trace shape** - for gadgets: continuity + start-after-latch + terminal-requires-sel + active-implies-entry
 
 ## REQUIRED OUTPUT FORMAT
 
