@@ -132,7 +132,7 @@ template <typename Curve> class MSM {
                                                              std::span<std::span<ScalarField>> scalars,
                                                              bool handle_edge_cases = true) noexcept;
     static AffineElement msm(std::span<const AffineElement> points,
-                             PolynomialSpan<const ScalarField> _scalars,
+                             PolynomialSpan<const ScalarField> scalars,
                              bool handle_edge_cases = false) noexcept;
 
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept

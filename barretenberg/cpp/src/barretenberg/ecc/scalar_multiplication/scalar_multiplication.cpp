@@ -71,9 +71,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
             auto& scalar = scalars[i];
             scalar.self_from_montgomery_form();
 
-            bool is_zero =
-                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
-            if (!is_zero) {
+            if (!scalar.is_zero()) {
                 count++;
             }
         }
@@ -773,11 +771,10 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  *          msms up so much.
  *          The Pippenger algorithm runtime is O(N/log(N)) so there will be slight gains as each inner-thread MSM will
  *          have a larger N.
- *          The input scalars are not const because the algorithm converts them out of Montgomery form and then back.
  *
  * @tparam Curve
  * @param points
- * @param scalars
+ * @param scalars (must be in non-Montgomery form)
  * @return std::vector<typename Curve::AffineElement>
  */
 template <typename Curve>
@@ -845,57 +842,62 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     Element::batch_normalize(&results[0], num_msms);
 
     std::vector<AffineElement> affine_results;
+    affine_results.reserve(num_msms);
     for (const auto& ele : results) {
         affine_results.emplace_back(AffineElement(ele.x, ele.y));
     }
 
-    // Convert our scalars back into Montgomery form so they remain unchanged
-    // Use a single parallel pass to avoid nested parallelism overhead
-    if (scalars.size() == 1) {
-        // Single MSM - parallel over scalars
-        parallel_for_range(scalars[0].size(), [&](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
-                scalars[0][i].self_to_montgomery_form();
-            }
-        });
-    } else {
-        // Multiple MSMs - parallel over MSMs to avoid nested parallelism
-        parallel_for(scalars.size(), [&](size_t msm_idx) {
-            for (size_t i = 0; i < scalars[msm_idx].size(); ++i) {
-                scalars[msm_idx][i].self_to_montgomery_form();
-            }
-        });
-    }
     return affine_results;
 }
 
 /**
  * @brief Helper method to evaluate a single MSM. Internally calls `batch_multi_scalar_mul`
+ * @details This is the main entry point for MSM computation. It handles the Montgomery form conversion:
+ *          scalars are converted FROM Montgomery form at entry, and back TO Montgomery form at exit.
+ *          This ensures the scalars remain unchanged from the caller's perspective while allowing
+ *          the internal algorithm to work with non-Montgomery form scalars.
+ *
+ *          The const_cast is safe because we restore the original Montgomery form before returning.
  *
  * @tparam Curve
  * @param points
- * @param _scalars
+ * @param scalars
  * @return Curve::AffineElement
  */
 template <typename Curve>
 typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::AffineElement> points,
-                                              PolynomialSpan<const ScalarField> _scalars,
+                                              PolynomialSpan<const ScalarField> scalars,
                                               bool handle_edge_cases) noexcept
 {
-    if (_scalars.size() == 0) {
+    if (scalars.size() == 0) {
         return Curve::Group::affine_point_at_infinity;
     }
-    BB_ASSERT_GTE(points.size(), _scalars.start_index + _scalars.size());
+    BB_ASSERT_GTE(points.size(), scalars.start_index + scalars.size());
 
-    // unfortnately we need to remove const on this data type to prevent duplicating _scalars (which is typically
-    // large) We need to convert `_scalars` out of montgomery form for the MSM. We then convert the scalars back
-    // into Montgomery form at the end of the algorithm. NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1449): handle const correctness.
-    ScalarField* scalars = const_cast<ScalarField*>(&_scalars[_scalars.start_index]);
+    // const_cast is safe: we convert from Montgomery form, run MSM, then convert back.
+    // Scalars are unchanged from the caller's perspective.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    ScalarField* scalar_ptr = const_cast<ScalarField*>(&scalars[scalars.start_index]);
+    const size_t num_scalars = scalars.size();
 
-    std::vector<std::span<const AffineElement>> pp{ points.subspan(_scalars.start_index) };
-    std::vector<std::span<ScalarField>> ss{ std::span<ScalarField>(scalars, _scalars.size()) };
+    // Convert scalars FROM Montgomery form for the MSM algorithm
+    parallel_for_range(num_scalars, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            scalar_ptr[i].self_from_montgomery_form();
+        }
+    });
+
+    std::vector<std::span<const AffineElement>> pp{ points.subspan(scalars.start_index) };
+    std::vector<std::span<ScalarField>> ss{ std::span<ScalarField>(scalar_ptr, num_scalars) };
     AffineElement result = batch_multi_scalar_mul(pp, ss, handle_edge_cases)[0];
+
+    // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
+    parallel_for_range(num_scalars, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            scalar_ptr[i].self_to_montgomery_form();
+        }
+    });
+
     return result;
 }
 
