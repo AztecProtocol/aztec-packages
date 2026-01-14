@@ -5,10 +5,7 @@
 // =====================
 #pragma once
 
-#include "barretenberg/commitment_schemes/claim_batcher.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/hypernova/types.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 
 namespace bb {
@@ -23,18 +20,12 @@ template <typename Flavor_> class HypernovaDeciderVerifier {
     using Curve = Flavor::Curve;
     using Commitment = Flavor::Commitment;
     using Transcript = Flavor::Transcript;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = ClaimBatcher::Batch;
-    using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using PCS = Flavor::PCS;
     using Accumulator = HypernovaFoldingVerifier<Flavor>::Accumulator;
     // Types conditionally assigned based on the Flavor being recursive
-    using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>,
-                                     typename HypernovaRecursiveTypes::Proof,
-                                     typename HypernovaNativeTypes::Proof>;
-    using PairingPoints = std::conditional_t<IsRecursiveFlavor<Flavor>,
-                                             typename HypernovaRecursiveTypes::PairingPoints,
-                                             typename HypernovaNativeTypes::PairingPoints>;
+    using Proof = HypernovaFoldingVerifier<Flavor>::Proof;
+    using PairingPoints =
+        std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 
     std::shared_ptr<Transcript> transcript;
 
