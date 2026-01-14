@@ -69,10 +69,10 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_last, 1 }, // Error triggers a last
                           { C::bitwise_acc_ia, event.a.as_ff() },
                           { C::bitwise_acc_ib, event.b.as_ff() },
-                          { C::bitwise_acc_ic, uint256_t::from_uint128(output_c) },
+                          { C::bitwise_acc_ic, output_c },
                           { C::bitwise_ia_byte, event.a.as_ff() },
                           { C::bitwise_ib_byte, event.b.as_ff() },
-                          { C::bitwise_ic_byte, uint256_t::from_uint128(output_c) },
+                          { C::bitwise_ic_byte, output_c },
                           { C::bitwise_tag_a, tag_a_u8 },
                           { C::bitwise_tag_b, tag_b_u8 },
                           { C::bitwise_tag_c, static_cast<uint8_t>(MemoryTag::FF) }, // Since error
@@ -103,12 +103,12 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                       { { { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           // It is fine to use the truncated input_a/b here instead of event.a/b because if event.a/b
                           // were FF values we would have taken the error branch above.
-                          { C::bitwise_acc_ia, uint256_t::from_uint128(input_a) },
-                          { C::bitwise_acc_ib, uint256_t::from_uint128(input_b) },
-                          { C::bitwise_acc_ic, uint256_t::from_uint128(output_c) },
-                          { C::bitwise_ia_byte, uint256_t::from_uint128(input_a & mask_low_byte) },
-                          { C::bitwise_ib_byte, uint256_t::from_uint128(input_b & mask_low_byte) },
-                          { C::bitwise_ic_byte, uint256_t::from_uint128(output_c & mask_low_byte) },
+                          { C::bitwise_acc_ia, input_a },
+                          { C::bitwise_acc_ib, input_b },
+                          { C::bitwise_acc_ic, output_c },
+                          { C::bitwise_ia_byte, input_a & mask_low_byte },
+                          { C::bitwise_ib_byte, input_b & mask_low_byte },
+                          { C::bitwise_ic_byte, output_c & mask_low_byte },
                           { C::bitwise_tag_a, is_start ? tag_a_u8 : 0 },
                           { C::bitwise_tag_b, is_start ? tag_b_u8 : 0 },
                           { C::bitwise_tag_c, is_start ? tag_a_u8 : 0 }, // same as tag_a

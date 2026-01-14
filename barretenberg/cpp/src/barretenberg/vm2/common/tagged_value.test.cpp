@@ -137,7 +137,7 @@ TEST(TaggedValueTest, FromTagTruncating)
     EXPECT_EQ(val_u64_truncated.as<uint64_t>(), 123);
 
     // U128 - truncates to 128 bits
-    auto val_u128 = TaggedValue::from_tag_truncating(ValueTag::U128, uint256_t::from_uint128(uint128_t(1) << 100));
+    auto val_u128 = TaggedValue::from_tag_truncating(ValueTag::U128, static_cast<uint128_t>(1) << 100);
     EXPECT_EQ(val_u128.get_tag(), ValueTag::U128);
     EXPECT_EQ(val_u128.as<uint128_t>(), uint128_t(1) << 100);
 
