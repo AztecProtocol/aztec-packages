@@ -22,6 +22,7 @@ namespace ecc;
     add_op * (1 - add_op) = 0;
 
     // When the sel is on, we are either doubling, adding or handling the edge case
+    #[OP_CHECK]
     sel = double_op + add_op + INFINITY_PRED;
 
     // Point P in affine form

@@ -332,6 +332,7 @@ void ExecutionTraceBuilder::process(
                 // Context
                 { C::execution_context_id, ex_event.after_context_event.id },
                 { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                // Warning: pc in after_context_event is the pc of the next instruction, not the current instruction.
                 { C::execution_pc, ex_event.before_context_event.pc },
                 { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
                 { C::execution_contract_address, ex_event.after_context_event.contract_addr },
@@ -455,7 +456,13 @@ void ExecutionTraceBuilder::process(
         if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
+
             // If we fetched an instruction successfully, we can set the next PC.
+            // In circuit, we enforce next_pc to be pc + instr_length, but in simulation,
+            // we set next_pc (as member of the context) to be the real pc of the next instruction
+            // which is different for JUMP, JUMPI, INTERNALCALL, and INTERNALRETURN.
+            // Therefore, we must not use after_context_event.pc (which is simulation next_pc) to set
+            // C::execution_next_pc.
             trace.set(row,
                       { {
                           { C::execution_next_pc,
@@ -686,14 +693,12 @@ void ExecutionTraceBuilder::process(
         const bool is_err = ex_event.error != ExecutionError::NONE;
         sel_exit_call = sel_exit_call || is_err; // sel_execute_revert || sel_execute_return || sel_error
         const bool is_failure = should_execute_revert || is_err;
-        const bool nested_exit_call = sel_exit_call && has_parent;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
         const bool nested_failure = is_failure && has_parent;
 
         trace.set(row,
                   { {
                       { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
                       { C::execution_nested_failure, nested_failure ? 1 : 0 },
                       { C::execution_sel_error, is_err ? 1 : 0 },
                       { C::execution_sel_failure, is_failure ? 1 : 0 },

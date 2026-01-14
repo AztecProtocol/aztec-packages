@@ -141,8 +141,6 @@ pol commit sel_to_radix_write; // @boolean
 sel_to_radix_write * (1 - sel_to_radix_write) = 0;
 
 // Permutation consistency.
-// TODO(#16759): Enable the following relation ensuring that each memory entry is associated with a valid permutation selector.
-//               DebugLog opcode is generating some memory entries which should not be triggered.
 #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
 sel = // Addressing.
       sel_addressing_base

@@ -36,12 +36,26 @@ class alignas(32) uint256_t {
 #define WASM_NUM_LIMBS 9
 #define WASM_LIMB_BITS 29
 #endif
-    constexpr uint256_t(const uint64_t a = 0) noexcept
-        : data{ a, 0, 0, 0 }
+    constexpr uint256_t() noexcept
+        : data{ 0, 0, 0, 0 }
+    {}
+
+    // Template constructor for integral types to avoid ambiguity
+    // This provides an exact match for int, unsigned int, etc., avoiding conversion ambiguity
+    // Only accepts integral types that fit in uint64_t to prevent silent truncation
+    // Note: Accepts both signed and unsigned to handle integer literals (which are signed in C++)
+    template <std::integral T>
+        requires(!std::same_as<std::remove_cv_t<T>, bool> && sizeof(T) <= sizeof(uint64_t))
+    constexpr uint256_t(T value) noexcept
+        : data{ static_cast<uint64_t>(value), 0, 0, 0 }
     {}
 
     constexpr uint256_t(const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t d) noexcept
         : data{ a, b, c, d }
+    {}
+
+    constexpr uint256_t(const uint128_t& a) noexcept
+        : data{ static_cast<uint64_t>(a), static_cast<uint64_t>(a >> 64), 0, 0 }
     {}
 
     constexpr uint256_t(const uint256_t& other) noexcept
@@ -49,7 +63,7 @@ class alignas(32) uint256_t {
     {}
     constexpr uint256_t(uint256_t&& other) noexcept = default;
 
-    explicit constexpr uint256_t(std::string input) noexcept
+    explicit constexpr uint256_t(const std::string& input) noexcept
     {
         /* Quick and dirty conversion from a single character to its hex equivelent */
         constexpr auto HexCharToInt = [](uint8_t Input) {
@@ -89,11 +103,6 @@ class alignas(32) uint256_t {
         data[1] = limbs[2];
         data[2] = limbs[1];
         data[3] = limbs[0];
-    }
-
-    static constexpr uint256_t from_uint128(const uint128_t a) noexcept
-    {
-        return { static_cast<uint64_t>(a), static_cast<uint64_t>(a >> 64), 0, 0 };
     }
 
     constexpr uint256_t& operator=(const uint256_t& other) noexcept = default;

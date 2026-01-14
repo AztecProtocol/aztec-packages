@@ -22,11 +22,11 @@ void RangeCheckTraceBuilder::process(
     for (const auto& event : events) {
         // store off event entries to be used directly in row
         const uint256_t original_num_bits = event.num_bits;
-        const uint256_t original_value = uint256_t::from_uint128(event.value);
+        const uint256_t original_value = static_cast<uint256_t>(event.value);
 
         // these will be mutated below
         uint8_t num_bits = event.num_bits;
-        uint256_t value = uint256_t::from_uint128(event.value);
+        uint256_t value = static_cast<uint256_t>(event.value);
 
         std::array<uint16_t, 7> fixed_slice_registers; // u16_r0...6
         size_t index_of_most_sig_16b_chunk = 0;

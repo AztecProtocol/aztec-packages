@@ -17,6 +17,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
@@ -25,24 +26,33 @@ using namespace bb::avm2::fuzzer;
 using namespace bb::avm2::simulation;
 using namespace bb::world_state;
 
+extern size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
+
 void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, const FuzzerTxData& tx_data)
 {
     // Add all contract classes and instances to the contract DB
+    // There may be more classes than instances because of the possibility of mutated bytecodes that are used in
+    // upgrades - these are not directly instantiated
     for (size_t i = 0; i < tx_data.contract_classes.size(); ++i) {
         const auto& contract_class = tx_data.contract_classes[i];
+        contract_db.add_contract_class(contract_class.id, contract_class);
+    }
+
+    // Add contract instances to the contract DB
+    for (size_t i = 0; i < tx_data.contract_instances.size(); ++i) {
         const auto& contract_instance = tx_data.contract_instances[i];
         auto contract_address = tx_data.contract_addresses[i];
-        contract_db.add_contract_class(contract_class.id, contract_class);
         contract_db.add_contract_instance(contract_address, contract_instance);
     }
 
-    // Register the de-duplicated set of contract addresses to the world state (in insertion order)
-    std::unordered_set<AztecAddress> seen_addresses;
+    // Register contract addresses in the world state
     for (const auto& addr : tx_data.contract_addresses) {
-        if (seen_addresses.insert(addr).second) {
-            fuzz_info("Registering contract address in world state: ", addr);
-            ws_mgr.register_contract_address(addr);
-        }
+        ws_mgr.register_contract_address(addr);
+    }
+
+    // Apply public data tree writes (e.g., for contract instance upgrades)
+    for (const auto& write : tx_data.public_data_writes) {
+        ws_mgr.public_data_write(write);
     }
 }
 
@@ -69,7 +79,9 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 
     try {
         ws_mgr.checkpoint();
-        cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx);
+        cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes);
+        fuzz_info("CppSimulator completed without exception");
+        fuzz_info("CppSimulator result: ", cpp_result);
         ws_mgr.revert();
     } catch (const std::exception& e) {
         fuzz_info("CppSimulator threw an exception: ", e.what());
@@ -83,7 +95,7 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     }
 
     ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(ws_mgr, contract_db, tx_data.tx);
+    auto js_result = js_simulator->simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes);
 
     // If the results do not match
     if (!compare_simulator_results(cpp_result, js_result)) {
@@ -223,11 +235,12 @@ ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
 
     auto bytecode_commitment = compute_public_bytecode_commitment(bytecode);
     auto class_id = compute_contract_class_id(/*artifact_hash=*/0, /*private_fn_root=*/0, bytecode_commitment);
-    ContractClass contract_class{
+    ContractClassWithCommitment contract_class{
         .id = class_id,
         .artifact_hash = 0,
         .private_functions_root = 0,
         .packed_bytecode = bytecode,
+        .public_bytecode_commitment = bytecode_commitment,
     };
     ContractInstance contract_instance{
         .salt = 0,
@@ -271,14 +284,23 @@ size_t mutate_tx_data(FuzzerContext& context,
     tx_data.contract_classes.clear();
     tx_data.contract_instances.clear();
     tx_data.contract_addresses.clear();
+    tx_data.public_data_writes.clear();
     std::vector<AztecAddress> contract_addresses;
 
+    std::unordered_set<AztecAddress> seen_addresses;
     for (auto& fuzzer_data : tx_data.input_programs) {
         const auto [bytecode, contract_class, contract_instance] = build_bytecode_and_artifacts(fuzzer_data);
 
         auto contract_address = simulation::compute_contract_address(contract_instance);
-        contract_addresses.push_back(contract_address);
 
+        // Skip duplicate addresses - multiple input_programs can generate the same address
+        if (seen_addresses.contains(contract_address)) {
+            fuzz_info("Skipping duplicate contract address: ", contract_address);
+            continue;
+        }
+        seen_addresses.insert(contract_address);
+
+        contract_addresses.push_back(contract_address);
         tx_data.contract_classes.push_back(contract_class);
         tx_data.contract_instances.push_back(contract_instance);
     }
@@ -298,20 +320,27 @@ size_t mutate_tx_data(FuzzerContext& context,
     }
 
     // Select mutation type (weighted against bytecode mutations) -- todo
-    auto mutation_type = std::uniform_int_distribution<uint8_t>(0, 0);
-    TxDataMutationType mutation_choice = static_cast<TxDataMutationType>(mutation_type(rng));
+    FuzzerTxDataMutationType mutation_choice = FUZZER_TX_DATA_MUTATION_CONFIGURATION.select(rng);
 
     switch (mutation_choice) {
-    case TxDataMutationType::TxMutation:
+    case FuzzerTxDataMutationType::TxMutation:
         mutate_tx(tx_data.tx, contract_addresses, rng);
         break;
-        // case TxDataMutationType::BytecodeMutation:
-        //     // todo: Maybe here we can do some direct mutations on the bytecode
-        //     // Mutations here are likely to cause immediate failure
-        //     break;
-        // case TxDataMutationType::ContractClassMutation:
-        //     // Mutations here are likely to cause immediate failure
-        //     break;
+    case FuzzerTxDataMutationType::BytecodeMutation: {
+        // Mutate bytecode and append public data writes for world state setup
+        mutate_bytecode(tx_data.contract_classes,
+                        tx_data.contract_instances,
+                        tx_data.contract_addresses,
+                        tx_data.public_data_writes,
+                        rng);
+        break;
+    }
+    case FuzzerTxDataMutationType::ContractClassMutation:
+        mutate_contract_classes(tx_data.contract_classes, tx_data.contract_instances, tx_data.contract_addresses, rng);
+        // The fuzzer (like the AVM) assumes that all triplets of contract classes, instances and addresses are in sync
+        // So when we mutate contract classes, we also need to update the corresponding artifacts
+
+        break;
         // case TxDataMutationType::ContractInstanceMutation:
         //     // Mutations here are likely to cause immediate failure
         //     break;
