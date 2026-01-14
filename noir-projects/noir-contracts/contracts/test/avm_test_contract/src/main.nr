@@ -513,7 +513,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_sender(context: PublicContext) -> AztecAddress {
-        context.msg_sender_unsafe()
+        context.maybe_msg_sender().unwrap()
     }
 
     #[external("public")]

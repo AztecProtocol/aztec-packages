@@ -60,7 +60,7 @@ pub contract NFTBridge {
 
         // Burn the NFT on L2
         let nft: AztecAddress = self.storage.nft.read();
-        self.call(NFTPunk::at(nft).burn(self.context.msg_sender().unwrap(), token_id));
+        self.call(NFTPunk::at(nft).burn(self.msg_sender(), token_id));
     }
     // docs:end:exit
 }
