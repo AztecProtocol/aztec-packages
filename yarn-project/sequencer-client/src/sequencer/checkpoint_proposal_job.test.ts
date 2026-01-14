@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { timesAsync } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
@@ -11,7 +12,8 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, type L2BlockSink } from '@aztec/stdlib/block';
+import { CommitteeAttestation, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -59,6 +61,7 @@ describe('CheckpointProposalJob', () => {
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let l2BlockSource: MockProxy<L2BlockSource>;
   let blockSink: MockProxy<L2BlockSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: TestDateProvider;
@@ -73,6 +76,7 @@ describe('CheckpointProposalJob', () => {
   let newBlockNumber: BlockNumber;
   let newSlotNumber: number;
   let checkpointNumber: CheckpointNumber;
+  let epoch: EpochNumber;
   let hash: string;
 
   let globalVariables: GlobalVariables;
@@ -104,6 +108,7 @@ describe('CheckpointProposalJob', () => {
     lastBlockNumber = BlockNumber.ZERO;
     newBlockNumber = BlockNumber(lastBlockNumber + 1);
     newSlotNumber = 1;
+    epoch = EpochNumber.ZERO;
     checkpointNumber = CheckpointNumber.fromBlockNumber(newBlockNumber);
     hash = Fr.ZERO.toString();
 
@@ -192,6 +197,9 @@ describe('CheckpointProposalJob', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
+
+    l2BlockSource = mock<L2BlockSource>();
+    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -333,6 +341,77 @@ describe('CheckpointProposalJob', () => {
         expect.any(Date),
       );
     });
+
+    it('passes previous checkpoint out hashes when there are earlier checkpoints in the epoch', async () => {
+      // Create two previous checkpoints in the same epoch
+      const previousCheckpoints = await timesAsync(2, i => Checkpoint.random(CheckpointNumber(i + 1)));
+
+      // Update job to be for checkpoint 3
+      checkpointNumber = CheckpointNumber(3);
+      job = createCheckpointProposalJob();
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      // Mock l2BlockSource to return the previous checkpoints
+      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(previousCheckpoints);
+
+      // Build block successfully
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.execute();
+
+      // Verify startCheckpoint was called with the out hashes from previous checkpoints
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      const call = checkpointsBuilder.startCheckpointCalls[0];
+
+      expect(call.previousCheckpointOutHashes).toHaveLength(2);
+      expect(call.previousCheckpointOutHashes[0]).toEqual(previousCheckpoints[0].getCheckpointOutHash());
+      expect(call.previousCheckpointOutHashes[1]).toEqual(previousCheckpoints[1].getCheckpointOutHash());
+    });
+
+    it('filters out checkpoints at or after the current checkpoint number', async () => {
+      // Create checkpoints: one before, one at, and one after the current checkpoint number
+      const previousCheckpoint = await Checkpoint.random(CheckpointNumber(1));
+      const currentCheckpoint = await Checkpoint.random(CheckpointNumber(2));
+      const futureCheckpoint = await Checkpoint.random(CheckpointNumber(3));
+
+      // Job is for checkpoint 2
+      checkpointNumber = CheckpointNumber(2);
+      job = createCheckpointProposalJob();
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      // Mock l2BlockSource to return all three checkpoints
+      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([previousCheckpoint, currentCheckpoint, futureCheckpoint]);
+
+      // Build block successfully
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.execute();
+
+      // Verify only the checkpoint before the current one is included
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      const call = checkpointsBuilder.startCheckpointCalls[0];
+
+      expect(call.previousCheckpointOutHashes).toHaveLength(1);
+      expect(call.previousCheckpointOutHashes[0]).toEqual(previousCheckpoint.getCheckpointOutHash());
+    });
   });
 
   /**
@@ -346,6 +425,7 @@ describe('CheckpointProposalJob', () => {
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
     return new TestCheckpointProposalJob(
+      epoch,
       SlotNumber(newSlotNumber),
       checkpointNumber,
       lastBlockNumber,
@@ -358,6 +438,7 @@ describe('CheckpointProposalJob', () => {
       p2p,
       worldState,
       l1ToL2MessageSource,
+      l2BlockSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
       l1Constants,

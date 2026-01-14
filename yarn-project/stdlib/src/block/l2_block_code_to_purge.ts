@@ -22,6 +22,7 @@ export function makeL2BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     overrides.blobsHash ?? new Fr(seed + 0x200),
     overrides.inHash ?? new Fr(seed + 0x300),
+    overrides.epochOutHash ?? new Fr(seed + 0x400),
     overrides.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber: BlockNumber(blockNumber) } : {}),

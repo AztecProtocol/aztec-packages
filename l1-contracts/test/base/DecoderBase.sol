@@ -47,6 +47,7 @@ contract DecoderBase is TestBase {
     GasFees gasFees;
     bytes32 inHash;
     bytes32 lastArchiveRoot;
+    bytes32 outHash;
     uint256 slotNumber;
     uint256 timestamp;
     uint256 totalManaUsed;
@@ -102,6 +103,7 @@ contract DecoderBase is TestBase {
           blockHeadersHash: full.checkpoint.header.blockHeadersHash,
           blobsHash: full.checkpoint.header.blobsHash,
           inHash: full.checkpoint.header.inHash,
+          outHash: full.checkpoint.header.outHash,
           slotNumber: Slot.wrap(full.checkpoint.header.slotNumber),
           timestamp: Timestamp.wrap(full.checkpoint.header.timestamp),
           coinbase: full.checkpoint.header.coinbase,

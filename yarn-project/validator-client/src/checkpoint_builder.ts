@@ -196,6 +196,7 @@ export class FullNodeCheckpointsBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
@@ -213,6 +214,7 @@ export class FullNodeCheckpointsBuilder {
       checkpointNumber,
       constants,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       fork,
     );
 
@@ -233,6 +235,7 @@ export class FullNodeCheckpointsBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
     existingBlocks: L2BlockNew[] = [],
   ): Promise<CheckpointBuilder> {
@@ -240,7 +243,7 @@ export class FullNodeCheckpointsBuilder {
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
     if (existingBlocks.length === 0) {
-      return this.startCheckpoint(checkpointNumber, constants, l1ToL2Messages, fork);
+      return this.startCheckpoint(checkpointNumber, constants, l1ToL2Messages, previousCheckpointOutHashes, fork);
     }
 
     log.verbose(`Resuming checkpoint ${checkpointNumber} with ${existingBlocks.length} existing blocks`, {
@@ -256,6 +259,7 @@ export class FullNodeCheckpointsBuilder {
       checkpointNumber,
       constants,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       fork,
       existingBlocks,
     );

@@ -117,6 +117,7 @@ contract MinimalFeeModel {
       TempCheckpointLog({
         headerHash: bytes32(0),
         blobCommitmentsHash: bytes32(0),
+        outHash: bytes32(0),
         attestationsHash: bytes32(0),
         payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),

@@ -25,8 +25,9 @@ pub struct TxRollupPublicInputs {
     // Sponge blob after additionally absorbing tx effects from this tx range.
     pub end_sponge_blob: SpongeBlob,
 
-    // hash of the `l2_to_l1` message subtree. It will be combined with the `out_hash` from other txs in the
-    // same block to form a wonky tree. The root of that tree becomes the final `out_hash` used on L1.
+    // Root of the unbalanced tree composed of all l2-to-l1 messages emitted by this tx. It will be combined with the
+    // `out_hash` values from other txs in the same block to form a *wonky* tree.
+    // The tx out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
     // Accumulated fees for all txs in this rollup.

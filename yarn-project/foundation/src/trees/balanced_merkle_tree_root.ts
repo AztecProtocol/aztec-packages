@@ -1,17 +1,4 @@
-import { pedersenHash as pedersenHashArray } from '@aztec/foundation/crypto/pedersen';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
-
-import type { AsyncHasher, Hasher } from './hasher.js';
-
-export const shaMerkleHash: Hasher['hash'] = (left: Buffer, right: Buffer) =>
-  sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>;
-
-export const pedersenMerkleHash: AsyncHasher['hash'] = async (left: Buffer, right: Buffer) =>
-  (await pedersenHashArray([left, right])).toBuffer() as Buffer<ArrayBuffer>;
-
-export const poseidonMerkleHash: AsyncHasher['hash'] = async (left: Buffer, right: Buffer) =>
-  (await poseidon2Hash([left, right])).toBuffer() as Buffer<ArrayBuffer>;
+import { pedersenMerkleHash, poseidonMerkleHash, shaMerkleHash } from './hasher.js';
 
 export const computeBalancedShaRoot = (leaves: Buffer[]) => computeBalancedMerkleTreeRoot(leaves);
 

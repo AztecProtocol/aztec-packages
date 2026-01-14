@@ -128,18 +128,19 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
    * @dev Uses:
    *   - archive: GENESIS_ARCHIVE_ROOT
    *   - oracleInput: zero
-   *   - header fields from fixture for blockHeadersHash/blobsHash/inHash, rest overridden
+   *   - header fields from fixture for blockHeadersHash/blobsHash/inHash/outHash, rest overridden
    */
   function _buildProposeArgs(address _proposer) internal view returns (ProposeArgs memory args, bytes memory blobs) {
     bytes32 archive = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
     Slot slotNumber = rollup.getCurrentSlot();
 
-    // Build header fresh, only copying blockHeadersHash/blobsHash/inHash from fixture
+    // Build header fresh, only copying blockHeadersHash/blobsHash/inHash/outHash from fixture
     ProposedHeader memory header = ProposedHeader({
       lastArchiveRoot: archive,
       blockHeadersHash: full.checkpoint.header.blockHeadersHash,
       blobsHash: full.checkpoint.header.blobsHash,
       inHash: full.checkpoint.header.inHash,
+      outHash: full.checkpoint.header.outHash,
       slotNumber: slotNumber,
       timestamp: rollup.getTimestampForSlot(slotNumber),
       coinbase: _proposer,
