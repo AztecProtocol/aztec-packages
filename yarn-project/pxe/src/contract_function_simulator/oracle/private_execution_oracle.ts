@@ -265,9 +265,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore);
+      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore, this.jobId);
 
-      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret);
+      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -428,6 +428,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,
+        isPending: true, // This note has just been created and hence is not settled yet.
       },
       counter,
     );

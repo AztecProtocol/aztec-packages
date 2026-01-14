@@ -1,4 +1,4 @@
-import { MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
+import { MAX_L2_TO_L1_MSGS_PER_TX, OUT_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -13,11 +13,8 @@ import { computeEpochOutHash } from './out_hash.js';
 describe('L2 to L1 membership', () => {
   let foundLeafIds: Set<bigint>;
 
-  // The depth from the root to the checkpoint out hash in the left subtree (size 32).
-  const epochLeftTopTreeDepth = 6;
-
-  // The depth from the root to the checkpoint out hash in the right subtree (size 16).
-  const epochRightTopTreeDepth = 5;
+  // The depth from the root to the checkpoint out hash.
+  const epochTopTreeDepth = OUT_HASH_TREE_HEIGHT;
 
   const msgHashes = (numMsgs: number) => {
     return Array.from({ length: numMsgs }, () => Fr.random());
@@ -83,7 +80,7 @@ describe('L2 to L1 membership', () => {
 
       const m0 = witnesses[0];
       expect(m0.leafIndex).toBe(0n);
-      expect(m0.siblingPath.pathSize).toBe(epochLeftTopTreeDepth);
+      expect(m0.siblingPath.pathSize).toBe(epochTopTreeDepth);
     });
 
     it('a single tx with 2 messages', () => {
@@ -98,17 +95,17 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
 
       {
         const m1 = witnesses[1];
         expect(m1.leafIndex).toBe(1n);
-        expect(m1.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m1.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
-    it('a single tx with messages in a wonky tree', () => {
+    it('a single tx with messages in an unbalanced tree', () => {
       //       tx
       //      /   \
       //     .    m2
@@ -122,13 +119,13 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(1n);
-        expect(m2.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
@@ -143,10 +140,10 @@ describe('L2 to L1 membership', () => {
 
       const m0 = witnesses[0];
       expect(m0.leafIndex).toBe(0n);
-      expect(m0.siblingPath.pathSize).toBe(epochLeftTopTreeDepth);
+      expect(m0.siblingPath.pathSize).toBe(epochTopTreeDepth);
     });
 
-    it('multiple txs in a wonky tree, each tx has 1 message', () => {
+    it('multiple txs in an unbalanced tree, each tx has 1 message', () => {
       //       root
       //      /   \
       //     .    m2
@@ -162,17 +159,17 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(1n);
-        expect(m2.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
-    it('multiple txs in a wonky tree, one tx has 0 messages', () => {
+    it('multiple txs in an unbalanced tree, one tx has 0 messages', () => {
       //       root      ---->    root
       //      /   \              /   \
       //     .    m1           m0   m1
@@ -188,17 +185,17 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
 
       {
         const m1 = witnesses[1];
         expect(m1.leafIndex).toBe(1n);
-        expect(m1.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m1.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
-    it('multiple txs in a wonky tree, each tx has messages in a balanced tree', () => {
+    it('multiple txs in an unbalanced tree, each tx has messages in a balanced tree', () => {
       //       root
       //      /   \
       //     .    tx2
@@ -219,7 +216,7 @@ describe('L2 to L1 membership', () => {
         // m0
         const m0 = witnesses[0];
         // 2 edges from root to tx0, 1 edge from tx0 to m0, plus edges in epoch tree
-        expect(m0.siblingPath.pathSize).toBe(2 + 1 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + 1 + epochTopTreeDepth);
         // The leaf is at index 0n in its tx subtree (height = 1), which has no tx subtrees on its left.
         expect(m0.leafIndex).toBe(0n);
       }
@@ -234,14 +231,14 @@ describe('L2 to L1 membership', () => {
         // m0
         const m2 = witnesses[2];
         // 2 edges from root to tx1, 2 edges from tx1 to m2, plus edges in epoch tree
-        expect(m2.siblingPath.pathSize).toBe(2 + 2 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(2 + 2 + epochTopTreeDepth);
         // The leaf is at index 0n in its tx subtree (height = 2), which has 1 tx subtree on its left.
         expect(m2.leafIndex).toBe(0n + 1n * (1n << 2n));
 
         // m4
         const m4 = witnesses[4];
         // 2 edges from root to tx1, 2 edges from tx1 to m2, plus edges in epoch tree
-        expect(m4.siblingPath.pathSize).toBe(2 + 2 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(2 + 2 + epochTopTreeDepth);
         // The leaf is at index 2n in its tx subtree (height = 2), which has 1 tx subtree on its left.
         expect(m4.leafIndex).toBe(2n + 1n * (1n << 2n));
       }
@@ -254,13 +251,13 @@ describe('L2 to L1 membership', () => {
         // m7
         const m7 = witnesses[7];
         // 1 edge from root to tx2, 1 edge from tx2 to m1, plus edges in epoch tree
-        expect(m7.siblingPath.pathSize).toBe(1 + 1 + epochLeftTopTreeDepth);
+        expect(m7.siblingPath.pathSize).toBe(1 + 1 + epochTopTreeDepth);
         // The leaf is at index 1n in its tx subtree (height = 1), which has 1 tx subtree on its left.
         expect(m7.leafIndex).toBe(1n + 1n * (1n << 1n));
       }
     });
 
-    it('multiple txs in a wonky tree, each tx has messages in a wonky tree', () => {
+    it('multiple txs in an unbalanced tree, each tx has messages in an unbalanced tree', () => {
       //       root
       //      /   \
       //     .    tx2
@@ -285,14 +282,14 @@ describe('L2 to L1 membership', () => {
         // m2
         const m2 = witnesses[2];
         // 2 edges from root to tx0, 3 edges from tx0 to m2, plus edges in epoch tree
-        expect(m2.siblingPath.pathSize).toBe(2 + 3 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(2 + 3 + epochTopTreeDepth);
         // The leaf is at index 2n in its tx subtree (height = 3), which has no tx subtrees on its left.
         expect(m2.leafIndex).toBe(2n);
 
         // m4
         const m4 = witnesses[4];
         // 2 edges from root to tx0, 1 edge from tx0 to m4, plus edges in epoch tree
-        expect(m4.siblingPath.pathSize).toBe(2 + 1 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(2 + 1 + epochTopTreeDepth);
         // The leaf is at index 1n in its tx subtree (height = 1), which has no tx subtrees on its left.
         expect(m4.leafIndex).toBe(1n);
       }
@@ -307,14 +304,14 @@ describe('L2 to L1 membership', () => {
         // m0
         const m5 = witnesses[5];
         // 2 edges from root to tx1, 2 edges from tx1 to m0, plus edges in epoch tree
-        expect(m5.siblingPath.pathSize).toBe(2 + 2 + epochLeftTopTreeDepth);
+        expect(m5.siblingPath.pathSize).toBe(2 + 2 + epochTopTreeDepth);
         // The leaf is at index 0n in its tx subtree (height = 2), which has 1 tx subtree on its left.
         expect(m5.leafIndex).toBe(0n + 1n * (1n << 2n));
 
         // m7
         const m7 = witnesses[7];
         // 2 edges from root to tx1, 1 edge from tx1 to m2, plus edges in epoch tree
-        expect(m7.siblingPath.pathSize).toBe(2 + 1 + epochLeftTopTreeDepth);
+        expect(m7.siblingPath.pathSize).toBe(2 + 1 + epochTopTreeDepth);
         // The leaf is at index 1n in its tx subtree (height = 1), which has 1 tx subtree on its left.
         expect(m7.leafIndex).toBe(1n + 1n * (1n << 1n));
       }
@@ -331,21 +328,21 @@ describe('L2 to L1 membership', () => {
         // m11
         const m11 = witnesses[11];
         // 1 edge from root to tx2, 3 edges from tx2 to m3, plus edges in epoch tree
-        expect(m11.siblingPath.pathSize).toBe(1 + 3 + epochLeftTopTreeDepth);
+        expect(m11.siblingPath.pathSize).toBe(1 + 3 + epochTopTreeDepth);
         // The leaf is at index 3n in its tx subtree (height = 3), which has 1 tx subtree on its left.
         expect(m11.leafIndex).toBe(3n + 1n * (1n << 3n));
 
         // m12
         const m12 = witnesses[12];
         // 1 edge from root to tx2, 3 edges from tx2 to m4, plus edges in epoch tree
-        expect(m12.siblingPath.pathSize).toBe(1 + 3 + epochLeftTopTreeDepth);
+        expect(m12.siblingPath.pathSize).toBe(1 + 3 + epochTopTreeDepth);
         // The leaf is at index 4n in its tx subtree (height = 3), which has 1 tx subtree on its left.
         expect(m12.leafIndex).toBe(4n + 1n * (1n << 3n));
 
         // m14
         const m14 = witnesses[14];
         // 1 edge from root to tx2, 2 edges from tx2 to m6, plus edges in epoch tree
-        expect(m14.siblingPath.pathSize).toBe(1 + 2 + epochLeftTopTreeDepth);
+        expect(m14.siblingPath.pathSize).toBe(1 + 2 + epochTopTreeDepth);
         // The leaf is at index 3n in its tx subtree (height = 2), which has 1 tx subtree on its left.
         expect(m14.leafIndex).toBe(3n + 1n * (1n << 2n));
       }
@@ -375,14 +372,14 @@ describe('L2 to L1 membership', () => {
         // m0
         const m0 = witnesses[0];
         // 1 edge from root to tx2, 2 edges from tx2 to m0, plus edges in epoch tree
-        expect(m0.siblingPath.pathSize).toBe(1 + 2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(1 + 2 + epochTopTreeDepth);
         // The leaf is at index 0n in its tx subtree (height = 2), which has no tx subtrees on its left.
         expect(m0.leafIndex).toBe(0n);
 
         // m2
         const m2 = witnesses[2];
         // 1 edges from root to tx2, 1 edge from tx2 to m2, plus edges in epoch tree
-        expect(m2.siblingPath.pathSize).toBe(1 + 1 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(1 + 1 + epochTopTreeDepth);
         // The leaf is at index 1n in its tx subtree (height = 1), which has no tx subtrees on its left.
         expect(m2.leafIndex).toBe(1n);
       }
@@ -399,21 +396,21 @@ describe('L2 to L1 membership', () => {
         // m6
         const m6 = witnesses[6];
         // 1 edge from root to tx6, 3 edges from tx6 to m3, plus edges in epoch tree
-        expect(m6.siblingPath.pathSize).toBe(1 + 3 + epochLeftTopTreeDepth);
+        expect(m6.siblingPath.pathSize).toBe(1 + 3 + epochTopTreeDepth);
         // The leaf is at index 3n in its tx subtree (height = 3), which has 1 tx subtree on its left.
         expect(m6.leafIndex).toBe(3n + 1n * (1n << 3n));
 
         // m7
         const m7 = witnesses[7];
         // 1 edge from root to tx6, 3 edges from tx6 to m4, plus edges in epoch tree
-        expect(m7.siblingPath.pathSize).toBe(1 + 3 + epochLeftTopTreeDepth);
+        expect(m7.siblingPath.pathSize).toBe(1 + 3 + epochTopTreeDepth);
         // The leaf is at index 4n in its tx subtree (height = 3), which has 1 tx subtree on its left.
         expect(m7.leafIndex).toBe(4n + 1n * (1n << 3n));
 
         // m9
         const m9 = witnesses[9];
         // 1 edge from root to tx6, 2 edges from tx6 to m6, plus edges in epoch tree
-        expect(m9.siblingPath.pathSize).toBe(1 + 2 + epochLeftTopTreeDepth);
+        expect(m9.siblingPath.pathSize).toBe(1 + 2 + epochTopTreeDepth);
         // The leaf is at index 3n in its tx subtree (height = 2), which has 1 tx subtree on its left.
         expect(m9.leafIndex).toBe(3n + 1n * (1n << 2n));
       }
@@ -439,19 +436,19 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(epochTopTreeDepth);
       }
 
       {
         const m1 = witnesses[1];
         expect(m1.leafIndex).toBe(4n);
-        expect(m1.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m1.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m4 = witnesses[4];
         expect(m4.leafIndex).toBe(4n);
-        expect(m4.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
@@ -473,19 +470,19 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(1n);
-        expect(m2.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
 
       {
         const m4 = witnesses[4];
         expect(m4.leafIndex).toBe(5n); // Account for the 2 ghost leaves in c1.
-        expect(m4.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
@@ -509,19 +506,19 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
 
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(4n);
-        expect(m2.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m4 = witnesses[4];
         expect(m4.leafIndex).toBe(3n);
-        expect(m4.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
@@ -547,7 +544,7 @@ describe('L2 to L1 membership', () => {
         // m0
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(7n);
-        expect(m0.siblingPath.pathSize).toBe(epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(epochTopTreeDepth);
       }
       {
         //   c11
@@ -555,7 +552,7 @@ describe('L2 to L1 membership', () => {
         // m1  m2
         const m1 = witnesses[1];
         expect(m1.leafIndex).toBe(11n * 2n); // 11 checkpoints before it, each has 2 (ghost) leaves.
-        expect(m1.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m1.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
         //      c31
@@ -565,33 +562,31 @@ describe('L2 to L1 membership', () => {
         // m3  m4
         const m4 = witnesses[4];
         expect(m4.leafIndex).toBe(31n * 4n + 1n); // 31 checkpoints before it, each has 4 (ghost) leaves.
-        expect(m4.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
-      // For the checkpoints in the right epoch top tree, because its depth is 1 less than the left epoch top tree, the
-      // index starts from 16n, as if there's only 16 checkpoints before it.
       {
         //   c32
         //  /  \
         // m6  m7
         const m6 = witnesses[6];
-        expect(m6.leafIndex).toBe(16n * 2n); // 16 nodes before it, each has 2 (ghost) leaves.
-        expect(m6.siblingPath.pathSize).toBe(1 + epochRightTopTreeDepth);
+        expect(m6.leafIndex).toBe(32n * 2n); // 32 checkpoints before it, each has 2 (ghost) leaves.
+        expect(m6.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
         // c33
         //  |
         // m8
         const m8 = witnesses[8];
-        expect(m8.leafIndex).toBe(16n + 1n);
-        expect(m8.siblingPath.pathSize).toBe(epochRightTopTreeDepth);
+        expect(m8.leafIndex).toBe(32n + 1n);
+        expect(m8.siblingPath.pathSize).toBe(epochTopTreeDepth);
       }
       {
         //   c43
         //  /  \
         // m9  m10
         const m10 = witnesses[10];
-        expect(m10.leafIndex).toBe(27n * 2n + 1n); // (16 + 11) nodes before it, each has 2 (ghost) leaves.
-        expect(m10.siblingPath.pathSize).toBe(1 + epochRightTopTreeDepth);
+        expect(m10.leafIndex).toBe(43n * 2n + 1n); // (32 + 11) checkpoints before it, each has 2 (ghost) leaves.
+        expect(m10.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
         //      c47
@@ -600,14 +595,14 @@ describe('L2 to L1 membership', () => {
         //  /  \
         // m11 m12
         const m11 = witnesses[11];
-        expect(m11.leafIndex).toBe(31n * 4n); // (16 + 15) nodes before it, each has 4 (ghost) leaves.
-        expect(m11.siblingPath.pathSize).toBe(2 + epochRightTopTreeDepth);
+        expect(m11.leafIndex).toBe(47n * 4n); // (32 + 15) checkpoints before it, each has 4 (ghost) leaves.
+        expect(m11.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
     });
   });
 
   describe('multiple blocks in one checkpoint in the epoch', () => {
-    it('3 blocks in a wonky tree, each block has 1 tx with 1 message', () => {
+    it('3 blocks in an unbalanced tree, each block has 1 tx with 1 message', () => {
       //        c0
       //      /   \
       //     .    b2
@@ -621,19 +616,19 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m1 = witnesses[1];
         expect(m1.leafIndex).toBe(1n);
-        expect(m1.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m1.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(1n);
-        expect(m2.siblingPath.pathSize).toBe(1 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
     });
 
@@ -656,19 +651,19 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m3 = witnesses[3];
         expect(m3.leafIndex).toBe(5n);
-        expect(m3.siblingPath.pathSize).toBe(3 + epochLeftTopTreeDepth);
+        expect(m3.siblingPath.pathSize).toBe(3 + epochTopTreeDepth);
       }
 
       {
         const m4 = witnesses[4];
         expect(m4.leafIndex).toBe(3n);
-        expect(m4.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
     });
 
@@ -709,42 +704,42 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(4 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(4 + epochTopTreeDepth);
       }
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(1n);
-        expect(m2.siblingPath.pathSize).toBe(3 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(3 + epochTopTreeDepth);
       }
       {
         const m3 = witnesses[3];
         expect(m3.leafIndex).toBe(8n);
-        expect(m3.siblingPath.pathSize).toBe(5 + epochLeftTopTreeDepth);
+        expect(m3.siblingPath.pathSize).toBe(5 + epochTopTreeDepth);
       }
       {
         const m7 = witnesses[7];
         expect(m7.leafIndex).toBe(7n);
-        expect(m7.siblingPath.pathSize).toBe(4 + epochLeftTopTreeDepth);
+        expect(m7.siblingPath.pathSize).toBe(4 + epochTopTreeDepth);
       }
       {
         const m8 = witnesses[8];
         expect(m8.leafIndex).toBe(16n);
-        expect(m8.siblingPath.pathSize).toBe(5 + epochLeftTopTreeDepth);
+        expect(m8.siblingPath.pathSize).toBe(5 + epochTopTreeDepth);
       }
       {
         const m10 = witnesses[10];
         expect(m10.leafIndex).toBe(18n);
-        expect(m10.siblingPath.pathSize).toBe(5 + epochLeftTopTreeDepth);
+        expect(m10.siblingPath.pathSize).toBe(5 + epochTopTreeDepth);
       }
       {
         const m12 = witnesses[12];
         expect(m12.leafIndex).toBe(5n);
-        expect(m12.siblingPath.pathSize).toBe(3 + epochLeftTopTreeDepth);
+        expect(m12.siblingPath.pathSize).toBe(3 + epochTopTreeDepth);
       }
       {
         const m14 = witnesses[14];
         expect(m14.leafIndex).toBe(7n);
-        expect(m14.siblingPath.pathSize).toBe(3 + epochLeftTopTreeDepth);
+        expect(m14.siblingPath.pathSize).toBe(3 + epochTopTreeDepth);
       }
     });
 
@@ -768,31 +763,31 @@ describe('L2 to L1 membership', () => {
       {
         const m0 = witnesses[0];
         expect(m0.leafIndex).toBe(0n);
-        expect(m0.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m0.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m1 = witnesses[1];
         expect(m1.leafIndex).toBe(2n);
-        expect(m1.siblingPath.pathSize).toBe(3 + epochLeftTopTreeDepth);
+        expect(m1.siblingPath.pathSize).toBe(3 + epochTopTreeDepth);
       }
 
       {
         const m2 = witnesses[2];
         expect(m2.leafIndex).toBe(3n);
-        expect(m2.siblingPath.pathSize).toBe(3 + epochLeftTopTreeDepth);
+        expect(m2.siblingPath.pathSize).toBe(3 + epochTopTreeDepth);
       }
 
       {
         const m3 = witnesses[3];
         expect(m3.leafIndex).toBe(2n);
-        expect(m3.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m3.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
 
       {
         const m4 = witnesses[4];
         expect(m4.leafIndex).toBe(3n);
-        expect(m4.siblingPath.pathSize).toBe(2 + epochLeftTopTreeDepth);
+        expect(m4.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
     });
   });
@@ -809,7 +804,7 @@ describe('L2 to L1 membership', () => {
       ];
       const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
       expect(witness.leafIndex).toBe(2n); // The message is the root of the second checkpoint.
-      expect(witness.siblingPath.pathSize).toBe(epochLeftTopTreeDepth);
+      expect(witness.siblingPath.pathSize).toBe(epochTopTreeDepth);
     });
 
     it('a complex epoch with multiple checkpoints, blocks, txs, and messages', () => {

@@ -35,18 +35,17 @@ pub struct BlockRollupPublicInputs {
     pub timestamp: u64,
 
     // Hash of the headers of all blocks in this block range. It will be combined with the `block_headers_hash` from
-    // other blocks in the same checkpoint to form a wonky tree. The root of that tree becomes the final hash stored in
-    // the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
+    // other blocks in the same checkpoint to form an unbalanced tree. The root of that tree becomes the final hash
+    // stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
     pub block_headers_hash: Field,
 
     // Root of the `l1_to_l2` message subtree, set in the first block root and propagated to the checkpoint root.
     // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.
     pub in_hash: Field,
 
-    // Root of the tree composed of all `out_hash` values from txs in this block. This root is combined with the
-    // `out_hash` values from other blocks within the same checkpoint to form a wonky tree. The `out_hash` roots from
-    // all checkpoints in an epoch then form another tree, whose root becomes the final **root** `out_hash` inserted
-    // into the Outbox on L1.
+    // Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
+    // values from other blocks within the same checkpoint to form a *wonky* tree.
+    // The tx and block out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
     // Accumulated fees for all blocks in this block range.

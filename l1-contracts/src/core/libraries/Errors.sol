@@ -56,6 +56,7 @@ library Errors {
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
+  error Rollup__InvalidOutHash(bytes32 expected, bytes32 actual); // 0x8eb39062
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73

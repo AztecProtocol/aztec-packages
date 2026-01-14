@@ -65,8 +65,8 @@ describe('e2e_p2p_network', () => {
       },
     });
 
-    await t.addBootstrapNode();
     await t.setup();
+    await t.addBootstrapNode();
   });
 
   afterEach(async () => {

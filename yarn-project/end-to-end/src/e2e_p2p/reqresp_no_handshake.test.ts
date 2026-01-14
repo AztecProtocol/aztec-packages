@@ -46,8 +46,8 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
         aztecEpochDuration: 64, // stable committee
       },
     });
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {

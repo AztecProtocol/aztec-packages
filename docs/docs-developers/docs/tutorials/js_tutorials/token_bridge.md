@@ -108,7 +108,7 @@ touch src/nft.nr
 
 In this file, you're going to create a **private note** that represents NFT ownership. This is a struct with macros that indicate it is a note that can be compared and packed:
 
-#include_code nft_note_struct /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
+#include_code nft_note_struct /docs/examples/contracts/nft/src/nft.nr rust
 
 You now have a note that represents the owner of a particular NFT. Next, move on to the contract itself.
 
@@ -134,7 +134,7 @@ Write the storage struct and a simple [initializer](../../foundational-topics/co
 <!-- wrapped in a code block to add a "}" at the end -->
 
 ```rust
-#include_code contract_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr raw
+#include_code contract_setup /docs/examples/contracts/nft/src/main.nr raw
 }
 ```
 
@@ -142,28 +142,28 @@ Write the storage struct and a simple [initializer](../../foundational-topics/co
 
 Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and `#[only_self]` so only the contract can call it:
 
-#include_code mark_nft_exists /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code mark_nft_exists /docs/examples/contracts/nft/src/main.nr rust
 
 This function is marked with `#[only_self]`, meaning only the contract itself can call it. It uses `schedule_value_change` to update the `nfts` storage, preventing the same NFT from being minted twice or burned when it doesn't exist. You'll call this public function from a private function later using `enqueue_self`.
 
 Another useful function checks how many notes a caller has. You can use this later to verify the claim and exit from L2:
 
-#include_code notes_of /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code notes_of /docs/examples/contracts/nft/src/main.nr rust
 
 ### Add Minting and Burning
 
 Before anything else, you need to set the minter. This will be the bridge contract, so only the bridge contract can mint NFTs. This value doesn't need to change after initialization. Here's how to initialize the `PublicImmutable`:
 
-#include_code set_minter /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code set_minter /docs/examples/contracts/nft/src/main.nr rust
 
 Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, deliver the note using [constrained message delivery](../../aztec-nr/framework-description/how_to_emit_event.md) (best practice when "sending someone a
 note") and then [enqueue a public call](../../aztec-nr/framework-description/how_to_call_contracts.md) to the `_mark_nft_exists` function:
 
-#include_code mint /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code mint /docs/examples/contracts/nft/src/main.nr rust
 
 The bridge will also need to burn NFTs when users withdraw back to L1:
 
-#include_code burn /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code burn /docs/examples/contracts/nft/src/main.nr rust
 
 ### Compiling!
 
@@ -241,7 +241,7 @@ Clean up `main.nr` which is just a placeholder, and let's write the storage stru
 <!-- wrapped in a code block to add a "}" at the end -->
 
 ```rust
-#include_code bridge_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr raw
+#include_code bridge_setup /docs/examples/contracts/nft_bridge/src/main.nr raw
 }
 ```
 
@@ -255,7 +255,7 @@ You need to define how to encode messages. Here's a simple approach: when an NFT
 
 Build the `claim` function, which consumes the message and mints the NFT on the L2 side:
 
-#include_code claim /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
+#include_code claim /docs/examples/contracts/nft_bridge/src/main.nr rust
 
 :::tip Secret
 
@@ -265,7 +265,7 @@ The secret prevents front-running. Certainly you don't want anyone to claim your
 
 Similarly, exiting to L1 means burning the NFT on the L2 side and pushing a message through the protocol. To ensure only the L1 recipient can claim it, hash the `token_id` together with the `recipient`:
 
-#include_code exit /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
+#include_code exit /docs/examples/contracts/nft_bridge/src/main.nr rust
 
 Cross-chain messaging on Aztec is powerful because it doesn't conform to any specific format—you can structure messages however you want.
 
@@ -319,7 +319,7 @@ touch contracts/SimpleNFT.sol
 
 Create a minimal NFT contract sufficient for demonstrating bridging:
 
-#include_code simple_nft /docs/examples/tutorials/token_bridge_contract/contracts/SimpleNFT.sol solidity
+#include_code simple_nft /docs/examples/solidity/nft_bridge/SimpleNFT.sol solidity
 
 ### Create the NFT Portal
 
@@ -332,7 +332,7 @@ touch contracts/NFTPortal.sol
 Initialize it with Aztec's registry, which holds the canonical contracts for Aztec-related contracts, including the Inbox and Outbox. These are the message-passing contracts—Aztec sequencers read any messages on these contracts.
 
 ```solidity
-#include_code portal_setup /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol raw
+#include_code portal_setup /docs/examples/solidity/nft_bridge/NFTPortal.sol raw
 }
 ```
 
@@ -340,7 +340,7 @@ The core logic is similar to the L2 logic. `depositToAztec` calls the `Inbox` ca
 
 Add these two functions with explanatory comments:
 
-#include_code portal_deposit_and_withdraw /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol solidity
+#include_code portal_deposit_and_withdraw /docs/examples/solidity/nft_bridge/NFTPortal.sol solidity
 
 The portal handles two flows:
 
@@ -383,19 +383,19 @@ This section assumes you're working locally using the local network. For the tes
 
 First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
 
-#include_code setup /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code setup /docs/examples/ts/token_bridge/index.ts typescript
 
 You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
 
-#include_code deploy_l1_contracts /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code deploy_l1_contracts /docs/examples/ts/token_bridge/index.ts typescript
 
 Now deploy the L2 contracts. Thanks to the TypeScript bindings generated with `aztec codegen`, deployment is straightforward:
 
-#include_code deploy_l2_contracts /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code deploy_l2_contracts /docs/examples/ts/token_bridge/index.ts typescript
 
 Now that you have the L2 bridge's contract address, initialize the L1 bridge:
 
-#include_code initialize_portal /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code initialize_portal /docs/examples/ts/token_bridge/index.ts typescript
 
 The L2 contracts were already initialized when you deployed them, but you still need to:
 
@@ -404,7 +404,7 @@ The L2 contracts were already initialized when you deployed them, but you still 
 
 Complete these initialization steps:
 
-#include_code initialize_l2_bridge /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code initialize_l2_bridge /docs/examples/ts/token_bridge/index.ts typescript
 
 This completes the setup. It's a lot of configuration, but you're dealing with four contracts across two chains.
 
@@ -412,41 +412,41 @@ This completes the setup. It's a lot of configuration, but you're dealing with f
 
 Now for the main flow. Mint a CryptoPunk on L1, deposit it to Aztec, and claim it on Aztec. Put everything in the same script. To mint, call the L1 contract with `mint`, which will mint `tokenId = 0`:
 
-#include_code mint_nft_l1 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code mint_nft_l1 /docs/examples/ts/token_bridge/index.ts typescript
 
 To bridge, first approve the portal address to transfer the NFT, then transfer it by calling `depositToAztec`:
 
-#include_code deposit_to_aztec /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code deposit_to_aztec /docs/examples/ts/token_bridge/index.ts typescript
 
 The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
 
 Use viem to extract this information:
 
-#include_code get_message_leaf_index /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code get_message_leaf_index /docs/examples/ts/token_bridge/index.ts typescript
 
 This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, for security reasons, at least 2 blocks must pass before a message can be claimed on L2. If you called `claim` on the L2 contract immediately, it would return "no message available".
 
 Add a utility function to mine two blocks (it deploys a contract with a random salt):
 
-#include_code mine_blocks /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code mine_blocks /docs/examples/ts/token_bridge/index.ts typescript
 
 Now claim the message on L2:
 
-#include_code claim_on_l2 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code claim_on_l2 /docs/examples/ts/token_bridge/index.ts typescript
 
 ### L2 → L1 Flow
 
 Great! You can expand the L2 contract to add features like NFT transfers. For now, exit the NFT on L2 and redeem it on L1. Mine two blocks because of `DelayedMutable`:
 
-#include_code exit_from_l2 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code exit_from_l2 /docs/examples/ts/token_bridge/index.ts typescript
 
 Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use the utility `computeL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
 
-#include_code get_withdrawal_witness /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code get_withdrawal_witness /docs/examples/ts/token_bridge/index.ts typescript
 
 With this information, call the L1 contract and use the index and the sibling path to claim the L1 NFT:
 
-#include_code withdraw_on_l1 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+#include_code withdraw_on_l1 /docs/examples/ts/token_bridge/index.ts typescript
 
 You can now try the whole flow with:
 

@@ -190,6 +190,10 @@ tests:
     error_regex: "Received number of calls: 1"
     owners:
       - *palla
+  - regex: "archiver/src/archiver/archiver.test.ts"
+    error_regex: "Failed to commit transaction: InitialBlockNumberNotSequentialError: Cannot insert new block"
+    owners:
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
@@ -282,7 +286,7 @@ tests:
   - regex: "src/e2e_p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
-      - *palla
+      - *phil
 
   - regex: "src/e2e_epochs/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
@@ -320,3 +324,10 @@ tests:
     error_regex: "Exceeded timeout of [0-9]+ ms for a test"
     owners:
       - *palla
+
+  # http://ci.aztec-labs.com/963635a09039594f
+  # http://ci.aztec-labs.com/d3b12131764bce18
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam

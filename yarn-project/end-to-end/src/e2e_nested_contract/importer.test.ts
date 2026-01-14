@@ -10,7 +10,6 @@ describe('e2e_nested_contract manual', () => {
   let { wallet, logger, defaultAccountAddress } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
     ({ wallet, logger, defaultAccountAddress } = t);
   });

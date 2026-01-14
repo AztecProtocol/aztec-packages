@@ -676,5 +676,67 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     check_all_interactions<Sha256TraceBuilder>(trace);
 }
 
+//////////////////////////////////////////
+/// Negative Tests - Constraint Verification
+//////////////////////////////////////////
+
+// This test verifies that input_addr IS properly constrained on non-start rows.
+//
+// The sha256_mem.pil file propagates execution_clk, space_id, output_addr, and input_addr
+// using CONTINUITY_* constraints. The CONTINUITY_INPUT_ADDR constraint ensures that
+// input_addr increments by 1 during input rounds (when sel_is_input_round=1) and stays
+// constant otherwise. This prevents malicious provers from reading arbitrary memory.
+//
+// APPROACH: Generate a valid SHA256 trace, then tamper with input_addr on a non-start row.
+// The CONTINUITY_INPUT_ADDR constraint should catch this tampering and cause relation check to fail.
+TEST(Sha256MemoryConstrainingTest, InputAddrTamperingIsCaughtByConstraint)
+{
+    // Step 1: Generate a valid SHA256 compression trace using the actual simulation
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+
+    // Set up valid memory for state and input
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8; // Legitimate input address
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    // Execute SHA256 compression (this generates valid events)
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    // Build trace from events
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Step 2: Verify the trace is valid BEFORE tampering
+    ASSERT_NO_THROW(check_relation<sha256_mem>(trace)) << "Trace should be valid before tampering";
+
+    // Step 3: Tamper with input_addr on row 1 (a non-start input round)
+    // The constraint should catch this because input_addr[1] must equal input_addr[0] + 1
+    constexpr uint32_t MALICIOUS_ADDR = 9999;
+    trace.set(C::sha256_input_addr, 1, MALICIOUS_ADDR);
+
+    // Step 4: Verify the CONTINUITY_INPUT_ADDR constraint catches the tampering
+    // The constraint enforces: input_addr' = input_addr + sel_is_input_round
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256_mem>(trace, sha256_mem::SR_CONTINUITY_INPUT_ADDR),
+                              "CONTINUITY_INPUT_ADDR");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

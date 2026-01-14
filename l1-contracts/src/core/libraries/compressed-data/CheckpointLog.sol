@@ -20,6 +20,7 @@ struct CheckpointLog {
   bytes32 archive;
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
+  bytes32 outHash;
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
@@ -29,6 +30,7 @@ struct CheckpointLog {
 struct TempCheckpointLog {
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
+  bytes32 outHash;
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
@@ -38,6 +40,7 @@ struct TempCheckpointLog {
 struct CompressedTempCheckpointLog {
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
+  bytes32 outHash;
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   CompressedSlot slotNumber;
@@ -54,6 +57,7 @@ library CompressedTempCheckpointLogLib {
     return CompressedTempCheckpointLog({
       headerHash: _checkpoint.headerHash,
       blobCommitmentsHash: _checkpoint.blobCommitmentsHash,
+      outHash: _checkpoint.outHash,
       attestationsHash: _checkpoint.attestationsHash,
       payloadDigest: _checkpoint.payloadDigest,
       slotNumber: _checkpoint.slotNumber.compress(),
@@ -69,6 +73,7 @@ library CompressedTempCheckpointLogLib {
     return TempCheckpointLog({
       headerHash: _compressedCheckpoint.headerHash,
       blobCommitmentsHash: _compressedCheckpoint.blobCommitmentsHash,
+      outHash: _compressedCheckpoint.outHash,
       attestationsHash: _compressedCheckpoint.attestationsHash,
       payloadDigest: _compressedCheckpoint.payloadDigest,
       slotNumber: _compressedCheckpoint.slotNumber.decompress(),

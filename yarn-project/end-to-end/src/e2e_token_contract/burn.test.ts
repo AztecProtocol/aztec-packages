@@ -9,8 +9,8 @@ describe('e2e_token_contract burn', () => {
   let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, wallet, adminAddress, tokenSim, adminAddress, account1Address, account2Address } = t);
