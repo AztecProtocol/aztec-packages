@@ -336,3 +336,8 @@ tests:
     error_regex: "sending signal TERM to command"
     owners:
       - *adam
+
+  - regex: "aztec-up/bootstrap.sh"
+    error_regex: "deploy_npm"
+    owners:
+      - *charlie
