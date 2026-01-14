@@ -816,14 +816,6 @@ class ECCVMFlavor {
         using Base = FixedVKAndHash_<PrecomputedEntities<Commitment>, BF>;
 
       public:
-        bool operator==(const VerificationKey&) const = default;
-
-        // Identity point for PCS operations (Shplemini/Shplonk)
-        Commitment pcs_g1_identity = []() {
-            auto pcs_vk = VerifierCommitmentKey(1); // Just need the identity (first point)
-            return pcs_vk.get_g1_identity();
-        }();
-
         // Default construct the fixed VK from hardcoded commitments and precomputed hash
         VerificationKey()
             : Base(ECCVMFixedVKAndHash::vk_hash())

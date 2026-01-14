@@ -96,7 +96,7 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_g1_identity,
+                                               pcs_g1_identity,
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                libra_commitments,
@@ -121,8 +121,7 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
     // Construct the combined opening claim
-    const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_g1_identity, opening_claims, transcript);
+    const OpeningClaim batch_opening_claim = Shplonk::reduce_verification(pcs_g1_identity, opening_claims, transcript);
 
     bool sumcheck_verified = sumcheck_output.verified;
     vinfo("ECCVM Verifier: sumcheck verified: ", sumcheck_verified);

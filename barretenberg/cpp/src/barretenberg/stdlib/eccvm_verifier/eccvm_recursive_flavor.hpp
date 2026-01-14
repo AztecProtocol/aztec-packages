@@ -82,11 +82,8 @@ class ECCVMRecursiveFlavor {
             FixedStdlibVKAndHash_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
 
       public:
-        Commitment pcs_g1_identity;
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
             : Base(builder, native_key)
-            , pcs_g1_identity(Commitment(native_key->pcs_g1_identity))
         {}
     };
 
