@@ -131,8 +131,14 @@ export class L2BlockNew {
     };
   }
 
-  static empty() {
-    return new L2BlockNew(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty(), CheckpointNumber(0), 0);
+  static empty(header?: BlockHeader) {
+    return new L2BlockNew(
+      AppendOnlyTreeSnapshot.empty(),
+      header ?? BlockHeader.empty(),
+      Body.empty(),
+      CheckpointNumber(0),
+      0,
+    );
   }
 
   /**
