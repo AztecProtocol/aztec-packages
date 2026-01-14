@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/AztecProtocol/aztec-packages/compare/v3.0.1...v3.0.2) (2026-01-12)
+
+
+### Bug Fixes
+
+* node request from `PXE` crossing `MAX_RPC_LIMIT` ([#19516](https://github.com/AztecProtocol/aztec-packages/issues/19516)) ([4a29a70](https://github.com/AztecProtocol/aztec-packages/commit/4a29a70d171df337fba51ab62567c853f84fca68))
+
 ## [3.0.1](https://github.com/AztecProtocol/aztec-packages/compare/v3.0.0...v3.0.1) (2026-01-08)
 
 
