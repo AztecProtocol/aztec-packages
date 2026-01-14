@@ -5,9 +5,9 @@ hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh 
 
 function build {
   # Create versions.json so we know what to install.
-  ../bootstrap.sh versions > ./bin/versions
+  ../bootstrap.sh versions > ./bin/0.0.1/versions
   echo "Versions:"
-  cat ./bin/versions
+  cat ./bin/0.0.1/versions
   echo
 
   # Create Verdaccio config.
@@ -60,7 +60,7 @@ registry=http://localhost:4873/
 EOF
 
     # Deploy all npm packages to local registry.
-    version=$(cat ./bin/versions | grep aztec | cut -d' ' -f2)
+    version=0.0.1
     # TODO(AD): we have kludged a retry here. a local NPM install ought to be robust enough not to.
     echo "Deploying packages to local npm registry (version: $version)..."
     {
@@ -99,18 +99,29 @@ function test {
 function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
-  local source_dir=./bin
 
-  # Always create a version directory and upload files there.
-  do_or_dryrun aws s3 sync $source_dir "s3://install.aztec.network/$version/"
+  # Upload version-specific files to version directory.
+  do_or_dryrun aws s3 cp bin/0.0.1/install "s3://install.aztec.network/$version/install"
+  do_or_dryrun aws s3 cp bin/0.0.1/versions "s3://install.aztec.network/$version/versions"
 
-  if [[ $(dist_tag) != "latest" ]]; then
-    # Also upload to a $dist_tag directory, if not latest.
-    do_or_dryrun aws s3 sync $source_dir "s3://install.aztec.network/$(dist_tag)/"
-  else
-    # Upload new version to root.
-    do_or_dryrun aws s3 sync $source_dir s3://install.aztec.network/
-  fi
+  # Upload root installer files to the version directory, which can be useful for testing.
+  do_or_dryrun aws s3 cp bin/aztec-install "s3://install.aztec.network/$version/aztec-install"
+  do_or_dryrun aws s3 cp bin/aztec-up "s3://install.aztec.network/$version/aztec-up"
+
+  # Update alias to point to new version.
+  # This has real impact outside of the version fence. i.e. if it's nightly dist tag, it affects nightly installs.
+  do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
+}
+
+# This is not done by CI.
+# It's a manual process, as updating the root installer and alias index requires careful consideration.
+function release_aztec_up {
+    # Update root scripts.
+    do_or_dryrun aws s3 cp bin/aztec-install "s3://install.aztec.network/aztec-install"
+    do_or_dryrun aws s3 cp bin/aztec-up "s3://install.aztec.network/aztec-up"
+
+    # Update alias list.
+    do_or_dryrun aws s3 cp bin/aliases/index "s3://install.aztec.network/aliases/index"
 }
 
 case "$cmd" in

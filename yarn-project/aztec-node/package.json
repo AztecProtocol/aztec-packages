@@ -9,7 +9,6 @@
     "./sentinel": "./dest/aztec-node/sentinel.js",
     "./test": "./dest/test/index.js"
   },
-  "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"

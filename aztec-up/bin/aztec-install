@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Root bootstrap script for Aztec toolchain
+# This script installs aztec-up and then delegates to it for version installation.
+# Usage: bash -i <(curl -s https://install.aztec.network)
+#    or: VERSION=0.85.0 bash -i <(curl -s https://install.aztec.network)
 set -euo pipefail
 
 # Colors
@@ -15,16 +19,14 @@ else
   NON_INTERACTIVE=${NON_INTERACTIVE:-0}
 fi
 
-aztec_path=$HOME/.aztec
-bin_path=$aztec_path/bin
+# Base paths
+AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
+shared_bin_path="$AZTEC_HOME/bin"
 
-# For testing you can override the INSTALL_URI to point to a file uri e.g. file:///home/user/aztec-packages/aztec-up/bin
-if [ -z "${INSTALL_URI:-}" ]; then
-  INSTALL_URI=https://install.aztec.network
-  if [ -n "${VERSION:-}" ]; then
-    INSTALL_URI+="/$VERSION"
-  fi
-fi
+VERSION="${VERSION:-}"
+
+# Install URI (root, not version-specific)
+INSTALL_URI="${INSTALL_URI:-https://install.aztec.network}"
 
 # Add color to the AZTEC ascii art.
 function print_colored() {
@@ -34,7 +36,7 @@ function print_colored() {
   echo "$1" | sed -E "s/(█+)/${b}\1${y}/g"
 }
 
-function title() {
+function title {
   clear
   echo
   print_colored " █████╗ ███████╗████████╗███████╗ ██████╗"
@@ -45,6 +47,8 @@ function title() {
   print_colored "╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝ ╚═════╝"
   echo -e "${r}"
   echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
+  echo
+  echo -e "Installing version: ${bold}${g}$VERSION${r}"
   echo
   echo -e "This install script will install the following and update your PATH if necessary:"
   echo -e "  ${bold}${g}nargo${r}        - the version of the noir programming language compatible with this version of aztec."
@@ -61,6 +65,33 @@ function title() {
   fi
 }
 
+function check_for_old_install {
+  if [ -f "$AZTEC_HOME/bin/.aztec-run" ]; then
+    echo_yellow "WARNING: An existing Aztec installation was detected in $AZTEC_HOME."
+    echo
+    echo "You should only proceed if you no longer intend to use older versions of Aztec installed via the old docker-based method."
+    echo -e "Aztec has moved to a native, dockerless installation, using ${bold}${g}aztec-up${r} as a version manager."
+    echo "The container is still available but is only useful for running node infrastructure, not contract development."
+    echo
+
+    if [ "$NON_INTERACTIVE" -eq 1 ]; then
+      echo "Remove $AZTEC_HOME and try again."
+      exit 1
+    fi
+
+    echo_yellow "If you continue, the entire $AZTEC_HOME directory will be removed and replaced with the new installation."
+    echo "You should manually remove old docker images you no longer need."
+    echo
+    read -p "Do you wish to continue? (y/n) " -n 1 -r
+    echo
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+    rm -rf "$AZTEC_HOME"
+  fi
+}
+
 function echo_green {
   echo -e "${g}$1${r}"
 }
@@ -69,88 +100,7 @@ function echo_yellow {
   echo -e "${y}$1${r}"
 }
 
-function echo_purple {
-  echo -e "${p}$1${r}"
-}
-
-function dump_fail {
-  output=$(mktemp)
-
-  set +e
-  ($1) &>$output
-  status=$?
-  set -e
-
-  # 0 or SIGTERM considered a success.
-  if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
-    {
-      echo
-      echo -e "${y}command failed${r}: $1 (exit: $status)"
-      echo -e "${b}--- output ---${r}"
-      cat $output
-    } >&2
-  fi
-
-  rm $output
-
-  return $status
-}
-
-function check_toolchains {
-  # Check Node.js version.
-  local versions=$(curl -fsSL "$INSTALL_URI/versions")
-  local node_min_version=$(echo "$versions" | grep node | cut -d' ' -f2)
-  local node_installed_version=$(node --version | cut -d 'v' -f 2 || echo "none")
-  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
-    echo "Installation: nvm install --lts && nvm alias default lts/*"
-    exit 1
-  fi
-}
-
-function install_file {
-  local dest="$aztec_path/$1"
-  curl -fsSL "$INSTALL_URI/$1" -o "$dest"
-  echo "Installed: $dest"
-}
-
-# Copy a file from the install source path to the bin path and make it executable.
-function install_bin {
-  local dest="$bin_path/$1"
-  curl -fsSL "$INSTALL_URI/$1" -o "$dest"
-  chmod +x "$dest"
-  echo "Installed: $dest"
-}
-
-# Updates appropriate shell script to ensure the bin path is in the PATH.
-function update_path_env_var {
-  local target_dir=$bin_path
-  # Check if the target directory is in the user's PATH.
-  if [[ ":$PATH:" == *":$target_dir:"* ]]; then
-    return
-  fi
-
-  # Determine the user's shell.
-  local shell_profile=""
-  case $SHELL in
-  */bash)
-    shell_profile="$HOME/.bashrc"
-    ;;
-  */zsh)
-    shell_profile="$HOME/.zshrc"
-    ;;
-  *)
-    echo "Unsupported shell: $SHELL"
-    return
-    ;;
-  esac
-
-  # Add the target directory to the user's PATH in their profile.
-  echo "export PATH=\"\$PATH:$target_dir\"" >>"$shell_profile"
-}
-
 function install_jq {
-  set -euo pipefail
   url_base="https://github.com/jqlang/jq/releases/download/jq-1.8.1"
   arch="$(uname -m)"
   os="$(uname -s)"
@@ -176,76 +126,90 @@ function install_jq {
       ;;
   esac
 
-  curl -Ls "$url_base/$bin" -o $bin_path/jq || return 1
-  chmod +x $bin_path/jq
+  curl -Ls "$url_base/$bin" -o $shared_bin_path/jq || return 1
+  chmod +x $shared_bin_path/jq
 }
 
 function install_aztec_up {
-  set -euo pipefail
-  mkdir -p $bin_path
-  rm -f $bin_path/*
-  install_bin aztec-up
-  install_file versions
-  update_path_env_var
+  if [ -n "$VERSION" ]; then
+    # Download aztec-up from version dir (useful for testing).
+    curl -fsSL "$INSTALL_URI/$VERSION/aztec-up" -o "$shared_bin_path/aztec-up"
+  else
+    # Download aztec-up from root (the canonical latest version).
+    curl -fsSL "$INSTALL_URI/aztec-up" -o "$shared_bin_path/aztec-up"
+  fi
+  chmod +x "$shared_bin_path/aztec-up"
 }
 
-function install_noir {
-  set -euo pipefail
-  curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-  $HOME/.nargo/bin/noirup -v $(cat $aztec_path/versions | grep noir | cut -d' ' -f2)
-}
+# Updates appropriate shell script to ensure the paths are in PATH.
+function update_path_env_var {
+  # We need both:
+  # - $AZTEC_HOME/current/bin and $AZTEC_HOME/current/node_modules/.bin for version-specific tools
+  # - $AZTEC_HOME/bin for shared tools like aztec-up
+  local path_line="export PATH=\"\$HOME/.aztec/current/bin:\$HOME/.aztec/current/node_modules/.bin:\$HOME/.aztec/bin:\$PATH\""
 
-function install_foundry {
-  set -euo pipefail
-  curl -L https://foundry.paradigm.xyz | bash
-  $HOME/.foundry/bin/foundryup -i $(cat $aztec_path/versions | grep foundry | cut -d' ' -f2)
-}
+  # Determine the user's shell.
+  local shell_profile=""
+  case $SHELL in
+  */bash)
+    shell_profile="$HOME/.bashrc"
+    ;;
+  */zsh)
+    shell_profile="$HOME/.zshrc"
+    ;;
+  *)
+    echo "Unsupported shell: $SHELL"
+    return
+    ;;
+  esac
 
-function install_aztec_packages {
-  set -euo pipefail
-  local version=$(cat $aztec_path/versions | grep aztec | cut -d' ' -f2)
-  npm i -g @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
+  # Check if we already have aztec paths in the profile.
+  if grep -q '\.aztec' "$shell_profile" 2>/dev/null; then
+    # Remove old aztec PATH entries.
+    local tmp_file=$(mktemp)
+    grep -Ev 'export PATH=.*/\.aztec/' "$shell_profile" > "$tmp_file" || true
+    mv "$tmp_file" "$shell_profile"
+  fi
+
+  # Add the path line
+  echo "$path_line" >>"$shell_profile"
 }
 
 function main {
   # Show title if we're in a terminal.
   [ "$NON_INTERACTIVE" -eq 0 ] && title
 
-  check_toolchains
+  check_for_old_install
 
-  # Install aztec-up
-  echo -n "Installing aztec-up... "
-  dump_fail install_aztec_up
-  echo_green "done."
+  mkdir -p "$shared_bin_path"
 
   # Install jq
   echo -n "Installing jq... "
-  dump_fail install_jq
+  install_jq
   echo_green "done."
 
-  # Install noir
-  echo -n "Installing nargo... "
-  dump_fail install_noir
+  # Install aztec-up (version manager)
+  echo -n "Installing aztec-up... "
+  install_aztec_up
   echo_green "done."
 
-  # Install foundry
-  echo -n "Installing foundry... "
-  dump_fail install_foundry
-  echo_green "done."
+  # Update PATH
+  update_path_env_var
 
-  # Install aztec
-  echo -n "Installing aztec packages... "
-  dump_fail install_aztec_packages
-  echo_green "done."
+  # Export PATH for this session so aztec-up is available
+  export PATH="$shared_bin_path:$PATH"
+
+  # Use aztec-up to install the requested version
+  aztec-up install $VERSION
 
   if [ "$NON_INTERACTIVE" -eq 0 ] && [ "${NO_NEW_SHELL:-0}" -eq 0 ]; then
     echo_green "Done! Starting fresh shell..."
     exec $SHELL
   else
     echo
-    echo -e "${g}Done!${r} You'll need to start a fresh shell to see PATH updates."
+    echo "Done! You'll need to start a fresh shell to see PATH updates."
+    echo
   fi
 }
 
-cmd="${1:-main}";
-$cmd
+main "$@"

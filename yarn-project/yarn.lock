@@ -792,8 +792,6 @@ __metadata:
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^3.23.8"
-  bin:
-    aztec-faucet: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -836,8 +834,6 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-  bin:
-    aztec-node: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -1102,8 +1098,6 @@ __metadata:
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
-  bin:
-    aztec-builder: dest/bin/cli.js
   languageName: unknown
   linkType: soft
 

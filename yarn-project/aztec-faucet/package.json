@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "main": "dest/bin/index.js",
   "type": "module",
-  "bin": "./dest/bin/index.js",
   "exports": {
     ".": "./dest/index.js",
     "./config": "./dest/config.js"
