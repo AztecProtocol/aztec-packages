@@ -28,7 +28,7 @@ import {
   toFunctionSelector,
 } from 'viem';
 
-import type { ArchiverInstrumentation } from '../instrumentation.js';
+import type { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
 import { getCallFromSpireProposer } from './spire_proposer.js';
 import { getSuccessfulCallsFromTrace } from './trace_tx.js';

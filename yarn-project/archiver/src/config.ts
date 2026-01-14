@@ -82,3 +82,14 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
 export function getArchiverConfigFromEnv(): ArchiverConfig {
   return getConfigFromMappings<ArchiverConfig>(archiverConfigMappings);
 }
+
+/** Extracts the archiver-specific configuration from the full ArchiverConfig */
+export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
+  return {
+    pollingIntervalMs: config.archiverPollingIntervalMS,
+    batchSize: config.archiverBatchSize,
+    skipValidateCheckpointAttestations: config.skipValidateCheckpointAttestations,
+    maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
+    ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
+  };
+}

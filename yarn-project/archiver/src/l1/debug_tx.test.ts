@@ -4,8 +4,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import type { Hex } from 'viem';
 
-import debugTraceMultipleProposeFixture from '../../test/fixtures/debug_traceTransaction-multiplePropose.json' with { type: 'json' };
-import debugTraceFixture from '../../test/fixtures/debug_traceTransaction-proxied.json' with { type: 'json' };
+import debugTraceMultipleProposeFixture from '../test/fixtures/debug_traceTransaction-multiplePropose.json' with { type: 'json' };
+import debugTraceFixture from '../test/fixtures/debug_traceTransaction-proxied.json' with { type: 'json' };
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
 
 describe('getSuccessfulCallsFromDebug', () => {

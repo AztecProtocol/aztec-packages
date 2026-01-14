@@ -1,4 +1,4 @@
-import type { ArchiveSource } from '@aztec/archiver';
+import type { ArchiverDataSource } from '@aztec/archiver';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2Block } from '@aztec/aztec.js/block';
@@ -121,7 +121,7 @@ describe('L1Publisher integration', () => {
 
   let minFee: GasFees;
 
-  let blockSource: MockProxy<ArchiveSource>;
+  let blockSource: MockProxy<ArchiverDataSource>;
   let blocks: L2Block[] = [];
 
   const chainId = createEthereumChain(config.l1RpcUrls, config.l1ChainId).chainInfo.id;
@@ -185,7 +185,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
-    blockSource = mock<ArchiveSource>({
+    blockSource = mock<ArchiverDataSource>({
       getBlocks(from, limit, _proven) {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
