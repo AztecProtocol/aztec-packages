@@ -234,7 +234,7 @@ template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const s
 /**
  * @brief Determine if the affine batch inversion trick is beneficial for given MSM parameters
  * @details The affine trick requires log(N) inversions per round but saves field multiplications
- *          per point addition. Returns false if num_points < 128 (not enough points to amortize).
+ *          per point addition. Returns false if num_points < AFFINE_TRICK_THRESHOLD.
  *
  * @tparam Curve
  * @param num_points number of points in the MSM
@@ -348,7 +348,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
 
 /**
  * @brief Pippenger algorithm using Jacobian bucket accumulators (handles edge cases)
- * @details Used when handle_edge_cases=true or when num_points < 128 (affine trick not beneficial).
+ * @details Used when handle_edge_cases=true or when num_points < AFFINE_TRICK_THRESHOLD.
  *          Uses Jacobian coordinates which correctly handle point doubling and point at infinity.
  *
  * @tparam Curve
@@ -375,9 +375,9 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
 
 /**
  * @brief Pippenger algorithm using affine bucket accumulators with batch inversion (faster, no edge case handling)
- * @details Used when handle_edge_cases=false and num_points >= 128. Falls back to small_pippenger if
- *          affine trick is not beneficial. Uses Montgomery's batch inversion trick for efficient
- *          affine point additions.
+ * @details Used when handle_edge_cases=false and num_points >= AFFINE_TRICK_THRESHOLD. Falls back to
+ *          small_pippenger if affine trick is not beneficial. Uses Montgomery's batch inversion trick
+ *          for efficient affine point additions.
  *
  * @tparam Curve
  * @param msm_data contains scalars (non-Montgomery), points, and nonzero scalar indices
