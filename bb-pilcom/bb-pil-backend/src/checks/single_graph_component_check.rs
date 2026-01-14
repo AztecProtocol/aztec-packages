@@ -12,9 +12,12 @@ struct VertexInfo {
     source: SourceRef,
 }
 
+/// Returns true if the column is a `sel` column.
+/// It's a special column that is used to select a subset of the committed columns and used almost everywhere.
+/// So it's important to ignore it when checking if the graph is a single component.
 fn is_sel_column(name: &str) -> bool {
     // for namespace.sel
-    name.split('.').last().unwrap_or("") == "sel"
+    name.split('.').last().unwrap_or("").eq("sel")
 }
 
 fn add_undirected_edge(
@@ -29,6 +32,7 @@ fn add_undirected_edge(
     adjacency.entry(b).or_default().insert(a);
 }
 
+/// Returns the connected components of the graph.
 fn components(vertices: &HashSet<PolyID>, adjacency: &HashMap<PolyID, HashSet<PolyID>>) -> Vec<HashSet<PolyID>> {
     let mut comps: Vec<HashSet<PolyID>> = Vec::new();
     let mut visited: HashSet<PolyID> = HashSet::new();
@@ -84,6 +88,7 @@ fn fmt_components_summary(
     parts.join("; ")
 }
 
+/// Checks if the graph built on columns as vertices and relations as edges is a single graph component.
 pub(crate) fn single_graph_component_check<T: FieldElement>(analyzed: &Analyzed<T>) -> Result<(), String> {
     let declared_committed = declared_committed_poly_ids(analyzed);
 
