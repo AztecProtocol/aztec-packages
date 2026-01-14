@@ -16,7 +16,7 @@ import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined } from '@aztec/foundation/types';
 import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
@@ -182,6 +182,10 @@ export class ArchiverL1Synchronizer implements Traceable {
       // First we retrieve new checkpoints and L2 blocks and store them in the DB. This will also update the
       // pending chain validation status, proven checkpoint number, and synched L1 block number.
       const rollupStatus = await this.handleCheckpoints(blocksSynchedTo, currentL1BlockNumber, initialSyncComplete);
+
+      // Then we try pruning uncheckpointed blocks if a new slot was mined without checkpoints
+      await this.pruneUncheckpointedBlocks(currentL1Timestamp);
+
       // Then we prune the current epoch if it'd reorg on next submission.
       // Note that we don't do this before retrieving checkpoints because we may need to retrieve
       // checkpoints from more than 2 epochs ago, so we want to make sure we have the latest view of
@@ -224,6 +228,46 @@ export class ArchiverL1Synchronizer implements Traceable {
       l1TimestampAtStart: currentL1Timestamp,
       l1BlockNumberAtEnd,
     });
+  }
+
+  /** Prune all proposed local blocks that should have been checkpointed by now. */
+  private async pruneUncheckpointedBlocks(currentL1Timestamp: bigint) {
+    const [lastCheckpointedBlockNumber, lastProposedBlockNumber] = await Promise.all([
+      this.store.getCheckpointedL2BlockNumber(),
+      this.store.getLatestBlockNumber(),
+    ]);
+
+    // If there are no uncheckpointed blocks, we got nothing to do
+    if (lastProposedBlockNumber === lastCheckpointedBlockNumber) {
+      this.log.trace(`No uncheckpointed blocks to prune.`);
+      return;
+    }
+
+    // What's the slot of the first uncheckpointed block?
+    const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
+    const [firstUncheckpointedBlockHeader] = await this.store.getBlockHeaders(firstUncheckpointedBlockNumber, 1);
+    const firstUncheckpointedBlockSlot = firstUncheckpointedBlockHeader?.getSlot();
+
+    // What's the slot at the next L1 block? All blocks for slots strictly before this one should've been checkpointed by now.
+    const nextL1BlockTimestamp = currentL1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration);
+    const slotAtNextL1Block = getSlotAtTimestamp(nextL1BlockTimestamp, this.l1Constants);
+
+    // Prune provisional blocks from slots that have ended without being checkpointed
+    if (firstUncheckpointedBlockSlot !== undefined && firstUncheckpointedBlockSlot < slotAtNextL1Block) {
+      this.log.warn(
+        `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
+        { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
+      );
+      const prunedBlocks = await this.updater.removeBlocksAfter(lastCheckpointedBlockNumber);
+
+      if (prunedBlocks.length > 0) {
+        this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: firstUncheckpointedBlockSlot,
+          blocks: prunedBlocks,
+        });
+      }
+    }
   }
 
   /** Queries the rollup contract on whether a prune can be executed on the immediate next L1 block. */
@@ -278,8 +322,8 @@ export class ArchiverL1Synchronizer implements Traceable {
       const newBlocks = blockPromises.filter(isDefined).flat();
 
       // Emit an event for listening services to react to the chain prune
-      this.events.emit(L2BlockSourceEvents.L2PruneDetected, {
-        type: L2BlockSourceEvents.L2PruneDetected,
+      this.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
+        type: L2BlockSourceEvents.L2PruneUnproven,
         epochNumber: pruneFromEpochNumber,
         blocks: newBlocks,
       });
@@ -287,7 +331,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.debug(
         `L2 prune from ${provenCheckpointNumber + 1} to ${localPendingCheckpointNumber} will occur on next checkpoint submission.`,
       );
-      await this.updater.unwindCheckpointsWithContractData(localPendingCheckpointNumber, checkpointsToUnwind);
+      await this.updater.unwindCheckpoints(localPendingCheckpointNumber, checkpointsToUnwind);
       this.log.warn(
         `Unwound ${count(checkpointsToUnwind, 'checkpoint')} from checkpoint ${localPendingCheckpointNumber} ` +
           `to ${provenCheckpointNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
@@ -632,7 +676,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         }
 
         const checkpointsToUnwind = localPendingCheckpointNumber - tipAfterUnwind;
-        await this.updater.unwindCheckpointsWithContractData(localPendingCheckpointNumber, checkpointsToUnwind);
+        await this.updater.unwindCheckpoints(localPendingCheckpointNumber, checkpointsToUnwind);
 
         this.log.warn(
           `Unwound ${count(checkpointsToUnwind, 'checkpoint')} from checkpoint ${localPendingCheckpointNumber} ` +
@@ -761,15 +805,35 @@ export class ArchiverL1Synchronizer implements Traceable {
       try {
         const updatedValidationResult =
           rollupStatus.validationResult === initialValidationResult ? undefined : rollupStatus.validationResult;
-        const [processDuration] = await elapsed(() =>
-          execInSpan(this.tracer, 'Archiver.addCheckpoints', () =>
-            this.updater.addCheckpointsWithContractData(validCheckpoints, updatedValidationResult),
+        const [processDuration, result] = await elapsed(() =>
+          execInSpan(this.tracer, 'Archiver.setCheckpointData', () =>
+            this.updater.setNewCheckpointData(validCheckpoints, updatedValidationResult),
           ),
         );
         this.instrumentation.processNewBlocks(
           processDuration / validCheckpoints.length,
           validCheckpoints.flatMap(c => c.checkpoint.blocks),
         );
+
+        // If blocks were pruned due to conflict with L1 checkpoints, emit event
+        if (result.prunedBlocks && result.prunedBlocks.length > 0) {
+          const prunedCheckpointNumber = result.prunedBlocks[0].checkpointNumber;
+          const prunedSlotNumber = result.prunedBlocks[0].header.globalVariables.slotNumber;
+
+          this.log.warn(
+            `Pruned ${result.prunedBlocks.length} mismatching blocks for checkpoint ${prunedCheckpointNumber}`,
+            { prunedBlocks: result.prunedBlocks.map(b => b.toBlockInfo()), prunedSlotNumber, prunedCheckpointNumber },
+          );
+
+          // Emit event for listening services to react to the prune.
+          // Note: slotNumber comes from the first pruned block. If pruned blocks theoretically spanned multiple slots,
+          // only one slot number would be reported (though in practice all blocks in a checkpoint span a single slot).
+          this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+            type: L2BlockSourceEvents.L2PruneUncheckpointed,
+            slotNumber: prunedSlotNumber,
+            blocks: result.prunedBlocks,
+          });
+        }
       } catch (err) {
         if (err instanceof InitialCheckpointNumberNotSequentialError) {
           const { previousCheckpointNumber, newCheckpointNumber } = err;

@@ -10,8 +10,9 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeAndSignCommitteeAttestationsAndSigners,
@@ -39,6 +40,8 @@ export type FakeL1StateConfig = {
   rollupAddress: EthAddress;
   /** Inbox address for mock contracts. */
   inboxAddress: EthAddress;
+  /** Aztec slot duration in seconds */
+  slotDuration: number;
 };
 
 /** Options for adding a checkpoint. */
@@ -47,6 +50,8 @@ type AddCheckpointOptions = {
   l1BlockNumber: bigint;
   /** Number of L2 blocks in the checkpoint. Default: 1 */
   numBlocks?: number;
+  /** Or the actual blocks for the checkpoint */
+  blocks?: L2BlockNew[];
   /** Number of transactions per block. Default: 4 */
   txsPerBlock?: number;
   /** Max number of effects per tx (for generating large blobs). Default: undefined */
@@ -158,37 +163,31 @@ export class FakeL1State {
   }
 
   /**
+   * Creates blocks for a checkpoint without adding them to L1 state.
+   * Useful for creating blocks to pass to addBlock() for testing provisional block handling.
+   * Returns the blocks directly.
+   */
+  public async makeBlocks(checkpointNumber: CheckpointNumber, options: Partial<AddCheckpointOptions>) {
+    return (await this.makeCheckpointAndMessages(checkpointNumber, options)).checkpoint.blocks;
+  }
+
+  /**
    * Creates and adds a checkpoint with its L1-to-L2 messages.
    * Returns both the checkpoint and the message leaves.
    * Auto-chains from lastArchive, auto-updates pending status if L1 block >= checkpoint's L1 block.
    */
-  async addCheckpoint(checkpointNumber: CheckpointNumber, options: AddCheckpointOptions): Promise<AddCheckpointResult> {
+  public async addCheckpoint(
+    checkpointNumber: CheckpointNumber,
+    options: AddCheckpointOptions,
+  ): Promise<AddCheckpointResult> {
     this.log.warn(`Adding checkpoint ${checkpointNumber}`);
 
-    const {
-      l1BlockNumber,
-      numBlocks = 1,
-      txsPerBlock = 4,
-      maxEffects,
-      signers = [],
-      slotNumber,
-      previousArchive = this.lastArchive,
-      timestamp,
-      numL1ToL2Messages = 3,
-      messagesL1BlockNumber = l1BlockNumber - 3n,
-    } = options;
+    const { l1BlockNumber, signers = [], messagesL1BlockNumber = l1BlockNumber - 3n } = options;
 
     // Create the checkpoint using the stdlib helper
-    // Only pass slotNumber and timestamp if they're defined to avoid overwriting defaults
-    const { checkpoint, messages, lastArchive } = await mockCheckpointAndMessages(checkpointNumber, {
-      startBlockNumber: this.getNextBlockNumber(checkpointNumber),
-      numBlocks,
-      numTxsPerBlock: txsPerBlock,
-      numL1ToL2Messages,
-      previousArchive,
-      ...(slotNumber !== undefined ? { slotNumber } : {}),
-      ...(timestamp !== undefined ? { timestamp } : {}),
-      ...(maxEffects !== undefined ? { maxEffects } : {}),
+    const { checkpoint, messages, lastArchive } = await this.makeCheckpointAndMessages(checkpointNumber, {
+      ...options,
+      numL1ToL2Messages: options.numL1ToL2Messages ?? 3,
     });
 
     // Store the messages internally so they match the checkpoint's inHash
@@ -217,6 +216,45 @@ export class FakeL1State {
     this.updatePendingCheckpointNumber();
 
     return { checkpoint, messages };
+  }
+
+  /** Creates a checkpoint and messages without adding them to L1 state. */
+  private makeCheckpointAndMessages(checkpointNumber: CheckpointNumber, options: Partial<AddCheckpointOptions>) {
+    const {
+      numBlocks = 1,
+      txsPerBlock = 4,
+      maxEffects,
+      slotNumber,
+      previousArchive = this.lastArchive,
+      timestamp,
+      l1BlockNumber,
+      numL1ToL2Messages = 0,
+      blocks,
+    } = options;
+
+    return mockCheckpointAndMessages(checkpointNumber, {
+      startBlockNumber: this.getNextBlockNumber(checkpointNumber),
+      numBlocks,
+      blocks,
+      numTxsPerBlock: txsPerBlock,
+      numL1ToL2Messages,
+      previousArchive,
+      slotNumber: slotNumber ?? (l1BlockNumber !== undefined ? this.getL2SlotAtL1Block(l1BlockNumber) : undefined),
+      timestamp: timestamp ?? (l1BlockNumber !== undefined ? this.getTimestampAtL1Block(l1BlockNumber) : undefined),
+      ...(maxEffects !== undefined ? { maxEffects } : {}),
+    });
+  }
+
+  /** Returns the L2 slot at the given L1 block (assuming all L1 blocks are mined) */
+  public getL2SlotAtL1Block(l1BlockNumber: bigint): SlotNumber {
+    const timestamp = this.getTimestampAtL1Block(l1BlockNumber);
+    return getSlotAtTimestamp(timestamp, this.config);
+  }
+
+  /** Returns the timestamp at the given L1 block (assuming all L1 blocks are mined) */
+  public getTimestampAtL1Block(l1BlockNumber: bigint): bigint {
+    const { l1GenesisTime, l1StartBlock, ethereumSlotDuration } = this.config;
+    return l1GenesisTime + (l1BlockNumber - l1StartBlock) * BigInt(ethereumSlotDuration);
   }
 
   /**

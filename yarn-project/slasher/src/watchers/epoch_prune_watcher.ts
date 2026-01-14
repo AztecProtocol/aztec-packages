@@ -6,9 +6,9 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
   L2BlockNew,
-  type L2BlockPruneEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
+  type L2PruneUnprovenEvent,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
@@ -64,12 +64,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneUnproven, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.events.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.removeListener(L2BlockSourceEvents.L2PruneUnproven, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
@@ -78,7 +78,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.log.verbose('EpochPruneWatcher config updated', this.penalties);
   }
 
-  private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
+  private handlePruneL2Blocks(event: L2PruneUnprovenEvent): void {
     const { blocks, epochNumber } = event;
     void this.processPruneL2Blocks(blocks, epochNumber).catch(err =>
       this.log.error('Error processing pruned L2 blocks', err, { epochNumber }),

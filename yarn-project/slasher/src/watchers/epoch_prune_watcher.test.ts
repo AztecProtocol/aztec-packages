@@ -93,10 +93,10 @@ describe('EpochPruneWatcher', () => {
       epoch: epochNumber,
     });
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
       epochNumber: EpochNumber(1),
       blocks: [block],
-      type: L2BlockSourceEvents.L2PruneDetected,
+      type: L2BlockSourceEvents.L2PruneUnproven,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises
@@ -146,10 +146,10 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
       epochNumber: EpochNumber(1),
       blocks: [block],
-      type: L2BlockSourceEvents.L2PruneDetected,
+      type: L2BlockSourceEvents.L2PruneUnproven,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises
@@ -209,10 +209,10 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
       epochNumber: EpochNumber(1),
       blocks: [blockFromL1],
-      type: L2BlockSourceEvents.L2PruneDetected,
+      type: L2BlockSourceEvents.L2PruneUnproven,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises

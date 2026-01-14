@@ -65,7 +65,6 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: { number: BlockNumber(3), hash: '0x3' },
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
@@ -89,7 +88,6 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: { number: BlockNumber(3), hash: '0x3' },
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
