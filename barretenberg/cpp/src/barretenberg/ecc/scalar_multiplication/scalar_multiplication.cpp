@@ -56,51 +56,40 @@ template <typename Curve>
 void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::ScalarField> scalars,
                                             std::vector<uint32_t>& consolidated_indices) noexcept
 {
-    const size_t num_threads = get_num_cpus();
-    std::vector<size_t> thread_counts(num_threads, 0);
+    std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
-    // Pass 1: Count non-zero entries per thread
+    // Pass 1: Each thread collects nonzero indices into its own vector
     parallel_for([&](const ThreadChunk& chunk) {
-        BB_ASSERT_EQ(chunk.total_threads, num_threads);
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
             return;
         }
-        size_t count = 0;
+        std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
+        thread_scalar_indices.reserve(range.size());
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
             if (!scalars[i].is_zero()) {
-                count++;
+                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
             }
         }
-        thread_counts[chunk.thread_index] = count;
     });
 
-    // Compute prefix sums for thread offsets
-    std::vector<size_t> thread_offsets(num_threads + 1);
-    thread_offsets[0] = 0;
-    for (size_t i = 0; i < num_threads; ++i) {
-        thread_offsets[i + 1] = thread_offsets[i] + thread_counts[i];
+    size_t num_entries = 0;
+    for (const auto& indices : thread_indices) {
+        num_entries += indices.size();
     }
-    const size_t num_entries = thread_offsets[num_threads];
     consolidated_indices.resize(num_entries);
 
-    // Pass 2: Fill consolidated_indices directly
+    // Pass 2: Copy each thread's indices to the consolidated array (no branching)
     parallel_for([&](const ThreadChunk& chunk) {
-        BB_ASSERT_EQ(chunk.total_threads, num_threads);
-        auto range = chunk.range(scalars.size());
-        if (range.empty()) {
-            return;
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        size_t offset = 0;
+        for (size_t i = 0; i < chunk.thread_index; ++i) {
+            offset += thread_indices[i].size();
         }
-        size_t write_idx = thread_offsets[chunk.thread_index];
-        for (size_t i : range) {
-            BB_ASSERT_DEBUG(i < scalars.size());
-            const auto& scalar = scalars[i];
-            bool is_zero =
-                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
-            if (!is_zero) {
-                consolidated_indices[write_idx++] = static_cast<uint32_t>(i);
-            }
+        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
+            consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
         }
     });
 }
