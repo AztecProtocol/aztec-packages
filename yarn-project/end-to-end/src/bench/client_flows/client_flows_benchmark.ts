@@ -29,9 +29,9 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
-import { type SubsystemsContext, deployAccounts, setupFromFresh, teardown } from '../../fixtures/snapshot_manager.js';
+import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
-import { type SetupOptions, setupSponsoredFPC } from '../../fixtures/utils.js';
+import { setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import {
   FeeJuicePortalTestingHarnessFactory,
@@ -50,7 +50,7 @@ export class ClientFlowsBenchmark {
   public logger: Logger;
   public aztecNode!: AztecNode;
   public cheatCodes!: CheatCodes;
-  public context!: SubsystemsContext;
+  public context!: EndToEndContext;
   public chainMonitor!: ChainMonitor;
   public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
   public adminWallet!: TestWallet;
@@ -130,13 +130,18 @@ export class ClientFlowsBenchmark {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setupFromFresh(this.logger, this.setupOptions, this.setupOptions);
+    this.context = await setup(0, {
+      ...this.setupOptions,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      l1ContractsArgs: this.setupOptions,
+    });
     await this.applyBaseSetup();
 
-    await this.context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
+    await this.context.aztecNodeService!.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
-    const rollupContract = RollupContract.getFromConfig(this.context.aztecNodeConfig);
-    this.chainMonitor = new ChainMonitor(rollupContract, this.context.dateProvider, this.logger, 200).start();
+    const rollupContract = RollupContract.getFromConfig(this.context.config);
+    this.chainMonitor = new ChainMonitor(rollupContract, this.context.dateProvider!, this.logger, 200).start();
 
     return this;
   }
@@ -203,7 +208,7 @@ export class ClientFlowsBenchmark {
     const [{ address: adminAddress }, { address: sequencerAddress }] = deployedAccounts;
 
     this.adminWallet = this.context.wallet;
-    this.aztecNode = this.context.aztecNode;
+    this.aztecNode = this.context.aztecNodeService!;
     this.cheatCodes = this.context.cheatCodes;
 
     this.adminAddress = adminAddress;
@@ -231,8 +236,8 @@ export class ClientFlowsBenchmark {
     this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-      aztecNode: this.context.aztecNode,
-      aztecNodeAdmin: this.context.aztecNode,
+      aztecNode: this.context.aztecNodeService!,
+      aztecNodeAdmin: this.context.aztecNodeService!,
       l1Client: this.context.deployL1ContractsValues.l1Client,
       wallet: this.adminWallet,
       logger: this.logger,
@@ -302,7 +307,7 @@ export class ClientFlowsBenchmark {
   }
 
   public async createCrossChainTestHarness(owner: AztecAddress) {
-    const l1Client = createExtendedL1Client(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    const l1Client = createExtendedL1Client(this.context.config.l1RpcUrls, MNEMONIC);
 
     const underlyingERC20Address = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
       'Underlying',

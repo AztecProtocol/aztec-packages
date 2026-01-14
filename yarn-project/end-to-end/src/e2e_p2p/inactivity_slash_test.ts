@@ -98,13 +98,13 @@ export class P2PInactivityTest {
     this.rollup = rollup;
 
     if (!this.keepInitialNode) {
-      await this.test.ctx.aztecNode.stop();
+      await this.test.ctx.aztecNodeService!.stop();
     }
 
     // Create all active nodes
     this.activeNodes = await createNodes(
       this.test.ctx.aztecNodeConfig,
-      this.test.ctx.dateProvider,
+      this.test.ctx.dateProvider!,
       this.test.bootstrapNodeEnr,
       NUM_NODES - this.inactiveNodeCount - Number(this.keepInitialNode),
       BOOT_NODE_UDP_PORT,
@@ -118,7 +118,7 @@ export class P2PInactivityTest {
     const inactiveConfig = { ...this.test.ctx.aztecNodeConfig, dontStartSequencer: true };
     this.inactiveNodes = await createNodes(
       inactiveConfig,
-      this.test.ctx.dateProvider,
+      this.test.ctx.dateProvider!,
       this.test.bootstrapNodeEnr,
       this.inactiveNodeCount,
       BOOT_NODE_UDP_PORT,
@@ -129,7 +129,7 @@ export class P2PInactivityTest {
     );
 
     this.nodes = [
-      ...(this.keepInitialNode ? [this.test.ctx.aztecNode] : []),
+      ...(this.keepInitialNode ? [this.test.ctx.aztecNodeService!] : []),
       ...this.activeNodes,
       ...this.inactiveNodes,
     ];
