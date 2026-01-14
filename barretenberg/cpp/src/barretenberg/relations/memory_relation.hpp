@@ -10,6 +10,27 @@
 
 namespace bb {
 
+/**
+ * @brief RAM/ROM memory relation
+ * @details Adds contributions for identities associated with RAM/ROM memory operations custom gates:
+ *  * RAM/ROM read-write consistency check
+ *  * RAM timestamp difference consistency check
+ *  * RAM/ROM index difference consistency check
+ *
+ * Multiple selectors are used to 'switch' memory gates on/off according to the following pattern:
+ *
+ * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
+ * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
+ * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
+ * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
+ * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
+ * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
+ *
+ * N.B. The RAM consistency check identity is degree 3. To keep the overall quotient degree at <=5, only 2 selectors
+ * can be used to select it.
+ *
+ * N.B.2 The q_c selector is used to store circuit-specific values in the RAM/ROM access gate
+ */
 template <typename FF_> class MemoryRelationImpl {
   public:
     using FF = FF_;
@@ -30,26 +51,6 @@ template <typename FF_> class MemoryRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_memory.is_zero(); }
 
     /**
-     * @brief RAM/ROM memory relation
-     * @details Adds contributions for identities associated with RAM/ROM memory operations custom gates:
-     *  * RAM/ROM read-write consistency check
-     *  * RAM timestamp difference consistency check
-     *  * RAM/ROM index difference consistency check
-     *
-     * Multiple selectors are used to 'switch' memory gates on/off according to the following pattern:
-     *
-     * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
-     * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
-     * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
-     * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
-     * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
-     * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
-     *
-     * N.B. The RAM consistency check identity is degree 3. To keep the overall quotient degree at <=5, only 2 selectors
-     * can be used to select it.
-     *
-     * N.B.2 The q_c selector is used to store circuit-specific values in the RAM/ROM access gate
-     *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the totally extended univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
