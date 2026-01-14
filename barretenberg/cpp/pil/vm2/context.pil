@@ -37,7 +37,9 @@ namespace execution;
     pol commit contract_address;
     pol commit bytecode_id;
     pol commit transaction_fee;
-    pol commit is_static; // @boolean (on active rows and follows from the different constraints below)
+    pol commit is_static; // @boolean (on active rows and follows from the different constraints in "IS STATIC" section below)
+                          // At the start of an enqueued call, is_static is copied from tx.pil (which is boolean in tx.pil)
+                          // and in the next rows it is propagated or re-assigned to 0 or 1.
 
     pol commit parent_calldata_addr;
     pol commit parent_calldata_size;
@@ -84,7 +86,7 @@ namespace execution;
     pol commit prev_retrieved_bytecodes_tree_size;
 
     // Next Tree State
-    pol commit note_hash_tree_root; // TODO: Constrain root, sizes and emitted not changing unless specific opcode selectors are on
+    pol commit note_hash_tree_root;
     pol commit note_hash_tree_size;
     pol commit num_note_hashes_emitted;
 
@@ -273,7 +275,7 @@ namespace execution;
 
     // Initialization: enqueued_call_start = 1 ==> contract_address = tx.contract_address (#[DISPATCH_EXEC_START] (tx.pil))
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
-    // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
+    // sel_enter_call   = 1 ==> contract_address' = register[2] (from execution trace)
     // otherwise        = 0 ==> contract_address' = contract_address
      // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //        row (enqueued_call_start == 1) is initialized.
@@ -334,7 +336,7 @@ namespace execution;
     // Initialization: enqueued_call_start = 1 ==> parent_calldata_addr = 0;
     // Propagation:
     // NESTED_EXIT_CALL    = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
-    // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)
+    // sel_enter_call      = 1 ==> parent_calldata_addr' = rop[4] (from execution trace)
     // default row             ==> parent_calldata_addr' = parent_calldata_addr
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
@@ -353,7 +355,7 @@ namespace execution;
     // Initialization: enqueued_call_start = 1 ==> parent_calldata_size = tx.calldata_size (#[DISPATCH_EXEC_START] tx.pil)
     // Propagation:
     // NESTED_EXIT_CALL    = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
-    // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (register 4 from execution trace)
+    // sel_enter_call      = 1 ==> parent_calldata_size' = register[3] (from execution trace)
     // default row             ==> parent_calldata_size' = parent_calldata_size
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
@@ -370,7 +372,7 @@ namespace execution;
 
     // Initialization: enqueued_call_start = 1 ==> last_child_returndata_addr = 0;
     // Propagation:
-    // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
+    // NESTED_RET_REV_ONLY = 1 ==> rop[1] (from execution trace)
     // sel_error           = 1 ==> last_child_returndata_addr' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
     // default row             ==> last_child_returndata_addr' = last_child_returndata_addr
@@ -393,7 +395,7 @@ namespace execution;
 
     // Initialization: enqueued_call_start = 1 ==> last_child_returndata_size = 0;
     // Propagation:
-    // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
+    // NESTED_RET_REV_ONLY = 1 ==> register[0] (from execution trace)
     // sel_error           = 1 ==> last_child_returndata_size' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_size' = 0;
     // default row             ==> last_child_returndata_size' = last_child_returndata_size
@@ -544,12 +546,18 @@ namespace execution;
     //   PREVIOUS RETRIEVED BYTECODES TREE
     // ===================================
 
-    // Here, we constrain the transition `retrieved_bytecodes_tree_root` to `prev_retrieved_bytecodes_tree_size`
-    // for the next row. In execution.pil, the two constraints #[BYTECODE_RETRIEVAL_RESULT] and
-    //#[RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root`
-    // to `retrieved_bytecodes_tree_root` in the same row.
+    // `retrieved_bytecodes_tree_root/size --> prev_retrieved_bytecodes_tree_root/size'`:
+    // Here, we constrain that `prev_retrieved_bytecodes_tree_root/size` on the next row is equal to
+    // `retrieved_bytecodes_tree_root/size`
 
-    // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call.
+    // `prev_retrieved_bytecodes_tree_root/size --> prev_retrieved_bytecodes_tree_root/size`:
+    // In execution.pil, the two constraints #[BYTECODE_RETRIEVAL_RESULT] and
+    //#[RETRIEVED_BYTECODES_TREE_ROOT/SIZE_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root/size`
+    // to `retrieved_bytecodes_tree_root/size` in the same row.
+
+    // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call, i.e.,
+    // the state is passed from one execution row to the next without any rollback to a previous state.
+    // We stress that the state is not constant though, a bytecode retrieval might change this tree (via #[BYTECODE_RETRIEVAL_RESULT]).
     // `prev_retrieved_bytecodes_tree_root` and `prev_retrieved_bytecodes_tree_size` are initialized
     // on `enqueued_call_start == 1` as part of the permutation (#[DISPATCH_EXEC_START] in tx.pil).
     // The final values at the end of an enqueued call are sent back to the tx trace in the lookup #[DISPATCH_EXEC_END].
