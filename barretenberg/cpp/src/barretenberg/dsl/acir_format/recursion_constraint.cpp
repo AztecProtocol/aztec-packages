@@ -43,11 +43,6 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
                        "MegaBuilder");
     }
 
-    // Validate recursion data lengths match to prevent silent truncation in zip_view
-    if (honk_recursion_data.first.size() != honk_recursion_data.second.size()) {
-        throw_or_abort("create_recursion_constraints: honk_recursion_data constraints/indices size mismatch");
-    }
-
     HonkRecursionConstraintsOutput<MegaCircuitBuilder> output;
 
     for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
@@ -104,17 +99,6 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     if (has_chonk_recursion_constraints && has_avm_recursion_constraints) {
         vinfo("WARNING: both chonk and avm recursion constraints are present. While we support this combination, we "
               "expect to see it only in a mock circuit.");
-    }
-
-    // Validate recursion data lengths match to prevent silent truncation in zip_view
-    if (honk_recursion_data.first.size() != honk_recursion_data.second.size()) {
-        throw_or_abort("create_recursion_constraints: honk_recursion_data constraints/indices size mismatch");
-    }
-    if (chonk_recursion_data.first.size() != chonk_recursion_data.second.size()) {
-        throw_or_abort("create_recursion_constraints: chonk_recursion_data constraints/indices size mismatch");
-    }
-    if (avm_recursion_data.first.size() != avm_recursion_data.second.size()) {
-        throw_or_abort("create_recursion_constraints: avm_recursion_data constraints/indices size mismatch");
     }
 
     HonkRecursionConstraintsOutput<UltraCircuitBuilder> output;
