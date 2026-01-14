@@ -269,7 +269,7 @@ pub contract TokenBlacklist {
     // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
     // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
     #[external("utility")]
-    unconstrained fn deliver_transparent_note(
+    unconstrained fn process_transparent_note(
         contract_address: AztecAddress,
         amount: u128,
         secret_hash: Field,

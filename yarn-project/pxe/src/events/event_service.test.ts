@@ -14,7 +14,7 @@ import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_sto
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
-describe('deliverEvent', () => {
+describe('storeEvent', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
   let randomness: Fr;
@@ -83,12 +83,12 @@ describe('deliverEvent', () => {
     eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore);
   });
 
-  function runDeliverEvent(
+  function runStoreEvent(
     overrides: {
       eventCommitment?: Fr;
     } = {},
   ) {
-    return eventService.deliverEvent(
+    return eventService.storeEvent(
       contractAddress,
       eventSelector,
       randomness,
@@ -101,7 +101,7 @@ describe('deliverEvent', () => {
 
   it('should throw when tx does not exist or has no effects', async () => {
     aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(undefined));
-    await expect(runDeliverEvent).rejects.toThrow(/Could not find tx effect for tx hash/);
+    await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash/);
   });
 
   it('should throw when tx block has not yet been synchronized', async () => {
@@ -111,17 +111,17 @@ describe('deliverEvent', () => {
     };
     aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
-    await expect(runDeliverEvent).rejects.toThrow(/Could not find tx effect for tx hash .* as of block number/);
+    await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash .* as of block number/);
   });
 
   it('should throw if event commitment is not in the tx effects', async () => {
-    await expect(runDeliverEvent({ eventCommitment: Fr.random() })).rejects.toThrow(
+    await expect(runStoreEvent({ eventCommitment: Fr.random() })).rejects.toThrow(
       /Event commitment .* is not present in tx/,
     );
   });
 
   it('should store event for later retrieval', async () => {
-    await runDeliverEvent();
+    await runStoreEvent();
 
     // I should be able to retrieve the private event I just saved using getPrivateEvents
     const result = await privateEventStore.getPrivateEvents(eventSelector, {
