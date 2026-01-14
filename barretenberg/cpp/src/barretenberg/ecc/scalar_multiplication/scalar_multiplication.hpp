@@ -28,6 +28,19 @@ template <typename Curve> class MSM {
     using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
 
+    // Offset generator used in bucket accumulation to avoid incomplete addition edge cases
+    static const AffineElement& get_offset_generator() noexcept
+    {
+        static const AffineElement offset_generator = []() {
+            if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
+                return get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
+            } else {
+                return get_precomputed_generators<typename Curve::Group, "DEFAULT_DOMAIN_SEPARATOR", 8>()[0];
+            }
+        }();
+        return offset_generator;
+    }
+
     /**
      * @brief MSMWorkUnit describes an MSM that may be part of a larger MSM
      * @details For a multi-MSM where each MSM has a variable size, we want to split the MSMs up
@@ -156,20 +169,12 @@ template <typename Curve> class MSM {
             return Curve::Group::point_at_infinity;
         }
         BB_ASSERT_DEBUG(starting_index > 0);
-        // Hoist offset_generator to static to avoid recomputation every call
-        static const AffineElement offset_generator = []() {
-            if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
-                return get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
-            } else {
-                return get_precomputed_generators<typename Curve::Group, "DEFAULT_DOMAIN_SEPARATOR", 8>()[0];
-            }
-        }();
+        const auto& offset_generator = get_offset_generator();
         Element sum = prefix_sum + offset_generator;
-        for (int i = static_cast<int>(starting_index - 1); i > 0; --i) {
+        for (int i = starting_index - 1; i > 0; --i) {
             size_t idx = static_cast<size_t>(i);
             BB_ASSERT_DEBUG(idx < bucket_accumulators.bucket_exists.size());
             if (bucket_accumulators.bucket_exists.get(idx)) {
-
                 prefix_sum += buckets[idx];
             }
             sum += prefix_sum;
