@@ -67,7 +67,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let internal_check = if is_fn_only_self(f) {
         let assertion_message =
             f"Function {original_function_name} can only be called by the same contract";
-        quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
+        quote { assert(self.msg_sender() == self.address, $assertion_message); }
     } else {
         quote {}
     };

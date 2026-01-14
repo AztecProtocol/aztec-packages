@@ -27,7 +27,7 @@ pub(crate) comptime fn get_abi_relevant_attributes(f: FunctionDefinition) -> Quo
 
 /// Injects an authwit verification check of the form:
 /// ```
-///   if (!from.eq(context.msg_sender().unwrap())) {
+///   if (!from.eq(context.maybe_msg_sender().unwrap())) {
 ///         assert_current_call_valid_authwit::<N>(&mut context, from);
 ///     } else {
 ///         assert(authwit_nonce, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
@@ -104,7 +104,7 @@ pub(crate) comptime fn create_authorize_once_check(
         .as_ctstring()
         .as_quoted_str();
     quote {         
-        if (!$from_arg_name_quoted.eq(self.msg_sender().unwrap())) {
+        if (!$from_arg_name_quoted.eq(self.msg_sender())) {
             $fn_call(self.context, $from_arg_name_quoted);
         } else {
             assert($nonce_check_quote, $invalid_nonce_message);

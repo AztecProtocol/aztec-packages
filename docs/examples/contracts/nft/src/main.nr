@@ -36,7 +36,7 @@ pub contract NFTPunk {
     // docs:start:set_minter
     #[external("public")]
     fn set_minter(minter: AztecAddress) {
-        assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "caller is not admin");
+        assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not admin");
         self.storage.minter.initialize(minter);
     }
     // docs:end:set_minter
@@ -53,7 +53,7 @@ pub contract NFTPunk {
     #[external("private")]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(
-            self.storage.minter.read().eq(self.msg_sender().unwrap()),
+            self.storage.minter.read().eq(self.msg_sender()),
             "caller is not the authorized minter",
         );
 
@@ -78,7 +78,7 @@ pub contract NFTPunk {
     #[external("private")]
     fn burn(from: AztecAddress, token_id: Field) {
         assert(
-            self.storage.minter.read().eq(self.msg_sender().unwrap()),
+            self.storage.minter.read().eq(self.msg_sender()),
             "caller is not the authorized minter",
         );
 

@@ -54,7 +54,7 @@ pub fn assert_initialization_matches_address_preimage_public(context: PublicCont
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
     assert(initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (deployer.is_zero()) | (deployer == context.msg_sender().unwrap()),
+        (deployer.is_zero()) | (deployer == context.maybe_msg_sender().unwrap()),
         "Initializer address is not the contract deployer",
     );
 }
@@ -66,7 +66,7 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender().unwrap()),
+        (instance.deployer.is_zero()) | (instance.deployer == context.maybe_msg_sender().unwrap()),
         "Initializer address is not the contract deployer",
     );
 }

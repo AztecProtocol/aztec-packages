@@ -142,7 +142,7 @@ pub contract AppSubscription {
         let config = self.storage.config.read();
 
         self.call(Token::at(config.subscription_token_address).transfer_in_private(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             config.subscription_recipient_address,
             config.subscription_price,
             authwit_nonce,
