@@ -105,6 +105,24 @@ namespace sha256;
     pol commit h;
     start * (1 - err) * (h - init_h) = 0;
 
+    // Propagate initial state values across all rounds.
+    #[PROPAGATE_INIT_A]
+    perform_round * (init_a' - init_a) = 0;
+    #[PROPAGATE_INIT_B]
+    perform_round * (init_b' - init_b) = 0;
+    #[PROPAGATE_INIT_C]
+    perform_round * (init_c' - init_c) = 0;
+    #[PROPAGATE_INIT_D]
+    perform_round * (init_d' - init_d) = 0;
+    #[PROPAGATE_INIT_E]
+    perform_round * (init_e' - init_e) = 0;
+    #[PROPAGATE_INIT_F]
+    perform_round * (init_f' - init_f) = 0;
+    #[PROPAGATE_INIT_G]
+    perform_round * (init_g' - init_g) = 0;
+    #[PROPAGATE_INIT_H]
+    perform_round * (init_h' - init_h) = 0;
+
     // ========== COMPUTE W =============
     // w is only computed on the 16th round (as 0-15 are populated from the input)
     // s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift  3)
