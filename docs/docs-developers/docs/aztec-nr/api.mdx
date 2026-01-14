@@ -19,20 +19,6 @@ export const useApiVersion = () => {
   return versionName;
 };
 
-export const ApiLink = () => {
-  const apiVersion = useApiVersion();
-  const href = `/aztec-nr-api/${apiVersion}/all.html`;
-  return (
-    <p>
-      <strong>
-        <a href={href} target="_blank" rel="noopener noreferrer">
-          Open Aztec.nr API Reference →
-        </a>
-      </strong>
-    </p>
-  );
-};
-
 export const ModuleLink = ({ path, children }) => {
   const apiVersion = useApiVersion();
   const href = `/aztec-nr-api/${apiVersion}/${path}/index.html`;
@@ -49,7 +35,7 @@ The Aztec.nr API reference documentation is auto-generated from the source code 
 
 ## View the API Documentation
 
-<ApiLink />
+<ModuleLink path="noir_aztec">**Aztec.nr**</ModuleLink>
 
 The API reference includes documentation for all public modules, functions, structs, and types in the aztec-nr workspace:
 
@@ -72,11 +58,19 @@ The API reference includes documentation for all public modules, functions, stru
 
 ### Note Types
 
-- <ModuleLink path="address_note">**address_note**</ModuleLink> - Note type for storing Aztec addresses
-- <ModuleLink path="value_note">**value_note**</ModuleLink> - Note type for storing field values
-- <ModuleLink path="uint_note">**uint_note**</ModuleLink> - Note type for storing unsigned integers
+- <ModuleLink path="address_note">**address_note**</ModuleLink> - Note type for storing
+  Aztec addresses
+- <ModuleLink path="field_note">**field_note**</ModuleLink> - Note type for storing
+  a single Field value
+- <ModuleLink path="uint_note">**uint_note**</ModuleLink> - Note type for storing
+  unsigned integers
+
+### State Variables
+
+- <ModuleLink path="balance_set">**balance_set**</ModuleLink> - State variable for
+  managing private balances
 
 ### Utilities
 
-- <ModuleLink path="compressed_string">**compressed_string**</ModuleLink> - Compressed string utilities for efficient storage
-- <ModuleLink path="easy_private_state">**easy_private_state**</ModuleLink> - Simplified private state management
+- <ModuleLink path="compressed_string">**compressed_string**</ModuleLink> - Compressed
+  string utilities for efficient storage
