@@ -80,7 +80,7 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.2.17",
+    "@electric-sql/pglite": "0.3.14",
     "@jest/globals": "^30.0.0",
     "@middle-management/pglite-pg-adapter": "^0.0.3",
     "@types/jest": "^30.0.0",

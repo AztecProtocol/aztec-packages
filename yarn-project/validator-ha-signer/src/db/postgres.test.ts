@@ -442,11 +442,12 @@ describe('PostgresSlashingProtectionDatabase', () => {
 
   beforeEach(() => {
     pglite = new PGlite();
-    pool = new Pool({ pglite });
+    pool = new Pool({ pglite: pglite as any });
   });
 
   afterEach(async () => {
     await pool.end();
+    await pglite.close();
   });
 
   describe('initialize', () => {

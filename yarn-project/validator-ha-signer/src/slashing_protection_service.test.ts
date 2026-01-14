@@ -31,7 +31,7 @@ describe('SlashingProtectionService', () => {
 
   beforeEach(async () => {
     pglite = new PGlite();
-    pool = new Pool({ pglite });
+    pool = new Pool({ pglite: pglite as any });
 
     await setupTestSchema(pglite);
     db = new PostgresSlashingProtectionDatabase(pool as any);
