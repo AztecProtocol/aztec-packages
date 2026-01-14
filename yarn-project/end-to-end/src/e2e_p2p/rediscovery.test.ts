@@ -52,7 +52,7 @@ describe('e2e_p2p_rediscovery', () => {
     const txsSentViaDifferentNodes: SentTx[][] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -85,7 +85,7 @@ describe('e2e_p2p_rediscovery', () => {
 
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
-        t.ctx.dateProvider,
+        t.ctx.dateProvider!,
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,

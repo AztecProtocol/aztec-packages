@@ -10,10 +10,10 @@ import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/Statefu
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
-import { type SubsystemsContext, deployAccounts, setupFromFresh, teardown } from '../fixtures/snapshot_manager.js';
+import { type EndToEndContext, deployAccounts, setup, teardown } from '../fixtures/setup.js';
 
 export class DeployTest {
-  public context!: SubsystemsContext;
+  public context!: EndToEndContext;
   public logger: Logger;
   public wallet!: TestWallet;
   public defaultAccountAddress!: AztecAddress;
@@ -26,10 +26,13 @@ export class DeployTest {
 
   async setup() {
     this.logger.info('Setting up test environment');
-    this.context = await setupFromFresh(this.logger);
-    this.aztecNode = this.context.aztecNode;
+    this.context = await setup(0, {
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+    });
+    this.aztecNode = this.context.aztecNodeService!;
     this.wallet = this.context.wallet;
-    this.aztecNodeAdmin = this.context.aztecNode;
+    this.aztecNodeAdmin = this.context.aztecNodeService!;
     await this.applyInitialAccount();
     return this;
   }

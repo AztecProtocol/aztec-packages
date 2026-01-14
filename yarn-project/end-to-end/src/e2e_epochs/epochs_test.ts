@@ -211,7 +211,7 @@ export class EpochsTestContext {
           ...opts,
         },
         this.context.aztecNode,
-        undefined,
+        this.context.prefilledPublicData ?? [],
         { dateProvider: this.context.dateProvider },
       ),
     );
