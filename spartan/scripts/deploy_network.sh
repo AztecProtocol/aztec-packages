@@ -378,23 +378,27 @@ EOF
 denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} init -reconfigure >/dev/null"
 EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
-if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
-  log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
+if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
+    log "Using network configuration, skipping contracts deployment"
 else
-  if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-    log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
-    denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
-  fi
-  denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
-  denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} apply tfplan"
+  if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+    log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
+  else
+    if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
+      log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+      denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
+    fi
+    denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
+    denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} apply tfplan"
 
-  # Print logs from any failed pods (useful if job succeeded after retries)
-  JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
-  for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
-    --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-    echo "=== Failed pod: $pod ==="
-    kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
-  done
+    # Print logs from any failed pods (useful if job succeeded after retries)
+    JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
+    for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
+      --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+      echo "=== Failed pod: $pod ==="
+      kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
+    done
+  fi
 fi
 
 STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
