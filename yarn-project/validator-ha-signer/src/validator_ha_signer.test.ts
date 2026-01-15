@@ -5,13 +5,13 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Pool } from '@middle-management/pglite-pg-adapter';
 
 import { type CreateHASignerConfig, defaultSlashingProtectionConfig } from './config.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyStatus, DutyType } from './db/types.js';
 import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { Pool } from './test/pglite_pool.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
 
 // Test data constants
@@ -37,7 +37,7 @@ describe('ValidatorHASigner', () => {
     pool = new Pool({ pglite });
 
     await setupTestSchema(pglite);
-    db = new PostgresSlashingProtectionDatabase(pool as any);
+    db = new PostgresSlashingProtectionDatabase(pool);
     await db.initialize();
 
     config = {
