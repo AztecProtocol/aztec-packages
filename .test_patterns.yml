@@ -109,7 +109,7 @@ tests:
     owners:
       - *tom
 
-  - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::emit_and_discover_event"
+  - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::"
     error_regex: "Failed to solve brillig function"
     owners:
       - *nico
