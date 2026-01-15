@@ -264,8 +264,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // Next checkpoint follows from the last synced one
-    const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
+    // Next checkpoint number follows from the last synced one, unless the pending chain is invalid
+    // and we're configured to skip invalidation (skipInvalidateBlockAsProposer). In that case,
+    // we need to build on top of the invalid checkpoint instead of trying to replace it.
+    let checkpointNumber: CheckpointNumber;
+    if (
+      !syncedTo.pendingChainValidationStatus.valid &&
+      this.config.skipInvalidateBlockAsProposer &&
+      syncedTo.pendingChainValidationStatus.checkpoint
+    ) {
+      // Build on top of the invalid checkpoint
+      checkpointNumber = CheckpointNumber(syncedTo.pendingChainValidationStatus.checkpoint.checkpointNumber + 1);
+    } else {
+      // Normal case: build from the last synced checkpoint
+      checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
+    }
 
     const logCtx = {
       now,
@@ -313,15 +326,60 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
+    // Skip this if skipInvalidateBlockAsProposer is true, since we won't actually invalidate
+    const invalidateCheckpoint = this.config.skipInvalidateBlockAsProposer
+      ? undefined
+      : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
+
+    // When building on top of an invalid checkpoint (skipInvalidateBlockAsProposer is true),
+    // we need to use L1's actual pending tip archive, not the archiver's synced archive.
+    // The archiver's pendingChainValidationStatus points to the FIRST invalid checkpoint,
+    // but when multiple invalid checkpoints exist, L1's tip is at the LATEST one.
+    // lastArchiveRootOverride is passed to the checkpoint builder to override the initial archive root
+    // when building blocks, since our world state doesn't have the invalid checkpoint's state.
+    const shouldBuildOnInvalidChain =
+      !syncedTo.pendingChainValidationStatus.valid && this.config.skipInvalidateBlockAsProposer;
+    let lastArchiveRootOverride: Fr | undefined;
+
+    if (shouldBuildOnInvalidChain && !syncedTo.pendingChainValidationStatus.valid) {
+      // Query L1 directly for the actual pending tip archive, since the archiver may not have synced
+      // all invalid checkpoints (it only tracks the first one).
+      lastArchiveRootOverride = await publisher.getL1PendingTipArchive();
+      this.log.info(`Building on invalid chain with L1 tip archive`, {
+        ...logCtx,
+        l1TipArchive: lastArchiveRootOverride.toString(),
+        archiverFirstInvalidCheckpoint: syncedTo.pendingChainValidationStatus.checkpoint.archive.toString(),
+      });
+    }
+    const proposalArchive = lastArchiveRootOverride ?? syncedTo.archive;
 
     // Check with the rollup contract if we can indeed propose at the next L2 slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
-    const canProposeCheck = await publisher.canProposeAtNextEthBlock(
-      syncedTo.archive,
+    let canProposeCheck = await publisher.canProposeAtNextEthBlock(
+      proposalArchive,
       proposer ?? EthAddress.ZERO,
       invalidateCheckpoint,
     );
+
+    // If the check failed and we were using lastArchiveRootOverride, it might be because the invalid
+    // checkpoint was already invalidated on L1 (but the archiver's status is stale). Retry with the
+    // synced archive instead.
+    if (canProposeCheck === undefined && lastArchiveRootOverride) {
+      this.log.info(
+        `Retrying canProposeAtNextEthBlock with synced archive (invalid checkpoint may have been removed)`,
+        { ...logCtx, originalArchive: lastArchiveRootOverride.toString(), syncedArchive: syncedTo.archive.toString() },
+      );
+      canProposeCheck = await publisher.canProposeAtNextEthBlock(
+        syncedTo.archive,
+        proposer ?? EthAddress.ZERO,
+        invalidateCheckpoint,
+      );
+      if (canProposeCheck !== undefined) {
+        // The invalid checkpoint was indeed removed, so we should build on the synced checkpoint instead
+        checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
+        lastArchiveRootOverride = undefined;
+      }
+    }
 
     if (canProposeCheck === undefined) {
       this.log.warn(
@@ -344,13 +402,23 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     if (canProposeCheck.checkpointNumber !== checkpointNumber) {
-      this.log.warn(
-        `Cannot propose due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected checkpoint ${checkpointNumber} but got ${canProposeCheck.checkpointNumber}.`,
-        { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot });
-      this.metrics.recordBlockProposalPrecheckFailed('block_number_mismatch');
-      return undefined;
+      // When building on an invalid chain, the archiver's checkpoint number may be stale.
+      // Use L1's checkpoint number instead.
+      if (shouldBuildOnInvalidChain) {
+        this.log.info(
+          `Using L1 checkpoint number ${canProposeCheck.checkpointNumber} instead of archiver's ${checkpointNumber} when building on invalid chain`,
+          { ...logCtx, rollup: canProposeCheck },
+        );
+        checkpointNumber = canProposeCheck.checkpointNumber;
+      } else {
+        this.log.warn(
+          `Cannot propose due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected checkpoint ${checkpointNumber} but got ${canProposeCheck.checkpointNumber}.`,
+          { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot });
+        this.metrics.recordBlockProposalPrecheckFailed('block_number_mismatch');
+        return undefined;
+      }
     }
 
     this.lastSlotForCheckpointProposalJob = slot;
@@ -366,6 +434,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher,
       attestorAddress,
       invalidateCheckpoint,
+      lastArchiveRootOverride,
     );
   }
 
@@ -378,6 +447,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
+    lastArchiveRootOverride: Fr | undefined,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       epoch,
@@ -388,6 +458,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher,
       attestorAddress,
       invalidateCheckpoint,
+      lastArchiveRootOverride,
       this.validatorClient,
       this.globalsBuilder,
       this.p2pClient,

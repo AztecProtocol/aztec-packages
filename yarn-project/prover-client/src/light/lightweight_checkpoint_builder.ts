@@ -47,6 +47,15 @@ export class LightweightCheckpointBuilder {
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
     public readonly db: MerkleTreeWriteOperations,
+    /**
+     * Override for the initial lastArchive root. When provided, the builder will use this root
+     * instead of reading from the database. This is used when building on top of an invalid
+     * checkpoint that the archiver has skipped, where we need to reference the invalid
+     * checkpoint's archive root even though we don't have its state. The nextAvailableLeafIndex
+     * will be taken from the current database state, which may be inconsistent but is acceptable
+     * since these blocks are expected to fail proof verification anyway.
+     */
+    private readonly lastArchiveRootOverride?: Fr,
   ) {
     this.spongeBlob = SpongeBlob.init();
     this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages });
@@ -58,6 +67,7 @@ export class LightweightCheckpointBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
+    lastArchiveRootOverride?: Fr,
   ): Promise<LightweightCheckpointBuilder> {
     // Insert l1-to-l2 messages into the tree.
     await db.appendLeaves(
@@ -71,6 +81,7 @@ export class LightweightCheckpointBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
+      lastArchiveRootOverride,
     );
   }
 
@@ -151,7 +162,14 @@ export class LightweightCheckpointBuilder {
     }
 
     if (isFirstBlock) {
-      this.lastArchives.push(await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+      // Get the archive snapshot from current world state
+      const currentArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
+      // Use the override root if provided (e.g., when building on top of an invalid checkpoint
+      // that the archiver has skipped), but keep the current state's nextAvailableLeafIndex.
+      const initialArchive = this.lastArchiveRootOverride
+        ? new AppendOnlyTreeSnapshot(this.lastArchiveRootOverride, currentArchive.nextAvailableLeafIndex)
+        : currentArchive;
+      this.lastArchives.push(initialArchive);
     }
 
     const lastArchive = this.lastArchives.at(-1)!;

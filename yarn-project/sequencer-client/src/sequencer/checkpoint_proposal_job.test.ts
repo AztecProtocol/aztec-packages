@@ -433,6 +433,7 @@ describe('CheckpointProposalJob', () => {
       publisher,
       attestorAddress,
       undefined, // invalidateBlock
+      undefined, // lastArchiveOverride
       validatorClient,
       globalVariableBuilder,
       p2p,

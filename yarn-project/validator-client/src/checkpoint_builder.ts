@@ -191,6 +191,10 @@ export class FullNodeCheckpointsBuilder {
 
   /**
    * Starts a new checkpoint and returns a CheckpointBuilder to build blocks within it.
+   * @param lastArchiveRootOverride - Optional archive root to use as the initial lastArchive
+   *   instead of reading from the fork's database. This is used when building on top of an
+   *   invalid checkpoint that the archiver has skipped, where we need to reference the invalid
+   *   checkpoint's archive root even though we don't have its state.
    */
   async startCheckpoint(
     checkpointNumber: CheckpointNumber,
@@ -198,6 +202,7 @@ export class FullNodeCheckpointsBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
+    lastArchiveRootOverride?: Fr,
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -207,6 +212,7 @@ export class FullNodeCheckpointsBuilder {
       msgCount: l1ToL2Messages.length,
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),
+      lastArchiveRootOverride: lastArchiveRootOverride?.toString(),
       constants,
     });
 
@@ -216,6 +222,7 @@ export class FullNodeCheckpointsBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
+      lastArchiveRootOverride,
     );
 
     return new CheckpointBuilder(

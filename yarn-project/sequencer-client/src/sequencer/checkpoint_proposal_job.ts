@@ -67,6 +67,8 @@ export class CheckpointProposalJob implements Traceable {
     private readonly publisher: SequencerPublisher,
     private readonly attestorAddress: EthAddress,
     private readonly invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
+    /** Archive root override to use when building on top of an invalid checkpoint that wasn't synced. */
+    private readonly lastArchiveRootOverride: Fr | undefined,
     private readonly validatorClient: ValidatorClient,
     private readonly globalsBuilder: GlobalVariableBuilder,
     private readonly p2pClient: P2P,
@@ -157,7 +159,9 @@ export class CheckpointProposalJob implements Traceable {
       this.metrics.incOpenSlot(this.slot, this.proposer?.toString() ?? 'unknown');
 
       // Enqueues checkpoint invalidation (constant for the whole slot)
-      if (this.invalidateCheckpoint && !this.config.skipInvalidateBlockAsProposer) {
+      const invalidationEnqueued =
+        this.invalidateCheckpoint !== undefined && !this.config.skipInvalidateBlockAsProposer;
+      if (invalidationEnqueued) {
         this.publisher.enqueueInvalidateCheckpoint(this.invalidateCheckpoint);
       }
 
@@ -188,6 +192,7 @@ export class CheckpointProposalJob implements Traceable {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        this.lastArchiveRootOverride,
       );
 
       // Options for the validator client when creating block and checkpoint proposals
@@ -271,7 +276,10 @@ export class CheckpointProposalJob implements Traceable {
       const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
       await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
         txTimeoutAt,
-        forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+        // Only include forcePendingCheckpointNumber if the invalidation was enqueued
+        forcePendingCheckpointNumber: invalidationEnqueued
+          ? this.invalidateCheckpoint?.forcePendingCheckpointNumber
+          : undefined,
       });
 
       return checkpoint;

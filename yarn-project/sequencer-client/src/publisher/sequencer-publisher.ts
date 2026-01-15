@@ -410,6 +410,15 @@ export class SequencerPublisher {
   }
 
   /**
+   * Gets the current pending tip archive from L1.
+   * This is useful when building on top of an invalid chain, where the archiver's state
+   * may not reflect L1's actual pending tip (e.g., when multiple invalid checkpoints exist).
+   */
+  public getL1PendingTipArchive(): Promise<Fr> {
+    return this.rollupContract.archive();
+  }
+
+  /**
    * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
