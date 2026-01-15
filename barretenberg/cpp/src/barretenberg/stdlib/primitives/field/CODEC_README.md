@@ -46,22 +46,20 @@ Values passing limb bounds but ≥ modulus (aliases) are rejected by the modulus
 
 The point at infinity is represented as `(0, 0)` with **all limbs zero**.
 
-**Critical**: The infinity check examines raw limbs BEFORE field reduction to prevent alias attacks:
+### Infinity Check Methods
 
-```cpp
+| Context | Curve | Method | Why it's Sound |
+|---------|-------|--------|----------------|
+| **Native** | All | `for each limb: if (limb != 0) return false` | Direct limb-by-limb zero check. |
+| **Circuit** | BN254 | `sum(limbs) == 0` | Sum of 4 valid limbs (2×136-bit + 2×118-bit) ≤ 2^138, cannot wrap to 0 mod Fr (254 bits). Only all-zero limbs satisfy this. |
+| **Circuit** | Grumpkin | `x² + 5y² == 0` | Equation `x² = -5y²` requires -5 to be a quadratic residue. Since -5 is not a square mod p, only `(0,0)` satisfies this. |
 
-for (const auto& limb : fr_vec) {
-    if (!limb.is_zero()) return false;
-}
-return true;  // Only canonical (0,0) accepted
-```
+**Note for BN254 Goblin/Mega**: The infinity check operates on raw limbs before range constraints. However,
+the full protocol ensures soundness:
+- Valid infinity `(0,0)`: all limbs zero → passes infinity check and range constraints ✓
+- Invalid attack: limbs summing to Fr → violates Translator range constraints (need out-of-range limbs) ✗
 
-### BN254 vs Grumpkin Infinity Check (Circuit)
-
-| Curve | Method | Rationale |
-|-------|--------|-----------|
-| BN254 | `sum(limbs) == 0` | 4 limbs, sum ≤ 2^138, no overflow |
-| Grumpkin | `x² + 5y² == 0` | Uses that 5 is non-square mod p |
+The downstream range constraints in Translator ensure that only canonical `(0,0)` can pass as infinity.
 
 ## Ultra vs Mega Arithmetization
 
@@ -130,9 +128,14 @@ Both `FrCodec` (native) and `StdlibCodec` (circuit) must:
 
 ## Security Properties
 
-1. **No alias acceptance**: Values ≥ modulus are rejected everywhere
-2. **Unique infinity**: Only `(0,0)` with zero limbs represents infinity
-3. **Consistent native/circuit**: Both paths reject the same malformed inputs
+These properties hold for **Native and Ultra** verification paths:
+
+1. **No alias acceptance**: Values ≥ modulus are rejected
+2. **Unique infinity**: Only canonical `(0,0)` with zero limbs represents infinity
+3. **Consistent native/Ultra circuit**: Both paths reject the same malformed inputs
+
+**Known issue**: Goblin (Mega) accepts aliased non-infinity coordinates in range [q, 2^254) due to
+Translator only enforcing <254-bit checks, not $<q$. See below
 
 ## Mega/Goblin Specifics
 
@@ -141,17 +144,34 @@ Both `FrCodec` (native) and `StdlibCodec` (circuit) must:
 For `goblin_field` and `goblin_element`:
 1. Limbs stored as-is during deserialization (no in-circuit range check)
 2. Values flow to op queue as ECC operations
-3. **Translator** enforces limb range constraints
+3. **Translator** enforces limb range constraints (<254 bits)
 4. **ECCVM** enforces on-curve property via `ECCVMTranscriptRelationImpl`
 
-### Deferred Validation and Consistency
+### Deferred Validation and Known Inconsistency
 
 In Mega circuits, `StdlibCodec` deserializes points into `goblin_field`/`goblin_element` without
 immediate in-circuit range or modulus checks. This is intentional for efficiency - expensive
 checks are deferred to specialized Translator/ECCVM circuits.
 
-The `assert_equal` constraints in `biggroup_goblin.hpp` ensure that the limbs in the circuit
-match what the op_queue uses:
+TODO(https://github.com/AztecProtocol/barretenberg/issues/1607): Translator enforces <254-bit
+range constraints on coordinates from the `EccOpQueue`, but does NOT enforce strict <q (modulus)
+checks. This creates a verification inconsistency:
+
+| Verification Path | Check | Result on Aliased Coords |
+|-------------------|-------|--------------------------|
+| Native | Strict <q | **REJECT** |
+| Ultra Recursive | Strict <q (via `assert_is_in_field()`) | **REJECT** |
+| Goblin (Mega+Merge+ECCVM+Translator) | Only <254 bits | **ACCEPT** ⚠️ |
+
+**Impact**: A prover could craft a proof using aliased $\mathbb{F}_q$ representations that:
+- **Passes** Goblin verification (Mega recursive → Merge → ECCVM → Translator)
+- **Fails** native or Ultra recursive verification
+
+This violates the consistency requirement that all verification paths accept/reject the same proofs.
+
+#### Partial Mitigation: `assert_equal` Constraints
+
+The `assert_equal` constraints in `biggroup_goblin.hpp` provide partial protection:
 
 ```cpp
 // biggroup_goblin.hpp:181-190
@@ -161,81 +181,8 @@ x_hi.assert_equal(other._x.limbs[1]);
 ```
 
 For an honest prover, `get_value()` auto-reduces field values, so aliased inputs would cause
-these constraints to fail (circuit uses aliased limbs, op_queue uses reduced limbs).
-This ensures recursive verification rejects what native verification would also reject.
+these constraints to fail. However, **these constraints can be avoided**.
 
-However, a malicious prover who modifies native code could make both sides of `assert_equal`
-contain aliased limbs, bypassing these constraints. The ultimate security guarantee comes
-from the translation check.
-
-### ECCVM ↔ Translator Translation Check
-
-The ECCVM and Translator circuits must agree on the accumulated result of all ECC operations.
-This provides security even against a malicious prover because:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Op Queue (shared data)                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│  eccvm_ops_table          │  ultra_ops_table                            │
-│  (native Point coords)    │  (limb-decomposed data)                     │
-│  ─────────────────────    │  ─────────────────────                      │
-│  base_point.x (bb::fq)    │  x_lo, x_hi (Fr limbs)                      │
-│  base_point.y (bb::fq)    │  y_lo, y_hi (Fr limbs)                      │
-│  ALWAYS CANONICAL         │  Could be aliased if prover modifies code   │
-└─────────────────────────────────────────────────────────────────────────┘
-                │                              │
-                ▼                              ▼
-        ┌───────────────┐              ┌───────────────┐
-        │    ECCVM      │              │  Translator   │
-        │               │              │               │
-        │ transcript_Px │              │ op_queue wire │
-        │ transcript_Py │              │ columns       │
-        │ (from native  │              │ (from limbs)  │
-        │  bb::fq)      │              │               │
-        └───────┬───────┘              └───────┬───────┘
-                │                              │
-                ▼                              ▼
-        accumulated_result              Translator's
-        = (op + v·Px + v²·Py            computed
-          + v³·z1 + v⁴·z2               accumulator
-          - masking) / x
-                │                              │
-                └──────────────┬───────────────┘
-                               ▼
-                 TranslatorAccumulatorTransferRelation
-                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                 accumulators_binary_limbs_i == accumulated_result[i]
-
-                 If aliased limbs in Translator but canonical in ECCVM:
-                 → Accumulators DON'T MATCH → Relation FAILS
-```
-
-### Why Native Code Modifications Can't Bypass Security
-
-1. **ECCVM uses native `bb::fq` coordinates**:
-   - `ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), ...)`
-   - `get_eccvm_ops()` returns `ECCVMOperation` structs with `base_point` (native `Point`)
-   - `bb::fq` is **always canonical** - the field class auto-reduces on construction
-   - Even a modified binary cannot store non-canonical values in `bb::fq`
-
-2. **Translator uses limb data from op_queue**:
-   - `ultra_ops_table` contains `(x_lo, x_hi, y_lo, y_hi)` limbs
-   - These limbs come from `construct_and_populate_ultra_ops()` which decomposes from native `Point`
-   - A modified prover could potentially alter this decomposition
-
-3. **Translation check catches inconsistency**:
-   - ECCVM's `accumulated_result` is computed from canonical `transcript_Px`, `transcript_Py` evaluations
-   - Translator computes its accumulator from the limbs in `ultra_ops_table`
-   - `TranslatorAccumulatorTransferRelation` enforces equality at the result row
-   - If limbs differ (canonical vs aliased), the accumulators differ → **verification fails**
-
-### Key Invariants
-
-1. **`bb::fq` is inherently canonical**: Montgomery representation requires `value < modulus`
-2. **ECCVM transcript comes from native Points**
-3. **Translation check**
-4. **Merge protocol final table commitment is the input to the Translator Verifier**
 
 ### Relevant Code Locations
 

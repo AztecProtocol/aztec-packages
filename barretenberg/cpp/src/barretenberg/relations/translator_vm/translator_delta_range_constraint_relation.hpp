@@ -37,6 +37,9 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
      * 1) 2 sequential values are non-descending and have a difference of at most 3, except for the value at last index
      * 2) The value at last index is  2¹⁴ - 1.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1607): This only enforces <254-bit range constraints,
+     * NOT strict <q checks. Values in [q, 2^254) pass verification, potentially creating inconsistency with
+     * native/Ultra verification which reject such aliased representations.
      *
      * When operating in zero knowledge, specific values of the polynomials, currently at the end, which contain random
      * values, are marked to be excluded from the checks above.
