@@ -18,12 +18,12 @@ class CallStackMetadataCollectorInterface {
 
     virtual void set_phase(CoarseTransactionPhase phase) = 0;
     virtual void notify_enter_call(const AztecAddress& contract_address,
-                                   uint32_t caller_pc,
+                                   PC caller_pc,
                                    const CalldataProvider& calldata_provider,
                                    bool is_static_call,
                                    const Gas& gas_limit) = 0;
     virtual void notify_exit_call(bool success,
-                                  uint32_t pc,
+                                  PC pc,
                                   const std::optional<std::string>& halting_message,
                                   const ReturnDataProvider& return_data_provider,
                                   const InternalCallStackProvider& internal_call_stack_provider) = 0;
