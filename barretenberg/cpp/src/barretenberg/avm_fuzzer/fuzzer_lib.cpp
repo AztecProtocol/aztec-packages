@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
+#include "barretenberg/vm2/tracegen_helper.hpp"
 
 using namespace bb::avm2::fuzzer;
 using namespace bb::avm2::simulation;
@@ -192,11 +193,14 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
     BB_ASSERT(check_circuit_result,
               "check_circuit returned false in fuzzer with no exception, this indicates a failure");
 #else
-    // In coverage builds, run simulate_for_witgen instead of check_circuit
+    // In coverage builds, run simulate_for_witgen and tracegen instead of check_circuit
     // This gives us coverage the the event and tracegen code paths without the overhead of check_circuit
     vinfo("Running simulate_for_witgen in coverage build (skipping check_circuit)");
     avm2::AvmSimulationHelper simulation_helper;
-    simulation_helper.simulate_for_witgen(proving_inputs.hints);
+    auto events = simulation_helper.simulate_for_witgen(proving_inputs.hints);
+    AvmTraceGenHelper tracegen_helper;
+    tracegen::TraceContainer trace;
+    tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
 #endif
 
     return 0;
