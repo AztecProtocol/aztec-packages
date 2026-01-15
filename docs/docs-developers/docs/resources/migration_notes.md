@@ -9,6 +9,12 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Renamed Router contract
+
+`Router` contract has been renamed as `PublicChecks` contract.
+The name of the contract became stale as its use changed from routing public calls through it to public functions to just having public functions on it that can be called by anyone.
+By having these "standard checks" on one contract results in the privacy set of apps that could use this becoming potentially large.
+
 ### [Toolchain] Node.js upgraded to v24
 
 Node.js minimum version changed from v22 to v24.12.0.
