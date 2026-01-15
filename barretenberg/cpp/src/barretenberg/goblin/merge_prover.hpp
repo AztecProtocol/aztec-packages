@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -34,22 +34,21 @@ class MergeProver {
     using MergeProof = std::vector<FF>;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         const MergeSettings settings = MergeSettings::PREPEND,
-                         const CommitmentKey& commitment_key = CommitmentKey(),
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                         std::shared_ptr<Transcript> transcript,
+                         MergeSettings settings = MergeSettings::PREPEND,
+                         const CommitmentKey& commitment_key = CommitmentKey());
 
     BB_PROFILE MergeProof construct_proof();
 
-    std::shared_ptr<ECCOpQueue> op_queue;
+    // Public for test access (computing commitments)
     CommitmentKey pcs_commitment_key;
-    std::shared_ptr<Transcript> transcript;
-    MergeSettings settings;
-
-    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
-    // MegaCircuitBuilder
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
   private:
+    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<ECCOpQueue> op_queue;
+    MergeSettings settings;
+
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
                                                      "LEFT_TABLE_DEGREE_CHECK_2",

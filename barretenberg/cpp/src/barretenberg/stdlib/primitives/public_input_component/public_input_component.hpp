@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -43,7 +43,7 @@ class PublicInputComponent {
     using Builder = ComponentType::Builder;
     using Fr = stdlib::field_t<Builder>; // type for native field elements in the circuit (i.e. the type for "limbs")
 
-    static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
     using Key = PublicComponentKey;
@@ -65,9 +65,9 @@ class PublicInputComponent {
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
-        BB_ASSERT_LTE(key.start_idx + COMPONENT_SIZE,
-                      public_inputs.size(),
-                      "PublicInputComponent cannot be reconstructed - PublicInputComponentKey start_idx out of bounds");
+        if (key.start_idx + COMPONENT_SIZE > public_inputs.size()) {
+            throw_or_abort("PublicInputComponent::reconstruct: public_inputs vector too small");
+        }
         std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }

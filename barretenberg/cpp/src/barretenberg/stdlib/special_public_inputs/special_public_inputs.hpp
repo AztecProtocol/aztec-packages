@@ -89,7 +89,7 @@ class KernelIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
@@ -178,7 +178,7 @@ template <typename Builder_> class DefaultIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
@@ -228,7 +228,7 @@ template <typename Builder_> class GoblinAvmIO {
     using PublicFF = stdlib::PublicInputComponent<FF>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    FF mega_hash;
+    FF transcript_hash; // The final state of the transcript of the AVM recursive verifier
     PairingInputs pairing_inputs;
 
     // Total size of the IO public inputs
@@ -242,8 +242,8 @@ template <typename Builder_> class GoblinAvmIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the GoblinAvm-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-        mega_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
+        transcript_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
@@ -256,7 +256,7 @@ template <typename Builder_> class GoblinAvmIO {
     {
         Builder* builder = pairing_inputs.P0.get_context();
 
-        mega_hash.set_public();
+        transcript_hash.set_public();
         pairing_inputs.set_public();
 
         // Record that pairing points have been set to public
@@ -295,8 +295,8 @@ template <class Builder_> class HidingKernelIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        // Assumes that the app-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -377,7 +377,7 @@ class RollupIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });

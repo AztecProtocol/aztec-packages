@@ -206,7 +206,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ~ProverInstance_() = default;
 
   private:
-    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
 
     size_t compute_dyadic_size(Circuit&);
