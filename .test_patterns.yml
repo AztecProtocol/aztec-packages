@@ -199,6 +199,10 @@ tests:
     error_regex: "Failed to commit transaction: InitialBlockNumberNotSequentialError: Cannot insert new block"
     owners:
       - *palla
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    owners:
+      - *phil
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
@@ -294,9 +298,10 @@ tests:
     owners:
       - *palla
 
-  - regex: "p2p/.*\\.test\\.ts"
+  - regex: "p2p/src/client/test/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
+      - *palla
       - *phil
 
   - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
