@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import type { L1ContractsConfig } from './config.js';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
 import { GovernanceProposerContract } from './contracts/governance_proposer.js';
 import { InboxContract } from './contracts/inbox.js';
@@ -99,6 +99,7 @@ export async function getL1ContractsConfig(
     inboxLag: Number(inboxLag),
     governanceProposerQuorum: Number(governanceProposerQuorum),
     governanceProposerRoundSize: Number(governanceProposerRoundSize),
+    governanceVotingDuration: DefaultL1ContractsConfig.governanceVotingDuration,
     activationThreshold,
     ejectionThreshold,
     localEjectionThreshold,

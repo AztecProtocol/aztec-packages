@@ -186,6 +186,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
+        governanceVotingDuration: t.ctx.aztecNodeConfig.governanceVotingDuration,
       },
     );
 
