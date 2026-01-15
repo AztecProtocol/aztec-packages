@@ -18,4 +18,8 @@ void mutate_contract_classes(std::vector<ContractClassWithCommitment>& contract_
                              std::vector<AztecAddress>& contract_addresses,
                              std::mt19937_64& rng);
 
+void mutate_contract_instances(std::vector<ContractInstance>& contract_instances,
+                               std::vector<AztecAddress>& contract_addresses,
+                               std::mt19937_64& rng);
+
 } // namespace bb::avm2::fuzzer
