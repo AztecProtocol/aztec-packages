@@ -361,8 +361,3 @@ tests:
     error_regex: "tried to kill container, but did not receive an exit event"
     owners:
       - *adam
-
-  - regex: "slash_offenses_collector.test.ts"
-    error_regex: "expect(pendingOffenses"
-    owners:
-      - *palla

@@ -4,7 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -642,15 +642,10 @@ describe('TallySlasherClient', () => {
 
   describe('integration', () => {
     const waitForOffenses = (count: number) =>
-      retryUntil(
-        async () => {
-          const pendingOffenses = await offensesStore.getPendingOffenses();
-          return pendingOffenses.length >= count ? true : undefined;
-        },
-        'offense to be processed',
-        5,
-        0.1,
-      );
+      retryFastUntil(async () => {
+        const pendingOffenses = await offensesStore.getPendingOffenses();
+        return pendingOffenses.length >= count ? true : undefined;
+      }, 'offense to be processed');
 
     it('should handle from offense detection to execution', async () => {
       // Round 3: Offense occurs
