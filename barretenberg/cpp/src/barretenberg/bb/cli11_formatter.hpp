@@ -77,20 +77,32 @@ class Formatter : public CLI::Formatter {
   private:
     static void wrap_text(std::ostream& out, const std::string& text, size_t width)
     {
-        std::istringstream words(text);
-        std::string word;
-        size_t line_length = 0;
-        while (words >> word) {
-            if (line_length + word.length() + 1 > width) {
+        // Split by newlines first to preserve explicit line breaks
+        std::istringstream lines(text);
+        std::string line;
+        bool first_line = true;
+        while (std::getline(lines, line)) {
+            if (!first_line) {
                 out << "\n";
-                line_length = 0;
             }
-            if (line_length > 0) {
-                out << " ";
-                line_length++;
+            first_line = false;
+
+            // Now wrap each line individually
+            std::istringstream words(line);
+            std::string word;
+            size_t line_length = 0;
+            while (words >> word) {
+                if (line_length + word.length() + 1 > width) {
+                    out << "\n";
+                    line_length = 0;
+                }
+                if (line_length > 0) {
+                    out << " ";
+                    line_length++;
+                }
+                out << word;
+                line_length += word.length();
             }
-            out << word;
-            line_length += word.length();
         }
     }
 
