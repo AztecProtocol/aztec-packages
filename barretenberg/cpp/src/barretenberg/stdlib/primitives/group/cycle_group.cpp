@@ -76,6 +76,8 @@ cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_
     // Elements are always expected to be on the curve but may or may not be constrained as such.
     BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
     if (assert_on_curve) {
+        // AUDITTODO: could alternatively do this but then we wouldnt fail fast:
+        // this->standardize();
         validate_on_curve();
     }
 }
