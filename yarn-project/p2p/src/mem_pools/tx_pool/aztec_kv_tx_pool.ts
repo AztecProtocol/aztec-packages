@@ -5,7 +5,7 @@ import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeReadOperations, ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
@@ -18,8 +18,13 @@ import EventEmitter from 'node:events';
 import { ArchiveCache } from '../../msg_validators/tx_validator/archive_cache.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import { EvictionManager } from './eviction/eviction_manager.js';
-import type { PendingTxInfo, TxBlockReference, TxPoolOperations } from './eviction/eviction_strategy.js';
-import { InsufficientFeePayerBalanceRule } from './eviction/insufficient_fee_payer_balance_rule.js';
+import {
+  FeePayerTxInfo,
+  type PendingTxInfo,
+  type TxBlockReference,
+  type TxPoolOperations,
+} from './eviction/eviction_strategy.js';
+import { FeePayerBalanceEvictionRule } from './eviction/fee_payer_balance_eviction_rule.js';
 import { InvalidTxsAfterMiningRule } from './eviction/invalid_txs_after_mining_rule.js';
 import { InvalidTxsAfterReorgRule } from './eviction/invalid_txs_after_reorg_rule.js';
 import { LowPriorityEvictionRule } from './eviction/low_priority_eviction_rule.js';
@@ -55,7 +60,7 @@ export class AztecKVTxPool
 
   #historicalHeaderToTxHash: AztecAsyncMultiMap<string, string>;
 
-  #feePayerToTxHash: AztecAsyncMultiMap<string, string>;
+  #feePayerToBalanceEntry: AztecAsyncMultiMap<string, Buffer>;
 
   /** In-memory set of txs that should not be evicted from the pool. */
   #nonEvictableTxs: Set<string>;
@@ -101,7 +106,7 @@ export class AztecKVTxPool
     this.#evictionManager = new EvictionManager(this);
     this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
     this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(worldState));
-    this.#evictionManager.registerRule(new InsufficientFeePayerBalanceRule(worldState));
+    this.#evictionManager.registerRule(new FeePayerBalanceEvictionRule(worldState));
     this.#evictionManager.registerRule(
       new LowPriorityEvictionRule({
         //NOTE: 0 effectively disables low priority eviction
@@ -119,7 +124,7 @@ export class AztecKVTxPool
 
     this.#pendingTxHashToHistoricalBlockHeaderHash = store.openMap('txHistoricalBlock');
     this.#historicalHeaderToTxHash = store.openMultiMap('historicalHeaderToPendingTxHash');
-    this.#feePayerToTxHash = store.openMultiMap('feePayerToPendingTxHash');
+    this.#feePayerToBalanceEntry = store.openMultiMap('feePayerToBalanceEntry');
 
     this.#nonEvictableTxs = new Set<string>();
 
@@ -216,6 +221,14 @@ export class AztecKVTxPool
           const key = hash.toString();
           await this.#minedTxHashToBlock.delete(key);
 
+          // Clear soft-delete metadata if this tx was previously soft-deleted,
+          // so cleanupDeletedMinedTxs won't later hard-delete it while it's pending
+          const deletedBlock = await this.#deletedMinedTxHashes.getAsync(key);
+          if (deletedBlock !== undefined) {
+            await this.#deletedMinedTxHashes.delete(key);
+            await this.#blockToDeletedMinedTxHash.deleteValue(deletedBlock, key);
+          }
+
           // Rehydrate the tx in the in-memory pending txs mapping
           const tx = await this.getPendingTxByHash(hash);
           if (tx) {
@@ -280,6 +293,7 @@ export class AztecKVTxPool
     }
 
     const addedTxs: Tx[] = [];
+    const uniqueFeePayers: AztecAddress[] = [];
     const hashesAndStats = txs.map(tx => ({ txHash: tx.getTxHash(), txStats: tx.getStats() }));
     try {
       await this.#store.transactionAsync(async () => {
@@ -299,6 +313,8 @@ export class AztecKVTxPool
 
             await this.#txs.set(key, tx.toBuffer());
             addedTxs.push(tx as Tx);
+            insertIntoSortedArray(uniqueFeePayers, tx.data.feePayer, (a, b) => a.toField().cmp(b.toField()), false);
+
             await this.#pendingTxHashToHistoricalBlockHeaderHash.set(
               key,
               (await tx.data.constants.anchorBlockHeader.hash()).toString(),
@@ -312,7 +328,10 @@ export class AztecKVTxPool
         );
       });
 
-      await this.#evictionManager.evictAfterNewTxs(addedTxs.map(({ txHash }) => txHash));
+      await this.#evictionManager.evictAfterNewTxs(
+        addedTxs.map(({ txHash }) => txHash),
+        uniqueFeePayers,
+      );
     } catch (err) {
       this.#log.warn('Unexpected error when adding txs', { err });
     }
@@ -447,15 +466,21 @@ export class AztecKVTxPool
     return result;
   }
 
-  public async getPendingTxsWithFeePayer(feePayers: AztecAddress[]): Promise<PendingTxInfo[]> {
-    const result: PendingTxInfo[] = [];
-    for (const feePayer of feePayers) {
-      const chunk = await toArray(this.#feePayerToTxHash.getValuesAsync(feePayer.toString()));
-      const infos = await Promise.all(chunk.map(txHash => this.getPendingTxInfo(TxHash.fromString(txHash))));
-      result.push(...infos.filter((info): info is PendingTxInfo => info !== undefined));
+  public async getPendingFeePayers(): Promise<AztecAddress[]> {
+    const feePayers: AztecAddress[] = [];
+    for await (const feePayer of this.#feePayerToBalanceEntry.keysAsync()) {
+      const address = AztecAddress.fromString(feePayer);
+      insertIntoSortedArray(feePayers, address, (a, b) => a.toField().cmp(b.toField()), false);
     }
+    return feePayers;
+  }
 
-    return result;
+  public async *getFeePayerTxInfos(feePayer: AztecAddress): AsyncIterable<FeePayerTxInfo> {
+    for await (const value of this.#feePayerToBalanceEntry.getValuesAsync(feePayer.toString())) {
+      const info = FeePayerTxInfo.decode(value);
+      info.isEvictable = !this.#nonEvictableTxs.has(info.txHash.toString());
+      yield info;
+    }
   }
 
   public async getMinedTxHashes(): Promise<[TxHash, BlockNumber][]> {
@@ -640,7 +665,7 @@ export class AztecKVTxPool
   private async addPendingTxIndicesInDbTx(tx: Tx, txHash: string): Promise<void> {
     await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), txHash);
     await this.#historicalHeaderToTxHash.set((await tx.data.constants.anchorBlockHeader.hash()).toString(), txHash);
-    await this.#feePayerToTxHash.set(tx.data.feePayer.toString(), txHash);
+    await this.#feePayerToBalanceEntry.set(tx.data.feePayer.toString(), await FeePayerTxInfo.encode(tx, txHash));
   }
 
   private async addPendingTxIndices(tx: Tx, txHash: string): Promise<void> {
@@ -656,7 +681,10 @@ export class AztecKVTxPool
       (await tx.data.constants.anchorBlockHeader.hash()).toString(),
       txHash,
     );
-    await this.#feePayerToTxHash.deleteValue(tx.data.feePayer.toString(), txHash);
+    await this.#feePayerToBalanceEntry.deleteValue(
+      tx.data.feePayer.toString(),
+      await FeePayerTxInfo.encode(tx, txHash),
+    );
   }
 
   private async removePendingTxIndices(tx: Tx, txHash: string): Promise<void> {

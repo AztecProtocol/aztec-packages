@@ -31,14 +31,15 @@ Hence, at round $i$ the prover will keep a __book-keeping table__ of evaluations
 At the last round the `partially_evaluated_polynomials` only holds the evaluation of the multilinear polynomials at challenge point $u_0,\dots,u_{d-1}$.
 
 Hence, here is how the proving flow goes:
-1. The prover initializes the `partially_evaluated_polynomials` with the evaluation of the prover multilinear polynomials ($P_i$) over the hypercube. Note that, since `GateSeperatorPolynomial` ($\textsf{pow}_\beta$) is also a multilinear polynomial, we follow the same logic as other multivariates for it.
-- for $d$ rounds:
+1. The prover computes the first round univariate $S^0$ by calling `compute_univariate` on the full polynomials.
+2. The prover initializes the `partially_evaluated_polynomials` book-keeping table and performs the first partial evaluation using `partially_evaluate_first_round`. Note that, since `GateSeperatorPolynomial` ($\textsf{pow}_\beta$) is also a multilinear polynomial, we follow the same logic as other multivariates for it.
+- for remaining $d-1$ rounds:
 
-    2. The prover computes the round univariate $S^i$ by calling `compute_univariate`.
-    3. Prover sends the round univariate to the verifier via the `transcript` object.
-    3. The prover updates its book-keeping table using `partially_evaluate`.
-4. After all the rounds, the prover computes the final evaluation `multivariate_evaluations` by calling the `extract_claimed_evaluations`. This method simply returns the last element left in the book-keeping table after all the rounds which corresponds to $P_i(u_0,\dots,u_{d-1})$.
-5. The prover sends these evaluations to the verifier via the `transcript` object
+    3. The prover computes the round univariate $S^i$ by calling `compute_univariate` on `partially_evaluated_polynomials`.
+    4. Prover sends the round univariate to the verifier via the `transcript` object.
+    5. The prover updates its book-keeping table in-place using `partially_evaluate_in_place`.
+6. After all the rounds, the prover computes the final evaluation `multivariate_evaluations` by calling the `extract_claimed_evaluations`. This method simply returns the last element left in the book-keeping table after all the rounds which corresponds to $P_i(u_0,\dots,u_{d-1})$.
+7. The prover sends these evaluations to the verifier via the `transcript` object
 
 ## ZK sumcheck
 There are two new subtleties that are introduced when making the proving system zero-knowledge.

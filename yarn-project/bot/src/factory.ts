@@ -56,8 +56,8 @@ export class BotFactory {
     node: AztecNode;
     recipient: AztecAddress;
   }> {
-    const recipient = (await this.wallet.createAccount()).address;
     const defaultAccountAddress = await this.setupAccount();
+    const recipient = (await this.wallet.createAccount()).address;
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
     return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };

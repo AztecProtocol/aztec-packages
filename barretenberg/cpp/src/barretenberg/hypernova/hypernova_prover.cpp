@@ -1,31 +1,15 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 
 namespace bb {
-
-std::pair<std::vector<HypernovaFoldingProver::FF>, std::vector<HypernovaFoldingProver::FF>> HypernovaFoldingProver::
-    get_batching_challenges()
-{
-    std::vector<std::string> labels_unshifted_entities(NUM_UNSHIFTED_ENTITIES);
-    std::vector<std::string> labels_shifted_witnesses(NUM_SHIFTED_ENTITIES);
-    for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
-        labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
-    }
-    for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
-        labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
-    }
-    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
-    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
-
-    return { unshifted_challenges, shifted_challenges };
-}
 
 template <size_t N>
 HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefArray<Commitment, N>& _points,
@@ -47,7 +31,8 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     BB_BENCH_NAME("HypernovaFoldingProver::sumcheck_output_to_accumulator");
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
-    auto [unshifted_challenges, shifted_challenges] = get_batching_challenges();
+    auto [unshifted_challenges, shifted_challenges] =
+        get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
     // Batch polynomials
     Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
@@ -97,15 +82,8 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
     BB_ASSERT_EQ(
         challenges.size(), N, "The number of challenges provided does not match the number of polynomials to batch.");
 
-    size_t challenge_idx = 0;
-
-    for (auto& poly : polynomials_to_batch) {
-        if (challenge_idx == 0) {
-            polynomials_to_batch[0] *= challenges[challenge_idx];
-        } else {
-            polynomials_to_batch[0].add_scaled(poly, challenges[challenge_idx]);
-        }
-        challenge_idx += 1;
+    for (size_t idx = 1; idx < N; idx++) {
+        polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
     }
 
     return polynomials_to_batch[0];
@@ -145,16 +123,14 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 }
 
 std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver::fold(
-    const Accumulator& accumulator,
+    Accumulator&& accumulator,
     const std::shared_ptr<ProverInstance>& instance,
     const std::shared_ptr<VerificationKey>& honk_vk)
 {
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
     // Sumcheck
-    MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator),
-                                              std::make_shared<MultilinearBatchingProverClaim>(incoming_accumulator),
-                                              transcript);
+    MultilinearBatchingProver batching_prover(std::move(accumulator), std::move(incoming_accumulator), transcript);
 
     HonkProof proof = batching_prover.construct_proof();
 

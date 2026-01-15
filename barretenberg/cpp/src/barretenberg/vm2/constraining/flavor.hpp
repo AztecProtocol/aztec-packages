@@ -93,8 +93,6 @@ class AvmFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr bool has_zero_row = true;
-
     static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 

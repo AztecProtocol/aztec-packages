@@ -23,6 +23,12 @@ class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
+  protected:
+    // In AVM we only use Goblin for a single circuit whose proof is not required to be zero-knowledge. While Translator
+    // will still expect to find random ops at the beginning to ensure the accumulation result remains at a fixed row we
+    // opt for not adding random ops at the end of the op queue.
+    bool avm_mode = false;
+
   public:
     using MegaBuilder = MegaCircuitBuilder;
     using Fr = bb::fr;
@@ -55,11 +61,6 @@ class Goblin {
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
     std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
-
-    // In AVM we only use Goblin for a single circuit (it's recursive verifier) whose proof is not required to be
-    // zero-knowledge. While Translator will still expect to find random ops at the beginning to ensure the accumulation
-    // result remains at a fixed row we opt for not adding random ops at the end of the op queue.
-    bool avm_mode = false;
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -97,7 +98,7 @@ class Goblin {
      *
      * @return Proof
      */
-    GoblinProof prove(const MergeSettings merge_settings = MergeSettings::PREPEND);
+    GoblinProof prove();
 
     /**
      * @brief Recursively verify the next merge proof in the merge verification queue.
@@ -114,17 +115,6 @@ class Goblin {
         const RecursiveMergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
-
-    /**
-     * @brief Add required initial ops to the op queue for AVM mode.
-     * @details Adds 1 no-op (for shiftability) followed by 3 random ops (for ZK hiding of accumulation result).
-     * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
-     * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
-     *
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1537) Assess whether two Translator variants (one
-     * with ZK and one without) would be a better option
-     */
-    void ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const;
 };
 
 } // namespace bb

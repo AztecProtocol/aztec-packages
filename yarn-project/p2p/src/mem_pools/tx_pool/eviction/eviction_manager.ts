@@ -14,10 +14,11 @@ export class EvictionManager {
     private log = createLogger('p2p:mempool:tx_pool:eviction_manager'),
   ) {}
 
-  public async evictAfterNewTxs(newTxs: TxHash[]): Promise<void> {
+  public async evictAfterNewTxs(newTxs: TxHash[], feePayers: AztecAddress[]): Promise<void> {
     const ctx: EvictionContext = {
       event: EvictionEvent.TXS_ADDED,
       newTxs,
+      feePayers,
     };
     await this.runEvictionRules(ctx);
   }
@@ -31,7 +32,7 @@ export class EvictionManager {
       event: EvictionEvent.BLOCK_MINED,
       block,
       newNullifiers,
-      minedFeePayers,
+      feePayers: minedFeePayers,
     };
 
     await this.runEvictionRules(ctx);
