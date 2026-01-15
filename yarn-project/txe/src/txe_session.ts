@@ -7,6 +7,7 @@ import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressStore,
   CapsuleStore,
+  JobCoordinator,
   NoteService,
   NoteStore,
   PrivateEventStore,
@@ -43,7 +44,7 @@ import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS, TXE_JOB_ID } from './constants.js';
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -139,6 +140,8 @@ export class TXESession implements TXESessionStateHandler {
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
+    private jobCoordinator: JobCoordinator,
+    private currentJobId: string,
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
@@ -158,6 +161,10 @@ export class TXESession implements TXESessionStateHandler {
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
+    // Create job coordinator and register staged stores
+    const jobCoordinator = new JobCoordinator(store);
+    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore]);
+
     // Register protocol contracts.
     for (const { contractClass, instance, artifact } of protocolContracts) {
       await contractStore.addContractArtifact(contractClass.id, artifact);
@@ -169,6 +176,8 @@ export class TXESession implements TXESessionStateHandler {
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
     const chainId = new Fr(await stateMachine.node.getChainId());
+
+    const initialJobId = jobCoordinator.beginJob();
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
@@ -182,6 +191,7 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      initialJobId,
       nextBlockTimestamp,
       version,
       chainId,
@@ -203,6 +213,8 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      jobCoordinator,
+      initialJobId,
       version,
       chainId,
       nextBlockTimestamp,
@@ -262,6 +274,10 @@ export class TXESession implements TXESessionStateHandler {
       }
     }
 
+    // Commit all staged stores from the job that was just completed, then begin a new job
+    await this.jobCoordinator.commitJob(this.currentJobId);
+    this.currentJobId = this.jobCoordinator.beginJob();
+
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,
       this.contractStore,
@@ -274,6 +290,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.currentJobId,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,
@@ -337,7 +354,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      TXE_JOB_ID,
+      this.currentJobId,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -406,7 +423,7 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      TXE_JOB_ID,
+      this.currentJobId,
     );
 
     this.state = { name: 'UTILITY' };
@@ -501,7 +518,7 @@ export class TXESession implements TXESessionStateHandler {
           this.senderAddressBookStore,
           this.capsuleStore,
           this.privateEventStore,
-          TXE_JOB_ID,
+          this.currentJobId,
         );
         await new WASMSimulator()
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
