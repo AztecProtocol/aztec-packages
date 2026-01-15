@@ -100,7 +100,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     txs = await Promise.all(times(5, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const blockProposal = await createBlockProposal(BlockNumber(blockNumber), blockHash, txHashes);
+    blockProposal = await createBlockProposal(BlockNumber(blockNumber), blockHash, txHashes);
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
   });
 
@@ -122,7 +122,7 @@ describe('p2p client integration block txs protocol ', () => {
     await sleep(1000);
   };
 
-  const createBlockProposal = (blockNumber: BlockNumber, blockHash: any, txHashes: any[]) => {
+  const createBlockProposal = (blockNumber: BlockNumber, blockHash: Fr, txHashes: TxHash[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
       blockHeader: makeBlockHeader(1, { blockNumber }),
@@ -149,7 +149,7 @@ describe('p2p client integration block txs protocol ', () => {
     attestationPool.getBlockProposal.mockResolvedValue(undefined);
     const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
 
-    const blockProposal = createBlockProposal(blockNumber, Fr.random(), missing);
+    const blockProposal = await createBlockProposal(blockNumber, Fr.random(), missing);
     const response = await sendBlockTxsRequest(blockProposal, missing);
 
     expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
@@ -331,7 +331,7 @@ describe('p2p client integration block txs protocol ', () => {
     });
 
     const requestedHashes = [txHashes[1], txHashes[3], txHashes[4]]; // Request 3, but only 2 available
-    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const differentBlockProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
     const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, true);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
@@ -361,7 +361,7 @@ describe('p2p client integration block txs protocol ', () => {
     });
 
     const requestedHashes = [txHashes[0], txHashes[2], txHashes[4]]; // Request 3, only 1 available
-    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const differentBlockProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
     const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, true);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
@@ -383,7 +383,7 @@ describe('p2p client integration block txs protocol ', () => {
     txPool.getTxsByHash.mockResolvedValue([]);
 
     const requestedHashes = [txHashes[0], txHashes[2], txHashes[4]];
-    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const differentBlockProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
     const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, true);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
@@ -405,7 +405,7 @@ describe('p2p client integration block txs protocol ', () => {
     );
 
     const requestedHashes = [txHashes[1], txHashes[3]];
-    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const differentBlockProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
     const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, false); // includeFullTxHashes=false
 
     // Should get NOT_FOUND because without full tx hashes, handler can't return txs without proposal
