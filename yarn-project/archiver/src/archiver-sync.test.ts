@@ -435,6 +435,31 @@ describe('Archiver Sync', () => {
         checkpoint.blocks.map(b => b.body.txEffects),
       );
     }, 15_000);
+
+    it('does not sync if L1 did not advance', async () => {
+      // Initial sync
+      fake.setL1BlockNumber(100n);
+      logger.warn('Initial sync');
+      await archiver.syncImmediate();
+
+      expect(inboxContract.getState).toHaveBeenCalledTimes(1);
+      expect(rollupContract.status).toHaveBeenCalledTimes(1);
+      inboxContract.getState.mockClear();
+      rollupContract.status.mockClear();
+
+      // We sync again, but since chain didn't move, no new calls should be expected
+      logger.warn('Sync with no L1 advancement');
+      await archiver.syncImmediate();
+      expect(inboxContract.getState).toHaveBeenCalledTimes(0);
+      expect(rollupContract.status).toHaveBeenCalledTimes(0);
+
+      // Advance the chain and we should see calls again
+      fake.setL1BlockNumber(150n);
+      logger.warn('Sync after L1 advancement');
+      await archiver.syncImmediate();
+      expect(inboxContract.getState).toHaveBeenCalledTimes(1);
+      expect(rollupContract.status).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('epoch completion', () => {
@@ -881,6 +906,7 @@ describe('Archiver Sync', () => {
       fake.addMessages(CheckpointNumber(5), 102n, [msg50, msg51]);
 
       // Re-sync
+      fake.setL1BlockNumber(111n);
       await archiver.syncImmediate();
 
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
