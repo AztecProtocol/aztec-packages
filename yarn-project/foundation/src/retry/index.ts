@@ -103,3 +103,21 @@ export async function retryUntil<T>(
     }
   }
 }
+
+/**
+ * Convenience wrapper around retryUntil with fast polling for tests.
+ * Uses 10s timeout and 100ms polling interval by default.
+ *
+ * @param fn - The function to retry until it returns a truthy value.
+ * @param name - Description of what we're waiting for (for error messages).
+ * @param timeout - Optional timeout in seconds. Defaults to 10s.
+ * @param interval - Optional interval in seconds. Defaults to 0.1s (100ms).
+ */
+export function retryFastUntil<T>(
+  fn: () => (T | undefined) | Promise<T | undefined>,
+  name = '',
+  timeout = 10,
+  interval = 0.1,
+) {
+  return retryUntil(fn, name, timeout, interval);
+}

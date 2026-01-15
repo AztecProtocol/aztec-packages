@@ -12,7 +12,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2BlockSourceEvents } from '@aztec/stdlib/block';
@@ -597,7 +597,7 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
 
       // Now initial sync should be complete (103 + 1 >= 103)
-      await retryUntil(() => Promise.resolve(archiver.isInitialSyncComplete()), 'initial sync complete', 10, 0.1);
+      await retryFastUntil(() => archiver.isInitialSyncComplete(), 'initial sync complete');
       expect(archiver.isInitialSyncComplete()).toBe(true);
     });
 
@@ -969,12 +969,7 @@ describe('Archiver Sync', () => {
 
       fake.setL1BlockNumber(100n);
       await archiver.start(false);
-      await retryUntil(
-        () => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(1)),
-        'sync',
-        10,
-        0.1,
-      );
+      await retryFastUntil(() => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(1)), 'sync');
 
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
@@ -1020,12 +1015,7 @@ describe('Archiver Sync', () => {
       // Now advance L1 so checkpoint 2 becomes visible
       fake.setL1BlockNumber(5010n);
 
-      await retryUntil(
-        () => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(2)),
-        'sync',
-        10,
-        0.1,
-      );
+      await retryFastUntil(() => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(2)), 'sync');
 
       // Now the blocks should be checkpointed
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
@@ -1052,12 +1042,7 @@ describe('Archiver Sync', () => {
 
       fake.setL1BlockNumber(100n);
       await archiver.start(false);
-      await retryUntil(
-        () => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(1)),
-        'sync',
-        10,
-        0.1,
-      );
+      await retryFastUntil(() => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(1)), 'sync');
 
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const blockAlreadySyncedFromCheckpoint = cp1.blocks[cp1.blocks.length - 1];
@@ -1076,12 +1061,7 @@ describe('Archiver Sync', () => {
 
       fake.setL1BlockNumber(100n);
       await archiver.start(false);
-      await retryUntil(
-        () => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(1)),
-        'sync',
-        10,
-        0.1,
-      );
+      await retryFastUntil(() => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(1)), 'sync');
 
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
@@ -1125,12 +1105,7 @@ describe('Archiver Sync', () => {
       // Now advance L1 so checkpoint 2 becomes visible
       fake.setL1BlockNumber(5010n);
 
-      await retryUntil(
-        () => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(2)),
-        'sync',
-        10,
-        0.1,
-      );
+      await retryFastUntil(() => archiver.getSynchedCheckpointNumber().then(n => n === CheckpointNumber(2)), 'sync');
 
       // Now all blocks should be checkpointed
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
