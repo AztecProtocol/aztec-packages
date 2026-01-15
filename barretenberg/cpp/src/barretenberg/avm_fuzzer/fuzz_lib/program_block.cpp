@@ -1070,7 +1070,6 @@ void ProgramBlock::process_emitnotehash_instruction(EMITNOTEHASH_Instruction ins
                                         .operand(note_hash_address_operand.value().second)
                                         .build();
     instructions.push_back(emitnotehash_instruction);
-    memory_manager.append_emitted_note_hash(instruction.note_hash);
 }
 
 void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction)
@@ -1078,29 +1077,6 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
 #ifdef DISABLE_NOTEHASHEXISTS_INSTRUCTION
     return;
 #endif
-    auto note_hash = memory_manager.get_emitted_note_hash(instruction.notehash_index);
-    if (!note_hash.has_value()) {
-        return;
-    }
-    auto leaf_index = memory_manager.get_leaf_index(instruction.notehash_index);
-    if (!leaf_index.has_value()) {
-        return;
-    }
-    auto contract_address = CONTRACT_ADDRESS;
-    auto note_hash_counter = static_cast<uint64_t>(*leaf_index);
-    auto siloed_note_computed_hash = bb::avm2::simulation::unconstrained_silo_note_hash(contract_address, *note_hash);
-    auto unique_note_computed_hash = bb::avm2::simulation::unconstrained_make_unique_note_hash(
-        siloed_note_computed_hash, FIRST_NULLIFIER, note_hash_counter);
-
-    auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                         .result_address = instruction.notehash_address,
-                                                         .value = unique_note_computed_hash };
-    this->process_set_ff_instruction(set_note_hash_instruction);
-    auto set_leaf_index_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
-                                                          .result_address = instruction.leaf_index_address,
-                                                          .value = *leaf_index };
-    this->process_set_ff_instruction(set_leaf_index_instruction);
-
     auto notehash_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.notehash_address);
     auto leaf_index_address_operand =
         memory_manager.get_resolved_address_and_operand_16(instruction.leaf_index_address);

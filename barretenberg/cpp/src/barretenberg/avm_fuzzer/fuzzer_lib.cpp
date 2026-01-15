@@ -11,6 +11,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/gas.hpp"
@@ -54,6 +55,8 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     for (const auto& write : tx_data.public_data_writes) {
         ws_mgr.public_data_write(write);
     }
+
+    ws_mgr.append_note_hashes(tx_data.note_hashes);
 }
 
 void fund_fee_payer(FuzzerWorldStateManager& ws_mgr, const Tx& tx)
@@ -79,7 +82,8 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 
     try {
         ws_mgr.checkpoint();
-        cpp_result = cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes);
+        cpp_result =
+            cpp_simulator.simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes, tx_data.note_hashes);
         fuzz_info("CppSimulator completed without exception");
         fuzz_info("CppSimulator result: ", cpp_result);
         ws_mgr.revert();
@@ -95,7 +99,8 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     }
 
     ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes);
+    auto js_result =
+        js_simulator->simulate(ws_mgr, contract_db, tx_data.tx, tx_data.public_data_writes, tx_data.note_hashes);
 
     // If the results do not match
     if (!compare_simulator_results(cpp_result, js_result)) {
@@ -198,11 +203,9 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
 }
 
 // Initialize FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context)
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, FuzzerContext& context)
 {
-    FuzzerData fuzzer_data = generate_fuzzer_data(rng, context);
     FuzzerTxData tx_data = {
-        .input_programs = { fuzzer_data },
         .tx = create_default_tx(MSG_SENDER, MSG_SENDER, {}, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT),
         .global_variables = { .chain_id = CHAIN_ID,
                               .version = VERSION,
@@ -214,11 +217,21 @@ FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& c
                               .gas_fees =
                                   GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS } },
         .protocol_contracts = {},
+        // We can write proper mutations for this. However it might not be of much value since we have variability from
+        // nonrevertible note hashes.
+        .note_hashes = { generate_random_field(rng), generate_random_field(rng), generate_random_field(rng) }
     };
+
+    // TODO(alvaro): This is messy, we mutate when creating default tx data. Maybe we should just remove the mutation
+    // from generate_fuzzer_data altogether.
+    populate_context_from_tx_data(context, tx_data);
+    FuzzerData fuzzer_data = generate_fuzzer_data(rng, context);
+    tx_data.input_programs.push_back(fuzzer_data);
+
     return tx_data;
 }
 
-FuzzerTxData create_default_tx_data(const FuzzerContext& context)
+FuzzerTxData create_default_tx_data(FuzzerContext& context)
 {
     std::mt19937_64 rng(0);
     return create_default_tx_data(rng, context);
@@ -273,6 +286,8 @@ size_t mutate_tx_data(FuzzerContext& context,
         fuzz_info("Failed to deserialize input in CustomMutator, creating default FuzzerTxData");
         tx_data = create_default_tx_data(rng, context);
     }
+
+    populate_context_from_tx_data(context, tx_data);
 
     // Mutate the fuzzer data multiple times for better bytecode variety
     auto num_mutations = std::uniform_int_distribution<uint8_t>(1, 5)(rng);
@@ -378,4 +393,29 @@ size_t mutate_tx_data(FuzzerContext& context,
     delete[] mutated_serialized_fuzzer_data;
 
     return mutated_serialized_fuzzer_data_size;
+}
+
+void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& tx_data)
+{
+    std::vector<std::pair<FF, uint64_t>> note_hash_leaf_index_pairs;
+    note_hash_leaf_index_pairs.reserve(tx_data.note_hashes.size() +
+                                       tx_data.tx.non_revertible_accumulated_data.note_hashes.size());
+
+    // For note hashes we assume we start from an empty tree. We could read size everytime but it'd slow things down.
+    // If you're having trouble with that check initialization on FuzzerWorldStateManager::initialize()
+    uint64_t leaf_offset = 0;
+
+    for (uint64_t i = 0; i < tx_data.note_hashes.size(); ++i) {
+        note_hash_leaf_index_pairs.push_back({ tx_data.note_hashes[i], leaf_offset + i });
+    }
+
+    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (tx_data.note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
+    leaf_offset += tx_data.note_hashes.size() + padding_leaves;
+
+    for (uint64_t i = 0; i < tx_data.tx.non_revertible_accumulated_data.note_hashes.size(); ++i) {
+        note_hash_leaf_index_pairs.push_back(
+            { tx_data.tx.non_revertible_accumulated_data.note_hashes[i], leaf_offset + i });
+    }
+
+    context.set_existing_note_hashes(note_hash_leaf_index_pairs);
 }

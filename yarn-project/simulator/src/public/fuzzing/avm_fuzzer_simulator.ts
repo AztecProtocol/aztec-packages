@@ -41,6 +41,7 @@ export class FuzzerSimulationRequest {
     public readonly contractClasses: any[], // Raw, processed by addContractClassFromCpp
     public readonly contractInstances: [any, any][], // Raw pairs [address, instance]
     public readonly publicDataWrites: any[], // Raw public data tree writes to apply before simulation
+    public readonly noteHashes: any[], // Raw note hashes to apply before simulation
   ) {}
 
   static fromPlainObject(obj: any): FuzzerSimulationRequest {
@@ -55,6 +56,7 @@ export class FuzzerSimulationRequest {
       obj.contractClasses,
       obj.contractInstances,
       obj.publicDataWrites ?? [],
+      obj.noteHashes ?? [],
     );
   }
 }
@@ -249,5 +251,15 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
       const leaf = PublicDataTreeLeaf.fromPlainObject(rawWrite);
       await this.merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [leaf.toBuffer()]);
     }
+  }
+
+  /**
+   * Apply note hashes from C++ raw msgpack data.
+   * This is used to pre-populate the note hash tree before simulation.
+   */
+  public async applyNoteHashes(rawNoteHashes: any[]): Promise<void> {
+    const paddingLeaves = MAX_NOTE_HASHES_PER_TX - (rawNoteHashes.length % MAX_NOTE_HASHES_PER_TX);
+    const paddedNoteHashes = [...rawNoteHashes, ...Array(paddingLeaves).fill(Fr.ZERO)];
+    await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, paddedNoteHashes);
   }
 }

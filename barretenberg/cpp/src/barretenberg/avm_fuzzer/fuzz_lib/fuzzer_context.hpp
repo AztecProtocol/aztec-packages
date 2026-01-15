@@ -53,9 +53,14 @@ class FuzzerContext {
     /// @brief Get the contract database for simulation
     FuzzerContractDB& get_contract_db() const { return *contract_db_; }
 
+    std::optional<std::pair<FF, uint64_t>> get_existing_note_hash(size_t index) const;
+
+    void set_existing_note_hashes(std::span<const std::pair<FF, uint64_t>> note_hashes);
+
   private:
     std::vector<FF> contract_addresses_;
     std::unique_ptr<FuzzerContractDB> contract_db_;
+    std::vector<std::pair<FF, uint64_t>> existing_note_hashes_;
 };
 
 } // namespace bb::avm2::fuzzer

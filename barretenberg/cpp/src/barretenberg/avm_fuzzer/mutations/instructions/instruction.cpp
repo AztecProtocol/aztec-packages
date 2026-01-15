@@ -238,10 +238,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_instruction(std::mt199
         return { EMITNOTEHASH_Instruction{ .note_hash_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                            .note_hash = generate_random_field(rng) } };
     case InstructionGenerationOptions::NOTEHASHEXISTS:
-        return { NOTEHASHEXISTS_Instruction{ .notehash_index = generate_random_uint16(rng),
-                                             .notehash_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                             .leaf_index_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                             .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_notehashexists_instruction(rng);
     case InstructionGenerationOptions::CALLDATACOPY:
         return { CALLDATACOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                            .copy_size = generate_random_uint8(rng),
@@ -879,6 +876,37 @@ std::vector<FuzzInstruction> InstructionMutator::generate_getcontractinstance_in
     return instructions;
 }
 
+std::vector<FuzzInstruction> InstructionMutator::generate_notehashexists_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+    if (!use_backfill) {
+        return { NOTEHASHEXISTS_Instruction{ .notehash_address = generate_variable_ref(rng),
+                                             .leaf_index_address = generate_variable_ref(rng),
+                                             .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    }
+    auto existing_note_hash = context.get_existing_note_hash(generate_random_uint16(rng));
+    FF note_hash = existing_note_hash.has_value() ? existing_note_hash.value().first : generate_random_field(rng);
+    uint64_t leaf_index =
+        existing_note_hash.has_value() ? existing_note_hash.value().second : generate_random_uint64(rng);
+    AddressRef note_hash_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    AddressRef leaf_index_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+
+    instructions.push_back(SET_FF_Instruction{
+        .value_tag = bb::avm2::MemoryTag::FF, .result_address = note_hash_address, .value = note_hash });
+    instructions.push_back(SET_64_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U64, .result_address = leaf_index_address, .value = leaf_index });
+
+    instructions.push_back(
+        NOTEHASHEXISTS_Instruction{ .notehash_address = note_hash_address,
+                                    .leaf_index_address = leaf_index_address,
+                                    .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+
+    return instructions;
+}
+
 void InstructionMutator::mutate_param_ref(ParamRef& param,
                                           std::mt19937_64& rng,
                                           std::optional<MemoryTag> default_tag,
@@ -1215,14 +1243,11 @@ void InstructionMutator::mutate_note_hash_exists_instruction(NOTEHASHEXISTS_Inst
 {
     NoteHashExistsMutationOptions option = BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case NoteHashExistsMutationOptions::notehash_index:
-        mutate_uint16_t(instruction.notehash_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
     case NoteHashExistsMutationOptions::notehash_address:
-        mutate_address_ref(instruction.notehash_address, rng, MAX_16BIT_OPERAND);
+        mutate_param_ref(instruction.notehash_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case NoteHashExistsMutationOptions::leaf_index_address:
-        mutate_address_ref(instruction.leaf_index_address, rng, MAX_16BIT_OPERAND);
+        mutate_param_ref(instruction.leaf_index_address, rng, MemoryTag::U64, MAX_16BIT_OPERAND);
         break;
     case NoteHashExistsMutationOptions::result_address:
         mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);

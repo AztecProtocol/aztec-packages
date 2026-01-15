@@ -392,11 +392,10 @@ constexpr EmitNoteHashMutationConfig BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION =
     { EmitNoteHashMutationOptions::note_hash, 1 },
 });
 
-enum class NoteHashExistsMutationOptions { notehash_index, notehash_address, leaf_index_address, result_address };
-using NoteHashExistsMutationConfig = WeightedSelectionConfig<NoteHashExistsMutationOptions, 4>;
+enum class NoteHashExistsMutationOptions { notehash_address, leaf_index_address, result_address };
+using NoteHashExistsMutationConfig = WeightedSelectionConfig<NoteHashExistsMutationOptions, 3>;
 
 constexpr NoteHashExistsMutationConfig BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION = NoteHashExistsMutationConfig({
-    { NoteHashExistsMutationOptions::notehash_index, 1 },
     { NoteHashExistsMutationOptions::notehash_address, 1 },
     { NoteHashExistsMutationOptions::leaf_index_address, 1 },
     { NoteHashExistsMutationOptions::result_address, 1 },
