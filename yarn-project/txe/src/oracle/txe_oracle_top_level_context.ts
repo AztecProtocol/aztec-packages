@@ -80,7 +80,7 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state';
 
-import { DEFAULT_ADDRESS, TXE_JOB_ID } from '../constants.js';
+import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
 import type { TXEAccountStore } from '../util/txe_account_store.js';
 import type { TXEContractStore } from '../util/txe_contract_store.js';
@@ -106,6 +106,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
+    private jobId: string,
     private nextBlockTimestamp: bigint,
     private version: Fr,
     private chainId: Fr,
@@ -345,7 +346,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      TXE_JOB_ID,
+      this.jobId,
       0,
       1,
       undefined, // log
@@ -683,7 +684,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.senderAddressBookStore,
         this.capsuleStore,
         this.privateEventStore,
-        TXE_JOB_ID,
+        this.jobId,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
