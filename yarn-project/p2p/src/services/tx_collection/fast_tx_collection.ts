@@ -12,11 +12,11 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
+import { BatchTxRequesterCollector, type ProposalTxCollector } from './proposal_tx_collector.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
 import type { TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
@@ -24,6 +24,7 @@ import type { TxSource } from './tx_source.js';
 export class FastTxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected requests: Set<FastCollectionRequest> = new Set();
+  private proposalTxCollector: ProposalTxCollector;
 
   constructor(
     private p2pService: BatchTxRequesterLibP2PService,
@@ -32,7 +33,10 @@ export class FastTxCollection {
     private config: TxCollectionConfig,
     private dateProvider: DateProvider = new DateProvider(),
     private log: Logger = createLogger('p2p:tx_collection_service'),
-  ) {}
+    proposalTxCollector?: ProposalTxCollector,
+  ) {
+    this.proposalTxCollector = proposalTxCollector ?? new BatchTxRequesterCollector(p2pService, log, dateProvider);
+  }
 
   public async stop() {
     this.requests.forEach(request => request.promise.reject(new AbortError(`Stopped collection service`)));
@@ -264,19 +268,7 @@ export class FastTxCollection {
       await this.txCollectionSink.collect(
         async txHashes => {
           if (request.type === 'proposal') {
-            const blockProposal = request.blockProposal;
-
-            const batchRequester = new BatchTxRequester(
-              txHashes,
-              blockProposal,
-              pinnedPeer,
-              timeoutMs,
-              this.p2pService,
-              this.log,
-              this.dateProvider,
-            );
-
-            return await BatchTxRequester.collectAllTxs(batchRequester.run());
+            return await this.proposalTxCollector.collectTxs(txHashes, request.blockProposal, pinnedPeer, timeoutMs);
           } else if (request.type === 'block') {
             const txs = await this.p2pService.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
               ReqRespSubProtocol.TX,
