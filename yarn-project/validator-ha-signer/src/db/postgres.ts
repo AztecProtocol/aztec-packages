@@ -5,7 +5,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import type { Pool, QueryResult } from 'pg';
+import type { QueryResult, QueryResultRow } from 'pg';
 
 import type { SlashingProtectionDatabase, TryInsertOrGetResult } from '../types.js';
 import {
@@ -18,12 +18,21 @@ import {
 import type { CheckAndRecordParams, DutyRow, DutyType, InsertOrGetRow, ValidatorDutyRecord } from './types.js';
 
 /**
+ * Minimal pool interface for database operations.
+ * Both pg.Pool and test adapters (e.g., PGlite) satisfy this interface.
+ */
+export interface QueryablePool {
+  query<R extends QueryResultRow = any>(text: string, values?: any[]): Promise<QueryResult<R>>;
+  end(): Promise<void>;
+}
+
+/**
  * PostgreSQL implementation of the slashing protection database
  */
 export class PostgresSlashingProtectionDatabase implements SlashingProtectionDatabase {
   private readonly log: Logger;
 
-  constructor(private readonly pool: Pool) {
+  constructor(private readonly pool: QueryablePool) {
     this.log = createLogger('slashing-protection:postgres');
   }
 

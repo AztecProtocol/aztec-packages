@@ -1,6 +1,6 @@
 .terraform
 .terraform*
 .DS_Store
-bin/versions
+bin/0.0.1/versions
 verdaccio-storage
 aztec-release-test-image

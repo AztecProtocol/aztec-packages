@@ -3,8 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Pool } from '@middle-management/pglite-pg-adapter';
 
+import { Pool } from '../test/pglite_pool.js';
 import { PostgresSlashingProtectionDatabase } from './postgres.js';
 import {
   DELETE_DUTY,
@@ -436,9 +436,7 @@ describe('PostgreSQL Queries', () => {
 
 describe('PostgresSlashingProtectionDatabase', () => {
   let pglite: PGlite;
-  // pool needs to be 'any' due to some low-level discrepancies
-  // between pg's Pool & the adapter's implementation
-  let pool: any;
+  let pool: Pool;
 
   beforeEach(() => {
     pglite = new PGlite();

@@ -726,7 +726,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     ts-loader: "npm:^9.5.4"
@@ -757,7 +757,7 @@ __metadata:
     "@types/lodash.groupby": "npm:^4.6.9"
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     concurrently: "npm:^8.0.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
@@ -783,7 +783,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/koa-bodyparser": "npm:^4.3.12"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     koa: "npm:^2.16.1"
     koa-bodyparser: "npm:^4.4.1"
@@ -792,8 +792,6 @@ __metadata:
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^3.23.8"
-  bin:
-    aztec-faucet: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -827,7 +825,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     koa: "npm:^2.16.1"
@@ -836,8 +834,6 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-  bin:
-    aztec-node: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -856,7 +852,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     axios: "npm:^1.12.0"
     buffer: "npm:^6.0.3"
     crypto-browserify: "npm:^3.12.1"
@@ -885,7 +881,7 @@ __metadata:
     "@swc/core": "npm:^1.10.12"
     "@swc/jest": "npm:^0.2.36"
     "@trivago/prettier-plugin-sort-imports": "npm:^5.2.2"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     concurrently: "npm:^9.1.2"
     eslint: "npm:^9.26.0"
     eslint-import-resolver-typescript: "npm:^3.5.5"
@@ -938,7 +934,7 @@ __metadata:
     "@types/chalk": "npm:^2.2.0"
     "@types/jest": "npm:^30.0.0"
     "@types/koa": "npm:^2.15.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     abitype: "npm:^0.8.11"
     chalk: "npm:^5.3.0"
     commander: "npm:^12.1.0"
@@ -976,7 +972,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     commander: "npm:^12.1.0"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
@@ -1021,7 +1017,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
     "@types/supertest": "npm:^6.0.2"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     express: "npm:^4.21.2"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
@@ -1048,7 +1044,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     get-port: "npm:^7.1.0"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
@@ -1077,7 +1073,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     source-map-support: "npm:^0.5.21"
@@ -1097,13 +1093,11 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     commander: "npm:^12.1.0"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
-  bin:
-    aztec-builder: dest/bin/cli.js
   languageName: unknown
   linkType: soft
 
@@ -1128,7 +1122,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     commander: "npm:^12.1.0"
     inquirer: "npm:^10.1.8"
     jest: "npm:^30.0.0"
@@ -1179,7 +1173,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/semver": "npm:^7.5.2"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     commander: "npm:^12.1.0"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
@@ -1213,7 +1207,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     eslint: "npm:^9.26.0"
     jest: "npm:^30.0.0"
     prettier: "npm:^3.5.3"
@@ -1286,7 +1280,7 @@ __metadata:
     "@types/lodash.chunk": "npm:^4.2.9"
     "@types/lodash.every": "npm:^4.6.7"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     "@viem/anvil": "npm:^0.0.9"
     buffer: "npm:^6.0.3"
     concurrently: "npm:^7.6.0"
@@ -1329,7 +1323,7 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -1349,7 +1343,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     "@viem/anvil": "npm:^0.0.10"
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
@@ -1376,7 +1370,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.pickby": "npm:^4"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     "@viem/anvil": "npm:^0.0.10"
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
@@ -1417,7 +1411,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.0"
     "@types/supertest": "npm:^2.0.12"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     bn.js: "npm:^5.2.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
@@ -1477,7 +1471,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     change-case: "npm:^5.4.4"
     copy-webpack-plugin: "npm:^12.0.2"
     html-webpack-plugin: "npm:^5.6.0"
@@ -1510,7 +1504,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -1535,7 +1529,7 @@ __metadata:
     "@types/mocha-each": "npm:^2.0.4"
     "@types/node": "npm:^22.15.17"
     "@types/sinon": "npm:^17.0.3"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     "@web/dev-server-esbuild": "npm:^1.0.3"
     "@web/test-runner": "npm:^0.19.0"
     "@web/test-runner-playwright": "npm:^0.11.0"
@@ -1560,7 +1554,7 @@ __metadata:
   resolution: "@aztec/l1-artifacts@workspace:l1-artifacts"
   dependencies:
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -1578,7 +1572,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/sha256": "npm:^0.2.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     sha256: "npm:^0.2.0"
     ts-node: "npm:^10.9.1"
@@ -1596,7 +1590,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     msgpackr: "npm:^1.11.2"
     ts-node: "npm:^10.9.1"
@@ -1615,7 +1609,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -1652,7 +1646,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     ts-node: "npm:^10.9.1"
@@ -1676,7 +1670,7 @@ __metadata:
     "@aztec/builder": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -1734,7 +1728,7 @@ __metadata:
     "@swc/helpers": "npm:^0.5.15"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     change-case: "npm:^5.4.4"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
@@ -1751,7 +1745,7 @@ __metadata:
     "@aztec/builder": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -1778,7 +1772,7 @@ __metadata:
     "@types/koa": "npm:^2.15.0"
     "@types/koa-router": "npm:^7.4.8"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     dotenv: "npm:^16.0.3"
     jest: "npm:^30.0.0"
     koa: "npm:^2.16.1"
@@ -1825,7 +1819,7 @@ __metadata:
     "@nethermindeth/enr": "npm:3.0.0-backport-306-v4"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     get-port: "npm:^7.1.0"
     interface-datastore: "npm:^8.2.11"
     interface-store: "npm:^5.1.8"
@@ -1858,7 +1852,7 @@ __metadata:
     "@types/lodash.chunk": "npm:^4.2.9"
     "@types/lodash.omit": "npm:^4.5.9"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     lodash.chunk: "npm:^4.2.0"
@@ -1894,7 +1888,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     commander: "npm:^12.1.0"
     get-port: "npm:^7.1.0"
     jest: "npm:^30.0.0"
@@ -1937,7 +1931,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     source-map-support: "npm:^0.5.21"
@@ -1972,7 +1966,7 @@ __metadata:
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/lodash.times": "npm:^4.3.9"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     koa: "npm:^2.16.1"
@@ -2044,7 +2038,7 @@ __metadata:
     "@types/lodash.chunk": "npm:^4.2.7"
     "@types/lodash.pick": "npm:^4.4.7"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     concurrently: "npm:^7.6.0"
     eslint: "npm:^9.26.0"
     express: "npm:^4.21.2"
@@ -2083,7 +2077,7 @@ __metadata:
     "@types/lodash.clonedeep": "npm:^4.5.7"
     "@types/lodash.merge": "npm:^4.6.9"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     istanbul-lib-hook: "npm:^3.0.0"
     istanbul-lib-instrument: "npm:^6.0.3"
     jest: "npm:^30.0.0"
@@ -2113,7 +2107,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/source-map-support": "npm:^0.5.10"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     source-map-support: "npm:^0.5.21"
@@ -2148,7 +2142,7 @@ __metadata:
     "@types/lodash.times": "npm:^4.3.9"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     axios: "npm:^1.12.0"
     eslint: "npm:^9.26.0"
     jest: "npm:^30.0.0"
@@ -2192,7 +2186,7 @@ __metadata:
     "@opentelemetry/semantic-conventions": "npm:^1.28.0"
     "@types/jest": "npm:^30.0.0"
     "@types/koa": "npm:^2.15.0"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     prom-client: "npm:^15.1.3"
     ts-node: "npm:^10.9.1"
@@ -2216,7 +2210,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     resolve-typescript-plugin: "npm:^2.0.1"
@@ -2248,7 +2242,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     ts-node: "npm:^10.9.1"
@@ -2281,7 +2275,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     koa: "npm:^2.16.1"
@@ -2301,14 +2295,13 @@ __metadata:
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
-    "@electric-sql/pglite": "npm:^0.2.17"
+    "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
-    "@middle-management/pglite-pg-adapter": "npm:^0.0.3"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
     "@types/node-pg-migrate": "npm:^2.3.1"
     "@types/pg": "npm:^8.10.9"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     node-pg-migrate: "npm:^8.0.4"
@@ -2333,7 +2326,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     resolve-typescript-plugin: "npm:^2.0.1"
@@ -2360,7 +2353,7 @@ __metadata:
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     ts-node: "npm:^10.9.1"
@@ -2925,10 +2918,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electric-sql/pglite@npm:^0.2.17":
-  version: 0.2.17
-  resolution: "@electric-sql/pglite@npm:0.2.17"
-  checksum: 10/cb04d18614c9a3d985fa63f5ca889104eab55b15a9aa569df264e335ea559f2279ee64c1284aa68d5b92ff516dd37ae553299cf55c226a3e541d6c46416c7160
+"@electric-sql/pglite@npm:^0.3.14":
+  version: 0.3.14
+  resolution: "@electric-sql/pglite@npm:0.3.14"
+  checksum: 10/7cd072cd6a5c4314b47e7d26cc2ac191fcca5ba204f3bb1908bdb34746e51315cbde3e53646020d6a7c19c087d7845d2908850d9f4312285be10b3aefe28d621
   languageName: node
   linkType: hard
 
@@ -4904,15 +4897,6 @@ __metadata:
   version: 0.15.1
   resolution: "@microsoft/tsdoc@npm:0.15.1"
   checksum: 10/1a92612883088fe184dba596e7ba7a0daef0e6981caeca22bad6ad551d2247294f12e368537d0d8192525cf5743f7f15fcc2ad7b3b849f26a09a15ffdd89fd0c
-  languageName: node
-  linkType: hard
-
-"@middle-management/pglite-pg-adapter@npm:^0.0.3":
-  version: 0.0.3
-  resolution: "@middle-management/pglite-pg-adapter@npm:0.0.3"
-  peerDependencies:
-    "@electric-sql/pglite": ^0.3.0
-  checksum: 10/5526fdbc3cad9d30c868a576c67d7763877338f99df10b3cf478416d4b83c6e65b8f5e2984bebb9fe4e87b998ec011efff900374797b677868a25eb9392709da
   languageName: node
   linkType: hard
 
@@ -8299,66 +8283,66 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-darwin-arm64@npm:7.0.0-dev.20260113.1"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-darwin-x64@npm:7.0.0-dev.20260113.1"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-linux-arm64@npm:7.0.0-dev.20260113.1"
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-linux-arm@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-linux-arm@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-linux-arm@npm:7.0.0-dev.20260113.1"
   conditions: os=linux & cpu=arm
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-linux-x64@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-linux-x64@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-linux-x64@npm:7.0.0-dev.20260113.1"
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-win32-arm64@npm:7.0.0-dev.20260113.1"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview-win32-x64@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview-win32-x64@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview-win32-x64@npm:7.0.0-dev.20260113.1"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
-"@typescript/native-preview@npm:7.0.0-dev.20251126.1":
-  version: 7.0.0-dev.20251126.1
-  resolution: "@typescript/native-preview@npm:7.0.0-dev.20251126.1"
+"@typescript/native-preview@npm:7.0.0-dev.20260113.1":
+  version: 7.0.0-dev.20260113.1
+  resolution: "@typescript/native-preview@npm:7.0.0-dev.20260113.1"
   dependencies:
-    "@typescript/native-preview-darwin-arm64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-darwin-x64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-linux-arm": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-linux-arm64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-linux-x64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-win32-arm64": "npm:7.0.0-dev.20251126.1"
-    "@typescript/native-preview-win32-x64": "npm:7.0.0-dev.20251126.1"
+    "@typescript/native-preview-darwin-arm64": "npm:7.0.0-dev.20260113.1"
+    "@typescript/native-preview-darwin-x64": "npm:7.0.0-dev.20260113.1"
+    "@typescript/native-preview-linux-arm": "npm:7.0.0-dev.20260113.1"
+    "@typescript/native-preview-linux-arm64": "npm:7.0.0-dev.20260113.1"
+    "@typescript/native-preview-linux-x64": "npm:7.0.0-dev.20260113.1"
+    "@typescript/native-preview-win32-arm64": "npm:7.0.0-dev.20260113.1"
+    "@typescript/native-preview-win32-x64": "npm:7.0.0-dev.20260113.1"
   dependenciesMeta:
     "@typescript/native-preview-darwin-arm64":
       optional: true
@@ -8376,7 +8360,7 @@ __metadata:
       optional: true
   bin:
     tsgo: bin/tsgo.js
-  checksum: 10/373a68e0e9303100dea5ed693fc983268f32f3c622bf75f786705a014775f3af3fe75e0c3d85d2ef15739a314bb4df22a1a4195124426a4dccfc3d26fae45ffe
+  checksum: 10/c3039bb989db04f1e062d33e676b65cdebf1999b30cf2edbcc3aeaaae79270c8309a82f1681df1d86ec5658f8f612c9306827eecdb56d3c226b93ab75302dc77
   languageName: node
   linkType: hard
 

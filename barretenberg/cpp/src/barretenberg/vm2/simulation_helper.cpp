@@ -63,6 +63,7 @@
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"

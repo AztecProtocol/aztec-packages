@@ -149,19 +149,22 @@ function check_toolchains {
 }
 
 function versions {
-  if semver check $REF_NAME; then
-    echo "aztec: ${REF_NAME#v}"
-  else
-    echo "aztec: $(jq -r '."."' .release-please-manifest.json | tr -d v)"
-  fi
-  echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
-  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
-  echo "node: $(node --version | cut -d 'v' -f 2)"
-  echo "cmake: $(cmake --version | head -n1 | cut -d' ' -f3)"
-  echo "clang: $(clang++-20 --version | head -n1 | cut -d' ' -f4)"
-  echo "zig: $(zig version)"
-  echo "rustc: $(rustc --version | cut -d' ' -f2)"
-  echo "wasi-sdk: $(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)"
+  local noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  local anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  local node_version=$(node --version | cut -d 'v' -f 2)
+  local cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  local clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  local zig_version=$(zig version)
+  local rustc_version=$(rustc --version | cut -d' ' -f2)
+  local wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  echo "noir: $noir_version"
+  echo "foundry: $anvil_version"
+  echo "node: $node_version"
+  echo "cmake: $cmake_version"
+  echo "clang: $clang_version"
+  echo "zig: $zig_version"
+  echo "rustc: $rustc_version"
+  echo "wasi-sdk: $wasi_sdk_version"
 }
 
 # Install pre-commit git hooks.

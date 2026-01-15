@@ -5,10 +5,12 @@ export type {
   WebWalletConfig,
   WalletProviderType,
   WalletProvider,
+  ProviderDisconnectionCallback,
   DiscoverWalletsOptions,
 } from './types.js';
 
-// Re-export types from providers for convenience
+// Re-export types and enums from providers for convenience
+export { WalletMessageType } from '../types.js';
 export type { WalletInfo, WalletMessage, WalletResponse, DiscoveryRequest, DiscoveryResponse } from '../types.js';
 
 // Re-export commonly needed utilities for wallet integration

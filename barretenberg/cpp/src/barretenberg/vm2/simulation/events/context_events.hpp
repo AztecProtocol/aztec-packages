@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 
 namespace bb::avm2::simulation {
 

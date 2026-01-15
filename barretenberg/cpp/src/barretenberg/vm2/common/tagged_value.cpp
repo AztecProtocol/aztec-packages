@@ -371,7 +371,7 @@ FF TaggedValue::as_ff() const
 {
     const auto visitor = overloads{ [](FF val) -> FF { return val; },
                                     [](uint1_t val) -> FF { return val.value(); },
-                                    [](uint128_t val) -> FF { return uint256_t::from_uint128(val); },
+                                    [](uint128_t val) -> FF { return val; },
                                     [](auto&& val) -> FF { return val; } };
 
     return std::visit(visitor, value);
@@ -388,12 +388,12 @@ ValueTag TaggedValue::get_tag() const
 
 std::string TaggedValue::to_string() const
 {
-    std::string v = std::visit(
-        overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
-                   [](const uint128_t& val) -> std::string { return field_to_string(uint256_t::from_uint128(val)); },
-                   [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
-                   [](auto&& val) -> std::string { return std::to_string(val); } },
-        value);
+    std::string v =
+        std::visit(overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
+                              [](const uint128_t& val) -> std::string { return field_to_string(val); },
+                              [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
+                              [](auto&& val) -> std::string { return std::to_string(val); } },
+                   value);
     return std::to_string(get_tag()) + "(" + v + ")";
 }
 

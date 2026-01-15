@@ -11,21 +11,11 @@
 
 void ProgramBlock::preprocess_memory_addresses(ResolvedAddress resolved_address)
 {
-    if (resolved_address.base_pointer.has_value()) {
-        auto set_base_offset_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
-                                               .operand(static_cast<uint16_t>(0))
-                                               .operand(bb::avm2::MemoryTag::U32)
-                                               .operand(resolved_address.base_pointer.value())
-                                               .build();
-        instructions.push_back(set_base_offset_instruction);
-        memory_manager.set_memory_address(bb::avm2::ValueTag::U32, 0U);
-    }
     if (resolved_address.pointer_address.has_value()) {
-        if (resolved_address.base_pointer.has_value()) {
+        if (resolved_address.via_relative) {
             // Indirect relative: Write the pointer in a relative manner
             auto set_pointer_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
-                                               .operand(static_cast<uint16_t>(resolved_address.pointer_address.value() -
-                                                                              resolved_address.base_pointer.value()))
+                                               .operand(static_cast<uint16_t>(resolved_address.operand_address))
                                                .relative()
                                                .operand(bb::avm2::MemoryTag::U32)
                                                .operand(resolved_address.absolute_address)
@@ -1670,6 +1660,18 @@ std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
 bool ProgramBlock::is_memory_address_set(uint16_t address)
 {
     return memory_manager.is_memory_address_set(address);
+}
+
+void ProgramBlock::process_instruction_block(InstructionBlock& instruction_block)
+{
+    memory_manager.set_base_offset(instruction_block.base_offset);
+    process_set_32_instruction(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = instruction_block.base_offset });
+    for (const auto& instr : instruction_block.instructions) {
+        process_instruction(instr);
+    }
 }
 
 void ProgramBlock::process_instruction(FuzzInstruction instruction)

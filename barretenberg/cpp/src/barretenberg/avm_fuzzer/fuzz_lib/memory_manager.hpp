@@ -25,7 +25,12 @@ class MemoryManager {
                                                                  AddressingMode mode);
     ResolvedAddress resolve_address(VariableRef address, uint32_t absolute_address, uint32_t max_operand_address);
     ResolvedAddress resolve_address(AddressRef address, uint32_t max_operand_address);
-    std::optional<uint32_t> get_variable_address(bb::avm2::MemoryTag tag, uint32_t index, uint32_t max_value);
+    std::optional<uint32_t> get_variable_address(bb::avm2::MemoryTag tag,
+                                                 uint32_t index,
+                                                 uint32_t min_value,
+                                                 uint32_t max_value);
+
+    uint32_t base_offset = 0;
 
   public:
     MemoryManager() = default;
@@ -64,4 +69,6 @@ class MemoryManager {
     // Get leaf index from emitted_note_hashes, nullopt if emitted_note_hashes is empty
     // note_hash_index % length(emitted_note_hashes)
     std::optional<uint16_t> get_leaf_index(uint16_t note_hash_index);
+
+    void set_base_offset(uint32_t base_offset);
 };

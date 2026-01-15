@@ -19,14 +19,14 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://devnet.aztec-labs.com',
+    nodeURL: 'https://next.devnet.aztec-labs.com',
     name: 'Aztec Devnet',
     description: 'Public development network',
     chainId: 11155111,
-    version: 1667575857,
+    version: 1647720761,
     hasTestAccounts: false,
     hasSponsoredFPC: true,
-    nodeVersion: '3.0.0-devnet.5',
+    nodeVersion: '3.0.0-devnet',
   },
   {
     nodeURL: 'http://localhost:8080',

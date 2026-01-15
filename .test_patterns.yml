@@ -270,10 +270,6 @@ tests:
     owners:
       - *david
 
-  - regex: "src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
-    owners:
-      - *grego
-
   - regex: "amm_flow.sh"
     owners:
       - *grego
@@ -334,5 +330,22 @@ tests:
   # http://ci.aztec-labs.com/d3b12131764bce18
   - regex: "boxes/scripts/run_test.sh"
     error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
+
+  - regex: "validator-ha-signer/src/db/postgres.test.ts"
+    error_regex: "FailureMessage Object"
+    owners:
+      - *spyros
+
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "1:PARITY_BASE"
+    owners:
+      - *alex
+
+  # http://ci.aztec-labs.com/e8228a36afda93b8
+  # Test passed but there was an error on stopping
+  - regex: "playground/scripts/run_test.sh"
+    error_regex: "playground-1\\s+\\|\\s+1 passed \\("
     owners:
       - *adam

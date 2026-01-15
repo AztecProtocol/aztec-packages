@@ -1896,7 +1896,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
 }
 
 /**
- * @brief Handle the exiting of a call. This is called when a call returns or reverts.
+ * @brief Handle the exiting of a call. This is called when a call returns, reverts or errors.
  */
 void Execution::handle_exit_call()
 {

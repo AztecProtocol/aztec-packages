@@ -3,6 +3,7 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::fuzzer {
@@ -10,18 +11,19 @@ namespace bb::avm2::fuzzer {
 namespace {
 
 // Helper function to create a default contract class from bytecode
-ContractClass create_default_class(const std::vector<uint8_t>& bytecode)
+ContractClassWithCommitment create_default_class(const std::vector<uint8_t>& bytecode)
 {
     // This isn't strictly needed for pure simulation, but if we want to re-use inputs in proving we need valid
     // commitment
     auto bytecode_commitment = simulation::compute_public_bytecode_commitment(bytecode);
     auto class_id =
         simulation::compute_contract_class_id(/*artifact_hash=*/0, /*private_fn_root=*/0, bytecode_commitment);
-    return ContractClass{
+    return ContractClassWithCommitment{
         .id = class_id,
         .artifact_hash = 0,
         .private_functions_root = 0,
         .packed_bytecode = bytecode,
+        .public_bytecode_commitment = bytecode_commitment,
     };
 }
 

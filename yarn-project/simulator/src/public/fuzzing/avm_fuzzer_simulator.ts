@@ -19,7 +19,7 @@ import {
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
+import { MerkleTreeId, type MerkleTreeWriteOperations, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, HashedValues, Tx, TxConstantData, TxContext, TxHash } from '@aztec/stdlib/tx';
 import type { NativeWorldStateService } from '@aztec/world-state';
 
@@ -40,6 +40,7 @@ export class FuzzerSimulationRequest {
     public readonly globals: GlobalVariables,
     public readonly contractClasses: any[], // Raw, processed by addContractClassFromCpp
     public readonly contractInstances: [any, any][], // Raw pairs [address, instance]
+    public readonly publicDataWrites: any[], // Raw public data tree writes to apply before simulation
   ) {}
 
   static fromPlainObject(obj: any): FuzzerSimulationRequest {
@@ -53,6 +54,7 @@ export class FuzzerSimulationRequest {
       GlobalVariables.fromPlainObject(obj.globals),
       obj.contractClasses,
       obj.contractInstances,
+      obj.publicDataWrites ?? [],
     );
   }
 }
@@ -236,5 +238,16 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     const address = AztecAddress.fromPlainObject(rawAddress);
     const instance = contractInstanceWithAddressFromPlainObject(address, rawInstance);
     await this.addContractInstance(instance);
+  }
+
+  /**
+   * Apply public data tree writes from C++ raw msgpack data.
+   * This is used to pre-populate the public data tree before simulation (e.g., for bytecode upgrades).
+   */
+  public async applyPublicDataWrites(rawWrites: any[]): Promise<void> {
+    for (const rawWrite of rawWrites) {
+      const leaf = PublicDataTreeLeaf.fromPlainObject(rawWrite);
+      await this.merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [leaf.toBuffer()]);
+    }
   }
 }

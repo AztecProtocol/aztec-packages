@@ -38,9 +38,7 @@ void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructio
         return;
     }
     auto instruction_block = instruction_blocks->at(instruction.instruction_block_idx % instruction_blocks->size());
-    for (const auto& instr : instruction_block) {
-        current_block->process_instruction(instr);
-    }
+    current_block->process_instruction_block(instruction_block);
 }
 
 void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
@@ -55,9 +53,7 @@ void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
         instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
     ProgramBlock* target_block = new ProgramBlock();
     current_block->finalize_with_jump(target_block);
-    for (const auto& instr : target_instruction_block) {
-        target_block->process_instruction(instr);
-    }
+    target_block->process_instruction_block(target_instruction_block);
     current_block = target_block;
 }
 
@@ -76,12 +72,8 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
     ProgramBlock* target_then_block = new ProgramBlock();
     ProgramBlock* target_else_block = new ProgramBlock();
     current_block->finalize_with_jump_if(target_then_block, target_else_block, instruction.condition_offset_index);
-    for (const auto& instr : target_then_instruction_block) {
-        target_then_block->process_instruction(instr);
-    }
-    for (const auto& instr : target_else_instruction_block) {
-        target_else_block->process_instruction(instr);
-    }
+    target_then_block->process_instruction_block(target_then_instruction_block);
+    target_else_block->process_instruction_block(target_else_instruction_block);
     current_block = target_then_block;
 }
 
@@ -178,9 +170,7 @@ void ControlFlow::process_insert_internal_call(InsertInternalCall instruction)
         instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
     ProgramBlock* target_block = new ProgramBlock();
     current_block->insert_internal_call(target_block);
-    for (const auto& instr : target_instruction_block) {
-        target_block->process_instruction(instr);
-    }
+    target_block->process_instruction_block(target_instruction_block);
     target_block->caller = current_block;
     current_block = target_block;
 }
