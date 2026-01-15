@@ -1,5 +1,5 @@
 # Changelog
-<!-- devnet rebuild 20251219 -->
+<!-- devnet rebuild 20260115 -->
 
 ## [0.87.6](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.5...v0.87.6) (2025-06-02)
 
