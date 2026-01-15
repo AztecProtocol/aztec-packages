@@ -10,6 +10,7 @@ import { BitVector } from './bitvector.js';
 import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 
 describe('BlockTxRequest', () => {
+  // eslint-disable-next-line require-await
   const createBlockProposal = async (txHashes: TxHash[]): Promise<BlockProposal> => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
