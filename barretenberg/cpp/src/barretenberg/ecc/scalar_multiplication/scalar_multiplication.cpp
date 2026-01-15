@@ -323,7 +323,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
         batch_inversion_accumulator = batch_inversion_accumulator.invert();
     }
 
-    // Iterate backwards through the points, comnputing pairwise affine additions; addition results are stored in the
+    // Iterate backwards through the points, computing pairwise affine additions; addition results are stored in the
     // latter half of the array
     for (size_t i = (num_points)-2; i < num_points; i -= 2) {
         points[i + 1].y *= batch_inversion_accumulator; // update accumulator
@@ -493,13 +493,11 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
     std::span<uint64_t>& round_schedule = msm_data.point_schedule;
     const size_t size = scalar_indices.size();
 
-    // Construct a "round schedule". Each entry describes:
-    // 1. low 32 bits: which bucket index do we add the point into? (bucket index = slice value)
-    // 2. high 32 bits: which point index do we source the point from?
+    // Construct a "round schedule" - each entry packs (point_index, bucket_index) for sorting
     for (size_t i = 0; i < size; ++i) {
         BB_ASSERT_DEBUG(scalar_indices[i] < scalars.size());
-        round_schedule[i] = get_scalar_slice(scalars[scalar_indices[i]], round_index, bits_per_slice);
-        round_schedule[i] += (static_cast<uint64_t>(scalar_indices[i]) << 32ULL);
+        uint32_t bucket_index = get_scalar_slice(scalars[scalar_indices[i]], round_index, bits_per_slice);
+        round_schedule[i] = PointScheduleEntry::create(scalar_indices[i], bucket_index).data;
     }
     // Sort our point schedules based on their bucket values. Reduces memory throughput in next step of algo
     const size_t num_zero_entries = scalar_multiplication::process_buckets_count_zero_entries(
@@ -575,29 +573,23 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         // Prefetch points we'll need soon (every 16 iterations, prefetch the next 16-32 points)
         if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
             for (size_t i = PREFETCH_LOOKAHEAD / 2; i < PREFETCH_LOOKAHEAD; ++i) {
-                __builtin_prefetch(&points[(point_schedule[point_it + i] >> 32ULL)]);
+                PointScheduleEntry entry{ point_schedule[point_it + i] };
+                __builtin_prefetch(&points[entry.point_index()]);
             }
         }
 
-        // We do some branchless programming here to minimize instruction pipeline flushes
-        // TODO(@zac-williamson, cc @ludamad) check these ternary operators are not branching! -> (ludamad: they don't,
-        // but its not clear that the conditional move is fundamentally less expensive)
-        // We are iterating through our points and
-        // can come across the following scenarios: 1: The next 2 points in `point_schedule` belong to the *same* bucket
-        //    (happy path - can put both points into affine_addition_scratch_space)
-        // 2: The next 2 points have different bucket destinations AND point_schedule[point_it].bucket contains a point
-        //    (happyish path - we can put points[lhs_schedule] and buckets[lhs_bucket] into
-        //    affine_addition_scratch_space)
-        // 3: The next 2 points have different bucket destionations AND point_schedule[point_it].bucket is empty
-        //    We cache points[lhs_schedule] into buckets[lhs_bucket]
-        // We iterate `point_it` by 2 (case 1), or by 1 (case 2 or 3). The number of points we add into
-        // `affine_addition_scratch_space` is 2 (case 1 or 2) or 0 (case 3).
-        uint64_t lhs_schedule = point_schedule[point_it];
-        uint64_t rhs_schedule = point_schedule[point_it + 1];
-        size_t lhs_bucket = static_cast<size_t>(lhs_schedule) & 0xFFFFFFFF;
-        size_t rhs_bucket = static_cast<size_t>(rhs_schedule) & 0xFFFFFFFF;
-        size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
-        size_t rhs_point = static_cast<size_t>(rhs_schedule >> 32);
+        // We use branchless programming here (conditional moves) to minimize instruction pipeline flushes.
+        // We are iterating through our points and can come across the following scenarios:
+        // Case 1: Next 2 points go to the *same* bucket (happy path - add both to scratch space)
+        // Case 2: Different buckets AND lhs bucket has accumulator (add point + accumulator to scratch)
+        // Case 3: Different buckets AND lhs bucket is empty (cache point into bucket)
+        // We advance point_it by 2 (case 1), or by 1 (case 2 or 3).
+        PointScheduleEntry lhs{ point_schedule[point_it] };
+        PointScheduleEntry rhs{ point_schedule[point_it + 1] };
+        size_t lhs_bucket = lhs.bucket_index();
+        size_t rhs_bucket = rhs.bucket_index();
+        size_t lhs_point = lhs.point_index();
+        size_t rhs_point = rhs.point_index();
 
         bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
         bool buckets_match = lhs_bucket == rhs_bucket;
@@ -630,27 +622,24 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         affine_input_it += do_affine_add ? 2 : 0;
         point_it += (do_affine_add && buckets_match) ? 2 : 1;
     }
-    // We have to handle the last point as an edge case so that we dont overflow the bounds of `point_schedule`. If the
-    // bucket accumulator exists, we add the point to it, otherwise the point simply becomes the bucket accumulator.
+    // Handle the last point (odd count case) - separate to avoid bounds check on point_schedule[point_it + 1]
     if (point_it == num_points - 1) {
-        uint64_t lhs_schedule = point_schedule[point_it];
-        size_t lhs_bucket = static_cast<size_t>(lhs_schedule) & 0xFFFFFFFF;
-        size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
-        bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
+        PointScheduleEntry last{ point_schedule[point_it] };
+        size_t bucket = last.bucket_index();
+        size_t point_idx = last.point_index();
 
-        if (has_bucket_accumulator) { // point is added to its bucket accumulator
-            affine_addition_scratch_space[affine_input_it] = points[lhs_point];
-            affine_addition_scratch_space[affine_input_it + 1] = bucket_accumulators[lhs_bucket];
-            bucket_accumulator_exists.set(lhs_bucket, false);
-            affine_addition_output_bucket_destinations[affine_input_it >> 1] = lhs_bucket;
+        if (bucket_accumulator_exists.get(bucket)) {
+            affine_addition_scratch_space[affine_input_it] = points[point_idx];
+            affine_addition_scratch_space[affine_input_it + 1] = bucket_accumulators[bucket];
+            bucket_accumulator_exists.set(bucket, false);
+            affine_addition_output_bucket_destinations[affine_input_it >> 1] = bucket;
             affine_input_it += 2;
-            point_it += 1;
-        } else { // otherwise, cache the point into the bucket
-            BB_ASSERT_DEBUG(lhs_point < points.size());
-            bucket_accumulators[lhs_bucket] = points[lhs_point];
-            bucket_accumulator_exists.set(lhs_bucket, true);
-            point_it += 1;
+        } else {
+            BB_ASSERT_DEBUG(point_idx < points.size());
+            bucket_accumulators[bucket] = points[point_idx];
+            bucket_accumulator_exists.set(bucket, true);
         }
+        point_it += 1;
     }
 
     // Now that we have populated `affine_addition_scratch_space`,

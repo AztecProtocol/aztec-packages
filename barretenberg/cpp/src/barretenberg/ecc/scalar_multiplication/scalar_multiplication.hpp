@@ -92,15 +92,23 @@ template <typename Curve> class MSM {
     };
     using ThreadWorkUnits = std::vector<MSMWorkUnit>;
 
+    /**
+     * @brief Container for MSM input data passed between algorithm stages
+     * @note scalars must be in NON-Montgomery form for correct bucket index computation
+     */
     struct MSMData {
-        std::span<const ScalarField> scalars;
-        std::span<const AffineElement> points;
-        std::span<const uint32_t> scalar_indices;
-        std::span<uint64_t> point_schedule;
+        std::span<const ScalarField> scalars;     // Scalars (non-Montgomery form)
+        std::span<const AffineElement> points;    // Input points
+        std::span<const uint32_t> scalar_indices; // Indices of nonzero scalars
+        std::span<uint64_t> point_schedule;       // Scratch space for point scheduling
     };
 
     /**
-     * @brief Temp data structure, one created per thread!
+     * @brief Affine bucket accumulators for the fast affine-trick Pippenger variant
+     * @details Used when handle_edge_cases=false. Stores buckets in affine coordinates,
+     *          enabling use of Montgomery's batch inversion trick. Does NOT handle
+     *          edge cases like point doubling or point at infinity.
+     * @note Thread-local: one instance created per thread
      */
     struct BucketAccumulators {
         std::vector<AffineElement> buckets;
@@ -112,6 +120,13 @@ template <typename Curve> class MSM {
         {}
     };
 
+    /**
+     * @brief Jacobian bucket accumulators for the safe Pippenger variant
+     * @details Used when handle_edge_cases=true or when affine trick is not beneficial.
+     *          Stores buckets in Jacobian coordinates which correctly handle point
+     *          doubling and point at infinity edge cases.
+     * @note Thread-local: one instance created per thread
+     */
     struct JacobianBucketAccumulators {
         std::vector<Element> buckets;
         BitVector bucket_exists;
@@ -122,7 +137,7 @@ template <typename Curve> class MSM {
         {}
     };
     /**
-     * @brief Temp data structure, one created per thread!
+     * @brief Scratch space for batched affine point additions (one per thread)
      */
     struct AffineAdditionData {
         static constexpr size_t BATCH_SIZE = 2048;
@@ -138,6 +153,22 @@ template <typename Curve> class MSM {
             , addition_result_bucket_destinations(((BATCH_SIZE + BATCH_OVERFLOW_SIZE) / 2))
         {}
     };
+
+    /**
+     * @brief Packed point schedule entry: (point_index << 32) | bucket_index
+     * @details Used to sort points by their target bucket for cache-efficient processing
+     */
+    struct PointScheduleEntry {
+        uint64_t data;
+
+        static PointScheduleEntry create(uint32_t point_index, uint32_t bucket_index)
+        {
+            return { (static_cast<uint64_t>(point_index) << 32) | bucket_index };
+        }
+        [[nodiscard]] uint32_t point_index() const { return static_cast<uint32_t>(data >> 32); }
+        [[nodiscard]] uint32_t bucket_index() const { return static_cast<uint32_t>(data); }
+    };
+
     static size_t get_num_rounds(size_t num_points) noexcept
     {
         const size_t bits_per_slice = get_optimal_log_num_buckets(num_points);
