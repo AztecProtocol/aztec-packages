@@ -138,9 +138,6 @@ class UltraFlavor {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
 
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
-    static constexpr bool has_zero_row = true;
-
     static constexpr bool is_decider = true;
 
     /**

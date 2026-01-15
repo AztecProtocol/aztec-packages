@@ -110,9 +110,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
     using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
 
-    // VK metadata: dyadic circuit size and public inputs offset
-    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;
-    size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
+    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N; // maybe doesnt need to be correct
 
     std::vector<FF> proof;
     std::shared_ptr<MegaVerificationKey> verification_key;
@@ -126,7 +124,8 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
         // Kernel circuits always have a prior accumulator, so fold proof is always included
         constexpr bool include_fold = true;
         proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
-        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
+
+        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
@@ -134,7 +133,8 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
         // First app (OINK) has no prior accumulator; subsequent apps (HN) do
         bool include_fold = (verification_type != Chonk::QUEUE_TYPE::OINK);
         proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
-        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
+
+        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size);
     }
 
     return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };

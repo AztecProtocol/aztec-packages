@@ -138,12 +138,10 @@ template <typename Builder> bb::HonkProof create_mock_chonk_proof(const size_t a
  * @brief Create a mock VK that has the correct structure
  *
  * @param dyadic_size Dyadic size of the circuit for which we generate a vk
- * @param pub_inputs_offest Indicating whether the circuit has a first zero row
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const size_t pub_inputs_offset,
                                                                       const size_t acir_public_inputs_size = 0);
 
 } // namespace acir_format

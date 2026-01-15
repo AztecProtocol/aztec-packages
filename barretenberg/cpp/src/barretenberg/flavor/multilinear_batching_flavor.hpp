@@ -71,9 +71,6 @@ class MultilinearBatchingFlavor {
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
 
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
-    static constexpr bool has_zero_row = false;
-
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
@@ -269,8 +266,6 @@ class MultilinearBatchingFlavor {
         {
             batched_unshifted_accumulator = "BATCHED_UNSHIFTED_ACCUMULATOR";
             batched_unshifted_instance = "BATCHED_UNSHIFTED_INSTANCE";
-            eq_accumulator = "EQ_ACCUMULATOR";
-            eq_instance = "EQ_INSTANCE";
             batched_shifted_accumulator = "BATCHED_SHIFTED_ACCUMULATOR";
             batched_shifted_instance = "BATCHED_SHIFTED_INSTANCE";
         };

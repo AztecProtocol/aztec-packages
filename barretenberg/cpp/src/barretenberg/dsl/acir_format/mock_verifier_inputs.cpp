@@ -1,4 +1,5 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
@@ -491,14 +492,13 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
 
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const size_t pub_inputs_offset,
                                                                       const size_t acir_public_inputs_size)
 {
     // Set relevant VK metadata and commitments
     auto honk_verification_key = std::make_shared<typename Flavor::VerificationKey>();
     honk_verification_key->log_circuit_size = bb::numeric::get_msb(dyadic_size);
     honk_verification_key->num_public_inputs = acir_public_inputs_size + PublicInputs::PUBLIC_INPUTS_SIZE;
-    honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
+    honk_verification_key->pub_inputs_offset = NUM_ZERO_ROWS;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
@@ -564,31 +564,31 @@ template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
 
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
-    const size_t, const size_t, const size_t);
+    const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
                                                                           stdlib::recursion::honk::KernelIO>(
-    const size_t, const size_t, const size_t);
+    const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
-    stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
     MegaZKFlavor,
-    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t);
 
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
     UltraZKFlavor,
-    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,
-    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraZKFlavor::VerificationKey> create_mock_honk_vk<
     UltraZKFlavor,
-    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(const size_t, const size_t);
 template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk<UltraRollupFlavor,
                                                                                  stdlib::recursion::honk::RollupIO>(
-    const size_t, const size_t, const size_t);
+    const size_t, const size_t);
 
 } // namespace acir_format

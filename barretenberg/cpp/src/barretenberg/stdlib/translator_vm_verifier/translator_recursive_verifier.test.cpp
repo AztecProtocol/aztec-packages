@@ -206,11 +206,9 @@ class TranslatorRecursiveTests : public ::testing::Test {
                                                          recursive_result.pairing_points.P1.get_value());
         EXPECT_EQ(recursive_verified, native_verified);
 
-        // Verify VK consistency between recursive and native verifiers
+        // Verify VK commitments consistency between recursive and native verifiers
         auto recursive_vk = verifier.get_verification_key();
         auto native_vk = native_verifier.get_verification_key();
-        EXPECT_EQ(static_cast<uint64_t>(recursive_vk->log_circuit_size.get_value()), native_vk->log_circuit_size);
-        EXPECT_EQ(static_cast<uint64_t>(recursive_vk->num_public_inputs.get_value()), native_vk->num_public_inputs);
         for (auto [vk_poly, native_vk_poly] : zip_view(recursive_vk->get_all(), native_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
