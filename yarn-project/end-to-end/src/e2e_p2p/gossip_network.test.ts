@@ -62,6 +62,7 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
         aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
@@ -106,7 +107,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -123,7 +124,7 @@ describe('e2e_p2p_network', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
+      { dateProvider: t.ctx.dateProvider! },
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
@@ -134,7 +135,7 @@ describe('e2e_p2p_network', () => {
     const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
     monitoringNode = await createNonValidatorNode(
       monitoringNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
       t.bootstrapNodeEnr,
       t.prefilledPublicData,

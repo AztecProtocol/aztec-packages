@@ -216,6 +216,9 @@ function test_cmds {
 }
 
 function start_txes {
+  # Until Kev's kzg lib stops using Tokio.
+  export TOKIO_WORKER_THREADS=1
+
   # Starting txe servers with incrementing port numbers.
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
@@ -547,6 +550,7 @@ case "$cmd" in
     install_hooks
     build
   ;;
+
   ######################################
   # VARIANTS ON NORMAL PULL-REQUEST CI #
   ######################################
@@ -580,6 +584,7 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
@@ -651,6 +656,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     denoise "spartan/bootstrap.sh network_teardown ${env_file}"
     ;;
+
   ############
   # RELEASES #
   ############
@@ -709,6 +715,7 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+
   ##############################################
   # Default handler, calls our above functions #
   ##############################################

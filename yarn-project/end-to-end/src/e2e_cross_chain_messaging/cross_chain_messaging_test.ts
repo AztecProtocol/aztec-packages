@@ -23,13 +23,13 @@ import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
-  type SubsystemsContext,
+  type EndToEndContext,
+  type SetupOptions,
   deployAccounts,
   publicDeployAccounts,
-  setupFromFresh,
+  setup,
   teardown,
-} from '../fixtures/snapshot_manager.js';
-import type { SetupOptions } from '../fixtures/utils.js';
+} from '../fixtures/setup.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 
 export class CrossChainMessagingTest {
@@ -37,7 +37,7 @@ export class CrossChainMessagingTest {
   private setupOptions: SetupOptions;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   logger: Logger;
-  context!: SubsystemsContext;
+  context!: EndToEndContext;
   aztecNode!: AztecNode;
   aztecNodeConfig!: AztecNodeConfig;
   aztecNodeAdmin!: AztecNodeAdmin;
@@ -76,7 +76,12 @@ export class CrossChainMessagingTest {
 
   async setup() {
     this.logger.info('Setting up cross chain messaging test');
-    this.context = await setupFromFresh(this.logger, this.setupOptions, this.deployL1ContractsArgs);
+    this.context = await setup(0, {
+      ...this.setupOptions,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      l1ContractsArgs: this.deployL1ContractsArgs,
+    });
     await this.applyBaseSetup();
   }
 
@@ -105,16 +110,16 @@ export class CrossChainMessagingTest {
 
   async applyBaseSetup() {
     // Set up base context fields
-    this.aztecNode = this.context.aztecNode;
+    this.aztecNode = this.context.aztecNodeService!;
     this.wallet = this.context.wallet;
-    this.aztecNodeConfig = this.context.aztecNodeConfig;
+    this.aztecNodeConfig = this.context.config;
     this.cheatCodes = this.context.cheatCodes;
     this.deployL1ContractsValues = this.context.deployL1ContractsValues;
-    this.aztecNodeAdmin = this.context.aztecNode;
+    this.aztecNodeAdmin = this.context.aztecNodeService!;
 
     if (this.requireEpochProven) {
       // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.context.watcher.setIsMarkingAsProven(false);
+      this.context.watcher!.setIsMarkingAsProven(false);
     }
 
     // Deploy 3 accounts

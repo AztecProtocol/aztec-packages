@@ -156,7 +156,13 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     using Curve = Flavor::Curve;
     HonkProof proof;
 
-    constexpr size_t const_proof_log_n = Flavor::VIRTUAL_LOG_N;
+    constexpr size_t const_proof_log_n = []() {
+        if constexpr (std::is_same_v<Flavor, bb::avm2::AvmFlavor>) {
+            return MEGA_AVM_LOG_N;
+        } else {
+            return Flavor::VIRTUAL_LOG_N;
+        }
+    }();
 
     if constexpr (Flavor::HasZK) {
         // Libra concatenation commitment
@@ -227,6 +233,30 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
         HonkProof ipa_proof = create_mock_ipa_proof();
         proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
     }
+    return proof;
+}
+
+HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding)
+{
+    size_t proof_length =
+        add_padding ? AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED : bb::avm2::AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
+    // Construct an AVM proof as the padded concatenation of an Oink proof and a Decider proof
+    HonkProof oink_proof =
+        create_mock_oink_proof<bb::avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+            /*acir_public_inputs_size=*/0);
+    HonkProof decider_proof = create_mock_decider_proof<avm2::AvmFlavor>();
+
+    HonkProof proof;
+    proof.reserve(proof_length);
+    proof.insert(proof.end(),
+                 oink_proof.begin() +
+                     bb::DefaultIO::PUBLIC_INPUTS_SIZE, // Skip the Oink public inputs as they are not needed
+                 oink_proof.end());
+    proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
+
+    BB_ASSERT_LTE(proof.size(), proof_length); // Sanity check
+    proof.resize(proof_length, 0);             // Pad the proof to the required length (if needed)
+
     return proof;
 }
 
@@ -493,6 +523,9 @@ template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk
     const size_t);
 template HonkProof create_mock_oink_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
+template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
+    const size_t);
+
 template HonkProof create_mock_pcs_proof<MegaFlavor>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
@@ -500,6 +533,7 @@ template HonkProof create_mock_decider_proof<UltraFlavor>();
 template HonkProof create_mock_decider_proof<UltraZKFlavor>();
 template HonkProof create_mock_decider_proof<UltraRollupFlavor>();
 template HonkProof create_mock_decider_proof<TranslatorFlavor>();
+template HonkProof create_mock_decider_proof<avm2::AvmFlavor>();
 
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);

@@ -88,7 +88,7 @@ pub contract TokenBlacklist {
 
     #[external("public")]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
-        let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
+        let caller_roles = self.storage.roles.at(self.msg_sender()).get_current_value();
         assert(caller_roles.is_admin, "caller is not admin");
 
         self.storage.roles.at(user).schedule_value_change(roles);
@@ -99,7 +99,7 @@ pub contract TokenBlacklist {
         let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
+        let caller_roles = self.storage.roles.at(self.msg_sender()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let new_balance = self.storage.public_balances.at(to).read().add(amount);
@@ -111,7 +111,7 @@ pub contract TokenBlacklist {
 
     #[external("public")]
     fn mint_private(amount: u128, secret_hash: Field) {
-        let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
+        let caller_roles = self.storage.roles.at(self.msg_sender()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let note = TransparentNote { amount, secret_hash };
@@ -269,7 +269,7 @@ pub contract TokenBlacklist {
     // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
     // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
     #[external("utility")]
-    unconstrained fn deliver_transparent_note(
+    unconstrained fn process_transparent_note(
         contract_address: AztecAddress,
         amount: u128,
         secret_hash: Field,

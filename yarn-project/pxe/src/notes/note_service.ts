@@ -107,7 +107,7 @@ export class NoteService {
     await this.noteStore.applyNullifiers(foundNullifiers);
   }
 
-  public async deliverNote(
+  public async storeNote(
     contractAddress: AztecAddress,
     owner: AztecAddress,
     storageSlot: Fr,

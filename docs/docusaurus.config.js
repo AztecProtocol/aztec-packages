@@ -282,13 +282,13 @@ const config = {
             label: "Build",
           },
 
-          // Network sidebar link
+          // Network portal link
           {
-            type: "docSidebar",
-            sidebarId: "sidebar",
+            type: "doc",
+            docId: "index",
             docsPluginId: "network",
             position: "left",
-            label: "Run a node",
+            label: "Network",
           },
           {
             to: "/networks",

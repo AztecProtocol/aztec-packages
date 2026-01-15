@@ -69,6 +69,29 @@ The context methods for accessing fee information have been renamed:
 + let da_fee = context.min_fee_per_da_gas();
 ```
 
+### [Aztec.nr] Cleaning up message sender functions
+
+There has been a design decision made to have low-level API exposed on `self.context` and a nicer higher-level API exposed directly on `self`.
+Currently the `msg_sender` function on `self` was a copy of that same function on `self.context`.
+The `msg_sender` function on `self` got modified to return the message sender address directly instead of having it be wrapped in an `Option<...>`.
+In case the underlying message sender is none the function panics.
+
+You need to update your code to no longer trigger the unwrap on the return value:
+
+```diff
+- let message_sender: AztecAddress = self.msg_sender().unwrap();
++ let message_sender: AztecAddress = self.msg_sender();
+```
+
+If you want to handle the `null` case use the lower level API of context:
+
+```diff
+- let maybe_message_sender: Option<AztecAddress> = self.msg_sender();
++ let maybe_message_sender: Option<AztecAddress> = self.context.maybe_msg_sender();
+```
+
+The `self.context.msg_sender_unsafe` method has been dropped as its use can be replaced with the standard `self.context.maybe_msg_sender` function.
+
 ### [Aztec.nr] Renamed message delivery options
 
 The following terms have been renamed:

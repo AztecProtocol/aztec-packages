@@ -138,9 +138,9 @@ You can cancel an authwit before it's used by emitting its nullifier directly. T
 
 ```rust
 fn cancel_authwit(inner_hash: Field) {
-    let on_behalf_of = context.msg_sender();
+    let on_behalf_of = self.msg_sender();
     let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-    context.push_nullifier(nullifier);
+    self.context.push_nullifier(nullifier);
 }
 ```
 

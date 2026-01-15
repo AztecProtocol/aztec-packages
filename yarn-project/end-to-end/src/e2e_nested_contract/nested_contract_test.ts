@@ -6,15 +6,15 @@ import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
 import {
-  type SubsystemsContext,
+  type EndToEndContext,
   deployAccounts,
   publicDeployAccounts,
-  setupFromFresh,
+  setup,
   teardown as teardownSubsystems,
-} from '../fixtures/snapshot_manager.js';
+} from '../fixtures/setup.js';
 
 export class NestedContractTest {
-  context!: SubsystemsContext;
+  context!: EndToEndContext;
   logger: Logger;
   wallet!: Wallet;
   defaultAccountAddress!: AztecAddress;
@@ -44,7 +44,7 @@ export class NestedContractTest {
     });
     this.wallet = this.context.wallet;
     [{ address: this.defaultAccountAddress }] = deployedAccounts;
-    this.aztecNode = this.context.aztecNode;
+    this.aztecNode = this.context.aztecNodeService!;
 
     this.logger.info('Public deploy accounts');
     await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);
@@ -52,7 +52,10 @@ export class NestedContractTest {
 
   async setup() {
     this.logger.info('Setting up fresh subsystems');
-    this.context = await setupFromFresh(this.logger);
+    this.context = await setup(0, {
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+    });
     await this.applyBaseSetup();
   }
 

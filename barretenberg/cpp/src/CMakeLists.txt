@@ -96,6 +96,7 @@ add_subdirectory(barretenberg/ext/starknet/crypto)
 add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
+add_subdirectory(barretenberg/goblin_avm)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
@@ -167,6 +168,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
+    $<TARGET_OBJECTS:goblin_avm_objects>
     $<TARGET_OBJECTS:hypernova_objects>
     $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:multilinear_batching_objects>
