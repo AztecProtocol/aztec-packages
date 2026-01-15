@@ -45,7 +45,7 @@
     "@types/mocha-each": "^2.0.4",
     "@types/node": "^22.15.17",
     "@types/sinon": "^17.0.3",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "@web/dev-server-esbuild": "^1.0.3",
     "@web/test-runner": "^0.19.0",
     "@web/test-runner-playwright": "^0.11.0",

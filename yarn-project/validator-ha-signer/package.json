@@ -87,7 +87,7 @@
     "@types/node": "^22.15.17",
     "@types/node-pg-migrate": "^2.3.1",
     "@types/pg": "^8.10.9",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",

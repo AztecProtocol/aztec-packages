@@ -162,7 +162,7 @@
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.0",
     "@types/supertest": "^2.0.12",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "comlink": "^4.4.1",
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.5",
