@@ -128,7 +128,7 @@ TYPED_TEST(CycleGroupTest, TestInfWintnessRegression)
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
     (void)a;
     EXPECT_FALSE(builder.failed());
-    check_circuit_and_gate_count(builder, 6);
+    check_circuit_and_gate_count(builder, 10);
 }
 
 /**
@@ -167,7 +167,7 @@ TYPED_TEST(CycleGroupTest, TestOperatorNegRegression)
     cycle_group_ct c = a.unconditional_add(b);
     (void)c;
     EXPECT_FALSE(builder.failed());
-    check_circuit_and_gate_count(builder, 15);
+    check_circuit_and_gate_count(builder, 23);
 }
 
 /**
@@ -190,7 +190,7 @@ TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
     auto w27 = w10 - w11; // and here
     (void)w26;
     (void)w27;
-    check_circuit_and_gate_count(builder, 40);
+    check_circuit_and_gate_count(builder, 44);
 }
 
 /**
@@ -245,7 +245,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
 
     cycle_group_ct point(x, y, is_infinity, /*assert_on_curve=*/true);
     EXPECT_FALSE(builder.failed());
-    check_circuit_and_gate_count(builder, 6);
+    check_circuit_and_gate_count(builder, 10);
 }
 
 /**
@@ -315,10 +315,16 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     cycle_group_ct input_c = cycle_group_ct(Element::random_element());
     cycle_group_ct input_d = cycle_group_ct(affine_infinity);
 
+    // input_e: constant is_infinity=true triggers replacement with constant_infinity() in constructor
     auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
     auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
     cycle_group_ct input_e = cycle_group_ct(x, y, true, /*assert_on_curve=*/true);
-    cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)), /*assert_on_curve=*/true);
+
+    // input_f: witness infinity point with canonical (0,0) coordinates
+    auto zero_x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(0));
+    auto zero_y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(0));
+    cycle_group_ct input_f =
+        cycle_group_ct(zero_x, zero_y, bool_ct(witness_ct(&builder, true)), /*assert_on_curve=*/true);
 
     // Assign different tags to all inputs
     input_a.set_origin_tag(submitted_value_origin_tag);
@@ -388,7 +394,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_f_x, 0);
     EXPECT_EQ(standard_f_y, 0);
 
-    check_circuit_and_gate_count(builder, 24);
+    check_circuit_and_gate_count(builder, 36);
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
@@ -412,8 +418,7 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     EXPECT_EQ(result, expected);
     EXPECT_EQ(d.get_value(), expected);
 
-    check_circuit_and_gate_count(builder, 15);
-
+    check_circuit_and_gate_count(builder, 19);
     // Ensure the tags stay the same after doubling
     EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(d.get_origin_tag(), challenge_origin_tag);
@@ -437,7 +442,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_EQ(result.get_value(), hint);
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
-        check_circuit_and_gate_count(builder, 9);
+        check_circuit_and_gate_count(builder, 13);
     }
 
     // Test case 2: Witness point WITHOUT hint
@@ -454,7 +459,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
         // Note: same gate count as with hint - hint is a witness generation optimization only
-        check_circuit_and_gate_count(builder, 9);
+        check_circuit_and_gate_count(builder, 13);
     }
 
     // Test case 3: Witness infinity point WITHOUT hint
@@ -473,7 +478,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_EQ(result.x().get_value(), 0);
 
         // Same gate count as regular witness points
-        check_circuit_and_gate_count(builder, 9);
+        check_circuit_and_gate_count(builder, 13);
     }
 }
 
@@ -590,7 +595,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
         EXPECT_EQ(result.get_value(), expected);
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
-        check_circuit_and_gate_count(builder, 14);
+        check_circuit_and_gate_count(builder, 22);
     }
 
     // Test case 2: Two witness points WITH hint
@@ -609,7 +614,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
         EXPECT_EQ(result.get_value(), hint);
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
-        check_circuit_and_gate_count(builder, 14);
+        check_circuit_and_gate_count(builder, 22);
     }
 
     // Test case 3: Mixed witness and constant points
@@ -628,7 +633,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
         EXPECT_FALSE(result.is_constant());
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
-        check_circuit_and_gate_count(builder, 10);
+        check_circuit_and_gate_count(builder, 14);
     }
 }
 
@@ -695,7 +700,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtractNonConstantPoints)
         EXPECT_EQ(result.get_value(), expected);
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
-        check_circuit_and_gate_count(builder, 14);
+        check_circuit_and_gate_count(builder, 22);
     }
 
     // Test case 2: Two witness points WITH hint
@@ -715,7 +720,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtractNonConstantPoints)
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
         // Same gate count as without hint - hint is a witness generation optimization only
-        check_circuit_and_gate_count(builder, 14);
+        check_circuit_and_gate_count(builder, 22);
     }
 
     // Test case 3: Mixed witness and constant points
@@ -734,7 +739,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtractNonConstantPoints)
         EXPECT_FALSE(result.is_constant());
         EXPECT_FALSE(result.is_point_at_infinity().get_value());
 
-        check_circuit_and_gate_count(builder, 10);
+        check_circuit_and_gate_count(builder, 14);
     }
 }
 
@@ -807,7 +812,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
     add(TestFixture::generators[0], TestFixture::generators[1], true, false);
     add(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
-    check_circuit_and_gate_count(builder, 34);
+    check_circuit_and_gate_count(builder, 50);
 }
 
 TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
@@ -826,7 +831,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    check_circuit_and_gate_count(builder, 16);
+    check_circuit_and_gate_count(builder, 24);
 }
 
 TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
@@ -870,7 +875,7 @@ TYPED_TEST(CycleGroupTest, TestAddRegular)
     EXPECT_EQ(c.get_value(), expected);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 55);
 }
 
 // Test addition with LHS point at infinity
@@ -895,7 +900,7 @@ TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
     EXPECT_EQ(c.get_value(), rhs);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 55);
 }
 
 // Test addition with RHS point at infinity
@@ -921,7 +926,7 @@ TYPED_TEST(CycleGroupTest, TestAddRhsInfinity)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Addition with witness infinity point
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 55);
 }
 
 // Test addition with both points at infinity
@@ -948,7 +953,7 @@ TYPED_TEST(CycleGroupTest, TestAddBothInfinity)
     EXPECT_TRUE(c.get_value().is_point_at_infinity());
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 55);
 }
 
 // Test addition of inverse points (result is infinity)
@@ -971,7 +976,7 @@ TYPED_TEST(CycleGroupTest, TestAddInversePoints)
     EXPECT_TRUE(c.get_value().is_point_at_infinity());
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 55);
 }
 
 // Test doubling (adding point to itself)
@@ -994,7 +999,7 @@ TYPED_TEST(CycleGroupTest, TestAddDoubling)
     EXPECT_EQ(c.get_value(), expected);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    check_circuit_and_gate_count(builder, 47);
+    check_circuit_and_gate_count(builder, 55);
 }
 
 TYPED_TEST(CycleGroupTest, TestAddConstantPoints)
@@ -1060,7 +1065,7 @@ TYPED_TEST(CycleGroupTest, TestAddMixedConstantWitness)
         EXPECT_FALSE(result.is_constant());
 
         // Early return optimization for constant infinity
-        check_circuit_and_gate_count(builder, 6);
+        check_circuit_and_gate_count(builder, 10);
     }
 
     // Test constant + witness point (different gate count than witness + witness)
@@ -1079,7 +1084,7 @@ TYPED_TEST(CycleGroupTest, TestAddMixedConstantWitness)
         EXPECT_FALSE(result.is_constant());
 
         // Different gate count than pure witness addition
-        check_circuit_and_gate_count(builder, 23);
+        check_circuit_and_gate_count(builder, 27);
     }
 }
 
@@ -1160,7 +1165,7 @@ TYPED_TEST(CycleGroupTest, TestAddInfinityResultLogic)
         EXPECT_EQ(result.get_value(), expected);
     }
 
-    check_circuit_and_gate_count(builder, 235);
+    check_circuit_and_gate_count(builder, 275);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
@@ -1189,7 +1194,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
     subtract(TestFixture::generators[0], TestFixture::generators[1], true, false);
     subtract(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
-    check_circuit_and_gate_count(builder, 34);
+    check_circuit_and_gate_count(builder, 50);
 }
 
 TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractSucceed)
@@ -1208,7 +1213,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractSucceed)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    check_circuit_and_gate_count(builder, 16);
+    check_circuit_and_gate_count(builder, 24);
 }
 
 TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractFail)
@@ -1324,7 +1329,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    check_circuit_and_gate_count(builder, 261);
+    check_circuit_and_gate_count(builder, 297);
 }
 
 TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
@@ -1452,9 +1457,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulGeneralMSM)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4393); // Mega
+        check_circuit_and_gate_count(builder, 4401);
     } else {
-        check_circuit_and_gate_count(builder, 4396); // Ultra
+        check_circuit_and_gate_count(builder, 4404);
     }
 }
 
@@ -1484,9 +1489,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulProducesInfinity)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4019); // Mega
+        check_circuit_and_gate_count(builder, 4027);
     } else {
-        check_circuit_and_gate_count(builder, 4022); // Ultra
+        check_circuit_and_gate_count(builder, 4030);
     }
 }
 
@@ -1511,9 +1516,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulMultiplyByZero)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3529); // Mega
+        check_circuit_and_gate_count(builder, 3533);
     } else {
-        check_circuit_and_gate_count(builder, 3532); // Ultra
+        check_circuit_and_gate_count(builder, 3536);
     }
 }
 
@@ -1549,9 +1554,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3542); // Mega
+        check_circuit_and_gate_count(builder, 3546);
     } else {
-        check_circuit_and_gate_count(builder, 3545); // Ultra
+        check_circuit_and_gate_count(builder, 3549);
     }
 }
 
@@ -1720,9 +1725,9 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 12933); // Mega
+        check_circuit_and_gate_count(builder, 12973);
     } else {
-        check_circuit_and_gate_count(builder, 12936); // Ultra
+        check_circuit_and_gate_count(builder, 12976);
     }
 }
 
@@ -1851,5 +1856,35 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
     EXPECT_EQ(result.get_value(), expected);
 
     check_circuit_and_gate_count(builder, 2908);
+}
+
+/**
+ * @brief Ensure that one cannot directly construct a point at infinity whose coordinates are not (0, 0).
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestFakeInfinityRejected)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    // Get a valid on-curve point (the generator)
+    auto generator = Group::one;
+    ASSERT_TRUE(generator.on_curve());
+    ASSERT_FALSE(generator.is_point_at_infinity());
+
+    // A malicious prover attempts to create witnesses:
+    // - x, y are the generator coordinates (valid, on-curve)
+    // - _is_infinity is maliciously set to TRUE
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, generator.x);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, generator.y);
+    auto is_infinity = bool_ct(witness_ct(&builder, true));
+
+    // Construct the "fake infinity" point with validation
+    cycle_group_ct fake_infinity(x, y, is_infinity, /*assert_on_curve=*/true);
+
+    // The circuit should fail because validate_on_curve() enforces:
+    // x * is_infinity == 0 && y * is_infinity == 0
+    EXPECT_TRUE(builder.failed()) << "Circuit should fail due to canonical infinity check";
+    EXPECT_FALSE(CircuitChecker::check(builder)) << "Circuit should not be satisfiable";
 }
 #pragma GCC diagnostic pop

@@ -235,7 +235,8 @@ template <typename Builder> typename cycle_group<Builder>::AffineElement cycle_g
 
 /**
  * @brief On-curve check.
- * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity.
+ * @details Validates that the point satisfies the curve equation \f$y^2 = x^3 + b\f$ or is the point at infinity, in
+ * which case the coordinates are constrained to be (0, 0).
  *
  * @tparam Builder
  */
@@ -249,6 +250,10 @@ template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
     // If this is the point at infinity, then res is changed to 0, otherwise it remains unchanged
     res *= !is_point_at_infinity();
     res.assert_is_zero();
+
+    // Enforce canonical representation: if is_infinity is true, coordinates must be (0, 0).
+    (_x * field_t(_is_infinity)).assert_is_zero("cycle_group: infinity point must have x == 0");
+    (_y * field_t(_is_infinity)).assert_is_zero("cycle_group: infinity point must have y == 0");
 }
 
 /**

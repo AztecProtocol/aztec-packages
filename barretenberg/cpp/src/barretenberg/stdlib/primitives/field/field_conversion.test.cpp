@@ -403,7 +403,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 TYPED_TEST(stdlib_field_conversion, GateCountGrumpkinPointDeserialization)
 {
     this->template check_deserialization_gate_count<grumpkin_element<TypeParam>>(
-        [] { return curve::Grumpkin::AffineElement::random_element(); }, 10);
+        [] { return curve::Grumpkin::AffineElement::random_element(); }, 14);
 }
 
 /**
