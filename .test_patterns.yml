@@ -354,3 +354,5 @@ tests:
   # Test passed but there was an error on stopping
   - regex: "yarn-project/end-to-end/scripts/run_test.sh compose"
     error_regex: "tried to kill container, but did not receive an exit event"
+    owners:
+      - *adam
