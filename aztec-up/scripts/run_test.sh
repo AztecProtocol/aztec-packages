@@ -21,7 +21,7 @@ function run {
     -v$HOME/.bb-crs:/home/ubuntu/.bb-crs \
     -w/home/ubuntu \
     --user ubuntu:ubuntu \
-    aztecprotocol/aztec-release-test \
+    aztecprotocol/aztec-up-test \
     bash -c "
       aztec-packages/aztec-up/scripts/run_isolated_test.sh $name ${fail_shell:-}
     "
