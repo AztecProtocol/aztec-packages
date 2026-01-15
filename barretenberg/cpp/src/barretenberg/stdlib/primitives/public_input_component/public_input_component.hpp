@@ -60,14 +60,12 @@ class PublicInputComponent {
     static ComponentType reconstruct(const std::vector<Fr>& public_inputs, const Key& key)
     {
         // Ensure that the key has been set
-        if (!key.is_set()) {
-            throw_or_abort("ERROR: Trying to construct a PublicInputComponent from an invalid key!");
-        }
+        BB_ASSERT(key.is_set(), "ERROR: Trying to construct a PublicInputComponent from an invalid key!");
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
-        if (key.start_idx + COMPONENT_SIZE > public_inputs.size()) {
-            throw_or_abort("PublicInputComponent::reconstruct: public_inputs vector too small");
-        }
+        BB_ASSERT_LTE(key.start_idx + COMPONENT_SIZE,
+                      public_inputs.size(),
+                      "PublicInputComponent::reconstruct: public_inputs vector too small");
         std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
