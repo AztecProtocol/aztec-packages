@@ -349,3 +349,10 @@ tests:
     error_regex: "playground-1\\s+\\|\\s+1 passed \\("
     owners:
       - *adam
+
+  # http://ci.aztec-labs.com/21afdb4a42f3474d
+  # Test passed but there was an error on stopping
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose"
+    error_regex: "tried to kill container, but did not receive an exit event"
+    owners:
+      - *adam
