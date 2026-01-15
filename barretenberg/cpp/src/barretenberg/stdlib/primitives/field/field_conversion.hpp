@@ -40,9 +40,9 @@ template <typename Field> class StdlibCodec {
      * sum is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must
      * be 0.
      *
-     * Grumpkin: We are using the observation that (x^2 + 5 * y^2 = 0) has no non-trivial solutions in fr.
-     * Rearranging: x^2 = -5y^2, which requires -5 to be a quadratic residue for non-zero solutions.
-     * Since Fr modulus p ≡ 2 mod 5, we have 5 is not a square mod p, and therefore -5 is also not a square mod p.
+     * Grumpkin: We are using the observation that (x^2 - 5 * y^2 = 0) has no non-trivial solutions in fr.
+     * Rearranging: x^2 = 5y^2, which requires 5 to be a quadratic residue for non-zero solutions.
+     * Since Fr modulus p ≡ 2 mod 5, we have 5 is not a square mod p.
      */
     template <typename T> static bool_t<Builder> check_point_at_infinity(std::span<const fr> fr_vec)
     {
@@ -50,14 +50,15 @@ template <typename Field> class StdlibCodec {
             // Sum the limbs and check whether the sum is 0
             return (fr::accumulate(std::vector<fr>(fr_vec.begin(), fr_vec.end())).is_zero());
         } else {
-            // For Grumpkin infinity check: verify that Fr modulus p ≡ 2 mod 5
-            static_assert(bb::fr::modulus % 5 == 2, "Grumpkin infinity check requires Fr modulus p ≡ 2 mod 5");
+            // For Grumpkin infinity check: verify that Fr modulus p ≡ 2 or 3 mod 5
+            static_assert(bb::fr::modulus % 5 == 2 || bb::fr::modulus % 5 == 3,
+                          "Grumpkin infinity check requires Fr modulus p ≡ 2 mod 5");
 
-            // Efficiently compute ((x^2 + 5 y^2) == 0)
+            // Efficiently compute ((x^2 - 5 y^2) == 0)
             const fr x_sqr = fr_vec[0].sqr();
             const fr y = fr_vec[1];
             const fr five_y = y * bb::fr(5);
-            return (y.madd(five_y, x_sqr).is_zero());
+            return (y.madd(-five_y, x_sqr).is_zero());
         }
     }
 

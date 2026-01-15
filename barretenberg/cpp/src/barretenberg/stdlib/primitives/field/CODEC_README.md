@@ -52,7 +52,7 @@ The point at infinity is represented as `(0, 0)` with **all limbs zero**.
 |---------|-------|--------|----------------|
 | **Native** | All | `for each limb: if (limb != 0) return false` | Direct limb-by-limb zero check. |
 | **Circuit** | BN254 | `sum(limbs) == 0` | Sum of 4 valid limbs (2×136-bit + 2×118-bit) ≤ 2^138, cannot wrap to 0 mod Fr (254 bits). Only all-zero limbs satisfy this. |
-| **Circuit** | Grumpkin | `x² + 5y² == 0` | Equation `x² = -5y²` requires -5 to be a quadratic residue. Since -5 is not a square mod p, only `(0,0)` satisfies this. |
+| **Circuit** | Grumpkin | `x² - 5y² == 0` | Equation `x² = 5y²` requires 5 to be a quadratic residue in `bb::fr`, which is not the case since `fr`'s modulus is == 2 mod 5.
 
 **Note for BN254 Goblin/Mega**: The infinity check operates on raw limbs before range constraints. However,
 the full protocol ensures soundness:
