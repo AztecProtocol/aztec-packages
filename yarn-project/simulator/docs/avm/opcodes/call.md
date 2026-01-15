@@ -7,16 +7,19 @@ Call external contract
 Opcode `0x39`
 
 ```javascript
-nestedCallResult = executeContract(
-        /*address=*/M[addrOffset],
-        /*args=*/M[argsOffset:argsOffset+M[argsSizeOffset]],
-        {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]}
-    )
+childContext = createChildContext(
+    contract: M[addrOffset],
+    calldataOffset: argsOffset,
+    calldataSize: M[argsSizeOffset],
+    l2Gas: M[l2GasOffset],
+    daGas: M[daGasOffset]
+)
+execute childContext
 ```
 
 ## Details
 
-Calls another contract with the specified calldata and gas allocation. Can modify state. The call consumes the allocated gas and refunds unused gas. Updates nestedCallSuccess and nestedReturndata.
+Calls another contract with the specified calldata and gas allocation. Can modify state. The call consumes the allocated gas and refunds unused gas. Updates nestedCallSuccess and nestedReturndata. Child can access caller's `M[calldataOffset:calldataOffset+calldataSize]` via CALLDATACOPY.
 
 ## Gas Costs
 

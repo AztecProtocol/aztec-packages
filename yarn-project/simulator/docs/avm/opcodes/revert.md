@@ -7,12 +7,13 @@ Revert execution
 Opcodes `0x3C`-`0x3D` (2 wire formats)
 
 ```javascript
-revert M[returnOffset:returnOffset+M[retSizeOffset]]; halt
+exposeRevertData(offset: returnOffset, size: M[retSizeOffset])
+halt
 ```
 
 ## Details
 
-Halts execution with revert status and returns error data to the caller. Revert size must be Uint32. Undoes state changes.
+Halts execution with revert status and returns error data to the caller. Revert size must be Uint32. Undoes state changes. Caller can access this context's `M[offset:offset+size]` via RETURNDATACOPY.
 
 ## Gas Costs
 

@@ -7,16 +7,20 @@ Static call to external contract
 Opcode `0x3A`
 
 ```javascript
-nestedCallResult = executeContractStatic(
-        /*address=*/M[addrOffset],
-        /*args=*/M[argsOffset:argsOffset+M[argsSizeOffset]],
-        {l2Gas: M[l2GasOffset], daGas: M[daGasOffset]}
-    )
+childContext = createChildContext(
+    contract: M[addrOffset],
+    calldataOffset: argsOffset,
+    calldataSize: M[argsSizeOffset],
+    l2Gas: M[l2GasOffset],
+    daGas: M[daGasOffset],
+    isStatic: true
+)
+execute childContext
 ```
 
 ## Details
 
-Calls another contract in static mode (read-only). Any state modifications in the nested call will cause it to revert. Updates nestedCallSuccess and nestedReturndata.
+Calls another contract in static mode (read-only). Any state modifications in the nested call will cause it to revert. Updates nestedCallSuccess and nestedReturndata. Child can access caller's `M[calldataOffset:calldataOffset+calldataSize]` via CALLDATACOPY.
 
 ## Gas Costs
 

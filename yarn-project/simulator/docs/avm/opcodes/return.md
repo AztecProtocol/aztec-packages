@@ -7,12 +7,13 @@ Return from call
 Opcode `0x3B`
 
 ```javascript
-return M[returnOffset:returnOffset+M[returnSizeOffset]]; halt
+exposeReturnData(offset: returnOffset, size: M[returnSizeOffset])
+halt
 ```
 
 ## Details
 
-Halts execution and returns data to the caller. Return size must be Uint32. Sets success flag.
+Halts execution and returns data to the caller. Return size must be Uint32. Sets success flag. Caller can access this context's `M[offset:offset+size]` via RETURNDATACOPY.
 
 ## Gas Costs
 
