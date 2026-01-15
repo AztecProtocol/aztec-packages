@@ -266,8 +266,6 @@ class MultilinearBatchingFlavor {
         {
             batched_unshifted_accumulator = "BATCHED_UNSHIFTED_ACCUMULATOR";
             batched_unshifted_instance = "BATCHED_UNSHIFTED_INSTANCE";
-            eq_accumulator = "EQ_ACCUMULATOR";
-            eq_instance = "EQ_INSTANCE";
             batched_shifted_accumulator = "BATCHED_SHIFTED_ACCUMULATOR";
             batched_shifted_instance = "BATCHED_SHIFTED_INSTANCE";
         };
