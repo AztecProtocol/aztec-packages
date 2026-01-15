@@ -24,7 +24,9 @@ template <class T> constexpr std::pair<uint64_t, uint64_t> field<T>::mul_wide(ui
     static_assert(false, "mul_wide is not implemented for WASM");
 #endif
 }
-
+/**
+ * @brief Compute uint128_t(a * b + c + carry_in), where the inputs are all `uint64_t`. Return the top 64 bits.
+ */
 template <class T>
 constexpr uint64_t field<T>::mac(
     const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t carry_in, uint64_t& carry_out) noexcept
@@ -39,6 +41,10 @@ constexpr uint64_t field<T>::mac(
 #endif
 }
 
+/**
+ * @brief Compute uint128_t(a * b + c + carry_in), where the inputs are all `uint64_t`. out is rewritten to the bottom
+ * 64 bits and carry_out is rewritten to the top 64 bits.
+ */
 template <class T>
 constexpr void field<T>::mac(const uint64_t a,
                              const uint64_t b,
@@ -188,11 +194,12 @@ constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
 /**
  * @brief reduce once, i.e., if the value is bigger than the modulus, subtract off the modulus once.
  *
- * @note the output will be smaller than the modulus. If we are in the 256-bit prime range, then this follows from the
- * fact that 2p > 2^256. If we are in the 254-bit prime range, this follows from the fact that we guarantee that the
- * `data` is always in _coarse representation_, meaning that the underlying uint256_t derived from the limbs is in [0,
- * 2p)
- * @note when the modulus is < 2^254 (i.e., for the BN-254 fields), the algorithm is constant-time: it has no
+ * @note the output will be smaller than the modulus.
+ *     * If we are in the 256-bit prime range, then this follows from the fact that 2p > 2^256.
+ *     * If we are in the 254-bit prime range, this follows from the fact that we guarantee that the
+ *       `data` is always in _coarse representation_, meaning that the underlying uint256_t derived from the limbs is in
+ *       [0, 2p).
+ * @note when the modulus is < 2^254 (e.g., for the BN-254 fields), the algorithm is constant-time: it has no
  * branching.
  */
 template <class T> constexpr field<T> field<T>::reduce() const noexcept
@@ -259,7 +266,10 @@ template <class T> constexpr field<T> field<T>::add(const field& other) const no
             }
         }
         // if c != 0, i.e., if there was no carry, we do no additional processing. Note that this means that the output
-        // might be larger than p, even if the original self and other were in the range [0, p).
+        // might be larger than p, even if the original self and other were in the range [0, p). This is witnessed in
+        // the test AddYieldsLimbsBiggerThanModulus.
+        //  AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): Should we reduce here, to try to
+        //  enforce in the API that the output of every computation is in [0, p)?
         return { r0, r1, r2, r3 };
     } else {
         uint64_t r0 = data[0] + other.data[0];
@@ -305,10 +315,12 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
         r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
         r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
         r3 = addc(r3, modulus.data[3] & borrow, carry, carry);
-        // The value being subtracted is in [0, 2^256); it is possible that adding one copy of p still leaves us with a
-        // negative number. To check if we might need to add another copy of p, we check if `carry == 0`; this means
-        // that (if we are "in the borrow branch"), the addition did not 2^256-overflow, which means we are still
-        // negative. If we not in the borrow branch (i.e., if `borrow == 0`), `carry == 0` and we add nothing using the
+        // The value being subtracted is in [0, 2^256) (see
+        // AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608)); it is possible that adding one copy of
+        // p still leaves us with a negative number. To check if we might need to add another copy of p, we check if
+        // `carry == 0`; this means that (if we are "in the borrow branch"), the addition did not 2^256-overflow, which
+        // means we are still negative. If we not in the borrow branch (i.e., if `borrow == 0`), `carry == 0` and we add
+        // nothing using the
         // `& borrow` trick for the `addc` argument.
         if (!carry) {
             r0 += (modulus.data[0] & borrow);
@@ -340,6 +352,9 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
  */
 template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& other) const noexcept
 {
+    // only applicable for big moduli
+    static_assert(modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD);
+
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     uint64_t c = 0;
     uint64_t t0 = 0;
@@ -349,23 +364,53 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     uint64_t t4 = 0;
     uint64_t t5 = 0;
     uint64_t k = 0;
+
+    // Montgomery multiplication main loop: iterates 4 times, once per limb of self.data.
+    // We compute self * other in Montgomery form by maintaining a 5-limb running accumulator (t0-t4, with t5 for
+    // overflow). In each iteration:
+    // 1. Accumulate one limb of self multiplied by all limbs of other into (t0, t1, t2, t3, t4, t5)
+    // 2. "Zero out" the lowest limb t0 by computing k = t0 * r_inv (mod 2^64), then adding k * modulus
+    //    This shifts the accumulator right by one limb position (t1->t0, t2->t1, etc.)
+    // The value of k is chosen so that (t0 + k * modulus[0]) ≡ 0 (mod 2^64), meaning the shifting of the accumulator
+    // amounts to  dividing by 2^64.
+    //
+    // After 4 iterations, we've accumulated the full product and divided by R = 2^256,
+    // leaving the Montgomery form result in (t0, t1, t2, t3, t4).
     for (const auto& element : data) {
         c = 0;
+        // element = self.data[j]
+        // ti <- ti + self.data[j] * other.data[i] + carry_in, for i = 0..3.
+        // c is the carry_in for the computation; the carry-out is then written to c at every ste at every step..
         mac(t0, element, other.data[0], c, t0, c);
         mac(t1, element, other.data[1], c, t1, c);
         mac(t2, element, other.data[2], c, t2, c);
         mac(t3, element, other.data[3], c, t3, c);
+        // t4 += c, with carry-out written to t5.
+        // t5 is in {0, 1}.
         t4 = addc(t4, c, 0, t5);
 
-        c = 0;
+        // add a multiple of the modulus, so that the result is divisible by 2^64, and then divide. these processes are
+        // done "simultaneously".
         k = t0 * T::r_inv;
+        // the uint128_t t0 + (t0 * r_inv) * modulus[0] is divisible by 2^64. set c to be the high 64-bits of this
+        // number.
         c = mac_discard_lo(t0, k, modulus.data[0]);
         mac(t1, k, modulus.data[1], c, t0, c);
         mac(t2, k, modulus.data[2], c, t1, c);
         mac(t3, k, modulus.data[3], c, t2, c);
-        t3 = addc(c, t4, 0, c);
-        t4 = t5 + c;
+        t3 = addc(c, t4, 0, c); // c is now in {0, 1}
+        t4 = t5 + c;            // t4 is in {0, 1, 2}.
     }
+    // AUDITTODO: explain why t4 is always in {0, 1}, which justifies the subtractions.
+    // TODELETE: if it's 2, which is the upper bound, some handling for me.
+    if (!std::is_constant_evaluated() && (t4 > 1)) {
+        std::cout << "WOAH NELLY!!!! t4 is " << t4 << "\n";
+        std::cout << "WOAH NELLY!!!! t4 is " << t4 << "\n";
+    }
+    // The result is now contains in the 64*5-bit number with limbs {t0, t1, t2, t3, t4}. In fact, this number has at
+    // most 258 bits because t4 is in {0, 1, 2}. we are in the 256-bit field regime and need to subtract off copies of p
+    // until we are 256 bits.
+
     uint64_t borrow = 0;
     uint64_t r0 = sbb(t0, modulus.data[0], borrow, borrow);
     uint64_t r1 = sbb(t1, modulus.data[1], borrow, borrow);
