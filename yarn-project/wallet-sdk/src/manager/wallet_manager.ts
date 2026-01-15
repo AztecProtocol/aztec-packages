@@ -1,5 +1,11 @@
 import { ExtensionProvider, ExtensionWallet } from '../providers/extension/index.js';
-import type { DiscoverWalletsOptions, ExtensionWalletConfig, WalletManagerConfig, WalletProvider } from './types.js';
+import type {
+  DiscoverWalletsOptions,
+  ExtensionWalletConfig,
+  ProviderDisconnectionCallback,
+  WalletManagerConfig,
+  WalletProvider,
+} from './types.js';
 
 /**
  * Manager for wallet discovery, configuration, and connection
@@ -44,7 +50,9 @@ export class WalletManager {
           continue;
         }
 
-        providers.push({
+        let extensionWallet: ExtensionWallet | null = null;
+
+        const provider: WalletProvider = {
           id: info.id,
           type: 'extension',
           name: info.name,
@@ -53,8 +61,31 @@ export class WalletManager {
             version: info.version,
             verificationHash: info.verificationHash,
           },
-          connect: (appId: string) => Promise.resolve(ExtensionWallet.create(info, chainInfo, port, sharedKey, appId)),
-        });
+          connect: (appId: string) => {
+            extensionWallet = ExtensionWallet.create(info, chainInfo, port, sharedKey, appId);
+            return Promise.resolve(extensionWallet.getWallet());
+          },
+          disconnect: async () => {
+            if (extensionWallet) {
+              await extensionWallet.disconnect();
+              extensionWallet = null;
+            }
+          },
+          onDisconnect: (callback: ProviderDisconnectionCallback) => {
+            if (extensionWallet) {
+              return extensionWallet.onDisconnect(callback);
+            }
+            return () => {};
+          },
+          isDisconnected: () => {
+            if (extensionWallet) {
+              return extensionWallet.isDisconnected();
+            }
+            return true;
+          },
+        };
+
+        providers.push(provider);
       }
     }
 
