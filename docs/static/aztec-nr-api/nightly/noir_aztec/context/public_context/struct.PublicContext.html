@@ -35,11 +35,10 @@
 <li><a href="#is_static_call">is_static_call</a></li>
 <li><a href="#l1_to_l2_msg_exists">l1_to_l2_msg_exists</a></li>
 <li><a href="#l2_gas_left">l2_gas_left</a></li>
+<li><a href="#maybe_msg_sender">maybe_msg_sender</a></li>
 <li><a href="#message_portal">message_portal</a></li>
 <li><a href="#min_fee_per_da_gas">min_fee_per_da_gas</a></li>
 <li><a href="#min_fee_per_l2_gas">min_fee_per_l2_gas</a></li>
-<li><a href="#msg_sender">msg_sender</a></li>
-<li><a href="#msg_sender_unsafe">msg_sender_unsafe</a></li>
 <li><a href="#new">new</a></li>
 <li><a href="#note_hash_exists">note_hash_exists</a></li>
 <li><a href="#nullifier_exists_unsafe">nullifier_exists_unsafe</a></li>
@@ -431,36 +430,25 @@ access control or when interacting with other contracts.</p>
 executed.</li>
 </ul>
 </div>
-</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(_self: Self) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
+</div><code id="maybe_msg_sender" class="code-header">pub fn <a href="#maybe_msg_sender"><span class="fn">maybe_msg_sender</span></a>(_self: Self) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the contract address that initiated this function call.</p>
 <p>This is similar to <code>msg.sender</code> in Solidity (hence the name).</p>
-<p>Important Note: If the calling function is a <em>private</em> function, then
-it had the option of hiding its address when enqueuing this public
-function call. In such cases, this <code>context.msg_sender()</code> method will
-return <code>Option&lt;AztecAddress&gt;::none</code>.
-If the calling function is a <em>public</em> function, it will always return
-an <code>Option&lt;AztecAddress&gt;::some</code> (i.e. a non-null value).</p>
+<p>Important Note: If the calling function is a <em>private</em> function, then it had the option of hiding its address
+when enqueuing this public function call. In such cases, this method will return <code>Option&lt;AztecAddress&gt;::none</code>.
+If the calling function is a <em>public</em> function, it will always return an <code>Option&lt;AztecAddress&gt;::some</code> (i.e.
+a non-null value).</p>
 <h4>Returns</h4>
 <ul>
-<li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called
-this function (be it an app contract or a user's account contract).</li>
+<li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called this function (be it an app contract
+or a user's account contract).</li>
 </ul>
 <h4>Advanced</h4>
 <ul>
 <li>Value is provided by the AVM sender opcode</li>
-<li>In nested calls, this is the immediate caller, not the original
-transaction sender</li>
+<li>In nested calls, this is the immediate caller, not the original transaction sender</li>
 </ul>
-</div>
-</div><code id="msg_sender_unsafe" class="code-header">pub fn <a href="#msg_sender_unsafe"><span class="fn">msg_sender_unsafe</span></a>(_self: Self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
-
-<div class="padded-description"><div class="comments">
-<p>&quot;Unsafe&quot; versus calling <code>context.msg_sender()</code>, because it doesn't
-translate <code>NULL_MSG_SENDER_CONTRACT_ADDRESS</code> as
-<code>Option&lt;AztecAddress&gt;::none</code>.
-Used by some internal aztecnr functions.</p>
 </div>
 </div><code id="selector" class="code-header">pub fn <a href="#selector"><span class="fn">selector</span></a>(_self: Self) -> <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code>
 
