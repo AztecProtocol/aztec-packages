@@ -3,6 +3,21 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import type { ExportedPublicKey } from './crypto.js';
 
 /**
+ * Message types for wallet SDK communication.
+ * All types are prefixed with 'aztec-wallet-' for namespacing.
+ */
+export enum WalletMessageType {
+  /** Discovery request to find installed wallets */
+  DISCOVERY = 'aztec-wallet-discovery',
+  /** Discovery response from a wallet */
+  DISCOVERY_RESPONSE = 'aztec-wallet-discovery-response',
+  /** Session disconnected notification (unencrypted control message) */
+  SESSION_DISCONNECTED = 'aztec-wallet-session-disconnected',
+  /** Explicit disconnect request from dApp */
+  DISCONNECT = 'aztec-wallet-disconnect',
+}
+
+/**
  * Information about an installed Aztec wallet
  */
 export interface WalletInfo {
@@ -61,7 +76,7 @@ export interface WalletResponse {
  */
 export interface DiscoveryRequest {
   /** Message type for discovery */
-  type: 'aztec-wallet-discovery';
+  type: WalletMessageType.DISCOVERY;
   /** Request ID */
   requestId: string;
   /** Chain information to check if wallet supports this network */
@@ -75,7 +90,7 @@ export interface DiscoveryRequest {
  */
 export interface DiscoveryResponse {
   /** Message type for discovery response */
-  type: 'aztec-wallet-discovery-response';
+  type: WalletMessageType.DISCOVERY_RESPONSE;
   /** Request ID matching the discovery request */
   requestId: string;
   /** Wallet information */
