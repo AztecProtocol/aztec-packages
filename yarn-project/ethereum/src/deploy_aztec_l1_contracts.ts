@@ -331,6 +331,7 @@ export async function deployAztecL1Contracts(
     '--rpc-url',
     rpcUrl,
     '--broadcast',
+    '-vvvv', // TODO(AD): Add maximum verbosity for now while we hit issues like http://ci.aztec-labs.com/17e1f84ca83a3e5f
     ...(chainId === foundry.id ? ['--batch-size', MAGIC_ANVIL_BATCH_SIZE.toString()] : []),
     ...(shouldVerify ? ['--verify'] : []),
   ];
