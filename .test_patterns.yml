@@ -270,10 +270,6 @@ tests:
     owners:
       - *david
 
-  - regex: "src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
-    owners:
-      - *grego
-
   - regex: "amm_flow.sh"
     owners:
       - *grego
