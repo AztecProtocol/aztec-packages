@@ -1,23 +1,22 @@
 // docs:start:setup
-import { decodeEventLog, pad } from "@aztec/viem";
-import { foundry } from "@aztec/viem/chains";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { AztecAddress, EthAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { computeSecretHash } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
-import { sha256ToField } from "@aztec/foundation/crypto/sha256";
-import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
-import { TestWallet } from "@aztec/test-wallet/server";
-import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { RollupContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { CheckpointNumber } from "@aztec/foundation/branded-types";
-import { RollupContract } from "@aztec/ethereum/contracts";
-import SimpleNFT from "../../../target/solidity/nft_bridge/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
+import { sha256ToField } from "@aztec/foundation/crypto/sha256";
+import { computeL2ToL1MessageHash, computeSecretHash } from "@aztec/stdlib/hash";
+import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
+import { TestWallet } from "@aztec/test-wallet/server";
+import { decodeEventLog, pad } from "@aztec/viem";
+import { foundry } from "@aztec/viem/chains";
 import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
-import { NFTPunkContract } from "./artifacts/NFTPunk.js";
+import SimpleNFT from "../../../target/solidity/nft_bridge/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
 import { NFTBridgeContract } from "./artifacts/NFTBridge.js";
+import { NFTPunkContract } from "./artifacts/NFTPunk.js";
 
 // Setup L1 client using anvil's default mnemonic (same as e2e tests)
 const MNEMONIC = "test test test test test test test test test test test junk";
@@ -261,9 +260,7 @@ const recipientBuffer = Buffer.from(
   recipientEthAddress.toString().slice(2),
   "hex"
 );
-const content = sha256ToField([
-  Buffer.concat([tokenIdBuffer, recipientBuffer]),
-]);
+const content = sha256ToField([tokenIdBuffer, recipientBuffer]);
 
 // Get rollup version from the portal contract (it stores it during initialize)
 // @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs

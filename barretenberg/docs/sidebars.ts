@@ -46,6 +46,7 @@ const sidebars: SidebarsConfig = {
       value: '<div class="divider"></div>',
       defaultStyle: true,
     },
+    { type: "doc", id: "bb-cli-reference", label: "CLI Reference" },
     {
       type: "html",
       value: '<a href="/api/index.html" target="_blank" rel="noopener noreferrer" style="color: var(--ifm-menu-color); text-decoration: none; display: block; padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal);">C++ API Reference</a>',
