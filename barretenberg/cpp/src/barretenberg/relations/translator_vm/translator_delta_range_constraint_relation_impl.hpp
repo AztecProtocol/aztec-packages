@@ -25,7 +25,7 @@ template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
 void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
                                                                 const AllEntities& in,
-                                                                const Parameters&,
+                                                                const Parameters& /*unused*/,
                                                                 const FF& scaling_factor)
 {
     static const FF minus_one = FF(-1);
@@ -47,11 +47,13 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2_shift = View(in.ordered_range_constraints_2_shift);
         auto ordered_range_constraints_3_shift = View(in.ordered_range_constraints_3_shift);
         auto ordered_range_constraints_4_shift = View(in.ordered_range_constraints_4_shift);
-        // Represents the positon of the final non masked witness index
-        auto lagrange_real_last = View(in.lagrange_real_last);
-        auto lagrange_masking = View(in.lagrange_masking);
 
-        auto is_last_witness_or_masking = (lagrange_real_last + minus_one) * (lagrange_masking + minus_one);
+        // Represents the positon of the final non masked witness index
+        const auto lagrange_real_last = View(in.lagrange_real_last);
+        const auto lagrange_masking = View(in.lagrange_masking);
+
+        // Since both of the lagrange terms are mutually exclusive, we can combine them into a single check.
+        const auto is_last_witness_or_masking = (lagrange_real_last + lagrange_masking + minus_one);
 
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
@@ -115,7 +117,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2 = View(in.ordered_range_constraints_2);
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
-        auto lagrange_real_last = View(in.lagrange_real_last);
+        const auto lagrange_real_last = View(in.lagrange_real_last);
 
         // Contribution (6) (Contributions 6-10 ensure that the last value is the designated maximum value. We don't
         // need to constrain the first value to be 0, because the shift mechanic does this for us)
