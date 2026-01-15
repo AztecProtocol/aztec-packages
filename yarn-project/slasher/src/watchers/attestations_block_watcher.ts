@@ -82,7 +82,8 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     return Promise.resolve();
   }
 
-  private handleInvalidCheckpoint(event: InvalidCheckpointDetectedEvent): void {
+  /** Event handler for invalid checkpoints as reported by the archiver. Public for testing purposes. */
+  public handleInvalidCheckpoint(event: InvalidCheckpointDetectedEvent): void {
     const { validationResult } = event;
     const checkpoint = validationResult.checkpoint;
 
