@@ -28,7 +28,7 @@ The actual calldata is stored separately in the transaction to reduce proof size
 ### Enqueued Call
 
 An **enqueued call** is a public call request that has been scheduled during private execution for later execution by the AVM. The term emphasizes that:
-1. The call is not executed immediately
+1. The call is not executed immediately—all private execution completes first client-side
 2. It will be processed later by the network
 3. Its order relative to other enqueued calls is preserved via side-effect counters
 
@@ -52,8 +52,8 @@ context.set_public_teardown_function(contract_address, selector, args);
 ```
 
 When a public call is enqueued:
-1. The calldata (selector + arguments) is hashed to produce `calldataHash`
-2. The calldata preimage is accumulated for later inclusion in the transaction
+1. The calldata is hashed to produce `calldataHash`
+2. The calldata (preimage) is accumulated for later inclusion in the transaction
 3. A `PublicCallRequest` is created referencing the `calldataHash`
 4. The request is added to the private context's accumulated requests
 5. A side-effect counter tracks ordering relative to other enqueued calls
@@ -83,9 +83,9 @@ The kernel circuits aggregate all enqueued calls from nested private function ca
 
 Enqueued calls are organized into three phases, each with different reversion semantics. See [Public Transaction Simulation](./public-tx-simulation.md) for detailed coverage of phase execution, rollback mechanics, and fee payment.
 
-1. Setup Phase (Non-Revertible)
-2. App Logic Phase (Revertible)
-3. Teardown Phase (Revertible)
+1. **Setup Phase (Non-Revertible)**: If any call in this phase reverts, the entire transaction is dropped
+2. **App Logic Phase (Revertible)**: Reverts are tolerated; side effects are rolled back but the transaction continues
+3. **Teardown Phase (Revertible)**: Like app logic, reverts are tolerated and don't drop the transaction
 
 ## Core AVM Execution
 

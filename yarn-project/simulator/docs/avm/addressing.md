@@ -82,6 +82,8 @@ Operands are encoded from **right to left** (least significant bits first):
   - Second memory offset operand (bits 2-3 = `01`): Indirect
   - Third memory offset operand (bits 4-5 = `00`): Direct
 
+**Wire format note**: In the bytecode encoding, all memory offset operands are grouped together before any immediate operands. The addressing mode bitmask applies only to these memory offset operands—immediate values (constants embedded in the instruction) are not subject to addressing modes. See [Wire Formats](./wire-format.md) for encoding details.
+
 ### Gas Cost Considerations
 
 Each memory offset operand that uses non-direct addressing mode(s) incurs additional L2 gas costs:

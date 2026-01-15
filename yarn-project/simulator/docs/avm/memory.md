@@ -2,7 +2,7 @@
 
 AVM memory stores the internal state of the current program being executed. It can be written to as well as read.
 
-The AVM uses a **tagged memory model** where each memory cell contains a value (a finite field) and an associated type tag.
+The AVM uses a **tagged memory model** where each memory cell contains a value and an associated type tag.
 
 
 ## Tagged Memory
@@ -17,15 +17,15 @@ In other words, values are range-checked when _written_ to memory. This means th
 
 The following type tags are supported in the AVM:
 
-| Tag Name | Tag | Max Value | Modulus |
-|----------|-----------|-----------|-------------------|
-| `FIELD` | 0 | $p - 1$ | $p$ (BN254 field prime) |
-| `UINT1` | 1 | $2^1 - 1$ | $2^1$ |
-| `UINT8` | 2 | $2^8 - 1$ | $2^8$ |
-| `UINT16` | 3 | $2^{16} - 1$ | $2^{16}$ |
-| `UINT32` | 4 | $2^{32} - 1$ | $2^{32}$ |
-| `UINT64` | 5 | $2^{64} - 1$ | $2^{64}$ |
-| `UINT128` | 6 | $2^{128} - 1$ | $2^{128}$ |
+| Tag Name | Max Value | Modulus |
+|----------|-----------|---------|
+| `FIELD`  | $p - 1$ | $p$ (BN254 field prime) |
+| `UINT1`  | $2^1 - 1$ | $2^1$ |
+| `UINT8`  | $2^8 - 1$ | $2^8$ |
+| `UINT16` | $2^{16} - 1$ | $2^{16}$ |
+| `UINT32` | $2^{32} - 1$ | $2^{32}$ |
+| `UINT64` | $2^{64} - 1$ | $2^{64}$ |
+| `UINT128` | $2^{128} - 1$ | $2^{128}$ |
 
 Where $p$ is the BN254 field prime:
 ```
@@ -63,7 +63,7 @@ M[dstOffset] = M[aOffset] + M[bOffset]
 
 **Tag Checks:**
 - Both operands must have matching tags: `T[aOffset] == T[bOffset]`
-- If tags don't match, a `TAG_MISMATCH` error is raised and execution reverts
+- If tags don't match, a `TAG_MISMATCH` error is raised and execution in the current context exceptionally halts (See [Errors](./errors.md)).
 
 **Tag Updates:**
 - The destination inherits the tag from the operands: `T[dstOffset] = T[aOffset]`
@@ -97,7 +97,7 @@ T[200] = UINT64    M[200] = 58
 
 # Execute: ADD 100 200 300
 
-# Result: TAG_MISMATCH error, execution reverts
+# Result: TAG_MISMATCH error, execution exceptionally halts
 # T[100] (UINT32) ≠ T[200] (UINT64)
 ```
 
@@ -133,7 +133,7 @@ An out-of-bounds memory access can be encountered when:
 - An instruction operand uses relative addressing which derives a memory offset from the addition of two values (see [Addressing](addressing.md)).
 - An instruction operates on a _range_ of data (see [EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md))
 
-When this happens, the instruction will throw an error **MEMORY_ACCESS_OUT_OF_RANGE**.
+When this happens, the instruction errors and execution in the current context exceptionally halts (See [Errors](./errors.md).
 
 ---
 ← Previous: [State](./state.md) | Next: [Addressing Modes](./addressing.md) →

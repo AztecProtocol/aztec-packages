@@ -15,7 +15,7 @@ A CALL/STATICCALL creates a fresh execution context; it does not reuse the calle
 
 ## Program Counter
 
-The VM executes instructions at `PC`. Unless an instruction specifies otherwise, control flow advances by instruction byte length:
+The VM executes instructions at `PC`, which is a **byte offset** into the bytecode (not an instruction index). Unless an instruction specifies otherwise, control flow advances by instruction byte length:
 
 - **Default**: `PC += instruction_size_bytes`
 - **JUMP**: `PC = target`
@@ -35,7 +35,7 @@ The AVM uses a "Fork and Merge" model for nested execution via `CALL` and `STATI
 **Creation**:
 - Fresh memory and fresh `PC` (starting at 0)
 - Forked world state (callee sees a snapshot derived from the caller's state)
-- Gas allocation from the caller
+- Gas limit set to the amount the caller explicitly allocated for this call
 
 **Resolution**:
 - **Success (RETURN)**: State changes are merged into the caller
