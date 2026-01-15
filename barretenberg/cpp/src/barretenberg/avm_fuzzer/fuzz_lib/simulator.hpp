@@ -27,9 +27,17 @@ struct FuzzerSimulationRequest {
     std::vector<std::pair<AztecAddress, ContractInstance>> contract_instances;
     // Public data tree writes to apply before simulation (e.g., for bytecode upgrades)
     std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
+    // Note hashes to be applied before simulation
+    std::vector<FF> note_hashes;
 
-    MSGPACK_CAMEL_CASE_FIELDS(
-        ws_data_dir, ws_map_size_kb, tx, globals, contract_classes, contract_instances, public_data_writes);
+    MSGPACK_CAMEL_CASE_FIELDS(ws_data_dir,
+                              ws_map_size_kb,
+                              tx,
+                              globals,
+                              contract_classes,
+                              contract_instances,
+                              public_data_writes,
+                              note_hashes);
 };
 
 struct SimulatorResult {
@@ -53,17 +61,18 @@ class Simulator {
         fuzzer::FuzzerWorldStateManager& ws_mgr,
         fuzzer::FuzzerContractDB& contract_db,
         const Tx& tx,
-        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes) = 0;
+        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
+        const std::vector<FF>& note_hashes) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
 class CppSimulator : public Simulator {
   public:
-    SimulatorResult simulate(
-        fuzzer::FuzzerWorldStateManager& ws_mgr,
-        fuzzer::FuzzerContractDB& contract_db,
-        const Tx& tx,
-        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes) override;
+    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                             fuzzer::FuzzerContractDB& contract_db,
+                             const Tx& tx,
+                             const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
+                             const std::vector<FF>& note_hashes) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -85,11 +94,11 @@ class JsSimulator : public Simulator {
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
 
-    SimulatorResult simulate(
-        fuzzer::FuzzerWorldStateManager& ws_mgr,
-        fuzzer::FuzzerContractDB& contract_db,
-        const Tx& tx,
-        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes) override;
+    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
+                             fuzzer::FuzzerContractDB& contract_db,
+                             const Tx& tx,
+                             const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
+                             const std::vector<FF>& note_hashes) override;
 };
 
 GlobalVariables create_default_globals();

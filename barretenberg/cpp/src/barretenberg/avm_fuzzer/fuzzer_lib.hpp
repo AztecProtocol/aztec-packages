@@ -33,6 +33,7 @@ struct FuzzerTxData {
 
     // Public data tree writes to be applied during state setup (e.g., for bytecode upgrades)
     std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
+    std::vector<FF> note_hashes;
 
     MSGPACK_FIELDS(input_programs,
                    contract_classes,
@@ -41,7 +42,8 @@ struct FuzzerTxData {
                    tx,
                    global_variables,
                    protocol_contracts,
-                   public_data_writes);
+                   public_data_writes,
+                   note_hashes);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
@@ -78,8 +80,8 @@ constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = Fuz
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data);
 
 // Create a default FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context);
-FuzzerTxData create_default_tx_data(const FuzzerContext& context);
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, FuzzerContext& context);
+FuzzerTxData create_default_tx_data(FuzzerContext& context);
 
 // Setup fuzzer state: register contracts and addresses in the world state
 void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
@@ -107,5 +109,7 @@ size_t mutate_tx_data(FuzzerContext& context,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
                       unsigned int seed);
+
+void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& tx_data);
 
 bool compare_cpp_simulator_results(const std::vector<TxSimulationResult>& results);

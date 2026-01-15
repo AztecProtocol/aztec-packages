@@ -6,6 +6,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -194,6 +195,8 @@ void FuzzerWorldStateManager::initialize_world_state()
         /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
 
     fork_ids.push(ws->create_fork(std::nullopt));
+    std::cout << "Items of note hash tree after creation: "
+              << ws->get_tree_info(get_current_revision(), MerkleTreeId::NOTE_HASH_TREE).meta.size << std::endl;
 }
 
 WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
@@ -241,6 +244,16 @@ void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::P
 {
     auto fork_id = fork_ids.top();
     ws->update_public_data(public_data, fork_id);
+}
+
+void FuzzerWorldStateManager::append_note_hashes(const std::vector<FF>& note_hashes)
+{
+    auto fork_id = fork_ids.top();
+
+    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
+
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, note_hashes, fork_id);
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)), fork_id);
 }
 
 } // namespace bb::avm2::fuzzer

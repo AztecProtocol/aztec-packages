@@ -56,6 +56,7 @@ async function simulateWithFuzzer(
   rawContractClasses: any[], // Replace these when we are moving contract classes to TS
   rawContractInstances: [any, any][], // Replace these when we are moving contract instances to TS
   rawPublicDataWrites: any[], // Public data tree writes to apply before simulation
+  rawNoteHashes: any[], // Note hashes to apply before simulation
 ): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
 
@@ -63,6 +64,8 @@ async function simulateWithFuzzer(
 
   // Apply public data writes before simulation (e.g., for bytecode upgrades)
   await simulator.applyPublicDataWrites(rawPublicDataWrites);
+
+  await simulator.applyNoteHashes(rawNoteHashes);
 
   // Register contract classes from C++
   for (const rawClass of rawContractClasses) {
@@ -104,6 +107,7 @@ async function execute(base64Line: string): Promise<void> {
       request.contractClasses,
       request.contractInstances,
       request.publicDataWrites,
+      request.noteHashes,
     );
 
     // Serialize the result to msgpack and encode it in base64 for output

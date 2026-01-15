@@ -501,21 +501,11 @@ struct EMITNOTEHASH_Instruction {
     MSGPACK_FIELDS(note_hash_address, note_hash);
 };
 
-/// @brief NOTEHASHEXISTS:  M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset])
-/// len = length(memory_manager.emitted_note_hashes);
-/// M[notehash_offset] = unique_note_hash(CONTRACT_ADDRESS, memory_manager.emitted_note_hashes[notehash_index % len]);
-/// M[leaf_index_offset] = notehash_index % len;
-/// M[result_offset] = NOTEHASHEXISTS(M[notehash_offset], M[leaf_index_offset]);
 struct NOTEHASHEXISTS_Instruction {
-    // index of the note hash in the memory_manager.emitted_note_hashes
-    uint16_t notehash_index;
-    // absolute address where the note hash will be stored
-    AddressRef notehash_address;
-    // absolute address where the leaf index will be stored
-    AddressRef leaf_index_address;
-    // absolute address where the result will be stored
+    ParamRef notehash_address;
+    ParamRef leaf_index_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(notehash_index, notehash_address, leaf_index_address, result_address);
+    MSGPACK_FIELDS(notehash_address, leaf_index_address, result_address);
 };
 
 /// @brief CALLDATACOPY: M[dstOffset:dstOffset+M[copySizeOffset]] =
