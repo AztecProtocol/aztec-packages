@@ -380,6 +380,44 @@ TYPED_TEST(PrimeFieldTest, PostfixIncrement)
 }
 
 // ================================
+// Internal Representation Tests for Big Fields
+// ================================
+
+// Shows that the raw limbs of an addition can have a result which is not automatically reduced, even when we are in the
+// 256-bit field range. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): should we fix this
+// behavior by forcing the extra reduction, or not?
+TYPED_TEST(PrimeFieldTest, AddYieldsLimbsBiggerThanModulus)
+{
+    using F = TypeParam;
+
+    // Only test for "big" fields (those with modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD)
+    if constexpr (F::Params::modulus_3 >= 0x4000000000000000ULL) {
+        auto small_number = 10;
+        F small_field_elt = F(small_number).from_montgomery_form();
+        uint256_t small_number_from_limbs(
+            small_field_elt.data[0], small_field_elt.data[1], small_field_elt.data[2], small_field_elt.data[3]);
+        uint256_t big_number = uint256_t(F::modulus) - 1;
+        F big_field_elt = F(big_number).from_montgomery_form();
+        uint256_t big_number_from_limbs(
+            big_field_elt.data[0], big_field_elt.data[1], big_field_elt.data[2], big_field_elt.data[3]);
+
+        // make sure that the limbs combine to the number. (this is not immediate because we internall represent via
+        // Montgomery form. Here, it is guaranteed because we call `.from_montgomery_form()`).
+        EXPECT_EQ(small_number_from_limbs, small_number);
+        EXPECT_EQ(big_number, big_number_from_limbs);
+
+        F result = small_field_elt + big_field_elt;
+
+        // Extract the raw limbs from result
+        uint256_t result_from_limbs(result.data[0], result.data[1], result.data[2], result.data[3]);
+
+        // Check if the uint256_t from limbs is >= p
+        bool is_gte_modulus = result_from_limbs >= F::modulus;
+        EXPECT_EQ(is_gte_modulus, true);
+    }
+}
+
+// ================================
 // Serialization
 // ================================
 

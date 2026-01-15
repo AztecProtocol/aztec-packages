@@ -34,9 +34,16 @@ namespace bb {
 // constexpr branching).
 //
 // There is a further difference: internally, when limb[3] <MODULUS_TOP_LIMB_LARGE_THRESHOLD, we allow for coarse
-// representation of the elements; this means that the uint256_t element derived from the limbs is only guaranteed to be
-// in the range [0, 2p). On the other hand, for moduli with limb[3] > MODULUS_TOP_LIMB_LARGE_THRESHOLD, the uint256_t
-// element derived from the limbs is arbitrary (and is in particular NOT guaranteed to be in the range [0, p)).
+// representation of the elements; this means that we assume the underlying unsigned integer to be in the range [0, 2p).
+//
+// On the other hand, for moduli with limb[3] > MODULUS_TOP_LIMB_LARGE_THRESHOLD, the uint256_t element
+// derived from the limbs is arbitrary (and is in particular NOT guaranteed to be in the range [0, p)). In particular
+// one sees this in the `add` functionality. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608):
+// Should we change this to maintain the invariant: "internal representation is always in [0, p)"? This would
+// potentially streamline a few other cases in the 256-bit range.
+
+// To speed up multiplication, we internally represent all elements in MONTGOMERY form. This means that the underlying 4
+// limbs represent a * R modulo p. (See the documentation in \ref field_docs["field documentation"]).
 //
 // In Barretenberg, the main workhorse fields are the base and scalar fields of BN-254, which are "small" moduli: they
 // are each 254 bits. The field algorithms for them are constant-time.
@@ -125,7 +132,13 @@ template <class Params_> struct alignas(32) field {
             self_to_montgomery_form();
         }
     }
-
+    /**
+     * @brief cast four uint64_t as a field
+     *
+     * @warning this DOES NOT convert to montgomery form, in particular it is assumed that the element "is already" in
+     * Montgomery form.
+     *
+     */
     constexpr field(const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t d) noexcept
         : data{ a, b, c, d } {};
 
