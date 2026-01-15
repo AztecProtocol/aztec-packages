@@ -254,16 +254,34 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
-        Builder* builder = pairing_inputs.P0.get_context();
+        Builder* builder = transcript_hash.get_context();
 
         transcript_hash.set_public();
-        pairing_inputs.set_public();
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
+            pairing_inputs.set_public();
+        }
 
         // Record that pairing points have been set to public
         builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder)
+    {
+        GoblinAvmIO<Builder> inputs;
+        inputs.transcript_hash = FF::from_witness_index(&builder, builder.zero_idx());
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        inputs.set_public();
+    };
 };
 
 /**

@@ -489,6 +489,19 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
     return proof;
 }
 
+std::tuple<bb::HonkProof, bb::GoblinAvmProof> create_mock_output_inner_layer_avm_recursive_verifier()
+{
+    HonkProof mega_proof =
+        create_mock_honk_proof<MegaAvmFlavor, stdlib::recursion::honk::GoblinAvmIO<MegaCircuitBuilder>>();
+
+    HonkProof translator_proof = create_mock_translator_proof();
+    HonkProof eccvm_proof = create_mock_eccvm_proof();
+    HonkProof ipa_proof = create_mock_ipa_proof();
+    GoblinAvmProof goblin_proof{ eccvm_proof, ipa_proof, translator_proof };
+
+    return { mega_proof, goblin_proof };
+}
+
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
                                                                       const size_t pub_inputs_offset,
@@ -549,6 +562,9 @@ template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::
 template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     const size_t);
 template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+
+template HonkProof create_mock_honk_proof<MegaAvmFlavor, stdlib::recursion::honk::GoblinAvmIO<MegaCircuitBuilder>>(
+    const size_t);
 
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
 construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor>(const size_t);

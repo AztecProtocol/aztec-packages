@@ -166,8 +166,8 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
-        FF("0x2be1149e37f087a8420d61586aed0d7db942f04937f2d3fa01bdf7f4cc62fb3c");
-    static constexpr size_t EXPECT_GATE_COUNT = 1203700;
+        FF("0x0fd841fd956452d0e1d95772ea7fb072f7a212511bd827df8eec70b2f788e96f");
+    static constexpr size_t EXPECT_GATE_COUNT = 1203635;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -190,8 +190,10 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
         std::vector<std::vector<field_t<Builder>>> public_inputs =
             PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
         auto [mega_proof, goblin_proof, mega_vk] =
-            TwoLayerAvmRecursiveVerifier::construct_and_prove_inner_recursive_verification_circuit(stdlib_proof,
-                                                                                                   public_inputs);
+            TwoLayerAvmRecursiveVerifier::construct_and_prove_inner_recursive_verification_circuit(
+                stdlib_proof,
+                public_inputs,
+                /*is_write_vk_mode=*/false);
 
         return { stdlib_proof, public_inputs, { mega_proof, goblin_proof, mega_vk } };
     }

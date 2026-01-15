@@ -6,6 +6,7 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -88,8 +89,8 @@ class TwoLayerAvmRecursiveVerifier {
         const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
-        InnerProverOutput inner_output =
-            construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs);
+        InnerProverOutput inner_output = construct_and_prove_inner_recursive_verification_circuit(
+            stdlib_proof, public_inputs, outer_builder->is_write_vk_mode());
 
         // Construct the outer Ultra-arithmetized Mega/Goblin recursive verifier circuit
         TwoLayerAvmRecursiveVerifierOutput result =
@@ -162,7 +163,9 @@ class TwoLayerAvmRecursiveVerifier {
      * @return InnerCircuitOutput proof and verification key for Mega + Goblin proof; {\pi_M, \pi_G, VK_M}
      */
     static InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
-        const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs)
+        const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
+        const std::vector<std::vector<UltraFF>>& public_inputs,
+        const bool is_write_vk_mode = false)
     {
         using MegaAvmProverInstance = ProverInstance_<MegaAvmFlavor>;
         using MegaAvmVerificationKey = MegaAvmFlavor::VerificationKey;
@@ -175,8 +178,7 @@ class TwoLayerAvmRecursiveVerifier {
         // Construct the inner recursive verification circuit
         construct_inner_recursive_verification_circuit(inner_builder, stdlib_proof, public_inputs);
 
-        // Construct the Mega proof \pi_M of the AVM recursive verifier circuit
-        auto transcript = std::make_shared<NativeTranscript>(); // Single shared transcript
+        // Construct the proving and verification key of the inner circuit
         auto mega_proving_key = std::make_shared<MegaAvmProverInstance>(inner_builder);
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
@@ -184,18 +186,25 @@ class TwoLayerAvmRecursiveVerifier {
             MEGA_AVM_LOG_N,
             "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
         auto mega_vk = std::make_shared<MegaAvmVerificationKey>(mega_proving_key->get_precomputed());
-        MegaAvmProver mega_prover(mega_proving_key, mega_vk, transcript);
-        HonkProof mega_proof = mega_prover.construct_proof();
 
-        // Construct the GoblinAvm proof \pi_G (includes ECCVM, IPA, and Translator proofs)
-        goblin.transcript = transcript;
-        GoblinAvmProof goblin_proof = goblin.prove();
+        InnerProverOutput output;
+        output.mega_vk = mega_vk;
 
-        return {
-            .mega_proof = mega_proof,
-            .goblin_proof = goblin_proof,
-            .mega_vk = mega_vk,
-        };
+        if (is_write_vk_mode) {
+            std::tie(output.mega_proof, output.goblin_proof) =
+                acir_format::create_mock_output_inner_layer_avm_recursive_verifier();
+        } else {
+            // Construct the Mega proof \pi_M of the AVM recursive verifier circuit
+            auto transcript = std::make_shared<NativeTranscript>(); // Single shared transcript
+            MegaAvmProver mega_prover(mega_proving_key, mega_vk, transcript);
+            output.mega_proof = mega_prover.construct_proof();
+
+            // Construct the GoblinAvm proof \pi_G (includes ECCVM, IPA, and Translator proofs)
+            goblin.transcript = transcript;
+            output.goblin_proof = goblin.prove();
+        }
+
+        return output;
     }
 
     /**

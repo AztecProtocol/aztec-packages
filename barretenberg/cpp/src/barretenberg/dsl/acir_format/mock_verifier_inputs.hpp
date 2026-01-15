@@ -7,7 +7,9 @@
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin_avm/goblin_avm.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
@@ -133,6 +135,13 @@ bb::HonkProof create_mock_translator_proof();
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
 template <typename Builder> bb::HonkProof create_mock_chonk_proof(const size_t acir_public_inputs_size = 0);
+
+/**
+ * @brief Create a mock prover output (excluding the inner circuit vk) for the inner layer of the
+ * TwoLayerAvmRecursiveVerifier
+ *
+ */
+std::tuple<bb::HonkProof, bb::GoblinAvmProof> create_mock_output_inner_layer_avm_recursive_verifier();
 
 /**
  * @brief Create a mock VK that has the correct structure
