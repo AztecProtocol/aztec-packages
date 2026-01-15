@@ -169,55 +169,34 @@ class Chonk : public IVCBase {
         /**
          * @brief Calculate the number of field elements needed for serialization
          * @return size_t Number of field elements
+         * @note Only the MegaVerificationKey is serialized since ECCVM and Translator VKs are fixed
          */
-        static size_t calc_num_data_types()
-        {
-            return MegaVerificationKey::calc_num_data_types() + ECCVMVerificationKey::calc_num_data_types() +
-                   TranslatorVerificationKey::calc_num_data_types();
-        }
+        static size_t calc_num_data_types() { return MegaVerificationKey::calc_num_data_types(); }
 
         /**
          * @brief Serialize verification key to field elements
          * @return std::vector<bb::fr> The serialized field elements
+         * @note Only the MegaVerificationKey is serialized since ECCVM and Translator VKs are fixed
          */
-        std::vector<bb::fr> to_field_elements() const
-        {
-            std::vector<bb::fr> elements;
-
-            auto mega_elements = mega->to_field_elements();
-            elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
-
-            auto eccvm_elements = eccvm->to_field_elements();
-            elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
-
-            auto translator_elements = translator->to_field_elements();
-            elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
-
-            return elements;
-        }
+        std::vector<bb::fr> to_field_elements() const { return mega->to_field_elements(); }
 
         /**
          * @brief Deserialize verification key from field elements
          * @param elements The field elements to deserialize from
          * @return size_t Number of field elements read
+         * @note Only the MegaVerificationKey is deserialized; ECCVM and Translator VKs are created with default
+         * constructors since they are fixed
          */
         size_t from_field_elements(std::span<const bb::fr> elements)
         {
-            size_t read_idx = 0;
-
             mega = std::make_shared<MegaVerificationKey>();
-            size_t mega_read = mega->from_field_elements(elements.subspan(read_idx));
-            read_idx += mega_read;
+            size_t mega_read = mega->from_field_elements(elements);
 
+            // ECCVM and Translator VKs are fixed, so just default construct them
             eccvm = std::make_shared<ECCVMVerificationKey>();
-            size_t eccvm_read = eccvm->from_field_elements(elements.subspan(read_idx));
-            read_idx += eccvm_read;
-
             translator = std::make_shared<TranslatorVerificationKey>();
-            size_t translator_read = translator->from_field_elements(elements.subspan(read_idx));
-            read_idx += translator_read;
 
-            return read_idx;
+            return mega_read;
         }
     };
 
