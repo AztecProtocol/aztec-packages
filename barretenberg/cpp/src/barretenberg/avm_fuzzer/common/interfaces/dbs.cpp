@@ -195,8 +195,6 @@ void FuzzerWorldStateManager::initialize_world_state()
         /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
 
     fork_ids.push(ws->create_fork(std::nullopt));
-    std::cout << "Items of note hash tree after creation: "
-              << ws->get_tree_info(get_current_revision(), MerkleTreeId::NOTE_HASH_TREE).meta.size << std::endl;
 }
 
 WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
