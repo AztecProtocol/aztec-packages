@@ -18,7 +18,9 @@ constexpr VecMutationConfig BASIC_VEC_MUTATION_CONFIGURATION = VecMutationConfig
 });
 
 // Generic uint mutation options (used by all uint types)
-enum class UintMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue };
+// BoundarySelection picks from a curated set of edge-case values (0, 1, max, midpoint, etc.)
+// to dramatically improve coverage of boundary conditions in arithmetic operations
+enum class UintMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue, BoundarySelection };
 
 // Type aliases for backward compatibility
 using Uint8MutationOptions = UintMutationOptions;
@@ -38,6 +40,7 @@ constexpr Uint8MutationConfig BASIC_UINT8_T_MUTATION_CONFIGURATION = Uint8Mutati
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint16MutationConfig BASIC_UINT16_T_MUTATION_CONFIGURATION = Uint16MutationConfig({
@@ -45,6 +48,7 @@ constexpr Uint16MutationConfig BASIC_UINT16_T_MUTATION_CONFIGURATION = Uint16Mut
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint32MutationConfig BASIC_UINT32_T_MUTATION_CONFIGURATION = Uint32MutationConfig({
@@ -52,6 +56,7 @@ constexpr Uint32MutationConfig BASIC_UINT32_T_MUTATION_CONFIGURATION = Uint32Mut
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint64MutationConfig BASIC_UINT64_T_MUTATION_CONFIGURATION = Uint64MutationConfig({
@@ -59,6 +64,7 @@ constexpr Uint64MutationConfig BASIC_UINT64_T_MUTATION_CONFIGURATION = Uint64Mut
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint128MutationConfig BASIC_UINT128_T_MUTATION_CONFIGURATION = Uint128MutationConfig({
@@ -66,9 +72,12 @@ constexpr Uint128MutationConfig BASIC_UINT128_T_MUTATION_CONFIGURATION = Uint128
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
-enum class FieldMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue };
+// BoundarySelection picks from a curated set of edge-case values (0, 1, p-1, limb boundaries, etc.)
+// to dramatically improve coverage of boundary conditions in field arithmetic
+enum class FieldMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue, BoundarySelection };
 
 using FieldMutationConfig = WeightedSelectionConfig<FieldMutationOptions, 5>;
 
@@ -77,6 +86,7 @@ constexpr FieldMutationConfig BASIC_FIELD_MUTATION_CONFIGURATION = FieldMutation
     { FieldMutationOptions::IncrementBy1, 22 },
     { FieldMutationOptions::DecrementBy1, 20 },
     { FieldMutationOptions::AddRandomValue, 10 },
+    { FieldMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, p-1, limb boundaries)
 });
 
 enum class MemoryTagOptions { U1, U8, U16, U32, U64, U128, FF };
