@@ -104,6 +104,7 @@ export class MockCheckpointBuilder implements FunctionsOf<CheckpointBuilder> {
       blockBuildingTimer: new Timer(),
       usedTxs,
       failedTxs: [],
+      usedTxBlobFields: block?.body?.txEffects?.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0) ?? 0,
     });
   }
 

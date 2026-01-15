@@ -146,7 +146,7 @@ export class PublicProcessor implements Traceable {
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
-  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
@@ -254,6 +254,7 @@ export class PublicProcessor implements Traceable {
         }
 
         // If the actual blob fields of this tx would exceed the limit, skip it
+        // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
             `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,
@@ -349,7 +350,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, usedTxs, returns];
+    return [result, failed, usedTxs, returns, totalBlobFields];
   }
 
   private async checkWorldStateUnchanged(

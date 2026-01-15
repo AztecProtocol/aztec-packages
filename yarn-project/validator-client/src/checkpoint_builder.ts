@@ -38,6 +38,7 @@ export interface BuildBlockInCheckpointResult {
   failedTxs: FailedTx[];
   blockBuildingTimer: Timer;
   usedTxs: Tx[];
+  usedTxBlobFields: number;
 }
 
 /**
@@ -90,7 +91,7 @@ export class CheckpointBuilder {
     });
     const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
-    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs, _, usedTxBlobFields]] = await elapsed(() =>
       processor.process(pendingTxs, opts, validator),
     );
 
@@ -110,6 +111,7 @@ export class CheckpointBuilder {
       failedTxs,
       blockBuildingTimer,
       usedTxs,
+      usedTxBlobFields,
     };
     log.debug('Built block within checkpoint', res.block.header);
     return res;
