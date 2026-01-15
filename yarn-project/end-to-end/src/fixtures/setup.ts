@@ -103,11 +103,6 @@ async function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> 
   }
   return telemetry;
 }
-if (typeof afterAll === 'function') {
-  afterAll(async () => {
-    await telemetry?.stop();
-  });
-}
 
 export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
@@ -675,6 +670,12 @@ export async function setup(
         await tryRmDir(directoryToCleanup, logger);
       } catch (err) {
         logger.error(`Error during e2e test teardown`, err);
+      } finally {
+        try {
+          await telemetryClient?.stop();
+        } catch (err) {
+          logger.error(`Error during telemetry client stop`, err);
+        }
       }
     };
 
