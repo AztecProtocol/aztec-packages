@@ -39,7 +39,7 @@ describe('BatchTxRequester', () => {
   let reqResp: MockProxy<ReqRespInterface>;
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     logger = createLogger('test');
     connectionSampler = mock<ConnectionSampler>();
     reqResp = mock<ReqRespInterface>();
@@ -51,10 +51,10 @@ describe('BatchTxRequester', () => {
 
     const signer = Secp256k1Signer.random();
     const blockHash = Fr.random();
-    blockProposal = makeBlockProposal({
+    blockProposal = await makeBlockProposal({
       signer,
-      header: makeL2BlockHeader(1, 1),
-      archive: blockHash,
+      blockHeader: makeL2BlockHeader(1, 1),
+      archiveRoot: blockHash,
       txHashes: [],
     });
   });
@@ -66,10 +66,10 @@ describe('BatchTxRequester', () => {
       const rounds = Math.ceil(txCount / TX_BATCH_SIZE);
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -119,10 +119,10 @@ describe('BatchTxRequester', () => {
       const deadline = 10_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -193,10 +193,10 @@ describe('BatchTxRequester', () => {
       const deadline = 10_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -278,10 +278,10 @@ describe('BatchTxRequester', () => {
       const deadline = 1_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -325,10 +325,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -387,10 +387,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -442,10 +442,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -497,10 +497,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -553,10 +553,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -623,10 +623,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -794,10 +794,10 @@ describe('BatchTxRequester', () => {
       const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -885,10 +885,10 @@ describe('BatchTxRequester', () => {
       const txCount = 20;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -938,10 +938,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -988,10 +988,10 @@ describe('BatchTxRequester', () => {
       const deadline = 2_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1066,10 +1066,10 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1128,10 +1128,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1205,10 +1205,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1275,10 +1275,10 @@ describe('BatchTxRequester', () => {
       const deadline = 3_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1347,10 +1347,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1396,10 +1396,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1446,10 +1446,10 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1531,10 +1531,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 
@@ -1577,10 +1577,10 @@ describe('BatchTxRequester', () => {
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
-      blockProposal = makeBlockProposal({
+      blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        header: makeL2BlockHeader(1, 1),
-        archive: Fr.random(),
+        blockHeader: makeL2BlockHeader(1, 1),
+        archiveRoot: Fr.random(),
         txHashes: missing,
       });
 

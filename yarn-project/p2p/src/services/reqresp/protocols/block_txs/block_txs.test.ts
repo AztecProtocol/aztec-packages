@@ -10,11 +10,11 @@ import { BitVector } from './bitvector.js';
 import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 
 describe('BlockTxRequest', () => {
-  const createBlockProposal = (txHashes: TxHash[]): BlockProposal => {
+  const createBlockProposal = async (txHashes: TxHash[]): Promise<BlockProposal> => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
-      header: makeL2BlockHeader(1, 5),
-      archive: Fr.random(),
+      blockHeader: makeL2BlockHeader(1, 5),
+      archiveRoot: Fr.random(),
       txHashes,
     });
   };
@@ -47,9 +47,9 @@ describe('BlockTxRequest', () => {
     expect(deserialized.txIndices.getTrueIndices()).toEqual([]);
   });
 
-  it('should create request with full tx hashes when includeFullTxHashes=true', () => {
+  it('should create request with full tx hashes when includeFullTxHashes=true', async () => {
     const allTxHashes = Array.from({ length: 5 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[1], allTxHashes[3]];
 
     const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, true);
@@ -62,9 +62,9 @@ describe('BlockTxRequest', () => {
     expect(request!.txIndices.getLength()).toBe(5);
   });
 
-  it('should create request without tx hashes when includeFullTxHashes=false', () => {
+  it('should create request without tx hashes when includeFullTxHashes=false', async () => {
     const allTxHashes = Array.from({ length: 5 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[0], allTxHashes[2], allTxHashes[4]];
 
     const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, false);
@@ -76,9 +76,9 @@ describe('BlockTxRequest', () => {
     expect(request!.txIndices.getLength()).toBe(5);
   });
 
-  it('should create request without tx hashes when includeFullTxHashes is not provided', () => {
+  it('should create request without tx hashes when includeFullTxHashes is not provided', async () => {
     const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[1]];
 
     const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes);
@@ -89,9 +89,9 @@ describe('BlockTxRequest', () => {
     expect(request!.txIndices.getTrueIndices()).toEqual([1]);
   });
 
-  it('should return undefined when no missing txs are provided', () => {
+  it('should return undefined when no missing txs are provided', async () => {
     const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
 
     const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, [], true);
     expect(request).toBeUndefined();
@@ -100,18 +100,18 @@ describe('BlockTxRequest', () => {
     expect(requestDefault).toBeUndefined();
   });
 
-  it('should return undefined when missing tx hashes do not match proposal hashes', () => {
+  it('should return undefined when missing tx hashes do not match proposal hashes', async () => {
     const allTxHashes = Array.from({ length: 3 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
     const nonMatchingHashes = Array.from({ length: 2 }, () => TxHash.random());
 
     const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, nonMatchingHashes, true);
     expect(request).toBeUndefined();
   });
 
-  it('should serialize and deserialize correctly with full tx hashes', () => {
+  it('should serialize and deserialize correctly with full tx hashes', async () => {
     const allTxHashes = Array.from({ length: 4 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[0], allTxHashes[3]];
 
     const original = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, true)!;
@@ -123,9 +123,9 @@ describe('BlockTxRequest', () => {
     expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
   });
 
-  it('should serialize and deserialize correctly without tx hashes', () => {
+  it('should serialize and deserialize correctly without tx hashes', async () => {
     const allTxHashes = Array.from({ length: 4 }, () => TxHash.random());
-    const blockProposal = createBlockProposal(allTxHashes);
+    const blockProposal = await createBlockProposal(allTxHashes);
     const missingHashes = [allTxHashes[1], allTxHashes[2]];
 
     const original = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, false)!;
