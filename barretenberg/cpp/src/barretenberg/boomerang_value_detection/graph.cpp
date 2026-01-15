@@ -433,7 +433,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_co
  * @param blk block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
  * @details Processes elliptic curve operations by collecting variables from current and next gates,
- *          handling opcodes and coordinate variables for curve operations
+ *          handling opcodes and coordinate variables for curve operations.
+ *          Only processes gates in the ecc_op block - returns empty for other blocks.
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part_connected_component(size_t index,
@@ -441,6 +442,15 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
                                                                                                      auto& blk)
 {
     std::vector<uint32_t> gate_variables;
+
+    // Only process gates in the ecc_op block. The condition w1 != zero_idx is too broad and would
+    // match almost any gate in other blocks, causing false connections.
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
+        if (&blk != &circuit_builder.blocks.ecc_op) {
+            return gate_variables;
+        }
+    }
+
     std::vector<uint32_t> first_row_variables;
     std::vector<uint32_t> second_row_variables;
     auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type
