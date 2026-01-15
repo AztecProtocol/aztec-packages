@@ -64,7 +64,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
     > & { slashingProposerAddress: EthAddress },
     private readonly store: KVArchiverDataStore,
-    private readonly config: {
+    private config: {
       batchSize: number;
       skipValidateCheckpointAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
@@ -80,6 +80,15 @@ export class ArchiverL1Synchronizer implements Traceable {
   ) {
     this.updater = new ArchiverDataStoreUpdater(this.store);
     this.tracer = tracer;
+  }
+
+  /** Sets new config */
+  public setConfig(newConfig: {
+    batchSize: number;
+    skipValidateCheckpointAttestations?: boolean;
+    maxAllowedEthClientDriftSeconds: number;
+  }) {
+    this.config = newConfig;
   }
 
   /** Returns the last L1 block number that was synced. */

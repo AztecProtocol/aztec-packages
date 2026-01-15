@@ -144,6 +144,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** Updates archiver config */
   public updateConfig(newConfig: Partial<ArchiverConfig>) {
     this.config = merge(this.config, mapArchiverConfig(newConfig));
+    this.synchronizer.setConfig(this.config);
   }
 
   /**
