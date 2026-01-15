@@ -478,9 +478,9 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
 
 TEST_F(ExecutionSimulationTest, InternalCall)
 {
-    uint32_t pc = 100;        // This is the pc of the current call.
-    uint32_t return_pc = 500; // This is next pc that we should return to after the internal call.
-    uint32_t pc_loc = 11;     // This is the pc of the internal call
+    PC pc = 100;        // This is the pc of the current call.
+    PC return_pc = 500; // This is next pc that we should return to after the internal call.
+    PC pc_loc = 11;     // This is the pc of the internal call
 
     NiceMock<MockInternalCallStackManager> internal_call_stack_manager;
     ON_CALL(context, get_internal_call_stack_manager).WillByDefault(ReturnRef(internal_call_stack_manager));
