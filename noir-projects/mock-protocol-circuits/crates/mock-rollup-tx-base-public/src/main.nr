@@ -9,7 +9,7 @@ fn main(
     public_inputs: AvmCircuitPublicInputs,
 ) -> pub RollupPublicInputs {
     chonk_proof_data.verify();
-    std::verify_proof_with_type(
+    let _ = std::verify_proof_with_type(
         [], // Unused, hardcoded inside the verifier
         proof,
         public_inputs.serialize_to_columns(),

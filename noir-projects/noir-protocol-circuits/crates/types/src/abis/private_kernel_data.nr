@@ -3,6 +3,7 @@ use crate::{
     constants::{
         MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
     },
+    hash::poseidon2_hash,
     proof::vk_data::VkData,
     utils::arrays::find_first_index,
 };
@@ -37,7 +38,14 @@ impl PrivateKernelData {
         // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
-    pub fn verify(self, is_last_kernel: bool) {
+
+    /// @param return_randomness - In some cases, the public inputs (of the proof that we're verifying here) were
+    /// output as `return_data`; a column of the databus. The bberg backend is able to access that `return_data` column
+    /// (which corresponds to a call_data(0) or call_data(1) column of this verifying circuit). The `verify_proof_with_type`
+    /// fn is able to return the commitment to the relevant column. We can use this as a fiat-shamir-style commitment
+    /// to the return_data (essentially the public inputs) of the proof. This is useful for some circuits, because it
+    /// means we don't have to re-hash public inputs that are already being committed-to within the innards of bberg.
+    pub fn verify(self, is_last_kernel: bool, return_randomness: bool) -> Field {
         let mut proof_type = PROOF_TYPE_HN;
         if is_last_kernel {
             proof_type = PROOF_TYPE_HN_TAIL;
@@ -60,13 +68,21 @@ impl PrivateKernelData {
         //                        to kernels for a series of reasons. Among these inputs, there are the databus public inputs. As mentioned above, these
         //                        public inputs are completely handled by barretenberg and decoupled from Noir. This is why Noir sends to barretenberg an
         //                        empty vector as public inputs.
-        std::verify_proof_with_type(
+        let databus_commitment = std::verify_proof_with_type(
             self.vk_data.vk.key,
             [],
             [],
             self.vk_data.vk.hash,
             proof_type,
         );
+
+        // Comptime if, if return_randomness is passed-in as hard-coded `true` or `false:
+        if return_randomness {
+            let randomness = poseidon2_hash(databus_commitment);
+            randomness
+        } else {
+            0
+        }
     }
 }
 

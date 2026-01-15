@@ -137,6 +137,12 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
+    // Assign default values to output witnesses for AVM constraints
+    // Note: AVM proofs' return_data commitments are handled differently
+    if (!input.output.empty()) {
+        assign_default_g1_to_outputs(builder, input.output);
+    }
+
     return output;
 }
 

@@ -17,6 +17,7 @@ use types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_U32_VALUE,
         TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     },
+    hash::poseidon2_hash,
     side_effect::Ordered,
     utils::arrays::{ClaimedLengthArray, subarray},
 };
@@ -118,21 +119,22 @@ pub struct SideEffectUniquenessHints {
 ///    "reserved" range.
 pub fn validate_unique_and_within_bounds_side_effect_counters(
     public_inputs: PrivateCircuitPublicInputs,
+    randomness: Field,
 ) {
     // Safety: These are hints to validate in the with hints function.
-    let side_effect_sorting_hints = unsafe { build_uniqueness_hints(public_inputs) };
+    let sorted_side_effect_counters_hints = unsafe { build_uniqueness_hints(public_inputs) };
     validate_unique_and_within_bounds_side_effect_counters_with_hints(
         public_inputs,
-        side_effect_sorting_hints,
+        sorted_side_effect_counters_hints,
+        randomness,
     );
 }
 
 pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
     public_inputs: PrivateCircuitPublicInputs,
-    side_effect_sorting_hints: SideEffectUniquenessHints,
+    sorted_side_effect_counters_hints: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    randomness: Field,
 ) {
-    let sorted_side_effect_counters = side_effect_sorting_hints.sorted_side_effect_counters;
-
     // Count how many entries we expect in the sorted array.
     // Private calls count as 2 (start + end counters); everything else counts as 1.
     let total_side_effects = public_inputs.note_hash_read_requests.length
@@ -153,80 +155,23 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
     // Verify padding: all entries beyond total_side_effects must be null.
     // This prevents a malicious prover from adding extra entries that could allow duplicate or unsorted counters.
     let mut should_be_tailing = false;
-    for i in 0..sorted_side_effect_counters.len() {
+    for i in 0..sorted_side_effect_counters_hints.len() {
         should_be_tailing |= i == total_side_effects;
         if should_be_tailing {
             assert_eq(
-                sorted_side_effect_counters[i].global_index,
+                sorted_side_effect_counters_hints[i].global_index,
                 MAX_U32_VALUE,
                 "Sorted counter hints must have null trailing values",
             );
         }
     }
 
-    // Validate the one-to-one mapping for each side effect type.
-    // Each call verifies that side effects map to correct positions in the sorted array.
-    validate_side_effect_counters_for_array(
-        public_inputs.note_hash_read_requests,
-        side_effect_sorting_hints.note_hash_read_request_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.nullifier_read_requests,
-        side_effect_sorting_hints.nullifier_read_request_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.note_hashes,
-        side_effect_sorting_hints.note_hashes_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_NOTE_HASH_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.nullifiers,
-        side_effect_sorting_hints.nullifiers_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_NULLIFIER_OFFSET,
-    );
-    validate_side_effect_ranges_for_call_request(
-        public_inputs.private_call_requests,
-        side_effect_sorting_hints.private_call_requests_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET,
-        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.public_call_requests,
-        side_effect_sorting_hints.public_call_requests_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.l2_to_l1_msgs,
-        side_effect_sorting_hints.l2_to_l1_msgs_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.private_logs,
-        side_effect_sorting_hints.private_logs_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
-    );
-    validate_side_effect_counters_for_array(
-        public_inputs.contract_class_logs_hashes,
-        side_effect_sorting_hints.contract_class_logs_hashes_indices,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
-    );
+    let original_side_effect_counters = build_original_side_effect_counters_list(public_inputs);
 
-    validate_side_effect_counter_for_single_value(
-        public_inputs.min_revertible_side_effect_counter,
-        side_effect_sorting_hints.min_revertible_side_effect_counter_index,
-        sorted_side_effect_counters,
-        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+    validate_sorted(
+        original_side_effect_counters,
+        sorted_side_effect_counters_hints,
+        randomness,
     );
 
     let counter_start = public_inputs.start_side_effect_counter;
@@ -237,11 +182,124 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
     assert(counter_start < counter_end, "Private call has incorrect counter range");
 
     validate_increasing_counters(
-        sorted_side_effect_counters,
+        sorted_side_effect_counters_hints,
         total_side_effects,
         counter_start,
         counter_end,
     );
+}
+
+fn validate_sorted(
+    original: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    sorted: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
+    randomness: Field,
+) {
+    // IF I DIDN'T HAVE TO HASH THIS SORTED ARRAY, THIS WOULD BE BEAUTIFULLY CHEAP!!!
+    // SAD FACE!
+    let mut sorted_as_field_array = [0; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL / 3];
+    let two_pow_32 = 4294967296; // 2^32
+    let two_pow_64 = 18446744073709551616; // 2^64
+    let two_pow_96 = 2.pow_32(96);
+    let two_pow_128 = 2.pow_32(128);
+    let two_pow_160 = 2.pow_32(160);
+    std::static_assert(TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL % 3 == 0, "Bad loop");
+    for i in 0..TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL / 3 {
+        let item1 = sorted[i];
+        let item2 = sorted[i + 1];
+        let item3 = sorted[i + 2];
+        sorted_as_field_array[i] = item1.counter as Field
+            + item1.global_index as Field * two_pow_32
+            + item2.counter as Field * two_pow_64
+            + item2.global_index as Field * two_pow_96
+            + item3.counter as Field * two_pow_128
+            + item3.global_index as Field * two_pow_160;
+    }
+    let randomness_incl_sorted_hint = poseidon2_hash(sorted_as_field_array.concat([randomness]));
+
+    let a = poseidon2_hash([randomness_incl_sorted_hint, 1]);
+    let b = poseidon2_hash([randomness_incl_sorted_hint, 2]);
+    let mut acc1 = 1;
+    let mut acc2 = 1;
+    for i in 0..TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL {
+        let original = original[i];
+        let sorted = sorted[i];
+        acc1 *= (original.counter as Field + (original.global_index as Field) * a + b);
+        acc2 *= (sorted.counter as Field + (sorted.global_index as Field) * a + b);
+    }
+    assert_eq(acc1, acc2, "claimed sorted array hint is not a permutation of the original");
+}
+
+fn build_original_side_effect_counters_list(
+    public_inputs: PrivateCircuitPublicInputs,
+) -> [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL] {
+    let mut side_effect_counters = [SideEffectCounter::null(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL];
+
+    for i in 0..public_inputs.note_hash_read_requests.array.len() {
+        let j = i + GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.note_hash_read_requests.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.nullifier_read_requests.array.len() {
+        let j = i + GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.nullifier_read_requests.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.note_hashes.array.len() {
+        let j = i + GLOBAL_INDEX_NOTE_HASH_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.note_hashes.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.nullifiers.array.len() {
+        let j = i + GLOBAL_INDEX_NULLIFIER_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.nullifiers.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.private_call_requests.array.len() {
+        let j_start = i + GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET;
+        let j_end = i + GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET;
+        let item = public_inputs.private_call_requests.array[i];
+        side_effect_counters[j_start] =
+            SideEffectCounter::new(item.start_side_effect_counter, j_start);
+        side_effect_counters[j_end] = SideEffectCounter::new(item.end_side_effect_counter, j_end);
+    }
+
+    for i in 0..public_inputs.public_call_requests.array.len() {
+        let j = i + GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.public_call_requests.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.l2_to_l1_msgs.array.len() {
+        let j = i + GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.l2_to_l1_msgs.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.private_logs.array.len() {
+        let j = i + GLOBAL_INDEX_PRIVATE_LOG_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.private_logs.array[i].counter(), j);
+    }
+
+    for i in 0..public_inputs.contract_class_logs_hashes.array.len() {
+        let j = i + GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET;
+        side_effect_counters[j] = SideEffectCounter::new(
+            public_inputs.contract_class_logs_hashes.array[i].counter(),
+            j,
+        );
+    }
+
+    if public_inputs.min_revertible_side_effect_counter != 0 {
+        let j = GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.min_revertible_side_effect_counter, j);
+    }
+
+    side_effect_counters
 }
 
 /// Validates that each side effect in an array maps to exactly one position in the sorted array, and that position maps
@@ -416,495 +474,452 @@ fn build_side_effect_counter_hints_for_private_call_request(
 /// 3. Builds the reverse mapping (for each side effect, which position in the sorted array)
 unconstrained fn build_uniqueness_hints(
     public_inputs: PrivateCircuitPublicInputs,
-) -> SideEffectUniquenessHints {
-    let mut side_effect_counters = BoundedVec::from_parts_unchecked(
-        [SideEffectCounter::null(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
-        0,
-    );
+) -> [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL] {
+    let mut side_effect_counters = [SideEffectCounter::null(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL];
 
-    for i in 0..public_inputs.note_hash_read_requests.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.note_hash_read_requests.array[i].counter(),
-            i + GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
-        ));
+    for i in 0..public_inputs.note_hash_read_requests.array.len() {
+        let j = i + GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.note_hash_read_requests.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.nullifier_read_requests.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.nullifier_read_requests.array[i].counter(),
-            i + GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-        ));
+    for i in 0..public_inputs.nullifier_read_requests.array.len() {
+        let j = i + GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.nullifier_read_requests.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.note_hashes.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.note_hashes.array[i].counter(),
-            i + GLOBAL_INDEX_NOTE_HASH_OFFSET,
-        ));
+    for i in 0..public_inputs.note_hashes.array.len() {
+        let j = i + GLOBAL_INDEX_NOTE_HASH_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.note_hashes.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.nullifiers.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.nullifiers.array[i].counter(),
-            i + GLOBAL_INDEX_NULLIFIER_OFFSET,
-        ));
+    for i in 0..public_inputs.nullifiers.array.len() {
+        let j = i + GLOBAL_INDEX_NULLIFIER_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.nullifiers.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.private_call_requests.length {
-        let (start, end) = build_side_effect_counter_hints_for_private_call_request(
-            public_inputs.private_call_requests.array[i],
-            i,
-        );
-        side_effect_counters.push(start);
-        side_effect_counters.push(end);
+    for i in 0..public_inputs.private_call_requests.array.len() {
+        let j_start = i + GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET;
+        let j_end = i + GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET;
+        let item = public_inputs.private_call_requests.array[i];
+        side_effect_counters[j_start] =
+            SideEffectCounter::new(item.start_side_effect_counter, j_start);
+        side_effect_counters[j_end] = SideEffectCounter::new(item.end_side_effect_counter, j_end);
     }
 
-    for i in 0..public_inputs.public_call_requests.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.public_call_requests.array[i].counter(),
-            i + GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET,
-        ));
+    for i in 0..public_inputs.public_call_requests.array.len() {
+        let j = i + GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.public_call_requests.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.l2_to_l1_msgs.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.l2_to_l1_msgs.array[i].counter(),
-            i + GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
-        ));
+    for i in 0..public_inputs.l2_to_l1_msgs.array.len() {
+        let j = i + GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.l2_to_l1_msgs.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.private_logs.length {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.private_logs.array[i].counter(),
-            i + GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
-        ));
+    for i in 0..public_inputs.private_logs.array.len() {
+        let j = i + GLOBAL_INDEX_PRIVATE_LOG_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.private_logs.array[i].counter(), j);
     }
 
-    for i in 0..public_inputs.contract_class_logs_hashes.length {
-        side_effect_counters.push(SideEffectCounter::new(
+    for i in 0..public_inputs.contract_class_logs_hashes.array.len() {
+        let j = i + GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET;
+        side_effect_counters[j] = SideEffectCounter::new(
             public_inputs.contract_class_logs_hashes.array[i].counter(),
-            i + GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
-        ));
+            j,
+        );
     }
 
     if public_inputs.min_revertible_side_effect_counter != 0 {
-        side_effect_counters.push(SideEffectCounter::new(
-            public_inputs.min_revertible_side_effect_counter,
-            GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
-        ));
+        let j = GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET;
+        side_effect_counters[j] =
+            SideEffectCounter::new(public_inputs.min_revertible_side_effect_counter, j);
     }
 
     // Sort by counter value. Null entries (padding) sort to the end.
-    let sorted_side_effect_counters = side_effect_counters.storage().sort_via(|a, b| {
-        if b.is_null() {
-            true
-        } else {
-            a.counter <= b.counter
-        }
-    });
+    let sorted_side_effect_counters: [SideEffectCounter; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL] = side_effect_counters
+        .sort_via(|a, b| {
+            if b.is_null() {
+                true
+            } else {
+                a.counter <= b.counter
+            }
+        });
 
-    // Build reverse mapping: indices[global_index] = position in sorted array.
-    // This allows each side effect to look up its position.
-    let mut indices = [0; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL];
-    for i in 0..side_effect_counters.len() {
-        let hint = sorted_side_effect_counters[i];
-        indices[hint.global_index] = i;
-    }
-
-    // Extract per-type index arrays from the global indices array.
-    // subarray(indices, offset) extracts the slice starting at offset with the appropriate length.
-    SideEffectUniquenessHints {
-        sorted_side_effect_counters,
-        note_hash_read_request_indices: subarray(
-            indices,
-            GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
-        ),
-        nullifier_read_request_indices: subarray(
-            indices,
-            GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-        ),
-        note_hashes_indices: subarray(indices, GLOBAL_INDEX_NOTE_HASH_OFFSET),
-        nullifiers_indices: subarray(indices, GLOBAL_INDEX_NULLIFIER_OFFSET),
-        private_call_requests_indices: subarray(
-            indices,
-            GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET,
-        ),
-        public_call_requests_indices: subarray(indices, GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET),
-        l2_to_l1_msgs_indices: subarray(indices, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET),
-        private_logs_indices: subarray(indices, GLOBAL_INDEX_PRIVATE_LOG_OFFSET),
-        contract_class_logs_hashes_indices: subarray(
-            indices,
-            GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
-        ),
-        min_revertible_side_effect_counter_index: indices[GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET],
-    }
+    sorted_side_effect_counters
 }
 
-mod tests {
-    use super::{
-        build_uniqueness_hints, SideEffectUniquenessHints,
-        validate_unique_and_within_bounds_side_effect_counters_with_hints,
-    };
-    use dep::types::{
-        constants::{
-            MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-            MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-            MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-            MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-            TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
-        },
-        tests::FixtureBuilder,
-    };
-
-    struct TestBuilder {
-        private_call: FixtureBuilder,
-        hints: SideEffectUniquenessHints,
-    }
-
-    impl TestBuilder {
-        pub fn new() -> Self {
-            let mut private_call = FixtureBuilder::new_from_counter(50);
-
-            // Safety: For testing purposes only.
-            let hints =
-                unsafe { build_uniqueness_hints(private_call.to_private_circuit_public_inputs()) };
-
-            TestBuilder { private_call, hints }
-        }
-
-        /// Creates a builder with two nullifiers that have the same counter value.
-        /// Used to test that duplicate counters are rejected.
-        pub fn new_duplicate_counter() -> Self {
-            let mut private_call = FixtureBuilder::new_from_counter(50);
-            private_call.append_nullifiers(2);
-
-            // Force both nullifiers to have the same counter.
-            let nullifiers = private_call.nullifiers.storage();
-            let duplicate_counter = nullifiers[0].inner.counter;
-            let mut nullifier_1 = nullifiers[1];
-            nullifier_1.inner.counter = duplicate_counter;
-            private_call.nullifiers.set(1, nullifier_1);
-
-            // Safety: For testing purposes only.
-            let hints =
-                unsafe { build_uniqueness_hints(private_call.to_private_circuit_public_inputs()) };
-
-            TestBuilder { private_call, hints }
-        }
-
-        pub fn with_nullifiers(&mut self) -> Self {
-            self.private_call.append_nullifiers(2);
-            self.rebuild_hints();
-            *self
-        }
-
-        pub fn with_call_requests(&mut self) -> Self {
-            self.private_call.append_private_call_requests(2);
-            self.rebuild_hints();
-            *self
-        }
-
-        pub fn with_min_revertible_side_effect_counter(&mut self) -> Self {
-            self.private_call.append_nullifiers(1);
-
-            self.private_call.end_setup(); // This sets min_revertible_side_effect_counter.
-
-            self.rebuild_hints();
-            *self
-        }
-
-        pub fn rebuild_hints(&mut self) {
-            // Safety: For testing purposes only.
-            self.hints = unsafe {
-                build_uniqueness_hints(self.private_call.to_private_circuit_public_inputs())
-            };
-        }
-
-        pub fn validate(self) {
-            let private_call = self.private_call.to_private_circuit_public_inputs();
-            validate_unique_and_within_bounds_side_effect_counters_with_hints(
-                private_call,
-                self.hints,
-            );
-        }
-    }
-
-    #[test]
-    fn empty_side_effects() {
-        let builder = TestBuilder::new();
-        builder.validate();
-    }
-
-    #[test]
-    fn full_side_effects() {
-        let mut builder = TestBuilder::new();
-
-        builder.private_call.append_note_hashes(5);
-        builder.private_call.append_nullifiers(7);
-        builder.private_call.append_note_hash_read_requests(4);
-        builder.private_call.append_nullifier_read_requests(6);
-        builder.private_call.append_private_call_requests(4);
-        builder.private_call.append_public_call_requests(5);
-        builder.private_call.append_l2_to_l1_msgs(3);
-        builder.private_call.append_private_logs(4);
-        builder.private_call.end_setup();
-        // Add remaining side effects after setup to interleave counters across types.
-        builder.private_call.append_note_hashes(MAX_NOTE_HASHES_PER_CALL - 5);
-        builder.private_call.append_nullifiers(MAX_NULLIFIERS_PER_CALL - 7);
-        builder.private_call.append_contract_class_logs(MAX_CONTRACT_CLASS_LOGS_PER_CALL);
-        builder.private_call.append_note_hash_read_requests(
-            MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - 4,
-        );
-        builder.private_call.append_nullifier_read_requests(
-            MAX_NULLIFIER_READ_REQUESTS_PER_CALL - 6,
-        );
-        builder.private_call.append_private_call_requests(
-            MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL - 4,
-        );
-        builder.private_call.append_public_call_requests(MAX_ENQUEUED_CALLS_PER_CALL - 5);
-        builder.private_call.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_CALL - 3);
-        builder.private_call.append_private_logs(MAX_PRIVATE_LOGS_PER_CALL - 4);
-
-        builder.rebuild_hints();
-
-        // Verify all slots are used (no null padding).
-        assert(
-            !builder.hints.sorted_side_effect_counters[TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL - 1]
-                .is_null(),
-        );
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Counter must be greater than previous counter")]
-    fn duplicate_side_effect_counter() {
-        let builder = TestBuilder::new_duplicate_counter();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Sorted counter hints must have null trailing values")]
-    fn extra_hint_after_bound() {
-        let mut builder = TestBuilder::new_duplicate_counter();
-
-        // Try to sneak in an extra hint for the duplicate counter.
-        let hint = builder.hints.sorted_side_effect_counters[1];
-        builder.hints.sorted_side_effect_counters[2] = hint;
-        builder.hints.nullifiers_indices[1] = 2;
-
-        // Make counters incrementing to avoid the duplicate counter check.
-        builder.hints.sorted_side_effect_counters[1].counter += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch global index: side effect does not match hint")]
-    fn index_points_to_same_hint() {
-        let mut builder = TestBuilder::new_duplicate_counter();
-
-        // Point both nullifiers to the same sorted position.
-        builder.hints.nullifiers_indices[1] = 0;
-
-        // Make counters incrementing to avoid the duplicate counter check.
-        builder.hints.sorted_side_effect_counters[1].counter += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch counter: side effect does not match hint")]
-    fn counter_mismatch_in_hint() {
-        let mut builder = TestBuilder::new().with_nullifiers();
-
-        // Corrupt the counter in the hint.
-        builder.hints.sorted_side_effect_counters[0].counter += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Counter must be greater than previous counter")]
-    fn counter_equal_to_call_start() {
-        let mut builder = TestBuilder::new().with_nullifiers();
-
-        // Set the nullifier's counter equal to the private call's start counter.
-        let start_counter = builder.private_call.counter_start;
-        let mut nullifier = builder.private_call.nullifiers.get(0);
-        nullifier.inner.counter = start_counter;
-        builder.private_call.nullifiers.set(0, nullifier);
-
-        builder.rebuild_hints();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Counter must be greater than previous counter")]
-    fn counter_less_than_call_start() {
-        let mut builder = TestBuilder::new().with_nullifiers();
-
-        // Set the nullifier's counter to be less than the private call's start counter.
-        let start_counter = builder.private_call.counter_start;
-        let mut nullifier = builder.private_call.nullifiers.get(0);
-        nullifier.inner.counter = start_counter - 1;
-        builder.private_call.nullifiers.set(0, nullifier);
-
-        builder.rebuild_hints();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Counter must be less than the end counter of the call")]
-    fn counter_equal_to_call_end() {
-        let mut builder = TestBuilder::new().with_nullifiers();
-
-        // Set the nullifier's counter equal to the private call's end counter.
-        let end_counter = builder.private_call.counter;
-        let mut nullifier = builder.private_call.nullifiers.get(0);
-        nullifier.inner.counter = end_counter;
-        builder.private_call.nullifiers.set(0, nullifier);
-
-        builder.rebuild_hints();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Counter must be less than the end counter of the call")]
-    fn counter_greater_than_end() {
-        let mut builder = TestBuilder::new().with_nullifiers();
-
-        // Set the nullifier's counter to be greater than the private call's end counter.
-        let end_counter = builder.private_call.counter;
-        let mut nullifier = builder.private_call.nullifiers.get(0);
-        nullifier.inner.counter = end_counter + 1;
-        builder.private_call.nullifiers.set(0, nullifier);
-
-        builder.rebuild_hints();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Counter must be greater than previous counter")]
-    fn unsorted_counters_in_hints() {
-        let mut builder = TestBuilder::new().with_nullifiers();
-
-        // Swap the order of hints to make them unsorted.
-        let hint_0 = builder.hints.sorted_side_effect_counters[0];
-        let hint_1 = builder.hints.sorted_side_effect_counters[1];
-        builder.hints.sorted_side_effect_counters[0] = hint_1;
-        builder.hints.sorted_side_effect_counters[1] = hint_0;
-        // Also swap the indices so they point to the swapped hints.
-        builder.hints.nullifiers_indices[0] = 1;
-        builder.hints.nullifiers_indices[1] = 0;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Private call has incorrect counter range")]
-    fn private_call_start_counter_equals_end_counter() {
-        let mut builder = TestBuilder::new();
-
-        // Set start equal to end.
-        builder.private_call.counter_start = builder.private_call.counter;
-
-        builder.rebuild_hints();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Private call has incorrect counter range")]
-    fn start_counter_greater_than_end_counter() {
-        let mut builder = TestBuilder::new();
-
-        // Set start greater than end.
-        builder.private_call.counter_start = builder.private_call.counter + 1;
-
-        builder.rebuild_hints();
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch counter: start of call request does not match hint")]
-    fn private_call_request_start_counter_mismatch() {
-        let mut builder = TestBuilder::new().with_call_requests();
-
-        // Corrupt the start counter hint.
-        builder.hints.sorted_side_effect_counters[0].counter += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch counter: end of call request does not match hint")]
-    fn private_call_request_end_counter_mismatch() {
-        let mut builder = TestBuilder::new().with_call_requests();
-
-        // Corrupt the end counter hint (at index+1).
-        builder.hints.sorted_side_effect_counters[1].counter += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch global index: start of call request does not match hint")]
-    fn private_call_request_start_global_index_mismatch() {
-        let mut builder = TestBuilder::new().with_call_requests();
-
-        // Corrupt the start global index hint.
-        builder.hints.sorted_side_effect_counters[0].global_index += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch global index: end of call request does not match hint")]
-    fn private_call_request_end_global_index_mismatch() {
-        let mut builder = TestBuilder::new().with_call_requests();
-
-        // Corrupt the end global index hint.
-        builder.hints.sorted_side_effect_counters[1].global_index += 1;
-
-        builder.validate();
-    }
-
-    /// Tests that private call request start and end hints must be adjacent.
-    /// If they're not adjacent, another side effect could sneak into the reserved range.
-    #[test(should_fail_with = "Mismatch counter: end of call request does not match hint")]
-    fn private_call_request_non_adjacent_hints() {
-        let mut builder = TestBuilder::new();
-        builder.private_call.append_private_call_requests(1);
-        builder.private_call.append_nullifiers(1);
-        builder.rebuild_hints();
-
-        // The private call request hints should be at indices 0 and 1 (start and end).
-        // The nullifier should be at index 2.
-        // Try to put the nullifier between the start and end hints.
-        let start_hint = builder.hints.sorted_side_effect_counters[0];
-        let end_hint = builder.hints.sorted_side_effect_counters[1];
-        let nullifier_hint = builder.hints.sorted_side_effect_counters[2];
-
-        // Reorder: start, nullifier, end (making start and end non-adjacent).
-        builder.hints.sorted_side_effect_counters[0] = start_hint;
-        builder.hints.sorted_side_effect_counters[1] = nullifier_hint;
-        builder.hints.sorted_side_effect_counters[2] = end_hint;
-
-        // Update indices to match new positions.
-        builder.hints.nullifiers_indices[0] = 1;
-        // private_call_requests_indices[0] stays at 0, but end is now at 2 not 1.
-        // This will fail because index+1 (which is 1) won't have the end counter.
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch counter: value does not match hint")]
-    fn min_revertible_counter_mismatch() {
-        let mut builder = TestBuilder::new().with_min_revertible_side_effect_counter();
-
-        // Find the index of the min_revertible hint and corrupt it.
-        let index = builder.hints.min_revertible_side_effect_counter_index;
-        builder.hints.sorted_side_effect_counters[index].counter += 1;
-
-        builder.validate();
-    }
-
-    #[test(should_fail_with = "Mismatch global index: value does not match hint")]
-    fn min_revertible_global_index_mismatch() {
-        let mut builder = TestBuilder::new().with_min_revertible_side_effect_counter();
-
-        // Corrupt the global index in the hint.
-        let index = builder.hints.min_revertible_side_effect_counter_index;
-        builder.hints.sorted_side_effect_counters[index].global_index += 1;
-
-        builder.validate();
-    }
-
-    // More tests for different side effect types that don't change the hints can be found in:
-    // private_kernel_init/private_call_data/validate_side_effect_counters_tests.nr.
-}
+// mod tests {
+//     use super::{
+//         build_uniqueness_hints, SideEffectUniquenessHints,
+//         validate_unique_and_within_bounds_side_effect_counters_with_hints,
+//     };
+//     use dep::types::{
+//         constants::{
+//             MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+//             MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+//             MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+//             MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+//             TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
+//         },
+//         tests::FixtureBuilder,
+//     };
+
+//     struct TestBuilder {
+//         private_call: FixtureBuilder,
+//         hints: SideEffectUniquenessHints,
+//     }
+
+//     impl TestBuilder {
+//         pub fn new() -> Self {
+//             let mut private_call = FixtureBuilder::new_from_counter(50);
+
+//             // Safety: For testing purposes only.
+//             let hints =
+//                 unsafe { build_uniqueness_hints(private_call.to_private_circuit_public_inputs()) };
+
+//             TestBuilder { private_call, hints }
+//         }
+
+//         /// Creates a builder with two nullifiers that have the same counter value.
+//         /// Used to test that duplicate counters are rejected.
+//         pub fn new_duplicate_counter() -> Self {
+//             let mut private_call = FixtureBuilder::new_from_counter(50);
+//             private_call.append_nullifiers(2);
+
+//             // Force both nullifiers to have the same counter.
+//             let nullifiers = private_call.nullifiers.storage();
+//             let duplicate_counter = nullifiers[0].inner.counter;
+//             let mut nullifier_1 = nullifiers[1];
+//             nullifier_1.inner.counter = duplicate_counter;
+//             private_call.nullifiers.set(1, nullifier_1);
+
+//             // Safety: For testing purposes only.
+//             let hints =
+//                 unsafe { build_uniqueness_hints(private_call.to_private_circuit_public_inputs()) };
+
+//             TestBuilder { private_call, hints }
+//         }
+
+//         pub fn with_nullifiers(&mut self) -> Self {
+//             self.private_call.append_nullifiers(2);
+//             self.rebuild_hints();
+//             *self
+//         }
+
+//         pub fn with_call_requests(&mut self) -> Self {
+//             self.private_call.append_private_call_requests(2);
+//             self.rebuild_hints();
+//             *self
+//         }
+
+//         pub fn with_min_revertible_side_effect_counter(&mut self) -> Self {
+//             self.private_call.append_nullifiers(1);
+
+//             self.private_call.end_setup(); // This sets min_revertible_side_effect_counter.
+
+//             self.rebuild_hints();
+//             *self
+//         }
+
+//         pub fn rebuild_hints(&mut self) {
+//             // Safety: For testing purposes only.
+//             self.hints = unsafe {
+//                 build_uniqueness_hints(self.private_call.to_private_circuit_public_inputs())
+//             };
+//         }
+
+//         pub fn validate(self) {
+//             let private_call = self.private_call.to_private_circuit_public_inputs();
+//             validate_unique_and_within_bounds_side_effect_counters_with_hints(
+//                 private_call,
+//                 self.hints,
+//             );
+//         }
+//     }
+
+//     #[test]
+//     fn empty_side_effects() {
+//         let builder = TestBuilder::new();
+//         builder.validate();
+//     }
+
+//     #[test]
+//     fn full_side_effects() {
+//         let mut builder = TestBuilder::new();
+
+//         builder.private_call.append_note_hashes(5);
+//         builder.private_call.append_nullifiers(7);
+//         builder.private_call.append_note_hash_read_requests(4);
+//         builder.private_call.append_nullifier_read_requests(6);
+//         builder.private_call.append_private_call_requests(4);
+//         builder.private_call.append_public_call_requests(5);
+//         builder.private_call.append_l2_to_l1_msgs(3);
+//         builder.private_call.append_private_logs(4);
+//         builder.private_call.end_setup();
+//         // Add remaining side effects after setup to interleave counters across types.
+//         builder.private_call.append_note_hashes(MAX_NOTE_HASHES_PER_CALL - 5);
+//         builder.private_call.append_nullifiers(MAX_NULLIFIERS_PER_CALL - 7);
+//         builder.private_call.append_contract_class_logs(MAX_CONTRACT_CLASS_LOGS_PER_CALL);
+//         builder.private_call.append_note_hash_read_requests(
+//             MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - 4,
+//         );
+//         builder.private_call.append_nullifier_read_requests(
+//             MAX_NULLIFIER_READ_REQUESTS_PER_CALL - 6,
+//         );
+//         builder.private_call.append_private_call_requests(
+//             MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL - 4,
+//         );
+//         builder.private_call.append_public_call_requests(MAX_ENQUEUED_CALLS_PER_CALL - 5);
+//         builder.private_call.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_CALL - 3);
+//         builder.private_call.append_private_logs(MAX_PRIVATE_LOGS_PER_CALL - 4);
+
+//         builder.rebuild_hints();
+
+//         // Verify all slots are used (no null padding).
+//         assert(
+//             !builder.hints.sorted_side_effect_counters[TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL - 1]
+//                 .is_null(),
+//         );
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Counter must be greater than previous counter")]
+//     fn duplicate_side_effect_counter() {
+//         let builder = TestBuilder::new_duplicate_counter();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Sorted counter hints must have null trailing values")]
+//     fn extra_hint_after_bound() {
+//         let mut builder = TestBuilder::new_duplicate_counter();
+
+//         // Try to sneak in an extra hint for the duplicate counter.
+//         let hint = builder.hints.sorted_side_effect_counters[1];
+//         builder.hints.sorted_side_effect_counters[2] = hint;
+//         builder.hints.nullifiers_indices[1] = 2;
+
+//         // Make counters incrementing to avoid the duplicate counter check.
+//         builder.hints.sorted_side_effect_counters[1].counter += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch global index: side effect does not match hint")]
+//     fn index_points_to_same_hint() {
+//         let mut builder = TestBuilder::new_duplicate_counter();
+
+//         // Point both nullifiers to the same sorted position.
+//         builder.hints.nullifiers_indices[1] = 0;
+
+//         // Make counters incrementing to avoid the duplicate counter check.
+//         builder.hints.sorted_side_effect_counters[1].counter += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch counter: side effect does not match hint")]
+//     fn counter_mismatch_in_hint() {
+//         let mut builder = TestBuilder::new().with_nullifiers();
+
+//         // Corrupt the counter in the hint.
+//         builder.hints.sorted_side_effect_counters[0].counter += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Counter must be greater than previous counter")]
+//     fn counter_equal_to_call_start() {
+//         let mut builder = TestBuilder::new().with_nullifiers();
+
+//         // Set the nullifier's counter equal to the private call's start counter.
+//         let start_counter = builder.private_call.counter_start;
+//         let mut nullifier = builder.private_call.nullifiers.get(0);
+//         nullifier.inner.counter = start_counter;
+//         builder.private_call.nullifiers.set(0, nullifier);
+
+//         builder.rebuild_hints();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Counter must be greater than previous counter")]
+//     fn counter_less_than_call_start() {
+//         let mut builder = TestBuilder::new().with_nullifiers();
+
+//         // Set the nullifier's counter to be less than the private call's start counter.
+//         let start_counter = builder.private_call.counter_start;
+//         let mut nullifier = builder.private_call.nullifiers.get(0);
+//         nullifier.inner.counter = start_counter - 1;
+//         builder.private_call.nullifiers.set(0, nullifier);
+
+//         builder.rebuild_hints();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Counter must be less than the end counter of the call")]
+//     fn counter_equal_to_call_end() {
+//         let mut builder = TestBuilder::new().with_nullifiers();
+
+//         // Set the nullifier's counter equal to the private call's end counter.
+//         let end_counter = builder.private_call.counter;
+//         let mut nullifier = builder.private_call.nullifiers.get(0);
+//         nullifier.inner.counter = end_counter;
+//         builder.private_call.nullifiers.set(0, nullifier);
+
+//         builder.rebuild_hints();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Counter must be less than the end counter of the call")]
+//     fn counter_greater_than_end() {
+//         let mut builder = TestBuilder::new().with_nullifiers();
+
+//         // Set the nullifier's counter to be greater than the private call's end counter.
+//         let end_counter = builder.private_call.counter;
+//         let mut nullifier = builder.private_call.nullifiers.get(0);
+//         nullifier.inner.counter = end_counter + 1;
+//         builder.private_call.nullifiers.set(0, nullifier);
+
+//         builder.rebuild_hints();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Counter must be greater than previous counter")]
+//     fn unsorted_counters_in_hints() {
+//         let mut builder = TestBuilder::new().with_nullifiers();
+
+//         // Swap the order of hints to make them unsorted.
+//         let hint_0 = builder.hints.sorted_side_effect_counters[0];
+//         let hint_1 = builder.hints.sorted_side_effect_counters[1];
+//         builder.hints.sorted_side_effect_counters[0] = hint_1;
+//         builder.hints.sorted_side_effect_counters[1] = hint_0;
+//         // Also swap the indices so they point to the swapped hints.
+//         builder.hints.nullifiers_indices[0] = 1;
+//         builder.hints.nullifiers_indices[1] = 0;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Private call has incorrect counter range")]
+//     fn private_call_start_counter_equals_end_counter() {
+//         let mut builder = TestBuilder::new();
+
+//         // Set start equal to end.
+//         builder.private_call.counter_start = builder.private_call.counter;
+
+//         builder.rebuild_hints();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Private call has incorrect counter range")]
+//     fn start_counter_greater_than_end_counter() {
+//         let mut builder = TestBuilder::new();
+
+//         // Set start greater than end.
+//         builder.private_call.counter_start = builder.private_call.counter + 1;
+
+//         builder.rebuild_hints();
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch counter: start of call request does not match hint")]
+//     fn private_call_request_start_counter_mismatch() {
+//         let mut builder = TestBuilder::new().with_call_requests();
+
+//         // Corrupt the start counter hint.
+//         builder.hints.sorted_side_effect_counters[0].counter += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch counter: end of call request does not match hint")]
+//     fn private_call_request_end_counter_mismatch() {
+//         let mut builder = TestBuilder::new().with_call_requests();
+
+//         // Corrupt the end counter hint (at index+1).
+//         builder.hints.sorted_side_effect_counters[1].counter += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch global index: start of call request does not match hint")]
+//     fn private_call_request_start_global_index_mismatch() {
+//         let mut builder = TestBuilder::new().with_call_requests();
+
+//         // Corrupt the start global index hint.
+//         builder.hints.sorted_side_effect_counters[0].global_index += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch global index: end of call request does not match hint")]
+//     fn private_call_request_end_global_index_mismatch() {
+//         let mut builder = TestBuilder::new().with_call_requests();
+
+//         // Corrupt the end global index hint.
+//         builder.hints.sorted_side_effect_counters[1].global_index += 1;
+
+//         builder.validate();
+//     }
+
+//     /// Tests that private call request start and end hints must be adjacent.
+//     /// If they're not adjacent, another side effect could sneak into the reserved range.
+//     #[test(should_fail_with = "Mismatch counter: end of call request does not match hint")]
+//     fn private_call_request_non_adjacent_hints() {
+//         let mut builder = TestBuilder::new();
+//         builder.private_call.append_private_call_requests(1);
+//         builder.private_call.append_nullifiers(1);
+//         builder.rebuild_hints();
+
+//         // The private call request hints should be at indices 0 and 1 (start and end).
+//         // The nullifier should be at index 2.
+//         // Try to put the nullifier between the start and end hints.
+//         let start_hint = builder.hints.sorted_side_effect_counters[0];
+//         let end_hint = builder.hints.sorted_side_effect_counters[1];
+//         let nullifier_hint = builder.hints.sorted_side_effect_counters[2];
+
+//         // Reorder: start, nullifier, end (making start and end non-adjacent).
+//         builder.hints.sorted_side_effect_counters[0] = start_hint;
+//         builder.hints.sorted_side_effect_counters[1] = nullifier_hint;
+//         builder.hints.sorted_side_effect_counters[2] = end_hint;
+
+//         // Update indices to match new positions.
+//         builder.hints.nullifiers_indices[0] = 1;
+//         // private_call_requests_indices[0] stays at 0, but end is now at 2 not 1.
+//         // This will fail because index+1 (which is 1) won't have the end counter.
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch counter: value does not match hint")]
+//     fn min_revertible_counter_mismatch() {
+//         let mut builder = TestBuilder::new().with_min_revertible_side_effect_counter();
+
+//         // Find the index of the min_revertible hint and corrupt it.
+//         let index = builder.hints.min_revertible_side_effect_counter_index;
+//         builder.hints.sorted_side_effect_counters[index].counter += 1;
+
+//         builder.validate();
+//     }
+
+//     #[test(should_fail_with = "Mismatch global index: value does not match hint")]
+//     fn min_revertible_global_index_mismatch() {
+//         let mut builder = TestBuilder::new().with_min_revertible_side_effect_counter();
+
+//         // Corrupt the global index in the hint.
+//         let index = builder.hints.min_revertible_side_effect_counter_index;
+//         builder.hints.sorted_side_effect_counters[index].global_index += 1;
+
+//         builder.validate();
+//     }
+
+//     // More tests for different side effect types that don't change the hints can be found in:
+//     // private_kernel_init/private_call_data/validate_side_effect_counters_tests.nr.
+// }

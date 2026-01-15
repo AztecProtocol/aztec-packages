@@ -3,6 +3,7 @@ use crate::{
     address::SaltedInitializationHash,
     constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    hash::poseidon2_hash,
     merkle_tree::MembershipWitness,
     proof::verification_key::ChonkVerificationKey,
     public_keys::PublicKeys,
@@ -17,7 +18,14 @@ pub struct PrivateCallData {
 impl PrivateCallData {
     /// Verifies the proof against the verification key and public inputs.
     /// The vk hash is also checked in the backend to match the key.
-    pub fn verify(self, is_first_function_call: bool) {
+    ///
+    /// @param return_randomness - In some cases, the public inputs (of the proof that we're verifying here) were
+    /// output as `return_data`; a column of the databus. The bberg backend is able to access that `return_data` column
+    /// (which corresponds to a call_data(0) or call_data(1) column of this verifying circuit). The `verify_proof_with_type`
+    /// fn is able to return the commitment to the relevant column. We can use this as a fiat-shamir-style commitment
+    /// to the return_data (essentially the public inputs) of the proof. This is useful for some circuits, because it
+    /// means we don't have to re-hash public inputs that are already being committed-to within the innards of bberg.
+    pub fn verify(self, is_first_function_call: bool, return_randomness: bool) -> Field {
         let proof_type = if is_first_function_call {
             PROOF_TYPE_OINK
         } else {
@@ -37,7 +45,16 @@ impl PrivateCallData {
         // Note 2: There are no public inputs because CHONK uses that databus to propagate public inputs. This means that the public inputs of the kernel
         //         are not represented as single field elements, but rather as commitments (points on BN254). Barretenberg handles these public inputs internally
         //         and requires no input from Noir.
-        std::verify_proof_with_type(self.vk.key, [], [], self.vk.hash, proof_type);
+        let databus_commitment =
+            std::verify_proof_with_type(self.vk.key, [], [], self.vk.hash, proof_type);
+
+        // Comptime if, if return_randomness is passed-in as hard-coded `true` or `false:
+        if return_randomness {
+            let randomness = poseidon2_hash(databus_commitment);
+            randomness
+        } else {
+            0
+        }
     }
 }
 

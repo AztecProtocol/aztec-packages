@@ -122,6 +122,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     native_verification_debug<Flavor>(vkey, vk_hash.get_value(), proof_fields);
 #endif
 
+    // Assign default (zero) values to output witnesses for Ultra proofs (no databus)
+    if (!input.output.empty()) {
+        assign_default_g1_to_outputs(builder, input.output);
+    }
+
     return verifier_output;
 }
 

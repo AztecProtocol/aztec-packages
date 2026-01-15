@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <vector>
 
@@ -151,5 +152,37 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& wi
  */
 template <typename Builder>
 void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values);
+
+/// ========== G1 ELEMENT OUTPUT UTILITIES ========== ///
+
+/**
+ * @brief Assign the limbs of a G1 element to output witness indices.
+ *
+ * @details This function extracts the 8 bigfield limbs (4 for x, 4 for y) from a stdlib G1 element
+ * and asserts equality with the witnesses at the provided output indices. This is used to return
+ * databus commitments (like return_data) from recursive verification.
+ *
+ * @tparam Builder The circuit builder type
+ * @param builder The circuit builder
+ * @param element The G1 element whose limbs will be assigned
+ * @param output_indices The 8 witness indices to assign the limbs to
+ */
+template <typename Builder>
+void assign_g1_element_to_outputs(Builder& builder,
+                                  const typename stdlib::bn254<Builder>::Group& element,
+                                  const std::vector<uint32_t>& output_indices);
+
+/**
+ * @brief Assign default (zero) values to output witness indices for G1 element.
+ *
+ * @details This function is used when there is no actual return_data commitment to return
+ * (e.g., for Ultra proofs which don't have databus). It assigns zero to all 8 output witnesses.
+ *
+ * @tparam Builder The circuit builder type
+ * @param builder The circuit builder
+ * @param output_indices The 8 witness indices to assign zeros to
+ */
+template <typename Builder>
+void assign_default_g1_to_outputs(Builder& builder, const std::vector<uint32_t>& output_indices);
 
 } // namespace acir_format

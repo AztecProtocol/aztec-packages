@@ -64,6 +64,7 @@ struct RecursionConstraint {
     uint32_t key_hash;
     uint32_t proof_type;
     WitnessOrConstant<bb::fr> predicate;
+    std::vector<uint32_t> output; // Output witnesses for return_data commitment (8 field elements for G1 point)
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };

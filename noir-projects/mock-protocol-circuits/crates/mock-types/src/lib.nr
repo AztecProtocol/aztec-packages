@@ -148,7 +148,7 @@ impl PreviousRollupData {
     pub fn verify(self, is_root: bool) {
         let inputs = self.base_or_merge_public_inputs.serialize();
 
-        std::verify_proof_with_type(
+        let _ = std::verify_proof_with_type(
             self.vk.key,
             self.proof,
             inputs,
@@ -176,7 +176,7 @@ pub struct ChonkProofData {
 impl ChonkProofData {
     pub fn verify(self) {
         let inputs = KernelPublicInputs::serialize(self.public_inputs);
-        std::verify_proof_with_type(
+        let _ = std::verify_proof_with_type(
             self.vk_data.key,
             self.proof,
             inputs,

@@ -58,6 +58,11 @@ template <bool IsRecursive> class ChonkVerifier {
     static constexpr size_t NUM_PAIRING_POINTS = 4;
 
   public:
+    using VKAndHash = typename HidingKernelVerifier::VKAndHash;
+    using VK = typename HidingKernelVerifier::VerificationKey;
+    using Commitment = typename HidingKernelVerifier::Commitment;
+    using Proof = std::conditional_t<IsRecursive, ChonkStdlibProof, ChonkProof>;
+
     /**
      * @brief Result of Chonk verification reduction (recursive mode only)
      * @details Contains aggregated pairing points and IPA verification data for deferred verification
@@ -66,14 +71,11 @@ template <bool IsRecursive> class ChonkVerifier {
         PairingPoints pairing_points; // Aggregated pairing points (PI + PCS + Merge + Translator)
         IPAClaim ipa_claim;           // IPA opening claim from ECCVM (Grumpkin curve)
         IPAProof ipa_proof;           // IPA proof for verifying the claim
+        Commitment return_data;       // Commitment to the return_data column from the verified proof
         bool all_checks_passed;       // Reduction checks passed (sumcheck, evaluations, etc.)
     };
 
     using Output = std::conditional_t<IsRecursive, ReductionResult, bool>;
-    using VKAndHash = typename HidingKernelVerifier::VKAndHash;
-    using VK = typename HidingKernelVerifier::VerificationKey;
-    using Commitment = typename HidingKernelVerifier::Commitment;
-    using Proof = std::conditional_t<IsRecursive, ChonkStdlibProof, ChonkProof>;
 
     ChonkVerifier(const std::shared_ptr<VKAndHash>& vk_and_hash)
         : vk_and_hash(vk_and_hash)

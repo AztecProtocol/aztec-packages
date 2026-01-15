@@ -106,10 +106,14 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     PairingPoints aggregated_pairing_points =
         PairingPoints::aggregate_multiple(pairing_points_to_aggregate, handle_edge_cases);
 
+    // Extract the return_data commitment from the verified proof's witness commitments
+    Commitment return_data_commitment = verifier.get_witness_commitments().return_data;
+
     // Return reduction result with aggregated pairing points
     return ReductionResult{ .pairing_points = std::move(aggregated_pairing_points),
                             .ipa_claim = std::move(goblin_output.ipa_claim),
                             .ipa_proof = std::move(goblin_output.ipa_proof),
+                            .return_data = std::move(return_data_commitment),
                             .all_checks_passed = mega_reduction_succeeded && goblin_output.all_checks_passed };
 }
 

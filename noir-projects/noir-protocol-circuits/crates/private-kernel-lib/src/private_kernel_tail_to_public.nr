@@ -66,7 +66,7 @@ pub fn execute(
 ) -> PrivateToPublicKernelCircuitPublicInputs {
     // Validate inputs.
     if !dep::std::runtime::is_unconstrained() {
-        inputs.previous_kernel.verify(true /* is_last_kernel */);
+        let _ = inputs.previous_kernel.verify(true, false);
         inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
     }
     validate_previous_kernel_for_tail(

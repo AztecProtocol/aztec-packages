@@ -56,9 +56,12 @@ unconstrained fn generate_output(
 /// VkIndex: PRIVATE_KERNEL_INNER_VK_INDEX
 pub fn execute(inputs: PrivateKernelInnerCircuitPrivateInputs) -> PrivateKernelCircuitPublicInputs {
     // Validate inputs - previous kernel
-    if !dep::std::runtime::is_unconstrained() {
-        inputs.previous_kernel.verify(false /* is_last_kernel */);
-    }
+    let randomness = if !dep::std::runtime::is_unconstrained() {
+        inputs.previous_kernel.verify(false, true)
+    } else {
+        0
+    };
+
     inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
     // Validate inputs - private call

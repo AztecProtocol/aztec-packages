@@ -107,6 +107,11 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
     ChonkRecursiveVerifier verifier(mega_vk_and_hash);
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
 
+    // Assign the return_data commitment to output witnesses
+    if (!input.output.empty()) {
+        assign_g1_element_to_outputs(builder, verification_output.return_data, input.output);
+    }
+
     // Construct output
     // Note: ChonkVerifier aggregates all pairing points (PI + PCS + Merge + Translator)
     HonkRecursionConstraintOutput<Builder> output;

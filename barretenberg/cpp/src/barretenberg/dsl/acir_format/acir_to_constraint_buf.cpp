@@ -207,6 +207,9 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
                             }
                             update_max_witness_index_from_function_input(bb_arg.key_hash);
                             update_max_witness_index_from_function_input(bb_arg.predicate);
+                            for (const auto& output : bb_arg.output) {
+                                update_max_witness_index_from_witness(output);
+                            }
                         } else if constexpr (std::is_same_v<BBT, Acir::BlackBoxFuncCall::Poseidon2Permutation>) {
                             for (const auto& input : bb_arg.inputs) {
                                 update_max_witness_index_from_function_input(input);
@@ -705,6 +708,7 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                     .key_hash = get_witness_from_function_input(arg.key_hash),
                     .proof_type = arg.proof_type,
                     .predicate = predicate,
+                    .output = transform::map(arg.output, to_witness),
                 };
 
                 // Add the recursion constraint to the appropriate container based on proof type

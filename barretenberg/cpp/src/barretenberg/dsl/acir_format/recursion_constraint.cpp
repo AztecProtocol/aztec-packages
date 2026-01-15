@@ -9,6 +9,7 @@
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 
 namespace acir_format {
 
@@ -206,6 +207,14 @@ void process_hn_recursion_constraints(
 
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
         ivc->complete_kernel_circuit_logic(builder);
+
+        // Assign default values to output witnesses for HN constraints
+        // Note: For HN proofs, the return_data commitments are handled internally by the IVC via the DataBusDepot
+        for (const auto& constraint : hn_recursion_data.first) {
+            if (!constraint.output.empty()) {
+                assign_default_g1_to_outputs(builder, constraint.output);
+            }
+        }
 
         // Note: we can't easily track the gate contribution from each individual hn_recursion_constraint since they
         // are handled simultaneously in the above function call; instead we track the total contribution

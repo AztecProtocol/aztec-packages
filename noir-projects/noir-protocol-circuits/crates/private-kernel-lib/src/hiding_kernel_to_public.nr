@@ -38,7 +38,7 @@ pub fn execute(
     // The associated public inputs and proofs are linked through the verification queue in the backend.
     // The proof type `PROOF_TYPE_HN_FINAL` designates the final proof in the client IVC sequence.
     if !std::runtime::is_unconstrained() {
-        std::verify_proof_with_type(
+        let _ = std::verify_proof_with_type(
             inputs.previous_kernel_vk_data.vk.key,
             [],
             [],

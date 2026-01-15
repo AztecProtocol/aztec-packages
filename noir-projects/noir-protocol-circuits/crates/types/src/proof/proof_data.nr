@@ -25,7 +25,7 @@ where
     /// The vk hash is also checked in the backend to match the key.
     pub fn verify(self, proof_type: u32) {
         let public_inputs = self.public_inputs.serialize();
-        std::verify_proof_with_type(
+        let _ = std::verify_proof_with_type(
             self.vk_data.vk.key,
             self.proof,
             public_inputs,
@@ -77,7 +77,7 @@ impl<T> ProofDataForFixedVk<T, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED> {
     where
         T: SerializeToColumns<N>,
     {
-        std::verify_proof_with_type(
+        let _ = std::verify_proof_with_type(
             [], // Unused, hardcoded inside the verifier
             self.proof,
             self.public_inputs.serialize_to_columns(),

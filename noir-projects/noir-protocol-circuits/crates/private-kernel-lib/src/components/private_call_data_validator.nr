@@ -95,9 +95,11 @@ impl PrivateCallDataValidator {
         protocol_contracts: ProtocolContracts,
         claimed_revertible_counter: u32,
     ) {
-        if !std::runtime::is_unconstrained() {
-            self.data.verify(is_first_function_call);
-        }
+        let randomness = if !std::runtime::is_unconstrained() {
+            self.data.verify(is_first_function_call, true)
+        } else {
+            0
+        };
 
         // Validate that the function being executed belongs to the contract being called.
         validate_contract_address(self.data, protocol_contracts);
@@ -108,7 +110,7 @@ impl PrivateCallDataValidator {
 
         self.validate_expected_counters(claimed_revertible_counter);
 
-        validate_unique_and_within_bounds_side_effect_counters(self.data.public_inputs);
+        validate_unique_and_within_bounds_side_effect_counters(self.data.public_inputs, randomness);
     }
 
     /// For Init only.
