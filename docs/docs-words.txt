@@ -376,6 +376,10 @@ fusaka
 healthcheck
 supernode
 supernodes
+Garaga
+satisfiability
+nullptr
+favo
 supermajority
 finalise
 undelegation
