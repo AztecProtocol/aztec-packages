@@ -1,4 +1,5 @@
 #pragma once
+#include "./gate_patterns.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
@@ -101,6 +102,17 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::optional<size_t> find_block_index(const auto& block);
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
+
+    /**
+     * @brief Extract gate variables using a declarative pattern
+     */
+    template <typename Block, typename GateSelectorColumn>
+    std::vector<uint32_t> extract_gate_variables(size_t index,
+                                                 size_t block_idx,
+                                                 Block& blk,
+                                                 const bb::gate_patterns::GatePattern& pattern,
+                                                 const GateSelectorColumn& gate_selector_column,
+                                                 bool filter_zero_idx = false);
 
     void process_execution_trace();
 

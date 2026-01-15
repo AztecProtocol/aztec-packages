@@ -1,4 +1,5 @@
 #include "./graph.hpp"
+#include "./gate_patterns.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -66,6 +67,52 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
 }
 
 /**
+ * @brief Extract gate variables using a declarative pattern
+ *
+ * This method uses a GatePattern to determine which wires are constrained by a gate,
+ * then extracts the variable indices from those wire positions.
+ *
+ * @param index Gate index within the block
+ * @param block_idx Block index in the circuit
+ * @param blk The block containing the gate
+ * @param pattern The GatePattern describing which wires are constrained
+ * @param gate_selector_column The selector column for this gate type (e.g., q_arith, q_elliptic)
+ * @param filter_zero_idx If true, filter out zero_idx variables (used for gates with padding)
+ * @return Vector of real variable indices constrained by this gate
+ */
+template <typename FF, typename CircuitBuilder>
+template <typename Block, typename GateSelectorColumn>
+std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variables(
+    size_t index,
+    size_t block_idx,
+    Block& blk,
+    const bb::gate_patterns::GatePattern& pattern,
+    const GateSelectorColumn& gate_selector_column,
+    bool filter_zero_idx)
+{
+    using namespace bb::gate_patterns;
+
+    // Check if gate selector is active
+    if (gate_selector_column[index].is_zero()) {
+        return {};
+    }
+
+    // Read selectors and extract wire indices using the pattern
+    Selectors selectors = read_selectors(blk, index, gate_selector_column);
+    std::vector<uint32_t> gate_variables = extract_wires(blk, index, pattern, selectors);
+
+    // Optionally filter out zero_idx (used for gates that pad with zero_idx)
+    if (filter_zero_idx) {
+        std::erase(gate_variables, circuit_builder.zero_idx());
+    }
+
+    // Convert to real indices and process
+    gate_variables = to_real(gate_variables);
+    process_gate_variables(gate_variables, index, block_idx);
+    return gate_variables;
+}
+
+/**
  * @brief this method creates connected components from arithmetic gates
  * @tparam FF field type
  * @tparam CircuitBuilder
@@ -73,81 +120,37 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
  * @param block_idx index of the current block
  * @param blk block containing the gates
  * @return std::vector<std::vector<uint32_t>> vector of connected components from the gate and minigate
- * @details Processes both regular arithmetic gates and minigates, handling fixed witness gates
- *          and different arithmetic operations based on selector values
+ * @details Uses pattern-based extraction for normal arithmetic gates, with special handling
+ *          for fixed witness gates which only mark the variable as fixed but don't add edges.
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_arithmetic_gate_connected_component(
     size_t index, size_t block_idx, auto& blk)
 {
     auto q_arith = blk.q_arith()[index];
-    std::vector<uint32_t> all_variables;
-    std::vector<uint32_t> gate_variables;
-    std::vector<uint32_t> minigate_variables;
-    std::vector<std::vector<uint32_t>> all_gates_variables;
     if (q_arith.is_zero()) {
         return {};
     }
+
+    // Check for fixed_witness gate: q_m=0, q_1=1, q_2=0, q_3=0, q_4=0, q_arith=1
+    // These gates just fix a variable to a constant and should not create graph edges
     auto q_m = blk.q_m()[index];
     auto q_1 = blk.q_1()[index];
     auto q_2 = blk.q_2()[index];
     auto q_3 = blk.q_3()[index];
     auto q_4 = blk.q_4()[index];
 
-    uint32_t left_idx = blk.w_l()[index];
-    uint32_t right_idx = blk.w_r()[index];
-    uint32_t out_idx = blk.w_o()[index];
-    uint32_t fourth_idx = blk.w_4()[index];
-    if (q_m.is_zero() && q_1 == 1 && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith == FF::one()) {
-        // this is fixed_witness gate. So, variable index contains in left wire. So, we have to take only it.
-        fixed_variables.insert(this->to_real(left_idx));
-    } else if (!q_m.is_zero() || q_1 != FF::one() || !q_2.is_zero() || !q_3.is_zero() || !q_4.is_zero()) {
-        //  this is not the gate for fix_witness, so we have to process this gate
-        if (!q_m.is_zero()) {
-            gate_variables.emplace_back(left_idx);
-            gate_variables.emplace_back(right_idx);
-        } else {
-            if (!q_1.is_zero()) {
-                gate_variables.emplace_back(left_idx);
-            }
-            if (!q_2.is_zero()) {
-                gate_variables.emplace_back(right_idx);
-            }
-        }
+    bool is_fixed_witness =
+        q_m.is_zero() && q_1 == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith == FF::one();
 
-        if (!q_3.is_zero()) {
-            gate_variables.emplace_back(out_idx);
-        }
-        if (!q_4.is_zero()) {
-            gate_variables.emplace_back(fourth_idx);
-        }
-        if (q_arith == FF(2)) {
-            // We have to use w_4_shift from the next gate
-            // if and only if the current gate isn't last, cause we can't
-            // look into the next gate
-            if (index != blk.size() - 1) {
-                gate_variables.emplace_back(blk.w_4()[index + 1]);
-            }
-        }
-        if (q_arith == FF(3)) {
-            //  In this gate mini gate is enabled, we have 2 equations:
-            //  q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
-            //  w_1 + w_4 - w_1_omega + q_m = 0
-            minigate_variables.emplace_back(left_idx);
-            minigate_variables.emplace_back(fourth_idx);
-            if (index != blk.size() - 1) {
-                gate_variables.emplace_back(blk.w_4()[index + 1]);
-                minigate_variables.emplace_back(blk.w_l()[index + 1]);
-            }
-        }
+    if (is_fixed_witness) {
+        // Fixed witness gate: mark variable but don't add to graph
+        fixed_variables.insert(this->to_real(blk.w_l()[index]));
+        return {};
     }
-    gate_variables = to_real(gate_variables);
-    minigate_variables = to_real(minigate_variables);
-    all_variables.reserve(gate_variables.size() + minigate_variables.size());
-    all_variables.insert(all_variables.end(), gate_variables.begin(), gate_variables.end());
-    all_variables.insert(all_variables.end(), minigate_variables.begin(), minigate_variables.end());
-    process_gate_variables(all_variables, index, block_idx);
-    return all_variables;
+
+    // Use pattern-based extraction for all other arithmetic gates
+    return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::ARITHMETIC, blk.q_arith(), false);
 }
 
 /**
@@ -158,48 +161,15 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_arithmetic
  * @param block_idx index of the current block
  * @param blk block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Handles both elliptic curve addition and doubling operations,
- *          collecting variables from current and next gates as needed
+ * @details Uses pattern-based extraction for elliptic curve addition and doubling operations.
+ *          Add gates (q_m == 0): w_r, w_o, w_l_shift, w_r_shift, w_o_shift, w_4_shift
+ *          Dbl gates (q_m == 1): w_r, w_o, w_r_shift, w_o_shift
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_elliptic_gate_connected_component(
     size_t index, size_t block_idx, auto& blk)
 {
-    std::vector<uint32_t> gate_variables;
-    if (!blk.q_elliptic()[index].is_zero()) {
-        std::vector<uint32_t> first_row_variables;
-        std::vector<uint32_t> second_row_variables;
-        gate_variables.reserve(6);
-        bool is_elliptic_add_gate = !blk.q_1()[index].is_zero() && blk.q_m()[index].is_zero();
-        bool is_elliptic_dbl_gate = blk.q_1()[index].is_zero() && blk.q_m()[index] == FF::one();
-        first_row_variables.emplace_back(blk.w_r()[index]);
-        first_row_variables.emplace_back(blk.w_o()[index]);
-        if (index != blk.size() - 1) {
-            if (is_elliptic_add_gate) {
-                // if this gate is ecc_add_gate, we have to get indices x2, x3, y3, y2 from the next gate
-                second_row_variables.emplace_back(blk.w_l()[index + 1]);
-                second_row_variables.emplace_back(blk.w_r()[index + 1]);
-                second_row_variables.emplace_back(blk.w_o()[index + 1]);
-                second_row_variables.emplace_back(blk.w_4()[index + 1]);
-            }
-            if (is_elliptic_dbl_gate) {
-                // if this gate is ecc_dbl_gate, we have to indices x3, y3 from right and output wires
-                second_row_variables.emplace_back(blk.w_r()[index + 1]);
-                second_row_variables.emplace_back(blk.w_o()[index + 1]);
-            }
-        }
-        if (!first_row_variables.empty()) {
-            first_row_variables = to_real(first_row_variables);
-            process_gate_variables(first_row_variables, index, block_idx);
-            gate_variables.insert(gate_variables.end(), first_row_variables.cbegin(), first_row_variables.cend());
-        }
-        if (!second_row_variables.empty()) {
-            second_row_variables = to_real(second_row_variables);
-            process_gate_variables(second_row_variables, index, block_idx);
-            gate_variables.insert(gate_variables.end(), second_row_variables.cbegin(), second_row_variables.cend());
-        }
-    }
-    return gate_variables;
+    return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::ELLIPTIC, blk.q_elliptic(), false);
 }
 
 /**
@@ -210,34 +180,15 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_elliptic_g
  * @param block_idx index of the current block
  * @param block block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Processes delta range constraints by collecting all wire indices
- *          from the current gate
+ * @details Uses pattern-based extraction for delta range constraints.
+ *          Filters out zero_idx variables since range lists can be padded with them.
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_sort_constraint_connected_component(
     size_t index, size_t blk_idx, auto& block)
 {
-    std::vector<uint32_t> gate_variables = {};
-    if (!block.q_delta_range()[index].is_zero()) {
-        std::vector<uint32_t> row_variables = {
-            block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index]
-        };
-        /*
-        sometimes process_range_list function adds variables with zero_idx in beginning of vector with indices
-        in order to pad a size of indices to gate width. But tool has to ignore these additional variables
-        */
-        for (const auto& var_idx : row_variables) {
-            if (var_idx != circuit_builder.zero_idx()) {
-                gate_variables.emplace_back(var_idx);
-            }
-        }
-        if (index != block.size() - 1 && block.w_l()[index + 1] != circuit_builder.zero_idx()) {
-            gate_variables.emplace_back(block.w_l()[index + 1]);
-        }
-    }
-    gate_variables = to_real(gate_variables);
-    process_gate_variables(gate_variables, index, blk_idx);
-    return gate_variables;
+    // Use filter_zero_idx=true because range lists can be padded with zero_idx
+    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::DELTA_RANGE, block.q_delta_range(), true);
 }
 
 /**
@@ -248,39 +199,16 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_sort_const
  * @param block_idx index of the current block
  * @param block block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Processes plookup gates by collecting variables based on selector values,
- *          including variables from the next gate when necessary
+ * @details Uses pattern-based extraction for lookup gates.
+ *          Always: w_l, w_r, w_o
+ *          Shifted wires based on selectors: w_l_shift (q_2), w_r_shift (q_m), w_o_shift (q_c)
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_plookup_gate_connected_component(size_t index,
                                                                                                        size_t blk_idx,
                                                                                                        auto& block)
 {
-    std::vector<uint32_t> gate_variables;
-    auto q_lookup = block.q_lookup()[index];
-    if (!q_lookup.is_zero()) {
-        gate_variables.reserve(6);
-        auto q_2 = block.q_2()[index];
-        auto q_m = block.q_m()[index];
-        auto q_c = block.q_c()[index];
-        gate_variables.emplace_back(block.w_l()[index]);
-        gate_variables.emplace_back(block.w_r()[index]);
-        gate_variables.emplace_back(block.w_o()[index]);
-        if (index < block.size() - 1) {
-            if (!q_2.is_zero()) {
-                gate_variables.emplace_back(block.w_l()[index + 1]);
-            }
-            if (!q_m.is_zero()) {
-                gate_variables.emplace_back(block.w_r()[index + 1]);
-            }
-            if (!q_c.is_zero()) {
-                gate_variables.emplace_back(block.w_o()[index + 1]);
-            }
-        }
-        gate_variables = to_real(gate_variables);
-        process_gate_variables(gate_variables, index, blk_idx);
-    }
-    return gate_variables;
+    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::LOOKUP, block.q_lookup(), false);
 }
 
 /**
@@ -291,91 +219,58 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_plookup_ga
  * @param blk_idx index of the current block
  * @param block block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Uses pattern-based extraction. Both internal and external patterns use all 8 wires,
+ *          so we try internal first, then external if internal is not active.
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_poseido2s_gate_connected_component(size_t index,
                                                                                                          size_t blk_idx,
                                                                                                          auto& block)
 {
-    std::vector<uint32_t> gate_variables;
-    auto internal_selector = block.q_poseidon2_internal()[index];
-    auto external_selector = block.q_poseidon2_external()[index];
-    if (!internal_selector.is_zero() || !external_selector.is_zero()) {
-        gate_variables.reserve(8);
-        gate_variables.emplace_back(block.w_l()[index]);
-        gate_variables.emplace_back(block.w_r()[index]);
-        gate_variables.emplace_back(block.w_o()[index]);
-        gate_variables.emplace_back(block.w_4()[index]);
-        if (index != block.size() - 1) {
-            gate_variables.emplace_back(block.w_l()[index + 1]);
-            gate_variables.emplace_back(block.w_r()[index + 1]);
-            gate_variables.emplace_back(block.w_o()[index + 1]);
-            gate_variables.emplace_back(block.w_4()[index + 1]);
-        }
-        gate_variables = to_real(gate_variables);
-        process_gate_variables(gate_variables, index, blk_idx);
+    // Try internal selector first
+    auto result = extract_gate_variables(
+        index, blk_idx, block, bb::gate_patterns::POSEIDON2_INTERNAL, block.q_poseidon2_internal(), false);
+    if (!result.empty()) {
+        return result;
     }
-    return gate_variables;
+    // If internal is not active, try external
+    return extract_gate_variables(
+        index, blk_idx, block, bb::gate_patterns::POSEIDON2_EXTERNAL, block.q_poseidon2_external(), false);
 }
 
 /**
- * @brief this method creates connected components from Memory gates (RAM and ROM consistency checks)
+ * @brief this method creates connected components from Memory gates (sorted/consistency gates only)
  * @tparam FF field type
  * @tparam CircuitBuilder
  * @param index index of the current gate
  * @param blk_idx index of the current block
  * @param block block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Uses pattern-based extraction for sorted/consistency gates:
+ *          - RAM timestamp check (q_1 && q_4)
+ *          - ROM consistency (q_1 && q_2)
+ *          - RAM consistency (q_3)
+ *          Access gates (q_1 && q_m) are handled separately by transcript methods.
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_memory_gate_connected_component(size_t index,
                                                                                                       size_t blk_idx,
                                                                                                       auto& block)
 {
-    std::vector<uint32_t> gate_variables;
-    if (!block.q_memory()[index].is_zero()) {
-        gate_variables.reserve(8);
-        auto q_1 = block.q_1()[index];
-        auto q_2 = block.q_2()[index];
-        auto q_3 = block.q_3()[index];
-        auto q_4 = block.q_4()[index];
-        if (q_1 == FF::one() && q_4 == FF::one()) {
-            BB_ASSERT(q_3.is_zero());
-            // ram timestamp check
-            if (index < block.size() - 1) {
-                gate_variables.insert(gate_variables.end(),
-                                      { block.w_r()[index + 1],
-                                        block.w_r()[index],
-                                        block.w_l()[index],
-                                        block.w_l()[index + 1],
-                                        block.w_o()[index] });
-            }
-        } else if (q_1 == FF::one() && q_2 == FF::one()) {
-            BB_ASSERT(q_3.is_zero());
-            // rom constitency check
-            if (index < block.size() - 1) {
-                gate_variables.insert(
-                    gate_variables.end(),
-                    { block.w_l()[index], block.w_l()[index + 1], block.w_4()[index], block.w_4()[index + 1] });
-            }
-        } else {
-            // ram constitency check
-            if (!q_3.is_zero()) {
-                if (index < block.size() - 1) {
-                    gate_variables.insert(gate_variables.end(),
-                                          { block.w_o()[index],
-                                            block.w_4()[index],
-                                            block.w_l()[index + 1],
-                                            block.w_r()[index + 1],
-                                            block.w_o()[index + 1],
-                                            block.w_4()[index + 1] });
-                }
-            }
-        }
+    if (block.q_memory()[index].is_zero()) {
+        return {};
     }
-    gate_variables = to_real(gate_variables);
-    process_gate_variables(gate_variables, index, blk_idx);
-    return gate_variables;
+
+    // Access gates (q_1 && q_m) are handled by transcript methods (get_rom/ram_table_connected_component)
+    // Skip them here to avoid double-processing
+    auto q_1 = block.q_1()[index];
+    auto q_m = block.q_m()[index];
+    if (!q_1.is_zero() && !q_m.is_zero()) {
+        return {};
+    }
+
+    // Use pattern for sorted/consistency gates (timestamp check, ROM/RAM consistency)
+    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::MEMORY, block.q_memory(), false);
 }
 
 /**
@@ -386,78 +281,14 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_memory_gat
  * @param blk_idx index of the current block
  * @param block block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Uses pattern-based extraction for NNF gates. The pattern handles all 5 gate types:
+ *          Limb Accum 1, Limb Accum 2, Product 1, Product 2, Product 3
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_non_native_field_gate_connected_component(
     size_t index, size_t blk_idx, auto& block)
 {
-    std::vector<uint32_t> gate_variables;
-    if (!block.q_nnf()[index].is_zero()) {
-        gate_variables.reserve(8);
-        [[maybe_unused]] auto q_1 = block.q_1()[index];
-        auto q_2 = block.q_2()[index];
-        auto q_3 = block.q_3()[index];
-        auto q_4 = block.q_4()[index];
-        auto q_m = block.q_m()[index];
-
-        auto w_l = block.w_l()[index];
-        auto w_r = block.w_r()[index];
-        auto w_o = block.w_o()[index];
-        auto w_4 = block.w_4()[index];
-        if (q_3 == FF::one() && q_4 == FF::one()) {
-            // bigfield limb accumulation 1
-            if (index < block.size() - 1) {
-                gate_variables.insert(gate_variables.end(),
-                                      { w_l, w_r, w_o, w_4, block.w_l()[index + 1], block.w_r()[index + 1] }); // 6
-            }
-        } else if (q_3 == FF::one() && q_m == FF::one()) {
-            // bigfield limb accumulation 2
-            if (index < block.size() - 1) {
-                gate_variables.insert(gate_variables.end(),
-                                      { w_o,
-                                        w_4,
-                                        block.w_l()[index + 1],
-                                        block.w_r()[index + 1],
-                                        block.w_o()[index + 1],
-                                        block.w_4()[index + 1] });
-            }
-        } else if (q_2 == FF::one() && (q_3 == FF::one() || q_4 == FF::one() || q_m == FF::one())) {
-            // bigfield product cases
-            if (index < block.size() - 1) {
-                std::vector<uint32_t> limb_subproduct_vars = {
-                    w_l, w_r, block.w_l()[index + 1], block.w_r()[index + 1]
-                };
-                if (q_3 == FF::one()) {
-                    // bigfield product 1
-                    BB_ASSERT(q_4.is_zero() && q_m.is_zero());
-                    gate_variables.insert(
-                        gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
-                    gate_variables.insert(gate_variables.end(), { w_o, w_4 });
-                }
-                if (q_4 == FF::one()) {
-                    // bigfield product 2
-                    BB_ASSERT(q_3.is_zero() && q_m.is_zero());
-                    std::vector<uint32_t> non_native_field_gate_2 = { w_l, w_4, w_r, w_o, block.w_o()[index + 1] };
-                    gate_variables.insert(
-                        gate_variables.end(), non_native_field_gate_2.begin(), non_native_field_gate_2.end());
-                    gate_variables.emplace_back(block.w_4()[index + 1]);
-                    gate_variables.insert(
-                        gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
-                }
-                if (q_m == FF::one()) {
-                    // bigfield product 3
-                    BB_ASSERT(q_4.is_zero() && q_3.is_zero());
-                    gate_variables.insert(
-                        gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
-                    gate_variables.insert(gate_variables.end(),
-                                          { w_4, block.w_o()[index + 1], block.w_4()[index + 1] });
-                }
-            }
-        }
-    }
-    gate_variables = to_real(gate_variables);
-    process_gate_variables(gate_variables, index, blk_idx);
-    return gate_variables;
+    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::NON_NATIVE_FIELD, block.q_nnf(), false);
 }
 
 /**
@@ -590,13 +421,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_co
                                                                                                   size_t block_idx,
                                                                                                   auto& blk)
 {
-    std::vector<uint32_t> gate_variables;
-    if (!blk.q_busread()[index].is_zero()) {
-        gate_variables.insert(gate_variables.end(), { blk.w_l()[index], blk.w_r()[index] });
-        gate_variables = to_real(gate_variables);
-        process_gate_variables(gate_variables, index, block_idx);
-    }
-    return gate_variables;
+    return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::DATABUS, blk.q_busread(), false);
 }
 
 /**
@@ -1421,6 +1246,22 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
         variables_in_one_gate.erase(elem);
     }
     remove_record_witness_variables();
+
+    // Remove variables that only appear in sorted ROM gates - these are constrained via tau tags
+    // (permutation argument) rather than copy constraints, matching how connected components
+    // are filtered with is_process_rom_cc
+    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.memory); blk_idx) {
+        std::vector<uint32_t> to_remove;
+        for (const auto& var_idx : variables_in_one_gate) {
+            if (variable_only_in_sorted_rom_gates(var_idx, *blk_idx)) {
+                to_remove.emplace_back(var_idx);
+            }
+        }
+        for (const auto& elem : to_remove) {
+            variables_in_one_gate.erase(elem);
+        }
+    }
+
     return variables_in_one_gate;
 }
 
