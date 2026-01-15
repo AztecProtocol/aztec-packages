@@ -120,36 +120,14 @@ std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variable
  * @param block_idx index of the current block
  * @param blk block containing the gates
  * @return std::vector<std::vector<uint32_t>> vector of connected components from the gate and minigate
- * @details Uses pattern-based extraction for normal arithmetic gates, with special handling
- *          for fixed witness gates which only mark the variable as fixed but don't add edges.
+ * @details Uses pattern-based extraction for all arithmetic gates, including fix_witness gates.
+ *          Fix_witness variables are excluded from boomerang detection via the circuit builder's
+ *          used_witnesses mechanism (fix_witness calls update_used_witnesses at the source).
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_arithmetic_gate_connected_component(
     size_t index, size_t block_idx, auto& blk)
 {
-    auto q_arith = blk.q_arith()[index];
-    if (q_arith.is_zero()) {
-        return {};
-    }
-
-    // Check for fixed_witness gate: q_m=0, q_1=1, q_2=0, q_3=0, q_4=0, q_arith=1
-    // These gates just fix a variable to a constant and should not create graph edges
-    auto q_m = blk.q_m()[index];
-    auto q_1 = blk.q_1()[index];
-    auto q_2 = blk.q_2()[index];
-    auto q_3 = blk.q_3()[index];
-    auto q_4 = blk.q_4()[index];
-
-    bool is_fixed_witness =
-        q_m.is_zero() && q_1 == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith == FF::one();
-
-    if (is_fixed_witness) {
-        // Fixed witness gate: mark variable but don't add to graph
-        fixed_variables.insert(this->to_real(blk.w_l()[index]));
-        return {};
-    }
-
-    // Use pattern-based extraction for all other arithmetic gates
     return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::ARITHMETIC, blk.q_arith(), false);
 }
 
@@ -1247,11 +1225,9 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     remove_unnecessary_decompose_variables(decompose_variables);
     remove_unnecessary_plookup_variables();
     remove_unnecessary_range_constrains_variables();
-    for (const auto& elem : fixed_variables) {
-        variables_in_one_gate.erase(elem);
-    }
-    // we found variables that were in one gate and they are intended cases.
-    // so we have to remove them from the scope
+
+    // Remove variables that are intentionally in one gate (e.g., fix_witness, inverse checks).
+    // These are marked at the source via update_used_witnesses().
     for (const auto& elem : circuit_builder.get_used_witnesses()) {
         variables_in_one_gate.erase(elem);
     }

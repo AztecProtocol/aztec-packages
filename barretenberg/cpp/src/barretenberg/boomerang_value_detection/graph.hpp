@@ -187,7 +187,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
         variable_gates; // we use this data structure to store gates and TraceBlocks for every variables, where static
                         // analyzer finds them in the circuit.
     std::unordered_set<uint32_t> variables_in_one_gate;
-    std::unordered_set<uint32_t> fixed_variables;
     std::unordered_set<uint32_t> constant_variable_indices_set;
 
     std::vector<ConnectedComponent> connected_components;
