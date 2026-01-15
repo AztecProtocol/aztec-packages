@@ -81,6 +81,7 @@ SimulatorResult CppSimulator::simulate(
     fuzzer::FuzzerWorldStateManager& ws_mgr,
     fuzzer::FuzzerContractDB& contract_db,
     const Tx& tx,
+    const GlobalVariables& globals,
     [[maybe_unused]] const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
     [[maybe_unused]] const std::vector<FF>& note_hashes)
 {
@@ -96,8 +97,6 @@ SimulatorResult CppSimulator::simulate(
     };
 
     ProtocolContracts protocol_contracts{};
-
-    auto globals = create_default_globals();
 
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
@@ -156,11 +155,10 @@ SimulatorResult JsSimulator::simulate(
     [[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
     fuzzer::FuzzerContractDB& contract_db,
     const Tx& tx,
+    const GlobalVariables& globals,
     const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
     const std::vector<FF>& note_hashes)
 {
-    auto globals = create_default_globals();
-
     std::string serialized = serialize_simulation_request(tx, globals, contract_db, public_data_writes, note_hashes);
 
     // Send the request

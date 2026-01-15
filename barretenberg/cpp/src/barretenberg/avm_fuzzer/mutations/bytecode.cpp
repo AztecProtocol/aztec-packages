@@ -98,6 +98,7 @@ void mutate_bytecode(std::vector<ContractClassWithCommitment>& contract_classes,
     FF delayed_public_mutable_slot = Poseidon2::hash({ FF(UPDATED_CLASS_IDS_SLOT), address });
 
     // Build preimage
+    // todo(ilyas): make this somewhat random but also take into account the mutation on global variables.timestamp
     FF metadata = 0; // The lower 32 bits are the timestamp_of_change, we set to 0 so it has "taken effect"
     FF hash = Poseidon2::hash({ metadata, original_class_id, new_class_id });
 
