@@ -25,7 +25,6 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionStep,
@@ -840,14 +839,8 @@ export class PXE {
         let executionSteps: PrivateExecutionStep[] = [];
 
         if (skipKernels) {
-          // According to the protocol rules, the nonce generator for the note hashes
-          // can either be the first nullifier in the tx or the protocol nullifier if there are none.
-          const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
-            ? await computeProtocolNullifier(await txRequest.toTxRequest().hash())
-            : privateExecutionResult.firstNullifier;
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
-            nonceGenerator,
             this.contractStore,
           ));
         } else {

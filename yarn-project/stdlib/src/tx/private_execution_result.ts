@@ -79,7 +79,7 @@ export class CountedContractClassLog implements IsEmpty {
 export class PrivateExecutionResult {
   constructor(
     public entrypoint: PrivateCallExecutionResult,
-    /** The first non revertible nullifier, or zero if there was none. */
+    /** The first non-revertible nullifier emitted by any private call, or the protocol nullifier if there was none. */
     public firstNullifier: Fr,
     /** An array of calldata for the enqueued public function calls and the teardown function call. */
     public publicFunctionCalldata: HashedValues[],
