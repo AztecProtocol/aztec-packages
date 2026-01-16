@@ -1,4 +1,4 @@
-use crate::Router;
+use crate::PublicChecks;
 use dep::aztec::test::helpers::test_environment::TestEnvironment;
 use aztec::utils::comparison::Comparator;
 
@@ -9,11 +9,11 @@ use aztec::utils::comparison::Comparator;
 unconstrained fn check_block_number() {
     let mut env = TestEnvironment::new();
 
-    let router_contract_address = env.deploy("Router").without_initializer();
-    let router = Router::at(router_contract_address);
+    let public_checks_contract_address = env.deploy("PublicChecks").without_initializer();
+    let public_checks = PublicChecks::at(public_checks_contract_address);
 
     let expected_next_block_number = env.next_block_number();
-    env.view_public_incognito(router.check_block_number(
+    env.view_public_incognito(public_checks.check_block_number(
         Comparator.LT,
         expected_next_block_number + 1,
     ));
@@ -23,23 +23,26 @@ unconstrained fn check_block_number() {
 unconstrained fn check_block_number_fail() {
     let mut env = TestEnvironment::new();
 
-    let router_contract_address = env.deploy("Router").without_initializer();
-    let router = Router::at(router_contract_address);
+    let public_checks_contract_address = env.deploy("PublicChecks").without_initializer();
+    let public_checks = PublicChecks::at(public_checks_contract_address);
 
     let expected_next_block_number = env.next_block_number();
-    env.view_public_incognito(router.check_block_number(Comparator.LT, expected_next_block_number));
+    env.view_public_incognito(public_checks.check_block_number(
+        Comparator.LT,
+        expected_next_block_number,
+    ));
 }
 
 #[test]
 unconstrained fn check_timestamp() {
     let mut env = TestEnvironment::new();
 
-    let router_contract_address = env.deploy("Router").without_initializer();
-    let router = Router::at(router_contract_address);
+    let public_checks_contract_address = env.deploy("PublicChecks").without_initializer();
+    let public_checks = PublicChecks::at(public_checks_contract_address);
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
-    env.view_public_incognito(router.check_timestamp(
+    env.view_public_incognito(public_checks.check_timestamp(
         Comparator.LT,
         expected_next_block_timestamp + 1,
     ));
@@ -49,10 +52,13 @@ unconstrained fn check_timestamp() {
 unconstrained fn check_timestamp_fail() {
     let mut env = TestEnvironment::new();
 
-    let router_contract_address = env.deploy("Router").without_initializer();
-    let router = Router::at(router_contract_address);
+    let public_checks_contract_address = env.deploy("PublicChecks").without_initializer();
+    let public_checks = PublicChecks::at(public_checks_contract_address);
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
-    env.view_public_incognito(router.check_timestamp(Comparator.LT, expected_next_block_timestamp));
+    env.view_public_incognito(public_checks.check_timestamp(
+        Comparator.LT,
+        expected_next_block_timestamp,
+    ));
 }

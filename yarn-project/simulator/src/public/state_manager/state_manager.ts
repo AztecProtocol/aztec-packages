@@ -4,7 +4,7 @@ import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  ROUTER_ADDRESS,
+  PUBLIC_CHECKS_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -555,6 +555,6 @@ function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
     contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))
+    contractAddress.equals(AztecAddress.fromNumber(PUBLIC_CHECKS_ADDRESS))
   );
 }
