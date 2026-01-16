@@ -12,7 +12,7 @@ name_arg="-p $name"
 cd "$compose_file_path"
 
 # Remove any existing container with the same name.
-docker compose $name_arg down --timeout 0 &> /dev/null
+docker compose $name_arg down --timeout 1 &> /dev/null
 
 function cleanup {
   set +e
@@ -26,7 +26,8 @@ function cleanup {
       sleep 1
   done
   # echo compose kill $name_arg >/dev/tty
-  docker compose $name_arg down --timeout 0 &> /dev/null
+  # Use 30s timeout to avoid "tried to kill container, but did not receive an exit event" race condition
+  dump_fail "docker compose $name_arg down --timeout 30"
 }
 trap cleanup EXIT
 
