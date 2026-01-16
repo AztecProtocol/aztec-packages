@@ -24,6 +24,7 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
@@ -33,9 +34,10 @@ import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { getSequencersConfig, setupEnvironment, startPortForwardForRPC, updateSequencersConfig } from './utils.js';
+import { getExternalIP, getSequencersConfig, setupEnvironment, updateSequencersConfig } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -43,23 +45,28 @@ const debugLogger = createLogger('e2e:spartan-test:mempool_limiter');
 
 const TX_FLOOD_SIZE = 30;
 const TX_MEMPOOL_LIMIT = 25;
-const CONCURRENCY = 25;
+const CONCURRENCY = 5;
 
 describe('mempool limiter test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
   let node: ReturnType<typeof createAztecNodeClient>;
   let sampleTx: Tx;
   let testAccounts: TestAccounts;
-  let cleanup: undefined | (() => Promise<void>);
+  const cleanups: Array<() => Promise<void>> = [];
   let rpcUrl: string;
   let originalMinTxsPerBlock: number | undefined;
+  let originalMaxPendingTxCount: number | undefined;
+  let baselineMaxPendingTxCount = 1_000;
+  let walletPool: {
+    wallet: Awaited<ReturnType<typeof createWalletAndAztecNodeClient>>['wallet'];
+    from: AztecAddress;
+  }[] = [];
 
   const forwardProcesses: ChildProcess[] = [];
 
   beforeAll(async () => {
-    const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(process);
-    rpcUrl = `http://127.0.0.1:${port}`;
+    const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
+    rpcUrl = `http://${rpcIP}:8080`;
     node = createAztecNodeClient(rpcUrl);
     const initialBlock = await node.getBlockNumber().catch(() => 0n);
     debugLogger.info(`Connected to RPC at ${rpcUrl}; initial L2 block: ${initialBlock}`);
@@ -68,14 +75,17 @@ describe('mempool limiter test', () => {
 
   beforeAll(async () => {
     debugLogger.debug(`Preparing account and token contract`);
-    // set a large pool size so that deploy txs fit and allow blocks with few txs
+    // Preserve existing pool settings while we allow blocks with few txs during setup.
     const configs = await getSequencersConfig(config);
     originalMinTxsPerBlock = configs[0]?.minTxsPerBlock;
-    await updateSequencersConfig(config, { maxTxPoolSize: 1e9, minTxsPerBlock: 0 });
+    originalMaxPendingTxCount = configs[0]?.maxPendingTxCount;
+    baselineMaxPendingTxCount = originalMaxPendingTxCount ?? 1_000;
+
+    await updateSequencersConfig(config, { maxPendingTxCount: baselineMaxPendingTxCount, minTxsPerBlock: 0 });
     await retryUntil(
       async () => {
         const applied = await getSequencersConfig(config);
-        return applied.every(c => c.minTxsPerBlock === 0 && c.maxTxPoolSize === 1e9);
+        return applied.every(c => c.minTxsPerBlock === 0 && c.maxPendingTxCount === baselineMaxPendingTxCount);
       },
       'admin config propagate',
       60,
@@ -87,7 +97,7 @@ describe('mempool limiter test', () => {
       aztecNode,
       cleanup: _cleanup,
     } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger);
-    cleanup = _cleanup;
+    cleanups.push(_cleanup);
     // Ensure blocks are advancing before we start waiting on tx inclusion
     const startBlock = await node.getBlockNumber();
     try {
@@ -95,7 +105,39 @@ describe('mempool limiter test', () => {
     } catch {
       debugLogger.warn(`No block advance observed yet; continuing`);
     }
-    testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, 1n, debugLogger);
+    testAccounts = await deploySponsoredTestAccountsWithTokens(
+      wallet,
+      aztecNode,
+      BigInt(TX_FLOOD_SIZE + 5),
+      debugLogger,
+    );
+    walletPool = [{ wallet: testAccounts.wallet, from: testAccounts.accounts[0] }];
+
+    // spread proving across multiple PXEs
+    if (config.REAL_VERIFIER) {
+      const NUM_WALLETS = Math.min(4, CONCURRENCY, TX_FLOOD_SIZE);
+      const mintAmountPerWallet = BigInt(TX_FLOOD_SIZE + 5);
+      const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
+      for (let i = 1; i < NUM_WALLETS; i++) {
+        const { wallet: extraWallet, cleanup: extraCleanup } = await createWalletAndAztecNodeClient(
+          rpcUrl,
+          config.REAL_VERIFIER,
+          debugLogger,
+        );
+        cleanups.push(extraCleanup);
+
+        const extraAccounts = await deploySponsoredTestAccounts(extraWallet, aztecNode, debugLogger, 1);
+        const from = extraAccounts.accounts[0];
+
+        await testAccounts.tokenContract.methods
+          .mint_to_public(from, mintAmountPerWallet)
+          .send({ from: testAccounts.tokenAdminAddress, fee: { paymentMethod: sponsor } })
+          .wait({ timeout: 600 });
+
+        walletPool.push({ wallet: extraWallet, from });
+      }
+    }
 
     debugLogger.debug(`Calculating mempool limits`);
 
@@ -112,37 +154,128 @@ describe('mempool limiter test', () => {
       },
     );
     sampleTx = Tx.clone(baseTx);
-    const sampleTxSize = sampleTx.getSize();
-    const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;
+    const maxPendingTxCount = TX_MEMPOOL_LIMIT;
 
-    await updateSequencersConfig(config, { maxTxPoolSize });
+    // Only apply the mempool limit here for the unproven path.
+    if (!config.REAL_VERIFIER) {
+      await updateSequencersConfig(config, { maxPendingTxCount });
+      await retryUntil(
+        async () => {
+          const applied = await getSequencersConfig(config);
+          return applied.every(c => c.maxPendingTxCount === maxPendingTxCount);
+        },
+        'admin config propagate (mempool limit)',
+        60,
+        1,
+      );
+    }
 
-    debugLogger.info(`Sample tx size: ${sampleTxSize} bytes`);
-    debugLogger.info(`Mempool limited to: ${maxTxPoolSize} bytes`);
+    debugLogger.info(`Mempool limited to: ${maxPendingTxCount} txs`);
   });
 
   afterAll(async () => {
     if (originalMinTxsPerBlock !== undefined) {
-      await updateSequencersConfig(config, { maxTxPoolSize: 1e9, minTxsPerBlock: originalMinTxsPerBlock });
+      await updateSequencersConfig(config, {
+        maxPendingTxCount: baselineMaxPendingTxCount,
+        minTxsPerBlock: originalMinTxsPerBlock,
+      });
     } else {
-      await updateSequencersConfig(config, { maxTxPoolSize: 1e9 });
+      await updateSequencersConfig(config, { maxPendingTxCount: baselineMaxPendingTxCount });
     }
-    await cleanup?.();
+    for (const cleanup of cleanups) {
+      await cleanup();
+    }
     forwardProcesses.forEach(p => p.kill());
   });
 
   it('evicts txs to keep mempool under specified limit', async () => {
-    const txs = times(TX_FLOOD_SIZE, () => {
-      const tx = Tx.fromBuffer(sampleTx.toBuffer());
-      // this only works on unproven networks, otherwise this will fail verification
-      tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
-      tx.getTxHash();
-      return tx;
+    if (!config.REAL_VERIFIER) {
+      const txs = times(TX_FLOOD_SIZE, () => {
+        const tx = Tx.fromBuffer(sampleTx.toBuffer());
+        // this only works on unproven networks, otherwise this will fail verification
+        tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
+        tx.getTxHash();
+        return tx;
+      });
+
+      await asyncPool(CONCURRENCY, txs, tx => node.sendTx(tx));
+      const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.getTxHash()));
+      const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
+      expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
+      return;
+    }
+
+    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+    const walletCount = Math.max(1, walletPool.length);
+
+    const walletQueues: Promise<void>[] = Array(walletCount).fill(Promise.resolve());
+    const enqueue = <T>(walletIdx: number, fn: () => Promise<T>): Promise<T> => {
+      const prev = walletQueues[walletIdx];
+      const next = prev.then(fn);
+      walletQueues[walletIdx] = next.then(
+        () => void 0,
+        () => void 0,
+      );
+      return next;
+    };
+
+    const provePromises = times(TX_FLOOD_SIZE, i => i).map(i => {
+      const walletIdx = i % walletCount;
+      const { wallet, from } = walletPool[walletIdx];
+      return enqueue(walletIdx, async () => {
+        const dest = await AztecAddress.random();
+        const token = TokenContract.at(testAccounts.tokenAddress, wallet);
+        return proveInteraction(wallet, token.methods.transfer_in_public(from, dest, 1n, 0), {
+          from,
+          fee: { paymentMethod: sponsor },
+        });
+      });
     });
 
-    await asyncPool(CONCURRENCY, txs, tx => node.sendTx(tx));
-    const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.getTxHash()));
-    const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
+    // Ensure all per-wallet queues flush
+    const provenTxs = await Promise.all(provePromises);
+
+    // Tighten the pool size for the flood test
+    const maxPendingTxCount = TX_MEMPOOL_LIMIT;
+    await updateSequencersConfig(config, { maxPendingTxCount });
+    await retryUntil(
+      async () => {
+        const applied = await getSequencersConfig(config);
+        return applied.every(c => c.maxPendingTxCount === maxPendingTxCount);
+      },
+      'admin config propagate (mempool limit)',
+      60,
+      1,
+    );
+
+    await asyncPool(CONCURRENCY, provenTxs, tx => node.sendTx(tx));
+    const txHashes = provenTxs.map(tx => tx.getTxHash());
+
+    // Eviction can be async relative to the RPC send, so poll until the pool is under the cap
+    await retryUntil(
+      async () => {
+        const receipts = await asyncPool(
+          CONCURRENCY,
+          txHashes,
+          async txHash => await node.getTxReceipt(txHash).catch(() => undefined),
+        );
+        const pending = receipts.reduce(
+          (count, receipt) => (receipt?.status === TxStatus.PENDING ? count + 1 : count),
+          0,
+        );
+        return pending <= TX_MEMPOOL_LIMIT;
+      },
+      'mempool eviction',
+      90,
+      1,
+    );
+
+    const receipts = await asyncPool(
+      CONCURRENCY,
+      txHashes,
+      async txHash => await node.getTxReceipt(txHash).catch(() => undefined),
+    );
+    const pending = receipts.reduce((count, receipt) => (receipt?.status === TxStatus.PENDING ? count + 1 : count), 0);
     expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
-  }, 600_000);
+  }, 2_400_000);
 });

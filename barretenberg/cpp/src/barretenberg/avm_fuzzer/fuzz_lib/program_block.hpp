@@ -24,11 +24,15 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/memory_manager.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
+using InstructionBlock = bb::avm2::fuzzer::InstructionBlock;
+
 enum class TerminatorType {
     RETURN,
+    REVERT,
     JUMP,
     JUMP_IF,
     NONE,
@@ -51,6 +55,7 @@ class ProgramBlock {
     /// Sets M[0] = base_offset for Relative/IndirectRelative modes
     /// Sets M[pointer_address] = pointer_value for Indirect/IndirectRelative modes
     void preprocess_memory_addresses(ResolvedAddress resolved_address);
+    void record_result_tag_from_param_tags(std::initializer_list<ParamRef> params, ResolvedAddress result_address);
 
     void process_add_8_instruction(ADD_8_Instruction instruction);
     void process_sub_8_instruction(SUB_8_Instruction instruction);
@@ -105,6 +110,13 @@ class ProgramBlock {
         RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction);
     void process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction);
     void process_successcopy_instruction(SUCCESSCOPY_Instruction instruction);
+    void process_ecadd_instruction(ECADD_Instruction instruction);
+    void process_poseidon2perm_instruction(POSEIDON2PERM_Instruction instruction);
+    void process_keccakf1600_instruction(KECCAKF1600_Instruction instruction);
+    void process_sha256compression_instruction(SHA256COMPRESSION_Instruction instruction);
+    void process_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction instruction);
+    void process_toradixbe_instruction(TORADIXBE_Instruction instruction);
+    void process_debuglog_instruction(DEBUGLOG_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;
@@ -117,6 +129,11 @@ class ProgramBlock {
     int offset = -1;
 
     ProgramBlock() = default;
+
+    /// @brief process the instruction block
+    /// @param instruction_block the instruction block to process
+    void process_instruction_block(InstructionBlock& instruction_block);
+
     /// @brief process the instruction
     /// @param instruction the instruction to process
     /// Updates `stored_variables` if the instruction writes to memory
@@ -131,6 +148,13 @@ class ProgramBlock {
     void finalize_with_return(uint8_t return_size,
                               MemoryTagWrapper return_value_tag,
                               uint16_t return_value_offset_index);
+
+    /// @brief finalize the program block with a revert instruction
+    /// Similar to finalize_with_return but uses REVERT opcode instead.
+    /// Sets the terminator type to REVERT.
+    void finalize_with_revert(uint8_t revert_size,
+                              MemoryTagWrapper revert_value_tag,
+                              uint16_t revert_value_offset_index);
 
     /// @brief finalize the block with a jump
     /// Sets the terminator type to JUMP, adds the target block to the successors and the current block to the

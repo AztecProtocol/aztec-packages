@@ -2,9 +2,12 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include <vector>
+
+using InstructionBlock = bb::avm2::fuzzer::InstructionBlock;
 
 struct ReturnOptions {
     uint8_t return_size;
@@ -64,6 +67,12 @@ struct FinalizeWithReturn {
     MSGPACK_FIELDS(return_options);
 };
 
+/// @brief finalizes the current block with Revert and switches to the first non-terminated block
+struct FinalizeWithRevert {
+    ReturnOptions revert_options;
+    MSGPACK_FIELDS(revert_options);
+};
+
 /// @brief switches to the non-terminated block with the chosen index
 struct SwitchToNonTerminatedBlock {
     uint16_t non_terminated_block_idx;
@@ -83,6 +92,7 @@ using CFGInstruction = std::variant<InsertSimpleInstructionBlock,
                                     JumpToBlock,
                                     JumpIfToBlock,
                                     FinalizeWithReturn,
+                                    FinalizeWithRevert,
                                     SwitchToNonTerminatedBlock,
                                     InsertInternalCall>;
 template <class... Ts> struct overloaded_cfg_instruction : Ts... {
@@ -111,6 +121,10 @@ inline std::ostream& operator<<(std::ostream& os, const CFGInstruction& instruct
                 os << "FinalizeWithReturn " << arg.return_options.return_size << " "
                    << arg.return_options.return_value_tag << " " << arg.return_options.return_value_offset_index;
             },
+            [&](FinalizeWithRevert arg) {
+                os << "FinalizeWithRevert " << arg.revert_options.return_size << " "
+                   << arg.revert_options.return_value_tag << " " << arg.revert_options.return_value_offset_index;
+            },
             [&](SwitchToNonTerminatedBlock arg) {
                 os << "SwitchToNonTerminatedBlock " << arg.non_terminated_block_idx;
             },
@@ -128,7 +142,7 @@ class ControlFlow {
     ProgramBlock* current_block;
     /// @brief the entry block of the program
     ProgramBlock* start_block;
-    std::vector<std::vector<FuzzInstruction>>* instruction_blocks;
+    std::vector<InstructionBlock>* instruction_blocks;
 
     /// @brief add instructions to the current block from the instruction block at the given index
     /// taken modulo length of the instruction blocks vector
@@ -160,6 +174,10 @@ class ControlFlow {
     /// @param instruction the instruction to process
     void process_finalize_with_return(FinalizeWithReturn instruction);
 
+    /// @brief terminates the current block with Revert and switches to the first non-terminated block
+    /// @param instruction the instruction to process
+    void process_finalize_with_revert(FinalizeWithRevert instruction);
+
     /// @brief switches to the non-terminated block with the chosen index
     /// @param instruction the instruction to process
     void process_switch_to_non_terminated_block(SwitchToNonTerminatedBlock instruction);
@@ -185,7 +203,7 @@ class ControlFlow {
     std::vector<ProgramBlock*> get_reachable_blocks(ProgramBlock* block);
 
   public:
-    ControlFlow(std::vector<std::vector<FuzzInstruction>>& instruction_blocks)
+    ControlFlow(std::vector<InstructionBlock>& instruction_blocks)
         : current_block(new ProgramBlock())
         , start_block(current_block)
         , instruction_blocks(&instruction_blocks)

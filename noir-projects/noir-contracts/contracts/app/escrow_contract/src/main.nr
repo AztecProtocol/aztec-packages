@@ -23,13 +23,13 @@ pub contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         let note = AddressNote { address: owner };
-        self.storage.owner.initialize(note).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.owner.initialize(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.
     #[external("private")]
     fn withdraw(token: AztecAddress, amount: u128, recipient: AztecAddress) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
 
         let note = self.storage.owner.get_note();
         assert(note.address == sender);

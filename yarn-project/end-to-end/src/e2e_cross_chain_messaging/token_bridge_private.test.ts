@@ -2,8 +2,6 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { CheatCodes } from '@aztec/aztec/testing';
-import { RollupContract } from '@aztec/ethereum/contracts';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
@@ -13,7 +11,7 @@ import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.j
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_private', () => {
-  const t = new CrossChainMessagingTest('token_bridge_private');
+  const t = new CrossChainMessagingTest('token_bridge_private', { startProverNode: true });
 
   let crossChainTestHarness: CrossChainTestHarness;
   let ethAccount: EthAddress;
@@ -25,25 +23,14 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   let wallet: TestWallet;
   let user2Address: AztecAddress;
 
-  let rollup: RollupContract;
-  let cheatCodes: CheatCodes;
-
-  beforeEach(async () => {
-    await t.applyBaseSnapshots();
+  beforeAll(async () => {
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
       t);
-
-    rollup = new RollupContract(
-      crossChainTestHarness!.l1Client,
-      crossChainTestHarness!.l1ContractAddresses.rollupAddress,
-    );
-
-    cheatCodes = t.ctx.cheatCodes;
   }, 300_000);
 
-  afterEach(async () => {
+  afterAll(async () => {
     await t.teardown();
   });
 
@@ -85,20 +72,16 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
-    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(
-      aztecNode,
-      l2TxReceipt.blockNumber!,
-      l2ToL1Message,
-    );
+    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
+    const epoch = await t.advanceToEpochProven(l2TxReceipt);
 
-    // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await cheatCodes.rollup.markAsProven(await rollup.getCheckpointNumber());
+    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, l2ToL1Message);
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
-      l2TxReceipt.blockNumber!,
+      epoch,
       l2ToL1MessageResult!.leafIndex,
       l2ToL1MessageResult!.siblingPath,
     );
@@ -107,12 +90,12 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
 
   // This test checks that it's enough to have the claim secret to claim the funds to whoever we want.
   it('Claim secret is enough to consume the message', async () => {
-    const l1TokenBalance = 1000000n;
-    const bridgeAmount = 100n;
+    const initialPublicBalance = await crossChainTestHarness.getL1BalanceOf(ethAccount);
+    const initialPrivateBalance = await crossChainTestHarness.getL2PrivateBalanceOf(ownerAddress);
 
-    await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
+    const bridgeAmount = 100n;
     const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
-    expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
+    expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(initialPublicBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
     await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
@@ -123,7 +106,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       .send({ from: user2Address })
       .wait();
 
-    await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
+    await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, initialPrivateBalance + bridgeAmount);
   }),
     90_000;
 });

@@ -92,7 +92,6 @@ contract RollupTest is RollupBase {
     rollup = IInstance(address(builder.getConfig().rollup));
 
     inbox = Inbox(address(rollup.getInbox()));
-    outbox = Outbox(address(rollup.getOutbox()));
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
 
@@ -170,7 +169,11 @@ contract RollupTest is RollupBase {
   function testPrune() public setUpFor("mixed_checkpoint_1") {
     _proposeCheckpoint("mixed_checkpoint_1", 1);
 
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(
+      inbox.getInProgress(),
+      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
+      "Invalid in progress"
+    );
 
     // @note  Fetch the inbox root of checkpoint 2. This should be frozen when checkpoint 1 is proposed.
     //        Even if we end up reverting checkpoint 1, we should still see the same root in the inbox.
@@ -185,15 +188,12 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
-    // @note  Get the root that we have in the outbox.
-    //        We read it directly in storage because it is not yet proven, so the getter will give (0, 0).
-    //        The values are stored such that we can check that after pruning, and inserting a new checkpoint,
-    //        we will override it.
-    bytes32 rootMixed = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
-    assertNotEq(rootMixed, bytes32(0), "Invalid root");
-
     rollup.prune();
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(
+      inbox.getInProgress(),
+      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
+      "Invalid in progress"
+    );
     assertEq(rollup.getPendingCheckpointNumber(), 0, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
@@ -205,14 +205,14 @@ contract RollupTest is RollupBase {
     // @note  We prune the pending chain as part of the propose call.
     _proposeCheckpoint("empty_checkpoint_1", Slot.unwrap(prunableAt));
 
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(
+      inbox.getInProgress(),
+      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
+      "Invalid in progress"
+    );
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
-
-    // We check that the roots in the outbox have correctly been updated.
-    bytes32 rootEmpty = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
-    assertEq(rootEmpty, bytes32(0), "Invalid root");
   }
 
   function testTimestamp() public setUpFor("mixed_checkpoint_1") {
@@ -347,10 +347,10 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+    uint256 expectedFee = rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true);
 
     // When not canonical, we expect the fee to be 0
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaMinFee.selector, expectedFee, 1));
     ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
     rollup.propose(
       args,
@@ -415,7 +415,7 @@ contract RollupTest is RollupBase {
   struct TestCheckpointFeeStruct {
     EthValue provingCostPerManaInEth;
     FeeAssetValue provingCostPerManaInFeeAsset;
-    uint128 baseFee;
+    uint128 minFee;
     uint256 feeAmount;
     uint256 portalBalance;
     uint256 manaUsed;
@@ -447,13 +447,13 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+      interim.minFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
-      header.gasFees.feePerL2Gas = interim.baseFee;
+      header.gasFees.feePerL2Gas = interim.minFee;
       header.totalManaUsed = interim.manaUsed;
 
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.
-      interim.feeAmount = interim.manaUsed * interim.baseFee + interim.portalBalance;
+      interim.feeAmount = interim.manaUsed * interim.minFee + interim.portalBalance;
 
       // Assert that balance have NOT been increased by proposing the checkpoint
       ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
@@ -482,8 +482,16 @@ contract RollupTest is RollupBase {
           interim.feeAmount
         )
       );
-      _submitEpochProofWithFee(
-        1, 1, checkpoint.archive, data.archive, data.batchedBlobInputs, prover, header.coinbase, interim.feeAmount
+      _submitEpochProof(
+        1,
+        1,
+        checkpoint.archive,
+        data.archive,
+        data.batchedBlobInputs,
+        data.header.outHash,
+        prover,
+        header.coinbase,
+        interim.feeAmount
       );
     }
     assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
@@ -496,8 +504,16 @@ contract RollupTest is RollupBase {
       testERC20.mint(address(feeJuicePortal), interim.feeAmount - interim.portalBalance);
 
       // When the checkpoint is proven we should have received the funds
-      _submitEpochProofWithFee(
-        1, 1, checkpoint.archive, data.archive, data.batchedBlobInputs, address(42), header.coinbase, interim.feeAmount
+      _submitEpochProof(
+        1,
+        1,
+        checkpoint.archive,
+        data.archive,
+        data.batchedBlobInputs,
+        data.header.outHash,
+        address(42),
+        header.coinbase,
+        interim.feeAmount
       );
 
       {
@@ -581,31 +597,11 @@ contract RollupTest is RollupBase {
 
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
 
-    PublicInputArgs memory args =
-      PublicInputArgs({previousArchive: checkpoint.archive, endArchive: data.archive, proverId: address(0)});
-
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
-
-    fees[0] = bytes32(uint256(uint160(address(0))));
-    fees[1] = bytes32(0);
-
-    bytes memory proof = "";
-
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__StartAndEndNotSameEpoch.selector, Epoch.wrap(0), Epoch.wrap(1))
     );
 
-    rollup.submitEpochRootProof(
-      SubmitEpochRootProofArgs({
-        start: 1,
-        end: 2,
-        args: args,
-        fees: fees,
-        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
-        blobInputs: data.batchedBlobInputs,
-        proof: proof
-      })
-    );
+    _submitEpochProof(1, 2, checkpoint.archive, data.archive, data.batchedBlobInputs, data.header.outHash);
 
     assertEq(rollup.getPendingCheckpointNumber(), 2, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
@@ -619,7 +615,7 @@ contract RollupTest is RollupBase {
 
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid initial proven checkpoint number");
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
-    _submitEpochProof(1, 2, checkpoint.archive, data.archive, data.batchedBlobInputs, address(0));
+    _submitEpochProof(1, 2, checkpoint.archive, data.archive, data.batchedBlobInputs, data.header.outHash);
 
     assertEq(rollup.getPendingCheckpointNumber(), 2, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 2, "Invalid proven checkpoint number");
@@ -725,7 +721,7 @@ contract RollupTest is RollupBase {
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
     bytes32 wrong = bytes32(uint256(0xdeadbeef));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, checkpoint.archive, wrong));
-    _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0));
+    _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, data.header.outHash);
   }
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_checkpoint_1") {
@@ -736,7 +732,21 @@ contract RollupTest is RollupBase {
 
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef));
-    _submitEpochProof(1, 1, checkpoint.archive, wrongArchive, data.batchedBlobInputs, address(0));
+    _submitEpochProof(1, 1, checkpoint.archive, wrongArchive, data.batchedBlobInputs, data.header.outHash);
+  }
+
+  function testSubmitProofInvalidOutHash() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    bytes32 wrongOutHash = bytes32(uint256(0xdeadbeef));
+
+    // Use checkpoint 0 for the previous archive, and checkpoint 1 (the last checkpoint in the epoch) for the outHash
+    // validation.
+    CheckpointLog memory previousCheckpoint = rollup.getCheckpoint(0);
+    CheckpointLog memory endCheckpoint = rollup.getCheckpoint(1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidOutHash.selector, endCheckpoint.outHash, wrongOutHash));
+    _submitEpochProof(1, 1, previousCheckpoint.archive, data.archive, data.batchedBlobInputs, wrongOutHash);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_checkpoint_1") {
@@ -755,7 +765,7 @@ contract RollupTest is RollupBase {
 
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHash));
-    _submitEpochProof(1, 1, checkpoint.archive, data.archive, blobProofInputs, address(0));
+    _submitEpochProof(1, 1, checkpoint.archive, data.archive, blobProofInputs, data.header.outHash);
   }
 
   function testNoBlob() public setUpFor("empty_checkpoint_1") {
@@ -767,7 +777,7 @@ contract RollupTest is RollupBase {
 
     vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
 
-    header.gasFees.feePerL2Gas = uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    header.gasFees.feePerL2Gas = uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoBlobsInCheckpoint.selector));
     ProposeArgs memory args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});
@@ -798,8 +808,77 @@ contract RollupTest is RollupBase {
       )
     );
     _submitEpochProof(
-      1, Constants.AZTEC_MAX_EPOCH_DURATION + 2, checkpoint.archive, data.archive, data.batchedBlobInputs, address(0)
+      1,
+      Constants.AZTEC_MAX_EPOCH_DURATION + 2,
+      checkpoint.archive,
+      data.archive,
+      data.batchedBlobInputs,
+      data.header.outHash
     );
+  }
+
+  function testShorterEpochProofCannotOverwriteOutHash() public setUpFor("mixed_checkpoint_1") {
+    // Propose two checkpoints in epoch 0
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proposeCheckpoint("mixed_checkpoint_2", 2);
+
+    outbox = Outbox(address(rollup.getOutbox()));
+
+    DecoderBase.Data memory checkpoint1Data = load("mixed_checkpoint_1").checkpoint;
+    DecoderBase.Data memory checkpoint2Data = load("mixed_checkpoint_2").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    bytes32 outHash1 = checkpoint1Data.header.outHash;
+    bytes32 outHash2 = checkpoint2Data.header.outHash;
+
+    // Submit proof for checkpoints 1-2 with outHash2
+    _submitEpochProof(1, 2, checkpoint.archive, checkpoint2Data.archive, checkpoint2Data.batchedBlobInputs, outHash2);
+
+    // Verify the state after the first proof
+    assertEq(rollup.getProvenCheckpointNumber(), 2, "Proven checkpoint number should be 2");
+    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash2, "OutHash should be outHash2");
+
+    // Attempt to submit proof for checkpoints 1-1 with outHash1 (shorter proof)
+    // This should not revert, but should not update anything
+    _submitEpochProof(1, 1, checkpoint.archive, checkpoint1Data.archive, checkpoint1Data.batchedBlobInputs, outHash1);
+
+    // Verify that the proven checkpoint number did NOT regress
+    assertEq(rollup.getProvenCheckpointNumber(), 2, "Proven checkpoint number should still be 2");
+
+    // Verify that the outHash did NOT change
+    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash2, "OutHash should still be outHash2");
+  }
+
+  function testLongerEpochProofCanUpdateAfterShorterProof() public setUpFor("mixed_checkpoint_1") {
+    // Propose two checkpoints in epoch 0
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proposeCheckpoint("mixed_checkpoint_2", 2);
+
+    outbox = Outbox(address(rollup.getOutbox()));
+
+    DecoderBase.Data memory checkpoint1Data = load("mixed_checkpoint_1").checkpoint;
+    DecoderBase.Data memory checkpoint2Data = load("mixed_checkpoint_2").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    bytes32 outHash1 = checkpoint1Data.header.outHash;
+    bytes32 outHash2 = checkpoint2Data.header.outHash;
+
+    // Submit proof for checkpoints 1-1 with outHash1 (shorter proof first)
+    _submitEpochProof(1, 1, checkpoint.archive, checkpoint1Data.archive, checkpoint1Data.batchedBlobInputs, outHash1);
+
+    // Verify the state after the first proof
+    assertEq(rollup.getProvenCheckpointNumber(), 1, "Proven checkpoint number should be 1");
+    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash1, "OutHash should be outHash1");
+
+    // Submit proof for checkpoints 1-2 with outHash2 (longer proof)
+    // This SHOULD update both the proven checkpoint number and the outHash
+    _submitEpochProof(1, 2, checkpoint.archive, checkpoint2Data.archive, checkpoint2Data.batchedBlobInputs, outHash2);
+
+    // Verify that the proven checkpoint number progressed to 2
+    assertEq(rollup.getProvenCheckpointNumber(), 2, "Proven checkpoint number should be 2");
+
+    // Verify that the outHash was updated to outHash2
+    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash2, "OutHash should be outHash2");
   }
 
   function _submitEpochProof(
@@ -808,23 +887,25 @@ contract RollupTest is RollupBase {
     bytes32 _prevArchive,
     bytes32 _archive,
     bytes memory _blobInputs,
-    address _prover
+    bytes32 _outHash
   ) internal {
-    _submitEpochProofWithFee(_start, _end, _prevArchive, _archive, _blobInputs, _prover, address(0), 0);
+    _submitEpochProof(_start, _end, _prevArchive, _archive, _blobInputs, _outHash, address(0), address(0), 0);
   }
 
-  function _submitEpochProofWithFee(
+  function _submitEpochProof(
     uint256 _start,
     uint256 _end,
     bytes32 _prevArchive,
     bytes32 _archive,
     bytes memory _blobInputs,
+    bytes32 _outHash,
     address _prover,
     address _coinbase,
     uint256 _fee
   ) internal {
-    PublicInputArgs memory args =
-      PublicInputArgs({previousArchive: _prevArchive, endArchive: _archive, proverId: _prover});
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: _prevArchive, endArchive: _archive, outHash: _outHash, proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

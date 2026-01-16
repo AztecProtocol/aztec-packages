@@ -3,7 +3,6 @@ id: sequencer_management
 sidebar_position: 1
 title: Running a Sequencer
 description: Learn how to manage your sequencer on the Aztec network, including registration, keystore configuration, stake management, and status monitoring.
-references: ["yarn-project/node-keystore/src/config.ts"]
 ---
 
 ## Overview
@@ -121,13 +120,14 @@ aztec validator-keys new \
 - `--fee-recipient`: Set to all zeros (not currently used by the protocol)
 - `--staker-output`: Generate the public keystore for the staking dashboard
 - `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` for mainnet)
-- `--l1-rpc-urls`: Your Ethereum L1 RPC endpoint
-  - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
+- `--l1-rpc-urls`: Your Ethereum mainnet RPC endpoint
+  - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your Ethereum mainnet RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
 - `--count`: Number of validator identities to generate (default: 1)
   - Use this to generate multiple attester identities in a single keystore
   - Example: `--count 5` generates 5 validator identities with sequential addresses
   - All identities are derived from the same mnemonic using different derivation paths
   - Useful for operators running multiple sequencer identities or delegated staking providers
+- `--publisher-count` Number of publisher accounts per validator (default 0)
 
 
 **This command creates two JSON files:**
@@ -140,7 +140,7 @@ Where `N` is an auto-incrementing number (e.g., `key1.json`, `key2.json`, etc.)
 - Automatically generates a mnemonic for key derivation (or provide your own with `--mnemonic`)
 - Creates an ETH key (for your sequencer identifier) and BLS key (for signing)
 - Computes BLS public keys (G1 and G2) and proof of possession
-- Outputs your attester address and BLS public key to the console
+- Outputs your attester address, publisher address and BLS public keys to the console
 
 **Example output (single validator):**
 ```
@@ -257,9 +257,9 @@ Your sequencer needs ETH to pay for gas when submitting blocks to L1. Fund the a
 
 ```bash
 # Get your attester address (this will be your publisher if no separate publisher is configured)
-jq -r '.validators[0].attester.eth' aztec-sequencer/keys/keystore.json
+jq -r '.[0].attester' ~/.aztec/keystore/keyN_staker_output.json
 
-# If you have a separate publisher configured:
+# If you have a separate publisher configured: (Note this returns the publisher private key)
 jq -r '.validators[0].publisher[0]' aztec-sequencer/keys/keystore.json
 ```
 
@@ -285,8 +285,8 @@ Add the following to your `.env` file:
 DATA_DIRECTORY=./data
 KEY_STORE_DIRECTORY=./keys
 LOG_LEVEL=info
-ETHEREUM_HOSTS=[your L1 execution endpoint, or a comma separated list if you have multiple]
-L1_CONSENSUS_HOST_URLS=[your L1 consensus endpoint, or a comma separated list if you have multiple]
+ETHEREUM_HOSTS=[your Ethereum mainnet execution endpoint, or a comma separated list if you have multiple]
+L1_CONSENSUS_HOST_URLS=[your Ethereum mainnet consensus endpoint, or a comma separated list if you have multiple]
 P2P_IP=[your external IP address]
 P2P_PORT=40400
 AZTEC_PORT=8080

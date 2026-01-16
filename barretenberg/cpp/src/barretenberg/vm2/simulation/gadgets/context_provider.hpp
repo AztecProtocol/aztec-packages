@@ -1,16 +1,22 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <span>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/events/context_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/context.hpp"
-#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/calldata_hashing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -35,22 +41,23 @@ class ContextProvider : public ContextProviderInterface {
         , side_effect_tracker(side_effect_tracker)
         , global_variables(global_variables)
     {}
-    std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
-                                                          AztecAddress msg_sender,
-                                                          FF transaction_fee,
+    std::unique_ptr<ContextInterface> make_nested_context(const AztecAddress& address,
+                                                          const AztecAddress& msg_sender,
+                                                          const FF& transaction_fee,
                                                           ContextInterface& parent_context,
                                                           MemoryAddress cd_offset_address,
-                                                          MemoryAddress cd_size_address,
+                                                          uint32_t cd_size,
                                                           bool is_static,
-                                                          Gas gas_limit,
+                                                          const Gas& gas_limit,
                                                           TransactionPhase phase) override;
-    std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
-                                                            AztecAddress msg_sender,
-                                                            FF transaction_fee,
+    std::unique_ptr<ContextInterface> make_enqueued_context(const AztecAddress& address,
+                                                            const AztecAddress& msg_sender,
+                                                            const FF& transaction_fee,
                                                             std::span<const FF> calldata,
+                                                            const FF& calldata_hash,
                                                             bool is_static,
-                                                            Gas gas_limit,
-                                                            Gas gas_used,
+                                                            const Gas& gas_limit,
+                                                            const Gas& gas_used,
                                                             TransactionPhase phase) override;
     uint32_t get_next_context_id() const override;
 

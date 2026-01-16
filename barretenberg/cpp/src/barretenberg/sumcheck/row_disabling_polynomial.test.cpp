@@ -252,10 +252,9 @@ TEST(RowDisablingPolynomial, ComputeDisabledContribution)
         FF u_0 = FF::random_element();
 
         // Create partially evaluated polynomials (simplified for test)
-        typename Flavor::PartiallyEvaluatedMultivariates partially_evaluated;
+        typename Flavor::PartiallyEvaluatedMultivariates partially_evaluated(full_polynomials, multivariate_n);
         for (auto [pe_poly, full_poly] : zip_view(partially_evaluated.get_all(), full_polynomials.get_all())) {
             // Simulate partial evaluation: P(u_0, X_1, ...)
-            pe_poly = bb::Polynomial<FF>(multivariate_n / 2);
             for (size_t i = 0; i < multivariate_n / 2; i++) {
                 // P(u_0, i_1, i_2, ...) = P(0, i_1, ...) + u_0 * (P(1, i_1, ...) - P(0, i_1, ...))
                 pe_poly.at(i) = full_poly[2 * i] + (u_0 * (full_poly[(2 * i) + 1] - full_poly[2 * i]));

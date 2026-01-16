@@ -92,7 +92,7 @@ pub contract AppSubscription {
                     remaining_txs: note.remaining_txs - 1,
                 }
             })
-            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
         self.context.set_as_fee_payer();
 
@@ -142,7 +142,7 @@ pub contract AppSubscription {
         let config = self.storage.config.read();
 
         self.call(Token::at(config.subscription_token_address).transfer_in_private(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             config.subscription_recipient_address,
             config.subscription_price,
             authwit_nonce,
@@ -163,7 +163,7 @@ pub contract AppSubscription {
             .initialize_or_replace(|_| {
                 SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
             })
-            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("utility")]

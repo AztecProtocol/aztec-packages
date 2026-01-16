@@ -2,8 +2,8 @@ import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, NESTED_RECURSIVE_ROLLUP_HONK_PROO
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
-import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { ProofData, ProofDataForFixedVk } from '@aztec/stdlib/proofs';
+import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { ProofData, ProofDataForFixedVk, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   PrivateBaseRollupHints,
@@ -32,7 +32,7 @@ export class TxProvingState {
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  private avm?: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  private avmProof?: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -46,7 +46,7 @@ export class TxProvingState {
   }
 
   public ready() {
-    return !this.requireAvmProof || (!!this.avm && !!this.publicChonkVerifier);
+    return !this.requireAvmProof || (!!this.avmProof && !!this.publicChonkVerifier);
   }
 
   public getAvmInputs(): AvmCircuitInputs {
@@ -80,8 +80,8 @@ export class TxProvingState {
     this.publicChonkVerifier = publicChonkVerifierProofAndVk;
   }
 
-  public setAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>) {
-    this.avm = avmProofAndVk;
+  public setAvmProof(avmProof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>) {
+    this.avmProof = avmProof;
   }
 
   #getPrivateBaseInputs() {
@@ -105,7 +105,7 @@ export class TxProvingState {
     if (!this.publicChonkVerifier) {
       throw new Error('Tx not ready for proving base rollup: public chonk verifier proof undefined');
     }
-    if (!this.avm) {
+    if (!this.avmProof) {
       throw new Error('Tx not ready for proving base rollup: avm proof undefined');
     }
     if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
@@ -114,10 +114,7 @@ export class TxProvingState {
 
     const publicChonkVerifierProofData = toProofData(this.publicChonkVerifier);
 
-    const avmProofData = new ProofDataForFixedVk(
-      this.processedTx.avmProvingRequest.inputs.publicInputs,
-      this.avm.proof,
-    );
+    const avmProofData = new ProofDataForFixedVk(this.processedTx.avmProvingRequest.inputs.publicInputs, this.avmProof);
 
     return new PublicTxBaseRollupPrivateInputs(publicChonkVerifierProofData, avmProofData, this.baseRollupHints);
   }

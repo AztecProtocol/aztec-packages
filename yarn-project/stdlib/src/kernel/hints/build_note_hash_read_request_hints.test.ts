@@ -30,17 +30,15 @@ describe('buildNoteHashReadRequestHints', () => {
   );
 
   const settledNoteHashes = [111, 222, 333];
-  const settledLeafIndexes = [1010n, 2020n, 3030n];
   const oracle = {
-    getNoteHashMembershipWitness: (leafIndex: bigint) =>
-      settledLeafIndexes.includes(leafIndex) ? ({} as any) : undefined,
+    getNoteHashMembershipWitness: (noteHash: Fr) =>
+      settledNoteHashes.includes(noteHash.toNumber()) ? ({} as any) : undefined,
   };
 
   /**
    * Create initial state.
    */
   let noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
-  let noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   let expectedHints: NoteHashReadRequestHints<
     typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX
@@ -66,7 +64,6 @@ describe('buildNoteHashReadRequestHints', () => {
     const readRequestIndex = numReadRequests;
     const hintIndex = numSettledReads;
     const value = settledNoteHashes[noteHashIndex];
-    noteHashLeafIndexMap.set(BigInt(value), settledLeafIndexes[noteHashIndex]);
     noteHashReadRequests[readRequestIndex] = makeReadRequest(settledNoteHashes[noteHashIndex]);
     expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsSettled(hintIndex);
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, new Fr(value));
@@ -85,13 +82,11 @@ describe('buildNoteHashReadRequestHints', () => {
       oracle,
       new ClaimedLengthArray(noteHashReadRequests, numReadRequests),
       new ClaimedLengthArray(noteHashes, MAX_NOTE_HASHES_PER_TX),
-      noteHashLeafIndexMap,
       futureNoteHashes,
     );
 
   beforeEach(() => {
     noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
-    noteHashLeafIndexMap = new Map();
     expectedHints = NoteHashReadRequestHintsBuilder.empty(
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,

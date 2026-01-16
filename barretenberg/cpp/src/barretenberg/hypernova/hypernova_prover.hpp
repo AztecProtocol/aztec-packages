@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
@@ -52,10 +52,8 @@ class HypernovaFoldingProver {
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
 
-    std::shared_ptr<Transcript> transcript;
-
-    HypernovaFoldingProver(std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript) {};
+    HypernovaFoldingProver(std::shared_ptr<Transcript> transcript)
+        : transcript(std::move(transcript)) {};
 
     /**
      * @brief Turn an instance into an accumulator by running Sumcheck.
@@ -67,13 +65,15 @@ class HypernovaFoldingProver {
                                         const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
     /**
-     * @brief Fold an instance into an accumulator. Folding happens in place.
+     * @brief Fold an instance into an accumulator.
+     * @details Takes ownership of accumulator via move - the old accumulator's data is consumed
+     * and a new accumulator is returned. This enables zero-copy flow through the proving pipeline.
      *
-     * @param accumulator
-     * @param instance
-     * @return std::pair<HonkProof, Accumulator>
+     * @param accumulator Moved into the fold operation (consumed)
+     * @param instance The new instance to fold in
+     * @return std::pair<HonkProof, Accumulator> The proof and new accumulator (owns the combined data)
      */
-    std::pair<HonkProof, Accumulator> fold(const Accumulator& accumulator,
+    std::pair<HonkProof, Accumulator> fold(Accumulator&& accumulator,
                                            const std::shared_ptr<ProverInstance>& instance,
                                            const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
@@ -85,6 +85,8 @@ class HypernovaFoldingProver {
     HonkProof export_proof() { return transcript->export_proof(); };
 
   private:
+    std::shared_ptr<Transcript> transcript;
+
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.
      */

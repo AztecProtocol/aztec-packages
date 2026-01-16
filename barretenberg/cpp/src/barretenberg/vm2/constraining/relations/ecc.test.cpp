@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
@@ -158,6 +159,62 @@ TEST(EccAddConstrainingTest, EccDouble)
 
     } });
 
+    check_relation<ecc>(trace);
+}
+
+// Test case for adding two points with different x-coordinates but the same y-coordinate.
+// This edge case exists because cube roots of unity in BN254 Fr allow multiple x values
+// to cube to the same result: if (x, y) is on Grumpkin (y² = x³ - 17), then (ω·x, y)
+// is also on the curve since ω³ = 1.
+//
+// This test uses simulation + tracegen to verify the full pipeline works.
+TEST(EccAddConstrainingTest, EccAddSameYDifferentX)
+{
+    // Point P - known valid point on Grumpkin
+    FF local_p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF local_p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint local_p(local_p_x, local_p_y, false);
+
+    // Point Q - p_x * omega (cube root of unity), same y-coordinate!
+    // omega = 0x0000000000000000b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd
+    FF local_q_x("0x14dd39aa19e1c8b29e0c530a28106a7d64d2213486baba3c86dce51bdddf75bb");
+    FF local_q_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint local_q(local_q_x, local_q_y, false);
+
+    // Verify preconditions: same y, different x
+    ASSERT_NE(local_p.x(), local_q.x());
+    ASSERT_EQ(local_p.y(), local_q.y());
+
+    // Expected result R = P + Q (lambda = 0 since y's are equal)
+    FF local_r_x("0x16bdb7ada0799a3088b9dd3faade12c3f79dbfe9cb1234783a1a7add546398dc");
+    FF local_r_y("0x2d08e098faf58cb97223d13f2a1b87dd6614173f3cefe87ca6a74e3034c244a1");
+    EmbeddedCurvePoint local_r(local_r_x, local_r_y, false);
+
+    // Use simulation to generate events
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator;
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Perform the addition via simulation
+    EmbeddedCurvePoint result = ecc_simulator.add(local_p, local_q);
+    ASSERT_EQ(result, local_r) << "Simulation produced wrong result";
+
+    // Build trace from simulation events
+    TestTraceContainer trace;
+    EccTraceBuilder builder;
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    // Verify PIL constraints pass
     check_relation<ecc>(trace);
 }
 
@@ -559,6 +616,85 @@ TEST(ScalarMulConstrainingTest, BasicMul)
     check_relation<scalar_mul>(trace);
 }
 
+// Edge case: Verify that 0 * P = infinity (point at infinity)
+TEST(ScalarMulConstrainingTest, MulByZero)
+{
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Multiply by zero - result should be point at infinity
+    FF scalar = FF(0);
+    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(p, scalar);
+
+    // Verify result is infinity
+    ASSERT_TRUE(result.is_infinity());
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+}
+
+// Edge case: Verify scalar multiplication works with a large scalar near field modulus
+TEST(ScalarMulConstrainingTest, MulByLargeScalar)
+{
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Use a large scalar (p - 1, where p is the field modulus)
+    // BN254 scalar field modulus - 1: 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000
+    FF scalar = FF("0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffffff");
+    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(p, scalar);
+
+    // Verify result is a valid point (not infinity for non-zero scalar with non-infinity point)
+    // The exact result depends on the scalar and point, but it should be deterministic
+    EmbeddedCurvePoint expected_result = p * Fq(scalar);
+    EXPECT_EQ(result, expected_result);
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    // Note: Row count varies based on number of ECC operations (depends on scalar bit pattern)
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+}
+
 TEST(ScalarMulConstrainingTest, MultipleInvocations)
 {
     EccTraceBuilder builder;
@@ -653,6 +789,54 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
     });
 
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
+
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+}
+
+TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinityRep)
+{
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+
+    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(inf_bb, FF(10));
+    ASSERT_TRUE(result.is_infinity());
+    result = ecc_simulator.scalar_mul(inf_alt, FF(10));
+    ASSERT_TRUE(result.is_infinity());
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    auto scalar_mul_events = scalar_mul_event_emitter.dump_events();
+    // Infinity points should be normalised to (0, 0) for any lookups into ecc.pil
+    for (auto& event : scalar_mul_events) {
+        EXPECT_EQ(event.point.x(), inf.x());
+        EXPECT_EQ(event.point.y(), inf.y());
+    }
+
+    builder.process_scalar_mul(scalar_mul_events, trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
     check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
@@ -1158,6 +1342,96 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
 
     check_all_interactions<EccTraceBuilder>(trace);
     check_relation<mem_aware_ecc>(trace);
+}
+
+TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
+{
+    EccTraceBuilder builder;
+    MemoryStore memory;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+    MemoryAddress dst_address = 5;
+
+    // Point P is infinity
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
+    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+    TestTraceContainer trace;
+
+    // Internal add() expects normalized points:
+    EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(inf, inf_alt), "normalized");
+
+    // Coordinates are normalized in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
+    // correctly assigns double_op = true when doubling inf:
+    ecc_simulator.add(memory, inf, inf_alt, dst_address);
+    // As above for the noir (0, 0) and bb (x, 0) inf reps:
+    ecc_simulator.add(memory, inf, inf_bb, dst_address + 3);
+
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    check_relation<ecc>(trace);
+    EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
+
+    // Set memory reads:
+    trace.set(0,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_alt.x() },
+                  { C::execution_register_4_, inf_alt.y() },
+                  { C::execution_register_5_, inf_alt.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+    trace.set(1,
+              { { // Execution
+                  { C::execution_sel, 1 },
+                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
+                  { C::execution_rop_6_, dst_address + 3 },
+                  { C::execution_register_0_, inf.x() },
+                  { C::execution_register_1_, inf.y() },
+                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
+                  { C::execution_register_3_, inf_bb.x() },
+                  { C::execution_register_4_, inf_bb.y() },
+                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  // GT - dst out of range check
+                  { C::gt_sel, 1 },
+                  { C::gt_input_a, dst_address + 5 },
+                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+                  { C::gt_res, 0 } } });
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    // The original coordinates are stored in memory for the read...
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
+    // ...but normalised coordinates are sent to the ecc subtrace:
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
+    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
+    check_relation<mem_aware_ecc>(trace);
+    check_relation<ecc>(trace);
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }
 
 } // namespace

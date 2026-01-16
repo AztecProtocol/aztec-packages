@@ -27,7 +27,7 @@ describe('Conversion Opcodes', () => {
         ...Buffer.from('5678', 'hex'), // outputStateOffset
       ]);
       const inst = new ToRadixBE(
-        /*indirect=*/ 0x0001,
+        /*addressing_mode=*/ 0x0001,
         /*srcOffset=*/ 0x1234,
         /*radixOffset=*/ 0x2345,
         /*numLimbsOffset=*/ 0x3456,

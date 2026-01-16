@@ -27,6 +27,8 @@ pub use poseidon2_chunks::poseidon2_absorb_in_chunks_existing_sponge;
 use poseidon2_chunks::poseidon2_absorb_in_chunks;
 use std::embedded_curve_ops::EmbeddedCurveScalar;
 
+// TODO: refactor these into their own files: sha256, poseidon2, some protocol-specific hash computations, some merkle computations.
+
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
@@ -154,10 +156,6 @@ pub fn compute_app_secret_key(
     )
 }
 
-pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
-}
-
 pub fn compute_l2_to_l1_hash(
     contract_address: AztecAddress,
     recipient: EthAddress,
@@ -205,6 +203,7 @@ pub fn silo_l2_to_l1_message(
     }
 }
 
+// TODO: consider a variant that enables domain separation with a u32 (we seem to have standardised u32s for domain separators)
 /// Computes sha256 hash of 2 input fields.
 ///
 /// @returns A truncated field (i.e., the first byte is always 0).
@@ -217,6 +216,7 @@ pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
+// TODO: remove this. The protocol doesn't need it.
 #[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)

@@ -1,7 +1,8 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 458fb330efa8c470567ab4b84a8a92a58b00586a}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// 4433c06ae693451c6f69a2f63b7da6628078d872}
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "field.hpp"

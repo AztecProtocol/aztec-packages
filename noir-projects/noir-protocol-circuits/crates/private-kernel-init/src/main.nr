@@ -9,7 +9,10 @@ use dep::types::{
 };
 
 /**
- * @param first_nullifier_hint: 0 if there is no nullifier yet; otherwise it's a claim on whatever has been pushed as the 0th nullifier already by some private call.
+ * @param first_nullifier_hint: a hint to what will be the first nullifier of the transaction. This hint should be 
+ *        set to 0 if no nullifiers will be emitted by any private call. The Init circuit will create a protocol 
+ *        nullifier if the hint is 0. (Note: the 0th nullifier is used to compute note nonces, which are injected
+ *        into notes to prevent Faerie-Gold attacks).
  */
 fn main(
     tx_request: TxRequest,

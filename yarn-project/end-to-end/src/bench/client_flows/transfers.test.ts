@@ -43,11 +43,11 @@ describe('Transfer benchmark', () => {
   const config = t.config.transfers;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeployCandyBarTokenSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setup();
+    await t.applyDeployBananaToken();
+    await t.applyFPCSetup();
+    await t.applyDeployCandyBarToken();
+    await t.applyDeploySponsoredFPC();
 
     ({
       adminWallet,
@@ -59,7 +59,7 @@ describe('Transfer benchmark', () => {
       candyBarCoin,
       candyBarCoinInstance,
       sponsoredFPCInstance,
-    } = await t.setup());
+    } = t);
   });
 
   afterAll(async () => {

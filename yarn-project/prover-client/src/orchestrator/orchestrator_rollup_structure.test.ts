@@ -1,5 +1,5 @@
 import { BatchedBlobAccumulator } from '@aztec/blob-lib';
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { AZTEC_MAX_EPOCH_DURATION, MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -7,8 +7,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { ScopedL2ToL1Message, computeL2ToL1MembershipWitnessFromMessagesInEpoch } from '@aztec/stdlib/messaging';
 import { FeeRecipient } from '@aztec/stdlib/rollup';
 import type { ServerCircuitName } from '@aztec/stdlib/stats';
+import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -36,6 +38,13 @@ describe('prover/orchestrator/rollup-structure', () => {
       daGas: (txIndex + 1) * (blockNumber + 2),
       l2Gas: (txIndex + 3) * blockNumber,
     });
+  };
+
+  const makeL2ToL1Messages = (blockGlobalVariables: GlobalVariables, txIndex: number) => {
+    // Tweak the l2-to-l1 messages to have different amounts for building the out hashes in various tree shapes.
+    const numL2ToL1Messages = (blockGlobalVariables.blockNumber + txIndex) % (MAX_L2_TO_L1_MSGS_PER_TX + 1);
+    const messages = Array.from({ length: numL2ToL1Messages }, () => makeScopedL2ToL1Message((txIndex + 1) * 456));
+    return padArrayEnd(messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX);
   };
 
   beforeEach(async () => {
@@ -78,6 +87,7 @@ describe('prover/orchestrator/rollup-structure', () => {
       const numCheckpoints = numTxsPerBlockInCheckpoints.length;
       const numL1ToL2Messages = 2;
 
+      const l1ToL2MessagesInEpoch: Fr[][][][] = [];
       const epochStartArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, await context.worldState.fork());
 
       const expectedFees: FeeRecipient[] = [];
@@ -92,8 +102,13 @@ describe('prover/orchestrator/rollup-structure', () => {
           makeProcessedTxOpts: (blockGlobalVariables: GlobalVariables, txIndex: number) => ({
             gasUsed: mockTxGasUsed(txIndex, blockGlobalVariables.blockNumber),
             privateOnly: txIndex % 2 === 0,
+            avmAccumulatedData: {
+              l2ToL1Msgs: makeL2ToL1Messages(blockGlobalVariables, txIndex),
+            },
           }),
         });
+
+        l1ToL2MessagesInEpoch[checkpointIndex] = checkpoint.blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs));
 
         // Accumulate the fees for the checkpoint, to be compared with the values from the root rollup's public inputs.
         const totalFee = checkpoint.blocks
@@ -134,6 +149,13 @@ describe('prover/orchestrator/rollup-structure', () => {
 
       const epochEndArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, await context.worldState.fork());
       expect(result.publicInputs.endArchiveRoot).toEqual(epochEndArchive.root);
+
+      const firstMessage = l1ToL2MessagesInEpoch.flat(4)[0];
+      const { root: epochOutHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(
+        l1ToL2MessagesInEpoch,
+        firstMessage,
+      );
+      expect(result.publicInputs.outHash).toEqual(epochOutHash);
 
       const expectedCheckpointHeaderHashes = checkpoints.map(c => c.header.hash());
       expect(result.publicInputs.checkpointHeaderHashes).toEqual(

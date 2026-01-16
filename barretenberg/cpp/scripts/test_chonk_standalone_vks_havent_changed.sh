@@ -13,8 +13,17 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-chonk-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="c288d94d"
+pinned_short_hash="db8f42e3"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
+
+script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+echo "$script_path"
+
+function update_pinned_hash_in_script {
+    local new_hash=$1
+    echo "Updating pinned_short_hash in script to: $new_hash"
+    sed -i "s/^pinned_short_hash=\"[^\"]*\"/pinned_short_hash=\"$new_hash\"/" "$script_path"
+}
 
 function compress_and_upload {
     # 1) Compress the results
@@ -33,9 +42,12 @@ function compress_and_upload {
     echo "Uploading bb-chonk-inputs.tar.gz to ${s3_uri}..."
     aws s3 cp bb-chonk-inputs.tar.gz "${s3_uri}"
 
+    # 4) Update the pinned hash in this script
+    update_pinned_hash_in_script "$short_hash"
+
     echo "Done. New inputs available at:"
     echo "  ${s3_uri}"
-    echo "Update the pinned_chonk_inputs_url in this script to point to the new location."
+    echo "Script updated with new pinned_short_hash: $short_hash"
 }
 
 function run_proof_test_on_inputs {

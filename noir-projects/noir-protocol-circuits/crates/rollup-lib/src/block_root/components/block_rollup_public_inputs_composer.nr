@@ -41,9 +41,10 @@ impl BlockRollupPublicInputsComposer {
         previous_archive: AppendOnlyTreeSnapshot,
         previous_state: StateReference,
         constants: CheckpointConstantData,
-        start_sponge_blob: SpongeBlob,
         timestamp: u64,
     ) -> Self {
+        let empty_sponge_blob = SpongeBlob::init();
+
         Self {
             constants,
             previous_archive,
@@ -51,8 +52,9 @@ impl BlockRollupPublicInputsComposer {
             // The state remains the same since there are no tx effects in this block.
             start_tree_snapshots: previous_state.partial,
             end_tree_snapshots: previous_state.partial,
-            start_sponge_blob,
-            end_sponge_blob: start_sponge_blob,
+            // Since it's the first block in a checkpoint, the start sponge blob is empty.
+            start_sponge_blob: empty_sponge_blob,
+            end_sponge_blob: empty_sponge_blob,
             timestamp,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,
@@ -78,6 +80,9 @@ impl BlockRollupPublicInputsComposer {
             fee_recipient: global_variables.fee_recipient,
             gas_fees: global_variables.gas_fees,
         };
+
+        // This should never bite, because both private/public tx base rollups set num_txs to 1. Nevertheless, it's here.
+        assert(rollup.num_txs != 0, "Must use new_from_no_rollups instead.");
 
         Self {
             constants,
@@ -159,8 +164,7 @@ impl BlockRollupPublicInputsComposer {
             end_state: block_header.state,
             start_sponge_blob: self.start_sponge_blob,
             end_sponge_blob,
-            start_timestamp: self.timestamp,
-            end_timestamp: self.timestamp,
+            timestamp: self.timestamp,
             block_headers_hash: block_header_hash,
             in_hash: self.in_hash,
             out_hash: self.out_hash,
@@ -180,8 +184,11 @@ impl BlockRollupPublicInputsComposer {
         // Block number equals the index at which the new block header hash is inserted into the archive tree.
         let block_number = self.previous_archive.next_available_leaf_index as u32;
 
+        // TODO: this feels like "validation" that should therefore be done by the "Validator", rather than this "Composer".
+        // TODO: consider doing this as part of the "empty" variant's validation. It doesn't seem to belong here?
+
         // Note: For non-empty blocks, a check is performed in `block_root_rollup_inputs_validator.nr` to ensure that
-        // the leaf index matches the block number (u32) in the tx constants, which implies that the leaf index does not
+        // the leaf index (field) matches the block number (u32) in the tx constants, which implies that the leaf index does not
         // exceed u32. However, for empty blocks, without the check below, the block number would be truncated to a
         // smaller value (dropping the high bits) if the leaf index exceeded u32. This would allow the block to follow
         // a block with a much smaller block number, while `last_archive` would still contain the large index.
@@ -190,6 +197,10 @@ impl BlockRollupPublicInputsComposer {
         // Note: An empty block with a mismatched `last_archive` leaf index could be rolled up if it is in the first
         // checkpoint of an epoch, since only the `last_archive.root` is output from the root rollup and checked on L1.
         self.previous_archive.next_available_leaf_index.assert_max_bit_size::<32>();
+        std::static_assert(
+            ARCHIVE_HEIGHT <= 32,
+            "You need to update the max bit size on the line above",
+        );
 
         let global_variables = GlobalVariables {
             chain_id: self.constants.chain_id,
@@ -204,7 +215,13 @@ impl BlockRollupPublicInputsComposer {
 
         // Absorb data for this block into the end sponge blob.
         let mut block_end_sponge_blob = self.end_sponge_blob;
+
         // `in_hash` is not 0 if and only if it's the first block in the checkpoint.
+        // Note: the `in_hash` of the first block in the checkpoint is asserted to be nonzero
+        // by the Checkpoint Root circuit.
+        // Note: the `in_hash` of subsequent blocks in the checkpoint is asserted to be 0
+        // within `validate_consecutive_block_rollups.nr`, by asserting that the `in_hash` of all
+        // "right" rollups is `0`.
         let is_first_block_in_checkpoint = self.in_hash != 0;
         block_end_sponge_blob.absorb_block_end_data(
             global_variables,

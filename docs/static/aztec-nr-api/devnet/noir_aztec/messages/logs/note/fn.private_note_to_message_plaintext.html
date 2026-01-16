@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
 <title>Function private_note_to_message_plaintext documentation</title>
 </head>
 <body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">private_note_to_message_plaintext</div>
+</div>
+<span id="main-contents">
 <nav class="sidebar">
 <h1><a href="../../../../index.html">aztec-nr</a></h1>
 <div><a href="../../../../all.html">All items</a></div>
@@ -23,13 +29,15 @@
 <h1>Function <span class="fn">private_note_to_message_plaintext</span></h1>
 <pre><code>pub fn private_note_to_message_plaintext&lt;Note&gt;(
     note: Note,
+    owner: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     randomness: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
-) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Note as Packable&gt;::N + 3]
+) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; &lt;Note as Packable&gt;::N + 4]
 <div class="where-clause">where
     Note: <a href="../../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></pre>
 
 </main>
+</span>
 </body>
 </html>

@@ -27,7 +27,7 @@ import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-import { ContractDataProvider } from '../../storage/contract_data_provider/index.js';
+import { ContractStore } from '../../storage/contract_store/index.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
@@ -85,7 +85,6 @@ export async function executePrivateFunction(
 
   const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
 
-  const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
@@ -108,7 +107,6 @@ export async function executePrivateFunction(
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
-    noteHashLeafIndexMap,
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
@@ -154,7 +152,7 @@ export function extractPrivateCircuitPublicInputs(
  * from the instance is used.
  * @param contractAddress - The address of the contract to read the class id for.
  * @param instance - The instance of the contract.
- * @param executionDataProvider - The execution data provider.
+ * @param executionStore - The execution data provider.
  * @param blockNumber - The block number at which to load the DelayedPublicMutable storing the class id.
  * @param timestamp - The timestamp at which to obtain the class id from the DelayedPublicMutable.
  * @returns The current class id.
@@ -186,10 +184,10 @@ export async function readCurrentClassId(
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   aztecNode: AztecNode,
-  contractDataProvider: ContractDataProvider,
+  contractStore: ContractStore,
   header: BlockHeader,
 ) {
-  const instance = await contractDataProvider.getContractInstance(contractAddress);
+  const instance = await contractStore.getContractInstance(contractAddress);
   if (!instance) {
     throw new Error(`No contract instance found for address ${contractAddress.toString()}`);
   }

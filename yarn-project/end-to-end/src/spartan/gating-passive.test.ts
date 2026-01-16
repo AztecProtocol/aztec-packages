@@ -8,7 +8,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
@@ -51,7 +51,7 @@ describe('a test that passively observes the network in the presence of network 
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
   let ETHEREUM_HOST: string;
-  let alertChecker: AlertChecker;
+  let alertChecker: GrafanaClient;
   let spartanDir: string;
   const forwardProcesses: ChildProcess[] = [];
   const podChaosInstances: string[] = [];
@@ -89,7 +89,7 @@ describe('a test that passively observes the network in the presence of network 
       forwardProcesses.push(promProc);
       const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
       const grafanaCredentials = '';
-      alertChecker = new AlertChecker(debugLogger, { grafanaEndpoint, grafanaCredentials });
+      alertChecker = new GrafanaClient(debugLogger, { grafanaEndpoint, grafanaCredentials });
     } else {
       debugLogger.warn('Prometheus not reachable; skipping QoS alert checks for this run.');
     }
@@ -148,12 +148,10 @@ describe('a test that passively observes the network in the presence of network 
     // note, don't forget that normally an epoch doesn't need epochDuration worth of checkpoints,
     // but here we do double duty:
     // we want a handful of checkpoints, and we want to pass the epoch boundary
-    await awaitCheckpointNumber(
-      rollupCheatCodes,
-      CheckpointNumber.fromBigInt(epochDuration * BigInt(slotDuration)),
-      60 * 6,
-      debugLogger,
-    );
+    const initialTips = await rollupCheatCodes.getTips();
+    const checkpointWaitTarget = CheckpointNumber(initialTips.pending + Number(epochDuration));
+    const epochDurationSeconds = Number(BigInt(epochDuration) * BigInt(slotDuration));
+    await awaitCheckpointNumber(rollupCheatCodes, checkpointWaitTarget, epochDurationSeconds * 2, debugLogger);
 
     let deploymentOutput: string = '';
     deploymentOutput = await applyNetworkShaping({

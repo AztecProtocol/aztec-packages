@@ -16,13 +16,7 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
@@ -565,7 +559,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return this.#getProvingJob(filter);
   }
 
-  @trackSpan('ProvingBroker.cleanupPass')
   private async cleanupPass() {
     this.cleanupStaleJobs();
     this.reEnqueueExpiredJobs();

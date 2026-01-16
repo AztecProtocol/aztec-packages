@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -301,7 +301,8 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  * @note The ecc_op block must be first in the execution trace. This is required because:
  * 1. The EccOpQueueRelation constrains ecc_op_wire polynomials to equal shifted wires inside the block
  * 2. ecc_op_wire stores data starting at index 0, while regular wires start at index 1 (due to zero row)
- * 3. The relation ecc_op_wire[i] == w[i+1] _only_ holds when ecc_op is first (immediately after the zero row)
+ * 3. The relation ecc_op_wire[i] == w[i+NUM_ZERO_ROWS] _only_ holds when ecc_op is first (immediately after the zero
+ * row)
  *
  * @note The ecc_op block does NOT have a gate selector stored in the builder. Instead, the `lagrange_ecc_op`
  * selector polynomial is constructed during TraceToPolynomials::add_ecc_op_wires_to_prover_instance() as a

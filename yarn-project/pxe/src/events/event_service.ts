@@ -3,22 +3,22 @@ import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import { AnchorBlockDataProvider } from '../storage/anchor_block_data_provider/anchor_block_data_provider.js';
-import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 export class EventService {
   constructor(
-    private readonly anchorBlockDataProvider: AnchorBlockDataProvider,
+    private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
-    private readonly privateEventDataProvider: PrivateEventDataProvider,
+    private readonly privateEventStore: PrivateEventStore,
   ) {}
 
-  public async deliverEvent(
+  public async storeEvent(
     contractAddress: AztecAddress,
     selector: EventSelector,
+    randomness: Fr,
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
@@ -29,7 +29,7 @@ export class EventService {
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
     const [syncedBlockHeader, siloedEventCommitment, txEffect] = await Promise.all([
-      this.anchorBlockDataProvider.getBlockHeader(),
+      this.anchorBlockStore.getBlockHeader(),
       siloNullifier(contractAddress, eventCommitment),
       this.aztecNode.getTxEffect(txHash),
     ]);
@@ -44,34 +44,22 @@ export class EventService {
       throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
     }
 
-    const eventInTx = txEffect.data.nullifiers.some(n => n.equals(siloedEventCommitment));
-    if (!eventInTx) {
+    // Find the index of the event commitment in the nullifiers array to determine event ordering within the tx
+    const eventIndexInTx = txEffect.data.nullifiers.findIndex(n => n.equals(siloedEventCommitment));
+    if (eventIndexInTx === -1) {
       throw new Error(
         `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
       );
     }
 
-    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
-      siloedEventCommitment,
-    ]);
-
-    if (nullifierIndex === undefined) {
-      throw new Error(
-        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at block ${syncedBlockNumber} (from tx ${txHash})`,
-      );
-    }
-
-    return this.privateEventDataProvider.storePrivateEventLog(
-      selector,
-      content,
-      Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      {
-        contractAddress,
-        scope,
-        txHash,
-        l2BlockNumber: nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
-        l2BlockHash: nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
-      },
-    );
+    return this.privateEventStore.storePrivateEventLog(selector, randomness, content, siloedEventCommitment, {
+      contractAddress,
+      scope,
+      txHash,
+      l2BlockNumber: txEffect.l2BlockNumber,
+      l2BlockHash: txEffect.l2BlockHash,
+      txIndexInBlock: txEffect.txIndexInBlock,
+      eventIndexInTx,
+    });
   }
 }

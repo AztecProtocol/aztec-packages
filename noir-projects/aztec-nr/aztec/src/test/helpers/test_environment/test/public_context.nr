@@ -121,7 +121,7 @@ unconstrained fn read_nonexistent_nullifier() {
     let env = TestEnvironment::new();
 
     env.public_context(|context| {
-        assert(!context.nullifier_exists(nullifier, context.this_address()));
+        assert(!context.nullifier_exists_unsafe(nullifier, context.this_address()));
     });
 }
 
@@ -131,7 +131,7 @@ unconstrained fn read_public_nullifier_same_context() {
 
     env.public_context(|context| {
         context.push_nullifier(nullifier);
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists_unsafe(nullifier, context.this_address()));
     });
 }
 
@@ -142,7 +142,7 @@ unconstrained fn read_public_nullifier_other_context() {
     env.public_context(|context| { context.push_nullifier(nullifier); });
 
     env.public_context(|context| {
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists_unsafe(nullifier, context.this_address()));
     });
 }
 
@@ -153,7 +153,7 @@ unconstrained fn read_private_nullifier() {
     env.private_context(|context| { context.push_nullifier(nullifier); });
 
     env.public_context(|context| {
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists_unsafe(nullifier, context.this_address()));
     });
 }
 

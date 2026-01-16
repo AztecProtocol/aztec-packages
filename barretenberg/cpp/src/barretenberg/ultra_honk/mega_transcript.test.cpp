@@ -3,6 +3,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -19,7 +20,18 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using ProverInstance = ProverInstance_<Flavor>;
+    using Prover = UltraProver_<Flavor>;
+    using Proof = typename Flavor::Transcript::Proof;
     using FF = Flavor::FF;
+
+    static Proof export_serialized_proof(Prover& prover, const size_t num_public_inputs)
+    {
+        // reset internal variables needed for exporting the proof
+        // Note: compute_proof_length_for_export excludes IPA proof length since export_proof appends it separately
+        size_t proof_length = compute_proof_length_for_export<Flavor>(num_public_inputs);
+        prover.transcript->test_set_proof_parsing_state(0, proof_length);
+        return prover.export_proof();
+    }
     /**
      * @brief Construct a manifest for a Mega Honk proof
      *
@@ -295,42 +307,49 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor, DefaultIO>;
 
-    if constexpr (IsAnyOf<Flavor, MegaZKFlavor, MegaFlavor>) {
-        // For compatibility with Goblin, MegaZKFlavor is using NativeTranscript which does not support
-        // serialize/deserialize full transcript methods.
-        GTEST_SKIP() << "Skipping StructureTest for MegaZKFlavor";
-    } else {
-        // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-        typename Flavor::CircuitBuilder builder;
-        this->generate_test_circuit(builder);
+    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    typename Flavor::CircuitBuilder builder;
+    this->generate_test_circuit(builder);
 
-        // Automatically generate a transcript manifest by constructing a proof
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
-        Prover prover(prover_instance);
-        auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
-        Verifier verifier(vk_and_hash);
-        EXPECT_TRUE(verifier.verify_proof(proof));
+    // Automatically generate a transcript manifest by constructing a proof
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+    Verifier verifier(vk_and_hash);
+    EXPECT_TRUE(verifier.verify_proof(proof).result);
 
-        // try deserializing and serializing with no changes and check proof is still valid
-        prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-        prover.transcript->serialize_full_transcript();
-        Verifier verifier2(vk_and_hash);
-        EXPECT_TRUE(verifier2.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
+    const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
-        Commitment one_group_val = Commitment::one();
-        FF rand_val = FF::random_element();
-        prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
-        Verifier verifier3(vk_and_hash);
-        EXPECT_TRUE(verifier3.verify_proof(
-            prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+    // Use StructuredProof test utility to deserialize/serialize proof data
+    StructuredProof<Flavor> proof_structure;
 
-        prover.transcript->serialize_full_transcript();
-        Verifier verifier4(vk_and_hash);
-        EXPECT_FALSE(verifier4.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+    // try deserializing and serializing with no changes and check proof is still valid
+    proof_structure.deserialize(
+        prover.transcript->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
+    proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
 
-        prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-        EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
-    }
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    // we have changed nothing so proof is still valid
+    Verifier verifier2(vk_and_hash);
+    EXPECT_TRUE(verifier2.verify_proof(proof).result);
+
+    Commitment one_group_val = Commitment::one();
+    FF rand_val = FF::random_element();
+    proof_structure.z_perm_comm = one_group_val * rand_val; // choose random object to modify
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    // we have not serialized it back to the proof so it should still be fine
+    Verifier verifier3(vk_and_hash);
+    EXPECT_TRUE(verifier3.verify_proof(proof).result);
+
+    proof_structure.serialize(prover.transcript->test_get_proof_data(), virtual_log_n);
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
+    // the proof is now wrong after serializing it
+    Verifier verifier4(vk_and_hash);
+    EXPECT_FALSE(verifier4.verify_proof(proof).result);
+
+    proof_structure.deserialize(
+        prover.transcript->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
+    EXPECT_EQ(static_cast<Commitment>(proof_structure.z_perm_comm), one_group_val * rand_val);
 }

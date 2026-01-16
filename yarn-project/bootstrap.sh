@@ -13,16 +13,16 @@ function compile_project {
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
 }
 
-# Returns a list of projects to compile/lint/publish.
+# Returns a list of project paths to compile/lint/publish.
 # Ensure exclusions are matching in both cases.
 function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
       --exclude @aztec/scripts \
-      exec 'basename $(pwd)' | cat | grep -v "Done"
+      exec 'echo $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated
+    dirname */src | xargs realpath
   fi
 }
 
@@ -94,6 +94,10 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    aztec.js \
+    cli \
+    ethereum \
+    slasher \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -110,7 +114,7 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
+  cmds=('format --check' './scripts/tsc.sh --emitDeclarationOnly')
   if [ "${CI:-0}" -eq 1 ]; then
     cmds+=('lint --check')
   fi
@@ -186,6 +190,9 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+
+  # Test the tsc.sh build script
+  echo "$hash yarn-project/scripts/tsc.test.sh"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"

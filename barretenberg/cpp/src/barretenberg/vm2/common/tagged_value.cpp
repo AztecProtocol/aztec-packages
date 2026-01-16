@@ -178,7 +178,7 @@ uint8_t get_tag_bits(ValueTag tag)
         return 0; // It is more useful for this to be 0 in the circuit
     }
 
-    assert(false && "Invalid tag");
+    __builtin_unreachable();
     return 0;
 }
 
@@ -197,7 +197,7 @@ uint8_t get_tag_bytes(ValueTag tag)
         return 0; // It is more useful for this to be 0 in the circuit
     }
 
-    assert(false && "Invalid tag");
+    __builtin_unreachable();
     return 0;
 }
 
@@ -215,7 +215,7 @@ uint256_t get_tag_max_value(ValueTag tag)
         return FF::modulus - 1;
     }
 
-    assert(false && "Invalid tag");
+    __builtin_unreachable();
     return 0;
 }
 
@@ -226,9 +226,9 @@ TaggedValue::TaggedValue(TaggedValue::value_type value_)
 
 TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
 {
-    auto assert_bounds = [](const FF& value, uint8_t bits) {
+    auto assert_bounds = [tag](const FF& value, uint8_t bits) {
         if (static_cast<uint256_t>(value).get_msb() >= bits) {
-            throw std::runtime_error("Value out of bounds");
+            throw ValueOutOfBounds(format("Value: ", value, " is out of bounds for tag: ", tag));
         }
     };
 
@@ -371,7 +371,7 @@ FF TaggedValue::as_ff() const
 {
     const auto visitor = overloads{ [](FF val) -> FF { return val; },
                                     [](uint1_t val) -> FF { return val.value(); },
-                                    [](uint128_t val) -> FF { return uint256_t::from_uint128(val); },
+                                    [](uint128_t val) -> FF { return val; },
                                     [](auto&& val) -> FF { return val; } };
 
     return std::visit(visitor, value);
@@ -388,12 +388,12 @@ ValueTag TaggedValue::get_tag() const
 
 std::string TaggedValue::to_string() const
 {
-    std::string v = std::visit(
-        overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
-                   [](const uint128_t& val) -> std::string { return field_to_string(uint256_t::from_uint128(val)); },
-                   [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
-                   [](auto&& val) -> std::string { return std::to_string(val); } },
-        value);
+    std::string v =
+        std::visit(overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
+                              [](const uint128_t& val) -> std::string { return field_to_string(val); },
+                              [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
+                              [](auto&& val) -> std::string { return std::to_string(val); } },
+                   value);
     return std::to_string(get_tag()) + "(" + v + ")";
 }
 

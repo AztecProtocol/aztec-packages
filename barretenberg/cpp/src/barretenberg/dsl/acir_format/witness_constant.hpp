@@ -1,11 +1,10 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
@@ -15,7 +14,7 @@ template <typename FF> struct WitnessOrConstant {
     uint32_t index;
     FF value;
     bool is_constant;
-    MSGPACK_FIELDS(index, value, is_constant);
+
     friend bool operator==(WitnessOrConstant const& lhs, WitnessOrConstant const& rhs) = default;
     static WitnessOrConstant from_index(uint32_t index)
     {

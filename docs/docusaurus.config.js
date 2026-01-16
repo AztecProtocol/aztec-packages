@@ -89,7 +89,7 @@ const config = {
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
-        // Enable pages for root-level content (index.mdx, ignition_info, etc.)
+        // Enable pages for root-level content (index.mdx, networks, etc.)
         pages: {
           path: "src/pages",
         },
@@ -124,17 +124,17 @@ const config = {
         includeCurrentVersion: process.env.CONTEXT !== "production",
         lastVersion: devnetVersion,
         versions: {
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
-            },
-          }),
           ...(devnetVersion && {
             [devnetVersion]: {
               label: `Devnet (${devnetVersion})`,
               path: "",
               banner: "none",
+            },
+          }),
+          ...(nightlyVersion && {
+            [nightlyVersion]: {
+              path: "nightly",
+              banner: "unreleased",
             },
           }),
           ...(process.env.CONTEXT !== "production" && {
@@ -191,7 +191,7 @@ const config = {
         rehypePlugins,
       },
     ],
-    // Root pages (index, ignition_info, etc.) - no versioning
+    // Root pages (index, networks, etc.) - no versioning
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -282,17 +282,17 @@ const config = {
             label: "Build",
           },
 
-          // Network sidebar link
+          // Network portal link
           {
-            type: "docSidebar",
-            sidebarId: "sidebar",
+            type: "doc",
+            docId: "index",
             docsPluginId: "network",
             position: "left",
-            label: "Run a node",
+            label: "Network",
           },
           {
-            to: "/ignition_info",
-            label: "Ignition Info",
+            to: "/networks",
+            label: "Networks",
             position: "right",
           },
           {
@@ -339,12 +339,12 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "/developers/docs/reference/glossary",
+                to: "/developers/docs/resources/glossary",
                 label: "Glossary",
                 className: "no-external-icon",
               },
               {
-                to: "/developers/migration_notes",
+                to: "/developers/docs/resources/migration_notes",
                 label: "Migration Notes",
                 className: "no-external-icon",
               },

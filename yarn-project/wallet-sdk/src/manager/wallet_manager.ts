@@ -1,5 +1,11 @@
 import { ExtensionProvider, ExtensionWallet } from '../providers/extension/index.js';
-import type { DiscoverWalletsOptions, ExtensionWalletConfig, WalletManagerConfig, WalletProvider } from './types.js';
+import type {
+  DiscoverWalletsOptions,
+  ExtensionWalletConfig,
+  ProviderDisconnectionCallback,
+  WalletManagerConfig,
+  WalletProvider,
+} from './types.js';
 
 /**
  * Manager for wallet discovery, configuration, and connection
@@ -35,27 +41,51 @@ export class WalletManager {
     const providers: WalletProvider[] = [];
     const { chainInfo } = options;
 
-    // Discover extension wallets
     if (this.config.extensions?.enabled) {
-      const extensions = await ExtensionProvider.discoverExtensions(chainInfo, options.timeout);
+      const discoveredWallets = await ExtensionProvider.discoverExtensions(chainInfo, options.timeout);
       const extensionConfig = this.config.extensions;
 
-      for (const ext of extensions) {
-        // Apply allow/block lists
-        if (!this.isExtensionAllowed(ext.id, extensionConfig)) {
+      for (const { info, port, sharedKey } of discoveredWallets) {
+        if (!this.isExtensionAllowed(info.id, extensionConfig)) {
           continue;
         }
 
-        providers.push({
-          id: ext.id,
+        let extensionWallet: ExtensionWallet | null = null;
+
+        const provider: WalletProvider = {
+          id: info.id,
           type: 'extension',
-          name: ext.name,
-          icon: ext.icon,
+          name: info.name,
+          icon: info.icon,
           metadata: {
-            version: ext.version,
+            version: info.version,
+            verificationHash: info.verificationHash,
           },
-          connect: (appId: string) => Promise.resolve(ExtensionWallet.create(chainInfo, appId, ext.id)),
-        });
+          connect: (appId: string) => {
+            extensionWallet = ExtensionWallet.create(info, chainInfo, port, sharedKey, appId);
+            return Promise.resolve(extensionWallet.getWallet());
+          },
+          disconnect: async () => {
+            if (extensionWallet) {
+              await extensionWallet.disconnect();
+              extensionWallet = null;
+            }
+          },
+          onDisconnect: (callback: ProviderDisconnectionCallback) => {
+            if (extensionWallet) {
+              return extensionWallet.onDisconnect(callback);
+            }
+            return () => {};
+          },
+          isDisconnected: () => {
+            if (extensionWallet) {
+              return extensionWallet.isDisconnected();
+            }
+            return true;
+          },
+        };
+
+        providers.push(provider);
       }
     }
 
@@ -70,17 +100,14 @@ export class WalletManager {
    * @param config - Extension wallet configuration containing allow/block lists
    */
   private isExtensionAllowed(extensionId: string, config: ExtensionWalletConfig): boolean {
-    // Check block list first
     if (config.blockList && config.blockList.includes(extensionId)) {
       return false;
     }
 
-    // If allow list exists, extension must be in it
     if (config.allowList && config.allowList.length > 0) {
       return config.allowList.includes(extensionId);
     }
 
-    // If no allow list, extension is allowed (unless blocked)
     return true;
   }
 }

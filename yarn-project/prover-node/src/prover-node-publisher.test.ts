@@ -1,7 +1,8 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -140,12 +141,13 @@ describe('prover-node-publisher', () => {
       // Return the requested checkpoint
       rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
         Promise.resolve({
-          archive: checkpoints[checkpointNumber - 1].endArchiveRoot.toString(),
-          attestationsHash: '0x', // unused,
-          payloadDigest: '0x', // unused,
-          headerHash: '0x', // unused,
-          blobCommitmentsHash: '0x', // unused,
-          slotNumber: 0n, // unused,
+          archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+          attestationsHash: Buffer32.ZERO, // unused,
+          payloadDigest: Buffer32.ZERO, // unused,
+          headerHash: Buffer32.ZERO, // unused,
+          blobCommitmentsHash: Buffer32.ZERO, // unused,
+          outHash: '0x', // unused,
+          slotNumber: SlotNumber(0), // unused,
           feeHeader: {
             excessMana: 0n, // unused
             manaUsed: 0n, // unused
@@ -172,7 +174,7 @@ describe('prover-node-publisher', () => {
 
       // Return our public inputs
       const totalFields = ourPublicInputs.toFields();
-      rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
+      rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields);
 
       const result = await publisher
         .submitEpochProof({
@@ -209,12 +211,13 @@ describe('prover-node-publisher', () => {
     // Return the requested checkpoint
     rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
       Promise.resolve({
-        archive: checkpoints[checkpointNumber - 1].endArchiveRoot.toString(),
-        attestationsHash: '0x', // unused,
-        payloadDigest: '0x', // unused,
-        headerHash: '0x', // unused,
-        blobCommitmentsHash: '0x', // unused,
-        slotNumber: 0n, // unused,
+        archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+        attestationsHash: Buffer32.ZERO, // unused,
+        payloadDigest: Buffer32.ZERO, // unused,
+        headerHash: Buffer32.ZERO, // unused,
+        blobCommitmentsHash: Buffer32.ZERO, // unused,
+        outHash: '0x', // unused,
+        slotNumber: SlotNumber(0), // unused,
         feeHeader: {
           excessMana: 0n, // unused
           manaUsed: 0n, // unused
@@ -241,7 +244,7 @@ describe('prover-node-publisher', () => {
 
     // Return our public inputs
     const totalFields = ourPublicInputs.toFields();
-    rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
+    rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields);
 
     jest.spyOn(l1Utils, 'getSenderBalance').mockResolvedValue(42n);
     jest.spyOn(l1Utils, 'getSenderAddress').mockReturnValue(EthAddress.random());

@@ -341,8 +341,7 @@ impl TestBuilder {
 
         // --- Timestamps ---
 
-        assert_eq(pi.start_timestamp, left.constants.global_variables.timestamp);
-        assert_eq(pi.start_timestamp, pi.end_timestamp);
+        assert_eq(pi.timestamp, left.constants.global_variables.timestamp);
 
         // --- In hash ---
 

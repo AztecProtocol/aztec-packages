@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -30,10 +31,14 @@ using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
 
-// Helper function to serialize simulation request via
-std::string serialize_simulation_request(const Tx& tx,
-                                         const GlobalVariables& globals,
-                                         const FuzzerContractDB& contract_db)
+constexpr auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
+
+// Helper function to serialize simulation request via msgpack
+std::string serialize_simulation_request(
+    const Tx& tx,
+    const GlobalVariables& globals,
+    const FuzzerContractDB& contract_db,
+    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes)
 {
     // Build vectors from contract_db
     std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
@@ -46,6 +51,7 @@ std::string serialize_simulation_request(const Tx& tx,
         .globals = globals,
         .contract_classes = std::move(classes_vec),
         .contract_instances = std::move(instances_vec),
+        .public_data_writes = public_data_writes,
     };
 
     auto [buffer, size] = msgpack_encode_buffer(request);
@@ -69,15 +75,21 @@ GlobalVariables create_default_globals()
     };
 }
 
-SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                       fuzzer::FuzzerContractDB& contract_db,
-                                       const Tx& tx)
+SimulatorResult CppSimulator::simulate(
+    fuzzer::FuzzerWorldStateManager& ws_mgr,
+    fuzzer::FuzzerContractDB& contract_db,
+    const Tx& tx,
+    [[maybe_unused]] const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes)
 {
+    // Note: public_data_writes are already applied to C++ world state in setup_fuzzer_state
 
     const PublicSimulatorConfig config{
         .skip_fee_enforcement = false,
         .collect_call_metadata = true,
         .collect_public_inputs = true,
+        .collection_limits = {
+            .max_returndata_size_in_fields = MAX_RETURN_DATA_SIZE_IN_FIELDS,
+        },
     };
 
     ProtocolContracts protocol_contracts{};
@@ -137,13 +149,15 @@ void JsSimulator::initialize(std::string& simulator_path)
     instance = new JsSimulator(simulator_path);
 }
 
-SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                      fuzzer::FuzzerContractDB& contract_db,
-                                      const Tx& tx)
+SimulatorResult JsSimulator::simulate(
+    [[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
+    fuzzer::FuzzerContractDB& contract_db,
+    const Tx& tx,
+    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes)
 {
     auto globals = create_default_globals();
 
-    std::string serialized = serialize_simulation_request(tx, globals, contract_db);
+    std::string serialized = serialize_simulation_request(tx, globals, contract_db, public_data_writes);
 
     // Send the request
     process.write_line(serialized);
@@ -163,8 +177,61 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
     return result;
 }
 
-bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2)
+bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2)
 {
+    // Since the simulator results are interchangeable between TS and C++, we limit the return data size for comparison
+    // todo(ilyas): we ideally specify one param as the TS result and truncate only that one
+    if (result1.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
+        result1.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
+    }
+    if (result2.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
+        result2.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
+    }
+
     return result1.reverted == result2.reverted && result1.output == result2.output &&
            result1.end_tree_snapshots == result2.end_tree_snapshots;
+}
+
+// Creates a default transaction that the single app logic enqueued call can be inserted into
+Tx create_default_tx(const AztecAddress& contract_address,
+                     const AztecAddress& sender_address,
+                     const std::vector<FF>& calldata,
+                     [[maybe_unused]] const FF& transaction_fee,
+                     bool is_static_call,
+                     const Gas& gas_limit)
+{
+    return Tx{
+        .hash = TRANSACTION_HASH,
+        .gas_settings = GasSettings{
+            .gas_limits = gas_limit,
+            .max_fees_per_gas = GasFees{ .fee_per_da_gas = FEE_PER_DA_GAS, .fee_per_l2_gas = FEE_PER_L2_GAS },
+        },
+        .effective_gas_fees = EFFECTIVE_GAS_FEES,
+        .non_revertible_accumulated_data = AccumulatedData{
+            .note_hashes = NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
+            // This nullifier is needed to make the nonces for note hashes and expected by simulation_helper
+            .nullifiers = NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
+            .l2_to_l1_messages = NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
+        },
+        .revertible_accumulated_data = AccumulatedData{
+            .note_hashes = REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES,
+            .nullifiers = REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS,
+            .l2_to_l1_messages = REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESSAGES,
+        },
+        .setup_enqueued_calls = SETUP_ENQUEUED_CALLS,
+        .app_logic_enqueued_calls = {
+            PublicCallRequestWithCalldata{
+                .request = PublicCallRequest{
+                    .msg_sender = MSG_SENDER,
+                    .contract_address = contract_address,
+                    .is_static_call = is_static_call,
+                    .calldata_hash = compute_calldata_hash(calldata),
+                },
+                .calldata = calldata,
+            },
+        },
+        .teardown_enqueued_call = TEARDOWN_ENQUEUED_CALLS,
+        .gas_used_by_private = GAS_USED_BY_PRIVATE,
+        .fee_payer = sender_address,
+    };
 }

@@ -164,15 +164,11 @@ async function getKnownArtifacts(wallet: CLIWallet): Promise<ArtifactMap> {
   const knownContractAddresses = await wallet.getContracts();
   const knownContracts = (
     await Promise.all(knownContractAddresses.map(contractAddress => wallet.getContractMetadata(contractAddress)))
-  ).map(contractMetadata => contractMetadata.contractInstance);
+  ).map(contractMetadata => contractMetadata.instance);
   const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
   const knownArtifacts = (
-    await Promise.all(classIds.map(classId => (classId ? wallet.getContractClassMetadata(classId) : undefined)))
-  ).map(contractClassMetadata =>
-    contractClassMetadata
-      ? { ...contractClassMetadata.artifact, classId: contractClassMetadata.contractClass?.id }
-      : undefined,
-  );
+    await Promise.all(classIds.map(classId => (classId ? wallet.getContractArtifact(classId) : undefined)))
+  ).map((artifact, index) => (artifact ? { ...artifact, classId: classIds[index] } : undefined));
   const map: Record<string, ContractArtifactWithClassId> = {};
   for (const instance of knownContracts) {
     if (instance) {

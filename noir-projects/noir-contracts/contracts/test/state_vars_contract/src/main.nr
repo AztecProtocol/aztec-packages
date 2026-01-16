@@ -41,7 +41,7 @@ pub contract StateVars {
 
     #[external("public")]
     fn initialize_public_immutable(value: u8) {
-        let mut new_mock_struct = MockStruct { account: self.msg_sender().unwrap(), value };
+        let mut new_mock_struct = MockStruct { account: self.msg_sender(), value };
         self.storage.public_immutable.initialize(new_mock_struct);
     }
 
@@ -97,35 +97,35 @@ pub contract StateVars {
 
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         let new_note = FieldNote { value };
 
         self.storage.private_immutable.at(owner).initialize(new_note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
 
     #[external("private")]
     fn initialize_private(randomness: Field, value: Field) {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         let private_mutable = FieldNote { value };
 
         self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
 
     #[external("private")]
     fn update_private_mutable(randomness: Field, value: Field) {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote { value }).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
 
     #[external("private")]
     fn increase_private_value() {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         // Replace existing note with new note containing incremented value
         self
             .storage
@@ -135,7 +135,7 @@ pub contract StateVars {
                 let new_value = old_note.value + 1;
                 FieldNote { value: new_value }
             })
-            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("utility")]

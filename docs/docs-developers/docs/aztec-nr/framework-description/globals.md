@@ -1,65 +1,89 @@
 ---
 title: Global Variables
-description: Documentation of Aztec's Global Variables in the Public and Private Contexts
+description: Access chain ID, block number, timestamps, and gas information in your Aztec contracts
 sidebar_position: 9
 ---
 
 # Global Variables
 
-For developers coming from solidity, this concept will be similar to how the global `block` variable exposes a series of block values. The idea is the same in Aztec. Developers can access a namespace of values made available in each function.
+Similar to Solidity's global `block` variable, Aztec exposes contextual values within each function via the `context` object.
 
-`Aztec` has two execution environments, Private and Public. Each execution environment contains a different global variables object.
+Aztec has two execution environments—Private and Public—each with different available globals.
 
 ## Private Global Variables
 
+Private functions access transaction context via `TxContext`:
+
 #include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
 
-The private global variables are equal to the transaction context and contain:
+The following fields are accessible via `context` methods:
 
 ### Chain Id
 
-The chain id differs depending on which Aztec instance you are on ( NOT the Ethereum hardfork that the rollup is settling to ). On original deployment of the network, this value will be 1.
+The unique identifier for the Aztec network instance (not the Ethereum chain the rollup settles to).
 
 ```rust
-context.chain_id();
+self.context.chain_id();
 ```
 
 ### Version
 
-The version number indicates which Aztec hardfork you are on. The Genesis block of the network will have the version number 1.
+The Aztec protocol version number. The genesis block has version 1.
 
 ```rust
-context.version();
+self.context.version();
 ```
 
 ### Gas Settings
 
-The gas limits set by the user for the transaction, the max fee per gas, and the inclusion fee.
+The gas limits, max fees per gas, and inclusion fee set by the user for the transaction.
+
+```rust
+self.context.gas_settings();
+```
 
 ## Public Global Variables
 
+Public functions access block-level context via `GlobalVariables`:
+
 #include_code global-variables /noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust
 
-The public global variables contain the values present in the `private global variables` described above, with the addition of:
+:::note
+Not all fields in `GlobalVariables` are exposed via context methods. The `coinbase`, `fee_recipient`, and `slot_number` fields are used internally by the protocol.
+:::
+
+Public functions have access to `chain_id()` and `version()` (same syntax as private), plus the following block-level values:
 
 ### Timestamp
 
-The timestamp is the unix timestamp in which the block has been executed. The value is provided by the block's proposer (therefore can have variance). This value will always increase.
+The unix timestamp when the block is executed. Provided by the block proposer, so it may have slight variance. Always increases monotonically.
 
 ```rust
-context.timestamp();
+self.context.timestamp();
 ```
 
 ### Block Number
 
-The block number is a sequential identifier that labels each individual block of the network. This value will be the block number of the block the accessing transaction is included in.
-The block number of the genesis block will be 1, with the number increasing by 1 for every block after.
+The sequential block identifier. Genesis block is 1, incrementing by 1 for each subsequent block.
 
 ```rust
-context.block_number();
+self.context.block_number();
 ```
 
-:::info _Why do the available global variables differ per execution environment?_
-The global variables are constrained by the proving environment. In the case of public functions, they are executed on a sequencer that will know the timestamp and number of the next block ( as they are the block producer ).
-In the case of private functions, we cannot be sure which block our transaction will be included in, hence we can not guarantee values for the timestamp or block number.
+### Gas Fees
+
+The current L2 and DA gas prices for the block. You can access gas-related information via:
+
+```rust
+self.context.l2_gas_left();       // Remaining L2 gas
+self.context.da_gas_left();       // Remaining DA gas
+self.context.min_fee_per_l2_gas(); // L2 gas price
+self.context.min_fee_per_da_gas(); // DA gas price
+self.context.transaction_fee();   // Final tx fee (only available in teardown phase)
+```
+
+:::info Why do available globals differ between environments?
+Private functions execute on the user's device before the transaction is submitted, so they cannot know which block will include the transaction. Therefore, `timestamp` and `block_number` are unavailable in private context.
+
+Public functions execute on a sequencer who knows the current block's timestamp and number, making these values accessible.
 :::

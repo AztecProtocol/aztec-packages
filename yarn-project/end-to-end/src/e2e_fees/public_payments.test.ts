@@ -22,11 +22,10 @@ describe('e2e_fees public_payment', () => {
   const t = new FeesTest('public_payment');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
+    await t.setup();
+    await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
-      await t.setup());
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);
   });
 
   afterAll(async () => {
@@ -46,7 +45,7 @@ describe('e2e_fees public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentMinFees(),
     });
 
     [

@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -17,8 +16,6 @@ struct Blake2sInput {
     WitnessOrConstant<bb::fr> blackbox_input;
     uint32_t num_bits;
 
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(blackbox_input, num_bits);
     friend bool operator==(Blake2sInput const& lhs, Blake2sInput const& rhs) = default;
 };
 
@@ -26,8 +23,6 @@ struct Blake2sConstraint {
     std::vector<Blake2sInput> inputs;
     std::array<uint32_t, 32> result;
 
-    // For serialization, update with any new fields
-    MSGPACK_FIELDS(inputs, result);
     friend bool operator==(Blake2sConstraint const& lhs, Blake2sConstraint const& rhs) = default;
 };
 

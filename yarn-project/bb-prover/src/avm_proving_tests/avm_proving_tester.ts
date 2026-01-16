@@ -18,14 +18,7 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import {
-  type BBResult,
-  type BBSuccess,
-  BB_RESULT,
-  VK_FILENAME,
-  generateAvmProof,
-  verifyAvmProof,
-} from '../bb/execute.js';
+import { type BBResult, type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from '../bb/execute.js';
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
 
@@ -193,14 +186,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       return proofRes;
     }
 
-    return await verifyAvmProof(
-      BB_PATH,
-      this.bbWorkingDirectory,
-      proofRes.proofPath!,
-      publicInputs,
-      path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
-      this.logger,
-    );
+    return await verifyAvmProof(BB_PATH, this.bbWorkingDirectory, proofRes.proofPath!, publicInputs, this.logger);
   }
 
   public async proveVerify(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx') {

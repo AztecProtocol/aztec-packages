@@ -1,10 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 
@@ -12,9 +13,9 @@ namespace bb {
 
 // The data needed to reconstruct a public input component from its limbs stored in the public inputs
 struct PublicComponentKey {
-    constexpr static uint32_t DEFAULT_IDX = std::numeric_limits<uint32_t>::max();
+    constexpr static size_t DEFAULT_IDX = std::numeric_limits<size_t>::max();
 
-    uint32_t start_idx = DEFAULT_IDX; // start index within public inputs array
+    size_t start_idx = DEFAULT_IDX; // start index within public inputs array
 
     bool operator==(const PublicComponentKey&) const = default;
 

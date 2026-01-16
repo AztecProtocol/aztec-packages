@@ -235,8 +235,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
     check_relation<ff_gt>(trace);
 
     auto p_limbs = simulation::decompose_256(FF::modulus);
-    uint256_t p_lo = uint256_t::from_uint128(p_limbs.lo);
-    uint256_t p_hi = uint256_t::from_uint128(p_limbs.hi);
+    uint256_t p_lo = p_limbs.lo;
+    uint256_t p_hi = p_limbs.hi;
 
     // Manipulate the decomposition in a way that passes the decomposition check due to overflow
     trace.set(Column::ff_gt_a_lo, 1, p_lo);

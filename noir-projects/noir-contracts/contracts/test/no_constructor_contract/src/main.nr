@@ -28,11 +28,11 @@ pub contract NoConstructor {
     /// no constructor/initializer.
     #[external("private")]
     fn initialize_private_mutable(value: Field) {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         let note = FieldNote { value };
 
         self.storage.private_mutable.at(owner).initialize(note).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
     }
 

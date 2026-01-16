@@ -18,7 +18,7 @@ class CalldataHasher : public CalldataHashingInterface {
         , hasher(hasher)
     {}
 
-    FF compute_calldata_hash(std::span<const FF> calldata) override;
+    void assert_calldata_hash(const FF& cd_hash, std::span<const FF> calldata) override;
 
   private:
     uint32_t context_id;

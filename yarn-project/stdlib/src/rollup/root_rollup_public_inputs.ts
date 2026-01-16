@@ -21,6 +21,12 @@ export class RootRollupPublicInputs {
     public previousArchiveRoot: Fr,
     /** Root of the archive tree after this rollup is processed */
     public endArchiveRoot: Fr,
+    /**
+     * Root of the balanced merkle tree consisting of the out hashes of all checkpoints in this epoch.
+     * The out hash of the first checkpoint in the epoch is inserted at index 0, the second at index 1, and so on.
+     */
+    public outHash: Fr,
+    /** Hashes of checkpoint headers for this rollup. */
     public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     public constants: EpochConstantData,
@@ -31,6 +37,7 @@ export class RootRollupPublicInputs {
     return [
       fields.previousArchiveRoot,
       fields.endArchiveRoot,
+      fields.outHash,
       fields.checkpointHeaderHashes,
       fields.fees,
       fields.constants,
@@ -58,6 +65,7 @@ export class RootRollupPublicInputs {
   public static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupPublicInputs(
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
@@ -88,6 +96,7 @@ export class RootRollupPublicInputs {
   /** Creates a random instance. Used for testing only - will not prove/verify. */
   static random() {
     return new RootRollupPublicInputs(
+      Fr.random(),
       Fr.random(),
       Fr.random(),
       makeTuple(AZTEC_MAX_EPOCH_DURATION, Fr.random),

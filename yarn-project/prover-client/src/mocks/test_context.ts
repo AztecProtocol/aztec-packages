@@ -44,7 +44,9 @@ import { getEnvironmentConfig, getSimulator, makeCheckpointConstants, makeGlobal
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
   private checkpoints: Checkpoint[] = [];
+  private checkpointOutHashes: Fr[] = [];
   private nextCheckpointIndex = 0;
+  private nextCheckpointNumber = CheckpointNumber(1);
   private nextBlockNumber = 1;
   private epochNumber = 1;
   private feePayerBalance: Fr;
@@ -150,6 +152,7 @@ export class TestContext {
 
   public startNewEpoch() {
     this.checkpoints = [];
+    this.checkpointOutHashes = [];
     this.nextCheckpointIndex = 0;
     this.epochNumber++;
   }
@@ -187,7 +190,8 @@ export class TestContext {
     }
 
     const checkpointIndex = this.nextCheckpointIndex++;
-    const checkpointNumber = CheckpointNumber(checkpointIndex + 1);
+    const checkpointNumber = this.nextCheckpointNumber;
+    this.nextCheckpointNumber++;
     const slotNumber = checkpointNumber * 15; // times an arbitrary number to make it different to the checkpoint number
 
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
@@ -204,6 +208,8 @@ export class TestContext {
 
     const startBlockNumber = this.nextBlockNumber;
     const previousBlockHeader = this.getBlockHeader(BlockNumber(startBlockNumber - 1));
+    // All blocks in the same slot/checkpoint share the same timestamp.
+    const timestamp = BigInt(slotNumber * 26);
 
     // Build global variables.
     const blockGlobalVariables = times(numBlocks, i =>
@@ -211,6 +217,7 @@ export class TestContext {
         coinbase: constants.coinbase,
         feeRecipient: constants.feeRecipient,
         gasFees: constants.gasFees,
+        timestamp,
       }),
     );
     this.nextBlockNumber += numBlocks;
@@ -240,10 +247,12 @@ export class TestContext {
     });
 
     const cleanFork = await this.worldState.fork();
+    const previousCheckpointOutHashes = this.checkpointOutHashes;
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       constants,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       cleanFork,
     );
 
@@ -269,6 +278,7 @@ export class TestContext {
 
     const checkpoint = await builder.completeCheckpoint();
     this.checkpoints.push(checkpoint);
+    this.checkpointOutHashes.push(checkpoint.getCheckpointOutHash());
 
     return {
       constants,

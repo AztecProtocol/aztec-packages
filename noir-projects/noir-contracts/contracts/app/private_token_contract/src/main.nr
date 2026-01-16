@@ -35,18 +35,18 @@ pub contract PrivateToken {
         // privileges to someone else which requires being able to nullify the note. We use constrained onchain message
         // delivery because we don't know if the party deploying this contract is incentivized to deliver the note.
         self.storage.admin.initialize(AddressNote { address: admin }, admin).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
 
         // Mint the initial admin balance to the admin.
         self.storage.balances.at(admin).add(initial_admin_balance).deliver(
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         self
             .storage
             .total_supply
             .initialize(UintNote { value: initial_admin_balance }, admin)
-            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -54,11 +54,11 @@ pub contract PrivateToken {
     fn mint(amount: u128, recipient: AztecAddress) {
         let replacement_note_message = self.storage.admin.get_note();
         let admin = replacement_note_message.get_note().address;
-        assert(admin == self.msg_sender().unwrap(), "Only admin can mint");
+        assert(admin == self.msg_sender(), "Only admin can mint");
 
         // We deliver the new note message to the admin using unconstrained delivery, since the admin is motivated to
         // deliver the message to themselves (hence no need to constrain it).
-        replacement_note_message.deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         // We increase the total supply and once again use unconstrained delivery, since the admin is motivated to
         // deliver the message (he's the owner of the new note as well).
@@ -66,10 +66,10 @@ pub contract PrivateToken {
             .storage
             .total_supply
             .replace(|current| UintNote { value: current.value + amount }, admin)
-            .deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         // At last we mint the tokens to the recipient.
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Transfers admin privileges to a `new_admin`.
@@ -81,21 +81,21 @@ pub contract PrivateToken {
             .replace(
                 |old| {
                     assert(
-                        old.address == self.msg_sender().unwrap(),
+                        old.address == self.msg_sender(),
                         "Only admin can transfer admin privileges",
                     );
                     AddressNote { address: new_admin }
                 },
                 new_admin,
             )
-            .deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[external("private")]
     fn transfer(amount: u128, sender: AztecAddress, recipient: AztecAddress) {
-        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Helper function to get the balance of a user.

@@ -2,6 +2,7 @@ import { Fq, Fr } from '../curves/bn254/field.js';
 import { createConsoleLogger } from '../log/console.js';
 import type { EnvVar } from './env_var.js';
 import { type NetworkNames, getActiveNetworkName } from './network_name.js';
+import { parseBooleanEnv } from './parse-env.js';
 import { SecretValue } from './secret_value.js';
 
 export { SecretValue, getActiveNetworkName };
@@ -149,6 +150,23 @@ export function floatConfigHelper(
 }
 
 /**
+ * Parses an environment variable to a 0-1 percentage value
+ */
+export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+  return {
+    parseEnv: (val: string): number => {
+      const parsed = safeParseFloat(val, defaultVal);
+      if (parsed < 0 || parsed > 1) {
+        throw new TypeError(`Invalid percentage value: ${parsed} should be between 0 and 1`);
+      }
+
+      return parsed;
+    },
+    defaultValue: defaultVal,
+  };
+}
+
+/**
  * Generates parseEnv and default values for a numerical config value.
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
@@ -231,10 +249,7 @@ export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T
   };
 }
 
-/** Parses an env var as boolean. Returns true only if value is 1, true, or TRUE. */
-export function parseBooleanEnv(val: string | undefined): boolean {
-  return val !== undefined && ['1', 'true', 'TRUE'].includes(val);
-}
+export { parseBooleanEnv } from './parse-env.js';
 
 export function secretStringConfigHelper(): Required<
   Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {

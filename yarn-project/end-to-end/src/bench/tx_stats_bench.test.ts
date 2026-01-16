@@ -54,8 +54,6 @@ describe('transaction benchmarks', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
     await t.setup();
 
     ({

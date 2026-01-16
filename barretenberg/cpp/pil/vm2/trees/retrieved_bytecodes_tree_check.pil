@@ -48,7 +48,6 @@ namespace retrieved_bytecodes_tree_check;
     // Inputs to the gadget
     pol commit write;
     write * (1 - write) = 0;
-    pol READ = 1 - write;
 
     pol commit class_id;
     pol commit root;

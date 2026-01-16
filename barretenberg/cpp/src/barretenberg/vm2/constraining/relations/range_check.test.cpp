@@ -49,7 +49,7 @@ TEST(RangeCheckConstrainingTest, NegativeIsLteMutuallyExclusive)
 TEST(RangeCheckConstrainingTest, CheckRecomposition)
 {
     uint128_t value = 0x3FFFFFFFD;
-    uint256_t value_u256 = uint256_t::from_uint128(value);
+    uint256_t value_u256 = value;
 
     uint16_t u16_r0 = 0xFFFD;                 // value & 0xFFFF;
     uint16_t u16_r1 = 0xFFFF;                 // (value >> 16) & 0xFFFF;
@@ -71,7 +71,7 @@ TEST(RangeCheckConstrainingTest, NegativeCheckRecomposition)
 {
     uint128_t value = 0x3FFFFFFFD;
     // Add 1 to the value to create a "bad" value that doesn't match recomposition
-    uint256_t bad_value = uint256_t::from_uint128(value + 1);
+    uint256_t bad_value = value + 1;
 
     uint16_t u16_r0 = value & 0xFFFF;
     uint16_t u16_r1 = (value >> 16) & 0xFFFF;
@@ -98,7 +98,7 @@ TEST(RangeCheckConstrainingTest, Full)
 
     // Choose a value that has num_bits
     uint128_t value = (static_cast<uint128_t>(1) << num_bits) - 3;
-    uint256_t value_u256 = uint256_t::from_uint128(value);
+    uint256_t value_u256 = value;
 
     uint16_t u16_r0 = value & 0xFFFF;
     uint16_t u16_r1 = (value >> 16) & 0xFFFF;
@@ -134,7 +134,7 @@ TEST(RangeCheckConstrainingTest, NegativeMissingLookup)
 
     // Choose a value that has num_bits
     uint128_t value = (static_cast<uint128_t>(1) << num_bits) - 3;
-    uint256_t value_u256 = uint256_t::from_uint128(value);
+    uint256_t value_u256 = value;
 
     uint16_t u16_r0 = value & 0xFFFF;
     uint16_t u16_r1 = (value >> 16) & 0xFFFF;

@@ -104,7 +104,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: set_opcode,
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: vec![make_operand(bits_needed_mem, &dest_address)],
                     immediates: vec![make_operand(bits_needed_opcode, &immediate_value)],
                     tag: collection.tag,
@@ -133,7 +133,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: vec![make_operand(16, &collection.operands[0])],
                     immediates: vec![make_unresolved_pc()],
                     ..Default::default()
@@ -154,7 +154,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: collection
                         .operands
                         .iter()
@@ -183,7 +183,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: collection
                         .operands
                         .iter()
@@ -210,7 +210,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: mov_opcode,
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: collection
                         .operands
                         .iter()
@@ -242,7 +242,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::ECADD,
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: collection
                         .operands
                         .into_iter()
@@ -265,7 +265,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::TORADIXBE,
-                    indirect: Some(build_addressing_mode(collection.indirect)),
+                    addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
                     operands: collection
                         .operands
                         .into_iter()
@@ -368,7 +368,7 @@ fn compile_binary_instruction(
     result.add_instruction(
         AvmInstruction {
             opcode: avm_opcode,
-            indirect: Some(build_addressing_mode(collection.indirect)),
+            addressing_mode: Some(build_addressing_mode(collection.addressing_mode)),
             operands: collection
                 .operands
                 .iter()
@@ -381,13 +381,13 @@ fn compile_binary_instruction(
     Ok(())
 }
 
-fn build_addressing_mode(indirect: Vec<bool>) -> AvmOperand {
-    let num_operands = indirect.len();
+fn build_addressing_mode(addressing_mode: Vec<bool>) -> AvmOperand {
+    let num_operands = addressing_mode.len();
     assert!(num_operands <= 8, "Too many operands for building addressing mode bytes");
 
     let mut result = 0;
-    for (i, indirect) in indirect.into_iter().enumerate() {
-        if indirect {
+    for (i, is_indirect) in addressing_mode.into_iter().enumerate() {
+        if is_indirect {
             // No relative, so we only operate on even bits
             result |= 1 << (i * 2);
         }

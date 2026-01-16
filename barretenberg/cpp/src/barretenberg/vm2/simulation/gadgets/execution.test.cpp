@@ -982,7 +982,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifierCollision)
 TEST_F(ExecutionSimulationTest, Set)
 {
     MemoryAddress dst_addr = 10;
-    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U8);
+    MemoryTag dst_tag = MemoryTag::U8;
     FF value = 7;
 
     EXPECT_CALL(context, get_memory());
@@ -997,7 +997,7 @@ TEST_F(ExecutionSimulationTest, Cast)
 {
     MemoryAddress src_addr = 9;
     MemoryAddress dst_addr = 10;
-    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U1);
+    MemoryTag dst_tag = MemoryTag::U1;
     MemoryValue value = MemoryValue::from<uint64_t>(7);
 
     EXPECT_CALL(context, get_memory()).WillOnce(ReturnRef(memory));

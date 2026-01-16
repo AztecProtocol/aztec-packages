@@ -1,4 +1,4 @@
-import { Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import { type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
 export class TxProviderInstrumentation {
   private txFromProposalCount: UpDownCounter;
@@ -6,24 +6,23 @@ export class TxProviderInstrumentation {
   private txFromP2PCount: UpDownCounter;
   private missingTxsCount: UpDownCounter;
 
+  private fractionOfTxsRequestedFromP2P: Histogram;
+  private txsRequestDelay: Histogram;
+
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT, {
-      description: 'The number of txs taken from block proposals',
-    });
+    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT);
 
-    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT, {
-      description: 'The number of txs taken from the local mempool',
-    });
+    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT);
 
-    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT, {
-      description: 'The number of txs taken from the p2p network',
-    });
+    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT);
 
-    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT, {
-      description: 'The number of txs not found anywhere',
-    });
+    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT);
+
+    this.fractionOfTxsRequestedFromP2P = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUESTED_FRACTION);
+
+    this.txsRequestDelay = meter.createHistogram(Metrics.TX_PROVIDER_P2P_TXS_REQUEST_DELAY);
   }
 
   incTxsFromProposals(count: number) {
@@ -34,8 +33,13 @@ export class TxProviderInstrumentation {
     this.txFromMempoolCount.add(count);
   }
 
-  incTxsFromP2P(count: number) {
+  incTxsFromP2P(count: number, total: number) {
     this.txFromP2PCount.add(count);
+    this.fractionOfTxsRequestedFromP2P.record(count / total);
+  }
+
+  recordTxsRequestDelay(delay: number) {
+    this.txsRequestDelay.record(delay);
   }
 
   incMissingTxs(count: number) {

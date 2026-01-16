@@ -7,7 +7,7 @@ use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
-use noirc_errors::debug_info::DebugInfo;
+use noirc_artifacts::debug::DebugInfo;
 
 use crate::bit_traits::{BitsQueryable, bits_needed_for};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
@@ -120,7 +120,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(
+                    addressing_mode: Some(
                         AddressingModeBuilder::default()
                             .direct_operand(lhs)
                             .direct_operand(rhs)
@@ -208,7 +208,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
-                    indirect: Some(
+                    addressing_mode: Some(
                         AddressingModeBuilder::default()
                             .direct_operand(lhs)
                             .direct_operand(rhs)
@@ -234,7 +234,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
                 avm_instrs.push(AvmInstruction {
                     opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
-                    indirect: Some(
+                    addressing_mode: Some(
                         AddressingModeBuilder::default()
                             .direct_operand(source)
                             .direct_operand(destination)
@@ -250,7 +250,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
-                    indirect: Some(
+                    addressing_mode: Some(
                         AddressingModeBuilder::default()
                             .direct_operand(size_address)
                             .direct_operand(offset_address)
@@ -296,7 +296,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
-                    indirect: Some(
+                    addressing_mode: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![make_operand(16, &condition.to_usize())],
@@ -345,7 +345,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
-                    indirect: Some(
+                    addressing_mode: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![make_operand(16, &condition.to_usize())],
@@ -625,7 +625,7 @@ fn handle_external_call(
 
     avm_instrs.push(AvmInstruction {
         opcode,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(l2_gas_offset)
                 .direct_operand(da_gas_offset)
@@ -680,7 +680,7 @@ fn handle_note_hash_exists(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NOTEHASHEXISTS,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(note_hash_offset_operand)
                 .direct_operand(leaf_index_offset_operand)
@@ -717,8 +717,8 @@ fn handle_emit_unencrypted_log(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
-        // The message array from Brillig is indirect.
-        indirect: Some(
+        // The message array from Brillig is indirect (addressing mode).
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&message_size_offset)
                 .indirect_operand(&message_offset)
@@ -760,7 +760,9 @@ fn handle_emit_note_hash_or_nullifier(
     };
     avm_instrs.push(AvmInstruction {
         opcode: if is_nullifier { AvmOpcode::EMITNULLIFIER } else { AvmOpcode::EMITNOTEHASH },
-        indirect: Some(AddressingModeBuilder::default().direct_operand(offset_operand).build()),
+        addressing_mode: Some(
+            AddressingModeBuilder::default().direct_operand(offset_operand).build(),
+        ),
         operands: vec![AvmOperand::U16 { value: offset_operand.to_usize() as u16 }],
         ..Default::default()
     });
@@ -801,7 +803,7 @@ fn handle_nullifier_exists(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NULLIFIEREXISTS,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(nullifier_offset_operand)
                 .direct_operand(address_offset_operand)
@@ -852,7 +854,7 @@ fn handle_l1_to_l2_msg_exists(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::L1TOL2MSGEXISTS,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(msg_hash_offset_operand)
                 .direct_operand(msg_leaf_index_offset_operand)
@@ -897,7 +899,7 @@ fn handle_send_l2_to_l1_msg(
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SENDL2TOL1MSG,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(recipient_offset_operand)
                 .direct_operand(content_offset_operand)
@@ -934,8 +936,8 @@ fn handle_getter_instruction(
         VERSION,
         BLOCKNUMBER,
         TIMESTAMP,
-        BASEFEEPERL2GAS,
-        BASEFEEPERDAGAS,
+        MINFEEPERL2GAS,
+        MINFEEPERDAGAS,
         ISSTATICCALL,
         L2GASLEFT,
         DAGASLEFT,
@@ -954,8 +956,8 @@ fn handle_getter_instruction(
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
-        "avmOpcodeBaseFeePerL2Gas" => EnvironmentVariable::BASEFEEPERL2GAS,
-        "avmOpcodeBaseFeePerDaGas" => EnvironmentVariable::BASEFEEPERDAGAS,
+        "avmOpcodeMinFeePerL2Gas" => EnvironmentVariable::MINFEEPERL2GAS,
+        "avmOpcodeMinFeePerDaGas" => EnvironmentVariable::MINFEEPERDAGAS,
         "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
         "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
         "avmOpcodeVersion" => EnvironmentVariable::VERSION,
@@ -969,7 +971,9 @@ fn handle_getter_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETENVVAR_16,
-        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
+        addressing_mode: Some(
+            AddressingModeBuilder::default().direct_operand(&dest_offset).build(),
+        ),
         operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
         immediates: vec![AvmOperand::U8 { value: var_idx as u8 }],
         ..Default::default()
@@ -1012,7 +1016,7 @@ fn generate_set_instruction(
 
     AvmInstruction {
         opcode: set_opcode,
-        indirect: if indirect {
+        addressing_mode: if indirect {
             Some(AddressingModeBuilder::default().indirect_operand(dest).build())
         } else {
             Some(AddressingModeBuilder::default().direct_operand(dest).build())
@@ -1052,7 +1056,7 @@ fn generate_cast_instruction(
 
     AvmInstruction {
         opcode: avm_opcode,
-        indirect: Some(indirect_flags.build()),
+        addressing_mode: Some(indirect_flags.build()),
         tag: Some(dst_tag),
         operands: vec![
             make_operand(bits_needed, &(source.to_usize())),
@@ -1077,7 +1081,7 @@ fn generate_revert_instruction(
     };
     avm_instrs.push(AvmInstruction {
         opcode: avm_opcode,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(revert_data_size_offset)
                 .indirect_operand(revert_data_pointer)
@@ -1099,7 +1103,7 @@ fn generate_return_instruction(
 ) {
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::RETURN,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(return_data_size_offset)
                 .indirect_operand(return_data_pointer)
@@ -1115,7 +1119,7 @@ fn generate_return_instruction(
 
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(
-    indirect: Option<AvmOperand>,
+    addressing_mode: Option<AvmOperand>,
     source: u32,
     dest: u32,
 ) -> AvmInstruction {
@@ -1129,7 +1133,7 @@ fn generate_mov_instruction(
 
     AvmInstruction {
         opcode: mov_opcode,
-        indirect,
+        addressing_mode,
         operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &dest)],
         ..Default::default()
     }
@@ -1141,12 +1145,21 @@ fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruc
         Some(
             AddressingModeBuilder::default()
                 .direct_operand(source)
-                .direct_operand(&MemoryAddress::Direct(target_address))
+                .direct_operand(&MemoryAddress::direct(target_address))
                 .build(),
         ),
         source.to_usize() as u32,
         target_address as u32,
     )
+}
+
+fn generate_set_to_procedure(
+    tag: AvmTypeTag,
+    value: &FieldElement,
+    index: usize,
+) -> AvmInstruction {
+    let target_address = SCRATCH_SPACE_START + index;
+    generate_set_instruction(tag, &MemoryAddress::direct(target_address), value, false)
 }
 
 fn generate_procedure_call(
@@ -1181,7 +1194,7 @@ fn handle_black_box_function(
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::SHA256COMPRESSION,
-                indirect: Some(
+                addressing_mode: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
                         .indirect_operand(&hash_values.pointer)
@@ -1204,7 +1217,7 @@ fn handle_black_box_function(
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::POSEIDON2,
-                indirect: Some(
+                addressing_mode: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&message.pointer)
                         .indirect_operand(&output.pointer)
@@ -1225,7 +1238,7 @@ fn handle_black_box_function(
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::KECCAKF1600,
-                indirect: Some(
+                addressing_mode: Some(
                     AddressingModeBuilder::default()
                         .indirect_operand(&output.pointer)
                         .indirect_operand(&input.pointer)
@@ -1247,7 +1260,7 @@ fn handle_black_box_function(
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXBE,
-                indirect: Some(
+                addressing_mode: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)
                         .direct_operand(radix)
@@ -1277,8 +1290,8 @@ fn handle_black_box_function(
             result,
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
-            // The result (SIXTH operand) is indirect.
-            indirect: Some(
+            // The result (SIXTH operand) is indirect (addressing mode).
+            addressing_mode: Some(
                 AddressingModeBuilder::default()
                     .direct_operand(p1_x_offset)
                     .direct_operand(p1_y_offset)
@@ -1306,10 +1319,15 @@ fn handle_black_box_function(
             // decomposition
             // Output array is fixed to 3
             assert_eq!(outputs.size, 3, "Output array size must be equal to 3");
+            assert!(points.size % 3 == 0, "Points array size must be divisible by 3");
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
-            avm_instrs.push(generate_mov_to_procedure(&points.size, 2));
+            avm_instrs.push(generate_set_to_procedure(
+                AvmTypeTag::UINT32,
+                &FieldElement::from(points.size / 3),
+                2,
+            ));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
             avm_instrs.push(generate_procedure_call(
                 Procedure::MultiScalarMul,
@@ -1359,7 +1377,7 @@ fn handle_debug_log(
     };
     // Message
     let (message_offset, message_size) = match &inputs[1] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, *size as u32),
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, *size),
         _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
     };
     // Length and pointer
@@ -1382,7 +1400,7 @@ fn handle_debug_log(
         //  * (N/A) message_size is an immediate
         //  * fields_offset_ptr INDIRECT
         //  * fields_size_offset direct
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(level_offset)
                 .indirect_operand(message_offset)
@@ -1428,7 +1446,7 @@ fn handle_calldata_copy(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::CALLDATACOPY,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&copy_size_offset)
                 .direct_operand(&cd_offset)
@@ -1461,7 +1479,9 @@ fn handle_returndata_size(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::RETURNDATASIZE,
-        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
+        addressing_mode: Some(
+            AddressingModeBuilder::default().direct_operand(&dest_offset).build(),
+        ),
         operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
         ..Default::default()
     });
@@ -1497,7 +1517,7 @@ fn handle_returndata_copy(
         // First we write the return data.
         AvmInstruction {
             opcode: AvmOpcode::RETURNDATACOPY,
-            indirect: Some(
+            addressing_mode: Some(
                 AddressingModeBuilder::default()
                     .direct_operand(&copy_size_offset)
                     .direct_operand(&cd_offset)
@@ -1587,7 +1607,7 @@ fn handle_storage_write(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&src_offset)
                 .direct_operand(&slot_offset)
@@ -1644,7 +1664,7 @@ fn handle_get_contract_instance(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETCONTRACTINSTANCE,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&address_offset)
                 .indirect_operand(&dest_offset)
@@ -1683,7 +1703,7 @@ fn handle_storage_read(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(
+        addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&slot_offset)
                 .direct_operand(&dest_offset)
@@ -1759,7 +1779,7 @@ fn handle_success_copy(
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SUCCESSCOPY,
-        indirect: Some(AddressingModeBuilder::default().direct_operand(&dst_offset).build()),
+        addressing_mode: Some(AddressingModeBuilder::default().direct_operand(&dst_offset).build()),
         operands: vec![AvmOperand::U16 { value: dst_offset.to_usize() as u16 }],
         ..Default::default()
     });

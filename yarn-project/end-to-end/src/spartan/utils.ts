@@ -117,7 +117,7 @@ export async function startPortForward({
   );
 
   let isResolved = false;
-  const connected = new Promise<number>(resolve => {
+  const connected = new Promise<number>((resolve, reject) => {
     process.stdout?.on('data', data => {
       const str = data.toString() as string;
       if (!isResolved && str.includes('Forwarding from')) {
@@ -125,7 +125,8 @@ export async function startPortForward({
         logger.debug(`Port forward for ${resource}: ${str}`);
         const port = str.search(/:\d+/);
         if (port === -1) {
-          throw new Error('Port not found in port forward output');
+          reject(new Error('Port not found in port forward output'));
+          return;
         }
         const portNumber = parseInt(str.slice(port + 1));
         logger.verbose(`Port forwarded for ${resource} at ${portNumber}:${containerPort}`);
@@ -145,17 +146,26 @@ export async function startPortForward({
     process.on('close', () => {
       if (!isResolved) {
         isResolved = true;
-        logger.warn(`Port forward for ${resource} closed before connection established`);
-        resolve(0);
+        const msg = `Port forward for ${resource} closed before connection established`;
+        logger.warn(msg);
+        reject(new Error(msg));
       }
     });
     process.on('error', error => {
-      logger.error(`Port forward for ${resource} error: ${error}`);
-      resolve(0);
+      if (!isResolved) {
+        isResolved = true;
+        const msg = `Port forward for ${resource} error: ${error}`;
+        logger.error(msg);
+        reject(new Error(msg));
+      }
     });
     process.on('exit', code => {
-      logger.verbose(`Port forward for ${resource} exited with code ${code}`);
-      resolve(0);
+      if (!isResolved) {
+        isResolved = true;
+        const msg = `Port forward for ${resource} exited with code ${code}`;
+        logger.verbose(msg);
+        reject(new Error(msg));
+      }
     });
   });
 
@@ -195,6 +205,14 @@ export function getExternalIP(namespace: string, serviceName: string): Promise<s
   });
 
   return promise;
+}
+
+export function startPortForwardForPrometeheus(namespace: string) {
+  return startPortForward({
+    resource: `svc/${namespace}-prometheus-server`,
+    namespace,
+    containerPort: 80,
+  });
 }
 
 export function startPortForwardForRPC(namespace: string, index = 0) {
@@ -246,7 +264,10 @@ export async function deleteResourceByLabel({
   force?: boolean;
 }) {
   try {
-    await execAsync(`kubectl api-resources --no-headers -o name | grep -Eq "^${resource}(\\\\..+)?$"`);
+    // Match both plain and group-qualified names (e.g., "podchaos" or "podchaos.chaos-mesh.org")
+    const escaped = resource.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = `(^|\\.)${escaped}(\\.|$)`;
+    await execAsync(`kubectl api-resources --no-headers -o name | grep -Eq '${regex}'`);
   } catch (error) {
     logger.warn(`Resource type '${resource}' not found in cluster, skipping deletion ${error}`);
     return '';
@@ -277,6 +298,58 @@ export async function waitForResourceByLabel({
   logger.info(`command: ${command}`);
   const { stdout } = await execAsync(command);
   return stdout;
+}
+
+export async function waitForResourceByName({
+  resource,
+  name,
+  namespace,
+  condition = 'Ready',
+  timeout = '10m',
+}: {
+  resource: string;
+  name: string;
+  namespace: string;
+  condition?: string;
+  timeout?: string;
+}) {
+  const command = `kubectl wait ${resource}/${name} --for=condition=${condition} -n ${namespace} --timeout=${timeout}`;
+  logger.info(`command: ${command}`);
+  const { stdout } = await execAsync(command);
+  return stdout;
+}
+
+export async function waitForResourcesByName({
+  resource,
+  names,
+  namespace,
+  condition = 'Ready',
+  timeout = '10m',
+}: {
+  resource: string;
+  names: string[];
+  namespace: string;
+  condition?: string;
+  timeout?: string;
+}) {
+  if (!names.length) {
+    throw new Error(`No ${resource} names provided to waitForResourcesByName`);
+  }
+
+  // Wait all in parallel; if any fails, surface which one.
+  await Promise.all(
+    names.map(async name => {
+      try {
+        await waitForResourceByName({ resource, name, namespace, condition, timeout });
+      } catch (err) {
+        throw new Error(
+          `Failed waiting for ${resource}/${name} condition=${condition} timeout=${timeout} namespace=${namespace}: ${String(
+            err,
+          )}`,
+        );
+      }
+    }),
+  );
 }
 
 export function getChartDir(spartanDir: string, chartName: string) {
@@ -458,6 +531,29 @@ export function applyProverFailure({
   });
 }
 
+export function applyValidatorFailure({
+  namespace,
+  spartanDir,
+  logger,
+  values,
+  instanceName,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+  values?: Record<string, string | number>;
+  instanceName?: string;
+}) {
+  return installChaosMeshChart({
+    instanceName: instanceName ?? 'validator-failure',
+    targetNamespace: namespace,
+    valuesFile: 'validator-failure.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    values,
+    logger,
+  });
+}
+
 export function applyProverKill({
   namespace,
   spartanDir,
@@ -537,18 +633,21 @@ export function applyValidatorKill({
   spartanDir,
   logger,
   values,
+  clean = true,
 }: {
   instanceName?: string;
   namespace: string;
   spartanDir: string;
   logger: Logger;
   values?: Record<string, string | number>;
+  clean?: boolean;
 }) {
   return installChaosMeshChart({
-    instanceName,
+    instanceName: instanceName ?? 'validator-kill',
     targetNamespace: namespace,
     valuesFile: 'validator-kill.yaml',
     helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean,
     logger,
     values,
   });

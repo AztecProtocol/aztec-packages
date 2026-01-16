@@ -623,9 +623,9 @@ variable "P2P_DROP_TX" {
 }
 
 variable "P2P_DROP_TX_CHANCE" {
-  description = "The chance (0-100) of dropping an incoming transaction in the P2P layer (for testing)"
-  type        = string
-  default     = "0"
+  description = "The chance (0-1) of dropping an incoming transaction in the P2P layer (for testing)"
+  type        = number
+  default     = 0
 }
 
 variable "WS_NUM_HISTORIC_BLOCKS" {
@@ -653,4 +653,10 @@ variable "DEBUG_FORCE_TX_PROOF_VERIFICATION" {
   description = "Whether to force tx proof verification. Only has an effect if real proving is turned off"
   type        = bool
   default     = false
+}
+
+variable "WAIT_FOR_PROVER_DEPLOY" {
+  description = "Whether to wait for the prover helm installation. You might want to turn this off if a large number of prover agents should start"
+  type        = bool
+  default     = true
 }

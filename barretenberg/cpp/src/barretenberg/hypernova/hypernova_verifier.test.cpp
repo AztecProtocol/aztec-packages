@@ -213,12 +213,15 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             round++;
         }
 
-        // Round 24: evaluations + all batching challenges (unshifted + shifted in same round)
-        for (size_t i = 0; i < 55; ++i) {
-            manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
+        // Round 25: evaluations + unshifted batching challenges
+        manifest.add_entry(25, "Sumcheck:evaluations", 60);
+        for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
+            manifest.add_challenge(25, "unshifted_challenge_" + std::to_string(i));
         }
-        for (size_t i = 0; i < 5; ++i) {
-            manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
+
+        // Round 26: shifted batching challenges
+        for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
+            manifest.add_challenge(26, "shifted_challenge_" + std::to_string(i));
         }
         manifest.add_entry(round, "Sumcheck:evaluations", 60);
         round++;
@@ -266,7 +269,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         auto folding_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(folding_transcript);
-        auto [folding_proof, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
+        auto [folding_proof, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
 
         // Natively verify the folding (with manifest tracking)
         auto native_verifier_transcript = std::make_shared<NativeTranscript>();

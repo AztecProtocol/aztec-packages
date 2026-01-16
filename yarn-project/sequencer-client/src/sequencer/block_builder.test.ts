@@ -22,6 +22,7 @@ import {
   BlockHeader,
   type FailedTx,
   GlobalVariables,
+  NestedProcessReturnValues,
   type ProcessedTx,
   Tx,
   makeProcessedTxFromPrivateOnlyTx,
@@ -133,24 +134,27 @@ describe('BlockBuilder', () => {
     publicProcessor = mock<PublicProcessor>();
     validator = mock<PublicProcessorValidator>();
 
-    publicProcessor.process.mockImplementation(async (pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>) => {
-      const processedTxs: ProcessedTx[] = [];
-      const allTxs: Tx[] = [];
+    publicProcessor.process.mockImplementation(
+      async (
+        pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>,
+      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> => {
+        const processedTxs: ProcessedTx[] = [];
+        const allTxs: Tx[] = [];
 
-      for await (const tx of pendingTxsIterator) {
-        allTxs.push(tx);
-        const processedTx = makeProcessedTxFromPrivateOnlyTx(
-          tx,
-          Fr.ZERO,
-          new PublicDataWrite(Fr.random(), Fr.random()),
-          globalVariables,
-        );
-        processedTxs.push(processedTx);
-      }
-      // Return [processedTxs, failedTxs, usedTxs, nestedReturnValues]
-      // Assuming all txs are processed successfully and none failed for this mock
-      return [processedTxs, [], allTxs, []] as any;
-    });
+        for await (const tx of pendingTxsIterator) {
+          allTxs.push(tx);
+          const processedTx = makeProcessedTxFromPrivateOnlyTx(
+            tx,
+            Fr.ZERO,
+            new PublicDataWrite(Fr.random(), Fr.random()),
+            globalVariables,
+          );
+          processedTxs.push(processedTx);
+        }
+        // Assuming all txs are processed successfully and none failed for this mock
+        return [processedTxs, [], allTxs, []];
+      },
+    );
     blockBuilder = new TestBlockBuilder(l1Constants, worldState, contractDataSource, dateProvider);
   });
 
@@ -158,7 +162,7 @@ describe('BlockBuilder', () => {
     const tx = await makeTx();
     const iterator = mockTxIterator([tx]);
 
-    const blockResult = await blockBuilder.buildBlock(iterator, [], globalVariables, {});
+    const blockResult = await blockBuilder.buildBlock(iterator, [], [], globalVariables, {});
     expect(publicProcessor.process).toHaveBeenCalledTimes(1);
     expect(publicProcessor.process).toHaveBeenCalledWith(iterator, {}, validator);
     logger.info('Built Block', blockResult.block);
@@ -176,7 +180,7 @@ describe('BlockBuilder', () => {
   it('builds a block with the correct options', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     const deadline = new Date(Date.now() + 1000);
-    await blockBuilder.buildBlock(txs, [], globalVariables, {
+    await blockBuilder.buildBlock(txs, [], [], globalVariables, {
       maxTransactions: 4,
       deadline,
     });
@@ -193,7 +197,7 @@ describe('BlockBuilder', () => {
 
   it('builds a block for validation ignoring limits', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
-    await blockBuilder.buildBlock(txs, [], globalVariables, {});
+    await blockBuilder.buildBlock(txs, [], [], globalVariables, {});
 
     expect(publicProcessor.process).toHaveBeenCalledWith(txs, {}, validator);
   });
@@ -204,32 +208,35 @@ describe('BlockBuilder', () => {
     const invalidTx = txs[1];
     const validTxHashes = await Promise.all(validTxs.map(tx => tx.getTxHash()));
 
-    publicProcessor.process.mockImplementation(async (pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>) => {
-      const processedTxs: ProcessedTx[] = [];
-      const usedTxs: Tx[] = [];
-      const failedTxs: FailedTx[] = [];
+    publicProcessor.process.mockImplementation(
+      async (
+        pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>,
+      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> => {
+        const processedTxs: ProcessedTx[] = [];
+        const usedTxs: Tx[] = [];
+        const failedTxs: FailedTx[] = [];
 
-      for await (const tx of pendingTxsIterator) {
-        if (validTxHashes.includes(tx.getTxHash())) {
-          usedTxs.push(tx);
-          const processedTx = makeProcessedTxFromPrivateOnlyTx(
-            tx,
-            Fr.ZERO,
-            new PublicDataWrite(Fr.random(), Fr.random()),
-            globalVariables,
-          );
+        for await (const tx of pendingTxsIterator) {
+          if (validTxHashes.includes(tx.getTxHash())) {
+            usedTxs.push(tx);
+            const processedTx = makeProcessedTxFromPrivateOnlyTx(
+              tx,
+              Fr.ZERO,
+              new PublicDataWrite(Fr.random(), Fr.random()),
+              globalVariables,
+            );
 
-          processedTxs.push(processedTx);
-        } else {
-          failedTxs.push({ tx, error: new Error() });
+            processedTxs.push(processedTx);
+          } else {
+            failedTxs.push({ tx, error: new Error() });
+          }
         }
-      }
-      // Return [processedTxs, failedTxs, usedTxs, nestedReturnValues]
-      // Assuming all txs are processed successfully and none failed for this mock
-      return [processedTxs, failedTxs, usedTxs, []] as any;
-    });
+        // Assuming all txs are processed successfully and none failed for this mock
+        return [processedTxs, failedTxs, usedTxs, []];
+      },
+    );
 
-    const blockResult = await blockBuilder.buildBlock(txs, [], globalVariables, {});
+    const blockResult = await blockBuilder.buildBlock(txs, [], [], globalVariables, {});
     expect(blockResult.failedTxs).toEqual([{ tx: invalidTx, error: new Error() }]);
     expect(blockResult.usedTxs).toEqual(validTxs);
   });

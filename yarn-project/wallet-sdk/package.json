@@ -6,6 +6,8 @@
   "exports": {
     "./base-wallet": "./dest/base-wallet/index.js",
     "./providers/extension": "./dest/providers/extension/index.js",
+    "./crypto": "./dest/crypto.js",
+    "./types": "./dest/types.js",
     "./manager": "./dest/manager/index.js"
   },
   "typedocOptions": {
@@ -74,7 +76,7 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "resolve-typescript-plugin": "^2.0.1",

@@ -11,7 +11,6 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 import { type Hex, formatUnits } from 'viem';
@@ -44,6 +43,7 @@ export class SequencerMetrics {
   private blockProposalPrecheckFailed: UpDownCounter;
   private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
+  private checkpointAttestationDelay: Histogram;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -69,27 +69,13 @@ export class SequencerMetrics {
 
     this.blockCounter = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_COUNT);
 
-    this.blockBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION, {
-      unit: 'ms',
-      description: 'Duration to build a block',
-      valueType: ValueType.INT,
-    });
+    this.blockBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION);
 
-    this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND, {
-      unit: 'mana/s',
-      description: 'Mana per second when building a block',
-      valueType: ValueType.INT,
-    });
+    this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND);
 
-    this.stateTransitionBufferDuration = this.meter.createHistogram(
-      Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION,
-      {
-        unit: 'ms',
-        description:
-          'The time difference between when the sequencer needed to transition to a new state and when it actually did.',
-        valueType: ValueType.INT,
-      },
-    );
+    this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
+
+    this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
 
     // Init gauges and counters
     this.blockCounter.add(0, {
@@ -99,152 +85,65 @@ export class SequencerMetrics {
       [Attributes.STATUS]: 'built',
     });
 
-    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS, {
-      valueType: ValueType.DOUBLE,
-      description: 'The rewards earned',
-    });
+    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS);
 
-    this.slots = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLOT_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of slots this sequencer was selected for',
-    });
+    this.slots = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLOT_COUNT);
 
     /**
      * NOTE: we do not track missed slots as a separate metric. That would be difficult to determine
      * Instead, use a computed metric, `slots - filledSlots` to get the number of slots a sequencer has missed.
      */
-    this.filledSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_FILLED_SLOT_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of slots this sequencer has filled',
-    });
+    this.filledSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_FILLED_SLOT_COUNT);
 
-    this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION, {
-      description: 'The time spent collecting attestations from committee members',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION);
 
-    this.allowanceToCollectAttestations = this.meter.createGauge(
-      Metrics.SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE,
-      {
-        description: 'Maximum amount of time to collect attestations',
-        unit: 'ms',
-        valueType: ValueType.INT,
-      },
-    );
+    this.allowanceToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE);
 
-    this.requiredAttestions = this.meter.createGauge(Metrics.SEQUENCER_REQUIRED_ATTESTATIONS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The minimum number of attestations required to publish a block',
-    });
+    this.requiredAttestions = this.meter.createGauge(Metrics.SEQUENCER_REQUIRED_ATTESTATIONS_COUNT);
 
-    this.collectedAttestions = this.meter.createGauge(Metrics.SEQUENCER_COLLECTED_ATTESTATIONS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The minimum number of attestations required to publish a block',
-    });
+    this.collectedAttestions = this.meter.createGauge(Metrics.SEQUENCER_COLLECTED_ATTESTATIONS_COUNT);
 
-    this.blockProposalFailed = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of times block proposal failed (including validation builds)',
-    });
+    this.blockProposalFailed = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT);
 
-    this.blockProposalSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of times block proposal succeeded (including validation builds)',
-    });
+    this.blockProposalSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT);
 
-    this.checkpointSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of times checkpoint publishing succeeded',
-    });
+    this.checkpointSuccess = this.meter.createUpDownCounter(Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT);
 
     this.blockProposalPrecheckFailed = this.meter.createUpDownCounter(
       Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
-      {
-        valueType: ValueType.INT,
-        description: 'The number of times block proposal pre-build checks failed',
-      },
     );
 
-    this.slashingAttempts = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT, {
-      valueType: ValueType.INT,
-      description: 'The number of slashing action attempts',
-    });
+    this.slashingAttempts = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
     // Fisherman fee analysis metrics
-    this.fishermanWouldBeIncluded = this.meter.createUpDownCounter(Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED, {
-      valueType: ValueType.INT,
-      description: 'Whether the transaction would have been included in the block',
-    });
+    this.fishermanWouldBeIncluded = this.meter.createUpDownCounter(Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED);
 
-    this.fishermanTimeBeforeBlock = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_TIME_BEFORE_BLOCK, {
-      unit: 'ms',
-      description: 'Time in ms between fee analysis and block being mined',
-      valueType: ValueType.INT,
-    });
+    this.fishermanTimeBeforeBlock = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_TIME_BEFORE_BLOCK);
 
-    this.fishermanPendingBlobTxCount = this.meter.createHistogram(
-      Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_TX_COUNT,
-      {
-        description: 'Number of blob transactions seen in the pending block',
-        valueType: ValueType.INT,
-      },
-    );
+    this.fishermanPendingBlobTxCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_TX_COUNT);
 
     this.fishermanIncludedBlobTxCount = this.meter.createHistogram(
       Metrics.FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_TX_COUNT,
-      {
-        description: 'Number of blob transactions that got included in the mined block',
-        valueType: ValueType.INT,
-      },
     );
 
     this.fishermanCalculatedPriorityFee = this.meter.createHistogram(
       Metrics.FISHERMAN_FEE_ANALYSIS_CALCULATED_PRIORITY_FEE,
-      {
-        unit: 'gwei',
-        description: 'Priority fee calculated by each strategy',
-        valueType: ValueType.DOUBLE,
-      },
     );
 
-    this.fishermanPriorityFeeDelta = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PRIORITY_FEE_DELTA, {
-      unit: 'gwei',
-      description: 'Difference between our priority fee and minimum included priority fee',
-      valueType: ValueType.DOUBLE,
-    });
+    this.fishermanPriorityFeeDelta = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PRIORITY_FEE_DELTA);
 
-    this.fishermanEstimatedCost = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_COST, {
-      unit: 'eth',
-      description: 'Estimated total cost in ETH for the transaction with this strategy',
-      valueType: ValueType.DOUBLE,
-    });
+    this.fishermanEstimatedCost = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_COST);
 
     this.fishermanEstimatedOverpayment = this.meter.createHistogram(
       Metrics.FISHERMAN_FEE_ANALYSIS_ESTIMATED_OVERPAYMENT,
-      {
-        unit: 'eth',
-        description: 'Estimated overpayment in ETH vs minimum required for inclusion',
-        valueType: ValueType.DOUBLE,
-      },
     );
 
     this.fishermanMinedBlobTxPriorityFee = this.meter.createHistogram(
       Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_PRIORITY_FEE,
-      {
-        unit: 'gwei',
-        description: 'Priority fee per gas for blob transactions in mined blocks',
-        valueType: ValueType.DOUBLE,
-      },
     );
 
     this.fishermanMinedBlobTxTotalCost = this.meter.createHistogram(
       Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST,
-      {
-        unit: 'eth',
-        description: 'Total cost in ETH for blob transactions in mined blocks',
-        valueType: ValueType.DOUBLE,
-      },
     );
   }
 
@@ -255,6 +154,10 @@ export class SequencerMetrics {
     // reset
     this.collectedAttestions.record(0);
     this.timeToCollectAttestations.record(0);
+  }
+
+  public recordCheckpointAttestationDelay(duration: number) {
+    this.checkpointAttestationDelay.record(duration);
   }
 
   public recordCollectedAttestations(count: number, durationMs: number) {

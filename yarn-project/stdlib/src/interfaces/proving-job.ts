@@ -47,15 +47,6 @@ export type ProofAndVerificationKey<N extends number> = {
   verificationKey: VerificationKeyData;
 };
 
-function schemaForRecursiveProofAndVerificationKey<N extends number>(
-  proofLength: N,
-): ZodFor<ProofAndVerificationKey<N>> {
-  return z.object({
-    proof: RecursiveProof.schemaFor(proofLength),
-    verificationKey: VerificationKeyData.schema,
-  });
-}
-
 export function makeProofAndVerificationKey<N extends number>(
   proof: RecursiveProof<N>,
   verificationKey: VerificationKeyData,
@@ -213,7 +204,7 @@ export type ProvingJobInputsMap = {
 export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: schemaForRecursiveProofAndVerificationKey(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+    result: RecursiveProof.schemaFor(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
   }),
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_CHONK_VERIFIER),
@@ -328,7 +319,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  [ProvingRequestType.PUBLIC_VM]: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: PublicInputsAndRecursiveProof<
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH

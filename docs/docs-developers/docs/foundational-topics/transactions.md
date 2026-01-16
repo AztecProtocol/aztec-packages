@@ -27,8 +27,8 @@ The accompanying diagram illustrates the flow of interactions between a user, th
 1. **The user initiates a transaction** – In this example, the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
 2. **The PXE executes transfer locally** – The PXE, running locally on the user's device, executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user's intention. At this point, the transaction exists solely within the context of the PXE.
 3. **The PXE proves correct execution** – The PXE proves correct execution (via zero-knowledge proofs) of the authorization and of the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (new note commitments and nullifiers) to the sequencer.
-4. **The sequencer processes the transaction** – The randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. When the sequencer receives proofs from the prover network, the proofs are bundled into a final rollup proof.
-5. **The transaction settles to L1** – The verifier contract on Ethereum validates the rollup proof and records a new state root. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
+4. **The sequencer processes the transaction** – The pseudorandomly-selected sequencer validates the transaction proofs along with required inputs for this private transfer. The sequencer also executes public functions and updates state: public state is updated by directly modifying entries in the sparse Merkle tree, while private state is updated by adding the newly created note commitments and nullifiers to the indexed Merkle trees. The sequencer then computes the new state root and posts the block to L1.
+5. **The transaction settles to L1** – The block is posted to L1, and later, provers submit epoch proofs to the verifier contract on Ethereum. Once the epoch proof is verified, the state transitions are considered final and the private transfer has settled.
 
 ### Detailed Diagram
 
@@ -36,7 +36,7 @@ The following diagram provides a more detailed overview of the transaction execu
 
 <Image img={require("@site/static/img/local_network_sending_a_tx.png")} />
 
-See the page on [contract communication](../aztec-nr/framework-description/functions/public_private_calls.md) for more context on transaction execution.
+See the page on [call types](./call_types.md) for more context on transaction execution.
 
 ### Transaction Requests
 
@@ -49,14 +49,22 @@ In Aztec.js:
 Where:
 
 - `origin` is the account contract where the transaction is initiated from.
-- `argsHash` is the hash of the arguments of the entrypoint call. The complete set of arguments is passed to the PXE as part of the [TxExecutionRequest](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx_execution_request.ts) and checked against this hash.
+- `argsHash` is the hash of the arguments of the entrypoint call. The complete set of arguments is passed to the PXE as part of the `TxExecutionRequest` and checked against this hash.
 - `txContext` contains the chain id, version, and gas settings.
 - `functionData` contains the function selector and indicates whether the function is private or public.
 - `salt` is used to make the transaction request hash difficult to predict. The hash is used as the first nullifier if no nullifier is emitted throughout the transaction.
 
-An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr)).
+The `TxExecutionRequest` class:
 
-Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a [transaction object](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx.ts#L26) is created and can be sent to the network to be included in a block.
+#include_code tx_execution_request_class yarn-project/stdlib/src/tx/tx_execution_request.ts javascript
+
+An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function. Here is an example using an ECDSA signature:
+
+#include_code is_valid_impl noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr rust
+
+Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a `Tx` object is created and can be sent to the network to be included in a block:
+
+#include_code tx_class yarn-project/stdlib/src/tx/tx.ts javascript
 
 #### Contract Interaction Methods
 
@@ -75,7 +83,9 @@ Most transaction requests are created as interactions with specific contracts. T
 
 ### Batch Transactions
 
-Batched transactions are a way to send multiple transactions in a single call. They are created by the [`BatchCall` class in Aztec.js](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/contract/batch_call.ts). This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
+Batched transactions are a way to send multiple transactions in a single call. They are created by the `BatchCall` class in Aztec.js. This allows a batch of function calls from a single wallet to be sent as a single transaction through a wallet.
+
+#include_code batch_call_class yarn-project/aztec.js/src/contract/batch_call.ts javascript
 
 ### Enabling Transaction Semantics
 

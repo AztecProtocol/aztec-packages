@@ -1,10 +1,9 @@
-import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import type { ChildProcess } from 'child_process';
 
-import { AlertChecker, AlertTriggeredError } from '../quality_of_service/alert_checker.js';
+import { AlertTriggeredError, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
   applyProverBrokerKill,
   applyProverKill,
@@ -12,7 +11,6 @@ import {
   getGitProjectRoot,
   setupEnvironment,
   startPortForward,
-  startPortForwardForRPC,
 } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -57,8 +55,7 @@ const enqueuedRootRollupJobs = {
 
 describe('prover node recovery', () => {
   const forwardProcesses: ChildProcess[] = [];
-  let alertChecker: AlertChecker;
-  let aztecNode: AztecNode;
+  let alertChecker: GrafanaClient;
   let spartanDir: string;
   beforeAll(async () => {
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
@@ -94,12 +91,7 @@ describe('prover node recovery', () => {
     forwardProcesses.push(promProc);
     const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
     const grafanaCredentials = '';
-    alertChecker = new AlertChecker(logger, { grafanaEndpoint, grafanaCredentials });
-
-    // Also port-forward the Aztec node RPC so we can assert proving progress without relying solely on Prometheus.
-    const { process: aztecRpcProc, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProc);
-    aztecNode = createAztecNodeClient(`http://127.0.0.1:${aztecRpcPort}`);
+    alertChecker = new GrafanaClient(logger, { grafanaEndpoint, grafanaCredentials });
 
     spartanDir = `${getGitProjectRoot()}/spartan`;
   });
@@ -127,7 +119,7 @@ describe('prover node recovery', () => {
         }
       },
       'wait for proofs',
-      600,
+      900,
       5,
     );
 
@@ -164,17 +156,6 @@ describe('prover node recovery', () => {
   it('should recover after a broker crash', async () => {
     logger.info(`Waiting for epoch proving job to start`);
 
-    const initialBlockNumber = await aztecNode.getBlockNumber();
-    await retryUntil(
-      async () => {
-        const blockNumber = await aztecNode.getBlockNumber();
-        return blockNumber > initialBlockNumber || undefined;
-      },
-      'pending chain to advance',
-      600,
-      5,
-    );
-
     await retryUntil(
       async () => {
         try {
@@ -184,7 +165,7 @@ describe('prover node recovery', () => {
         }
       },
       'wait for epoch',
-      600,
+      900,
       5,
     );
 
@@ -215,5 +196,5 @@ describe('prover node recovery', () => {
     );
 
     expect(result).toBeTrue();
-  }, 1_800_000);
+  }, 3_600_000);
 });

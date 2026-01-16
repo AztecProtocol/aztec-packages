@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "goblin.hpp"
@@ -29,7 +29,7 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, transcript, merge_settings, commitment_key };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -59,11 +59,11 @@ void Goblin::prove_translator()
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
-GoblinProof Goblin::prove(const MergeSettings merge_settings)
+GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
+    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
@@ -104,20 +104,6 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
     return { merge_result.pairing_points, merge_result.merged_commitments };
-}
-
-void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
-{
-    BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
-    // Add Ultra ops for the Translator (no-op + 3 random ops as prefix for translator accumulation)
-    builder.queue_ecc_no_op();
-    builder.queue_ecc_random_op();
-    builder.queue_ecc_random_op();
-    builder.queue_ecc_random_op();
-    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
-    // does not contribute to the actual MSM circuit.
-    using Fq = curve::Grumpkin::ScalarField;
-    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
 } // namespace bb

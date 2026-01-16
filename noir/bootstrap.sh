@@ -8,18 +8,17 @@ export hash=$(hash_str $noir_commit $(cache_content_hash .rebuild_patterns))
 
 # Must be in dependency order for releasing.
 export js_projects="
-  @noir-lang/types
-  @noir-lang/noir_js
-  @noir-lang/noir_codegen
-  @noir-lang/noirc_abi
-  @noir-lang/acvm_js
+  types
+  noir_js
+  noir_codegen
+  noirc_abi
+  acvm_js
 "
-export js_include=$(printf " --include %s" $js_projects)
+export js_include=$(printf " --include @noir-lang/%s" $js_projects)
 
 export GIT_COMMIT=$noir_commit
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
-export RUSTFLAGS="-Dwarnings"
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
@@ -57,9 +56,9 @@ function build_packages {
   cd ..
   rm -rf packages && mkdir -p packages
   for project in $js_projects; do
-    p=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"$project\").location")
+    p=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"@noir-lang/$project\").location")
     tar zxfv noir-repo/$p/package.tgz -C packages
-    mv packages/package packages/${project#*/}
+    mv packages/package packages/$project
   done
 
   # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec/noir-
@@ -106,13 +105,18 @@ function build {
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
 }
 
+function get_projects {
+  for dir in $js_projects; do
+    realpath packages/$dir
+  done
+}
+
 function release {
   local dist_tag=$(dist_tag)
   local version=${REF_NAME#v}
   cd packages
 
-  for package in $js_projects; do
-    local dir=${package#*/}
+  for dir in $js_projects; do
     [ ! -d "$dir" ] && echo "Project path not found: $dir" && exit 1
     cd $dir
 

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -11,9 +11,9 @@
 namespace bb::stdlib {
 
 /**
- * @brief KECCAAAAAAAAAAK
+ * @brief KECCAK
  *
- * Creates constraints that evaluate the Keccak256 hash algorithm.
+ * Creates constraints that evaluate the Keccak-f[1600] permutation.
  *
  * Ultra only due to heavy lookup table use.
  *
@@ -160,17 +160,6 @@ template <typename Builder> class keccak {
     static void iota(keccak_state& state, size_t round);
 
     static void keccakf1600(keccak_state& state);
-
-    static std::vector<uint8_t> hash_native(const std::vector<uint8_t>& data)
-    {
-        auto hash_result = ethash_keccak256(&data[0], data.size());
-
-        std::vector<uint8_t> output;
-        output.resize(32);
-
-        memcpy((void*)&output[0], (void*)&hash_result.word64s[0], 32);
-        return output;
-    }
 
     // exposing keccak f1600 permutation
 

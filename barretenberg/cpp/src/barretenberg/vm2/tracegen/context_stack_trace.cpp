@@ -2,12 +2,16 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/events/context_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the context stack events and populate fields for the context stack sub-trace.
+ *
+ * @param ctx_stack_events The context stack events.
+ * @param trace The trace container.
+ */
 void ContextStackTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ContextStackEvent>::Container& ctx_stack_events,
     TraceContainer& trace)
@@ -19,7 +23,6 @@ void ContextStackTraceBuilder::process(
         trace.set(row,
                   { {
                       { C::context_stack_sel, 1 },
-                      { C::context_stack_context_id_inv, event.id }, // Will be inverted in batch later
                       { C::context_stack_context_id, event.id },
                       { C::context_stack_parent_id, event.parent_id },
                       { C::context_stack_entered_context_id, event.entered_context_id },
@@ -27,7 +30,7 @@ void ContextStackTraceBuilder::process(
                       { C::context_stack_msg_sender, event.msg_sender },
                       { C::context_stack_contract_address, event.contract_addr },
                       { C::context_stack_bytecode_id, event.bytecode_id },
-                      { C::context_stack_is_static, event.is_static },
+                      { C::context_stack_is_static, event.is_static ? 1 : 0 },
                       { C::context_stack_parent_calldata_addr, event.parent_cd_addr },
                       { C::context_stack_parent_calldata_size, event.parent_cd_size },
                       { C::context_stack_parent_l2_gas_limit, event.parent_gas_limit.l2_gas },
@@ -54,9 +57,6 @@ void ContextStackTraceBuilder::process(
                   } });
         row++;
     }
-
-    // Batch invert the columns.
-    trace.invert_columns({ { C::context_stack_context_id_inv } });
 }
 
 } // namespace bb::avm2::tracegen

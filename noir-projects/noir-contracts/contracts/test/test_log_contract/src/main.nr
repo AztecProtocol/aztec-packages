@@ -32,17 +32,17 @@ pub contract TestLog {
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        self.emit(event0).deliver_to(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
 
         // We duplicate the emission, but swapping the sender and recipient:
-        self.emit(event0).deliver_to(other, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.emit(event0).deliver_to(other, MessageDelivery.ONCHAIN_CONSTRAINED);
 
         let event1 = ExampleEvent1 {
             value2: AztecAddress::from_field(preimages[2]),
             value3: preimages[3] as u8,
         };
 
-        self.emit(event1).deliver_to(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("public")]
@@ -70,12 +70,12 @@ pub contract TestLog {
 
         self.emit(ExampleEvent0 { value0: random_value_0, value1: random_value_1 }).deliver_to(
             other,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
 
         self.emit(ExampleEvent0 { value0: random_value_2, value1: random_value_3 }).deliver_to(
             other,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
 
         if num_nested_calls > 0 {

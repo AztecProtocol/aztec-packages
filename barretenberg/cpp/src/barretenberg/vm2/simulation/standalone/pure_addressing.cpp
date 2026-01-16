@@ -22,7 +22,7 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
     ExecutionOpCode exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
 
-    assert(spec.num_addresses <= instruction.operands.size());
+    BB_ASSERT_DEBUG(spec.num_addresses <= instruction.operands.size(), "Number of addresses is out of range");
 
     std::optional<MemoryAddress> base_address;
     std::vector<Operand> resolved_operands = instruction.operands;
@@ -33,14 +33,14 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
 
         // We assume from serialization that the operand is <= the bits of a memory address.
         // We assert this here as it is a precondition.
-        assert(get_tag_bits(tag) <= get_tag_bits(MemoryAddressTag));
+        BB_ASSERT_DEBUG(get_tag_bits(tag) <= get_tag_bits(MemoryAddressTag), "Tag bits are out of range");
         // Normalize possibly smaller sizes to MemoryAddress.
         if (tag != MemoryAddressTag) {
             operand = Operand::from(static_cast<MemoryAddress>(operand.to<MemoryAddress>()));
         }
 
         // Handle relative addressing
-        if (is_operand_relative(instruction.indirect, i)) {
+        if (is_operand_relative(instruction.addressing_mode, i)) {
             if (!base_address) {
                 MemoryValue maybe_base_address = memory.get(0);
                 if (!memory.is_valid_address(maybe_base_address)) {
@@ -63,7 +63,7 @@ std::vector<Operand> PureAddressing::resolve(const Instruction& instruction, Mem
         }
 
         // Handle indirection
-        if (is_operand_indirect(instruction.indirect, i)) {
+        if (is_operand_indirect(instruction.addressing_mode, i)) {
             const MemoryValue& indirect_value = memory.get(operand.as<MemoryAddress>());
             if (!memory.is_valid_address(indirect_value)) {
                 throw AddressingException(

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "recursive_verifier.hpp"
 
 #include <algorithm>
@@ -18,8 +24,9 @@
 
 namespace bb::avm2 {
 
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
+    , transcript(transcript)
 {
     auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
 
@@ -119,19 +126,15 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    FF one{ 1 };
-    one.convert_constant_to_fixed_witness(&builder);
-
-    std::vector<FF> padding_indicator_array(key->log_fixed_circuit_size);
-    std::ranges::fill(padding_indicator_array, one);
+    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, FF(1));
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_fixed_circuit_size);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, MAX_AVM_TRACE_LOG_SIZE);
 
     std::vector<FF> gate_challenges =
-        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_fixed_circuit_size);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
@@ -208,7 +211,15 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         info("AVM Recursive verifier builder failed with error: ", builder.err());
     }
 
+    is_verification_complete = true;
+
     return pairing_points;
 }
+
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+{
+    BB_ASSERT(is_verification_complete, "Transcript can only be hashed after verification is complete");
+    return Transcript::hash_avm_transcript(transcript, stdlib_proof);
+};
 
 } // namespace bb::avm2

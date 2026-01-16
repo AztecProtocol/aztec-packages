@@ -24,7 +24,9 @@ pub fn build_tx_effect(
 ) -> (TxEffect, TxEffectArrayLengths) {
     let accumulated_data = private_to_rollup.end;
 
-    // Silo L2 to L1 messages.
+    // Compute siloed L2-to-L1 message hashes (siloed with the contract address of the function that
+    // emitted the message). We do this sequencer-side, because the hashes are computed with sha256
+    // for EVM compatibility.
     let l2_to_l1_msgs = accumulated_data.l2_to_l1_msgs.map(|message| silo_l2_to_l1_message(
         message,
         private_to_rollup.constants.tx_context.version,
@@ -48,7 +50,7 @@ pub fn build_tx_effect(
         [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
     public_data_writes[0] = fee_payer_balance_write;
 
-    // Construct contract class logs from the hashes from kernel circuits and the log fields given via private inputs.
+    // Construct ContractClassLogs from the hashes from kernel circuits and the log fields given via private inputs.
     let contract_class_logs = accumulated_data.contract_class_logs_hashes.mapi(|i, log_hash| {
         ContractClassLog {
             log: Log::new(contract_class_log_fields[i], log_hash.inner.length),
@@ -83,7 +85,7 @@ pub fn build_tx_effect(
         note_hashes: array_length(accumulated_data.note_hashes),
         nullifiers: array_length(accumulated_data.nullifiers),
         l2_to_l1_msgs: array_length(l2_to_l1_msgs),
-        public_data_writes: 1,
+        public_data_writes: 1, // No public functions were called. This is the fee_payer's FeeJuice balance decrementation.
         private_logs: private_logs_array_length,
         contract_class_logs: contract_class_logs_array_length,
     };

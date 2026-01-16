@@ -49,7 +49,7 @@ if [ "${USE_HOME_TMP}" -eq 1 ]; then
   tmp_mount="-v$HOME/tmp:/tmp:z"
 else
   # Default: use tmpfs with specified size
-  tmp_mount="--mount type=tmpfs,target=/tmp,tmpfs-size=$TMPFS_SIZE"
+  tmp_mount="--tmpfs /tmp:exec,size=$TMPFS_SIZE"
 fi
 
 # Launch the container in the background.
@@ -76,6 +76,7 @@ cid=$(docker run -d \
   -e MEM \
   -e TMPFS_SIZE \
   -e USE_HOME_TMP \
+  -e AVM \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")

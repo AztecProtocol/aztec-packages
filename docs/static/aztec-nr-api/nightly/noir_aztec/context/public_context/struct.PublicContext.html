@@ -25,8 +25,6 @@
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#base_fee_per_da_gas">base_fee_per_da_gas</a></li>
-<li><a href="#base_fee_per_l2_gas">base_fee_per_l2_gas</a></li>
 <li><a href="#block_number">block_number</a></li>
 <li><a href="#call_public_function">call_public_function</a></li>
 <li><a href="#chain_id">chain_id</a></li>
@@ -37,12 +35,13 @@
 <li><a href="#is_static_call">is_static_call</a></li>
 <li><a href="#l1_to_l2_msg_exists">l1_to_l2_msg_exists</a></li>
 <li><a href="#l2_gas_left">l2_gas_left</a></li>
+<li><a href="#maybe_msg_sender">maybe_msg_sender</a></li>
 <li><a href="#message_portal">message_portal</a></li>
-<li><a href="#msg_sender">msg_sender</a></li>
-<li><a href="#msg_sender_unsafe">msg_sender_unsafe</a></li>
+<li><a href="#min_fee_per_da_gas">min_fee_per_da_gas</a></li>
+<li><a href="#min_fee_per_l2_gas">min_fee_per_l2_gas</a></li>
 <li><a href="#new">new</a></li>
 <li><a href="#note_hash_exists">note_hash_exists</a></li>
-<li><a href="#nullifier_exists">nullifier_exists</a></li>
+<li><a href="#nullifier_exists_unsafe">nullifier_exists_unsafe</a></li>
 <li><a href="#push_note_hash">push_note_hash</a></li>
 <li><a href="#push_nullifier">push_nullifier</a></li>
 <li><a href="#raw_storage_read">raw_storage_read</a></li>
@@ -220,41 +219,41 @@ message.</p>
 <li>Messages are copied from L1 Inbox to L2 by block proposers</li>
 </ul>
 </div>
-</div><code id="nullifier_exists" class="code-header">pub fn <a href="#nullifier_exists"><span class="fn">nullifier_exists</span></a>(
+</div><code id="nullifier_exists_unsafe" class="code-header">pub fn <a href="#nullifier_exists_unsafe"><span class="fn">nullifier_exists_unsafe</span></a>(
     _self: Self,
     unsiloed_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
-    address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 ) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Checks if a specific nullifier has been emitted by a given contract.</p>
-<p>Whilst nullifiers are primarily intended as a <em>privacy-preserving</em>
-record of a one-time action, they can also be used to efficiently
-record <em>public</em> one-time actions too. An example is to check
-whether a contract has been published: we emit a nullifier that is
-deterministic, but whose preimage is <em>not</em> private. This is more
-efficient than using mutable storage, and can be done directly
-from a private function.</p>
-<p>Nullifiers can be tested for non-existence in public, which is not the
-case in private. Because private functions do not have access to
-the tip of the blockchain (but only the anchor block they are built
-at) they can only prove nullifier non-existence in the past. But between
-an anchor block and the block in which a tx is included, the nullifier
-might have been inserted into the nullifier tree by some other
-transaction.
-Public functions <em>do</em> have access to the tip of the state, and so
-this pattern is safe.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>unsiloed_nullifier</code> - The raw nullifier value (before siloing with
-the contract address that emitted it).</li>
-<li><code>address</code> - The claimed contract address that emitted the nullifier</li>
-</ul>
-<h4>Returns</h4>
-<ul>
-<li><code>bool</code> - True if the nullifier has been emitted by the specified contract</li>
-</ul>
-</div>
+<p>Returns <code>true</code> if an <code>unsiloed_nullifier</code> has been emitted by <code>contract_address</code>.</p>
+<p>Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
+<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html">crate::hash::compute_siloed_nullifier</a> with the emitting contract's address.</p>
+<h4>Use Cases</h4>
+<p>Nullifiers are typically used as a <em>privacy-preserving</em> record of a one-time action, but they can also be used
+to efficiently record <em>public</em> one-time actions as well. This is cheaper than using public storage, and has the
+added benefit of the nullifier being emittable from a private function.</p>
+<p>An example is to check whether a contract has been published: we emit a nullifier that is deterministic and
+which has a <em>public</em> preimage.</p>
+<h4>Public vs Private</h4>
+<p>In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
+possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
+block. Private functions instead prove existence via
+<a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html#push_nullifier_read_request">crate::context::private_context::PrivateContext::push_nullifier_read_request</a> and 'prove' non-existence by
+<em>emitting</em> the nullifer, which would cause the transaction to fail if the nullifier existed.</p>
+<p>This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
+prove whether a nullifier exists or not.</p>
+<h4>Safety</h4>
+<p>While it is safe to rely on this function's return value to determine if a nullifier exists or not, it is often
+<strong>not</strong> safe to infer additional information from that. In particular, it is <strong>unsafe</strong> to infer that the
+existence of a nullifier emitted from a private function implies that all other side-effects of said private
+execution have been completed, more concretely that any enqueued public calls have been executed.</p>
+<p>This is because all private transaction effects are committed <em>before</em> enqueued public functions are run (in
+order to not reveal detailed timing information about the transaction), so it is possible to observe a nullifier
+that was emitted alongside the enqueuing of a public call <strong>before</strong> said call has been completed.</p>
+<h4>Cost</h4>
+<p>This emits the <code>CHECKNULLIFIEREXISTS</code> opcode, which conceptually performs a merkle inclusion proof on the
+nullifier tree (both when the nullifier exists and when it doesn't).</p></div>
 </div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>(
     self,
     content: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -431,36 +430,25 @@ access control or when interacting with other contracts.</p>
 executed.</li>
 </ul>
 </div>
-</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(_self: Self) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
+</div><code id="maybe_msg_sender" class="code-header">pub fn <a href="#maybe_msg_sender"><span class="fn">maybe_msg_sender</span></a>(_self: Self) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the contract address that initiated this function call.</p>
 <p>This is similar to <code>msg.sender</code> in Solidity (hence the name).</p>
-<p>Important Note: If the calling function is a <em>private</em> function, then
-it had the option of hiding its address when enqueuing this public
-function call. In such cases, this <code>context.msg_sender()</code> method will
-return <code>Option&lt;AztecAddress&gt;::none</code>.
-If the calling function is a <em>public</em> function, it will always return
-an <code>Option&lt;AztecAddress&gt;::some</code> (i.e. a non-null value).</p>
+<p>Important Note: If the calling function is a <em>private</em> function, then it had the option of hiding its address
+when enqueuing this public function call. In such cases, this method will return <code>Option&lt;AztecAddress&gt;::none</code>.
+If the calling function is a <em>public</em> function, it will always return an <code>Option&lt;AztecAddress&gt;::some</code> (i.e.
+a non-null value).</p>
 <h4>Returns</h4>
 <ul>
-<li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called
-this function (be it an app contract or a user's account contract).</li>
+<li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called this function (be it an app contract
+or a user's account contract).</li>
 </ul>
 <h4>Advanced</h4>
 <ul>
 <li>Value is provided by the AVM sender opcode</li>
-<li>In nested calls, this is the immediate caller, not the original
-transaction sender</li>
+<li>In nested calls, this is the immediate caller, not the original transaction sender</li>
 </ul>
-</div>
-</div><code id="msg_sender_unsafe" class="code-header">pub fn <a href="#msg_sender_unsafe"><span class="fn">msg_sender_unsafe</span></a>(_self: Self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
-
-<div class="padded-description"><div class="comments">
-<p>&quot;Unsafe&quot; versus calling <code>context.msg_sender()</code>, because it doesn't
-translate <code>NULL_MSG_SENDER_CONTRACT_ADDRESS</code> as
-<code>Option&lt;AztecAddress&gt;::none</code>.
-Used by some internal aztecnr functions.</p>
 </div>
 </div><code id="selector" class="code-header">pub fn <a href="#selector"><span class="fn">selector</span></a>(_self: Self) -> <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code>
 
@@ -585,7 +573,7 @@ attest to the block.</p>
 <li><code>u64</code> - Unix timestamp in seconds</li>
 </ul>
 </div>
-</div><code id="base_fee_per_l2_gas" class="code-header">pub fn <a href="#base_fee_per_l2_gas"><span class="fn">base_fee_per_l2_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
+</div><code id="min_fee_per_l2_gas" class="code-header">pub fn <a href="#min_fee_per_l2_gas"><span class="fn">min_fee_per_l2_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the fee per unit of L2 gas for this transaction (aka the &quot;L2 gas
@@ -612,13 +600,13 @@ be some unique number like 0.123456789, or their favorite number).
 Wallet devs might wish to consider fuzzing the choice of gas price.</li>
 </ul>
 </div>
-</div><code id="base_fee_per_da_gas" class="code-header">pub fn <a href="#base_fee_per_da_gas"><span class="fn">base_fee_per_da_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
+</div><code id="min_fee_per_da_gas" class="code-header">pub fn <a href="#min_fee_per_da_gas"><span class="fn">min_fee_per_da_gas</span></a>(_self: Self) -> <a href="../../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the fee per unit of DA (Data Availability) gas (aka the &quot;DA gas
 price&quot;).</p>
 <p>DA gas covers the cost of making transaction data available on L1.</p>
-<p>See the warning in <code>fee_pre_l2_gas</code> for how gas prices can be leaky.</p>
+<p>See the warning in <code>min_fee_per_l2_gas</code> for how gas prices can be leaky.</p>
 <h4>Returns</h4>
 <ul>
 <li><code>u128</code> - Fee per unit of DA gas</li>

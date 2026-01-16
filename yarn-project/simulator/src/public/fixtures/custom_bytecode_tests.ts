@@ -23,8 +23,8 @@ export async function addressingWithBaseTagIssueTest(isIndirect: boolean, tester
   ]);
 
   const bytecode = encodeToBytecode([
-    new CalldataCopy(/*indirect=*/ addressingMode.toWire(), /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
-    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+    new CalldataCopy(/*addressing_mode=*/ addressingMode.toWire(), /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
   const txLabel = isIndirect ? 'AddressingWithBaseTagInvalidIndirect' : 'AddressingWithBaseTagInvalidDirect';
@@ -44,11 +44,14 @@ export async function addressingWithIndirectTagIssueTest(tester: PublicTxSimulat
 
   const bytecode = encodeToBytecode([
     // Set a U64 value at offset 0 - this has the wrong tag for an address (should be U32)
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT64, /*value=*/ 100n).as(Opcode.SET_64, Set.wireFormat64),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT64, /*value=*/ 100n).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
     // Try to use indirect addressing: read from offset 0, which contains a U64 value
     // This should fail because U64 is not a valid address tag (must be U32)
-    new CalldataCopy(/*indirect=*/ addressingMode.toWire(), /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 1),
-    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+    new CalldataCopy(/*addressing_mode=*/ addressingMode.toWire(), /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 1),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
   const txLabel = 'AddressingWithIndirectTagInvalid';
@@ -69,14 +72,17 @@ export async function addressingWithIndirectThenRelativeTagIssueTest(tester: Pub
 
   const bytecode = encodeToBytecode([
     // Set a U32 value 10 at offset 1 - this will be used as an indirect address
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, /*value=*/ 10).as(Opcode.SET_32, Set.wireFormat32),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, /*value=*/ 10).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
     // ADD_16: first operand uses indirect addressing (reads from offset 1, gets value 10, uses as address - succeeds)
     //         second operand uses relative addressing (tries to read base from offset 0, but offset 0 has wrong tag - fails)
-    new Add(/*indirect=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
+    new Add(/*addressing_mode=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
       Opcode.ADD_16,
       Add.wireFormat16,
     ),
-    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
   const txLabel = 'AddressingWithIndirectThenRelativeTagInvalid';
@@ -100,15 +106,15 @@ export async function addressingWithRelativeOverflowAndIndirectTagIssueTest(test
 
   const bytecode = encodeToBytecode([
     // Set UINT32_MAX at offset 0 as base address - this will cause overflow when adding relative offset 1
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ UINT32_MAX).as(
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ UINT32_MAX).as(
       Opcode.SET_32,
       Set.wireFormat32,
     ),
-    new Add(/*indirect=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
+    new Add(/*addressing_mode=*/ addressingMode.toWire(), /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3).as(
       Opcode.ADD_8,
       Add.wireFormat8,
     ),
-    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
   const txLabel = 'AddressingWithRelativeOverflowAndIndirectTagInvalid';
@@ -118,7 +124,7 @@ export async function addressingWithRelativeOverflowAndIndirectTagIssueTest(test
 export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {
   const bytecode = encodeToBytecode([
     new Jump(/*jumpOffset=*/ 123), // Jump to out-of-range pc offset.
-    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
   const txLabel = 'PcOutOfRange';
@@ -127,14 +133,14 @@ export async function pcOutOfRangeTest(tester: PublicTxSimulationTester) {
 
 export async function invalidOpcodeTest(tester: PublicTxSimulationTester) {
   let bytecode = encodeToBytecode([
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
   ]);
 
   const offsetReturnOpcodeByte = bytecode.length;
 
   bytecode = Buffer.concat([
     bytecode,
-    encodeToBytecode([new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0)]),
+    encodeToBytecode([new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0)]),
   ]);
 
   // Manipulate the Return opcode to make the opcode invalid (out of range).
@@ -157,7 +163,7 @@ export async function invalidByteTest(tester: PublicTxSimulationTester) {
 // Truncate the last instruction in the bytecode.
 export async function instructionTruncatedTest(tester: PublicTxSimulationTester) {
   let bytecode = encodeToBytecode([
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
   ]);
 
   // Truncate the bytecode.
@@ -170,8 +176,8 @@ export async function instructionTruncatedTest(tester: PublicTxSimulationTester)
 // Invalid tag value byte in an instruction.
 export async function invalidTagValueTest(tester: PublicTxSimulationTester) {
   const bytecode = encodeToBytecode([
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-    new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
   const tagOffset = getTagOffsetInInstruction(Set.wireFormat8);
@@ -186,7 +192,10 @@ export async function invalidTagValueTest(tester: PublicTxSimulationTester) {
 export async function invalidTagValueAndInstructionTruncatedTest(tester: PublicTxSimulationTester) {
   let bytecode = encodeToBytecode([
     // Important: value argument must be a bigint otherwise a type error will be thrown.
-    new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT128, /*value=*/ 0n).as(Opcode.SET_128, Set.wireFormat128),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT128, /*value=*/ 0n).as(
+      Opcode.SET_128,
+      Set.wireFormat128,
+    ),
   ]);
 
   // Truncate the bytecode.

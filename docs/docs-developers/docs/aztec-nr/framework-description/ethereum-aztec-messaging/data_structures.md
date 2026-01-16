@@ -3,56 +3,36 @@ title: Data Structures
 description: Learn about the data structures used in Aztec portals for L1-L2 communication.
 ---
 
-The `DataStructures` are structs that we are using throughout the message infrastructure and registry.
+This page documents the Solidity structs used for L1-L2 message passing in the Aztec protocol.
 
-**Links**: [Implementation (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/DataStructures.sol).
+**Source**: [DataStructures.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/libraries/DataStructures.sol)
 
 ## `L1Actor`
 
-An entity on L1, specifying the address and the chainId for the entity. Used when specifying sender/recipient with an entity that is on L1.
+An entity on L1, specifying the address and the chainId. Used when specifying a sender or recipient on L1.
 
 #include_code l1_actor l1-contracts/src/core/libraries/DataStructures.sol solidity
 
-| Name           | Type    | Description |
-| -------------- | ------- | ----------- |
-| `actor`          | `address` | The L1 address of the actor |
-| `chainId`        | `uint256` | The chainId of the actor. Defines the blockchain that the actor lives on. |
-
-
 ## `L2Actor`
 
-An entity on L2, specifying the address and the version for the entity. Used when specifying sender/recipient with an entity that is on L2.
+An entity on L2, specifying the Aztec address and the protocol version. Used when specifying a sender or recipient on L2.
 
 #include_code l2_actor l1-contracts/src/core/libraries/DataStructures.sol solidity
 
-| Name           | Type    | Description |
-| -------------- | ------- | ----------- |
-| `actor`          | `bytes32` | The aztec address of the actor. |
-| `version`        | `uint256` | The version of Aztec that the actor lives on. |
+## `L1ToL2Msg`
 
-## `L1ToL2Message`
-
-A message that is sent from L1 to L2.
+A message sent from L1 to L2. The `secretHash` field contains the hash of a secret pre-image that must be known to consume the message on L2. Use [`computeSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/hash/hash.ts) to compute it from a secret.
 
 #include_code l1_to_l2_msg l1-contracts/src/core/libraries/DataStructures.sol solidity
 
-| Name           | Type    | Description |
-| -------------- | ------- | ----------- |
-| `sender`          | `L1Actor` | The actor on L1 that is sending the message. |
-| `recipient`        | `L2Actor` | The actor on L2 that is to receive the message. |
-| `content`        | `field (~254 bits)` | The field element containing the content to be sent to L2. |
-| `secretHash`        | `field (~254 bits)` | The hash of a secret pre-image that must be known to consume the message on L2. Use [`computeSecretHash` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
+## `L2ToL1Msg`
 
-## `L2ToL1Message`
-
-A message that is sent from L2 to L1.
+A message sent from L2 to L1.
 
 #include_code l2_to_l1_msg l1-contracts/src/core/libraries/DataStructures.sol solidity
 
-| Name           | Type    | Description |
-| -------------- | ------- | ----------- |
-| `sender`          | `L2Actor` | The actor on L2 that is sending the message. |
-| `recipient`        | `L1Actor` | The actor on L1 that is to receive the message. |
-| `content`        | `field (~254 bits)` | The field element containing the content to be consumed by the portal on L1. |
+## See also
 
-
+- [Inbox](./inbox.md) - L1 contract for sending messages to L2
+- [Outbox](./outbox.md) - L1 contract for consuming messages from L2
+- [Portal messaging overview](./index.md) - How L1-L2 messaging works

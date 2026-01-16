@@ -77,7 +77,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
-    assert(maybe_klass.has_value());
+    BB_ASSERT(maybe_klass.has_value(), "Contract class not found");
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
 
@@ -133,7 +133,9 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
 
 std::shared_ptr<std::vector<uint8_t>> PureTxBytecodeManager::get_bytecode_data(const BytecodeId& bytecode_id)
 {
-    return bytecodes.at(bytecode_id);
+    auto it = bytecodes.find(bytecode_id);
+    BB_ASSERT_DEBUG(it != bytecodes.end(), "Bytecode not found for the given bytecode_id");
+    return it->second;
 }
 
 } // namespace bb::avm2::simulation

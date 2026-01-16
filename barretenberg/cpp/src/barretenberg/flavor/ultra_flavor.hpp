@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -10,6 +10,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -43,6 +44,9 @@ class UltraFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     static constexpr size_t VIRTUAL_LOG_N = CONST_PROOF_SIZE_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
@@ -133,9 +137,6 @@ class UltraFlavor {
     {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
-
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
-    static constexpr bool has_zero_row = true;
 
     static constexpr bool is_decider = true;
 
@@ -365,129 +366,6 @@ class UltraFlavor {
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
-     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
-     *
-     */
-    template <typename Codec, typename HashFunction> class Transcript_ : public BaseTranscript<Codec, HashFunction> {
-      public:
-        using Base = BaseTranscript<Codec, HashFunction>;
-
-        using Base::Base; // Inherit base class constructors
-
-        // Transcript objects defined as public member variables for easy access and modification
-        std::vector<FF> public_inputs;
-        Commitment w_l_comm;
-        Commitment w_r_comm;
-        Commitment w_o_comm;
-        Commitment lookup_read_counts_comm;
-        Commitment lookup_read_tags_comm;
-        Commitment w_4_comm;
-        Commitment z_perm_comm;
-        Commitment lookup_inverses_comm;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> gemini_fold_comms;
-        std::vector<FF> gemini_fold_evals;
-        Commitment shplonk_q_comm;
-        Commitment kzg_w_comm;
-        Transcript_() = default;
-
-        static std::shared_ptr<Transcript_> prover_init_empty()
-        {
-            auto transcript = Base::test_prover_init_empty();
-            return std::static_pointer_cast<Transcript_>(transcript);
-        };
-
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
-        {
-            auto verifier_transcript = Base::test_verifier_init_empty(transcript);
-            return std::static_pointer_cast<Transcript_>(verifier_transcript);
-        };
-
-        /**
-         * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
-         * that compose the structure. Must be called in order to access the structure of the
-         * proof.
-         *
-         */
-        void deserialize_full_transcript(size_t public_input_size, size_t virtual_log_n = VIRTUAL_LOG_N)
-        {
-            // take current proof and put them into the struct
-            auto& proof_data = this->proof_data;
-            size_t num_frs_read = 0;
-            for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            w_l_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_r_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_o_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_counts_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_tags_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_4_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_inverses_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_perm_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                sumcheck_univariates.push_back(
-                    Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        proof_data, num_frs_read));
-            }
-            sumcheck_evaluations =
-                Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
-                gemini_fold_comms.push_back(
-                    Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
-            }
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            shplonk_q_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-
-            kzg_w_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-        }
-
-        /**
-         * @brief Serializes the structure variables into a FULL Ultra proof. Should be called
-         * only if deserialize_full_transcript() was called and some transcript variable was
-         * modified.
-         *
-         */
-        void serialize_full_transcript(size_t virtual_log_n = VIRTUAL_LOG_N)
-        {
-            auto& proof_data = this->proof_data;
-            size_t old_proof_length = proof_data.size();
-            proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            for (const auto& public_input : public_inputs) {
-                Base::serialize_to_buffer(public_input, proof_data);
-            }
-            Base::serialize_to_buffer(w_l_comm, proof_data);
-            Base::serialize_to_buffer(w_r_comm, proof_data);
-            Base::serialize_to_buffer(w_o_comm, proof_data);
-            Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
-            Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
-            Base::serialize_to_buffer(w_4_comm, proof_data);
-            Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
-            Base::serialize_to_buffer(z_perm_comm, proof_data);
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                Base::serialize_to_buffer(sumcheck_univariates[i], proof_data);
-            }
-            Base::serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < virtual_log_n - 1; ++i) {
-                Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
-            }
-            for (size_t i = 0; i < virtual_log_n; ++i) {
-                Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
-            }
-            Base::serialize_to_buffer(shplonk_q_comm, proof_data);
-            Base::serialize_to_buffer(kzg_w_comm, proof_data);
-
-            // sanity check to make sure we generate the same length of proof as before.
-            BB_ASSERT_EQ(proof_data.size(), old_proof_length);
-        }
-    };
-
-    using Transcript = Transcript_<FrCodec, crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>>;
-
-    /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
@@ -495,63 +373,16 @@ class UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        bool operator==(const VerificationKey&) const = default;
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const PrecomputedData& precomputed)
-        {
-            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
-            this->num_public_inputs = precomputed.metadata.num_public_inputs;
-            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-
-            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-                commitment = commitment_key.commit(polynomial);
-            }
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
-    };
+    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    template <bool HasZK_ = HasZK> class PartiallyEvaluatedMultivariates_ : public AllEntities_<Polynomial, HasZK_> {
-      public:
-        PartiallyEvaluatedMultivariates_() = default;
-        PartiallyEvaluatedMultivariates_(const size_t circuit_size)
-        {
-            BB_BENCH_NAME("PartiallyEvaluatedMultivariates constructor");
-
-            // Storage is only needed after the first partial evaluation, hence polynomials of
-            // size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
-        PartiallyEvaluatedMultivariates_(const ProverPolynomials_<HasZK_>& full_polynomials, size_t circuit_size)
-        {
-            BB_BENCH_NAME("PartiallyEvaluatedMultivariates constructor");
-            for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
-                // After the initial sumcheck round, the new size is CEIL(size/2).
-                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    template <bool HasZK_ = HasZK>
+    using PartiallyEvaluatedMultivariates_ =
+        PartiallyEvaluatedMultivariatesBase<AllEntities_<Polynomial, HasZK_>, ProverPolynomials_<HasZK_>, Polynomial>;
 
     using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
 

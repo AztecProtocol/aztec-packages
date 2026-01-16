@@ -250,7 +250,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(prover_transcript);
-        auto [folding_proof, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
+        auto [folding_proof, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
         tamper_with_accumulator(folded_accumulator, mode);
 
         // Construct Decider proof

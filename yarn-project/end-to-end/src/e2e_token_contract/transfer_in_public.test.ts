@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
@@ -23,8 +23,8 @@ describe('e2e_token_contract transfer public', () => {
   let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);
@@ -33,7 +33,7 @@ describe('e2e_token_contract transfer public', () => {
   afterAll(async () => {
     await t.teardown();
     if (CHECK_ALERTS) {
-      const alertChecker = new AlertChecker(t.logger);
+      const alertChecker = new GrafanaClient(t.logger);
       await alertChecker.runAlertCheck(qosAlerts);
     }
   });

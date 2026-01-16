@@ -13,6 +13,7 @@
 **/.tsc.pid
 **/*.result
 accounts/artifacts
+aztec.js/src/contract/protocol_contracts
 aztec-faucet/data*
 aztec-node/data*
 aztec/log
@@ -57,6 +58,9 @@ noir-test-contracts.js/codegenCache.json
 types/fixtures/*.json
 test-wallet/artifacts
 cli-wallet/test/data
+cli/src/config/generated
+ethereum/src/generated
+slasher/src/generated
 
 .claude/settings.local.json
 .yarn/*

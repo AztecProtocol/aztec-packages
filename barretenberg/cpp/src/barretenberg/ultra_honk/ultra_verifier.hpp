@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -10,6 +10,7 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -34,7 +35,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     stdlib::Proof<Builder> ipa_proof;
     G1 kernel_return_data;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments (HidingKernel/Chonk only)
-    FF mega_hash;                                     // Hash of public inputs and VK (GoblinAvmRecursiveVerifier only)
+    FF transcript_hash; // The final state of the transcript of the AVM recursive verifier (GoblinAvm only)
 
     UltraRecursiveVerifierOutput() = default;
 
@@ -46,7 +47,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
             kernel_return_data = inputs.kernel_return_data;
             ecc_op_tables = inputs.ecc_op_tables;
         } else if constexpr (std::is_same_v<IO, GoblinAvmIO<Builder>>) {
-            mega_hash = inputs.mega_hash;
+            transcript_hash = inputs.transcript_hash;
         } else if constexpr (!std::is_same_v<IO, DefaultIO<Builder>>) {
             throw_or_abort("Invalid public input type.");
         }

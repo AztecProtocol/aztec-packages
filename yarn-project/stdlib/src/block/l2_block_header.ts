@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { BlockHeader, ContentCommitment, GlobalVariables, StateReference } from '../tx/index.js';
+import { BlockHeader, GlobalVariables, StateReference } from '../tx/index.js';
 
 /**
  * TO BE DELETED
@@ -25,8 +25,10 @@ export class L2BlockHeader {
   constructor(
     /** Snapshot of archive before the block is applied. */
     public lastArchive: AppendOnlyTreeSnapshot,
-    /** Hash of the body of an L2 block. */
-    public contentCommitment: ContentCommitment,
+    public blobsHash: Fr,
+    public inHash: Fr,
+    /** Root of the epoch out hash tree. Leaves are the out hashes of this block and all previous blocks in the epoch. */
+    public epochOutHash: Fr,
     /** State reference. */
     public state: StateReference,
     /** Global variables of an L2 block. */
@@ -45,7 +47,9 @@ export class L2BlockHeader {
     return z
       .object({
         lastArchive: AppendOnlyTreeSnapshot.schema,
-        contentCommitment: ContentCommitment.schema,
+        blobsHash: schemas.Fr,
+        inHash: schemas.Fr,
+        epochOutHash: schemas.Fr,
         state: StateReference.schema,
         globalVariables: GlobalVariables.schema,
         totalFees: schemas.Fr,
@@ -59,7 +63,9 @@ export class L2BlockHeader {
   static getFields(fields: FieldsOf<L2BlockHeader>) {
     return [
       fields.lastArchive,
-      fields.contentCommitment,
+      fields.blobsHash,
+      fields.inHash,
+      fields.epochOutHash,
       fields.state,
       fields.globalVariables,
       fields.totalFees,
@@ -84,7 +90,9 @@ export class L2BlockHeader {
   getSize() {
     return (
       this.lastArchive.getSize() +
-      this.contentCommitment.getSize() +
+      this.blobsHash.size +
+      this.inHash.size +
+      this.epochOutHash.size +
       this.state.getSize() +
       this.globalVariables.getSize() +
       this.totalFees.size +
@@ -111,7 +119,9 @@ export class L2BlockHeader {
 
     return new L2BlockHeader(
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(ContentCommitment),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(StateReference),
       reader.readObject(GlobalVariables),
       reader.readObject(Fr),
@@ -126,7 +136,9 @@ export class L2BlockHeader {
 
     return new L2BlockHeader(
       AppendOnlyTreeSnapshot.fromFields(reader),
-      ContentCommitment.fromFields(reader),
+      reader.readField(),
+      reader.readField(),
+      reader.readField(),
       StateReference.fromFields(reader),
       GlobalVariables.fromFields(reader),
       reader.readField(),
@@ -139,7 +151,9 @@ export class L2BlockHeader {
   static empty(fields: Partial<FieldsOf<L2BlockHeader>> = {}) {
     return L2BlockHeader.from({
       lastArchive: AppendOnlyTreeSnapshot.empty(),
-      contentCommitment: ContentCommitment.empty(),
+      blobsHash: Fr.ZERO,
+      inHash: Fr.ZERO,
+      epochOutHash: Fr.ZERO,
       state: StateReference.empty(),
       globalVariables: GlobalVariables.empty(),
       totalFees: Fr.ZERO,
@@ -153,7 +167,9 @@ export class L2BlockHeader {
   isEmpty(): boolean {
     return (
       this.lastArchive.isEmpty() &&
-      this.contentCommitment.isEmpty() &&
+      this.blobsHash.isZero() &&
+      this.inHash.isZero() &&
+      this.epochOutHash.isZero() &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty() &&
       this.totalFees.isZero() &&
@@ -179,7 +195,9 @@ export class L2BlockHeader {
     return new CheckpointHeader(
       this.lastArchive.root,
       this.blockHeadersHash,
-      this.contentCommitment,
+      this.blobsHash,
+      this.inHash,
+      this.epochOutHash,
       this.globalVariables.slotNumber,
       this.globalVariables.timestamp,
       this.globalVariables.coinbase,
@@ -203,7 +221,9 @@ export class L2BlockHeader {
   toInspect() {
     return {
       lastArchive: this.lastArchive.root.toString(),
-      contentCommitment: this.contentCommitment.toInspect(),
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
+      epochOutHash: this.epochOutHash.toString(),
       state: this.state.toInspect(),
       globalVariables: this.globalVariables.toInspect(),
       totalFees: this.totalFees.toBigInt(),
@@ -216,9 +236,9 @@ export class L2BlockHeader {
   [inspect.custom]() {
     return `L2BlockHeader {
   lastArchive: ${inspect(this.lastArchive)},
-  contentCommitment.blobsHash: ${inspect(this.contentCommitment.blobsHash)},
-  contentCommitment.inHash: ${inspect(this.contentCommitment.inHash)},
-  contentCommitment.outHash: ${inspect(this.contentCommitment.outHash)},
+  blobsHash: ${inspect(this.blobsHash)},
+  inHash: ${inspect(this.inHash)},
+  epochOutHash: ${inspect(this.epochOutHash)},
   state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},
   state.noteHashTree: ${inspect(this.state.partial.noteHashTree)},
   state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},
@@ -233,12 +253,14 @@ export class L2BlockHeader {
 
   public equals(other: this): boolean {
     return (
-      this.contentCommitment.equals(other.contentCommitment) &&
+      this.lastArchive.equals(other.lastArchive) &&
+      this.blobsHash.equals(other.blobsHash) &&
+      this.inHash.equals(other.inHash) &&
+      this.epochOutHash.equals(other.epochOutHash) &&
       this.state.equals(other.state) &&
       this.globalVariables.equals(other.globalVariables) &&
       this.totalFees.equals(other.totalFees) &&
       this.totalManaUsed.equals(other.totalManaUsed) &&
-      this.lastArchive.equals(other.lastArchive) &&
       this.spongeBlobHash.equals(other.spongeBlobHash) &&
       this.blockHeadersHash.equals(other.blockHeadersHash)
     );

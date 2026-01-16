@@ -306,8 +306,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 
             if (wire_instr_spec.tag_operand_idx.has_value()) {
                 const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
-                assert((tag_value_idx == 2 || tag_value_idx == 3) &&
-                       "Current constraints support only tag for operand index equal to 2 or 3");
+                BB_ASSERT((tag_value_idx == 2 || tag_value_idx == 3),
+                          "Current constraints support only tag for operand index equal to 2 or 3");
                 has_tag = 1;
 
                 if (tag_value_idx == 2) {
@@ -340,7 +340,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bytecode_id, bytecode_id },
                       { C::instr_fetching_pc, event.pc },
                       // indirect + operands.
-                      { C::instr_fetching_indirect, event.instruction.indirect },
+                      { C::instr_fetching_addressing_mode, event.instruction.addressing_mode },
                       { C::instr_fetching_op1, get_operand(0) },
                       { C::instr_fetching_op2, get_operand(1) },
                       { C::instr_fetching_op3, get_operand(2) },

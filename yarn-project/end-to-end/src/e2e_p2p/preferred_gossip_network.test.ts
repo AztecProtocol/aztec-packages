@@ -5,7 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -14,7 +14,7 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
 
@@ -106,7 +106,7 @@ describe('e2e_p2p_preferred_network', () => {
     p2pService.processBlockFromPeer = handleGossipedProposalSpy;
 
     // @ts-expect-error - we want to spy on received attestation handler
-    const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
+    const oldAttestationHandler = p2pService.processCheckpointAttestationFromPeer.bind(p2pService);
 
     // Mock the function to just call the old one
     const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
@@ -114,7 +114,7 @@ describe('e2e_p2p_preferred_network', () => {
       await oldAttestationHandler(payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
-    p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
+    p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
   };
 
   const mockFailedAuthHandler = (node: AztecNodeService) => {
@@ -134,6 +134,8 @@ describe('e2e_p2p_preferred_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
+        aztecEpochDuration: 4,
         listenAddress: '127.0.0.1',
         p2pDisableStatusHandshake: false,
         // Just for testing be aggressive here, don't allow any auth handshake failures
@@ -141,12 +143,12 @@ describe('e2e_p2p_preferred_network', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
-    await t.stopNodes([t.ctx.aztecNode].concat(nodes).concat(validators).concat(preferredNodes));
+    await t.stopNodes([t.ctx.aztecNodeService!].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
@@ -155,7 +157,7 @@ describe('e2e_p2p_preferred_network', () => {
 
   afterAll(async () => {
     if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
+      const checker = new GrafanaClient(t.logger);
       await checker.runAlertCheck(qosAlerts);
     }
   });
@@ -187,7 +189,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     preferredNodes = await createNodes(
       preferredNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_PREFERRED_NODES,
       BOOT_NODE_UDP_PORT,
@@ -221,7 +223,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       nodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -244,7 +246,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     validators = await createNodes(
       validatorConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
@@ -268,7 +270,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     const noDiscoveryValidators = await createNodes(
       lastValidatorConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       1,
       BOOT_NODE_UDP_PORT,
@@ -279,7 +281,7 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNode];
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService!];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
@@ -356,10 +358,10 @@ describe('e2e_p2p_preferred_network', () => {
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
+    const payload = new ConsensusPayload(block.block.header.toCheckpointHeader(), block.block.archive.root);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

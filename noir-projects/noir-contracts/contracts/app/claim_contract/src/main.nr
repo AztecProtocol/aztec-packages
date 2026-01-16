@@ -2,8 +2,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Claim {
+    // docs:start:history_import
+    use dep::aztec::history::note_inclusion::ProveNoteInclusion;
+    // docs:end:history_import
     use dep::aztec::{
-        history::note_inclusion::ProveNoteInclusion,
         macros::{functions::{external, initializer}, storage::storage},
         note::{
             note_interface::NoteHash, retrieved_note::RetrievedNote,
@@ -42,7 +44,7 @@ pub contract Claim {
 
         // 2) Check that the note is owned by the msg_sender
         assert(
-            proof_retrieved_note.owner == self.msg_sender().unwrap(),
+            proof_retrieved_note.owner == self.msg_sender(),
             "Note is not owned by the msg_sender",
         );
 
@@ -50,8 +52,10 @@ pub contract Claim {
         // slot of the note as there is no risk of claiming with a note that is not a donation note.
 
         // 3) Prove that the note hash exists in the note hash tree
+        // docs:start:prove_note_inclusion
         let header = self.context.get_anchor_block_header();
         header.prove_note_inclusion(proof_retrieved_note);
+        // docs:end:prove_note_inclusion
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.

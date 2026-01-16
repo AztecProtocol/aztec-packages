@@ -7,6 +7,7 @@ use types::{
     constants::{
         CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
         CHECKPOINT_ROOT_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
+        EMPTY_EPOCH_OUT_HASH,
     },
     proof::proof_data::RollupHonkProofData,
     traits::Empty,
@@ -37,6 +38,7 @@ pub struct RootRollupPrivateInputs {
 /// - Verifies the proofs from two child checkpoint rollups (Checkpoint Root, Checkpoint Merge, or Checkpoint Padding)
 /// - Validates that the left checkpoint is not a padding checkpoint (at least one real checkpoint required)
 /// - Validates checkpoint continuity if the right child is not padding
+/// - Validates that the epoch out hash tree starts from empty.
 /// - Validates that the epoch starts with an empty blob accumulator
 /// - Validates that the final blob challenges match the end blob accumulator state
 /// - Finalizes the blob accumulator to produce blob public inputs for L1 verification
@@ -85,6 +87,18 @@ pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
         merge_checkpoint_rollups(left, right)
     };
 
+    // Validate that the out hash tree starts from empty.
+    assert_eq(
+        merged.previous_out_hash.root,
+        EMPTY_EPOCH_OUT_HASH,
+        "Epoch did not start with empty out hash tree root",
+    );
+    assert_eq(
+        merged.previous_out_hash.next_available_leaf_index,
+        0,
+        "Epoch did not start with zero out hash tree index",
+    );
+
     // Note: for blob batching, in `validate_consecutive_checkpoint_rollups` we have checked:
     // - left.end_blob_accumulator == right.start_blob_accumulator
     // - left.final_blob_challenges == right.final_blob_challenges
@@ -92,7 +106,7 @@ pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
     // Below we check:
     // 1. The first accumulator of the entire epoch (left.start_blob_accumulator) is empty.
     merged.start_blob_accumulator.assert_empty("Epoch did not start with empty blob state.");
-    // 2. The `final_blob_challenges` matches the final state of the accumulator.
+    // 2. The claimed `final_blob_challenges` match the final state of the accumulator.
     validate_final_blob_batching_challenges(
         merged.end_blob_accumulator,
         merged.final_blob_challenges,
@@ -104,6 +118,7 @@ pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
     RootRollupPublicInputs {
         previous_archive_root: merged.previous_archive.root,
         new_archive_root: merged.new_archive.root,
+        out_hash: merged.new_out_hash.root,
         checkpoint_header_hashes: merged.checkpoint_header_hashes,
         fees: merged.fees,
         constants: merged.constants,

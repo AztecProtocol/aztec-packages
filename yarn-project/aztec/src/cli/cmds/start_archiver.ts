@@ -1,16 +1,9 @@
-import {
-  Archiver,
-  type ArchiverConfig,
-  KVArchiverDataStore,
-  archiverConfigMappings,
-  getArchiverConfigFromEnv,
-} from '@aztec/archiver';
+import { type ArchiverConfig, archiverConfigMappings, createArchiver, getArchiverConfigFromEnv } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js/log';
 import { type BlobClientConfig, blobClientConfigMapping, createBlobClient } from '@aztec/blob-client/client';
 import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
@@ -47,13 +40,9 @@ export async function startArchiver(
   archiverConfig.l1Contracts = addresses;
   archiverConfig = { ...archiverConfig, ...l1Config };
 
-  const storeLog = createLogger('archiver:lmdb');
-  const store = await createStore('archiver', KVArchiverDataStore.SCHEMA_VERSION, archiverConfig, storeLog);
-  const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
-
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   const blobClient = createBlobClient(archiverConfig, { logger: createLogger('archiver:blob-client:client') });
-  const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobClient }, true);
+  const archiver = await createArchiver(archiverConfig, { telemetry, blobClient }, { blockUntilSync: true });
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);
 

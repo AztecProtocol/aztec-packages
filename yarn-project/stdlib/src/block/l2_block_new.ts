@@ -11,9 +11,13 @@ import { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
 import type { L2BlockInfo } from './l2_block_info.js';
 
+// TODO(palla/mbps): Delete the existing `L2Block` class and rename this to `L2Block`.
+// TODO(palla/mbps): Consider moving the checkpointNumber and indexWithinCheckpoint to the header:
+// if the blockNumber is there, why not these as well? Consider whether they should be part of the
+// circuits structs though.
+
 /**
  * An L2 block with a header and a body.
- * TODO: Delete the existing `L2Block` class and rename this to `L2Block`.
  */
 export class L2BlockNew {
   constructor(
@@ -127,8 +131,14 @@ export class L2BlockNew {
     };
   }
 
-  static empty() {
-    return new L2BlockNew(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty(), CheckpointNumber(0), 0);
+  static empty(header?: BlockHeader) {
+    return new L2BlockNew(
+      AppendOnlyTreeSnapshot.empty(),
+      header ?? BlockHeader.empty(),
+      Body.empty(),
+      CheckpointNumber(0),
+      0,
+    );
   }
 
   /**

@@ -35,12 +35,17 @@ export async function createAsyncBackend(
       if (!bbPath) {
         throw new Error('Native backend requires bb binary.');
       }
-      const napiPath = findNapiBinary();
+      const napiPath = findNapiBinary(options.napiPath);
       if (!napiPath) {
         throw new Error('Native async backend requires napi client stub.');
       }
       logger(`Using native shared memory async backend: ${bbPath}`);
-      const asyncBackend = await BarretenbergNativeShmAsyncBackend.new(bbPath, options.threads, options.logger);
+      const asyncBackend = await BarretenbergNativeShmAsyncBackend.new(
+        bbPath,
+        napiPath,
+        options.threads,
+        options.logger,
+      );
       return new Barretenberg(asyncBackend, options);
     }
 
@@ -82,12 +87,12 @@ export async function createSyncBackend(
       if (!bbPath) {
         throw new Error('Native backend requires bb binary.');
       }
-      const napiPath = findNapiBinary();
+      const napiPath = findNapiBinary(options.napiPath);
       if (!napiPath) {
         throw new Error('Native sync backend requires napi client stub.');
       }
       logger(`Using native shared memory backend: ${bbPath}`);
-      const shm = await BarretenbergNativeShmSyncBackend.new(bbPath, options.threads, options.logger);
+      const shm = await BarretenbergNativeShmSyncBackend.new(bbPath, napiPath, options.threads, options.logger);
       return new BarretenbergSync(shm);
     }
 

@@ -12,7 +12,7 @@ import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVer
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
@@ -23,7 +23,7 @@ import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
 
@@ -61,12 +61,13 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
         listenAddress: '127.0.0.1',
       },
     });
 
-    await t.addBootstrapNode();
     await t.setup();
+    await t.addBootstrapNode();
   });
 
   afterEach(async () => {
@@ -79,7 +80,7 @@ describe('e2e_p2p_network', () => {
 
   afterAll(async () => {
     if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
+      const checker = new GrafanaClient(t.logger);
       await checker.runAlertCheck(qosAlerts);
     }
   });
@@ -154,7 +155,7 @@ describe('e2e_p2p_network', () => {
     const withdrawer = await stakingAssetHandler.read.withdrawer();
     for (const validator of validators) {
       const info = await rollupWrapper.getAttesterView(validator.attester.toString());
-      expect(info.config.withdrawer).toBe(withdrawer);
+      expect(info.config.withdrawer.toChecksumString()).toBe(withdrawer);
     }
 
     // Wait for the validators to be added to the rollup
@@ -178,7 +179,7 @@ describe('e2e_p2p_network', () => {
 
     // Set the system time in the node, only after we have warped the time and waited for a block
     // Time is only set in the NEXT block
-    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
+    t.ctx.dateProvider!.setTime(Number(timestamp) * 1000);
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
@@ -188,7 +189,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -228,10 +229,10 @@ describe('e2e_p2p_network', () => {
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
+    const payload = new ConsensusPayload(block.block.header.toCheckpointHeader(), block.block.archive.root);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "../base/Base.sol";
 
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {ProposedHeader, ContentCommitment, GasFees} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {ProposedHeader, GasFees} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 // Many of the structs in here match what you see in `header` but with very important exceptions!
@@ -39,19 +39,15 @@ contract DecoderBase is TestBase {
     bytes32[] l2ToL1Messages;
   }
 
-  struct AlphabeticalContentCommitment {
-    bytes32 blobsHash;
-    bytes32 inHash;
-    bytes32 outHash;
-  }
-
   struct AlphabeticalHeader {
+    bytes32 blobsHash;
     bytes32 blockHeadersHash;
     address coinbase;
-    AlphabeticalContentCommitment contentCommitment;
     bytes32 feeRecipient;
     GasFees gasFees;
+    bytes32 inHash;
     bytes32 lastArchiveRoot;
+    bytes32 outHash;
     uint256 slotNumber;
     uint256 timestamp;
     uint256 totalManaUsed;
@@ -105,11 +101,9 @@ contract DecoderBase is TestBase {
         header: ProposedHeader({
           lastArchiveRoot: full.checkpoint.header.lastArchiveRoot,
           blockHeadersHash: full.checkpoint.header.blockHeadersHash,
-          contentCommitment: ContentCommitment({
-            blobsHash: full.checkpoint.header.contentCommitment.blobsHash,
-            inHash: full.checkpoint.header.contentCommitment.inHash,
-            outHash: full.checkpoint.header.contentCommitment.outHash
-          }),
+          blobsHash: full.checkpoint.header.blobsHash,
+          inHash: full.checkpoint.header.inHash,
+          outHash: full.checkpoint.header.outHash,
           slotNumber: Slot.wrap(full.checkpoint.header.slotNumber),
           timestamp: Timestamp.wrap(full.checkpoint.header.timestamp),
           coinbase: full.checkpoint.header.coinbase,

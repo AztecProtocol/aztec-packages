@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
 /**
  * @file sumcheck_test_flavor.hpp
  * @brief Minimal test flavors for sumcheck testing without UltraFlavor dependencies
@@ -52,6 +46,7 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -187,8 +182,6 @@ class SumcheckTestFlavor_ {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     using SubrelationSeparator = FF;
 
-    static constexpr bool has_zero_row = false;
-
     /**
      * @brief Precomputed polynomials (selectors)
      * @details Includes selectors for both relations
@@ -311,17 +304,8 @@ class SumcheckTestFlavor_ {
     /**
      * @brief Partially evaluated multivariates for folded sumcheck
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
-        {
-            for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
-                size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    using PartiallyEvaluatedMultivariates =
+        PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
 };
 
 // ================================================================================================

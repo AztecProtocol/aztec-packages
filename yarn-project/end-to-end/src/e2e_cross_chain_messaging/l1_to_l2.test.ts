@@ -30,9 +30,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     t = new CrossChainMessagingTest(
       'l1_to_l2',
       { minTxsPerBlock: 1 },
-      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
+      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4, inboxLag: 2 },
     );
-    await t.applyBaseSnapshots();
     await t.setup();
 
     ({ logger: log, crossChainTestHarness, wallet, user1Address, aztecNode } = t);
@@ -169,7 +168,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
       log.warn(`Stopping proof submission at block ${lastProven} to allow drift`);
-      t.ctx.watcher.setIsMarkingAsProven(false);
+      t.context.watcher!.setIsMarkingAsProven(false);
 
       // Mine several blocks to ensure drift
       log.warn(`Mining blocks to allow drift`);
@@ -211,14 +210,14 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           // On private, we simulate the tx locally and check that we get a missing message error, then we advance to the next block
           await expect(() => consume().simulate({ from: user1Address })).rejects.toThrow(/No L1 to L2 message found/);
           await tryAdvanceBlock();
-          await t.ctx.watcher.markAsProven();
+          await t.context.watcher!.markAsProven();
         } else {
           // On public, we actually send the tx and check that it reverts due to the missing message.
           // This advances the block too as a side-effect. Note that we do not rely on a simulation since the cross chain messages
           // do not get added at the beginning of the block during node_simulatePublicCalls (maybe they should?).
           const { status } = await consume().send({ from: user1Address }).wait({ dontThrowOnRevert: true });
           expect(status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-          await t.ctx.watcher.markAsProven();
+          await t.context.watcher!.markAsProven();
         }
       });
 

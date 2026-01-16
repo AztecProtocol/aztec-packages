@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
 use noirc_abi::{Abi, AbiErrorType, AbiParameter, AbiType};
-use noirc_errors::debug_info::{DebugInfo, ProgramDebugInfo};
+use noirc_artifacts::debug::{DebugInfo, ProgramDebugInfo};
 use noirc_evaluator::ErrorType;
 
 use crate::instructions::{AvmInstruction, AvmOperand, AvmTypeTag};
@@ -161,7 +161,7 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
         // Set revert data len
         AvmInstruction {
             opcode: AvmOpcode::SET_8,
-            indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
+            addressing_mode: Some(AvmOperand::U8 { value: 0 }), // All direct
             tag: Some(AvmTypeTag::UINT32),
             operands: vec![AvmOperand::U8 { value: 0 }], // Address 0
             immediates: vec![AvmOperand::U8 { value: 1 }], // Value 1
@@ -169,7 +169,7 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
         // Set error selector
         AvmInstruction {
             opcode: AvmOpcode::SET_64,
-            indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
+            addressing_mode: Some(AvmOperand::U8 { value: 0 }), // All direct
             tag: Some(AvmTypeTag::UINT64),
             operands: vec![AvmOperand::U16 { value: 1 }], // Address 1
             immediates: vec![AvmOperand::U64 { value: error_selector.as_u64() }], // Value selector
@@ -177,7 +177,7 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
         // Revert
         AvmInstruction {
             opcode: AvmOpcode::REVERT_8,
-            indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
+            addressing_mode: Some(AvmOperand::U8 { value: 0 }), // All direct
             operands: vec![
                 AvmOperand::U8 { value: 0 }, // Revert data size address
                 AvmOperand::U8 { value: 1 }, // Revert data start address

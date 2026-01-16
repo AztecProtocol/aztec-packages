@@ -10,7 +10,8 @@ using namespace bb::avm2::simulation;
 
 TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
                                        simulation::ContractDBInterface& contract_db,
-                                       world_state::WorldState& ws)
+                                       world_state::WorldState& ws,
+                                       simulation::CancellationTokenPtr cancellation_token)
 {
     vinfo("Simulating...");
     AvmSimulationHelper simulation_helper;
@@ -23,7 +24,8 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
                                                                                inputs.config,
                                                                                inputs.tx,
                                                                                inputs.global_variables,
-                                                                               inputs.protocol_contracts));
+                                                                               inputs.protocol_contracts,
+                                                                               cancellation_token));
     } else {
         return AVM_TRACK_TIME_V("simulation/all",
                                 simulation_helper.simulate_fast_with_existing_ws(contract_db,
@@ -32,7 +34,8 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
                                                                                  inputs.config,
                                                                                  inputs.tx,
                                                                                  inputs.global_variables,
-                                                                                 inputs.protocol_contracts));
+                                                                                 inputs.protocol_contracts,
+                                                                                 cancellation_token));
     }
 }
 

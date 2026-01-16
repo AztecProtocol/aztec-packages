@@ -26,10 +26,10 @@ pub contract Spam {
 
     #[external("private")]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
-        let caller = self.msg_sender().unwrap();
+        let caller = self.msg_sender();
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            self.storage.balances.at(caller).add(1).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            self.storage.balances.at(caller).add(1).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         }
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {

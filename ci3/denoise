@@ -56,7 +56,9 @@ outfile=/tmp/$key
 touch $outfile
 
 function format_log_output {
-  echo "Parent Log: ${PARENT_LOG_URL:-none}"
+  if [ -n "${PARENT_LOG_ID:-}" ]; then
+    echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)"
+  fi
   echo "Command: $cmd"
   echo "Date: $(date)"
   echo "Status: $status"
@@ -107,7 +109,7 @@ tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
 tail_pid=$!
 
 # Execute the command in background.
-PARENT_LOG_URL=$url bash -c "$cmd" 2>&1 | redact > $outfile &
+PARENT_LOG_ID=$key bash -c "$cmd" 2>&1 | redact > $outfile &
 job_pid=$!
 
 # Wait for the job to finish and get its exit status.
