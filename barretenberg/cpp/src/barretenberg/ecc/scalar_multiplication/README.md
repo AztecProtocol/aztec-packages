@@ -126,6 +126,26 @@ The `msm()` function defaults to `handle_edge_cases=false` for performance, whil
 
 ## Implementation Details
 
+### Zero Scalar Filtering
+
+Before the main Pippenger algorithm, the implementation filters out zero scalars as an optimization.
+
+**Rationale**: Since $0 \cdot P_i = \mathcal{O}$ (point at infinity), zero scalars contribute nothing to the MSM result. Filtering them out reduces the work in all subsequent steps.
+
+**Algorithm** (`get_nonzero_scalar_indices`):
+
+1. **Pass 1** (parallel): Each thread scans its chunk of scalars and collects indices of nonzero scalars into a thread-local vector
+2. **Consolidation**: Compute total count and resize output array
+3. **Pass 2** (parallel): Each thread copies its indices to the appropriate offset in `nonzero_scalar_indices`
+
+**Result**: A compact array `nonzero_scalar_indices` containing indices `i` where `scalars[i] ≠ 0`.
+
+**Impact**:
+- For dense inputs (most scalars nonzero): Minimal overhead (~2-3% for the scan)
+- For sparse inputs (many zero scalars): Significant speedup by reducing points processed in all rounds
+
+All subsequent algorithm steps (point scheduling, bucket accumulation) operate only on the filtered nonzero scalar indices.
+
 ### Point Schedule
 
 The point schedule is a **sorted list of (point_index, bucket_index) pairs** for a given round.

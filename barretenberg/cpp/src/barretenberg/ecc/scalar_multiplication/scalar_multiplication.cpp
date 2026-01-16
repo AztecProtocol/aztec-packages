@@ -46,16 +46,16 @@ typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& 
 }
 
 /**
- * @brief Populate `consolidated_indices` with indices of nonzero scalars
+ * @brief Populate `nonzero_scalar_indices` with indices of nonzero scalars
  * @details Scalars must already be in non-Montgomery (standard) form for correct zero-detection
  *
  * @tparam Curve
  * @param scalars (must be in non-Montgomery form)
- * @param consolidated_indices
+ * @param nonzero_scalar_indices
  */
 template <typename Curve>
 void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::ScalarField> scalars,
-                                            std::vector<uint32_t>& consolidated_indices) noexcept
+                                            std::vector<uint32_t>& nonzero_scalar_indices) noexcept
 {
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
@@ -80,9 +80,9 @@ void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::Scal
     for (const auto& indices : thread_indices) {
         num_entries += indices.size();
     }
-    consolidated_indices.resize(num_entries);
+    nonzero_scalar_indices.resize(num_entries);
 
-    // Pass 2: Copy each thread's indices to the consolidated array (no branching)
+    // Pass 2: Copy each thread's indices to the output array (no branching)
     parallel_for([&](const ThreadChunk& chunk) {
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         size_t offset = 0;
@@ -90,7 +90,7 @@ void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::Scal
             offset += thread_indices[i].size();
         }
         for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
-            consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
+            nonzero_scalar_indices[i] = thread_indices[chunk.thread_index][i - offset];
         }
     });
 }
