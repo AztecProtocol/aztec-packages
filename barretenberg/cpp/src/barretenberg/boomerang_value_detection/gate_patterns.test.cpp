@@ -11,8 +11,10 @@
 
 #include "gate_patterns.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
@@ -292,4 +294,31 @@ TEST(PatternTest, Poseidon2External)
 {
     verify_pattern<Poseidon2ExternalRelation<FF>>(
         POSEIDON2_EXTERNAL, 1, [](Entities& e) { e.q_poseidon2_external = FF(1); });
+}
+
+TEST(PatternTest, LookupBasic)
+{
+    verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, 1, [](Entities& e) {
+        e.q_lookup = FF(1);
+        // No shifted wires (step_size selectors all zero)
+        e.q_r = FF(0);
+        e.q_m = FF(0);
+        e.q_c = FF(0);
+    });
+}
+
+TEST(PatternTest, LookupWithShiftedWires)
+{
+    verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, 1, [](Entities& e) {
+        e.q_lookup = FF(1);
+        // Enable all shifted wires
+        e.q_r = FF(1);
+        e.q_m = FF(1);
+        e.q_c = FF(1);
+    });
+}
+
+TEST(PatternTest, DatabusRead)
+{
+    verify_pattern<DatabusLookupRelation<FF>>(DATABUS, 1, [](Entities& e) { e.q_busread = FF(1); });
 }

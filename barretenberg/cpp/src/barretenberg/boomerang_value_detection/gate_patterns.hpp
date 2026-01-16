@@ -337,23 +337,6 @@ inline const GatePattern DATABUS = { .name = "databus",
                                      } };
 
 // ============================================================================
-// ECC Op Pattern (from ecc_op_queue_relation.hpp)
-//
-// Constrains ecc_op_wires to equal shifted wires on ECC op domain.
-// Uses: w_l_shift, w_r_shift, w_o_shift, w_4_shift
-//
-// gate_selector = lagrange_ecc_op (special precomputed selector)
-// ============================================================================
-
-inline const GatePattern ECC_OP = { .name = "ecc_op",
-                                    .wires = {
-                                        { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
-                                        { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
-                                        { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
-                                        { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
-                                    } };
-
-// ============================================================================
 // Helper functions
 // ============================================================================
 
