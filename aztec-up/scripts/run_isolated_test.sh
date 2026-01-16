@@ -69,7 +69,7 @@ bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 
 echo "Version information:"
 
-bash -i -c '
+bash -i -c -e '
   forge --version
   echo
   nargo --version
