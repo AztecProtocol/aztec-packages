@@ -7,8 +7,10 @@ use dep::types::{
 };
 
 #[test]
-fn with_everything_empty() {
+fn with_everything_empty_except_for_first_nullifier_hint() {
     let mut builder = TestBuilder::new();
+
+    builder.first_nullifier_hint = 1234;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
@@ -16,16 +18,12 @@ fn with_everything_empty() {
     assert_eq(pi.min_revertible_side_effect_counter, 0);
     assert_eq(pi.fee_payer, AztecAddress::empty());
     assert_eq(pi.is_private_only, false);
+    assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 0);
 
-    // A protocol nullifier will be created as the first nullifier.
-    let protocol_nullifier = create_protocol_nullifier(builder.tx_request);
-    assert_claimed_length_array_eq(pi.end.nullifiers, [protocol_nullifier]);
-
-    // The claimed first nullifier is set to the siloed protocol nullifier.
-    assert_eq(pi.claimed_first_nullifier, silo_nullifier(protocol_nullifier));
-
     assert_claimed_length_array_eq(pi.end.note_hashes, []);
+    // The nullifiers array is empty because the protocol nullifier is not injected.
+    assert_claimed_length_array_eq(pi.end.nullifiers, []);
     assert_claimed_length_array_eq(pi.end.l2_to_l1_msgs, []);
     assert_claimed_length_array_eq(pi.end.private_logs, []);
     assert_claimed_length_array_eq(pi.end.contract_class_logs_hashes, []);
@@ -41,19 +39,44 @@ fn with_everything_empty() {
 }
 
 #[test]
-fn with_everything_empty_except_for_first_nullifier_hint() {
+fn with_everything_empty_and_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
-    builder.first_nullifier_hint = 1234;
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+    let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+    builder.first_nullifier_hint = protocol_nullifier;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 
-    // The value is propagated from the hint.
-    assert_eq(pi.claimed_first_nullifier, 1234);
+    // The claimed value is propagated from the hint.
+    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
 
-    // The nullifiers array can still be empty.
-    assert_claimed_length_array_eq(pi.end.nullifiers, []);
+    // The nullifiers array contains the protocol nullifier.
+    assert_claimed_length_array_eq(pi.end.nullifiers, [scoped_protocol_nullifier]);
+}
+
+#[test]
+fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
+    let mut builder = TestBuilder::new();
+
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+    let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+    builder.first_nullifier_hint = protocol_nullifier;
+
+    builder.private_call.append_nullifiers(1);
+    let private_call_nullifiers = builder.private_call.nullifiers.storage();
+
+    let pi = builder.execute();
+
+    // The claimed value is propagated from the hint.
+    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
+
+    // The nullifiers array contains the protocol nullifier and the private call's nullifier.
+    assert_claimed_length_array_eq(
+        pi.end.nullifiers,
+        [scoped_protocol_nullifier, private_call_nullifiers[0]],
+    );
 }
 
 #[test]
