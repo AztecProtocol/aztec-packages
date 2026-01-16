@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "additionalDirectories": ["../"],
     "allow": [
       "Bash(yarn:*)",
       "Bash(forge:*)",
