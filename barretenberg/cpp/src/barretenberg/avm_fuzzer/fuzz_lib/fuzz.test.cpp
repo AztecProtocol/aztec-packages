@@ -65,7 +65,13 @@ class FuzzTest : public ::testing::Test {
         auto cpp_simulator = CppSimulator();
         auto globals = create_default_globals();
 
-        auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx, globals, /*public_data_writes=*/{}, {});
+        auto result = cpp_simulator.simulate(*ws_mgr,
+                                             contract_db,
+                                             tx,
+                                             globals,
+                                             /*public_data_writes=*/{},
+                                             /*note_hashes=*/{},
+                                             /*protocol_contracts=*/{});
 
         ws_mgr->revert();
 

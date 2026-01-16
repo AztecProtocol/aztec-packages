@@ -4,6 +4,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PROTOCOL_CONTRACTS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -20,7 +21,16 @@ import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { MerkleTreeId, type MerkleTreeWriteOperations, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, HashedValues, Tx, TxConstantData, TxContext, TxHash } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  HashedValues,
+  ProtocolContracts,
+  Tx,
+  TxConstantData,
+  TxContext,
+  TxHash,
+} from '@aztec/stdlib/tx';
 import type { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
@@ -42,6 +52,7 @@ export class FuzzerSimulationRequest {
     public readonly contractInstances: [any, any][], // Raw pairs [address, instance]
     public readonly publicDataWrites: any[], // Raw public data tree writes to apply before simulation
     public readonly noteHashes: any[], // Raw note hashes to apply before simulation
+    public readonly protocolContracts: ProtocolContracts, // Protocol contracts mapping from C++
   ) {}
 
   static fromPlainObject(obj: any): FuzzerSimulationRequest {
@@ -57,6 +68,7 @@ export class FuzzerSimulationRequest {
       obj.contractInstances,
       obj.publicDataWrites ?? [],
       obj.noteHashes ?? [],
+      ProtocolContracts.fromPlainObject(obj.protocolContracts),
     );
   }
 }
@@ -185,16 +197,23 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables,
+    protocolContracts: ProtocolContracts,
   ) {
     super(contractDataSource, merkleTrees);
     const contractsDb = new PublicContractsDB(contractDataSource);
-    this.simulator = new PublicTxSimulator(merkleTrees, contractsDb, globals, {
-      skipFeeEnforcement: false,
-      collectDebugLogs: false,
-      collectHints: false,
-      collectStatistics: false,
-      collectCallMetadata: false,
-    });
+    this.simulator = new PublicTxSimulator(
+      merkleTrees,
+      contractsDb,
+      globals,
+      {
+        skipFeeEnforcement: false,
+        collectDebugLogs: false,
+        collectHints: false,
+        collectStatistics: false,
+        collectCallMetadata: false,
+      },
+      protocolContracts,
+    );
   }
 
   /**
@@ -203,10 +222,11 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
   public static async create(
     worldStateService: NativeWorldStateService,
     globals: GlobalVariables,
+    protocolContracts: ProtocolContracts,
   ): Promise<AvmFuzzerSimulator> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
-    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals);
+    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals, protocolContracts);
   }
 
   /**
@@ -234,12 +254,15 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
 
   /**
    * Add a contract instance from C++ raw msgpack data.
-   * This also inserts the contract address nullifier into the nullifier tree.
+   * This also inserts the contract address nullifier into the nullifier tree,
+   * unless the address is a protocol canonical address (1-11).
    */
   public async addContractInstanceFromCpp(rawAddress: any, rawInstance: any): Promise<void> {
     const address = AztecAddress.fromPlainObject(rawAddress);
     const instance = contractInstanceWithAddressFromPlainObject(address, rawInstance);
-    await this.addContractInstance(instance);
+    // Protocol canonical addresses (1-11) should not have nullifiers inserted
+    const isProtocolCanonicalAddress = address.toBigInt() <= MAX_PROTOCOL_CONTRACTS && address.toBigInt() >= 1n;
+    await this.addContractInstance(instance, /* skipNullifierInsertion */ isProtocolCanonicalAddress);
   }
 
   /**

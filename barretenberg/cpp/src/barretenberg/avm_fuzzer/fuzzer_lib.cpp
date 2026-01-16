@@ -15,6 +15,7 @@
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint64_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/mutations/protocol_contracts.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/gas.hpp"
 #include "barretenberg/common/log.hpp"
@@ -47,6 +48,22 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
         const auto& contract_instance = tx_data.contract_instances[i];
         auto contract_address = tx_data.contract_addresses[i];
         contract_db.add_contract_instance(contract_address, contract_instance);
+    }
+
+    // For protocol contracts, also add instances keyed by canonical address (1-11).
+    // This is needed because protocol contracts are looked up by canonical address,
+    // but the derived address in protocol_contracts.derived_addresses maps to the actual instance.
+    for (size_t i = 0; i < tx_data.protocol_contracts.derived_addresses.size(); ++i) {
+        const auto& derived_address = tx_data.protocol_contracts.derived_addresses[i];
+        if (!derived_address.is_zero()) {
+            // Canonical address is index + 1 (addresses 1-11 map to indices 0-10)
+            AztecAddress canonical_address(static_cast<uint256_t>(i + 1));
+            // Find the instance for this derived address and also add it by canonical address
+            auto maybe_instance = contract_db.get_contract_instance(derived_address);
+            if (maybe_instance.has_value()) {
+                contract_db.add_contract_instance(canonical_address, maybe_instance.value());
+            }
+        }
     }
 
     // Register contract addresses in the world state
@@ -85,8 +102,13 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 
     try {
         ws_mgr.checkpoint();
-        cpp_result = cpp_simulator.simulate(
-            ws_mgr, contract_db, tx_data.tx, tx_data.global_variables, tx_data.public_data_writes, tx_data.note_hashes);
+        cpp_result = cpp_simulator.simulate(ws_mgr,
+                                            contract_db,
+                                            tx_data.tx,
+                                            tx_data.global_variables,
+                                            tx_data.public_data_writes,
+                                            tx_data.note_hashes,
+                                            tx_data.protocol_contracts);
         fuzz_info("CppSimulator completed without exception");
         fuzz_info("CppSimulator result: ", cpp_result);
         ws_mgr.revert();
@@ -102,8 +124,13 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     }
 
     ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(
-        ws_mgr, contract_db, tx_data.tx, tx_data.global_variables, tx_data.public_data_writes, tx_data.note_hashes);
+    auto js_result = js_simulator->simulate(ws_mgr,
+                                            contract_db,
+                                            tx_data.tx,
+                                            tx_data.global_variables,
+                                            tx_data.public_data_writes,
+                                            tx_data.note_hashes,
+                                            tx_data.protocol_contracts);
 
     // If the results do not match
     if (!compare_simulator_results(cpp_result, js_result)) {
@@ -126,7 +153,7 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 /// @throws An exception if simulation results differ or check_circuit fails
 int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
-    ProtocolContracts protocol_contracts{};
+    ProtocolContracts& protocol_contracts = tx_data.protocol_contracts;
     WorldState& ws = ws_mgr.get_world_state();
     WorldStateRevision ws_rev = ws_mgr.get_current_revision();
     AvmSimulationHelper helper;
@@ -369,14 +396,21 @@ size_t mutate_tx_data(FuzzerContext& context,
         // This is just mutating the gas values and timestamp
         mutate_uint64_t(tx_data.global_variables.timestamp, rng, BASIC_UINT64_T_MUTATION_CONFIGURATION);
         mutate_gas_fees(tx_data.global_variables.gas_fees, rng);
-        // This must be less than or equal to the tx max fees per gas
-        tx_data.global_variables.gas_fees.fee_per_da_gas = std::min(
-            tx_data.global_variables.gas_fees.fee_per_da_gas, tx_data.tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
-        tx_data.global_variables.gas_fees.fee_per_l2_gas = std::min(
-            tx_data.global_variables.gas_fees.fee_per_l2_gas, tx_data.tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
         break;
-        // case TxDataMutationType::ProtocolContractsMutation:
-        // break;
+    case FuzzerTxDataMutationType::ProtocolContractsMutation:
+        mutate_protocol_contracts(tx_data.protocol_contracts, tx_data.tx, tx_data.contract_addresses, rng);
+        break;
+    }
+
+    // Clear any protocol contract derived addresses that reference addresses no longer in the contract set.
+    // This can happen when mutations (e.g., ContractClassMutation, ContractInstanceMutation) change contract addresses.
+    // Must run AFTER all mutations since some mutations modify contract_addresses.
+    std::unordered_set<AztecAddress> valid_addresses(tx_data.contract_addresses.begin(),
+                                                     tx_data.contract_addresses.end());
+    for (auto& derived_address : tx_data.protocol_contracts.derived_addresses) {
+        if (!derived_address.is_zero() && !valid_addresses.contains(derived_address)) {
+            derived_address = AztecAddress(0);
+        }
     }
 
     // todo: do we need to ensure this or are should we able to process 0 enqueued calls?
@@ -392,6 +426,13 @@ size_t mutate_tx_data(FuzzerContext& context,
                                                                          .calldata_hash = calldata_hash },
                                            .calldata = calldata });
     }
+
+    // Ensure global gas_fees <= max_fees_per_gas (required for compute_effective_gas_fees)
+    // This must run after ANY mutation since TxMutation can reduce max_fees_per_gas
+    tx_data.global_variables.gas_fees.fee_per_da_gas = std::min(
+        tx_data.global_variables.gas_fees.fee_per_da_gas, tx_data.tx.gas_settings.max_fees_per_gas.fee_per_da_gas);
+    tx_data.global_variables.gas_fees.fee_per_l2_gas = std::min(
+        tx_data.global_variables.gas_fees.fee_per_l2_gas, tx_data.tx.gas_settings.max_fees_per_gas.fee_per_l2_gas);
 
     // Compute effective gas fees matching TS computeEffectiveGasFees
     // This must be done after any mutation that could affect gas settings or global variables

@@ -10,6 +10,7 @@ import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
+  ProtocolContracts,
   PublicCallRequestWithCalldata,
   Tx,
   TxExecutionPhase,
@@ -85,6 +86,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     protected contractsDB: PublicContractsDB,
     protected globalVariables: GlobalVariables,
     config?: Partial<PublicSimulatorConfig>,
+    protected protocolContracts: ProtocolContracts = ProtocolContractsList,
   ) {
     this.config = PublicSimulatorConfig.from(config ?? {});
     this.log = createLogger(`simulator:public_tx_simulator`);
@@ -103,7 +105,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const hints = new AvmExecutionHints(
       this.globalVariables,
       AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
-      ProtocolContractsList, // imported from file
+      this.protocolContracts,
     );
     const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
     const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
@@ -114,7 +116,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       hintingContractsDB,
       tx,
       this.globalVariables,
-      ProtocolContractsList, // imported from file
+      this.protocolContracts,
       this.config.proverId,
     );
 
