@@ -179,7 +179,7 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
     connectionSampler: {
       getPeerListSortedByConnectionCountAsc: () => peerList,
     },
-    txValidator: async () => true,
+    txValidator: () => Promise.resolve(true),
   };
 
   const parsedTxHashes = txHashes.map(deserializeTxHash);
@@ -246,70 +246,72 @@ process.on('error', err => {
   logger.warn('Worker process error', { error: err?.message ?? String(err) });
 });
 
-process.on('message', async (msg: WorkerCommand) => {
-  if (!msg || typeof msg !== 'object') {
-    return;
-  }
+process.on('message', (msg: WorkerCommand) => {
+  void (async () => {
+    if (!msg || typeof msg !== 'object') {
+      return;
+    }
 
-  const requestId = msg.requestId;
+    const requestId = msg.requestId;
 
-  try {
-    switch (msg.type) {
-      case 'START': {
-        const rawConfig = msg.config;
-        const config: P2PConfig = {
-          ...rawConfig,
-          peerIdPrivateKey: rawConfig.peerIdPrivateKey ? new SecretValue(rawConfig.peerIdPrivateKey) : undefined,
-        } as P2PConfig;
+    try {
+      switch (msg.type) {
+        case 'START': {
+          const rawConfig = msg.config;
+          const config: P2PConfig = {
+            ...rawConfig,
+            peerIdPrivateKey: rawConfig.peerIdPrivateKey ? new SecretValue(rawConfig.peerIdPrivateKey) : undefined,
+          } as P2PConfig;
 
-        await startClient(config, msg.clientIndex);
-        const peerId = (ensureClient() as any).p2pService.node.peerId.toString();
-        await sendMessage({ type: 'READY', requestId, peerId });
-        break;
-      }
-      case 'SET_TXS': {
-        if (!txPool) {
-          throw new Error('Tx pool not initialized');
+          await startClient(config, msg.clientIndex);
+          const peerId = (ensureClient() as any).p2pService.node.peerId.toString();
+          await sendMessage({ type: 'READY', requestId, peerId });
+          break;
         }
-        const txs = msg.txs.map(deserializeTx);
-        const count = msg.mode === 'append' ? txPool.appendTxs(txs) : txPool.setTxs(txs);
-        await sendMessage({ type: 'TXS_SET', requestId, count });
-        break;
-      }
-      case 'SET_BLOCK_PROPOSAL': {
-        if (!attestationPool) {
-          throw new Error('Attestation pool not initialized');
+        case 'SET_TXS': {
+          if (!txPool) {
+            throw new Error('Tx pool not initialized');
+          }
+          const txs = msg.txs.map(deserializeTx);
+          const count = msg.mode === 'append' ? txPool.appendTxs(txs) : txPool.setTxs(txs);
+          await sendMessage({ type: 'TXS_SET', requestId, count });
+          break;
         }
-        const proposal = deserializeBlockProposal(msg.blockProposal);
-        await attestationPool.addBlockProposal(proposal);
-        await sendMessage({ type: 'BLOCK_PROPOSAL_SET', requestId, archiveRoot: proposal.archive.toString() });
-        break;
+        case 'SET_BLOCK_PROPOSAL': {
+          if (!attestationPool) {
+            throw new Error('Attestation pool not initialized');
+          }
+          const proposal = deserializeBlockProposal(msg.blockProposal);
+          await attestationPool.addBlockProposal(proposal);
+          await sendMessage({ type: 'BLOCK_PROPOSAL_SET', requestId, archiveRoot: proposal.archive.toString() });
+          break;
+        }
+        case 'RUN_COLLECTOR': {
+          const { durationMs, fetchedCount } = await runCollector(msg);
+          await sendMessage({ type: 'COLLECTOR_RESULT', requestId, durationMs, fetchedCount });
+          break;
+        }
+        case 'GET_PEER_COUNT': {
+          const peers = await ensureClient().getPeers();
+          await sendMessage({ type: 'PEER_COUNT', requestId, count: peers.length });
+          break;
+        }
+        case 'STOP': {
+          await stopClient();
+          await sendMessage({ type: 'STOPPED', requestId });
+          process.exit(0);
+          break;
+        }
+        default: {
+          const _exhaustive: never = msg;
+          throw new Error(`Unknown command: ${(msg as { type?: string }).type}`);
+        }
       }
-      case 'RUN_COLLECTOR': {
-        const { durationMs, fetchedCount } = await runCollector(msg);
-        await sendMessage({ type: 'COLLECTOR_RESULT', requestId, durationMs, fetchedCount });
-        break;
-      }
-      case 'GET_PEER_COUNT': {
-        const peers = await ensureClient().getPeers();
-        await sendMessage({ type: 'PEER_COUNT', requestId, count: peers.length });
-        break;
-      }
-      case 'STOP': {
-        await stopClient();
-        await sendMessage({ type: 'STOPPED', requestId });
-        process.exit(0);
-        break;
-      }
-      default: {
-        const _exhaustive: never = msg;
-        throw new Error(`Unknown command: ${(msg as { type?: string }).type}`);
+    } catch (err: any) {
+      await sendMessage({ type: 'ERROR', requestId, error: err?.message ?? String(err) });
+      if (msg.type === 'START') {
+        process.exit(1);
       }
     }
-  } catch (err: any) {
-    await sendMessage({ type: 'ERROR', requestId, error: err?.message ?? String(err) });
-    if (msg.type === 'START') {
-      process.exit(1);
-    }
-  }
+  })();
 });

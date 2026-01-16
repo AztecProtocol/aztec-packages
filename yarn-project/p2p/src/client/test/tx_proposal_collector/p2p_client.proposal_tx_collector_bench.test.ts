@@ -6,7 +6,6 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 
 import {
-  COLLECTOR_DISPLAY_NAMES,
   type CollectorType,
   type DistributionPattern,
   WorkerClientManager,
@@ -194,8 +193,12 @@ function toPrettyString(benchResults: BenchmarkResult[]): string {
   lines.push('|---------------------|--------------|---------|---------------|---------|---------|');
 
   const sorted = [...benchResults].sort((a, b) => {
-    if (a.distribution !== b.distribution) return a.distribution.localeCompare(b.distribution);
-    if (a.missingTxCount !== b.missingTxCount) return a.missingTxCount - b.missingTxCount;
+    if (a.distribution !== b.distribution) {
+      return a.distribution.localeCompare(b.distribution);
+    }
+    if (a.missingTxCount !== b.missingTxCount) {
+      return a.missingTxCount - b.missingTxCount;
+    }
     return a.collector.localeCompare(b.collector);
   });
 
@@ -224,7 +227,9 @@ function toPrettyString(benchResults: BenchmarkResult[]): string {
       r => r.distribution === dist && r.missingTxCount === missing && r.collector === 'send-batch-request',
     );
 
-    if (!batch || !send) continue;
+    if (!batch || !send) {
+      continue;
+    }
 
     if (!batch.success || !send.success) {
       lines.push(

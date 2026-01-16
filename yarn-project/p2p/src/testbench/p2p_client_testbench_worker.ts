@@ -258,7 +258,7 @@ async function runAggregatorBenchmark(
     const mockService: BatchTxRequesterLibP2PService = {
       reqResp,
       connectionSampler,
-      txValidator: async () => true,
+      txValidator: () => Promise.resolve(true),
     };
 
     let pinnedPeer: PeerId | undefined;

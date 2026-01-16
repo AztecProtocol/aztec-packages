@@ -3,11 +3,11 @@ import { type BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/bra
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import {
-  type BlockProposal,
-  type CheckpointAttestation,
-  type CheckpointProposal,
-  type CheckpointProposalCore,
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  CheckpointProposalCore,
 } from '@aztec/stdlib/p2p';
 import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -55,7 +55,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     this.removeAllListeners();
   }
 
-  async addTxs(txs: Tx[], opts?: { source?: string }): Promise<number> {
+  addTxs(txs: Tx[], opts?: { source?: string }): Promise<number> {
     const newTxs: Tx[] = [];
     let added = 0;
     for (const tx of txs) {
@@ -69,78 +69,79 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     if (newTxs.length > 0) {
       this.emit('txs-added', { txs: newTxs, source: opts?.source });
     }
-    return added;
+    return Promise.resolve(added);
   }
 
-  async getTxByHash(hash: TxHash): Promise<Tx | undefined> {
-    return this.txsByHash.get(hash.toString());
+  getTxByHash(hash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(this.txsByHash.get(hash.toString()));
   }
 
-  async getTxsByHash(hashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  getTxsByHash(hashes: TxHash[]): Promise<(Tx | undefined)[]> {
     const result = hashes.map(h => this.txsByHash.get(h.toString()));
     const found = result.filter(tx => tx !== undefined).length;
     this.logger?.debug(`[TxPool] getTxsByHash: requested ${hashes.length}, found ${found}`);
-    return result;
+    return Promise.resolve(result);
   }
 
-  async hasTxs(hashes: TxHash[]): Promise<boolean[]> {
-    return hashes.map(h => this.txsByHash.has(h.toString()));
+  hasTxs(hashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(hashes.map(h => this.txsByHash.has(h.toString())));
   }
 
-  async hasTx(hash: TxHash): Promise<boolean> {
-    return this.txsByHash.has(hash.toString());
+  hasTx(hash: TxHash): Promise<boolean> {
+    return Promise.resolve(this.txsByHash.has(hash.toString()));
   }
 
-  async getArchivedTxByHash(_hash: TxHash): Promise<Tx | undefined> {
-    return undefined;
+  getArchivedTxByHash(_hash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(undefined);
   }
 
   async markAsMined(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<void> {}
 
   async markMinedAsPending(_txHashes: TxHash[], _latestBlock: BlockNumber): Promise<void> {}
 
-  async deleteTxs(txHashes: TxHash[], _opts?: { permanently?: boolean }): Promise<void> {
+  deleteTxs(txHashes: TxHash[], _opts?: { permanently?: boolean }): Promise<void> {
     for (const txHash of txHashes) {
       this.txsByHash.delete(txHash.toString());
     }
+    return Promise.resolve();
   }
 
-  async getAllTxs(): Promise<Tx[]> {
-    return [...this.txsByHash.values()];
+  getAllTxs(): Promise<Tx[]> {
+    return Promise.resolve([...this.txsByHash.values()]);
   }
 
-  async getAllTxHashes(): Promise<TxHash[]> {
-    return [...this.txsByHash.keys()].map(key => TxHash.fromString(key));
+  getAllTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
-  async getPendingTxHashes(): Promise<TxHash[]> {
-    return [...this.txsByHash.keys()].map(key => TxHash.fromString(key));
+  getPendingTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
-  async getPendingTxCount(): Promise<number> {
-    return this.txsByHash.size;
+  getPendingTxCount(): Promise<number> {
+    return Promise.resolve(this.txsByHash.size);
   }
 
-  async getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: BlockNumber][]> {
-    return [];
+  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: BlockNumber][]> {
+    return Promise.resolve([]);
   }
 
-  async getTxStatus(hash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
-    return this.txsByHash.has(hash.toString()) ? 'pending' : undefined;
+  getTxStatus(hash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
+    return Promise.resolve(this.txsByHash.has(hash.toString()) ? 'pending' : undefined);
   }
 
   updateConfig(_config: { maxPendingTxCount?: number; archivedTxLimit?: number }): void {}
 
-  async isEmpty(): Promise<boolean> {
-    return this.txsByHash.size === 0;
+  isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.txsByHash.size === 0);
   }
 
   async markTxsAsNonEvictable(_txHashes: TxHash[]): Promise<void> {}
 
   async clearNonEvictableTxs(): Promise<void> {}
 
-  async cleanupDeletedMinedTxs(_blockNumber: BlockNumber): Promise<number> {
-    return 0;
+  cleanupDeletedMinedTxs(_blockNumber: BlockNumber): Promise<number> {
+    return Promise.resolve(0);
   }
 }
 
@@ -150,74 +151,71 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
 export class InMemoryAttestationPool implements AttestationPool {
   private proposals = new Map<string, BlockProposal>();
 
-  async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+  addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     this.proposals.set(blockProposal.archive.toString(), blockProposal);
+    return Promise.resolve();
   }
 
-  async getBlockProposal(id: string): Promise<BlockProposal | undefined> {
-    return this.proposals.get(id);
+  getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+    return Promise.resolve(this.proposals.get(id));
   }
 
-  async hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
+  hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
     const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return this.proposals.has(id);
+    return Promise.resolve(this.proposals.has(id));
   }
 
-  async canAddProposal(_block: BlockProposal): Promise<boolean> {
-    return true;
+  canAddProposal(_block: BlockProposal): Promise<boolean> {
+    return Promise.resolve(true);
   }
 
   async addCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {}
 
-  async getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
-    return undefined;
+  getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
+    return Promise.resolve(undefined);
   }
 
-  async hasCheckpointProposal(_idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    return false;
+  hasCheckpointProposal(_idOrProposal: string | CheckpointProposal): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   async addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
 
   async deleteCheckpointAttestationsOlderThan(_slot: SlotNumber): Promise<void> {}
 
-  async getCheckpointAttestationsForSlot(_slot: SlotNumber): Promise<CheckpointAttestation[]> {
-    return [];
+  getCheckpointAttestationsForSlot(_slot: SlotNumber): Promise<CheckpointAttestation[]> {
+    return Promise.resolve([]);
   }
 
-  async getCheckpointAttestationsForSlotAndProposal(
+  getCheckpointAttestationsForSlotAndProposal(
     _slot: SlotNumber,
     _proposalId: string,
   ): Promise<CheckpointAttestation[]> {
-    return [];
+    return Promise.resolve([]);
   }
 
-  async hasCheckpointAttestation(_attestation: CheckpointAttestation): Promise<boolean> {
-    return false;
+  hasCheckpointAttestation(_attestation: CheckpointAttestation): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async canAddCheckpointProposal(_proposal: CheckpointProposal): Promise<boolean> {
-    return true;
+  canAddCheckpointProposal(_proposal: CheckpointProposal): Promise<boolean> {
+    return Promise.resolve(true);
   }
 
-  async canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
-    return true;
+  canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
+    return Promise.resolve(true);
   }
 
-  async hasReachedCheckpointProposalCap(_slot: SlotNumber): Promise<boolean> {
-    return false;
+  hasReachedCheckpointProposalCap(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async hasReachedCheckpointAttestationCap(
-    _slot: SlotNumber,
-    _proposalId: string,
-    _committeeSize: number,
-  ): Promise<boolean> {
-    return false;
+  hasReachedCheckpointAttestationCap(_slot: SlotNumber, _proposalId: string, _committeeSize: number): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
-  async isEmpty(): Promise<boolean> {
-    return this.proposals.size === 0;
+  isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.proposals.size === 0);
   }
 
   resetState(): void {
