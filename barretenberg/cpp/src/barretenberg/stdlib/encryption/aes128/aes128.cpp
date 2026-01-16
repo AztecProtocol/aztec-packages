@@ -183,7 +183,6 @@ template <typename Builder> std::array<field_t<Builder>, 176> expand_key(Builder
 
         // Number of additions before we need to normalize the sparse form
         constexpr uint64_t target = 3;
-        // AUDITTODO: does this need to be a conditional select? (I don't think so, i is a constant)
         for (size_t k = 0; k < 4; ++k) {
             // If the number of additions exceeds the target or the byte corresponds to a word index that is a multiple
             // of 4 (i.e. the byte is used as input to the S-box) we normalize the sparse form
