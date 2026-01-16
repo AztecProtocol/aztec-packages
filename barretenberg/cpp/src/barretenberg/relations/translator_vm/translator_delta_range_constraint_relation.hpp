@@ -35,11 +35,12 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
      * @brief Expression for the generalized permutation sort relation
      *
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
-     * 1) 2 sequential values are non-descending and have a difference of at most 3, except for the value at last index
-     * 2) The value at last index is  2¹⁴ - 1.
+     * 1) 2 sequential values are non-descending and have a difference of at most 3. This check is skipped
+     *    at the real_last index (lagrange_real_last = 1) and in the masking region (lagrange_masking = 1).
+     * 2) The value at the real_last index is 2¹⁴ - 1.
      *
-     * When operating in zero knowledge, specific values of the polynomials, currently at the end, which contain random
-     * values, are marked to be excluded from the checks above.
+     * The delta constraint uses: not_last_or_masking = lagrange_real_last + lagrange_masking - 1
+     * which equals 0 when checks should be skipped, and -1 when checks should be enforced.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
