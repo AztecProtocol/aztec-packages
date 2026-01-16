@@ -25,17 +25,17 @@ describe('PrivateEventFilterValidator', () => {
     anchorBlockStore = mock<AnchorBlockStore>();
 
     anchorBlockStore.getBlockHeader.mockResolvedValue(lastKnownBlock);
-    validator = new PrivateEventFilterValidator(anchorBlockStore);
+    validator = new PrivateEventFilterValidator(lastKnownBlockNumber);
   });
 
-  it('rejects empty scope', async () => {
-    await expect(validator.validate({ contractAddress, fromBlock: lastKnownBlockNumber, scopes: [] })).rejects.toThrow(
+  it('rejects empty scope', () => {
+    expect(() => validator.validate({ contractAddress, fromBlock: lastKnownBlockNumber, scopes: [] })).toThrow(
       /At least one scope is required to get private events/,
     );
   });
 
-  it('defaults to whole range', async () => {
-    const dataProviderFilter = await validator.validate({ contractAddress, scopes: [scope] });
+  it('defaults to whole range', () => {
+    const dataProviderFilter = validator.validate({ contractAddress, scopes: [scope] });
     expect(dataProviderFilter).toEqual({
       contractAddress,
       scopes: [scope],
@@ -45,8 +45,8 @@ describe('PrivateEventFilterValidator', () => {
     });
   });
 
-  it('toBlock defaults to lastKnownBlock + 1', async () => {
-    const dataProviderFilter = await validator.validate({
+  it('toBlock defaults to lastKnownBlock + 1', () => {
+    const dataProviderFilter = validator.validate({
       contractAddress,
       scopes: [scope],
       fromBlock: INITIAL_L2_BLOCK_NUM,
@@ -59,8 +59,8 @@ describe('PrivateEventFilterValidator', () => {
     });
   });
 
-  it('toBlock without fromBlock defaults to [INITIAL_L2_BLOCK_NUM, toBlock)', async () => {
-    const dataProviderFilter = await validator.validate({
+  it('toBlock without fromBlock defaults to [INITIAL_L2_BLOCK_NUM, toBlock)', () => {
+    const dataProviderFilter = validator.validate({
       contractAddress,
       scopes: [scope],
       toBlock: BlockNumber(lastKnownBlockNumber + 1),
@@ -73,28 +73,28 @@ describe('PrivateEventFilterValidator', () => {
     });
   });
 
-  it('rejects fromBlock >= toBlock', async () => {
-    await expect(
+  it('rejects fromBlock >= toBlock', () => {
+    expect(() =>
       validator.validate({
         contractAddress,
         scopes: [scope],
         fromBlock: lastKnownBlockNumber,
         toBlock: lastKnownBlockNumber,
       }),
-    ).rejects.toThrow(/toBlock must be strictly greater than fromBlock/);
+    ).toThrow(/toBlock must be strictly greater than fromBlock/);
 
-    await expect(
+    expect(() =>
       validator.validate({
         contractAddress,
         scopes: [scope],
         fromBlock: lastKnownBlockNumber,
         toBlock: BlockNumber(lastKnownBlockNumber - 1),
       }),
-    ).rejects.toThrow(/toBlock must be strictly greater than fromBlock/);
+    ).toThrow(/toBlock must be strictly greater than fromBlock/);
   });
 
-  it('preserves txHash', async () => {
-    let dataProviderFilter = await validator.validate({
+  it('preserves txHash', () => {
+    let dataProviderFilter = validator.validate({
       contractAddress,
       scopes: [scope],
       fromBlock: INITIAL_L2_BLOCK_NUM,
@@ -108,7 +108,7 @@ describe('PrivateEventFilterValidator', () => {
     });
 
     const txHash = TxHash.random();
-    dataProviderFilter = await validator.validate({
+    dataProviderFilter = validator.validate({
       contractAddress,
       scopes: [scope],
       fromBlock: INITIAL_L2_BLOCK_NUM,

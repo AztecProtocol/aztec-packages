@@ -1,4 +1,5 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -157,7 +158,7 @@ export class PXE {
     );
 
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore]);
+    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
@@ -1009,9 +1010,17 @@ export class PXE {
    *    Defaults to the latest known block to PXE + 1.
    * @returns - The packed events with block and tx metadata.
    */
-  public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
-    return this.#putInJobQueue(async jobId => {
+  public async getPrivateEvents(
+    eventSelector: EventSelector,
+    filter: PrivateEventFilter,
+  ): Promise<PackedPrivateEvent[]> {
+    let anchorBlockNumber: BlockNumber;
+
+    await this.#putInJobQueue(async jobId => {
       await this.blockStateSynchronizer.sync();
+
+      anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
       await this.contractStore.syncPrivateState(
@@ -1020,15 +1029,16 @@ export class PXE {
         async privateSyncCall =>
           await this.#simulateUtility(contractFunctionSimulator, privateSyncCall, [], undefined, jobId),
       );
-
-      const sanitizedFilter = await new PrivateEventFilterValidator(this.anchorBlockStore).validate(filter);
-
-      this.log.debug(
-        `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
-      );
-
-      return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
     });
+
+    // anchorBlockNumber is set during the job and fixed to whatever it is after a block sync
+    const sanitizedFilter = new PrivateEventFilterValidator(anchorBlockNumber!).validate(filter);
+
+    this.log.debug(
+      `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
+    );
+
+    return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
   }
 
   /**
