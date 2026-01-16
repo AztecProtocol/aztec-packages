@@ -44,7 +44,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import type {
-  BuildBlockInCheckpointResult,
+  BuildBlockInCheckpointResultWithTimer,
   CheckpointBuilder,
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
@@ -277,7 +277,7 @@ describe('ValidatorClient', () => {
     let proposal: BlockProposal;
     let blockNumber: BlockNumber;
     let sender: PeerId;
-    let blockBuildResult: BuildBlockInCheckpointResult;
+    let blockBuildResult: BuildBlockInCheckpointResultWithTimer;
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;

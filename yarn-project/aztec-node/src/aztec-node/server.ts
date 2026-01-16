@@ -31,7 +31,7 @@ import {
 } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { BlockBuilder, GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
+import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -309,18 +309,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    // Create BlockBuilder for EpochPruneWatcher (slasher functionality)
-    const blockBuilder = new BlockBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
-      worldStateSynchronizer,
-      archiver,
-      dateProvider,
-      telemetry,
-    );
-
     // Create FullNodeCheckpointsBuilder for validator and non-validator block proposal handling
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
       { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      worldStateSynchronizer,
       archiver,
       dateProvider,
       telemetry,
@@ -387,7 +379,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         archiver,
         epochCache,
         p2pClient.getTxProvider(),
-        blockBuilder,
+        validatorCheckpointsBuilder,
         config,
       );
       watchers.push(epochPruneWatcher);
@@ -452,6 +444,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
         { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        worldStateSynchronizer,
         archiver,
         dateProvider,
         telemetry,
