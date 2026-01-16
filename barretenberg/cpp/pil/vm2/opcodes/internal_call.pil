@@ -87,7 +87,7 @@ namespace execution;
     sel_execute_internal_call {
         context_id, next_internal_call_id, internal_call_id, internal_call_return_id, next_pc
     } is internal_call_stack.sel {
-        internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.id, internal_call_stack.return_id, internal_call_stack.return_pc
+        internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.call_id, internal_call_stack.return_call_id, internal_call_stack.return_pc
     };
 
     // =============================
@@ -99,7 +99,7 @@ namespace execution;
     sel_read_unwind_call_stack {
         context_id, internal_call_id, internal_call_id', internal_call_return_id', pc'
     } in internal_call_stack.sel {
-        internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.id, internal_call_stack.return_id, internal_call_stack.return_pc
+        internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.call_id, internal_call_stack.return_call_id, internal_call_stack.return_pc
     };
 
 

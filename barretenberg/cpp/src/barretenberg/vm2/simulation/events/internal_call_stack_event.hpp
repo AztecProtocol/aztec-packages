@@ -9,8 +9,8 @@ namespace bb::avm2::simulation {
 struct InternalCallStackEvent {
     uint32_t context_id;
     InternalCallId entered_call_id;
-    InternalCallId id;
-    InternalCallId return_id;
+    InternalCallId call_id;
+    InternalCallId return_call_id;
     PC return_pc;
 };
 

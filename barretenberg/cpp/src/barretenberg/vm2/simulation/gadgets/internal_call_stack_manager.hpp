@@ -12,7 +12,7 @@
 namespace bb::avm2::simulation {
 
 struct InternalCallPtr {
-    InternalCallId return_id;
+    InternalCallId return_call_id;
     PC caller_pc;
     PC return_pc;
 };
@@ -34,9 +34,9 @@ class InternalCallStackManager : public InternalCallStackManagerInterface {
     std::vector<PC> get_current_call_stack() const override;
 
   private:
-    InternalCallId next_internal_call_id = 2;    // dont start at 0
-    InternalCallId current_internal_call_id = 1; // dont start at 0
-    InternalCallId current_return_call_id = 0;   // this is the return id of the current call
+    InternalCallId next_call_id = 2;   // does not start at 0
+    InternalCallId call_id = 1;        // does not start at 0
+    InternalCallId return_call_id = 0; // this is the return id of the current call
 
     uint32_t context_id;
 
