@@ -137,9 +137,10 @@ describe('BlockBuilder', () => {
     publicProcessor.process.mockImplementation(
       async (
         pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>,
-      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> => {
+      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> => {
         const processedTxs: ProcessedTx[] = [];
         const allTxs: Tx[] = [];
+        let totalBlobFields = 0;
 
         for await (const tx of pendingTxsIterator) {
           allTxs.push(tx);
@@ -150,9 +151,10 @@ describe('BlockBuilder', () => {
             globalVariables,
           );
           processedTxs.push(processedTx);
+          totalBlobFields += processedTx.txEffect.getNumBlobFields();
         }
         // Assuming all txs are processed successfully and none failed for this mock
-        return [processedTxs, [], allTxs, []];
+        return [processedTxs, [], allTxs, [], totalBlobFields];
       },
     );
     blockBuilder = new TestBlockBuilder(l1Constants, worldState, contractDataSource, dateProvider);
@@ -162,7 +164,7 @@ describe('BlockBuilder', () => {
     const tx = await makeTx();
     const iterator = mockTxIterator([tx]);
 
-    const blockResult = await blockBuilder.buildBlock(iterator, [], globalVariables, {});
+    const blockResult = await blockBuilder.buildBlock(iterator, [], [], globalVariables, {});
     expect(publicProcessor.process).toHaveBeenCalledTimes(1);
     expect(publicProcessor.process).toHaveBeenCalledWith(iterator, {}, validator);
     logger.info('Built Block', blockResult.block);
@@ -180,7 +182,7 @@ describe('BlockBuilder', () => {
   it('builds a block with the correct options', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     const deadline = new Date(Date.now() + 1000);
-    await blockBuilder.buildBlock(txs, [], globalVariables, {
+    await blockBuilder.buildBlock(txs, [], [], globalVariables, {
       maxTransactions: 4,
       deadline,
     });
@@ -197,7 +199,7 @@ describe('BlockBuilder', () => {
 
   it('builds a block for validation ignoring limits', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
-    await blockBuilder.buildBlock(txs, [], globalVariables, {});
+    await blockBuilder.buildBlock(txs, [], [], globalVariables, {});
 
     expect(publicProcessor.process).toHaveBeenCalledWith(txs, {}, validator);
   });
@@ -211,10 +213,11 @@ describe('BlockBuilder', () => {
     publicProcessor.process.mockImplementation(
       async (
         pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>,
-      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> => {
+      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> => {
         const processedTxs: ProcessedTx[] = [];
         const usedTxs: Tx[] = [];
         const failedTxs: FailedTx[] = [];
+        let totalBlobFields = 0;
 
         for await (const tx of pendingTxsIterator) {
           if (validTxHashes.includes(tx.getTxHash())) {
@@ -227,16 +230,17 @@ describe('BlockBuilder', () => {
             );
 
             processedTxs.push(processedTx);
+            totalBlobFields += processedTx.txEffect.getNumBlobFields();
           } else {
             failedTxs.push({ tx, error: new Error() });
           }
         }
         // Assuming all txs are processed successfully and none failed for this mock
-        return [processedTxs, failedTxs, usedTxs, []];
+        return [processedTxs, failedTxs, usedTxs, [], totalBlobFields];
       },
     );
 
-    const blockResult = await blockBuilder.buildBlock(txs, [], globalVariables, {});
+    const blockResult = await blockBuilder.buildBlock(txs, [], [], globalVariables, {});
     expect(blockResult.failedTxs).toEqual([{ tx: invalidTx, error: new Error() }]);
     expect(blockResult.usedTxs).toEqual(validTxs);
   });

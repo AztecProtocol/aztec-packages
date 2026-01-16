@@ -288,7 +288,7 @@ MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
         // We cast to uint256_t to be sure that the shift 1 << a_lo_bits has a defined behaviour.
         // 1 << 128 is undefined behavior on uint128_t.
         const uint128_t mask =
-            static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
+            static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
         // Make use of x % pow_of_two = x & (pow_of_two - 1)
         uint128_t a_lo = overflow ? b_num - max_bits : a_num & mask;
         uint128_t a_hi = a_lo_bits >= 128 ? 0 : a_num >> a_lo_bits; // 128-bit shift undefined behaviour guard.
@@ -330,7 +330,7 @@ MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
         // We cast to uint256_t to be sure that the shift 1 << a_lo_bits has a defined behaviour.
         // 1 << 128 is undefined behavior on uint128_t.
         const uint128_t mask =
-            static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
+            static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
         // Make use of x % pow_of_two = x & (pow_of_two - 1)
         uint128_t a_lo = overflow ? b_num - max_bits : a_num & mask;
         uint128_t a_hi = a_lo_bits >= 128 ? 0 : a_num >> a_lo_bits; // 128-bit shift undefined behaviour guard.

@@ -16,6 +16,8 @@ void ecc_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    const auto ecc_INFINITY_X = FF(0);
+    const auto ecc_INFINITY_Y = FF(0);
     const auto ecc_add_mem_P_X3 = in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x);
     const auto ecc_add_mem_P_Y2 = in.get(C::ecc_add_mem_p_y) * in.get(C::ecc_add_mem_p_y);
     const auto ecc_add_mem_Q_X3 = in.get(C::ecc_add_mem_q_x) * in.get(C::ecc_add_mem_q_x) * in.get(C::ecc_add_mem_q_x);
@@ -109,6 +111,42 @@ void ecc_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
             (static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) -
              static_cast<View>(in.get(C::ecc_add_mem_sel)) * (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_err))));
         std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
+                   ((static_cast<View>(in.get(C::ecc_add_mem_p_x_n)) -
+                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_p_is_inf))) *
+                         static_cast<View>(in.get(C::ecc_add_mem_p_x))) -
+                    static_cast<View>(in.get(C::ecc_add_mem_p_is_inf)) * CView(ecc_INFINITY_X));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
+                   ((static_cast<View>(in.get(C::ecc_add_mem_p_y_n)) -
+                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_p_is_inf))) *
+                         static_cast<View>(in.get(C::ecc_add_mem_p_y))) -
+                    static_cast<View>(in.get(C::ecc_add_mem_p_is_inf)) * CView(ecc_INFINITY_Y));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
+                   ((static_cast<View>(in.get(C::ecc_add_mem_q_x_n)) -
+                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_q_is_inf))) *
+                         static_cast<View>(in.get(C::ecc_add_mem_q_x))) -
+                    static_cast<View>(in.get(C::ecc_add_mem_q_is_inf)) * CView(ecc_INFINITY_X));
+        std::get<14>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::ecc_add_mem_sel_should_exec)) *
+                   ((static_cast<View>(in.get(C::ecc_add_mem_q_y_n)) -
+                     (FF(1) - static_cast<View>(in.get(C::ecc_add_mem_q_is_inf))) *
+                         static_cast<View>(in.get(C::ecc_add_mem_q_y))) -
+                    static_cast<View>(in.get(C::ecc_add_mem_q_is_inf)) * CView(ecc_INFINITY_Y));
+        std::get<15>(evals) += (tmp * scaling_factor);
     }
 }
 

@@ -20,7 +20,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 7. `honk/execution_trace/execution_trace_block.hpp`
 8. `honk/execution_trace/ultra_execution_trace.hpp`
 9. `honk/execution_trace/mega_execution_trace.hpp`
-10. `honk/execution_trace/gate_data.hpp` (TO BE REVIEWED)
+10. `honk/execution_trace/gate_data.hpp`
 
 ### Relations (Ultra)
 11. `relations/ultra_arithmetic_relation.hpp`
@@ -41,7 +41,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 22. `stdlib_circuit_builders/plookup_tables/plookup_tables.hpp`
 23. `stdlib_circuit_builders/plookup_tables/plookup_tables.cpp`
 24. `stdlib_circuit_builders/plookup_tables/types.hpp`
-25. `stdlib_circuit_builders/plookup_tables/dummy.hpp` (TO BE REVIEWED)
+25. `stdlib_circuit_builders/plookup_tables/dummy.hpp`
 26. `stdlib/primitives/plookup/plookup.hpp`
 27. `stdlib/primitives/plookup/plookup.cpp`
 

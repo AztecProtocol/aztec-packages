@@ -5,6 +5,7 @@ import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
@@ -50,6 +51,22 @@ describe('e2e_simple', () => {
     });
 
     afterAll(() => teardown());
+
+    it('returns initial block data', async () => {
+      const initialHeader = await aztecNode.getBlockHeader(BlockNumber.ZERO);
+      expect(initialHeader).toBeDefined();
+      const initialHeaderHash = await initialHeader!.hash();
+      const initialBlockByHash = await aztecNode.getBlockByHash(initialHeaderHash);
+      expect(initialBlockByHash).toBeDefined();
+      const initialBlockHash = await initialBlockByHash!.hash();
+      expect(initialBlockHash.equals(initialHeaderHash)).toBeTrue();
+      expect(initialBlockByHash?.body.txEffects.length).toBe(0);
+      const initialBlockByNumber = await aztecNode.getBlock(BlockNumber.ZERO);
+      expect(initialBlockByNumber).toBeDefined();
+      const initialBlockByNumberHash = await initialBlockByNumber!.hash();
+      expect(initialBlockByNumberHash.equals(initialHeaderHash)).toBeTrue();
+      expect(initialBlockByNumber?.body.txEffects.length).toBe(0);
+    });
 
     it('deploys a contract', async () => {
       const deployer = new ContractDeployer(artifact, wallet);

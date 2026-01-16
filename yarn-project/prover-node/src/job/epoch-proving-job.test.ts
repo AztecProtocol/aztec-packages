@@ -130,7 +130,7 @@ describe('epoch-proving-job', () => {
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
       const processedTxs = await Promise.all(txsArray.map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })));
-      return [processedTxs, [], txsArray, []];
+      return [processedTxs, [], txsArray, [], 0];
     });
   });
 
@@ -175,7 +175,7 @@ describe('epoch-proving-job', () => {
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
       const errors = txsArray.map(tx => ({ error: new Error('Failed to process tx'), tx }));
-      return [[], errors, [], []];
+      return [[], errors, [], [], 0];
     });
 
     const job = createJob();
@@ -186,7 +186,7 @@ describe('epoch-proving-job', () => {
   });
 
   it('fails if does not process all txs for a block', async () => {
-    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], [], []]));
+    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], [], [], 0]));
 
     const job = createJob();
     await job.run();

@@ -52,16 +52,17 @@ template <typename Flavor> class ECCVMVerifier_ {
     {
         // ECCVM VK is constant
         auto native_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+        // G1 identity is the first point of the SRS (used for PCS operations)
+        auto native_pcs_g1_identity = ECCVMFlavor::VerifierCommitmentKey(1).get_g1_identity();
         if constexpr (IsRecursive) {
-            // Extract builder from proof - safe since transcript cannot hash non-witness elements
             builder = proof.back().get_context();
             key = std::make_shared<VerificationKey>(builder, native_vk);
-            vk_hash = stdlib::witness_t<Builder>(builder, native_vk->hash());
-            key->fix_witness();
-            vk_hash.fix_witness();
+            vk_hash = key->get_hash();
+            pcs_g1_identity = Commitment(native_pcs_g1_identity);
         } else {
             key = native_vk;
-            vk_hash = native_vk->hash();
+            vk_hash = native_vk->get_hash();
+            pcs_g1_identity = native_pcs_g1_identity;
         }
     }
 
@@ -97,6 +98,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     std::shared_ptr<VerificationKey> key;
     Proof proof;
     BF vk_hash;
+    Commitment pcs_g1_identity; // G1 generator for PCS operations (Shplemini/Shplonk)
     std::shared_ptr<Transcript> transcript;
 
     // Builder pointer (only used for recursive, nullptr for native)

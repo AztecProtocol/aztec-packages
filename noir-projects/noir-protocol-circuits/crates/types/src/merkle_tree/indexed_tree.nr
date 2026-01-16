@@ -6,7 +6,7 @@ use crate::{
         append_only_tree::insert_subtree_root_to_snapshot,
         leaf_preimage::{IndexedTreeLeafPreimage, IndexedTreeLeafValue},
         membership::{check_membership, MembershipWitness},
-        root::{calculate_tree_root, root_from_sibling_path},
+        root::{compute_tree_root, root_from_sibling_path},
     },
     traits::Empty,
     utils::arrays::check_permutation,
@@ -30,7 +30,10 @@ where
     Leaf: IndexedTreeLeafPreimage<Value>,
 {
     // Sanity check: ensure this function is called with correct generics.
-    assert_eq(SubtreeWidth, 1 << SubtreeHeight, "subtree items must be 2^subtree height");
+    std::static_assert(
+        SubtreeWidth == 1 << SubtreeHeight,
+        "subtree items must be 2^subtree height",
+    );
 
     // Check that `sorted_values` is a permutation of `values_to_insert`.
     // Values must be sorted by key in descending order. Failing to do so will still pass the permutation check,
@@ -87,7 +90,7 @@ where
     }
 
     // Compute the root of the subtree form by the new leaves to be appended.
-    let subtree_root = calculate_tree_root(leaves_to_append.map(|leaf: Leaf| leaf.as_leaf()));
+    let subtree_root = compute_tree_root(leaves_to_append.map(|leaf: Leaf| leaf.as_leaf()));
     // Since low leaves were updated, the tree root has changed.
     // Insert the new subtree root against the updated tree root.
     let current_snapshot = AppendOnlyTreeSnapshot {

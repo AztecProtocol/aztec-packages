@@ -12,7 +12,7 @@ it('packs retrieved note', () => {
     randomness: new Fr(42n),
     storageSlot: new Fr(100n),
     noteNonce: new Fr(2n),
-    index: undefined, // Transient note
+    isPending: true,
     note: new Note([new Fr(3n), new Fr(4n)]),
   };
 

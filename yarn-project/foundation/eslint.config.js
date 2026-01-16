@@ -75,9 +75,8 @@ export default [
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-constant-condition': 'off',
-      // Warnings
-      'import/no-cycle': 'warn',
       // Errors
+      'import/no-cycle': 'error',
       '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-floating-promises': 'error',

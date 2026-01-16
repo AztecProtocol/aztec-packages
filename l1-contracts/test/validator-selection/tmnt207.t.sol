@@ -228,7 +228,7 @@ contract Tmnt207Test is RollupBase {
         args: PublicInputArgs({
           previousArchive: rollup.getCheckpoint(0).archive,
           endArchive: rollup.getCheckpoint(1).archive,
-          outHash: bytes32(0),
+          outHash: rollup.getCheckpoint(1).outHash,
           proverId: address(0)
         }),
         fees: new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2),

@@ -6,7 +6,7 @@
     ".": "./dest/index.js",
     "./testing": "./dest/testing/index.js"
   },
-  "bin": "./dest/bin/index.js",
+  "bin": "./scripts/aztec.sh",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -71,6 +71,7 @@
   },
   "files": [
     "dest",
+    "scripts",
     "src",
     "!*.test.*"
   ],
@@ -79,7 +80,7 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/koa": "^2.15.0",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"

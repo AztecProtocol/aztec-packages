@@ -283,6 +283,7 @@ export function Landing() {
     setDefaultContractCreationParams,
     setCurrentContractAddress,
     setFrom,
+    node,
     embeddedWalletSelected,
     playgroundDB,
     from,

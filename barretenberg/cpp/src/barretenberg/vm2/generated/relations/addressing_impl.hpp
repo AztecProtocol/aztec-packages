@@ -194,25 +194,26 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_7_)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
-    { // INDIRECT_RECONSTRUCTION
+    { // ADDRESSING_MODE_RECONSTRUCTION
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = (CView(execution_SEL_SHOULD_RESOLVE_ADDRESS) * static_cast<View>(in.get(C::execution_indirect)) -
-                    (FF(1) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_0_)) +
-                     FF(2) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_0_)) +
-                     FF(4) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_1_)) +
-                     FF(8) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_1_)) +
-                     FF(16) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_2_)) +
-                     FF(32) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_2_)) +
-                     FF(64) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_3_)) +
-                     FF(128) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_3_)) +
-                     FF(256) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_4_)) +
-                     FF(512) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_4_)) +
-                     FF(1024) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_5_)) +
-                     FF(2048) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_5_)) +
-                     FF(4096) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_6_)) +
-                     FF(8192) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_6_)) +
-                     FF(16384) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_7_)) +
-                     FF(32768) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_7_))));
+        auto tmp =
+            (CView(execution_SEL_SHOULD_RESOLVE_ADDRESS) * static_cast<View>(in.get(C::execution_addressing_mode)) -
+             (FF(1) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_0_)) +
+              FF(2) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_0_)) +
+              FF(4) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_1_)) +
+              FF(8) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_1_)) +
+              FF(16) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_2_)) +
+              FF(32) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_2_)) +
+              FF(64) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_3_)) +
+              FF(128) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_3_)) +
+              FF(256) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_4_)) +
+              FF(512) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_4_)) +
+              FF(1024) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_5_)) +
+              FF(2048) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_5_)) +
+              FF(4096) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_6_)) +
+              FF(8192) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_6_)) +
+              FF(16384) * static_cast<View>(in.get(C::execution_sel_op_is_indirect_wire_7_)) +
+              FF(32768) * static_cast<View>(in.get(C::execution_sel_op_is_relative_wire_7_))));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {

@@ -1,5 +1,5 @@
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, CheckpointNumberSchema, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -35,6 +35,10 @@ export class L2BlockNew {
 
   get number(): BlockNumber {
     return this.header.globalVariables.blockNumber;
+  }
+
+  get slot(): SlotNumber {
+    return this.header.globalVariables.slotNumber;
   }
 
   get timestamp(): bigint {
@@ -131,8 +135,14 @@ export class L2BlockNew {
     };
   }
 
-  static empty() {
-    return new L2BlockNew(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty(), CheckpointNumber(0), 0);
+  static empty(header?: BlockHeader) {
+    return new L2BlockNew(
+      AppendOnlyTreeSnapshot.empty(),
+      header ?? BlockHeader.empty(),
+      Body.empty(),
+      CheckpointNumber(0),
+      0,
+    );
   }
 
   /**

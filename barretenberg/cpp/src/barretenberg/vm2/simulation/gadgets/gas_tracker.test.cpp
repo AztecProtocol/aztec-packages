@@ -40,7 +40,7 @@ TEST_F(GasTrackerTest, BaseGasConsumption)
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, greater_than);
 
     // Test base gas consumption (no dynamic gas factor).
-    uint32_t l2_gas_used = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_gas_used = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     EXPECT_CALL(context, get_gas_used);
     EXPECT_CALL(context, get_gas_limit);
     EXPECT_CALL(context, set_gas_used(Gas{ l2_gas_used, 0 }));
@@ -65,11 +65,11 @@ TEST_F(GasTrackerTest, AddressingGasConsumption)
 {
     instruction.opcode = WireOpCode::SET_8;
     // Indirect and relative
-    instruction.indirect = 0b11;
+    instruction.addressing_mode = 0b11;
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, greater_than);
 
     // Test base gas consumption
-    uint32_t l2_gas_used = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_gas_used = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     EXPECT_CALL(context, get_gas_used);
     EXPECT_CALL(context, get_gas_limit);
     EXPECT_CALL(context, set_gas_used(Gas{ l2_gas_used, 0 }));
@@ -81,7 +81,7 @@ TEST_F(GasTrackerTest, AddressingGasConsumption)
 
     EXPECT_EQ(gas_event,
               (GasEvent{
-                  .addressing_gas = compute_addressing_gas(instruction.indirect),
+                  .addressing_gas = compute_addressing_gas(instruction.addressing_mode),
                   .dynamic_gas_factor = Gas{ 0, 0 },
                   .total_gas_used_l2 = l2_gas_used,
                   .total_gas_used_da = 0,
@@ -98,7 +98,7 @@ TEST_F(GasTrackerTest, OutOfGasBase)
     // Set up context to be near gas limit
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ 999, 450 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ 1000, 500 }));
-    uint32_t opcode_l2_gas = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t opcode_l2_gas = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     // No call to set_gas_used in the tracker.
 
     EXPECT_CALL(greater_than, gt(999 + opcode_l2_gas, 1000)).WillOnce(Return(true));
@@ -124,7 +124,7 @@ TEST_F(GasTrackerTest, DynamicGasConsumption)
 
     EXPECT_CALL(context, get_gas_used);
     EXPECT_CALL(context, get_gas_limit);
-    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     uint32_t l2_dyn_computation = AVM_CALLDATACOPY_DYN_L2_GAS * 10;
     EXPECT_CALL(context, set_gas_used(Gas{ l2_base_gas + l2_dyn_computation, 0 }));
 
@@ -135,7 +135,7 @@ TEST_F(GasTrackerTest, DynamicGasConsumption)
 
     EXPECT_EQ(gas_event,
               (GasEvent{
-                  .addressing_gas = compute_addressing_gas(instruction.indirect),
+                  .addressing_gas = compute_addressing_gas(instruction.addressing_mode),
                   .dynamic_gas_factor = Gas{ 10, 0 },
                   .total_gas_used_l2 = l2_base_gas + l2_dyn_computation,
                   .total_gas_used_da = 0,
@@ -154,7 +154,7 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ l2_gas_used_start, 0 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ l2_gas_limit, 500 }));
 
-    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     uint32_t l2_dyn_computation = AVM_CALLDATACOPY_DYN_L2_GAS * 100;
     EXPECT_CALL(greater_than, gt(l2_base_gas + l2_dyn_computation + l2_gas_used_start, l2_gas_limit))
         .WillOnce(Return(true));
@@ -187,7 +187,7 @@ TEST_F(GasTrackerTest, OutOfGasBothPhases)
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ l2_gas_used_start, 0 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ l2_gas_limit, 500 }));
 
-    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     uint32_t l2_dyn_computation = AVM_CALLDATACOPY_DYN_L2_GAS * 100;
     EXPECT_CALL(greater_than, gt(l2_base_gas + l2_dyn_computation + l2_gas_used_start, l2_gas_limit))
         .WillOnce(Return(true));
@@ -220,7 +220,7 @@ TEST_F(GasTrackerTest, OutOfGasBasePhaseWithOverflow)
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ prev_gas_used, 0 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ gas_limit, gas_limit }));
 
-    uint32_t l2_opcode_gas = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_opcode_gas = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     EXPECT_CALL(greater_than,
                 gt(static_cast<uint64_t>(prev_gas_used) + static_cast<uint64_t>(l2_opcode_gas), gas_limit))
         .WillOnce(Return(true));                                         // L2 OOG.
@@ -253,7 +253,7 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ prev_gas_used, 0 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ gas_limit, gas_limit }));
 
-    uint32_t l2_base_opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_base_opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.addressing_mode);
     uint64_t l2_dyn_computation = static_cast<uint64_t>(AVM_CALLDATACOPY_DYN_L2_GAS) * gas_factor;
     EXPECT_CALL(
         greater_than,

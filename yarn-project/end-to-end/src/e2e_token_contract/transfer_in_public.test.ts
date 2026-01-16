@@ -23,8 +23,8 @@ describe('e2e_token_contract transfer public', () => {
   let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);

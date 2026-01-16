@@ -56,13 +56,13 @@ export class GetEnvVar extends Instruction {
   public static readonly opcode: Opcode = Opcode.GETENVVAR_16;
   static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT16, // dstOffset
     OperandType.UINT8, // variable enum (immediate)
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
     private varEnum: number,
   ) {
@@ -71,7 +71,7 @@ export class GetEnvVar extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

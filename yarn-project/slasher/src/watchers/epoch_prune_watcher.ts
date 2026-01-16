@@ -1,13 +1,14 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
   L2BlockNew,
-  type L2BlockPruneEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
+  type L2PruneUnprovenEvent,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
@@ -16,7 +17,7 @@ import type {
   MerkleTreeWriteOperations,
   SlasherConfig,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 import {
   ReExFailedTxsError,
@@ -63,12 +64,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneUnproven, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.removeListener(L2BlockSourceEvents.L2PruneUnproven, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
@@ -77,7 +78,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.log.verbose('EpochPruneWatcher config updated', this.penalties);
   }
 
-  private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
+  private handlePruneL2Blocks(event: L2PruneUnprovenEvent): void {
     const { blocks, epochNumber } = event;
     void this.processPruneL2Blocks(blocks, epochNumber).catch(err =>
       this.log.error('Error processing pruned L2 blocks', err, { epochNumber }),
@@ -123,17 +124,27 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     if (blocks.length === 0) {
       return;
     }
+
+    let previousCheckpointOutHashes: Fr[] = [];
     const fork = await this.blockBuilder.getFork(BlockNumber(blocks[0].header.globalVariables.blockNumber - 1));
     try {
       for (const block of blocks) {
-        await this.validateBlock(block, fork);
+        await this.validateBlock(block, previousCheckpointOutHashes, fork);
+
+        // TODO(mbps): This assumes one block per checkpoint, which is only true for now.
+        const checkpointOutHash = computeCheckpointOutHash([block.body.txEffects.map(tx => tx.l2ToL1Msgs)]);
+        previousCheckpointOutHashes = [...previousCheckpointOutHashes, checkpointOutHash];
       }
     } finally {
       await fork.close();
     }
   }
 
-  public async validateBlock(blockFromL1: L2BlockNew, fork: MerkleTreeWriteOperations): Promise<void> {
+  public async validateBlock(
+    blockFromL1: L2BlockNew,
+    previousCheckpointOutHashes: Fr[],
+    fork: MerkleTreeWriteOperations,
+  ): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
     // We load txs from the mempool directly, since the TxCollector running in the background has already been
@@ -150,6 +161,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
       txs,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       blockFromL1.header.globalVariables,
       {},
       fork,

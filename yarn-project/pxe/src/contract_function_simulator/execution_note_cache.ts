@@ -32,19 +32,22 @@ export class ExecutionNoteCache {
   private nullifierMap: Map<bigint, Set<bigint>> = new Map();
 
   /**
-   * All nullifiers emitted in this transaction.
+   * Nullifiers emitted by private calls in this transaction.
    */
-  private allNullifiers: Set<bigint> = new Set();
+  private emittedNullifiers: Set<bigint> = new Set();
 
+  /**
+   * The counter that separates non-revertible side effects (which persist even if the tx reverts) from revertible ones.
+   */
   private minRevertibleSideEffectCounter = 0;
 
   private inRevertiblePhase = false;
 
   /**
-   * We don't need to use the tx request hash for nonces if another non revertible nullifier is emitted.
-   * In that case we disable injecting the tx request hash as a nullifier.
+   * Whether the protocol nullifier was used for nonce generation.
+   * We don't need to use the protocol nullifier if a non-revertible nullifier is emitted.
    */
-  private usedProtocolNullifierForNonces = true;
+  private usedProtocolNullifierForNonces: boolean | undefined;
 
   constructor(private readonly protocolNullifier: Fr) {}
 
@@ -60,17 +63,18 @@ export class ExecutionNoteCache {
     }
     this.inRevertiblePhase = true;
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
-    let nonceGenerator = this.protocolNullifier;
-    const nullifiers = this.getAllNullifiers();
-    if (nullifiers.length > 0) {
-      nonceGenerator = new Fr(nullifiers[0]);
-      this.usedProtocolNullifierForNonces = false;
-    }
+
+    const nullifiers = this.getEmittedNullifiers();
+    // If there are no nullifiers emitted by private calls so far, we use the protocol nullifier as the nonce generator.
+    // Note: There could still be nullifiers emitted after the counter is set, but those nullifiers are revertible, so
+    // we don't want to use them as the nonce generator.
+    this.usedProtocolNullifierForNonces = nullifiers.length === 0;
+    const nonceGenerator = this.usedProtocolNullifierForNonces ? this.protocolNullifier : new Fr(nullifiers[0]);
 
     // The existing pending notes are all non-revertible.
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
     // Their indexes in the tx are known at this point and won't change. So we can assign a nonce to each one of them.
-    // The nonces will be used to create the "complete" nullifier.
+    // The nonces will be used to create the "unique" note hashes.
     const updatedNotes = await Promise.all(
       this.notes.map(async ({ note, counter }, i) => {
         const noteNonce = await computeNoteHashNonce(nonceGenerator, i);
@@ -99,15 +103,11 @@ export class ExecutionNoteCache {
   }
 
   public finish() {
-    // If we never entered the revertible phase, we need to use the protocol nullifier to compute the nonces for the
-    // notes if no nullifiers have been emitted.
+    // If we never entered the revertible phase, and there are no nullifiers emitted, we need to use the protocol
+    // nullifier as the nonce generator.
     if (!this.inRevertiblePhase) {
-      this.usedProtocolNullifierForNonces = this.getAllNullifiers().length === 0;
+      this.usedProtocolNullifierForNonces = this.getEmittedNullifiers().length === 0;
     }
-    // If we entered the revertible phase, the nonce generator was decided based on wether or not a nullifier was emitted before entering.
-    return {
-      usedProtocolNullifierForNonces: this.usedProtocolNullifierForNonces,
-    };
   }
 
   /**
@@ -150,11 +150,11 @@ export class ExecutionNoteCache {
 
       // If the note is non revertible and the nullifier was emitted in the revertible phase, both the note hash and the nullifier will be emitted
       if (this.inRevertiblePhase && note.counter < this.minRevertibleSideEffectCounter) {
-        this.recordNullifier(contractAddress, siloedNullifier);
+        this.#recordNullifier(contractAddress, siloedNullifier);
       }
     } else {
       // If the note being nullified comes from a previous tx the nullifier will be emitted.
-      this.recordNullifier(contractAddress, siloedNullifier);
+      this.#recordNullifier(contractAddress, siloedNullifier);
     }
     return nullifiedNoteHashCounter;
   }
@@ -166,7 +166,7 @@ export class ExecutionNoteCache {
    */
   public async nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
     const siloedNullifier = (await siloNullifier(contractAddress, innerNullifier)).toBigInt();
-    this.recordNullifier(contractAddress, siloedNullifier);
+    this.#recordNullifier(contractAddress, siloedNullifier);
   }
 
   /**
@@ -215,11 +215,30 @@ export class ExecutionNoteCache {
     return this.notes;
   }
 
-  getAllNullifiers(): Fr[] {
-    return [...this.allNullifiers].map(n => new Fr(n));
+  /**
+   * @returns All nullifiers emitted by private calls in this transaction.
+   */
+  getEmittedNullifiers(): Fr[] {
+    return [...this.emittedNullifiers].map(n => new Fr(n));
   }
 
-  recordNullifier(contractAddress: AztecAddress, siloedNullifier: bigint) {
+  /**
+   * @returns All nullifiers emitted by private calls in this transaction. If the protocol nullifier was used as the
+   * nonce generator, it is injected as the first nullifier.
+   */
+  getAllNullifiers(): Fr[] {
+    if (this.usedProtocolNullifierForNonces === undefined) {
+      throw new Error('usedProtocolNullifierForNonces is not set yet. Call finish() to complete the transaction.');
+    }
+    const allNullifiers = this.getEmittedNullifiers();
+    return [...(this.usedProtocolNullifierForNonces ? [this.protocolNullifier] : []), ...allNullifiers];
+  }
+
+  getNonceGenerator(): Fr {
+    return this.getAllNullifiers()[0];
+  }
+
+  #recordNullifier(contractAddress: AztecAddress, siloedNullifier: bigint) {
     const nullifiers = this.getNullifiers(contractAddress);
 
     if (nullifiers.has(siloedNullifier)) {
@@ -228,6 +247,6 @@ export class ExecutionNoteCache {
 
     nullifiers.add(siloedNullifier);
     this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
-    this.allNullifiers.add(siloedNullifier);
+    this.emittedNullifiers.add(siloedNullifier);
   }
 }

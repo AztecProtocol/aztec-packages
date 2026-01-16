@@ -19,14 +19,14 @@ export const ThreeOperandWireFormat16 = [
 
 /**
  * Covers (de)serialization for an instruction with:
- * indirect, inTag, and three operands.
+ * addressing mode, inTag, and three operands.
  */
 export abstract class ThreeOperandInstruction extends Instruction {
   static readonly wireFormat8: OperandType[] = ThreeOperandWireFormat8;
   static readonly wireFormat16: OperandType[] = ThreeOperandWireFormat16;
 
   constructor(
-    protected indirect: number,
+    protected addressingMode: number,
     protected aOffset: number,
     protected bOffset: number,
     protected dstOffset: number,

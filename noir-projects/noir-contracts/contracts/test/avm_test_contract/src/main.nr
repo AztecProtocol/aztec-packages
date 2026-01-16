@@ -513,7 +513,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_sender(context: PublicContext) -> AztecAddress {
-        context.msg_sender_unsafe()
+        context.maybe_msg_sender().unwrap()
     }
 
     #[external("public")]
@@ -704,19 +704,22 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _nullifier_exists(context: PublicContext, address: AztecAddress, nullifier: Field) -> bool {
-        context.nullifier_exists(nullifier, address)
+        context.nullifier_exists_unsafe(nullifier, address)
     }
 
     #[external("public")]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(self.context.nullifier_exists(nullifier, self.address), "Nullifier doesn't exist!");
+        assert(
+            self.context.nullifier_exists_unsafe(nullifier, self.address),
+            "Nullifier doesn't exist!",
+        );
     }
 
     // Use the standard context interface to emit a new nullifier
     #[external("public")]
     fn emit_nullifier_and_check(nullifier: Field) {
         self.context.push_nullifier(nullifier);
-        let exists = self.context.nullifier_exists(nullifier, self.address);
+        let exists = self.context.nullifier_exists_unsafe(nullifier, self.address);
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 

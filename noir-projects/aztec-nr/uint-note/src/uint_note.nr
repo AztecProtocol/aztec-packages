@@ -208,8 +208,10 @@ impl PartialUintNote {
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent).
         let validity_commitment = self.compute_validity_commitment(completer);
+        // Safety: we're using the existence of the nullifier as proof of the contract having validated the partial
+        // note's preimage, which is safe.
         assert(
-            context.nullifier_exists(validity_commitment, context.this_address()),
+            context.nullifier_exists_unsafe(validity_commitment, context.this_address()),
             "Invalid partial note or completer",
         );
 

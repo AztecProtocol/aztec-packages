@@ -5,10 +5,7 @@
 // =====================
 #pragma once
 
-#include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/mega_recursive_flavor.hpp"
-#include "barretenberg/hypernova/types.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -34,25 +31,18 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using OinkVerifier = bb::OinkVerifier<Flavor>;
     using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
-    // Types conditionally assigned based on the Flavor being recursive
-    using MultilinearBatchingVerifier =
-        std::conditional_t<IsRecursiveFlavor<Flavor>,
-                           typename HypernovaRecursiveTypes::MultilinearBatchingVerifier,
-                           typename HypernovaNativeTypes::MultilinearBatchingVerifier>;
-    using VerifierInstance = std::conditional_t<IsRecursiveFlavor<Flavor>,
-                                                typename HypernovaRecursiveTypes::VerifierInstance,
-                                                typename HypernovaNativeTypes::VerifierInstance>;
-    using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>,
-                                     typename HypernovaRecursiveTypes::Proof,
-                                     typename HypernovaNativeTypes::Proof>;
+    using BatchingFlavor =
+        std::conditional_t<IsRecursiveFlavor<Flavor>, MultilinearBatchingRecursiveFlavor, MultilinearBatchingFlavor>;
+    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<BatchingFlavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
+
+    using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
 
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
 
-    std::shared_ptr<Transcript> transcript;
-
-    HypernovaFoldingVerifier(const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript) {};
+    HypernovaFoldingVerifier(std::shared_ptr<Transcript> transcript)
+        : transcript(std::move(transcript)) {};
 
     /**
      * @brief Turn an instance into an accumulator by executing sumcheck.
@@ -77,6 +67,8 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
         const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof);
 
   private:
+    std::shared_ptr<Transcript> transcript;
+
     /**
      * @brief Perform sumcheck on the incoming instance.
      *
@@ -85,11 +77,6 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
      */
     SumcheckOutput<Flavor> sumcheck_on_incoming_instance(const std::shared_ptr<VerifierInstance>& instance,
                                                          const Proof& proof);
-
-    /**
-     * @brief Generate the challenges required to batch the incoming instance with the accumulator
-     */
-    std::pair<std::vector<FF>, std::vector<FF>> get_batching_challenges();
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.

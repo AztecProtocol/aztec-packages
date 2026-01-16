@@ -302,7 +302,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          flags.verifier_type,
                          "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
                          "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
-                         "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
+                         "is sufficient for verifying proofs about a single circuit (including the non-encapsulated "
                          "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
                          "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
                          "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
@@ -749,8 +749,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
-    debug_logging = flags.debug;
-    verbose_logging = debug_logging || flags.verbose;
+    if (flags.debug) {
+        bb_log_level = LogLevel::DEBUG;
+    } else if (flags.verbose) {
+        bb_log_level = LogLevel::VERBOSE;
+    }
     slow_low_memory = flags.slow_low_memory;
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {

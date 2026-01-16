@@ -105,13 +105,9 @@ struct VariableRef {
     /// Used for Indirect/IndirectRelative modes only
     uint16_t pointer_address_seed = 0;
 
-    /// @brief A seed for the generation of the base offset
-    /// Used for Relative/IndirectRelative modes only
-    /// Sets M[0] = base_offset
-    uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
 
-    MSGPACK_FIELDS(tag, index, pointer_address_seed, base_offset_seed, mode);
+    MSGPACK_FIELDS(tag, index, pointer_address_seed, mode);
 };
 
 struct AddressRef {
@@ -121,12 +117,8 @@ struct AddressRef {
     /// Used for Indirect/IndirectRelative modes only
     uint16_t pointer_address_seed = 0;
 
-    /// @brief A seed for the generation of the base offset
-    /// Used for Relative/IndirectRelative modes only
-    /// Sets M[0] = base_offset
-    uint32_t base_offset_seed = 0;
     AddressingModeWrapper mode = AddressingMode::Direct;
-    MSGPACK_FIELDS(address, pointer_address_seed, base_offset_seed, mode);
+    MSGPACK_FIELDS(address, pointer_address_seed, mode);
 };
 
 using ParamRef = std::variant<VariableRef, AddressRef>;
@@ -138,9 +130,20 @@ using ParamRef = std::variant<VariableRef, AddressRef>;
 struct ResolvedAddress {
     uint32_t absolute_address = 0;
     uint32_t operand_address = 0;
-    std::optional<uint32_t> base_pointer = std::nullopt;
     std::optional<uint32_t> pointer_address = std::nullopt;
+    bool via_relative = false;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const ResolvedAddress& address)
+{
+    os << "ResolvedAddress {\n";
+    os << "  absolute_address: " << address.absolute_address << ",\n";
+    os << "  operand_address: " << address.operand_address << ",\n";
+    os << "  pointer_address: " << address.pointer_address.value() << ",\n";
+    os << "  via_relative: " << address.via_relative << ",\n";
+    os << "}";
+    return os;
+}
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address]
 struct ADD_8_Instruction {
@@ -462,9 +465,6 @@ struct SLOAD_Instruction {
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)
 struct GETENVVAR_Instruction {
     AddressRef result_address;
-    // msgpack cannot pack enum classes, so we pack that as a uint8_t
-    // 0 -> ADDRESS, 1 -> SENDER, 2 -> TRANSACTIONFEE, 3 -> CHAINID, 4 -> VERSION, 5 -> BLOCKNUMBER, 6 -> TIMESTAMP,
-    // 7 -> MINFEEPERDAGAS, 8 -> MINFEEPERL2GAS, 9 -> ISSTATICCALL, 10 -> L2GASLEFT, 11 -> DAGASLEFT
     uint8_t type;
     MSGPACK_FIELDS(result_address, type);
 };
@@ -636,6 +636,15 @@ struct TORADIXBE_Instruction {
     MSGPACK_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
 };
 
+struct DEBUGLOG_Instruction {
+    ParamRef level_offset;
+    ParamRef message_offset;
+    ParamRef fields_offset;
+    ParamRef fields_size_offset;
+    uint16_t message_size;
+    MSGPACK_FIELDS(level_offset, message_offset, fields_offset, fields_size_offset, message_size);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      FDIV_8_Instruction,
                                      SET_8_Instruction,
@@ -693,7 +702,8 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      POSEIDON2PERM_Instruction,
                                      KECCAKF1600_Instruction,
                                      SHA256COMPRESSION_Instruction,
-                                     TORADIXBE_Instruction>;
+                                     TORADIXBE_Instruction,
+                                     DEBUGLOG_Instruction>;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -708,7 +718,7 @@ inline std::ostream& operator<<(std::ostream& os, const MemoryTagWrapper& tag)
 
 inline std::ostream& operator<<(std::ostream& os, const VariableRef& variable)
 {
-    os << "VariableRef " << variable.tag << " " << variable.index << " " << variable.base_offset_seed << " "
+    os << "VariableRef " << variable.tag << " " << variable.index << " "
        << static_cast<int>(static_cast<AddressingMode>(variable.mode));
     return os;
 }
@@ -904,6 +914,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                 os << "TORADIXBE_Instruction " << arg.value_address << " " << arg.radix_address << " "
                    << arg.num_limbs_address << " " << arg.output_bits_address << " " << arg.dst_address << " "
                    << arg.is_output_bits;
+            },
+            [&](DEBUGLOG_Instruction arg) {
+                os << "DEBUGLOG_Instruction " << arg.level_offset << " " << arg.message_offset << " "
+                   << arg.fields_offset << " " << arg.fields_size_offset << " " << arg.message_size;
             },
             [&](auto) { os << "Unknown instruction"; },
         },

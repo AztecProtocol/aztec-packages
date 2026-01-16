@@ -4,7 +4,7 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { retryFastUntil, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
@@ -1076,7 +1076,7 @@ describe('L1TxUtils', () => {
       await cheatCodes.evmMine();
       logger.warn('Block has been mined');
 
-      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'Waiting for mined status', 10, 0.1);
+      await retryFastUntil(() => gasUtils.state === TxUtilsState.MINED, 'Waiting for mined status');
       logger.warn('Tx is now mined according to monitor');
 
       // Although the monitoring threw that the tx timed out. Internally it should have recognized that the tx was mined
@@ -1287,7 +1287,7 @@ describe('L1TxUtils', () => {
 
       // But now yes
       await cheatCodes.mineEmptyBlock();
-      await retryUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait for speed-up', 10, 0.1);
+      await retryFastUntil(() => gasUtils.state === TxUtilsState.SPEED_UP, 'wait for speed-up');
       expect(state.txHashes.length).toBeGreaterThan(1);
 
       // Wait for completion

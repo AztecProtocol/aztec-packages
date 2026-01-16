@@ -8,7 +8,7 @@ use crate::components::private_kernel_circuit_output_validator::PrivateKernelCir
 use dep::types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
-    hash::create_protocol_nullifier,
+    hash::{create_protocol_nullifier, silo_nullifier},
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
 };
@@ -54,10 +54,9 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.nullifiers.push(protocol_nullifier);
         self.previous_kernel.nullifiers.push(protocol_nullifier);
 
-        self.previous_kernel.claimed_first_nullifier = protocol_nullifier.innermost().value;
-        self.output.claimed_first_nullifier = protocol_nullifier.innermost().value;
-        // First nullifier hint of zero signals that the protocol nullifier will be used as the first nullifier.
-        self.first_nullifier_hint = 0;
+        self.first_nullifier_hint = silo_nullifier(protocol_nullifier);
+        self.previous_kernel.claimed_first_nullifier = self.first_nullifier_hint;
+        self.output.claimed_first_nullifier = self.first_nullifier_hint;
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

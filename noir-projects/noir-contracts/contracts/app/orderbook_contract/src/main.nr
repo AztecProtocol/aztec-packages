@@ -81,7 +81,7 @@ pub contract Orderbook {
         // Create the order (this validates the input tokens and amounts).
         let order = Order::new(config, bid_amount, ask_amount, bid_token, ask_token);
 
-        let maker = self.msg_sender().unwrap();
+        let maker = self.msg_sender();
 
         // Transfer tokens from maker to the public balance of this contract.
         self.call(Token::at(bid_token).transfer_to_public(
@@ -123,7 +123,7 @@ pub contract Orderbook {
     fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = self.storage.config.read();
         let order = self.storage.orders.at(order_id).read();
-        let taker = self.msg_sender().unwrap();
+        let taker = self.msg_sender();
 
         // Determine which tokens are being exchanged based on bid_token_is_zero flag
         let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);

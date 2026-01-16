@@ -15,6 +15,10 @@ ARG COMMIT=""
 RUN curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o /usr/local/bin/ldid \
     && chmod +x /usr/local/bin/ldid
 
+# Install Node.js 24 (build image has Node 22, but bootstrap requires 24)
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    apt-get install -y nodejs
+
 WORKDIR /root
 
 # Clone the repository
@@ -56,13 +60,7 @@ RUN apt-get update && apt-get install -y \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN useradd -m fuzzer -G sudo
-
-# Create a dummy sudo wrapper that just executes the command
-# (Node.js 24 nodesource script calls sudo which isn't installed)
-RUN mkdir -p /usr/local/bin && \
-    printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/sudo && \
-    chmod +x /usr/local/bin/sudo
+RUN useradd -m fuzzer
 
 WORKDIR /home/fuzzer
 

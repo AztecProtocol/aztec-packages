@@ -7,7 +7,7 @@ describe('e2e_token_contract reading constants', () => {
   const { TOKEN_DECIMALS, TOKEN_NAME, TOKEN_SYMBOL } = TokenContractTest;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
   });
 

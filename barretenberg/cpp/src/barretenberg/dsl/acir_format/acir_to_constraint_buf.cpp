@@ -278,9 +278,9 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
     // Expect format marker for msgpack or msgpack-compact
     const uint8_t FORMAT_MSGPACK = 2;
     const uint8_t FORMAT_MSGPACK_COMPACT = 3;
-    uint8_t format = buf[0];
-    BB_ASSERT(format == FORMAT_MSGPACK || format == FORMAT_MSGPACK_COMPACT,
-              "deserialize_msgpack_compact: expected msgpack format marker (2 or 3), got " + std::to_string(format));
+    uint8_t format_u8 = buf[0];
+    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT,
+              "deserialize_msgpack_compact: expected msgpack format marker (2 or 3), got " + std::to_string(format_u8));
 
     // Skip the format marker to get the data.
     const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
@@ -622,21 +622,13 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
-                    .inputs = transform::map(arg.inputs,
-                                             [&](auto& e) {
-                                                 return Blake2sInput{
-                                                     .blackbox_input = parse_input(e),
-                                                     .num_bits = 8,
-                                                 };
-                                             }),
+                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
                     .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
-                    .inputs = transform::map(
-                        arg.inputs,
-                        [&](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e), .num_bits = 8 }; }),
+                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
                     .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);

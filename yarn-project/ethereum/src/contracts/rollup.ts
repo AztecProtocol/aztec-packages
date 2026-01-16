@@ -30,6 +30,7 @@ import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
 import { GSEContract } from './gse.js';
+import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
@@ -69,6 +70,7 @@ export type ViemHeader = {
   blockHeadersHash: `0x${string}`;
   blobsHash: `0x${string}`;
   inHash: `0x${string}`;
+  outHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;
   coinbase: `0x${string}`;
@@ -184,6 +186,20 @@ export type RollupStatusResponse = {
   pendingArchive: Fr;
   archiveOfMyCheckpoint: Fr;
 };
+
+/** Arguments for the CheckpointProposed event. */
+export type CheckpointProposedArgs = {
+  checkpointNumber: CheckpointNumber;
+  archive: Fr;
+  versionedBlobHashes: Buffer[];
+  /** Hash of attestations. Undefined for older events (backwards compatibility). */
+  attestationsHash?: Buffer32;
+  /** Digest of the payload. Undefined for older events (backwards compatibility). */
+  payloadDigest?: Buffer32;
+};
+
+/** Log type for CheckpointProposed events. */
+export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
@@ -964,5 +980,24 @@ export class RollupContract {
         },
       },
     );
+  }
+
+  /** Fetches CheckpointProposed events within the given block range. */
+  async getCheckpointProposedEvents(fromBlock: bigint, toBlock: bigint): Promise<CheckpointProposedLog[]> {
+    const logs = await this.rollup.getEvents.CheckpointProposed({}, { fromBlock, toBlock });
+    return logs
+      .filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)
+      .map(log => ({
+        l1BlockNumber: log.blockNumber!,
+        l1BlockHash: Buffer32.fromString(log.blockHash!),
+        l1TransactionHash: log.transactionHash!,
+        args: {
+          checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
+          archive: Fr.fromString(log.args.archive!),
+          versionedBlobHashes: log.args.versionedBlobHashes!.map(h => Buffer.from(h.slice(2), 'hex')),
+          attestationsHash: log.args.attestationsHash ? Buffer32.fromString(log.args.attestationsHash) : undefined,
+          payloadDigest: log.args.payloadDigest ? Buffer32.fromString(log.args.payloadDigest) : undefined,
+        },
+      }));
   }
 }

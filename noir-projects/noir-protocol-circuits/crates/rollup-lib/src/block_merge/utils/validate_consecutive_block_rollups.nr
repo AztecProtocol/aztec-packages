@@ -42,7 +42,9 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
         "Mismatched timestamps: expected right.timestamp to match left.timestamp",
     );
 
-    // Non-empty `in_hash` originates from the first block root and is propagated through all merge
+    // TODO: Consider extracting into its own function:
+
+    // A non-empty `in_hash` originates from the first block root only, and is propagated through all merge
     // steps via the left rollup only (see merge_block_rollups.nr).
     // We prevent the right rollup from propagating a nonzero `in_hash`, so it's impossible for any
     // block but the first to propagate a nonzero `in_hash` up to the checkpoint root.

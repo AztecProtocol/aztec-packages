@@ -24,8 +24,11 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/memory_manager.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+
+using InstructionBlock = bb::avm2::fuzzer::InstructionBlock;
 
 enum class TerminatorType {
     RETURN,
@@ -113,6 +116,7 @@ class ProgramBlock {
     void process_sha256compression_instruction(SHA256COMPRESSION_Instruction instruction);
     void process_l1tol2msgexists_instruction(L1TOL2MSGEXISTS_Instruction instruction);
     void process_toradixbe_instruction(TORADIXBE_Instruction instruction);
+    void process_debuglog_instruction(DEBUGLOG_Instruction instruction);
 
   public:
     std::vector<ProgramBlock*> successors;
@@ -125,6 +129,11 @@ class ProgramBlock {
     int offset = -1;
 
     ProgramBlock() = default;
+
+    /// @brief process the instruction block
+    /// @param instruction_block the instruction block to process
+    void process_instruction_block(InstructionBlock& instruction_block);
+
     /// @brief process the instruction
     /// @param instruction the instruction to process
     /// Updates `stored_variables` if the instruction writes to memory

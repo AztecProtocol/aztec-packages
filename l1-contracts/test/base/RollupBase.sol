@@ -75,7 +75,7 @@ contract RollupBase is DecoderBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: parentCheckpointLog.archive,
       endArchive: endFull.checkpoint.archive,
-      outHash: bytes32(0),
+      outHash: endFull.checkpoint.header.outHash,
       proverId: _prover
     });
 

@@ -108,10 +108,11 @@ export class L2Block {
 
   /**
    * Creates an L2 block containing empty data.
+   * @param header - An optional header to assign to the block
    * @returns The L2 block.
    */
-  static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.empty(), L2BlockHeader.empty(), Body.empty());
+  static empty(header?: L2BlockHeader): L2Block {
+    return new L2Block(AppendOnlyTreeSnapshot.empty(), header ?? L2BlockHeader.empty(), Body.empty());
   }
 
   get number(): BlockNumber {
@@ -177,6 +178,7 @@ export class L2Block {
       new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, block.number),
       checkpointHeader.blobsHash,
       checkpointHeader.inHash,
+      checkpointHeader.epochOutHash,
       block.header.state,
       block.header.globalVariables,
       block.header.totalFees,

@@ -53,7 +53,7 @@ class CastException : public TaggedValueException {
     {}
 };
 
-enum class ValueTag {
+enum class ValueTag : uint8_t {
     FF = MEM_TAG_FF,
     U1 = MEM_TAG_U1,
     U8 = MEM_TAG_U8,

@@ -43,27 +43,15 @@
 <li><div class="item-name"><a href="initialization_utils/index.html" class="module">initialization_utils</a></div><div class="item-description"></div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.authorize_once.html" class="fn">authorize_once</a></div><div class="item-description">Private and public functions can require an authorization check to be performed before execution. This
-is typically the case when the function allows performing an action on behalf of someone who is not
-the caller.
-This macro injects the necessary code to perform the check via the authwit mechanism and additionally
-emit the authorization request as an offchain effect, so a user/wallet can verify what are they
-being asked to sign.
-This check also emits a nullifier with the provided nonce argument, so authorizations are valid
-once and only once, preventing replay attacks.</div></li>
-<li><div class="item-name"><a href="fn.external.html" class="fn">external</a></div><div class="item-description">Same as in Solidity external functions are functions that our callable from outside the contract.</div></li>
-<li><div class="item-name"><a href="fn.initializer.html" class="fn">initializer</a></div><div class="item-description">An initializer function is similar to a constructor:</p>
-<ul>
-<li>it can only be called once</li>
-<li>if there are multiple initializer functions, only one of them can be called</li>
-<li>no non-initializer functions can be called until an initializer has ben called (except <code>noinitcheck</code> functions)</li>
-</ul></div></li>
-<li><div class="item-name"><a href="fn.internal.html" class="fn">internal</a></div><div class="item-description">Same as in Solidity internal functions are functions that are callable from inside the contract. Unlike #<a href="../../../noir_aztec/macros/functions/fn.only_self.html">only_self</a>
-functions, internal functions are inlined (e.g. akin to EVM's JUMP and not EVM's CALL).</div></li>
-<li><div class="item-name"><a href="fn.noinitcheck.html" class="fn">noinitcheck</a></div><div class="item-description">Functions with noinitcheck can be called before contract initialization.</div></li>
-<li><div class="item-name"><a href="fn.nophasecheck.html" class="fn">nophasecheck</a></div><div class="item-description">Functions marked with #<a href="../../../noir_aztec/macros/functions/fn.nophasecheck.html">nophasecheck</a> will handle phase changes internally</div></li>
-<li><div class="item-name"><a href="fn.only_self.html" class="fn">only_self</a></div><div class="item-description">Functions marked with #<a href="../../../noir_aztec/macros/functions/fn.only_self.html">only_self</a> attribute can only be called by the contract itself.</div></li>
-<li><div class="item-name"><a href="fn.view.html" class="fn">view</a></div><div class="item-description">View functions can only be called in a static execution context.</div></li>
+<li><div class="item-name"><a href="fn.authorize_once.html" class="fn">authorize_once</a></div><div class="item-description">Restricts access to an <a href="../../../noir_aztec/macros/functions/fn.external.html">external</a> private or public function so that it can only be called by an authorized account.</div></li>
+<li><div class="item-name"><a href="fn.external.html" class="fn">external</a></div><div class="item-description">An external function is callable from outside the contract.</div></li>
+<li><div class="item-name"><a href="fn.initializer.html" class="fn">initializer</a></div><div class="item-description">An initializer function is where a contract initializes its state.</div></li>
+<li><div class="item-name"><a href="fn.internal.html" class="fn">internal</a></div><div class="item-description">An internal function is only callable from inside the contract.</div></li>
+<li><div class="item-name"><a href="fn.noinitcheck.html" class="fn">noinitcheck</a></div><div class="item-description">A no-init-check <a href="../../../noir_aztec/macros/functions/fn.external.html">external</a> function can be called even if none of the <a href="../../../noir_aztec/macros/functions/fn.initializer.html">initializer</a> functions have been called yet.</div></li>
+<li><div class="item-name"><a href="fn.nophasecheck.html" class="fn">nophasecheck</a></div><div class="item-description">A no-phase-check function will allow transitioning from the non-revertible to the revertible phase during its
+execution.</div></li>
+<li><div class="item-name"><a href="fn.only_self.html" class="fn">only_self</a></div><div class="item-description">Restricts an <a href="../../../noir_aztec/macros/functions/fn.external.html">external</a> function so that it can only be called by the contract itself.</div></li>
+<li><div class="item-name"><a href="fn.view.html" class="fn">view</a></div><div class="item-description">View functions cannot modify state in any way, including performing contract calls that would in turn modify state.</div></li>
 </ul>
 </main>
 </span>

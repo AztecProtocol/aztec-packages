@@ -86,7 +86,7 @@ accessible through the <code>self</code> variable.</p>
 <pre><code>#[external(<span class="string">"private"</span>)]
 <span class="kw">fn</span> withdraw(amount: u128, recipient: AztecAddress) {
     <span class="comment">// Get the caller of this function</span>
-    <span class="kw">let</span> sender = self.msg_sender().unwrap();
+    <span class="kw">let</span> sender = self.msg_sender();
 
     <span class="comment">// Access storage</span>
     <span class="kw">let</span> token = self.storage.donation_token.get_note().get_address();
@@ -120,8 +120,7 @@ from any context (public, private, or utility) but can only be written to from p
 <p>If you've arrived here while trying to access your contract's storage while the <code>Storage</code> generic type is set to
 unit type <code>()</code>, it means you haven't yet defined a Storage struct using the #[storage] macro in your contract.
 For guidance on setting this up, please refer to our docs:
-https://docs.aztec.network/developers/docs/guides/smart_contracts/storage</p>
-</div>
+https://docs.aztec.network/developers/docs/guides/smart_contracts/storage</p></div>
 </div><div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
 <div class="padded-description"><div class="comments">
 <p>The execution context whose type is determined by the #[external(...)] attribute of the contract function based
@@ -177,25 +176,15 @@ in utility context it will be the unit type <code>()</code>.</p>
 <p>Creates a new <code>ContractSelf</code> instance for a public function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
-</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the contract address that initiated this function call.</p>
-<p>This is similar to <code>msg.sender</code> in Solidity (hence the name).</p>
+<p>Returns the contract address that initiated this function call. This is similar to <code>msg.sender</code> in Solidity
+(hence the name).</p>
 <p>Important Note: If the calling function is a <em>private</em> function, then it had the option of hiding its address
-when enqueuing this public function call. In such cases, this <code>context.msg_sender()</code> method will return
-<code>Option&lt;AztecAddress&gt;::none</code>. If the calling function is a <em>public</em> function, it will always return an
-<code>Option&lt;AztecAddress&gt;::some</code> (i.e. a non-null value).</p>
-<h4>Returns</h4>
-<ul>
-<li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called this function (be it an app contract or
-a user's account contract).</li>
-</ul>
-<h4>Advanced</h4>
-<ul>
-<li>Value is provided by the AVM sender opcode</li>
-<li>In nested calls, this is the immediate caller, not the original transaction sender</li>
-</ul>
+when enqueuing this public function call. In such cases, call to this method will panic. If you want to
+explicitly handle this case, you can use our low-level API exposed on <code>context</code> where the <code>msg_sender</code> method
+returns an <code>Option&lt;AztecAddress&gt;</code> (e.g. <code>let msg_sender: Option&lt;AztecAddress&gt; = self.context.msg_sender();</code>).</p>
 </div>
 </div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
 <div class="where-clause">where
@@ -285,20 +274,16 @@ also be static calls.</p>
 <p>Creates a new <code>ContractSelf</code> instance for a private function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
-</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the contract address that initiated this function call. This is similar to <code>msg.sender</code> in Solidity.</p>
 <p>Important Note: Since Aztec doesn't have a concept of an EoA ( Externally-owned Account), the msg_sender is
 &quot;null&quot; for the first function call of every transaction. The first function call of a tx is likely to be a call
 to the user's account contract, so this quirk will most often be handled by account contract developers.</p>
-<h4>Returns</h4>
-<ul>
-<li><code>Option&lt;AztecAddress&gt;</code> - The address of the smart contract that called this function (be it an app contract or
-a user's account contract). Returns <code>Option&lt;AztecAddress&gt;::none</code> for the first function call of the tx. No
-other <em>private</em> function calls in the tx will have a <code>none</code> msg_sender, but <em>public</em> function calls might (see
-the PublicContext).</li>
-</ul>
+<p>This function will panic if the msg_sender is &quot;none&quot;. This could happen ony for the first function call of a tx.
+No other <em>private</em> function calls in the tx will have a <code>none</code> msg_sender, but <em>public</em> function calls might
+(see the PublicContext).</p>
 </div>
 </div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event) -> <a href="../../noir_aztec/event/event_message/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;
 <div class="where-clause">where
@@ -317,7 +302,7 @@ message be delivered to them.</p>
 
 #[external(<span class="string">"private"</span>)]
 <span class="kw">fn</span> transfer(to: AztecAddress, amount: u128) {
-    <span class="kw">let</span> from = self.msg_sender().unwrap();
+    <span class="kw">let</span> from = self.msg_sender();
 
     <span class="kw">let</span> message: EventMessage = self.emit(Transfer { from, to, amount });
     message.deliver_to(from, MessageDelivery.OFFCHAIN);
@@ -472,8 +457,8 @@ to be executed later.</p>
 target public function.
 This means the origin of the call (msg_sender) will not be publicly
 visible to any blockchain observers, nor to the target public function.
-When the target public function reads <code>context.msg_sender()</code> it will
-receive an <code>Option&lt;AztecAddress&gt;::none</code>.</p>
+If the target public function reads <code>self.msg_sender()</code> the call will
+revert.</p>
 <p>NOTES:</p>
 <ul>
 <li>Not all public functions will accept a msg_sender of &quot;none&quot;. Many

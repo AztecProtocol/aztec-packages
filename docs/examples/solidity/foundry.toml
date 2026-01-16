@@ -1,0 +1,13 @@
+[profile.default]
+src = '.'
+out = 'out'
+libs = ['../../../l1-contracts/lib', '../../../l1-contracts/src']
+solc_version = '0.8.27'
+evm_version = 'prague'
+optimizer = true
+
+remappings = [
+  "@oz/=../../../l1-contracts/lib/openzeppelin-contracts/contracts/",
+  "@aztec/=../../../l1-contracts/src/",
+  "@aztec-blob-lib/=../../../l1-contracts/src/core/libraries/rollup/"
+]

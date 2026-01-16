@@ -23,7 +23,7 @@ class FuzzerContractDB : public simulation::ContractDBInterface {
     void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
 
     // Direct methods to add contract class and instance
-    void add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class);
+    void add_contract_class(const ContractClassId& class_id, const ContractClassWithCommitment& contract_class);
     void add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance);
 
     void create_checkpoint() override;
@@ -88,6 +88,7 @@ class FuzzerWorldStateManager {
     void reset_world_state();
     void register_contract_address(const AztecAddress& contract_address);
     void write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance);
+    void public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data);
 
     world_state::WorldStateRevision get_current_revision() const;
     world_state::WorldStateRevision fork();

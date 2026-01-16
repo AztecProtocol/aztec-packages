@@ -1,5 +1,6 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { GENESIS_CHECKPOINT_HEADER_HASH, L2Block, L2BlockNew, type L2BlockStream } from '@aztec/stdlib/block';
@@ -36,7 +37,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = await NoteStore.create(store);
     privateEventStore = new PrivateEventStore(store);
-    synchronizer = new TestSynchronizer(aztecNode, anchorBlockStore, noteStore, privateEventStore, tipsStore);
+    synchronizer = new TestSynchronizer(aztecNode, store, anchorBlockStore, noteStore, privateEventStore, tipsStore);
   });
 
   it('sets header from latest block', async () => {
@@ -48,12 +49,14 @@ describe('BlockSynchronizer', () => {
   });
 
   it('removes notes from db on a reorg', async () => {
-    const rollbackNotesAndNullifiers = jest
-      .spyOn(noteStore, 'rollbackNotesAndNullifiers')
-      .mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
-      (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
-    );
+    const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
+    aztecNode.getBlockHeaderByHash.mockImplementation(async hash => {
+      // For the test, when hash is '0x3', return block header for block 3
+      if (hash.equals(Fr.fromString('0x3'))) {
+        return (await L2Block.random(BlockNumber(3))).getBlockHeader();
+      }
+      return undefined;
+    });
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
@@ -62,20 +65,21 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: { number: BlockNumber(3), hash: '0x3' },
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
-    expect(rollbackNotesAndNullifiers).toHaveBeenCalledWith(3, 4);
+    expect(rollback).toHaveBeenCalledWith(3, 4);
   });
 
   it('removes private events from db on a reorg', async () => {
-    const rollbackEventsAfterBlock = jest
-      .spyOn(privateEventStore, 'rollbackEventsAfterBlock')
-      .mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(async blockNumber =>
-      (await L2Block.random(BlockNumber(blockNumber as number))).getBlockHeader(),
-    );
+    const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
+    aztecNode.getBlockHeaderByHash.mockImplementation(async hash => {
+      // For the test, when hash is '0x3', return block header for block 3
+      if (hash.equals(Fr.fromString('0x3'))) {
+        return (await L2Block.random(BlockNumber(3))).getBlockHeader();
+      }
+      return undefined;
+    });
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
@@ -84,10 +88,9 @@ describe('BlockSynchronizer', () => {
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: { number: BlockNumber(3), hash: '0x3' },
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
-    expect(rollbackEventsAfterBlock).toHaveBeenCalledWith(3, 4);
+    expect(rollback).toHaveBeenCalledWith(3, 4);
   });
 });

@@ -9,8 +9,8 @@ describe('e2e_token_contract transfer private', () => {
   let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     ({ asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t);
   });

@@ -290,6 +290,7 @@ library ProposeLib {
       TempCheckpointLog({
         headerHash: v.headerHash,
         blobCommitmentsHash: blobCommitmentsHash,
+        outHash: v.header.outHash,
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
         slotNumber: v.header.slotNumber,

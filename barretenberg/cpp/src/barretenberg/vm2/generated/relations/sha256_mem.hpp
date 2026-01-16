@@ -14,10 +14,10 @@ template <typename FF_> class sha256_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 51> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            4, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                                                            5, 5, 5, 5, 5, 5, 3, 3, 6, 4, 3, 3, 5,
-                                                                            4, 3, 4, 5, 3, 3, 3, 5, 6, 3, 3, 4 };
+    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 4, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                                                                            5, 5, 5, 5, 5, 5, 5, 3, 3, 6, 4, 3, 3,
+                                                                            5, 4, 3, 4, 5, 3, 3, 3, 5, 6, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -44,17 +44,18 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
     static constexpr size_t SR_CONTINUITY_EXEC_CLK = 6;
     static constexpr size_t SR_CONTINUITY_SPACE_ID = 7;
     static constexpr size_t SR_CONTINUITY_OUTPUT_ADDR = 8;
-    static constexpr size_t SR_START_OR_LAST_MEM = 15;
-    static constexpr size_t SR_BATCH_ZERO_CHECK_READ = 34;
-    static constexpr size_t SR_BATCH_ENFORCE_ZERO_WRITE = 35;
-    static constexpr size_t SR_SEL_IS_INPUT_ROUND_START_COND = 37;
-    static constexpr size_t SR_SEL_IS_INPUT_END = 38;
-    static constexpr size_t SR_SEL_IS_INPUT_PROPAGATE = 39;
-    static constexpr size_t SR_INPUT_ROUND_CTR_START_COND = 40;
-    static constexpr size_t SR_INPUT_ROUND_CTR_DECR_COND = 41;
-    static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 46;
-    static constexpr size_t SR_TAG_ERROR_INIT = 48;
-    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 49;
+    static constexpr size_t SR_CONTINUITY_INPUT_ADDR = 9;
+    static constexpr size_t SR_START_OR_LAST_MEM = 16;
+    static constexpr size_t SR_BATCH_ZERO_CHECK_READ = 35;
+    static constexpr size_t SR_BATCH_ENFORCE_ZERO_WRITE = 36;
+    static constexpr size_t SR_SEL_IS_INPUT_ROUND_START_COND = 38;
+    static constexpr size_t SR_SEL_IS_INPUT_END = 39;
+    static constexpr size_t SR_SEL_IS_INPUT_PROPAGATE = 40;
+    static constexpr size_t SR_INPUT_ROUND_CTR_START_COND = 41;
+    static constexpr size_t SR_INPUT_ROUND_CTR_DECR_COND = 42;
+    static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 47;
+    static constexpr size_t SR_TAG_ERROR_INIT = 49;
+    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 50;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -71,6 +72,8 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
             return "CONTINUITY_SPACE_ID";
         case SR_CONTINUITY_OUTPUT_ADDR:
             return "CONTINUITY_OUTPUT_ADDR";
+        case SR_CONTINUITY_INPUT_ADDR:
+            return "CONTINUITY_INPUT_ADDR";
         case SR_START_OR_LAST_MEM:
             return "START_OR_LAST_MEM";
         case SR_BATCH_ZERO_CHECK_READ:

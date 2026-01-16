@@ -34,6 +34,7 @@ pub struct CheckpointRootSingleBlockRollupPrivateInputs {
 /// - Validates continuity with the previous checkpoint using the previous block header
 ///   - Validates the start state matches the previous block's end state
 ///   - Validates the previous archive matches the previous block header hash
+/// - Inserts the out hash of the checkpoint into the epoch out hash tree.
 /// - Outputs the checkpoint header hash and fees for the single block
 /// - Processes blob fields and computes the end blob accumulator for data availability
 ///
@@ -56,6 +57,8 @@ pub fn execute(
 
     CheckpointRollupPublicInputsComposer::new(
         [inputs.previous_rollup.public_inputs],
+        hints.previous_out_hash,
+        hints.new_out_hash_sibling_path,
         hints.start_blob_accumulator,
         hints.final_blob_challenges,
         hints.blobs_fields,

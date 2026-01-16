@@ -19,29 +19,30 @@ An Aztec **node** syncs L2 state and serves RPC requests. A node may also act as
 
 ### When to Run Bootstrap
 
-**ONLY** run `./bootstrap.sh` from the git root when:
+**ALWAYS** run `./bootstrap.sh` from the git root when:
 
 - Pulling new changes that have modifications outside `yarn-project`
 - Switching branches with changes from outside `yarn-project`
+- Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
+(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
 ```
 
-**DO NOT** run bootstrap in any other circumstance - it takes several minutes.
+Bootstrap takes several minutes to run. Be patient.
 
 ### Compile Before Testing
 
 ```bash
-yarn tsc -b                      # Full project (from yarn-project)
-cd <package-name> && yarn tsc -b  # Specific package
+./scripts/tsc.sh                      # Full project (from yarn-project)
+cd <package-name> && yarn build       # Specific package
 ```
 
 ### Before Committing (Quality Checklist)
 
 Run from `yarn-project`:
 
-1. **Build**: Ensure entire project compiles (`yarn tsgo -b --emitDeclarationOnly`)
+1. **Build**: Ensure entire project compiles (`tsgo -b --emitDeclarationOnly`)
 2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
 3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
 4. **Test**: Run unit tests for modified packages
@@ -92,29 +93,27 @@ env LOG_LEVEL='info; debug:sequencer,archiver' yarn test src/file.test.ts
 
 ## Format & Lint
 
-All commands run from `yarn-project`.
+**IMPORTANT**: These commands are run from the root of `yarn-project`, NOT the git root.
 
-### Single Package (Preferred)
+### Format
 
 ```bash
-./bootstrap.sh format <package-name>
-./bootstrap.sh lint <package-name>
+./bootstrap.sh format                  # All packages
+./bootstrap.sh format <package-name>   # Single package (faster)
+./bootstrap.sh format <package-name> --check  # Check only, no changes
 ```
 
-### All Packages
-
-Only when multiple packages are modified:
+### Lint
 
 ```bash
-./bootstrap.sh format
-./bootstrap.sh lint
+yarn lint                              # Same command CI uses - run this before pushing
 ```
 
-### Check Mode (No Changes)
+For faster iteration during development:
 
 ```bash
-./bootstrap.sh format <package-name> --check
-./bootstrap.sh lint <package-name> --check
+./bootstrap.sh lint <package-name>     # Single package (faster)
+./bootstrap.sh lint                    # All packages
 ```
 
 ## Dependency Management

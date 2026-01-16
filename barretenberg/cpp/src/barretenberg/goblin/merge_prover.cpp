@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -16,11 +16,11 @@ namespace bb {
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         const MergeSettings settings,
-                         const CommitmentKey& commitment_key,
-                         const std::shared_ptr<Transcript>& transcript)
-    : op_queue(op_queue)
-    , transcript(transcript)
+                         std::shared_ptr<Transcript> transcript,
+                         MergeSettings settings,
+                         const CommitmentKey& commitment_key)
+    : transcript(std::move(transcript))
+    , op_queue(op_queue)
     , settings(settings)
 {
     // Merge the current subtable (for which a merge proof is being constructed) prior to

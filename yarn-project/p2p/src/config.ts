@@ -2,10 +2,10 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
-  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
@@ -407,7 +407,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',
     description: 'The probability that a transaction is discarded (0 - 1). - For testing purposes only',
-    ...floatConfigHelper(0),
+    ...percentageConfigHelper(0),
   },
   disableTransactions: {
     env: 'TRANSACTIONS_DISABLED',

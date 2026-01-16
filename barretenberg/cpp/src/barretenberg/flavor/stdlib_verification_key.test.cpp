@@ -3,12 +3,10 @@
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
@@ -56,9 +54,7 @@ template <typename Flavor> class StdlibVerificationKeyTests : public ::testing::
 using FlavorTypes = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                   MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                   ECCVMRecursiveFlavor,
-                                   TranslatorRecursiveFlavor>;
+                                   MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
@@ -77,21 +73,17 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
 
     // Create random circuit to create a vk.
     std::shared_ptr<NativeVerificationKey> native_vk;
-    if constexpr (IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
-        native_vk = std::make_shared<NativeVerificationKey>();
-    } else {
-        using ProverInstance = ProverInstance_<NativeFlavor>;
-        using InnerBuilder = typename NativeFlavor::CircuitBuilder;
+    using ProverInstance = ProverInstance_<NativeFlavor>;
+    using InnerBuilder = typename NativeFlavor::CircuitBuilder;
 
-        InnerBuilder builder;
-        if constexpr (HasIPAAccumulator<NativeFlavor>) {
-            stdlib::recursion::honk::RollupIO::add_default(builder);
-        } else {
-            stdlib::recursion::honk::DefaultIO<typename NativeFlavor::CircuitBuilder>::add_default(builder);
-        }
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
-        native_vk = std::make_shared<NativeVerificationKey>(prover_instance->get_precomputed());
+    InnerBuilder builder;
+    if constexpr (HasIPAAccumulator<NativeFlavor>) {
+        stdlib::recursion::honk::RollupIO::add_default(builder);
+    } else {
+        stdlib::recursion::honk::DefaultIO<typename NativeFlavor::CircuitBuilder>::add_default(builder);
     }
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    native_vk = std::make_shared<NativeVerificationKey>(prover_instance->get_precomputed());
 
     OuterBuilder outer_builder;
     StdlibVerificationKey vk(&outer_builder, native_vk);
@@ -100,10 +92,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     FF vk_hash_1 = compute_stdlib_vk_hash(vk);
 
     // Second method of hashing: using hash_with_origin_tagging.
-    // (ECCVM and Translator recursive flavors don't support hash_with_origin_tagging as their VKs are hardcoded)
-    if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
-        StdlibTranscript transcript;
-        FF vk_hash_2 = vk.hash_with_origin_tagging(transcript);
-        EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
-    }
+    StdlibTranscript transcript;
+    FF vk_hash_2 = vk.hash_with_origin_tagging(transcript);
+    EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
 }

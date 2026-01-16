@@ -75,7 +75,7 @@
     "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
     "@types/supertest": "^6.0.2",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "supertest": "^7.0.0",

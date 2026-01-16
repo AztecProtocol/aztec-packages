@@ -56,6 +56,7 @@ export interface BuildBlockResult {
   failedTxs: FailedTx[];
   blockBuildingTimer: Timer;
   usedTxs: Tx[];
+  usedTxBlobFields: number;
 }
 
 export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
@@ -80,6 +81,7 @@ export interface IFullNodeBlockBuilder {
   buildBlock(
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
     globalVariables: GlobalVariables,
     options: PublicProcessorLimits,
     fork?: MerkleTreeWriteOperations,

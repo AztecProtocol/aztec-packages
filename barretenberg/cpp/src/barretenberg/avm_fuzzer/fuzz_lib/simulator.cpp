@@ -31,12 +31,14 @@ using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
 
-const auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
+constexpr auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
 
 // Helper function to serialize simulation request via msgpack
-std::string serialize_simulation_request(const Tx& tx,
-                                         const GlobalVariables& globals,
-                                         const FuzzerContractDB& contract_db)
+std::string serialize_simulation_request(
+    const Tx& tx,
+    const GlobalVariables& globals,
+    const FuzzerContractDB& contract_db,
+    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes)
 {
     // Build vectors from contract_db
     std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
@@ -49,6 +51,7 @@ std::string serialize_simulation_request(const Tx& tx,
         .globals = globals,
         .contract_classes = std::move(classes_vec),
         .contract_instances = std::move(instances_vec),
+        .public_data_writes = public_data_writes,
     };
 
     auto [buffer, size] = msgpack_encode_buffer(request);
@@ -72,10 +75,13 @@ GlobalVariables create_default_globals()
     };
 }
 
-SimulatorResult CppSimulator::simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                       fuzzer::FuzzerContractDB& contract_db,
-                                       const Tx& tx)
+SimulatorResult CppSimulator::simulate(
+    fuzzer::FuzzerWorldStateManager& ws_mgr,
+    fuzzer::FuzzerContractDB& contract_db,
+    const Tx& tx,
+    [[maybe_unused]] const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes)
 {
+    // Note: public_data_writes are already applied to C++ world state in setup_fuzzer_state
 
     const PublicSimulatorConfig config{
         .skip_fee_enforcement = false,
@@ -143,13 +149,15 @@ void JsSimulator::initialize(std::string& simulator_path)
     instance = new JsSimulator(simulator_path);
 }
 
-SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                      fuzzer::FuzzerContractDB& contract_db,
-                                      const Tx& tx)
+SimulatorResult JsSimulator::simulate(
+    [[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
+    fuzzer::FuzzerContractDB& contract_db,
+    const Tx& tx,
+    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes)
 {
     auto globals = create_default_globals();
 
-    std::string serialized = serialize_simulation_request(tx, globals, contract_db);
+    std::string serialized = serialize_simulation_request(tx, globals, contract_db, public_data_writes);
 
     // Send the request
     process.write_line(serialized);
@@ -172,7 +180,7 @@ SimulatorResult JsSimulator::simulate([[maybe_unused]] fuzzer::FuzzerWorldStateM
 bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2)
 {
     // Since the simulator results are interchangeable between TS and C++, we limit the return data size for comparison
-    // todo(ilyas): we ideally specfify one param as the TS result and truncate only that one
+    // todo(ilyas): we ideally specify one param as the TS result and truncate only that one
     if (result1.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
         result1.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
     }

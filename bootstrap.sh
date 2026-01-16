@@ -135,16 +135,7 @@ function check_toolchains {
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     # Temporary measure: Install Node 24 until AMI includes the updated docker image with Node 24.
     # This can be removed once the AMI is updated.
-    echo -e "${bold}${yellow}WARN: Node.js $node_min_version not found (got $node_installed_version). Installing temporarily...${reset}"
-    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    node_installed_version=$(node --version | cut -d 'v' -f 2)
-    if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-      encourage_dev_container
-      echo "Failed to install Node.js $node_min_version."
-      exit 1
-    fi
-    echo -e "${bold}${green}Node.js $(node --version) installed successfully.${reset}"
+    nvm install --lts && nvm alias default lts/*
   fi
   # Check for required npm globals.
   for util in corepack solhint; do
@@ -155,6 +146,25 @@ function check_toolchains {
       exit 1
     fi
   done
+}
+
+function versions {
+  local noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  local anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  local node_version=$(node --version | cut -d 'v' -f 2)
+  local cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  local clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  local zig_version=$(zig version)
+  local rustc_version=$(rustc --version | cut -d' ' -f2)
+  local wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  echo "noir: $noir_version"
+  echo "foundry: $anvil_version"
+  echo "node: $node_version"
+  echo "cmake: $cmake_version"
+  echo "clang: $clang_version"
+  echo "zig: $zig_version"
+  echo "rustc: $rustc_version"
+  echo "wasi-sdk: $wasi_sdk_version"
 }
 
 # Install pre-commit git hooks.
@@ -203,12 +213,15 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3
+    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
 function start_txes {
+  # Until Kev's kzg lib stops using Tokio.
+  export TOKIO_WORKER_THREADS=1
+
   # Starting txe servers with incrementing port numbers.
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
@@ -332,7 +345,7 @@ function pull_submodules {
     echo "Removing old noir clone..."
     rm -rf noir/noir-repo
   fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
 }
 
 function build {
@@ -540,6 +553,7 @@ case "$cmd" in
     install_hooks
     build
   ;;
+
   ######################################
   # VARIANTS ON NORMAL PULL-REQUEST CI #
   ######################################
@@ -573,6 +587,7 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
@@ -644,6 +659,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     denoise "spartan/bootstrap.sh network_teardown ${env_file}"
     ;;
+
   ############
   # RELEASES #
   ############
@@ -678,6 +694,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    pull_submodules
+    noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
     ;;
 
@@ -700,6 +718,7 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+
   ##############################################
   # Default handler, calls our above functions #
   ##############################################

@@ -23,7 +23,7 @@ describe('Misc Instructions', () => {
         ...Buffer.from('0010', 'hex'), // messageSize
       ]);
       const inst = new DebugLog(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*level=*/ 0x02,
         /*messageOffset=*/ 0x1234,
         /*fieldsOffset=*/ 0x2345,
@@ -68,7 +68,7 @@ describe('Misc Instructions', () => {
       try {
         // Execute debug log instruction
         await new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
@@ -107,7 +107,7 @@ describe('Misc Instructions', () => {
       try {
         // Execute debug log instruction
         await new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*level=*/ 0,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
@@ -154,7 +154,7 @@ describe('Misc Instructions', () => {
       // Execute debug log instruction
       await expect(
         new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
@@ -188,7 +188,7 @@ describe('Misc Instructions', () => {
       // Execute debug log instruction
       await expect(
         new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,

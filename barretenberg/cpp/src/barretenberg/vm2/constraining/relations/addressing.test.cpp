@@ -449,7 +449,7 @@ TEST(AddressingConstrainingTest, IndirectReconstruction)
 {
     TestTraceContainer trace({
         {
-            { C::execution_indirect, 0b11'00'01'00'01'11'01'01 },
+            { C::execution_addressing_mode, 0b11'00'01'00'01'11'01'01 },
             { C::execution_sel_op_is_indirect_wire_0_, 1 },
             { C::execution_sel_op_is_relative_wire_0_, 0 },
             { C::execution_sel_op_is_indirect_wire_1_, 1 },
@@ -472,14 +472,14 @@ TEST(AddressingConstrainingTest, IndirectReconstruction)
         },
     });
 
-    check_relation<addressing>(trace, addressing::SR_INDIRECT_RECONSTRUCTION);
+    check_relation<addressing>(trace, addressing::SR_ADDRESSING_MODE_RECONSTRUCTION);
 }
 
 TEST(AddressingConstrainingTest, IndirectReconstructionZeroWhenAddressingDisabled)
 {
     TestTraceContainer trace({
         {
-            { C::execution_indirect, 123456 },
+            { C::execution_addressing_mode, 123456 },
             // All sel_op_indirect and sel_op_is_relative are 0.
             // Selectors that enable the subrelation.
             // These set pol SEL_SHOULD_RESOLVE_ADDRESS.
@@ -488,7 +488,7 @@ TEST(AddressingConstrainingTest, IndirectReconstructionZeroWhenAddressingDisable
         },
     });
 
-    check_relation<addressing>(trace, addressing::SR_INDIRECT_RECONSTRUCTION);
+    check_relation<addressing>(trace, addressing::SR_ADDRESSING_MODE_RECONSTRUCTION);
 
     // If we set any to non-zero, the relation should fail.
     constexpr std::array<Column, 16> decomposition_columns = {
@@ -508,8 +508,8 @@ TEST(AddressingConstrainingTest, IndirectReconstructionZeroWhenAddressingDisable
         }
         // Enable one column.
         trace.set(sel_on, /*row=*/0, /*value=*/1);
-        EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_INDIRECT_RECONSTRUCTION),
-                                  "INDIRECT_RECONSTRUCTION");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_ADDRESSING_MODE_RECONSTRUCTION),
+                                  "ADDRESSING_MODE_RECONSTRUCTION");
     }
 }
 

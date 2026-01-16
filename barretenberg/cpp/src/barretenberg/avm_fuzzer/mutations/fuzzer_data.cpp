@@ -22,10 +22,10 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng, const Fuz
         auto mutation_config = BASIC_FUZZER_DATA_MUTATION_CONFIGURATION.select(rng);
         switch (mutation_config) {
         case FuzzerDataMutationOptions::InstructionMutation:
-            mutate_vec<std::vector<FuzzInstruction>>(
+            mutate_vec<InstructionBlock>(
                 fuzzer_data.instruction_blocks,
                 rng,
-                [&context](std::vector<FuzzInstruction>& block, std::mt19937_64& r) {
+                [&context](InstructionBlock& block, std::mt19937_64& r) {
                     mutate_instruction_block(block, r, context);
                 },
                 [&context](std::mt19937_64& r) { return generate_instruction_block(r, context); },
@@ -52,14 +52,15 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng, const Fuz
 void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt19937_64& rng, const FuzzerContext& context)
 {
     if (fuzzer_data.instruction_blocks.empty()) {
-        std::vector<FuzzInstruction> instruction_block;
+        InstructionBlock instruction_block = generate_instruction_block(rng, context);
+        std::vector<FuzzInstruction> preamble;
         uint32_t num_tags = static_cast<uint32_t>(ValueTag::MAX);
-        instruction_block.reserve(num_tags);
+        preamble.reserve(num_tags);
         // Add one set per memory tag type
         for (uint32_t i = 0; i < num_tags; i++) {
             // TODO: Randomize address, value. Keep address < 255 so it can be used anywhere.
             auto tag = static_cast<ValueTag>(i);
-            instruction_block.push_back(SET_8_Instruction{
+            preamble.push_back(SET_8_Instruction{
                 .value_tag = tag,
                 .result_address =
                     AddressRef{
@@ -68,8 +69,7 @@ void add_default_instruction_block_if_empty(FuzzerData& fuzzer_data, std::mt1993
                 .value = 1,
             });
         }
-        auto preamble = generate_instruction_block(rng, context);
-        instruction_block.insert(instruction_block.end(), preamble.begin(), preamble.end());
+        instruction_block.instructions.insert(instruction_block.instructions.begin(), preamble.begin(), preamble.end());
         fuzzer_data.instruction_blocks.push_back(instruction_block);
         fuzzer_data.cfg_instructions.push_back(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     }

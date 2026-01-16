@@ -37,6 +37,11 @@ export interface WalletManagerConfig {
 export type WalletProviderType = 'extension' | 'web' | 'embedded';
 
 /**
+ * Callback type for wallet disconnect events at the provider level.
+ */
+export type ProviderDisconnectionCallback = () => void;
+
+/**
  * A wallet provider that can connect to create a wallet instance.
  * Chain information is already baked in from the discovery process.
  */
@@ -56,6 +61,23 @@ export interface WalletProvider {
    * @param appId - Application identifier for the requesting dapp
    */
   connect(appId: string): Promise<Wallet>;
+  /**
+   * Disconnects the current wallet and cleans up resources.
+   * After calling this, the wallet returned from connect() should no longer be used.
+   * @returns A promise that resolves when disconnection is complete
+   */
+  disconnect?(): Promise<void>;
+  /**
+   * Registers a callback to be invoked when the wallet disconnects unexpectedly.
+   * @param callback - Function to call when wallet disconnects
+   * @returns A function to unregister the callback
+   */
+  onDisconnect?(callback: ProviderDisconnectionCallback): () => void;
+  /**
+   * Returns whether the provider's wallet connection has been disconnected.
+   * @returns true if the wallet is no longer connected
+   */
+  isDisconnected?(): boolean;
 }
 
 /**

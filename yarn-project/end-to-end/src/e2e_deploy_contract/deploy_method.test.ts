@@ -50,8 +50,8 @@ describe('e2e_deploy_contract deploy method', () => {
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
     // docs:start:verify_deployment
     const metadata = await wallet.getContractMetadata(contract.address);
-    const isPublished = (await wallet.getContractClassMetadata(metadata.contractInstance!.currentContractClassId))
-      .isContractClassPubliclyRegistered;
+    const classMetadata = await wallet.getContractClassMetadata(metadata.instance!.currentContractClassId);
+    const isPublished = classMetadata.isContractClassPubliclyRegistered;
     // docs:end:verify_deployment
     expect(isPublished).toBeTrue();
   });
@@ -80,9 +80,11 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes via a public function', async () => {
     const owner = defaultAccountAddress;
     logger.debug(`Deploying contract via a public constructor`);
+    // docs:start:deploy_with_opts
     const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
       .send({ from: defaultAccountAddress })
       .deployed();
+    // docs:end:deploy_with_opts
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
     await contract.methods.create_note(owner, 30).send({ from: defaultAccountAddress }).wait();
