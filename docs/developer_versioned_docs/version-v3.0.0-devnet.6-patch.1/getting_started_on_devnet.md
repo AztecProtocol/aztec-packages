@@ -36,14 +36,20 @@ If you're new to Aztec and want to understand local development first, check out
 Before working with devnet, ensure you have:
 
 1. [Docker](https://docs.docker.com/get-started/get-docker/) installed
-2. Aztec CLI with Devnet version installed:
+2. Aztec CLI installed:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network/3.0.0-devnet.5/)
+bash -i <(curl -s https://install.aztec.network)
+```
+
+3. The devnet version installed:
+
+```bash
+aztec-up 3.0.0-devnet.6-patch.1
 ```
 
 :::warning
-The devnet is version dependent. It is currently running version `3.0.0-devnet.5`. Maintain version consistency when interacting with the devnet to reduce errors.
+The devnet is version dependent. It is currently running version `3.0.0-devnet.6-patch.1`. Maintain version consistency when interacting with the devnet to reduce errors.
 :::
 
 ## Getting Started on Devnet
@@ -53,9 +59,9 @@ The devnet is version dependent. It is currently running version `3.0.0-devnet.5
 Set the required environment variables:
 
 ```bash
-export VERSION=3.0.0-devnet.5
-export NODE_URL=https://devnet.aztec-labs.com/
-export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
+export VERSION=3.0.0-devnet.6-patch.1
+export NODE_URL=https://devnet-6.aztec-labs.com/
+export SPONSORED_FPC_ADDRESS=0x1586f476995be97f07ebd415340a14be48dc28c6c661cc6bdddb80ae790caa4e
 ```
 
 ### Step 2: Create and deploy an account
@@ -150,7 +156,7 @@ Then initialize with devnet configuration:
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { TestWallet } from "@aztec/test-wallet/server";
 
-const NODE_URL = "https://devnet.aztec-labs.com";
+const NODE_URL = "https://devnet-6.aztec-labs.com";
 const node = createAztecNodeClient(NODE_URL);
 const wallet = await TestWallet.create(node);
 ```
@@ -202,9 +208,48 @@ const isDevnet = process.env.NODE_URL?.includes("devnet");
 const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 ```
 
-## Devnet Information
+## Devnet information
 
-For complete Devnet technical details including RPC endpoints, contract addresses, and network configuration, see the [Networks page](/networks#devnet).
+## RPC
+
+https://devnet-6.aztec-labs.com
+
+## Packages Versions / Github Tag
+
+3.0.0-devnet.6-patch.1
+
+## Network Configuration
+
+- **l1ChainId**: 11155111
+- **rollupVersion**: 1647720761
+<!-- cspell:disable-next-line -->
+- **enr**: enr:-LO4QIbsvSZWvVLmeiPEi0Wl-9FBqyWjzily-4XV-eBuQ-G4ZNX3OwiVYQeK-HIOQO-mJfmnVaIz0Ytvz6O_AsvdO6sEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMDM2NGJhY2EtMjk1NzJiMzaCaWSCdjSCaXCEIpOX4IlzZWNwMjU2azGhAn-zj3eFA5KEDfFNTO3lC2EKq7omrTaqhf-e3E309R7ag3VkcIKd0A
+
+## Migration Notes
+
+[Migration Notes](./docs/resources/migration_notes.md)
+
+## L1 Contract Addresses
+
+- **registryAddress**: `0x548ed380440c3eef42f222ceda1d6770b8999f8c`
+- **rollupAddress**: `0x5d84b64b0b2f468df065d8cf01fff88a73238a13`
+- **inboxAddress**: `0x8ea98d35d7712ca236ac7a2b2f47d9fb5c9154e8`
+- **outboxAddress**: `0x6628f5648dcee4ee4c3262ed35a995039cadb669`
+- **feeJuiceAddress**: `0x543a5f9ae03f0551ee236edf51987133fb3da3e2`
+- **stakingAssetAddress**: `0x3dae418ad4dbd49e00215d24079a10ac3bc9ef4f`
+- **feeJuicePortalAddress**: `0x5eee7cb811f638b70fe1a04d2318530c55d7bd87`
+- **coinIssuerAddress**: `0xe4805eda5e880355ff4ded78dcf38ae6077b5dba`
+- **rewardDistributorAddress**: `0x9417a0ee4fc66079a32aa7103b2a3d2dc2606dbd`
+- **governanceProposerAddress**: `0x7c5f4cec86ef9a920a8fd03d5a01059e32fccb9a`
+- **governanceAddress**: `0x26af139c092172e5a4ab9a9d7ddeed41c1d68bc7`
+- **gseAddress**: `0xc5cb82799169bb08a20ede20e5b57f337c735ac4`
+
+## Protocol Contract Addresses
+
+- **classRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000003`
+- **feeJuice**: `0x0000000000000000000000000000000000000000000000000000000000000005`
+- **instanceRegistry**: `0x0000000000000000000000000000000000000000000000000000000000000002`
+- **multiCallEntrypoint**: `0x0000000000000000000000000000000000000000000000000000000000000004`
 
 ## Next Steps
 
@@ -212,3 +257,9 @@ For complete Devnet technical details including RPC endpoints, contract addresse
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
+
+## Additional Resources
+
+- [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
+- [Running a node](/network/)
+- [Block explorers](https://devnet.aztecscan.xyz)
