@@ -1,6 +1,6 @@
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { L2BlockNew } from '../l2_block_new.js';
-import type { CheckpointId, L2BlockId, L2BlockPruneReason, L2Tips } from '../l2_block_source.js';
+import type { CheckpointId, L2BlockId, L2Tips } from '../l2_block_source.js';
 
 /** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
 export interface L2BlockStreamLocalDataProvider {
@@ -29,7 +29,6 @@ export type L2BlockStreamEvent =
    * events that will push the anchor block forward.
    */ {
       type: 'chain-pruned';
-      reason: L2BlockPruneReason;
       block: L2BlockId;
       checkpoint: CheckpointId;
     }

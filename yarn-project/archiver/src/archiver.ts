@@ -64,7 +64,7 @@ export type ArchiverDeps = {
  * concern themselves with it.
  */
 export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Traceable {
-  /** Event emitter for archiver events (L2BlockProven, L2PruneDetected, etc). */
+  /** Event emitter for archiver events (L2BlockProven, L2PruneUnproven, L2PruneUncheckpointed, etc). */
   public readonly events: ArchiverEmitter;
 
   /** A loop in which we will be continually fetching new checkpoints. */
@@ -215,7 +215,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Process each block individually to properly resolve/reject each promise
     for (const { block, resolve, reject } of queuedItems) {
       try {
-        await this.updater.addBlocksWithContractData([block]);
+        await this.updater.addBlocks([block]);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
@@ -356,14 +356,16 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public unwindCheckpoints(from: CheckpointNumber, checkpointsToUnwind: number): Promise<boolean> {
-    return this.updater.unwindCheckpointsWithContractData(from, checkpointsToUnwind);
+    return this.updater.unwindCheckpoints(from, checkpointsToUnwind);
   }
 
-  public addCheckpoints(
+  /** Used by TXE to add checkpoints directly without syncing from L1. */
+  public async addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
-    return this.updater.addCheckpointsWithContractData(checkpoints, pendingChainValidationStatus);
+    await this.updater.setNewCheckpointData(checkpoints, pendingChainValidationStatus);
+    return true;
   }
 
   public async getL2Tips(): Promise<L2Tips> {
@@ -504,7 +506,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     }
     const targetL1BlockHash = Buffer32.fromString(targetL1Block.hash);
     this.log.info(`Unwinding ${blocksToUnwind} checkpoints from L2 block ${currentL2Block}`);
-    await this.updater.unwindCheckpointsWithContractData(CheckpointNumber(currentL2Block), blocksToUnwind);
+    await this.updater.unwindCheckpoints(CheckpointNumber(currentL2Block), blocksToUnwind);
     this.log.info(`Unwinding L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);

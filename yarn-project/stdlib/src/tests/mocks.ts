@@ -400,6 +400,7 @@ export async function mockCheckpointAndMessages(
   {
     startBlockNumber = BlockNumber(1),
     numBlocks = 1,
+    blocks,
     numTxsPerBlock = 1,
     numL1ToL2Messages = 1,
     makeBlockOptions = () => ({}),
@@ -412,6 +413,7 @@ export async function mockCheckpointAndMessages(
     numL1ToL2Messages?: number;
     makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2BlockNew.random>[1]>;
     previousArchive?: AppendOnlyTreeSnapshot;
+    blocks?: L2BlockNew[];
   } & Partial<Parameters<typeof Checkpoint.random>[1]> &
     Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
 ) {
@@ -420,18 +422,20 @@ export async function mockCheckpointAndMessages(
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
   let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
-  for (let i = 0; i < numBlocks; i++) {
+  for (let i = 0; i < (blocks?.length ?? numBlocks); i++) {
     const blockNumber = BlockNumber(startBlockNumber + i);
     const { block, messages } = {
-      block: await L2BlockNew.random(blockNumber, {
-        checkpointNumber,
-        indexWithinCheckpoint: i,
-        txsPerBlock: numTxsPerBlock,
-        slotNumber,
-        ...options,
-        ...makeBlockOptions(blockNumber),
-        ...(lastArchive ? { lastArchive } : {}),
-      }),
+      block:
+        blocks?.[i] ??
+        (await L2BlockNew.random(blockNumber, {
+          checkpointNumber,
+          indexWithinCheckpoint: i,
+          txsPerBlock: numTxsPerBlock,
+          slotNumber,
+          ...options,
+          ...makeBlockOptions(blockNumber),
+          ...(lastArchive ? { lastArchive } : {}),
+        })),
       messages: mockL1ToL2Messages(numL1ToL2Messages),
     };
     // Update lastArchive for the next block
