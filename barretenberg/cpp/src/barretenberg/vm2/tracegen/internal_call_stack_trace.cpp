@@ -6,6 +6,12 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the internal call stack events and populate columns for the internal call stack sub-trace.
+ *
+ * @param events The internal call stack events.
+ * @param trace The trace container.
+ */
 void InternalCallStackBuilder::process(
     const simulation::EventEmitterInterface<simulation::InternalCallStackEvent>::Container& events,
     TraceContainer& trace)
