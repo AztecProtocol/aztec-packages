@@ -1,0 +1,67 @@
+{
+  "name": "@aztec/scripts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": "./dest/index.js",
+  "bin": {
+    "docs-preview-comment": "./dest/bin/docs-preview.js"
+  },
+  "dependencies": {
+    "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "fs-extra": "^11.1.1",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/lodash.pick": "^4.4.7",
+    "@types/node": "^22.15.17",
+    "jest": "^30.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
+  },
+  "engines": {
+    "node": ">=20.10"
+  }
+}

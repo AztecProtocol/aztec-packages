@@ -1,0 +1,85 @@
+#pragma once
+
+#include <array>
+#include <cstdint>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
+#include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
+
+namespace bb::avm2 {
+
+constexpr size_t NUM_OP_DC_SELECTORS = 18;
+constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37; // Max size of instruction in bytes.
+// We do not use a static constant to compute this value from WIRE_INSTRUCTION_SPEC
+// because we do not want it to be changed transparently. Namely, if this constant
+// is changed, we need to make significant changes in pil/vm2/bytecode/bc_decomposition.pil
+// and pil/vm2/bytecode/instr_fetching.pil.
+// We rely on the unit test InstructionSpecTest.CheckDecomposeWindowSize to detect if this constant is changed.
+
+struct ExecInstructionSpec {
+    struct GasInfo {
+        uint16_t opcode_gas = 0; // Base l2 gas is computed as opcode_gas + addressing_gas
+        uint16_t base_da = 0;
+        uint16_t dyn_l2 = 0;
+        uint16_t dyn_da = 0;
+
+        bool operator==(const GasInfo& other) const = default;
+    };
+
+    // This builder is used to generate the register information based on the number of inputs and outputs.
+    // Output will always come last.
+    class RegisterInfo {
+      public:
+        RegisterInfo& add_input(std::optional<ValueTag> tag = std::nullopt);
+        RegisterInfo& add_inputs(const std::vector<std::optional<ValueTag>>& tags);
+        RegisterInfo& add_output();
+
+        size_t num_inputs() const { return inputs.size(); }
+        size_t num_outputs() const { return has_output ? 1 : 0; }
+        size_t total_registers() const { return num_inputs() + num_outputs(); }
+
+        // Given a register index, returns if the register is active for this instruction
+        bool is_active(size_t index) const;
+        // Given a register index, returns if the register is used for writing to memory
+        bool is_write(size_t index) const;
+        // Given a register index, returns if the tag check is needed.
+        bool need_tag_check(size_t index) const;
+        // Given a register index, returns the expected tag for this instruction.
+        std::optional<ValueTag> expected_tag(size_t index) const;
+
+        static constexpr auto ANY_TAG = std::nullopt;
+
+        bool operator==(const RegisterInfo& other) const = default;
+
+      private:
+        std::vector<std::optional<ValueTag>> inputs;
+        bool has_output = false;
+    };
+
+    uint8_t num_addresses = 0;
+    GasInfo gas_cost;        // Default values are 0.
+    uint32_t dyn_gas_id = 0; // Composition of dyn gas selectors.
+    RegisterInfo register_info;
+
+    bool operator==(const ExecInstructionSpec& other) const = default;
+};
+
+struct WireInstructionSpec {
+    ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
+    uint32_t size_in_bytes = 0;
+    std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors = {};
+    std::optional<uint8_t>
+        tag_operand_idx; // Index of relevant operand in vector of operands as defined in WireOpCode_WIRE_FORMAT
+
+    bool operator==(const WireInstructionSpec& other) const = default;
+};
+
+// These are lazy-initialized functions to avoid expensive startup initialization.
+// Note: in the circuit, we can choose to merge both tables.
+const std::unordered_map<ExecutionOpCode, ExecInstructionSpec>& get_exec_instruction_spec();
+const std::unordered_map<WireOpCode, WireInstructionSpec>& get_wire_instruction_spec();
+
+} // namespace bb::avm2

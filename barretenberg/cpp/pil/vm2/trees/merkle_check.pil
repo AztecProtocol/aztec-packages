@@ -1,0 +1,226 @@
+include "../poseidon2_hash.pil";
+include "../precomputed.pil";
+
+/**
+ * A gadget that checks a merkle read or a write.
+ * A merkle read consists in proving membership of a leaf (`read_leaf`) in a Merkle tree (against a given root).
+ * For a merkle write, we additionally compute the new root of the tree with the new leaf (`updated_leaf`)
+ * value. The sibling path is the same for both reads and writes and therefore the membership check and
+ * the new root computation can be processed in "parallel".
+ * One sibling node is processed per row, performing 1 hash (Poseidon2) if it is a merkle read
+ * or 2 hashes if it is a merkle write.
+ *
+ * WARNING: This gadget will break if used with `tree_height >= 254`
+ *
+ * Precondition: tree_height/path_len < 254
+ *
+ * Errors: None
+ *
+ * Number of rows per computation: tree_height/path_len
+ *
+ * Read usage:
+ *     caller_sel {
+ *         read_leaf, leaf_index, tree_height, expected_root
+ *     } in merkle_check.start {
+ *         merkle_check.read_node, merkle_check.index, merkle_check.path_len, merkle_check.read_root
+ *     };
+ *
+ * Write usage:
+ *     caller_sel {
+ *         one, current_leaf, updated_leaf,
+ *         leaf_index, tree_height, prev_root, next_root
+ * } in merkle_check.start {
+ *         merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+ *         merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+ *     };
+ *
+ * Read/Write flexible usage: One can call the write usage variant with a boolean in the first column
+ * to toggle between read and write. However, the caller needs to ensure that trace generation will
+ * set `updated_leaf` and `next_root` to 0 when `write` is 0.
+ *
+ * USAGE WARNING: Never invoke this gadget using `merkle_check.write` as destination selector. This would be
+ *                completely under-constrained as we do not enforce `sel == 1` when `write == 1`.
+ *
+ * Common inputs
+ * @column read_node The value of the node being read. When `start == 1`, this is the leaf.
+ * @column index The index of the node being operated on. When `start == 1`, this is the leaf index.
+ * @column path_len The size of the path at this layer. When `start == 1`, this is the tree height.
+ * @column read_root The merkle root the value is read from. This will be propagated down to be matched internally on `end`.
+ *
+ * Write specific inputs
+ * @column write Whether this is a write operation.
+ * @column write_node The value of the node being written. When `start == 1`, this is the new leaf.
+ *
+ * Write specific output
+ * @column write_root The merkle root that results of replacing the leaf with the new leaf at the index provided
+ *                    in the read_root. This will be propagated down to be matched internally on `end`.
+ *
+ * Internals/hints
+ * @column sibling The value of the sibling node to be hashed with `read_node`.
+ * @column index_is_even Whether the current index is even.
+ *
+ * Interactions
+ * @lookup to `poseidon2_hash` to constrain that `hash(read_left_node, read_right_node) == read_output_hash` for the current layer
+ * @lookup to `poseidon2_hash` to constrain that `hash(write_left_node, write_right_node) == write_output_hash` for the current layer. Only active when write is on.
+ *                                                                                                                             <----------------------------------------write only-------------------------------------->
+ * +-----------+-------+----------+---------+---------------+----------------+-----------------+------------------+-----------+-------+------------+-----------------+------------------+-------------------+------------+-------+-----+-----+
+ * | read_node | index | path_len | sibling | index_is_even | read_left_node | read_right_node | read_output_hash | read_root | write | write_node | write_left_node | write_right_node | write_output_hash | write_root | start | end | sel |
+ * +-----------+-------+----------+---------+---------------+----------------+-----------------+------------------+-----------+-------+------------+-----------------+------------------+-------------------+------------+-------+-----+-----+
+ * | 0         |     0 |        0 | 0       |             0 | 0              | 0               | 0                | 0         |     0 | 0          | 0               | 0                | 0                 | 0          |     0 |   0 |   0 |
+ * | 27        |    10 |        4 | s0      |             1 | 27             | s0              | h(27,s0)=n1      | n4        |     1 | 28         | 28              | s0               | h(28,s0)=n5       | n8         |     1 |   0 |   1 |
+ * | n1        |     5 |        3 | s1      |             0 | s1             | n1              | h(s1,n1)=n2      | n4        |     1 | n5         | s1              | n5               | h(s1,n5)=n6       | n8         |     0 |   0 |   1 |
+ * | n2        |     2 |        2 | s2      |             1 | n2             | s2              | h(n2,s2)=n3      | n4        |     1 | n6         | n6              | s2               | h(n6,s2)=n7       | n8         |     0 |   0 |   1 |
+ * | n3        |     1 |        1 | s3      |             0 | s3             | n3              | h(s3,n3)=n4      | n4        |     1 | n7         | s3              | n7               | h(s3,n7)=n8       | n8         |     0 |   1 |   1 |
+ * | 0         |     0 |        0 | 0       |             0 | 0              | 0               | 0                | 0         |     0 | 0          | 0               | 0                | 0                 | 0          |     0 |   0 |   0 |
+ * +-----------+-------+----------+---------+---------------+----------------+-----------------+------------------+-----------+-------+------------+-----------------+------------------+-------------------+------------+-------+-----+-----+
+ */
+namespace merkle_check;
+   #[skippable_if]
+    sel = 0;
+
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
+
+    // Common inputs - These must be looked up both on read and write
+    pol commit read_node;
+    pol commit index;
+    pol commit path_len;
+    pol commit read_root;
+
+    // Write specific inputs/outputs - These are only looked up when we want to update the root
+    pol commit write; // This should be a boolean passed by the caller. For a read usage, it is under-constrained but read
+                      // relevant values are constrained. For write, the caller must pass 1.
+    pol commit write_node;
+    pol commit write_root;
+
+    // Hints
+    pol commit sibling;
+
+    // Boundaries
+    pol commit start; // @boolean
+    pol commit end; // @boolean
+    start * (1 - start) = 0;
+    end * (1 - end) = 0;
+
+    // End when remaining path reaches 1. In other words, (path_len == 1) <==> (end == 1)
+    pol PATH_LEN_MIN_ONE = path_len - 1;
+    pol commit path_len_min_one_inv;
+    #[END_IFF_REM_PATH_EMPTY]
+    sel * (PATH_LEN_MIN_ONE * (end * (1 - path_len_min_one_inv) + path_len_min_one_inv) - 1 + end) = 0;
+
+    // This prevents a computation to be stopped prematurely, i.e., truncating last rows before
+    // we reach a row where end == 1. Note that #[END_IFF_REM_PATH_EMPTY] is conditioned on `sel == 1`
+    // and a malicious prover could prematurely stop by setting `sel == 0` and `end == 0`.
+    #[COMPUTATION_FINISH_AT_END]
+    sel * (1 - sel') * (1 - end) = 0;
+
+    // This gadget is looked up based on `start` destination selector and therefore we
+    // need to ensure that this computation is performed on the active (`sel == 1`) rows. Otherwise,
+    // a malicious prover could circumvent most of the constraints. Note that #[START_AFTER_LATCH]
+    // does not prevent this from happening.
+    // In addition, we want `end == 1` to be on an active row as well.
+    #[SELECTOR_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    // LATCH_CONDITION is true if either `end` is 1 or `first_row` is 1
+    // LATCH_CONDITION is a boolean because `end` cannot be 1 on the first row (as `sel == 1` when `end == 1`
+    // and `sel == 0` on first row)
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[PROPAGATE_READ_ROOT]
+    (1 - LATCH_CONDITION) * (read_root' - read_root) = 0;
+    #[PROPAGATE_WRITE]
+    (1 - LATCH_CONDITION) * (write' - write) = 0;
+    #[PROPAGATE_WRITE_ROOT]
+    (1 - LATCH_CONDITION) * (write_root' - write_root) = 0;
+
+    // If we are not done, the path_len decrements by 1
+    #[PATH_LEN_DECREMENTS]
+    sel * (1 - end) * (path_len' - path_len + 1) = 0;
+
+    // index_is_even is constrained to be correct by the NEXT_INDEX_IS_HALVED and FINAL_INDEX_IS_ODD_BOOLEAN constraints
+    pol commit index_is_even; // @boolean
+    index_is_even * (1 - index_is_even) = 0;
+    pol INDEX_IS_ODD = (1 - index_is_even);
+    // The index into the next layer is half the current index.
+    // We don't need to worry about underflowing the field since (index - INDEX_IS_ODD)
+    // will be even (over the integers) and as the field is not of characteristic 2, index' == index / 2 over the integers
+    #[NEXT_INDEX_IS_HALVED]
+    sel * (1 - end) * (2 * index' + INDEX_IS_ODD - index) = 0;
+
+    // Ensure that the final index is 0 or 1 by setting it to INDEX_IS_ODD.
+    // This ensures that the previous layer cannot overflow the field in the halving constraint
+    // when doing `2 * index'`. This propagates backwards ensuring that no
+    // layer can overflow on the halving constraint's multiplication by 2 as long as
+    // tree_height < 254.
+    // In addition, this relation constrains the value of `index_is_even` for the last row. without
+    // it `index_is_even` would be under-constrained and a malicious prover could swap the sibling
+    // and the node at the top Merkle tree layer in some relations further below.
+    #[FINAL_INDEX_EQUAL_TO_FIRST_BIT]
+    end * (index - INDEX_IS_ODD) = 0;
+
+    // The bit decomposition of leaf_index corresponds to the INDEX_IS_ODD bits. Namely,
+    // for an initial path_len == LEN, we have:
+    // leaf_index = sum_{i=0}^{LEN-1} INDEX_IS_ODD[i] * 2^i
+    // where INDEX_IS_ODD[i] denotes the value of INDEX_IS_ODD at row i (incrementing
+    // top-down and starting from 0). Therefore, any leaf_index < 2^LEN will be decomposed
+    // and constrained correctly.
+
+    // left_node and right_node are sent to poseidon2
+    // The constraints below arrange node and sibling for read and write into proper left/right order
+    pol commit read_left_node;
+    pol commit read_right_node;
+    pol commit write_left_node;
+    pol commit write_right_node;
+
+    // This is accomplished by using the value of `index_is_even`. If `index_is_even == 1`, it means that
+    // the current node position at the current layer is even. As a layer index starts at 0, this means that
+    // the current node is the left child of its parent and the sibling is the right child.
+    // Conversly, if `index_is_even == 0`, the curren node is the right child of its parent and the sibling
+    // is the left child.
+    // For `index_is_even == 1`, we assign `read_left_node := read_node` and `read_right_node := sibling`.
+    // For `index_is_even == 0`, we assign `read_left_node := sibling` and `read_right_node := read_node`.
+    #[READ_LEFT_NODE]
+    read_left_node = index_is_even * (read_node - sibling) + sibling;
+    #[READ_RIGHT_NODE]
+    read_right_node = index_is_even * (sibling - read_node) + read_node;
+
+    // Same as above for write (but conditioned on `write == 1`).
+    #[WRITE_LEFT_NODE]
+    write_left_node = write * (index_is_even * (write_node - sibling) + sibling);
+    #[WRITE_RIGHT_NODE]
+    write_right_node = write * (index_is_even * (sibling - write_node) + write_node);
+
+    // output_hash = hash(left_node, right_node)
+    //     if index_is_even: output_hash = hash(node, sibling)
+    //     if !index_is_even: output_hash = hash(sibling, node)
+    // On end, output_hash is the root
+    pol commit read_output_hash;
+    pol commit write_output_hash;
+
+    // Lookup to the full poseidon2 gadget
+    #[MERKLE_POSEIDON2_READ]
+    sel {
+        read_left_node, read_right_node, /*input_2=*/ precomputed.zero, /*start=1=*/ sel, read_output_hash
+    } in poseidon2_hash.end {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.start, poseidon2_hash.output
+    };
+
+    #[MERKLE_POSEIDON2_WRITE]
+    write {
+        write_left_node, write_right_node, /*input_2=*/ precomputed.zero, /*start=1=*/ write, write_output_hash
+    } in poseidon2_hash.end {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.start, poseidon2_hash.output
+    };
+
+    // If we are not done, this row's output_hash is the next row's node
+    #[OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE]
+    (1 - LATCH_CONDITION) * (read_node' - read_output_hash) = 0;
+    #[OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE]
+    (1 - LATCH_CONDITION) * (write_node' - write_output_hash) = 0;
+
+    // If we are done, the output hash is the root
+    #[READ_OUTPUT_HASH_IS_READ_ROOT]
+    end * (read_output_hash - read_root) = 0;
+    #[WRITE_OUTPUT_HASH_IS_WRITE_ROOT]
+    end * (write_output_hash - write_root) = 0;

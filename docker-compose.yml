@@ -1,0 +1,95 @@
+name: aztec-devnet
+services:
+
+  node:
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
+    # need to run bb for proofs and bb is only built for x86
+    platform: linux/amd64
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      L1_CHAIN_ID: 31337
+      VERSION: 1
+      NODE_NO_WARNINGS: 1
+      PROVER_REAL_PROOFS: ${PROVER_REAL_PROOFS:-1}
+      DATA_DIRECTORY: /var/lib/aztec
+      PROVER_AGENT_ENABLED: 0
+      ROLLUP_CONTRACT_ADDRESS: "0x4ef7ca89e724a75ccca5dde7fb98075a388c2c91"
+      REGISTRY_CONTRACT_ADDRESS: "0x589a9634c1d00c62e47b3b7a790c8dc986b3d40d"
+      INBOX_CONTRACT_ADDRESS: "0x12d9b5effc69bf5c0c29c8258c6b6fa95a08de74"
+      OUTBOX_CONTRACT_ADDRESS: "0x3ec4b6c68a8c2ce4c78cdd465b3019b11a568d1d"
+      FEE_JUICE_CONTRACT_ADDRESS: "0x73c43b919973711e096bfc04c9d4b3be511ffc0b"
+      FEE_JUICE_PORTAL_CONTRACT_ADDRESS: "0xdf25b0a34dbee9f25518f7a4d63bab8b3bb3e496"
+      ETHEREUM_HOSTS:
+      P2P_IP: "127.0.0.1"
+      P2P_PORT: 9000
+      P2P_QUERY_FOR_IP: true
+      P2P_ENABLED: true
+      PEER_ID_PRIVATE_KEY:
+      AZTEC_PORT: 8080
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-http://otel-collector:4318/v1/metrics}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-http://otel-collector:4318/v1/traces}
+    secrets:
+      - ethereum-hosts
+      - p2p-boot-node
+    entrypoint: |
+      /bin/sh -c '
+        export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-hosts)
+        export BOOTSTRAP_NODES=$$(cat /var/run/secrets/p2p-boot-node)
+
+        test -z "$$PEER_ID_PRIVATE_KEY" -a ! -f /var/lib/aztec/p2p-private-key && node /usr/src/yarn-project/cli/dest/bin/index.js generate-p2p-private-key | head -1 | cut -d" " -f 3 | tee /var/lib/aztec/p2p-private-key || echo "Re-using existing P2P private key"
+        test -z "$$PEER_ID_PRIVATE_KEY" && export PEER_ID_PRIVATE_KEY=$$(cat /var/lib/aztec/p2p-private-key)
+
+        # if the stack is started with --profile metrics --profile node, give the collector a chance to start before the node
+        i=0
+        max=3
+        while ! curl --head --silent $$OTEL_EXPORTER_OTLP_METRICS_ENDPOINT > /dev/null; do
+          echo "OpenTelemetry collector not up. Retrying after 1s";
+          sleep 1;
+          i=$$((i+1));
+          if [ $$i -eq $$max ]; then
+            echo "OpenTelemetry collector at $$OTEL_EXPORTER_METRICS_ENDPOINT not up after $${max}s. Running without metrics";
+            unset OTEL_EXPORTER_METRICS_ENDPOINT;
+            unset OTEL_EXPORTER_TRACES_ENDPOINT;
+            break
+          fi;
+        done;
+
+        node /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver
+      '
+    volumes:
+      - aztec:/var/lib/aztec
+    profiles:
+      - node
+    ports:
+      - 8080:8080/tcp
+      - 9000:9000/tcp
+      - 9001:9001/udp
+
+  cli:
+    image: aztecprotocol/aztec${AZTEC_DOCKER_TAG:-@sha256:03feac60e91f1aabf678cecbcd13271dda229120ec6007f2c1bac718ff550c70}
+    # run the same image as node
+    platform: linux/amd64
+    environment:
+      AZTEC_NODE_URL: http://node:8080
+      NODE_NO_WARNINGS: 1
+      SECRET_KEY:
+      ETHEREUM_HOSTS:
+    profiles:
+      - cli
+
+  otel-lgtm:
+    profiles:
+      - metrics
+    image: grafana/otel-lgtm
+    ports:
+      - 4318:4318 # otel collector http
+      - 4317:4317 # otel grpc
+      - 3000:3000 # grafana
+
+secrets:
+  aztec-node-url:
+    environment: AZTEC_NODE_URL
+  ethereum-hosts:
+    environment: ETHEREUM_HOSTS
+  p2p-boot-node:
+    environment: BOOTSTRAP_NODES

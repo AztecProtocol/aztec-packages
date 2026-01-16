@@ -1,0 +1,13 @@
+AddTest
+├── when amount eq 0
+│   └── it return instantly with no changes
+└── when amount gt 0
+    ├── given user have no checkpoints
+    │   ├── it adds checkpoint with amount
+    │   └── it increases num checkpoints
+    └── given user have checkpoints
+        ├── when last checkpoint is "now"
+        │   └── it increases power by amount
+        └── when last checkpoint in past
+            ├── it adds a checkpoint with power eq to last.power + amount
+            └── it increases num checkpoints

@@ -1,0 +1,141 @@
+#include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
+
+#include <cassert>
+
+#include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
+#include "barretenberg/vm2/simulation/lib/serialization.hpp"
+
+namespace bb::avm2::simulation {
+
+PureTxBytecodeManager::~PureTxBytecodeManager()
+{
+    auto cost_in_kb = [&]() {
+        size_t total_size = 0;
+        for (const auto& instruction : std::ranges::views::values(instruction_cache)) {
+            total_size += instruction.operands.size() * sizeof(Operand);
+        }
+        return total_size / 1024;
+    };
+    vinfo("PureTxBytecodeManager held ",
+          instruction_cache.size(),
+          " instructions in cache, totaling ~",
+          cost_in_kb(),
+          " kB.");
+}
+
+BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
+{
+    BB_BENCH_NAME("PureTxBytecodeManager::get_bytecode");
+
+    // Use shared ContractInstanceManager for contract instance retrieval and validation
+    // This handles nullifier checks, address derivation, and update validation
+    auto maybe_instance = contract_instance_manager.get_contract_instance(address);
+
+    if (!maybe_instance.has_value()) {
+        vinfo("Contract ", field_to_string(address), " is not deployed!");
+        throw BytecodeRetrievalError("Contract " + field_to_string(address) + " is not deployed");
+    }
+
+    ContractInstance instance = maybe_instance.value();
+    ContractClassId current_class_id = instance.current_contract_class_id;
+
+    bool is_new_class = !retrieved_class_ids.contains(current_class_id);
+    size_t retrieved_bytecodes_count = retrieved_class_ids.size();
+
+    if (is_new_class && retrieved_bytecodes_count >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+        throw BytecodeRetrievalError("Can't retrieve more than " +
+                                     std::to_string(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) +
+                                     " bytecodes per tx");
+    }
+
+    retrieved_class_ids.insert(current_class_id);
+
+    // For fast simulation, we use the class_id as the bytecode_id instead of computing the
+    // expensive bytecode commitment hash. This is safe because class_id uniquely identifies
+    // the bytecode. The actual commitment is only needed for trace generation / witgen.
+    BytecodeId bytecode_id = current_class_id;
+
+    // Check if we've already processed this class id.
+    // NOTE: If two different classes have the same bytecode, we cannot deduplicate them.
+    // This is the downside of using the class id as the bytecode id.
+    if (bytecodes.contains(bytecode_id)) {
+        return bytecode_id;
+    }
+
+    // Contract class retrieval and class ID validation
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
+    // Note: we don't need to silo and check the class id because the deployer contract guarantees
+    // that if a contract instance exists, the class has been registered.
+    BB_ASSERT(maybe_klass.has_value(), "Contract class not found");
+    auto& klass = maybe_klass.value();
+    debug("Bytecode for ", address, " successfully retrieved!");
+
+    // We now save the bytecode so that we don't repeat this process.
+    bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
+    return bytecode_id;
+}
+
+Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, uint32_t pc)
+{
+    // The corresponding bytecode is already stored in the cache if we call this routine. This is safe-guarded by the
+    // fact that it is added in the cache when we retrieve the bytecode_id.
+    return read_instruction(bytecode_id, get_bytecode_data(bytecode_id), pc);
+}
+
+Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
+                                                    std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
+                                                    uint32_t pc)
+{
+    BB_BENCH_NAME("TxBytecodeManager::read_instruction");
+
+    // Try to get the instruction from the cache.
+    InstructionIdentifier instruction_identifier = { bytecode_ptr.get(), pc };
+    auto it = instruction_cache.find(instruction_identifier);
+    if (it != instruction_cache.end()) {
+        return it->second;
+    }
+
+    // If not found, deserialize the instruction, etc.
+    const auto& bytecode = *bytecode_ptr;
+    Instruction instruction;
+
+    try {
+        instruction = deserialize_instruction(bytecode, pc);
+    } catch (const InstrDeserializationError& error) {
+        std::string error_msg = format("Instruction fetching error at pc ", pc);
+        if (error.message.has_value()) {
+            error_msg = format(error_msg, ": ", error.message.value());
+        }
+        throw InstructionFetchingError(error_msg);
+    }
+
+    // If the following code is executed, no error was thrown in deserialize_instruction().
+    if (!check_tag(instruction)) {
+        std::string error_msg = format("Instruction fetching error at pc ", pc, ": Tag check failed");
+        throw InstructionFetchingError(error_msg);
+    };
+
+    // Save the instruction to the cache.
+    instruction_cache.emplace(instruction_identifier, instruction);
+    return instruction;
+}
+
+std::shared_ptr<std::vector<uint8_t>> PureTxBytecodeManager::get_bytecode_data(const BytecodeId& bytecode_id)
+{
+    auto it = bytecodes.find(bytecode_id);
+    BB_ASSERT_DEBUG(it != bytecodes.end(), "Bytecode not found for the given bytecode_id");
+    return it->second;
+}
+
+} // namespace bb::avm2::simulation

@@ -1,0 +1,38 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../native"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../archiver"
+    }
+  ],
+  "include": ["src"]
+}

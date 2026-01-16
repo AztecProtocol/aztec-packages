@@ -1,0 +1,41 @@
+import type { Fr } from '@aztec/foundation/curves/bn254';
+
+import { strict as assert } from 'assert';
+
+import type { Gas } from '../gas/gas.js';
+import { GasFees } from '../gas/gas_fees.js';
+import type { GasSettings } from '../gas/gas_settings.js';
+
+/**
+ * Compute the effective gas fees that should be used to compute the transaction fee.
+ * This is the sum of the gas fees and the priority fees, but capped at the max fees per gas.
+ */
+export function computeEffectiveGasFees(gasFees: GasFees, gasSettings: GasSettings): GasFees {
+  const { maxFeesPerGas, maxPriorityFeesPerGas } = gasSettings;
+  const minBigInt = (f1: bigint, f2: bigint) => (f1 < f2 ? f1 : f2);
+
+  assert(
+    maxFeesPerGas.feePerDaGas >= gasFees.feePerDaGas,
+    `maxFeesPerGas.feePerDaGas must be greater than or equal to gasFees.feePerDaGas, but got maxFeesPerGas.feePerDaGas=${maxFeesPerGas.feePerDaGas} and gasFees.feePerDaGas=${gasFees.feePerDaGas}`,
+  );
+  assert(
+    maxFeesPerGas.feePerL2Gas >= gasFees.feePerL2Gas,
+    `maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas, but got maxFeesPerGas.feePerL2Gas=${maxFeesPerGas.feePerL2Gas} and gasFees.feePerL2Gas=${gasFees.feePerL2Gas}`,
+  );
+  const priorityFees = new GasFees(
+    minBigInt(maxPriorityFeesPerGas.feePerDaGas, maxFeesPerGas.feePerDaGas - gasFees.feePerDaGas),
+    minBigInt(maxPriorityFeesPerGas.feePerL2Gas, maxFeesPerGas.feePerL2Gas - gasFees.feePerL2Gas),
+  );
+
+  const effectiveFees = new GasFees(
+    gasFees.feePerDaGas + priorityFees.feePerDaGas,
+    gasFees.feePerL2Gas + priorityFees.feePerL2Gas,
+  );
+
+  return effectiveFees;
+}
+
+export function computeTransactionFee(gasFees: GasFees, gasSettings: GasSettings, gasUsed: Gas): Fr {
+  const effectiveFees = computeEffectiveGasFees(gasFees, gasSettings);
+  return gasUsed.computeFee(effectiveFees);
+}

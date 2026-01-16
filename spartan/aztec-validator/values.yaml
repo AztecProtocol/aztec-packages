@@ -1,0 +1,53 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: ""
+  customAztecNetwork:
+    enabled: false
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+validator:
+  nodeType: "sequencer-node"
+  mnemonic: "test test test test test test test test test test test junk"
+  mnemonicStartIndex: 2000
+  validatorsPerNode: 1
+  publishersPerValidatorKey: 2
+  publisherMnemonicStartIndex: 7000
+
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
+
+  replicaCount: 1
+
+  node:
+    configMap:
+      envEnabled: true
+    secret:
+      envEnabled: true
+
+    preStartScript: |
+      source /scripts/setup-attester-keystore.sh
+
+    env:
+      OTEL_SERVICE_NAME: "validator"
+
+    startCmd:
+      - --node
+      - --archiver
+      - --sequencer
+
+  web3signerUrl: ""
+
+  service:
+    p2p:
+      enabled: true
+      nodePortEnabled: false
+    admin:
+      enabled: true
+    headless:
+      enabled: true

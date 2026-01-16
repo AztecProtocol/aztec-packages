@@ -1,0 +1,85 @@
+apiVersion: 1
+policies:
+  - orgId: 1
+    receiver: grafana-default-email
+    group_by:
+      - grafana_folder
+      - alertname
+    routes:
+      # Staging Public - by namespace
+      - receiver: "Slack #alerts-staging-public by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $STAGING_PUBLIC_REGEX
+      # Staging Public - by network label
+      - receiver: "Slack #alerts-staging-public by network"
+        object_matchers:
+          - - network
+            - =~
+            - $STAGING_PUBLIC_REGEX
+
+      # Staging Ignition - by namespace
+      - receiver: "Slack #alerts-staging-ignition by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $STAGING_IGNITION_REGEX
+      # Staging Ignition - by network label
+      - receiver: "Slack #alerts-staging-ignition by network"
+        object_matchers:
+          - - network
+            - =~
+            - $STAGING_IGNITION_REGEX
+
+      # Next Scenario - by namespace
+      - receiver: "Slack #alerts-next-scenario by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $NEXT_SCENARIO_REGEX
+
+      # Next Net - by namespace
+      - receiver: "Slack #alerts-next-net by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $NEXT_NET_REGEX
+        mute_time_intervals:
+          - nightly_deployment
+
+      # Devnet - only alert based on Kubernetes namespace
+      - receiver: "Slack #alerts-devnet by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $DEVNET_NAMESPACES_REGEX
+
+      # Testnet - by namespace
+      - receiver: "Slack #alerts-testnet by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $TESTNET_NAMESPACES_REGEX
+
+      # Testnet - by network label
+      - receiver: "Slack #alerts-testnet by network"
+        object_matchers:
+          - - network
+            - =~
+            - $TESTNET_NAMESPACES_REGEX
+
+      # Mainnet - by namespace
+      - receiver: "Slack #alerts-mainnet by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $MAINNET_NAMESPACES_REGEX
+
+      # Mainnet - by network label
+      - receiver: "Slack #alerts-mainnet by network"
+        object_matchers:
+          - - network
+            - =~
+            - $MAINNET_NAMESPACES_REGEX
+

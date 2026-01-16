@@ -1,0 +1,87 @@
+use crate::{
+    abis::{
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
+        state_reference::StateReference,
+    },
+    constants::{BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HASH, GENESIS_BLOCK_HEADER_HASH},
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Empty, Hash, Serialize},
+};
+use std::meta::derive;
+
+// docs:start:block-header
+#[derive(Deserialize, Eq, Serialize)]
+pub struct BlockHeader {
+    pub last_archive: AppendOnlyTreeSnapshot,
+    pub state: StateReference,
+
+    // The hash of the sponge blob for this block, which commits to the tx effects added in this block.
+    // Note: it may also include tx effects from previous blocks within the same checkpoint.
+    // When proving tx effects from this block only, we must refer to the `sponge_blob_hash` in the previous block
+    // header to show that the effect was added after the previous block.
+    // The previous block header can be validated using a membership proof of the last leaf in `last_archive`.
+    pub sponge_blob_hash: Field,
+
+    pub global_variables: GlobalVariables,
+    pub total_fees: Field,
+    pub total_mana_used: Field,
+}
+// docs:end:block-header
+
+impl Empty for BlockHeader {
+    fn empty() -> Self {
+        Self {
+            last_archive: AppendOnlyTreeSnapshot::empty(),
+            state: StateReference::empty(),
+            sponge_blob_hash: 0,
+            global_variables: GlobalVariables::empty(),
+            total_fees: 0,
+            total_mana_used: 0,
+        }
+    }
+}
+
+impl Hash for BlockHeader {
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__BLOCK_HASH)
+    }
+}
+
+#[test]
+fn serialization_of_empty() {
+    let header = BlockHeader::empty();
+    // We use the BLOCK_HEADER_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant.
+    let serialized: [Field; BLOCK_HEADER_LENGTH] = header.serialize();
+    let deserialized = BlockHeader::deserialize(serialized);
+    assert(header.eq(deserialized));
+}
+
+#[test]
+fn hash_of_genesis_block_header() {
+    let mut header = BlockHeader::empty();
+    // The following values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees.
+    header.state.l1_to_l2_message_tree.root =
+        0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5;
+    header.state.partial.note_hash_tree.root =
+        0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a;
+    header.state.partial.nullifier_tree.root =
+        0x1ec3788cd1c32e54d889d67fe29e481114f9d4afe9b44b229aa29d8ad528dd31;
+    header.state.partial.nullifier_tree.next_available_leaf_index = 128;
+    header.state.partial.public_data_tree.root =
+        0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9;
+    header.state.partial.public_data_tree.next_available_leaf_index = 128;
+
+    let hash = header.hash();
+    assert_eq(hash, GENESIS_BLOCK_HEADER_HASH);
+}
+
+#[test]
+fn hash_of_empty_block_header_match_typescript() {
+    let header = BlockHeader::empty();
+    let hash = header.hash();
+
+    // Value from header.test.ts "computes empty hash" test
+    let test_data_empty_hash = 0x2c920b5fcfe68d413eab3e0022eb918d64d62ca44d195d5c32b8b9c68bff2dfe;
+    assert_eq(hash, test_data_empty_hash);
+}

@@ -1,0 +1,19 @@
+# Configuration for token_bridge example
+
+# Contract artifacts to import for codegen (names without .json extension)
+# These must already be compiled to docs/target/ directory
+contracts:
+  - nft-NFTPunk
+  - nft_bridge-NFTBridge
+
+# Dependencies:
+#   - @aztec/* packages are auto-linked from yarn-project/
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec/aztec.js"
+  - "@aztec/accounts"
+  - "@aztec/test-wallet"
+  - "@aztec/stdlib"
+  - "@aztec/foundation"
+  - "@aztec/ethereum"
+  - "npm:@aztec/viem@2.38.2"

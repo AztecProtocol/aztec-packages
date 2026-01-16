@@ -1,0 +1,15 @@
+result
+node_modules
+.yarn/cache
+.yarn/install-state.gz
+ts/dest
+.tsbuildinfo
+.idea
+cmake-build-debug
+*_opt.pil
+bench-out
+
+# Generated code from msgpack schema (run `yarn generate` in ts/)
+rust/barretenberg-rs/src/generated_types.rs
+rust/barretenberg-rs/src/api.rs
+ts/src/cbind/generated/

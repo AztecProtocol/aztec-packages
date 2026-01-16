@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
+NAME=$1
+INSTANCE_TYPE=$2
+PRICE=$3
+AMI=$4
+
+cd $(dirname $0)
+
+function cleanup {
+  local code=$1
+  if [ -n "${SIR:-}" ]; then
+      >&2 echo "Cancelling spot request $SIR..."
+      aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $SIR > /dev/null
+  fi
+  if [ -n "${IID:-}" ]; then
+    >&2 echo "Terminating instance $IID..."
+    aws ec2 terminate-instances --instance-ids "$IID" > /dev/null
+  fi
+  exit $code
+}
+trap 'cleanup 130' SIGINT
+trap 'cleanup 143' SIGTERM
+
+export AWS_DEFAULT_REGION=us-east-2
+
+launch_spec=$(cat <<EOF
+{
+  "ImageId": "$AMI",
+  "KeyName": "${KEY_NAME:-build-instance}",
+  "SecurityGroupIds": ["sg-0ccd4e5df0dcca0c9"],
+  "InstanceType": "$INSTANCE_TYPE",
+  "BlockDeviceMappings": [
+    {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+        "VolumeSize": 128,
+        "VolumeType": "gp3",
+        "Throughput": 1000,
+        "Iops": 4000
+      }
+    }
+  ]
+}
+EOF
+)
+
+# Save the launch specification to a temporary file.
+temp_file=$(mktemp)
+trap "rm -f $temp_file" EXIT
+echo "$launch_spec" > "$temp_file"
+
+info="(name: $NAME) (type: $INSTANCE_TYPE) (ami: $AMI) (bid: $PRICE)"
+
+if [ "${NO_SPOT:-0}" -ne 1 ]; then
+  >&2 echo "Requesting $INSTANCE_TYPE spot instance $info..."
+  SIR=$(aws ec2 request-spot-instances \
+    --spot-price "$PRICE" \
+    --instance-count 1 \
+    --type "one-time" \
+    --launch-specification file://$temp_file \
+    --query "SpotInstanceRequests[*].[SpotInstanceRequestId]" \
+    --output text)
+
+  >&2 echo "Waiting for instance id for spot request: $SIR..."
+  sleep 5
+  for I in {1..6}; do
+    IID=$(aws ec2 describe-spot-instance-requests \
+      --spot-instance-request-ids $SIR \
+      --query "SpotInstanceRequests[*].[InstanceId]" \
+      --output text)
+
+    [ -z "$IID" -o "$IID" == "None" ] || break
+
+    if [ $I -eq 6 ]; then
+      >&2 echo "Timeout waiting for spot request."
+      # Cancel spot request. We may still get allocated an instance if it's *just* happened.
+      aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $SIR > /dev/null
+    fi
+
+    sleep 5
+  done
+fi
+
+if [ -z "${IID:-}" -o "${IID:-}" == "None" ]; then
+  # Request on-demand instance.
+  >&2 echo "Requesting $INSTANCE_TYPE on-demand instance $info..."
+  IID=$(aws ec2 run-instances \
+    --cli-input-json file://$temp_file \
+    --query "Instances[*].[InstanceId]" \
+    --output text)
+fi
+
+aws ec2 create-tags --resources $IID --tags "Key=Name,Value=$NAME"
+aws ec2 create-tags --resources $IID --tags "Key=Group,Value=build-instance"
+
+while [ -z "${IP:-}" ]; do
+  sleep 1
+  IP=$(aws ec2 describe-instances \
+    --filter "Name=instance-id,Values=$IID" \
+    --query "Reservations[*].Instances[*].PublicIpAddress" \
+    --output=text)
+done
+
+# Wait till ssh port is open.
+>&2 echo "Waiting for SSH at $IP..."
+SECONDS=0
+SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
+[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
+while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP $LIVE_CMD > /dev/null 2>&1; do
+  if (( SECONDS >= 60 )); then
+    >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."
+    exit 1
+  fi
+  sleep 1
+done
+echo $IP:${SIR:-}:$IID

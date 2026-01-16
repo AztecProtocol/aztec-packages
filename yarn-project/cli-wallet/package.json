@@ -1,0 +1,109 @@
+{
+  "name": "@aztec/cli-wallet",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./dest/cmds/index.js",
+    "./cli": "./dest/bin/index.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/cmds/index.ts"
+    ],
+    "name": "Aztec CLI wallet",
+    "tsconfig": "./tsconfig.json"
+  },
+  "bin": {
+    "aztec-wallet": "./dest/bin/index.js"
+  },
+  "scripts": {
+    "start": "node --no-warnings ./dest/bin",
+    "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
+    "dev": "LOG_LEVEL=debug && node ./dest/bin",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "inherits": [
+    "../package.common.json"
+  ],
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/accounts": "workspace:^",
+    "@aztec/aztec.js": "workspace:^",
+    "@aztec/bb.js": "workspace:^",
+    "@aztec/cli": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/pxe": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/wallet-sdk": "workspace:^",
+    "commander": "^12.1.0",
+    "inquirer": "^10.1.8",
+    "source-map-support": "^0.5.21",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@types/source-map-support": "^0.5.10",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=20.10"
+  }
+}

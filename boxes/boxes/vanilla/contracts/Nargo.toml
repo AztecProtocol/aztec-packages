@@ -1,0 +1,7 @@
+[package]
+name = "private_voting"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
+field_note = { path = "../../../../noir-projects/aztec-nr/field-note" }

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn:*)",
+      "Bash(forge:*)",
+      "Bash(env LOG_LEVEL=* yarn *)",
+      "Bash(./bootstrap.sh:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git reflog:*)",
+      "Bash(git worktree:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh:*)",
+      "Bash(cd:*)",
+      "Bash(grep:*)",
+      "Bash(curl -XGET:*)",
+      "WebFetch(domain:ci.aztec-labs.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

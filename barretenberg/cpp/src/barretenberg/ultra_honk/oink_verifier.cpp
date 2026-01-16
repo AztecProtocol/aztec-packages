@@ -1,0 +1,204 @@
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+
+namespace bb {
+
+/**
+ * @brief Oink Verifier function that runs all the rounds of the verifier
+ * @details Returns the witness commitments and relation_parameters. If used as a standalone function, the proof
+ * returned by the OinkProver must be loaded into the transcript of the OinkVerifier before calling
+ * OinkVerifier::verify()
+ * @tparam Flavor
+ * @return OinkOutput<Flavor>
+ */
+template <typename Flavor> void OinkVerifier<Flavor>::verify()
+{
+    // Execute the Verifier rounds
+    execute_preamble_round();
+    // For ZK flavors: receive Gemini masking polynomial commitment
+    if constexpr (Flavor::HasZK) {
+        verifier_instance->gemini_masking_commitment =
+            transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
+    }
+    execute_wire_commitments_round();
+    execute_sorted_list_accumulator_round();
+    execute_log_derivative_inverse_round();
+    execute_grand_product_computation_round();
+
+    verifier_instance->witness_commitments = witness_comms;
+    verifier_instance->relation_parameters = relation_parameters;
+    verifier_instance->alpha = generate_alpha_round();
+}
+
+/**
+ * @brief Get circuit size, public input size, and public inputs from transcript
+ *
+ */
+template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
+{
+    auto vk = verifier_instance->get_vk();
+
+    FF vk_hash = vk->hash_with_origin_tagging(*transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink verifier: ", vk_hash);
+
+    // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
+    if constexpr (IsRecursiveFlavor<Flavor>) {
+        const bool is_write_vk_mode = vk_hash.get_context()->is_write_vk_mode();
+        const bool vk_hash_consistency = verifier_instance->vk_and_hash->hash.get_value() == vk_hash.get_value();
+        if (!vk_hash_consistency && !is_write_vk_mode) {
+            info("Recursive Ultra Verifier: VK Hash Mismatch");
+        }
+        verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);
+    } else {
+        BB_ASSERT_EQ(verifier_instance->vk_and_hash->hash, vk_hash, "Native Ultra Verifier: VK Hash Mismatch");
+    };
+
+    size_t num_public_inputs = get_num_public_inputs();
+
+    std::vector<FF> public_inputs;
+    for (size_t i = 0; i < num_public_inputs; ++i) {
+        auto public_input_i =
+            transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
+        public_inputs.emplace_back(public_input_i);
+    }
+    verifier_instance->public_inputs = std::move(public_inputs);
+}
+
+/**
+ * @brief Get the wire polynomials (part of the witness), with the exception of the fourth wire, which is
+ * only received after adding memory records. In the Goblin Flavor, we also receive the ECC OP wires and the
+ * DataBus columns.
+ */
+template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
+{
+    // Get commitments to first three wire polynomials
+    witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
+    witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
+    witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
+
+    // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
+    if constexpr (IsMegaFlavor<Flavor>) {
+        // Receive ECC op wire commitments
+        for (auto [commitment, label] : zip_view(witness_comms.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
+        }
+
+        // Receive DataBus related polynomial commitments
+        for (auto [commitment, label] :
+             zip_view(witness_comms.get_databus_entities(), comm_labels.get_databus_entities())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
+        }
+    }
+}
+
+/**
+ * @brief Get sorted witness-table accumulator and fourth wire commitments
+ *
+ */
+template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
+{
+    // Get eta challenges
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
+        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
+    relation_parameters.eta = eta;
+    relation_parameters.eta_two = eta_two;
+    relation_parameters.eta_three = eta_three;
+
+    // Get commitments to lookup argument polynomials and fourth wire
+    witness_comms.lookup_read_counts =
+        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
+    witness_comms.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_tags);
+    witness_comms.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_4);
+}
+
+/**
+ * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
+ *
+ */
+template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
+{
+    // Get permutation challenges
+    auto [beta, gamma] = transcript->template get_challenges<FF>(
+        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
+
+    witness_comms.lookup_inverses =
+        transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
+
+    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
+    if constexpr (IsMegaFlavor<Flavor>) {
+        for (auto [commitment, label] :
+             zip_view(witness_comms.get_databus_inverses(), comm_labels.get_databus_inverses())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
+        }
+    }
+}
+
+/**
+ * @brief Compute lookup grand product delta and get permutation and lookup grand product commitments
+ *
+ */
+template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
+{
+    auto vk = verifier_instance->get_vk();
+
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
+        verifier_instance->public_inputs, relation_parameters.beta, relation_parameters.gamma, vk->pub_inputs_offset);
+
+    relation_parameters.public_input_delta = public_input_delta;
+
+    // Get commitment to permutation and lookup grand products
+    witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
+}
+
+template <typename Flavor> typename Flavor::SubrelationSeparator OinkVerifier<Flavor>::generate_alpha_round()
+{
+    // Get the single alpha challenge for sumcheck computation
+    // Powers of this challenge will be used to batch subrelations
+    return transcript->template get_challenge<FF>(domain_separator + "alpha");
+}
+
+// Native flavor instantiations
+template class OinkVerifier<UltraFlavor>;
+template class OinkVerifier<UltraZKFlavor>;
+template class OinkVerifier<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class OinkVerifier<UltraStarknetFlavor>;
+template class OinkVerifier<UltraStarknetZKFlavor>;
+#endif
+template class OinkVerifier<UltraKeccakZKFlavor>;
+template class OinkVerifier<UltraRollupFlavor>;
+template class OinkVerifier<MegaFlavor>;
+template class OinkVerifier<MegaZKFlavor>;
+
+// Recursive flavor instantiations
+template class OinkVerifier<UltraRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+
+} // namespace bb

@@ -1,0 +1,9 @@
+DepositToAztecPublic
+├── given insufficient balance
+│   └── it should revert
+└── given sufficient balance
+    ├── it should create a message for the newest version
+    ├── it should transfer the tokens to the portal
+    ├── it should insert the message into the newest inbox
+    ├── it should emit a {DepositToAztecPublic} event
+    └── it should return the key

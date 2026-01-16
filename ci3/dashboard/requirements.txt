@@ -1,0 +1,7 @@
+flask
+gunicorn
+redis
+ansi2html
+Flask-Compress
+requests
+Flask-HTTPAuth

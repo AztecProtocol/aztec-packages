@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dest/node",
+    "tsBuildInfoFile": "/dev/null",
+    "noEmit": false,
+  }
+}

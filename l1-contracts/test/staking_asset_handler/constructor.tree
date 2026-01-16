@@ -1,0 +1,11 @@
+ConstructorTest
+├── when deposits per mint is 0
+│   └── it reverts
+└── when deposits per mint is not 0
+    ├── it sets the owner
+    ├── it sets the staking asset
+    ├── it sets the registry
+    ├── it sets the withdrawer and emits a {WithdrawerUpdated} event
+    ├── it sets the mint interval and emits a {MintIntervalUpdated} event
+    ├── it sets the deposits per mint and emits a {DepositsPerMintUpdated} event
+    └── it adds the array of unhinged address and emits a {UnhingedAdded} event for each address

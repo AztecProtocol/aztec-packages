@@ -1,0 +1,17 @@
+GetAddressFromIndexAtTimestampTest
+├── when no validators are registered
+│   └── it throws out of bounds
+├── when validators exist
+│   ├── when querying current epoch
+│   │   └── it returns the correct validator address
+│   ├── when querying future epoch
+│   │   └── it returns the correct (current) validator address
+│   ├── when querying past epoch
+│   │   └── it maintains historical values correctly
+│   ├── when validator was removed
+│   │   ├── it returns the same address for the current epoch
+│   │   └── it returns address(0) for the next epoch
+│   └── when validator is removed and new one added at same position
+│       └── it maintains both current and historical values correctly
+└── when index is out of bounds
+    └── it throws out of bounds

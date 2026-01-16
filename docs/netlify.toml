@@ -1,0 +1,600 @@
+# =============================================================================
+# BUILD CONFIGURATION
+# =============================================================================
+[build]
+  # Only build if docs-related files changed (docs/, aztec-nr/, or #include_code references)
+  ignore = "./scripts/netlify-ignore-build.sh"
+  command = "yarn build"
+  functions = "netlify/functions"
+
+# Install nargo only for preview deploys (not needed for production)
+[context.deploy-preview]
+  command = "./scripts/netlify-preview-build.sh"
+
+[context.branch-deploy]
+  command = "./scripts/netlify-preview-build.sh"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Core Navigation
+# =============================================================================
+[[redirects]]
+    from = "/try_testnet"
+    to = "/ignition_info"
+
+[[redirects]]
+    from = "/guides/smart_contracts/writing_contracts/initializers"
+    to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+
+[[redirects]]
+    from = "/guides/smart_contracts/writing_contracts/*"
+    to = "/developers/docs/aztec-nr"
+
+[[redirects]]
+    from = "/developers/reference/smart_contract_reference/storage/*"
+    to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
+
+# [[redirects]]
+#     from = "/developers/docs/aztec-cli/cli_reference"
+#     to = "/developers/docs/cli/aztec_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/aztec-cli/local-network-reference"
+#     to = "/developers/docs/cli/aztec_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/wallet-cli/cli_wallet_reference"
+#     to = "/developers/docs/cli/aztec_wallet_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/wallet-cli/cli_wallet_reference_autogen"
+#     to = "/developers/docs/cli/aztec_wallet_cli_reference"
+
+# [[redirects]]
+#     from = "/developers/docs/wallet-cli/faceid_wallet"
+#     to = "/developers/docs/tutorials/faceid_wallet"
+
+[[redirects]]
+    from = "/getting_started"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/developers/getting_started/main"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "guides/getting_started"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/tutorials/simple_dapp/*"
+    to = "developers/docs/tutorials/js_tutorials/aztecjs-getting-started"
+
+[[redirects]]
+    from = "/v2.0.2/migration_notes"
+    to = "/developers/migration_notes"
+
+[[redirects]]
+    from = "/tutorials/contract_tutorials/crowdfunding_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
+
+[[redirects]]
+    from = "/tutorials/contract_tutorials/token_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/token_contract"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Legacy & Sunset Content
+# These redirect old/deprecated paths to homepage or sunset pages
+# =============================================================================
+[[redirects]]
+    from = "/noir"
+    to = "/"
+
+[[redirects]]
+    from = "/misc/aztec-connect-sunset"
+    to = "/aztec_connect_sunset"
+
+[[redirects]]
+    from= "zk-money/userguide"
+    to= "/aztec_connect_sunset"
+
+[[redirects]]
+    from = "/compliance"
+    to = "/"
+
+[[redirects]]
+    from = "/aztec/roadmap/engineering_roadmap"
+    to = "/"
+
+[[redirects]]
+    from = "/aztec/roadmap/cryptography_roadmap"
+    to = "/"
+
+[[redirects]]
+    from = "/getting-started"
+    to = "/"
+
+[[redirects]]
+    from = "/reference/sandbox_reference/sandbox-reference"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/reference/sandbox_reference"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/guides/getting_started/*"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/guides/developer_guides/*"
+    to = "/developers/getting_started_on_local_network"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Concept Path Restructures
+# Redirects from old /aztec/concepts/* paths to new structure
+# =============================================================================
+[[redirects]]
+    from = "/aztec/concepts/accounts/authwit"
+    to = "/developers/docs/foundational-topics/advanced/authwit"
+
+[[redirects]]
+    from = "/aztec/concepts/storage/storage_slots"
+    to = "/developers/docs/foundational-topics/advanced/storage/storage_slots"
+
+[[redirects]]
+    from = "/aztec/concepts/storage/trees/*"
+    to = "/developers/docs/foundational-topics/advanced/storage/indexed_merkle_tree"
+
+[[redirects]]
+    from = "/aztec/concepts/storage/partial_notes"
+    to = "/developers/docs/foundational-topics/state_management"
+
+[[redirects]]
+    from = "/aztec/concepts/circuits/*"
+    to = "/developers/docs/foundational-topics/advanced/circuits"
+
+[[redirects]]
+    from = "/guides/privacy_considerations"
+    to = "/developers/docs/resources/considerations/privacy_considerations"
+
+[[redirects]]
+    from = "/reference/developer_references/limitations"
+    to = "/developers/docs/resources/considerations/limitations"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Network Paths
+# Redirects for node operation and network documentation
+# =============================================================================
+[[redirects]]
+    from = "/run_node/*"
+    to = "/network/setup/running_a_node"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
+
+
+# =============================================================================
+# ACTIVE REDIRECTS: Smart Contract Guide Restructures
+# Redirects from old guide paths to new how_to_* naming convention
+# =============================================================================
+[[redirects]]
+    from = "/developers/guides/smart_contracts/compile_contract"
+    to = "/developers/docs/aztec-nr/how_to_compile_contract"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/deploy_contract"
+    to = "/developers/docs/aztec-js/how_to_deploy_contract"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/define_functions"
+    to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/define_storage"
+    to = "/developers/docs/aztec-nr/framework-description/how_to_define_storage"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/call_contracts"
+    to = "/developers/docs/aztec-nr/framework-description/how_to_call_contracts"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/emit_event"
+    to = "/developers/docs/aztec-nr/framework-description/how_to_emit_event"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/pop_capsule"
+    to = "/developers/docs/aztec-nr/framework-description/advanced/how_to_use_capsules"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/write_custom_note"
+    to = "/developers/docs/aztec-nr/framework-description/how_to_implement_custom_notes"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/test_contracts"
+    to = "/developers/docs/aztec-nr/how_to_test_contracts"
+
+# Redirects for renamed local_env guide pages
+[[redirects]]
+    from = "/developers/guides/local_env/debug"
+    to = "/developers/docs/aztec-nr/debugging"
+
+# Redirects for fixed documentation structure links
+# Added to handle all the broken links that were fixed in the documentation
+
+# Redirect old aztec/concepts paths to new structure
+[[redirects]]
+    from = "/aztec/concepts/*"
+    to = "/developers/docs/foundational-topics/:splat"
+
+# Redirect getting_started variations
+[[redirects]]
+    from = "/developers/getting_started/getting_started"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/getting_started/getting_started"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/developers/getting_started/getting_started.md"
+    to = "/developers/getting_started_on_local_network"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Legacy js_apps paths
+# Old path structure from earlier versions
+# =============================================================================
+[[redirects]]
+    from = "/developers/guides/js_apps/connect_to_sandbox"
+    to = "/developers/docs/aztec-js/how_to_connect_to_local_network"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/*"
+    to = "/developers/docs/aztec-js/:splat"
+
+# Redirect tutorials paths
+[[redirects]]
+    from = "/developers/tutorials/js_tutorials/*"
+    to = "/developers/docs/tutorials/js_tutorials/:splat"
+
+[[redirects]]
+    from = "/developers/tutorials/contract_tutorials/*"
+    to = "/developers/docs/tutorials/contract_tutorials/:splat"
+
+# Redirect for smart_contracts_overview
+[[redirects]]
+    from = "/aztec/smart_contracts_overview"
+    to = "/developers/docs/aztec-nr/framework-description/contract_structure"
+
+[[redirects]]
+    from = "/developers/docs/concepts/smart_contracts_overview"
+    to = "/developers/docs/aztec-nr/framework-description/contract_structure"
+
+# Redirect for cli_wallet_reference
+[[redirects]]
+    from = "/developers/guides/local_env/advanced/cli_wallet_reference"
+    to = "/developers/docs/wallet-cli/cli_wallet_reference"
+
+# Handle relative path redirects for concepts
+[[redirects]]
+    from = "/developers/docs/concepts/concepts/*"
+    to = "/developers/docs/foundational-topics/:splat"
+
+# Handle oracles redirect
+[[redirects]]
+    from = "/aztec/smart_contracts/oracles"
+    to = "/developers/docs/aztec-nr/framework-description/advanced/protocol_oracles"
+
+# Handle storage redirects
+[[redirects]]
+    from = "/aztec/concepts/storage/*"
+    to = "/developers/docs/foundational-topics/state_management"
+
+# Handle PXE redirects
+[[redirects]]
+    from = "/aztec/concepts/pxe/*"
+    to = "/developers/docs/foundational-topics/pxe/:splat"
+
+# Handle accounts redirects
+[[redirects]]
+    from = "/aztec/concepts/accounts/*"
+    to = "/developers/docs/foundational-topics/accounts/:splat"
+
+# Handle advanced concepts redirects
+[[redirects]]
+    from = "/aztec/concepts/advanced/*"
+    to = "/developers/docs/foundational-topics/advanced/:splat"
+
+# Getting started on testnet redirect
+[[redirects]]
+    from = "/developers/guides/getting_started_on_testnet"
+    to = "/developers/getting_started_on_devnet"
+
+# Sandbox reference redirect
+[[redirects]]
+    from = "/developers/guides/local_env/sandbox-reference"
+    to = "/developers/getting_started_on_local_network"
+
+# FaceID wallet redirect
+[[redirects]]
+    from = "/developers/tutorials/codealong/faceid_wallet"
+    to = "/developers/docs/wallet-cli/faceid_wallet"
+
+# Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
+# (Netlify processes redirects top-to-bottom, first match wins)
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
+    to = "/network/setup/sequencer_management"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
+    to = "/network/setup/running_a_prover"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
+    to = "/network/setup/running_a_node"
+
+[[redirects]]
+    from = "/the_aztec_network/guides/run_nodes"
+    to = "/network/setup/running_a_node"
+
+[[redirects]]
+    from = "/the_aztec_network/reference/operator_faq"
+    to = "/network/operation/operator_faq"
+
+[[redirects]]
+    from = "/the_aztec_network/reference/useful_commands"
+    to = "/network/operation/sequencer_management/useful_commands"
+
+[[redirects]]
+    from = "/the_aztec_network/operation/sequencer_management/running_delegated_stake"
+    to = "/network/operation/sequencer_management/become_a_staking_provider"
+
+# Network docs wildcard redirect - catches remaining /the_aztec_network paths
+# This MUST come AFTER specific path redirects above
+[[redirects]]
+    from = "/the_aztec_network/*"
+    to = "/network/:splat"
+    status = 301
+
+# Versioned network docs redirects
+[[redirects]]
+    from = "/testnet/the_aztec_network/*"
+    to = "/network/testnet/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/ignition/the_aztec_network/*"
+    to = "/network/:splat"
+    status = 301
+
+# =============================================================================
+# ACTIVE REDIRECTS: devnet.5 → devnet.20251212 Structure Migration
+# These redirects handle the URL structure changes between versions.
+# Netlify processes top-to-bottom, first match wins - specific paths before wildcards.
+# =============================================================================
+
+# Getting Started: sandbox → local_network
+[[redirects]]
+    from = "/developers/getting_started_on_sandbox"
+    to = "/developers/getting_started_on_local_network"
+
+# Migration notes
+[[redirects]]
+    from = "/developers/migration_notes"
+    to = "/developers/docs/resources/migration_notes"
+
+# =============================================================================
+# Concepts → Foundational Topics & Aztec-nr
+# Exceptions first, then catch-alls
+# =============================================================================
+
+# concepts/smart_contracts → aztec-nr (except contract_creation)
+[[redirects]]
+    from = "/developers/docs/concepts/smart_contracts/contract_creation"
+    to = "/developers/docs/foundational-topics/contract_creation"
+
+[[redirects]]
+    from = "/developers/docs/concepts/smart_contracts/oracles/*"
+    to = "/developers/docs/aztec-nr/framework-description/advanced/protocol_oracles"
+
+[[redirects]]
+    from = "/developers/docs/concepts/smart_contracts/*"
+    to = "/developers/docs/aztec-nr/framework-description/:splat"
+
+# concepts/communication → aztec-nr or foundational-topics
+[[redirects]]
+    from = "/developers/docs/concepts/communication/cross_chain_calls"
+    to = "/developers/docs/aztec-nr/framework-description/how_to_communicate_cross_chain"
+
+[[redirects]]
+    from = "/developers/docs/concepts/communication/*"
+    to = "/developers/docs/foundational-topics"
+
+# concepts/storage → state_management
+[[redirects]]
+    from = "/developers/docs/concepts/storage/*"
+    to = "/developers/docs/foundational-topics/state_management"
+
+# concepts/wallets → wallets (flatten)
+[[redirects]]
+    from = "/developers/docs/concepts/wallets/*"
+    to = "/developers/docs/foundational-topics/wallets"
+
+# concepts/pxe/acir_simulator → pxe (flatten)
+[[redirects]]
+    from = "/developers/docs/concepts/pxe/acir_simulator"
+    to = "/developers/docs/foundational-topics/pxe"
+
+# concepts/advanced/circuits/kernels rename
+[[redirects]]
+    from = "/developers/docs/concepts/advanced/circuits/kernels/public_kernel"
+    to = "/developers/docs/foundational-topics/advanced/circuits/public_execution"
+
+# concepts/* → foundational-topics/* (catch-all)
+[[redirects]]
+    from = "/developers/docs/concepts/*"
+    to = "/developers/docs/foundational-topics/:splat"
+
+# =============================================================================
+# Guides → aztec-js, aztec-nr, wallet-cli
+# =============================================================================
+
+# guides/aztec-js exceptions
+[[redirects]]
+    from = "/developers/docs/guides/aztec-js/aztec_js_reference_autogen"
+    to = "/developers/docs/aztec-js/aztec_js_reference"
+
+[[redirects]]
+    from = "/developers/docs/guides/aztec-js/aztec_js_reference_typedoc"
+    to = "/developers/docs/aztec-js/aztec_js_reference"
+
+[[redirects]]
+    from = "/developers/docs/guides/aztec-js/how_to_connect_to_sandbox"
+    to = "/developers/docs/aztec-js/how_to_connect_to_local_network"
+
+[[redirects]]
+    from = "/developers/docs/guides/aztec-js/*"
+    to = "/developers/docs/aztec-js/:splat"
+
+# guides/local_env exceptions
+[[redirects]]
+    from = "/developers/docs/guides/local_env/installing_noir_lsp"
+    to = "/developers/docs/aztec-nr/installation"
+
+[[redirects]]
+    from = "/developers/docs/guides/local_env/how_to_debug"
+    to = "/developers/docs/aztec-nr/debugging"
+
+[[redirects]]
+    from = "/developers/docs/guides/local_env/advanced/faceid_wallet"
+    to = "/developers/docs/wallet-cli/faceid_wallet"
+
+[[redirects]]
+    from = "/developers/docs/guides/local_env/*"
+    to = "/developers/getting_started_on_local_network"
+
+# guides/smart_contracts exceptions (files at aztec-nr root)
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/how_to_compile_contract"
+    to = "/developers/docs/aztec-nr/how_to_compile_contract"
+
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/how_to_test_contracts"
+    to = "/developers/docs/aztec-nr/how_to_test_contracts"
+
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/how_to_define_functions"
+    to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/advanced/*"
+    to = "/developers/docs/aztec-nr/framework-description/advanced/:splat"
+
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/*"
+    to = "/developers/docs/aztec-nr/framework-description/:splat"
+
+# =============================================================================
+# Reference → resources, aztec-cli, wallet-cli, aztec-nr
+# =============================================================================
+
+# reference/considerations → resources/considerations
+[[redirects]]
+    from = "/developers/docs/reference/considerations/*"
+    to = "/developers/docs/resources/considerations/:splat"
+
+[[redirects]]
+    from = "/developers/docs/reference/glossary"
+    to = "/developers/docs/resources/glossary"
+
+[[redirects]]
+    from = "/developers/docs/reference/api"
+    to = "/developers/docs/aztec-nr/api"
+
+# reference/environment_reference → aztec-cli or wallet-cli
+[[redirects]]
+    from = "/developers/docs/reference/environment_reference/cli_wallet*"
+    to = "/developers/docs/wallet-cli/cli_wallet_reference"
+
+[[redirects]]
+    from = "/developers/docs/reference/environment_reference/sandbox-reference"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/developers/docs/reference/environment_reference/*"
+    to = "/developers/docs/aztec-cli/cli_reference"
+
+# reference/smart_contract_reference → aztec-nr
+[[redirects]]
+    from = "/developers/docs/reference/smart_contract_reference/portals/*"
+    to = "/developers/docs/aztec-nr/framework-description/ethereum-aztec-messaging/:splat"
+
+[[redirects]]
+    from = "/developers/docs/reference/smart_contract_reference/*"
+    to = "/developers/docs/aztec-nr/framework-description/:splat"
+
+# reference/* catch-all → resources
+[[redirects]]
+    from = "/developers/docs/reference/*"
+    to = "/developers/docs/resources/:splat"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Version Path Redirects
+# Redirect old version paths to new split-docs structure
+# =============================================================================
+[[redirects]]
+    from = "/devnet/*"
+    to = "/developers/:splat"
+
+[[redirects]]
+    from = "/nightly/*"
+    to = "/developers/nightly/:splat"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Catch-All Path Migrations
+# These handle broad path changes and legacy paths
+# =============================================================================
+[[redirects]]
+    from = "/tutorials/*"
+    to = "/developers/docs/tutorials/:splat"
+
+[[redirects]]
+    from = "/guides/*"
+    to = "/developers/docs/aztec-nr/:splat"
+
+[[redirects]]
+    from = "/reference/*"
+    to = "/developers/docs/resources/:splat"
+
+[[redirects]]
+    from = "/how-aztec-works/*"
+    to = "/"
+
+[[redirects]]
+    from = "/sdk/*"
+    to = "/"
+
+[[redirects]]
+    from = "/spec/*"
+    to = "/"
+
+[[redirects]]
+    from = "/developers/sandbox/*"
+    to = "/developers/getting_started_on_local_network"
+
+[[redirects]]
+    from = "/dev_docs/*"
+    to = "/developers/getting_started_on_local_network"
+
+# =============================================================================
+# ERROR CODES
+# Sequential error code redirects for user-friendly error references.
+# Each error code maps to a relevant documentation page.
+# Add new error codes sequentially (1, 2, 3, ...).
+# =============================================================================
+
+# Example (uncomment and modify when adding error codes):
+# [[redirects]]
+#     from = "/errors/1"
+#     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"

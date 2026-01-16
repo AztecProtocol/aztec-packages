@@ -1,0 +1,19 @@
+validator:
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+    cores: "2"
+  node:
+    resources:
+      requests:
+        cpu: "1.6"
+        memory: "5Gi"
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi

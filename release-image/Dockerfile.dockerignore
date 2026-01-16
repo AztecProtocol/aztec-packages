@@ -1,0 +1,23 @@
+# We include just what's needed to run the aztec cli (none of the aztec.sh extensions).
+*
+!/.release-please-manifest.json
+!/barretenberg/cpp/build/bin/bb-avm
+!/barretenberg/ts/dest/
+!/barretenberg/ts/build/
+!/barretenberg/ts/package.json
+!/noir/noir-repo/target/release/nargo
+!/noir/noir-repo/target/release/acvm
+!/noir/packages/
+!/yarn-project/package.json
+!/yarn-project/yarn.lock
+!/yarn-project/*/package.json
+!/yarn-project/*/dest/
+!/yarn-project/cli/public_include_metric_prefixes.json
+!/yarn-project/accounts/artifacts/
+!/yarn-project/bb-prover/artifacts/
+!/yarn-project/noir-protocol-circuits-types/artifacts/
+!/yarn-project/protocol-contracts/artifacts/
+!/yarn-project/noir-contracts.js/artifacts/
+!/yarn-project/simulator/artifacts/
+# This includes all files needed for l1-contracts deployment via forge script.
+!/yarn-project/l1-artifacts/l1-contracts/

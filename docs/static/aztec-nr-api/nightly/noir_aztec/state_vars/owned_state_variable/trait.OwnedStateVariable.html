@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Trait OwnedStateVariable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">OwnedStateVariable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait OwnedStateVariable</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-BalanceSet<Context>">BalanceSet<Context></a></li>
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>">PrivateImmutable<Note, Context></a></li>
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-PrivateMutable<Note, Context>">PrivateMutable<Note, Context></a></li>
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-PrivateSet<Note, Context>">PrivateSet<Note, Context></a></li>
+<li><a href="#impl-OwnedStateVariable&lt;Context&gt;-for-SingleUseClaim<Context>">SingleUseClaim<Context></a></li>
+</ul>
+<h2>In module owned_state_variable</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">state_vars</a>::<a href="index.html">owned_state_variable</a></div>
+<h1>Trait <span id="trait" class="trait">OwnedStateVariable</span></h1>
+<pre><code>pub trait OwnedStateVariable&lt;Context&gt; {
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#new"><span class="fn">new</span></a>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self;
+}</code></pre>
+
+<div class="comments">
+<p>A trait that defines the interface for Aztec state variables that have an owner. Unlike regular state variables,
+owned state variables need to be wrapped in <code>Owned</code> state variable when placed in storage:</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage {
+    balance: Owned&lt;PrivateSet&lt;UintNote, Context&gt;, Context&gt;,
+}</code></pre>
+<p>Owned state variables are only used when working with private data because, in the public context, write permissions
+are solely defined by the contract logic, and anyone can read data. In private, however, modifying state (nullifying
+private notes) requires both knowledge of the note (the note commitment preimage) and possession of the
+corresponding nullifier secret key.</p>
+<h2>So what is an Owner?</h2>
+<p>An <strong>owner</strong> is generally the entity that:</p>
+<ol>
+<li>Can decrypt the message in which the given note pertaining to the state variable was sent,</li>
+<li>has the ability to nullify (spend/destroy) those notes.</li>
+</ol>
+<p>(Note that point 1 does not necessarily have to be true; for example, the note message could be encrypted for a
+decrypting service address, which could then deliver the note to the actual owner via offchain communication.)</p>
+<h2>Type Parameters</h2>
+<ul>
+<li><code>Context</code> - The execution context type (e.g., <code>PublicContext</code>, <code>PrivateContext</code>, <code>UtilityContext</code>). The context
+determines which methods of the state variable are available and controls whether the variable can
+be accessed in public, private or utility functions.</li>
+</ul></div>
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: Context, storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Initializes a new owned state variable with a given storage slot and owner. The storage slot is inherited from
+the <code>Owned</code> state variable unchanged. The <code>Owned</code> state variable calls this function when its <code>at</code> method is
+invoked.</p>
+</div>
+</div></div><h2>Implementors</h2>
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-BalanceSet<Context>"><code class="code-header">impl&lt;Context&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../balance_set/balance_set/struct.BalanceSet.html" class="struct">BalanceSet</a>&lt;Context&gt;</code></h3>
+
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/private_immutable/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateMutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/private_mutable/struct.PrivateMutable.html" class="struct">PrivateMutable</a>&lt;Note, Context&gt;</code></h3>
+
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateSet<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, Context&gt;</code></h3>
+
+<h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-SingleUseClaim<Context>"><code class="code-header">impl&lt;Context&gt; <a href="../../../noir_aztec/state_vars/owned_state_variable/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../../noir_aztec/state_vars/single_use_claim/struct.SingleUseClaim.html" class="struct">SingleUseClaim</a>&lt;Context&gt;</code></h3>
+
+</main>
+</span>
+</body>
+</html>

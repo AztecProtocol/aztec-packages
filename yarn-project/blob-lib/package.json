@@ -1,0 +1,91 @@
+{
+  "name": "@aztec/blob-lib",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./dest/index.js",
+    "./encoding": "./dest/encoding/index.js",
+    "./types": "./dest/types.js",
+    "./testing": "./dest/testing.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Blob Lib",
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "start:dev": "concurrently -k \"../scripts/tsc.sh --watch\" \"nodemon --watch dest --exec yarn start\"",
+    "start": "node ./dest/index.js",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "inherits": [
+    "../package.common.json"
+  ],
+  "dependencies": {
+    "@aztec/constants": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@crate-crypto/node-eth-kzg": "^0.10.0",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "get-port": "^7.1.0",
+    "jest": "^30.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "engines": {
+    "node": ">=20.10"
+  }
+}

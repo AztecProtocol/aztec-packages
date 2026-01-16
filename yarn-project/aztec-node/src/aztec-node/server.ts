@@ -1,0 +1,1509 @@
+import { Archiver, createArchiver } from '@aztec/archiver';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import {
+  ARCHIVE_HEIGHT,
+  INITIAL_L2_BLOCK_NUM,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
+import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { getPublicClient } from '@aztec/ethereum/client';
+import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { compactArray, pick } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { BadRequestError } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { count } from '@aztec/foundation/string';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
+import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
+import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
+import {
+  createForwarderL1TxUtilsFromEthSigner,
+  createL1TxUtilsWithBlobsFromEthSigner,
+} from '@aztec/node-lib/factories';
+import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { BlockBuilder, GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
+import {
+  AttestationsBlockWatcher,
+  EpochPruneWatcher,
+  type SlasherClientInterface,
+  type Watcher,
+  createSlasher,
+} from '@aztec/slasher';
+import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type BlockParameter,
+  type DataInBlock,
+  L2Block,
+  L2BlockHash,
+  L2BlockHeader,
+  L2BlockNew,
+  type L2BlockSource,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type {
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  ProtocolContractAddresses,
+} from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import {
+  type AztecNode,
+  type AztecNodeAdmin,
+  type AztecNodeAdminConfig,
+  AztecNodeAdminConfigSchema,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+} from '@aztec/stdlib/interfaces/client';
+import {
+  type AllowedElement,
+  type ClientProtocolCircuitVerifier,
+  type L2LogsSource,
+  type Service,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  tryStop,
+} from '@aztec/stdlib/interfaces/server';
+import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
+import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import {
+  type BlockHeader,
+  type GlobalVariableBuilder as GlobalVariableBuilderInterface,
+  type IndexedTxEffect,
+  PublicSimulationOutput,
+  Tx,
+  type TxHash,
+  TxReceipt,
+  TxStatus,
+  type TxValidationResult,
+} from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
+import type { SingleValidatorStats, ValidatorsStats } from '@aztec/stdlib/validators';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
+import {
+  FullNodeCheckpointsBuilder as CheckpointsBuilder,
+  FullNodeCheckpointsBuilder,
+  NodeKeystoreAdapter,
+  ValidatorClient,
+  createBlockProposalHandler,
+  createValidatorClient,
+  createValidatorForAcceptingTxs,
+} from '@aztec/validator-client';
+import { createWorldStateSynchronizer } from '@aztec/world-state';
+
+import { createPublicClient, fallback, http } from 'viem';
+
+import { createSentinel } from '../sentinel/factory.js';
+import { Sentinel } from '../sentinel/sentinel.js';
+import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
+import { NodeMetrics } from './node_metrics.js';
+
+/**
+ * The aztec node.
+ */
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
+  private metrics: NodeMetrics;
+  private initialHeaderHashPromise: Promise<Fr> | undefined = undefined;
+
+  // Prevent two snapshot operations to happen simultaneously
+  private isUploadingSnapshot = false;
+
+  public readonly tracer: Tracer;
+
+  constructor(
+    protected config: AztecNodeConfig,
+    protected readonly p2pClient: P2P,
+    protected readonly blockSource: L2BlockSource & Partial<Service>,
+    protected readonly logsSource: L2LogsSource,
+    protected readonly contractDataSource: ContractDataSource,
+    protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly worldStateSynchronizer: WorldStateSynchronizer,
+    protected readonly sequencer: SequencerClient | undefined,
+    protected readonly slasherClient: SlasherClientInterface | undefined,
+    protected readonly validatorsSentinel: Sentinel | undefined,
+    protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
+    protected readonly l1ChainId: number,
+    protected readonly version: number,
+    protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly epochCache: EpochCacheInterface,
+    protected readonly packageVersion: string,
+    private proofVerifier: ClientProtocolCircuitVerifier,
+    private telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('node'),
+    private blobClient?: BlobClientInterface,
+  ) {
+    this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
+    this.tracer = telemetry.getTracer('AztecNodeService');
+
+    this.log.info(`Aztec Node version: ${this.packageVersion}`);
+    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+  }
+
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const status = await this.worldStateSynchronizer.status();
+    return status.syncSummary;
+  }
+
+  public getL2Tips() {
+    return this.blockSource.getL2Tips();
+  }
+
+  /**
+   * initializes the Aztec Node, wait for component to sync.
+   * @param config - The configuration to be used by the aztec node.
+   * @returns - A fully synced Aztec Node for use in development/testing.
+   */
+  public static async createAndSync(
+    inputConfig: AztecNodeConfig,
+    deps: {
+      telemetry?: TelemetryClient;
+      logger?: Logger;
+      publisher?: SequencerPublisher;
+      dateProvider?: DateProvider;
+      p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
+    } = {},
+    options: {
+      prefilledPublicData?: PublicDataTreeLeaf[];
+      dontStartSequencer?: boolean;
+    } = {},
+  ): Promise<AztecNodeService> {
+    const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
+    const log = deps.logger ?? createLogger('node');
+    const packageVersion = getPackageVersion() ?? '';
+    const telemetry = deps.telemetry ?? getTelemetryClient();
+    const dateProvider = deps.dateProvider ?? new DateProvider();
+    const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+
+    // Build a key store from file if given or from environment otherwise
+    let keyStoreManager: KeystoreManager | undefined;
+    const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
+    if (keyStoreProvided) {
+      const keyStores = loadKeystores(config.keyStoreDirectory!);
+      keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
+    } else {
+      const keyStore = createKeyStoreForValidator(config);
+      if (keyStore) {
+        keyStoreManager = new KeystoreManager(keyStore);
+      }
+    }
+
+    await keyStoreManager?.validateSigners();
+
+    // If we are a validator, verify our configuration before doing too much more.
+    if (!config.disableValidator) {
+      if (keyStoreManager === undefined) {
+        throw new Error('Failed to create key store, a requirement for running a validator');
+      }
+      if (!keyStoreProvided) {
+        log.warn(
+          'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
+        );
+      }
+      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager, log);
+    }
+
+    // validate that the actual chain id matches that specified in configuration
+    if (config.l1ChainId !== ethereumChain.chainInfo.id) {
+      throw new Error(
+        `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
+      );
+    }
+
+    const publicClient = createPublicClient({
+      chain: ethereumChain.chainInfo,
+      transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
+      pollingInterval: config.viemPollingIntervalMS,
+    });
+
+    const l1ContractsAddresses = await RegistryContract.collectAddresses(
+      publicClient,
+      config.l1Contracts.registryAddress,
+      config.rollupVersion ?? 'canonical',
+    );
+
+    // Overwrite the passed in vars.
+    config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+      rollupContract.getL1GenesisTime(),
+      rollupContract.getSlotDuration(),
+      rollupContract.getVersion(),
+    ] as const);
+
+    config.rollupVersion ??= Number(rollupVersionFromRollup);
+
+    if (config.rollupVersion !== Number(rollupVersionFromRollup)) {
+      log.warn(
+        `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
+      );
+    }
+
+    const blobClient = await createBlobClientWithFileStores(config, createLogger('node:blob-client:client'));
+
+    // attempt snapshot sync if possible
+    await trySnapshotSync(config, log);
+
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+
+    const archiver = await createArchiver(
+      config,
+      { blobClient, epochCache, telemetry, dateProvider },
+      { blockUntilSync: !config.skipArchiverInitialSync },
+    );
+
+    // now create the merkle trees and the world state synchronizer
+    const worldStateSynchronizer = await createWorldStateSynchronizer(
+      config,
+      archiver,
+      options.prefilledPublicData,
+      telemetry,
+    );
+    const circuitVerifier =
+      config.realProofs || config.debugForceTxProofVerification
+        ? await BBCircuitVerifier.new(config)
+        : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    if (!config.realProofs) {
+      log.warn(`Aztec node is accepting fake proofs`);
+    }
+    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
+
+    // create the tx pool and the p2p client, which will need the l2 block source
+    const p2pClient = await createP2PClient(
+      P2PClientType.Full,
+      config,
+      archiver,
+      proofVerifier,
+      worldStateSynchronizer,
+      epochCache,
+      packageVersion,
+      dateProvider,
+      telemetry,
+      deps.p2pClientDeps,
+    );
+
+    // We should really not be modifying the config object
+    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+
+    // Create BlockBuilder for EpochPruneWatcher (slasher functionality)
+    const blockBuilder = new BlockBuilder(
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
+    // Create FullNodeCheckpointsBuilder for validator and non-validator block proposal handling
+    const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
+    // We'll accumulate sentinel watchers here
+    const watchers: Watcher[] = [];
+
+    // Create validator client if required
+    const validatorClient = createValidatorClient(config, {
+      checkpointsBuilder: validatorCheckpointsBuilder,
+      worldState: worldStateSynchronizer,
+      p2pClient,
+      telemetry,
+      dateProvider,
+      epochCache,
+      blockSource: archiver,
+      l1ToL2MessageSource: archiver,
+      keyStoreManager,
+      blobClient,
+    });
+
+    // If we have a validator client, register it as a source of offenses for the slasher,
+    // and have it register callbacks on the p2p client *before* we start it, otherwise messages
+    // like attestations or auths will fail.
+    if (validatorClient) {
+      watchers.push(validatorClient);
+      if (!options.dontStartSequencer) {
+        await validatorClient.registerHandlers();
+      }
+    }
+
+    // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
+    // create a BlockProposalHandler to reexecute block proposals for monitoring
+    if (!validatorClient && config.alwaysReexecuteBlockProposals) {
+      log.info('Setting up block proposal reexecution for monitoring');
+      createBlockProposalHandler(config, {
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).registerForReexecution(p2pClient);
+    }
+
+    // Start world state and wait for it to sync to the archiver.
+    await worldStateSynchronizer.start();
+
+    // Start p2p. Note that it depends on world state to be running.
+    await p2pClient.start();
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+      watchers.push(validatorsSentinel);
+    }
+
+    let epochPruneWatcher: EpochPruneWatcher | undefined;
+    if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
+      epochPruneWatcher = new EpochPruneWatcher(
+        archiver,
+        archiver,
+        epochCache,
+        p2pClient.getTxProvider(),
+        blockBuilder,
+        config,
+      );
+      watchers.push(epochPruneWatcher);
+    }
+
+    // We assume we want to slash for invalid attestations unless all max penalties are set to 0
+    let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+    if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
+      attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+      watchers.push(attestationsBlockWatcher);
+    }
+
+    // Start p2p-related services once the archiver has completed sync
+    void archiver
+      .waitForInitialSync()
+      .then(async () => {
+        await p2pClient.start();
+        await validatorsSentinel?.start();
+        await epochPruneWatcher?.start();
+        await attestationsBlockWatcher?.start();
+        log.info(`All p2p services started`);
+      })
+      .catch(err => log.error('Failed to start p2p services after archiver sync', err));
+
+    // Validator enabled, create/start relevant service
+    let sequencer: SequencerClient | undefined;
+    let slasherClient: SlasherClientInterface | undefined;
+    if (!config.disableValidator && validatorClient) {
+      // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
+      // as they are executed when the node is selected as proposer.
+      const validatorAddresses = keyStoreManager
+        ? NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager).getAddresses()
+        : [];
+
+      slasherClient = await createSlasher(
+        config,
+        config.l1Contracts,
+        getPublicClient(config),
+        watchers,
+        dateProvider,
+        epochCache,
+        validatorAddresses,
+        undefined, // logger
+      );
+      await slasherClient.start();
+
+      const l1TxUtils = config.publisherForwarderAddress
+        ? await createForwarderL1TxUtilsFromEthSigner(
+            publicClient,
+            keyStoreManager!.createAllValidatorPublisherSigners(),
+            config.publisherForwarderAddress,
+            { ...config, scope: 'sequencer' },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          )
+        : await createL1TxUtilsWithBlobsFromEthSigner(
+            publicClient,
+            keyStoreManager!.createAllValidatorPublisherSigners(),
+            { ...config, scope: 'sequencer' },
+            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          );
+
+      // Create and start the sequencer client
+      const checkpointsBuilder = new CheckpointsBuilder(
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        archiver,
+        dateProvider,
+        telemetry,
+      );
+
+      sequencer = await SequencerClient.new(config, {
+        ...deps,
+        epochCache,
+        l1TxUtils,
+        validatorClient,
+        p2pClient,
+        worldStateSynchronizer,
+        slasherClient,
+        checkpointsBuilder,
+        l2BlockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        telemetry,
+        dateProvider,
+        blobClient,
+        nodeKeyStore: keyStoreManager!,
+      });
+    }
+
+    if (!options.dontStartSequencer && sequencer) {
+      await sequencer.start();
+      log.verbose(`Sequencer started`);
+    } else if (sequencer) {
+      log.warn(`Sequencer created but not started`);
+    }
+
+    const globalVariableBuilder = new GlobalVariableBuilder({
+      ...config,
+      rollupVersion: BigInt(config.rollupVersion),
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+    });
+
+    return new AztecNodeService(
+      config,
+      p2pClient,
+      archiver,
+      archiver,
+      archiver,
+      archiver,
+      worldStateSynchronizer,
+      sequencer,
+      slasherClient,
+      validatorsSentinel,
+      epochPruneWatcher,
+      ethereumChain.chainInfo.id,
+      config.rollupVersion,
+      globalVariableBuilder,
+      epochCache,
+      packageVersion,
+      proofVerifier,
+      telemetry,
+      log,
+      blobClient,
+    );
+  }
+
+  /**
+   * Returns the sequencer client instance.
+   * @returns The sequencer client instance.
+   */
+  public getSequencer(): SequencerClient | undefined {
+    return this.sequencer;
+  }
+
+  public getBlockSource(): L2BlockSource {
+    return this.blockSource;
+  }
+
+  public getContractDataSource(): ContractDataSource {
+    return this.contractDataSource;
+  }
+
+  public getP2P(): P2P {
+    return this.p2pClient;
+  }
+
+  /**
+   * Method to return the currently deployed L1 contract addresses.
+   * @returns - The currently deployed L1 contract addresses.
+   */
+  public getL1ContractAddresses(): Promise<L1ContractAddresses> {
+    return Promise.resolve(this.config.l1Contracts);
+  }
+
+  public getEncodedEnr(): Promise<string | undefined> {
+    return Promise.resolve(this.p2pClient.getEnr()?.encodeTxt());
+  }
+
+  public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+  }
+
+  /**
+   * Method to determine if the node is ready to accept transactions.
+   * @returns - Flag indicating the readiness for tx submission.
+   */
+  public isReady() {
+    return Promise.resolve(this.p2pClient.isReady() ?? false);
+  }
+
+  public async getNodeInfo(): Promise<NodeInfo> {
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.getNodeVersion(),
+      this.getVersion(),
+      this.getChainId(),
+      this.getEncodedEnr(),
+      this.getL1ContractAddresses(),
+      this.getProtocolContractAddresses(),
+    ]);
+
+    const nodeInfo: NodeInfo = {
+      nodeVersion,
+      l1ChainId: chainId,
+      rollupVersion,
+      enr,
+      l1ContractAddresses: contractAddresses,
+      protocolContractAddresses: protocolContractAddresses,
+    };
+
+    return nodeInfo;
+  }
+
+  /**
+   * Get a block specified by its number.
+   * @param number - The block number being requested.
+   * @returns The requested block.
+   */
+  public async getBlock(number: BlockParameter): Promise<L2Block | undefined> {
+    const blockNumber = number === 'latest' ? await this.getBlockNumber() : (number as BlockNumber);
+    if (blockNumber === BlockNumber.ZERO) {
+      return this.buildInitialBlock();
+    }
+    return await this.blockSource.getBlock(blockNumber);
+  }
+
+  /**
+   * Get a block specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const initialBlockHash = await this.#getInitialHeaderHash();
+    if (blockHash.equals(initialBlockHash)) {
+      return this.buildInitialBlock();
+    }
+    const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
+    return publishedBlock?.block;
+  }
+
+  private buildInitialBlock(): L2Block {
+    const initialHeader = this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    // TODO: (pw/mbps) Clean this up when we move completely to the new types.
+    // return L2BlockNew.empty(initialHeader);
+    const oldBlockHeader = L2BlockHeader.empty();
+    oldBlockHeader.state.l1ToL2MessageTree.root = initialHeader.state.l1ToL2MessageTree.root;
+    oldBlockHeader.state.partial.noteHashTree.root = initialHeader.state.partial.noteHashTree.root;
+    oldBlockHeader.state.partial.nullifierTree.root = initialHeader.state.partial.nullifierTree.root;
+    oldBlockHeader.state.partial.nullifierTree.nextAvailableLeafIndex =
+      initialHeader.state.partial.nullifierTree.nextAvailableLeafIndex;
+    oldBlockHeader.state.partial.publicDataTree.root = initialHeader.state.partial.publicDataTree.root;
+    oldBlockHeader.state.partial.publicDataTree.nextAvailableLeafIndex =
+      initialHeader.state.partial.publicDataTree.nextAvailableLeafIndex;
+    return L2Block.empty(oldBlockHeader);
+  }
+
+  /**
+   * Get a block specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByArchive(archive);
+    return publishedBlock?.block;
+  }
+
+  /**
+   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
+   * @param from - The start of the range of blocks to return.
+   * @param limit - The maximum number of blocks to obtain.
+   * @returns The blocks requested.
+   */
+  public async getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
+    return (await this.blockSource.getBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<PublishedL2Block[]> {
+    return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
+  }
+
+  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
+  }
+
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean) {
+    return (await this.blockSource.getCheckpointedBlocks(from, limit, proven)) ?? [];
+  }
+
+  /**
+   * Method to fetch the current min L2 fees.
+   * @returns The current min L2 fees.
+   */
+  public async getCurrentMinFees(): Promise<GasFees> {
+    return await this.globalVariableBuilder.getCurrentMinFees();
+  }
+
+  public async getMaxPriorityFees(): Promise<GasFees> {
+    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+      return tx.getGasSettings().maxPriorityFeesPerGas;
+    }
+
+    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
+  }
+
+  /**
+   * Method to fetch the latest block number synchronized by the node.
+   * @returns The block number.
+   */
+  public async getBlockNumber(): Promise<BlockNumber> {
+    return await this.blockSource.getBlockNumber();
+  }
+
+  public async getProvenBlockNumber(): Promise<BlockNumber> {
+    return await this.blockSource.getProvenBlockNumber();
+  }
+
+  /**
+   * Method to fetch the version of the package.
+   * @returns The node package version
+   */
+  public getNodeVersion(): Promise<string> {
+    return Promise.resolve(this.packageVersion);
+  }
+
+  /**
+   * Method to fetch the version of the rollup the node is connected to.
+   * @returns The rollup version.
+   */
+  public getVersion(): Promise<number> {
+    return Promise.resolve(this.version);
+  }
+
+  /**
+   * Method to fetch the chain id of the base-layer for the rollup.
+   * @returns The chain id.
+   */
+  public getChainId(): Promise<number> {
+    return Promise.resolve(this.l1ChainId);
+  }
+
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return this.contractDataSource.getContractClass(id);
+  }
+
+  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.contractDataSource.getContract(address);
+  }
+
+  public getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPrivateLogsByTags(tags);
+  }
+
+  public getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags);
+  }
+
+  /**
+   * Gets public logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.logsSource.getPublicLogs(filter);
+  }
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
+    return this.logsSource.getContractClassLogs(filter);
+  }
+
+  /**
+   * Method to submit a transaction to the p2p pool.
+   * @param tx - The transaction to be submitted.
+   */
+  public async sendTx(tx: Tx) {
+    await this.#sendTx(tx);
+  }
+
+  async #sendTx(tx: Tx) {
+    const timer = new Timer();
+    const txHash = tx.getTxHash().toString();
+
+    const valid = await this.isValidTx(tx);
+    if (valid.result !== 'valid') {
+      const reason = valid.reason.join(', ');
+      this.metrics.receivedTx(timer.ms(), false);
+      this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
+      throw new Error(`Invalid tx: ${reason}`);
+    }
+
+    await this.p2pClient!.sendTx(tx);
+    this.metrics.receivedTx(timer.ms(), true);
+    this.log.info(`Received tx ${txHash}`, { txHash });
+  }
+
+  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
+
+    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
+    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
+    // and we would incorrectly return a TxReceipt with status DROPPED
+    if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
+      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
+    }
+
+    const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
+    if (settledTxReceipt) {
+      txReceipt = settledTxReceipt;
+    }
+
+    return txReceipt;
+  }
+
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
+    return this.blockSource.getTxEffect(txHash);
+  }
+
+  /**
+   * Method to stop the aztec node.
+   */
+  public async stop() {
+    this.log.info(`Stopping Aztec Node`);
+    await tryStop(this.validatorsSentinel);
+    await tryStop(this.epochPruneWatcher);
+    await tryStop(this.slasherClient);
+    await tryStop(this.proofVerifier);
+    await tryStop(this.sequencer);
+    await tryStop(this.p2pClient);
+    await tryStop(this.worldStateSynchronizer);
+    await tryStop(this.blockSource);
+    await tryStop(this.blobClient);
+    await tryStop(this.telemetry);
+    this.log.info(`Stopped Aztec Node`);
+  }
+
+  /**
+   * Returns the blob client used by this node.
+   * @internal - Exposed for testing purposes only.
+   */
+  public getBlobClient(): BlobClientInterface | undefined {
+    return this.blobClient;
+  }
+
+  /**
+   * Method to retrieve pending txs.
+   * @param limit - The number of items to returns
+   * @param after - The last known pending tx. Used for pagination
+   * @returns - The pending txs.
+   */
+  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+    return this.p2pClient!.getPendingTxs(limit, after);
+  }
+
+  public getPendingTxCount(): Promise<number> {
+    return this.p2pClient!.getPendingTxCount();
+  }
+
+  /**
+   * Method to retrieve a single tx from the mempool or unfinalized chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The tx if it exists.
+   */
+  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  }
+
+  /**
+   * Method to retrieve txs from the mempool or unfinalized chain.
+   * @param txHash - The transaction hash to return.
+   * @returns - The txs if it exists.
+   */
+  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
+  }
+
+  /**
+   * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
+   * the leaves were inserted.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
+   * @param treeId - The tree to search in.
+   * @param leafValues - The values to search for.
+   * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
+   */
+  public async findLeavesIndexes(
+    blockNumber: BlockParameter,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
+  ): Promise<(DataInBlock<bigint> | undefined)[]> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const maybeIndices = await committedDb.findLeafIndices(
+      treeId,
+      leafValues.map(x => x.toBuffer()),
+    );
+    // We filter out undefined values
+    const indices = maybeIndices.filter(x => x !== undefined) as bigint[];
+
+    // Now we find the block numbers for the indices
+    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, indices);
+
+    // If any of the block numbers are undefined, we throw an error.
+    for (let i = 0; i < indices.length; i++) {
+      if (blockNumbers[i] === undefined) {
+        throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
+      }
+    }
+
+    // Get unique block numbers in order to optimize num calls to getLeafValue function.
+    const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
+
+    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
+    // (note that block number corresponds to the leaf index in the archive tree).
+    const blockHashes = await Promise.all(
+      uniqueBlockNumbers.map(blockNumber => {
+        return committedDb.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
+      }),
+    );
+
+    // If any of the block hashes are undefined, we throw an error.
+    for (let i = 0; i < uniqueBlockNumbers.length; i++) {
+      if (blockHashes[i] === undefined) {
+        throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
+      }
+    }
+
+    // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
+    return maybeIndices.map((index, i) => {
+      if (index === undefined) {
+        return undefined;
+      }
+      const blockNumber = blockNumbers[i];
+      if (blockNumber === undefined) {
+        return undefined;
+      }
+      const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
+      const blockHash = blockHashes[blockHashIndex];
+      if (!blockHash) {
+        return undefined;
+      }
+      return {
+        l2BlockNumber: BlockNumber(Number(blockNumber)),
+        l2BlockHash: L2BlockHash.fromField(blockHash),
+        data: index,
+      };
+    });
+  }
+
+  /**
+   * Returns a sibling path for the given index in the nullifier tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
+  public async getNullifierSiblingPath(
+    blockNumber: BlockParameter,
+    leafIndex: bigint,
+  ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
+  }
+
+  /**
+   * Returns a sibling path for the given index in the data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
+  public async getNoteHashSiblingPath(
+    blockNumber: BlockParameter,
+    leafIndex: bigint,
+  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+  }
+
+  public async getArchiveMembershipWitness(
+    blockNumber: BlockParameter,
+    archive: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [archive]);
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
+  }
+
+  public async getNoteHashMembershipWitness(
+    blockNumber: BlockParameter,
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
+      MerkleTreeId.NOTE_HASH_TREE,
+      [noteHash],
+    );
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
+  }
+
+  /**
+   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
+   * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
+   */
+  public async getL1ToL2MessageMembershipWitness(
+    blockNumber: BlockParameter,
+    l1ToL2Message: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
+    const db = await this.#getWorldState(blockNumber);
+    const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
+    if (!witness) {
+      return undefined;
+    }
+
+    // REFACTOR: Return a MembershipWitness object
+    return [witness.index, witness.path];
+  }
+
+  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    return messageIndex
+      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
+      : undefined;
+  }
+
+  /**
+   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns Whether the message is synced and ready to be included in a block.
+   */
+  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    return messageIndex !== undefined;
+  }
+
+  /**
+   * Returns all the L2 to L1 messages in an epoch.
+   * @param epoch - The epoch at which to get the data.
+   * @returns The L2 to L1 messages (empty array if the epoch is not found).
+   */
+  public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
+    // Assumes `getBlocksForEpoch` returns blocks in ascending order of block number.
+    const blocks = await this.blockSource.getBlocksForEpoch(epoch);
+    const blocksInCheckpoints: L2Block[][] = [];
+    let previousSlotNumber = SlotNumber.ZERO;
+    let checkpointIndex = -1;
+    for (const block of blocks) {
+      const slotNumber = block.header.globalVariables.slotNumber;
+      if (slotNumber !== previousSlotNumber) {
+        checkpointIndex++;
+        blocksInCheckpoints.push([]);
+        previousSlotNumber = slotNumber;
+      }
+      blocksInCheckpoints[checkpointIndex].push(block);
+    }
+    return blocksInCheckpoints.map(blocks =>
+      blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
+    );
+  }
+
+  /**
+   * Returns a sibling path for a leaf in the committed blocks tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   */
+  public async getArchiveSiblingPath(
+    blockNumber: BlockParameter,
+    leafIndex: bigint,
+  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
+  }
+
+  /**
+   * Returns a sibling path for a leaf in the committed public data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   */
+  public async getPublicDataSiblingPath(
+    blockNumber: BlockParameter,
+    leafIndex: bigint,
+  ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    return committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+  }
+
+  /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  public async getNullifierMembershipWitness(
+    blockNumber: BlockParameter,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    const db = await this.#getWorldState(blockNumber);
+    const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
+    if (!witness) {
+      return undefined;
+    }
+
+    const { index, path } = witness;
+    const leafPreimage = await db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
+    if (!leafPreimage) {
+      return undefined;
+    }
+
+    return new NullifierMembershipWitness(index, leafPreimage as NullifierLeafPreimage, path);
+  }
+
+  /**
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
+   *
+   * Note: This function returns the membership witness of the nullifier itself and not the low nullifier when
+   * the nullifier already exists in the tree. This is because the `getPreviousValueIndex` function returns the
+   * index of the nullifier itself when it already exists in the tree.
+   * TODO: This is a confusing behavior and we should eventually address that.
+   */
+  public async getLowNullifierMembershipWitness(
+    blockNumber: BlockParameter,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!findResult) {
+      return undefined;
+    }
+    const { index, alreadyPresent } = findResult;
+    if (alreadyPresent) {
+      this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+    }
+    const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
+
+    const siblingPath = await committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
+    return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
+  }
+
+  async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult) {
+      return undefined;
+    } else {
+      const preimage = (await committedDb.getLeafPreimage(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      )) as PublicDataTreeLeafPreimage;
+      const path = await committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
+      return new PublicDataWitness(lowLeafResult.index, preimage, path);
+    }
+  }
+
+  /**
+   * Gets the storage value at the given contract storage slot.
+   *
+   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
+   * Aztec's version of `eth_getStorageAt`.
+   *
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
+   * @param blockNumber - The block number at which to get the data or 'latest'.
+   * @returns Storage value at the given contract slot.
+   */
+  public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
+
+    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
+    }
+    const preimage = (await committedDb.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+    return preimage.leaf.value;
+  }
+
+  /**
+   * Returns the currently committed block header, or the initial header if no blocks have been produced.
+   * @returns The current committed block header.
+   */
+  public async getBlockHeader(blockNumber: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
+    return blockNumber === BlockNumber.ZERO ||
+      (blockNumber === 'latest' && (await this.blockSource.getBlockNumber()) === BlockNumber.ZERO)
+      ? this.worldStateSynchronizer.getCommitted().getInitialHeader()
+      : this.blockSource.getBlockHeader(blockNumber === 'latest' ? blockNumber : (blockNumber as BlockNumber));
+  }
+
+  /**
+   * Get a block header specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    const initialBlockHash = await this.#getInitialHeaderHash();
+    if (blockHash.equals(initialBlockHash)) {
+      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+    }
+    return await this.blockSource.getBlockHeaderByHash(blockHash);
+  }
+
+  /**
+   * Get a block header specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByArchive(archive);
+  }
+
+  /**
+   * Simulates the public part of a transaction with the current state.
+   * @param tx - The transaction to simulate.
+   **/
+  @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
+  public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
+    // Check total gas limit for simulation
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const txGasLimit = gasSettings.gasLimits.l2Gas;
+    const teardownGasLimit = gasSettings.teardownGasLimits.l2Gas;
+    if (txGasLimit + teardownGasLimit > this.config.rpcSimulatePublicMaxGasLimit) {
+      throw new BadRequestError(
+        `Transaction total gas limit ${
+          txGasLimit + teardownGasLimit
+        } (${txGasLimit} + ${teardownGasLimit}) exceeds maximum gas limit ${
+          this.config.rpcSimulatePublicMaxGasLimit
+        } for simulation`,
+      );
+    }
+
+    const txHash = tx.getTxHash();
+    const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+
+    // If sequencer is not initialized, we just set these values to zero for simulation.
+    const coinbase = EthAddress.ZERO;
+    const feeRecipient = AztecAddress.ZERO;
+
+    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
+      blockNumber,
+      coinbase,
+      feeRecipient,
+    );
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      new DateProvider(),
+      this.telemetry,
+    );
+
+    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
+      globalVariables: newGlobalVariables.toInspect(),
+      txHash,
+      blockNumber,
+    });
+
+    const merkleTreeFork = await this.worldStateSynchronizer.fork();
+    try {
+      const config = PublicSimulatorConfig.from({
+        skipFeeEnforcement,
+        collectDebugLogs: true,
+        collectHints: false,
+        collectCallMetadata: true,
+        collectStatistics: false,
+        collectionLimits: CollectionLimitsConfig.from({
+          maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+        }),
+      });
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
+
+      // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
+      const [processedTxs, failedTxs, _usedTxs, returns] = await processor.process([tx]);
+      // REFACTOR: Consider returning the error rather than throwing
+      if (failedTxs.length) {
+        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
+        throw failedTxs[0].error;
+      }
+
+      const [processedTx] = processedTxs;
+      return new PublicSimulationOutput(
+        processedTx.revertReason,
+        processedTx.globalVariables,
+        processedTx.txEffect,
+        returns,
+        processedTx.gasUsed,
+      );
+    } finally {
+      await merkleTreeFork.close();
+    }
+  }
+
+  public async isValidTx(
+    tx: Tx,
+    { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
+  ): Promise<TxValidationResult> {
+    const db = this.worldStateSynchronizer.getCommitted();
+    const verifier = isSimulation ? undefined : this.proofVerifier;
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
+      timestamp: nextSlotTimestamp,
+      blockNumber,
+      l1ChainId: this.l1ChainId,
+      rollupVersion: this.version,
+      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+      gasFees: await this.getCurrentMinFees(),
+      skipFeeEnforcement,
+      txsPermitted: !this.config.disableTransactions,
+    });
+
+    return await validator.validateTx(tx);
+  }
+
+  public getConfig(): Promise<AztecNodeAdminConfig> {
+    const schema = AztecNodeAdminConfigSchema;
+    const keys = schema.keyof().options;
+    return Promise.resolve(pick(this.config, ...keys));
+  }
+
+  public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
+    const newConfig = { ...this.config, ...config };
+    this.sequencer?.updateConfig(config);
+    this.slasherClient?.updateConfig(config);
+    this.validatorsSentinel?.updateConfig(config);
+    await this.p2pClient.updateP2PConfig(config);
+    const archiver = this.blockSource as Archiver;
+    if ('updateConfig' in archiver) {
+      archiver.updateConfig(config);
+    }
+    if (newConfig.realProofs !== this.config.realProofs) {
+      this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+    }
+
+    this.config = newConfig;
+  }
+
+  public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
+    return Promise.resolve({
+      classRegistry: ProtocolContractAddress.ContractClassRegistry,
+      feeJuice: ProtocolContractAddress.FeeJuice,
+      instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
+      multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
+    });
+  }
+
+  public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.contractDataSource.registerContractFunctionSignatures(signatures);
+  }
+
+  public getValidatorsStats(): Promise<ValidatorsStats> {
+    return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
+  }
+
+  public getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: SlotNumber,
+    toSlot?: SlotNumber,
+  ): Promise<SingleValidatorStats | undefined> {
+    return this.validatorsSentinel?.getValidatorStats(validatorAddress, fromSlot, toSlot) ?? Promise.resolve(undefined);
+  }
+
+  public async startSnapshotUpload(location: string): Promise<void> {
+    // Note that we are forcefully casting the blocksource as an archiver
+    // We break support for archiver running remotely to the node
+    const archiver = this.blockSource as Archiver;
+    if (!('backupTo' in archiver)) {
+      this.metrics.recordSnapshotError();
+      throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
+    }
+
+    // Test that the archiver has done an initial sync.
+    if (!archiver.isInitialSyncComplete()) {
+      this.metrics.recordSnapshotError();
+      throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
+    }
+
+    // And it has an L2 block hash
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.proposed.hash);
+    if (!l2BlockHash) {
+      this.metrics.recordSnapshotError();
+      throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
+    }
+
+    if (this.isUploadingSnapshot) {
+      this.metrics.recordSnapshotError();
+      throw new Error(`Snapshot upload already in progress. Cannot start another one until complete.`);
+    }
+
+    // Do not wait for the upload to be complete to return to the caller, but flag that an operation is in progress
+    this.isUploadingSnapshot = true;
+    const timer = new Timer();
+    void uploadSnapshot(location, this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log)
+      .then(() => {
+        this.isUploadingSnapshot = false;
+        this.metrics.recordSnapshot(timer.ms());
+      })
+      .catch(err => {
+        this.isUploadingSnapshot = false;
+        this.metrics.recordSnapshotError();
+        this.log.error(`Error uploading snapshot: ${err}`);
+      });
+
+    return Promise.resolve();
+  }
+
+  public async rollbackTo(targetBlock: BlockNumber, force?: boolean): Promise<void> {
+    const archiver = this.blockSource as Archiver;
+    if (!('rollbackTo' in archiver)) {
+      throw new Error('Archiver implementation does not support rollbacks.');
+    }
+
+    const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.block.number);
+    if (targetBlock < finalizedBlock) {
+      if (force) {
+        this.log.warn(`Clearing world state database to allow rolling back behind finalized block ${finalizedBlock}`);
+        await this.worldStateSynchronizer.clear();
+        await this.p2pClient.clear();
+      } else {
+        throw new Error(`Cannot rollback to block ${targetBlock} as it is before finalized ${finalizedBlock}`);
+      }
+    }
+
+    try {
+      this.log.info(`Pausing archiver and world state sync to start rollback`);
+      await archiver.stop();
+      await this.worldStateSynchronizer.stopSync();
+      const currentBlock = await archiver.getBlockNumber();
+      const blocksToUnwind = currentBlock - targetBlock;
+      this.log.info(`Unwinding ${count(blocksToUnwind, 'block')} from L2 block ${currentBlock} to ${targetBlock}`);
+      await archiver.rollbackTo(targetBlock);
+      this.log.info(`Unwinding complete.`);
+    } catch (err) {
+      this.log.error(`Error during rollback`, err);
+      throw err;
+    } finally {
+      this.log.info(`Resuming world state and archiver sync.`);
+      this.worldStateSynchronizer.resumeSync();
+      archiver.resume();
+    }
+  }
+
+  public async pauseSync(): Promise<void> {
+    this.log.info(`Pausing archiver and world state sync`);
+    await (this.blockSource as Archiver).stop();
+    await this.worldStateSynchronizer.stopSync();
+  }
+
+  public resumeSync(): Promise<void> {
+    this.log.info(`Resuming world state and archiver sync.`);
+    this.worldStateSynchronizer.resumeSync();
+    (this.blockSource as Archiver).resume();
+    return Promise.resolve();
+  }
+
+  public getSlashPayloads(): Promise<SlashPayloadRound[]> {
+    if (!this.slasherClient) {
+      throw new Error(`Slasher client not enabled`);
+    }
+    return this.slasherClient.getSlashPayloads();
+  }
+
+  public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
+    if (!this.slasherClient) {
+      throw new Error(`Slasher client not enabled`);
+    }
+    if (round === 'all') {
+      return this.slasherClient.getPendingOffenses();
+    } else {
+      return this.slasherClient.gatherOffensesForRound(round === 'current' ? undefined : BigInt(round));
+    }
+  }
+
+  #getInitialHeaderHash(): Promise<Fr> {
+    if (!this.initialHeaderHashPromise) {
+      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
+    }
+    return this.initialHeaderHashPromise;
+  }
+
+  /**
+   * Returns an instance of MerkleTreeOperations having first ensured the world state is fully synched
+   * @param blockNumber - The block number at which to get the data.
+   * @returns An instance of a committed MerkleTreeOperations
+   */
+  async #getWorldState(blockNumber: BlockParameter) {
+    if (typeof blockNumber === 'number' && blockNumber < INITIAL_L2_BLOCK_NUM - 1) {
+      throw new Error('Invalid block number to get world state for: ' + blockNumber);
+    }
+
+    let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
+    try {
+      // Attempt to sync the world state if necessary
+      blockSyncedTo = await this.#syncWorldState();
+    } catch (err) {
+      this.log.error(`Error getting world state: ${err}`);
+    }
+
+    // using a snapshot could be less efficient than using the committed db
+    if (blockNumber === 'latest' /*|| blockNumber === blockSyncedTo*/) {
+      this.log.debug(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      return this.worldStateSynchronizer.getCommitted();
+    } else if (blockNumber <= blockSyncedTo) {
+      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      return this.worldStateSynchronizer.getSnapshot(blockNumber as BlockNumber);
+    } else {
+      throw new Error(`Block ${blockNumber} not yet synced`);
+    }
+  }
+
+  /**
+   * Ensure we fully sync the world state
+   * @returns A promise that fulfils once the world state is synced
+   */
+  async #syncWorldState(): Promise<BlockNumber> {
+    const blockSourceHeight = await this.blockSource.getBlockNumber();
+    return await this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
+  }
+}

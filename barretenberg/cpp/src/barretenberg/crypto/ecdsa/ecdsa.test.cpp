@@ -1,0 +1,181 @@
+#include "ecdsa.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/utils.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/serialize/test_helper.hpp"
+#include <gtest/gtest.h>
+
+using namespace bb;
+using namespace bb::crypto;
+
+TEST(ecdsa, msgpack)
+{
+    auto [actual, expected] = msgpack_roundtrip(ecdsa_signature{});
+    EXPECT_EQ(actual, expected);
+}
+
+TEST(ecdsa, verify_signature_grumpkin_sha256)
+{
+    std::string message = "The quick brown dog jumped over the lazy fox.";
+
+    ecdsa_key_pair<grumpkin::fr, grumpkin::g1> account;
+    account.private_key = grumpkin::fr::random_element();
+    account.public_key = grumpkin::g1::one * account.private_key;
+
+    ecdsa_signature signature =
+        ecdsa_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, account);
+
+    bool result = ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+        message, account.public_key, signature);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(ecdsa, verify_signature_secp256r1_sha256)
+{
+    std::string message = "The quick brown dog jumped over the lazy fox.";
+
+    ecdsa_key_pair<secp256r1::fr, secp256r1::g1> account;
+    account.private_key = secp256r1::fr::random_element();
+    account.public_key = secp256r1::g1::one * account.private_key;
+
+    ecdsa_signature signature =
+        ecdsa_construct_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, account);
+
+    bool result = ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        message, account.public_key, signature);
+
+    EXPECT_EQ(result, true);
+}
+
+TEST(ecdsa, recover_public_key_secp256k1_sha256)
+{
+    std::string message = "The quick brown dog jumped over the lazy fox.";
+
+    ecdsa_key_pair<secp256k1::fr, secp256k1::g1> account;
+    account.private_key = secp256k1::fr::random_element();
+    account.public_key = secp256k1::g1::one * account.private_key;
+
+    ecdsa_signature signature =
+        ecdsa_construct_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(message, account);
+
+    bool result = ecdsa_verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+        message, account.public_key, signature);
+
+    auto recovered_public_key =
+        ecdsa_recover_public_key<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(message, signature);
+
+    EXPECT_EQ(result, true);
+    EXPECT_EQ(recovered_public_key, account.public_key);
+}
+
+TEST(ecdsa, recover_public_key_secp256r1_sha256)
+{
+    std::string message = "The quick brown dog jumped over the lazy fox.";
+
+    ecdsa_key_pair<secp256r1::fr, secp256r1::g1> account;
+    account.private_key = secp256r1::fr::random_element();
+    account.public_key = secp256r1::g1::one * account.private_key;
+
+    ecdsa_signature signature =
+        ecdsa_construct_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, account);
+
+    bool result = ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        message, account.public_key, signature);
+
+    auto recovered_public_key =
+        ecdsa_recover_public_key<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, signature);
+
+    EXPECT_EQ(result, true);
+    EXPECT_EQ(recovered_public_key, account.public_key);
+}
+
+TEST(ecdsa, check_overflowing_r_and_s_are_rejected)
+{
+
+    std::vector<uint8_t> message_vec = utils::hex_to_bytes("41414141");
+
+    std::string message(message_vec.begin(), message_vec.end());
+    ecdsa_signature signature;
+    grumpkin::fr private_key;
+    grumpkin::g1::affine_element public_key;
+    ecdsa_key_pair<grumpkin::fr, grumpkin::g1> key_pair;
+    // We create a private and public key and a signature
+    private_key = grumpkin::fr::random_element();
+    public_key = grumpkin::g1::affine_element((grumpkin::g1::one * private_key).normalize());
+    key_pair = { private_key, public_key };
+    signature = ecdsa_construct_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, key_pair);
+    // Check that the signature is correct
+    bool result =
+        ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, public_key, signature);
+    EXPECT_TRUE(result);
+    using serialize::read;
+
+    const auto* p_r = &signature.r[0];
+    uint256_t old_r, new_r, old_s, new_s;
+    read(p_r, old_r);
+    new_r = old_r;
+    // We update r so it is larger than the modulus, but has the same value modulo fr::modulus
+    new_r = new_r + grumpkin::fr::modulus;
+    using serialize::write;
+    auto* p_r_m = &signature.r[0];
+    write(p_r_m, new_r);
+    result =
+        ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, public_key, signature);
+    // Signature verification should decline this signature, since it breaks specification
+    EXPECT_FALSE(result);
+    // Do the same for s, restore r
+    const auto* p_s = &signature.s[0];
+    read(p_s, old_s);
+    new_s = old_s;
+    new_s = new_s + grumpkin::fr::modulus;
+    using serialize::write;
+    auto* p_r_s = &signature.s[0];
+    write(p_r_m, old_r);
+    write(p_r_s, new_s);
+    result =
+        ecdsa_verify_signature<Sha256Hasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(message, public_key, signature);
+    EXPECT_FALSE(result);
+}
+
+TEST(ecdsa, verify_signature_secp256r1_sha256_NIST_1)
+{
+    /*
+    Msg =
+    5905238877c77421f73e43ee3da6f2d9e2ccad5fc942dcec0cbd25482935faaf416983fe165b1a045ee2bcd2e6dca3bdf46c4310a7461f9a37960ca672d3feb5473e253605fb1ddfd28065b53cb5858a8ad28175bf9bd386a5e471ea7a65c17cc934a9d791e91491eb3754d03799790fe2d308d16146d5c9b0d0debd97d79ce8
+    d = 519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464
+    Qx = 1ccbe91c075fc7f4f033bfa248db8fccd3565de94bbfb12f3c59ff46c271bf83
+    Qy = ce4014c68811f9a21a1fdb2c0e6113e06db7ca93b7404e78dc7ccd5ca89a4ca9
+    k = 94a1bbb14b906a61a280f245f9e93c7f3b4a6247824f5d33b9670787642a68de
+    R = f3ac8061b514795b8843e3d6629527ed2afd6b1f6a555a7acabb5e6f79c8c2ac
+    S = 740887e535fa594e879389d9d408c8e2cd4f4894bda8872ab6ebf098305d9c4e
+    */
+
+    secp256r1::fq P_x = secp256r1::fq(0x3c59ff46c271bf83, 0xd3565de94bbfb12f, 0xf033bfa248db8fcc, 0x1ccbe91c075fc7f4)
+                            .to_montgomery_form();
+    secp256r1::fq P_y = secp256r1::fq(0xdc7ccd5ca89a4ca9, 0x6db7ca93b7404e78, 0x1a1fdb2c0e6113e0, 0xce4014c68811f9a2)
+                            .to_montgomery_form();
+
+    secp256r1::g1::affine_element public_key(P_x, P_y);
+    std::array<uint8_t, 32> r{
+        0xf3, 0xac, 0x80, 0x61, 0xb5, 0x14, 0x79, 0x5b, 0x88, 0x43, 0xe3, 0xd6, 0x62, 0x95, 0x27, 0xed,
+        0x2a, 0xfd, 0x6b, 0x1f, 0x6a, 0x55, 0x5a, 0x7a, 0xca, 0xbb, 0x5e, 0x6f, 0x79, 0xc8, 0xc2, 0xac,
+    };
+
+    std::array<uint8_t, 32> s{
+        0x74, 0x08, 0x87, 0xe5, 0x35, 0xfa, 0x59, 0x4e, 0x87, 0x93, 0x89, 0xd9, 0xd4, 0x08, 0xc8, 0xe2,
+        0xcd, 0x4f, 0x48, 0x94, 0xbd, 0xa8, 0x87, 0x2a, 0xb6, 0xeb, 0xf0, 0x98, 0x30, 0x5d, 0x9c, 0x4e,
+    };
+
+    ecdsa_signature sig{ r, s, 27 };
+    std::vector<uint8_t> message_vec = utils::hex_to_bytes(
+        "5905238877c77421f73e43ee3da6f2d9e2ccad5fc942dcec0cbd25482935faaf416983fe165b1a045ee2bcd2e6dca3bdf46"
+        "c4310a7461f9a37960ca672d3feb5473e253605fb1ddfd28065b53cb5858a8ad28175bf9bd386a5e471ea7a65c17cc934a9"
+        "d791e91491eb3754d03799790fe2d308d16146d5c9b0d0debd97d79ce8");
+    std::string message(message_vec.begin(), message_vec.end());
+
+    bool result =
+        ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, public_key, sig);
+    EXPECT_EQ(result, true);
+}

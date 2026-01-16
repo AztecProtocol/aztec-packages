@@ -1,0 +1,280 @@
+import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { times } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import type { GetBlockReturnType } from 'viem';
+
+import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
+
+class TestEpochCache extends EpochCache {
+  public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
+    this.cache.set(epoch, committeeInfo);
+  }
+
+  public setCacheSize(size: number): void {
+    this.config.cacheSize = size;
+  }
+}
+
+describe('EpochCache', () => {
+  let rollupContract: MockProxy<RollupContract>;
+  let epochCache: TestEpochCache;
+  let client: MockProxy<ViemPublicClient>;
+
+  // Test constants
+  const SLOT_DURATION = 12;
+  const EPOCH_DURATION = 32; // 384 seconds
+  // const L1_GENESIS_TIME = 1000n;
+  let l1GenesisTime: bigint;
+
+  const testCommittee = [
+    EthAddress.fromString('0x0000000000000000000000000000000000000001'),
+    EthAddress.fromString('0x0000000000000000000000000000000000000002'),
+    EthAddress.fromString('0x0000000000000000000000000000000000000003'),
+  ];
+
+  const extraTestValidator = EthAddress.fromString('0x0000000000000000000000000000000000000004');
+
+  beforeEach(() => {
+    rollupContract = mock<RollupContract>();
+
+    // Mock the getCommitteeAt method
+    rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
+    rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(0n));
+    rollupContract.getAttesters.mockResolvedValue(testCommittee);
+
+    l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
+
+    // Mock the client.getBlock method for timestamp retrieval
+    // Return a timestamp far enough in the future to accommodate test queries
+    // lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds
+    // Add extra buffer for random slots in tests (e.g., 1000 slots = 12000 seconds)
+    client = mock<ViemPublicClient>();
+    const futureTimestamp = l1GenesisTime + BigInt(768 + 12000);
+    client.getBlock.mockResolvedValue({ timestamp: futureTimestamp } as GetBlockReturnType);
+    (rollupContract as any).client = client;
+
+    // Setup fake timers
+    jest.useFakeTimers();
+
+    // Initialize with test constants
+    const testConstants: L1RollupConstants & { lagInEpochsForValidatorSet: number; lagInEpochsForRandao: number } = {
+      l1StartBlock: 0n,
+      l1GenesisTime,
+      slotDuration: SLOT_DURATION,
+      ethereumSlotDuration: SLOT_DURATION,
+      epochDuration: EPOCH_DURATION,
+      proofSubmissionEpochs: 1,
+      lagInEpochsForValidatorSet: 2,
+      lagInEpochsForRandao: 2,
+    };
+
+    epochCache = new TestEpochCache(rollupContract, testConstants);
+    // Initialize the cache with the initial epoch's committee
+    epochCache.seedCache(EpochNumber(0), {
+      epoch: EpochNumber(0),
+      committee: testCommittee,
+      seed: 0n,
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should cache the validator set for the length of an epoch', async () => {
+    // Initial call to get validators
+    const { committee: initialCommittee } = await epochCache.getCommittee();
+    expect(initialCommittee).toEqual(testCommittee);
+    // Not called as we should cache with the initial validator set
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
+
+    // Move time forward within the same epoch (less than EPOCH_DURATION) (x 1000 for milliseconds)
+    jest.setSystemTime(Date.now() + (Number(EPOCH_DURATION * SLOT_DURATION) / 4) * 1000);
+
+    // Add another validator to the set
+    rollupContract.getCommitteeAt.mockResolvedValue([...testCommittee, extraTestValidator]);
+
+    // Should use cached validators
+    const { committee: midEpochCommittee } = await epochCache.getCommittee();
+    expect(midEpochCommittee).toEqual(testCommittee);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Still cached
+
+    // Move time forward to next epoch (x 1000 for milliseconds)
+    jest.setSystemTime(Date.now() + Number(EPOCH_DURATION * SLOT_DURATION) * 1000);
+
+    // Should fetch new validator
+    const { committee: nextEpochCommittee } = await epochCache.getCommittee();
+    expect(nextEpochCommittee).toEqual([...testCommittee, extraTestValidator]);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
+  });
+
+  it('should correctly get current validator based on slot number', async () => {
+    // Set initial time to a known slot
+    const initialTime = Number(l1GenesisTime) * 1000; // Convert to milliseconds
+    jest.setSystemTime(initialTime);
+
+    // The valid proposer has been calculated in advance to be [1,1,0] for the slots chosen
+    // Hence the chosen values for testCommittee below
+
+    // Get validator for slot 0
+    const { currentProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    expect(currentProposer).toEqual(testCommittee[1]);
+
+    // Move to next slot
+    jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
+    const { currentProposer: nextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    expect(nextProposer).toEqual(testCommittee[1]);
+
+    // Move to slot that wraps around validator set
+    jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
+    const { currentProposer: nextNextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    expect(nextNextProposer).toEqual(testCommittee[0]);
+  });
+
+  it('should request to update the validator set when on the epoch boundary', async () => {
+    // Set initial time to a known slot
+    const initialTime = Number(l1GenesisTime) * 1000; // Convert to milliseconds
+    jest.setSystemTime(initialTime);
+
+    // Move forward to slot before the epoch boundary
+    jest.setSystemTime(initialTime + Number(SLOT_DURATION) * (EPOCH_DURATION - 1) * 1000);
+
+    // Should request to update the validator set
+    await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should compute the correct timestamp for a given slot', async () => {
+    const { l1GenesisTime, slotDuration, epochDuration } = epochCache.getL1Constants();
+
+    // generate a random slot greater than `epochDuration`
+    const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
+    const targetEpoch = targetSlot / BigInt(epochDuration);
+    const epochStartSlot = targetEpoch * BigInt(epochDuration);
+    const epochStartTimestamp = l1GenesisTime + epochStartSlot * BigInt(slotDuration);
+
+    const expectedCommittee = [EthAddress.fromString('0x000000000000000000000000000000000000BEEF')];
+    const expectedSeed = Buffer32.fromBigInt(999n);
+    rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee);
+    rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
+
+    await epochCache.getCommittee(SlotNumber.fromBigInt(targetSlot));
+
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
+
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(epochStartTimestamp);
+  });
+
+  it('should cache multiple epochs', async () => {
+    // Initial call to get validators
+    const { committee: initialCommittee } = await epochCache.getCommittee();
+    expect(initialCommittee).toEqual(testCommittee);
+
+    // Move time forward to next epoch (x 1000 for milliseconds)
+    jest.setSystemTime(Date.now() + Number(EPOCH_DURATION * SLOT_DURATION) * 1000);
+
+    // Add another validator to the set
+    rollupContract.getCommitteeAt.mockResolvedValue([...testCommittee, extraTestValidator]);
+
+    // Should fetch new validator
+    const { committee: nextEpochCommittee } = await epochCache.getCommittee();
+    expect(nextEpochCommittee).toEqual([...testCommittee, extraTestValidator]);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
+    rollupContract.getCommitteeAt.mockClear();
+
+    // Should return the previous epoch still cached (SlotNumber(1) is a slot number, not an epoch)
+    const { committee: initialCommitteeRerequested } = await epochCache.getCommittee(SlotNumber(1));
+    expect(initialCommitteeRerequested).toEqual(testCommittee);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Cached
+  });
+
+  it('should purge old epochs', async () => {
+    // Set the cache size to 3 epochs
+    epochCache.setCacheSize(3);
+
+    const extraValidators = [4, 5, 6, 7].map(EthAddress.fromNumber);
+    const committees = times(4, i => [...testCommittee, ...extraValidators.slice(0, i)]);
+
+    // Seed the cache with 3 epochs worth of data
+    for (let i = 0; i < 3; i++) {
+      rollupContract.getCommitteeAt.mockResolvedValue(committees[i]);
+      const { committee: actual } = await epochCache.getCommittee(SlotNumber(i * EPOCH_DURATION));
+      expect(actual).toEqual(committees[i]);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(i); // Epoch 0 is already initialized
+    }
+
+    // Requesting any of them should not call the contract again
+    rollupContract.getCommitteeAt.mockClear();
+    for (let i = 0; i < 3; i++) {
+      const { committee: actual } = await epochCache.getCommittee(SlotNumber(i * EPOCH_DURATION));
+      expect(actual).toEqual(committees[i]);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
+    }
+
+    // Requesting another epoch should cause the oldest to be purged
+    rollupContract.getCommitteeAt.mockResolvedValue(committees[3]);
+    const { committee: fourth } = await epochCache.getCommittee(SlotNumber(3 * EPOCH_DURATION));
+    expect(fourth).toEqual(committees[3]);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+    rollupContract.getCommitteeAt.mockClear();
+
+    // So when going back to the first epoch, it should be re-requested from the contract
+    rollupContract.getCommitteeAt.mockResolvedValue(committees[0]);
+    const { committee: first } = await epochCache.getCommittee(SlotNumber(0 * EPOCH_DURATION));
+    expect(first).toEqual(committees[0]);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return all validators', async () => {
+    let testTime = new Date();
+    jest.setSystemTime(testTime);
+    const initialValidators = times(100, i => EthAddress.fromNumber(i + 1));
+    const updatedValidators = times(100, i => EthAddress.fromNumber(i + 101));
+    rollupContract.getAttesters.mockResolvedValueOnce(initialValidators);
+    const validators = await epochCache.getRegisteredValidators();
+    expect(validators.map(v => v.toString())).toEqual(initialValidators.map(v => v.toString()));
+    expect(rollupContract.getAttesters).toHaveBeenCalledTimes(1);
+
+    // Move forward 30 seconds and it should return the cached attesters
+    testTime = new Date(testTime.getTime() + 30 * 1000);
+    jest.setSystemTime(testTime);
+    const validators2 = await epochCache.getRegisteredValidators();
+    expect(validators2.map(v => v.toString())).toEqual(initialValidators.map(v => v.toString()));
+    expect(rollupContract.getAttesters).toHaveBeenCalledTimes(1);
+
+    // Move forward in time past 60 seconds and we should query the contract again
+    testTime = new Date(testTime.getTime() + 31 * 1000);
+    jest.setSystemTime(testTime);
+    rollupContract.getAttesters.mockResolvedValueOnce(updatedValidators);
+    const validators3 = await epochCache.getRegisteredValidators();
+    expect(validators3.map(v => v.toString())).toEqual(updatedValidators.map(v => v.toString()));
+    expect(rollupContract.getAttesters).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw error when querying committee for future epoch beyond lag', async () => {
+    const { l1GenesisTime, epochDuration } = epochCache.getL1Constants();
+
+    // Mock the client to return a current L1 timestamp that's close to genesis
+    const currentL1Timestamp = l1GenesisTime + BigInt(100); // Just 100 seconds after genesis
+    client.getBlock.mockResolvedValue({ timestamp: currentL1Timestamp } as GetBlockReturnType);
+
+    // Calculate a slot far in the future (epoch 100) that's definitely not cached
+    // and is beyond the allowed lag (lagInEpochsForValidatorSet * epochDuration * slotDuration = 2 * 32 * 12 = 768 seconds)
+    const futureEpoch = BigInt(100);
+    const futureSlot = futureEpoch * BigInt(epochDuration);
+
+    // Attempt to get committee for this future slot should throw
+    await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
+      /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
+    );
+  });
+});

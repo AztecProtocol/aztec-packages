@@ -1,0 +1,328 @@
+#!/usr/bin/env bash
+# aztec-up - Aztec version manager
+
+# We wrap the entire script in {} so self-update can replace the file while it's running.
+# Wrapping in {} ensures bash parses the entire script before executing it.
+{
+set -euo pipefail
+
+# Colors
+g="\033[32m" # Green
+y="\033[33m" # Yellow
+b="\033[34m" # Blue
+r="\033[0m"  # Reset
+
+AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
+INSTALL_URI="${INSTALL_URI:-https://install.aztec.network}"
+
+function echo_green {
+  echo -e "${g}$1${r}"
+}
+
+function echo_yellow {
+  echo -e "${y}$1${r}"
+}
+
+function echo_blue {
+  echo -e "${b}$1${r}"
+}
+
+function help {
+  echo "aztec-up - Aztec version manager"
+  echo
+  echo "Usage: aztec-up [command] [options]"
+  echo
+  echo "Commands:"
+  echo "  install <version>         Install a version and switch to it"
+  echo "  use [<version>]           Switch to an installed version (or read from .aztecrc)"
+  echo "  list                      List installed versions"
+  echo "  uninstall <version>       Remove an installed version"
+  echo "  self-update               Update aztec-up itself to the latest version"
+  echo "  env                       Output PATH for .aztecrc version (for eval)"
+  echo
+  echo "Options:"
+  echo "  -h, --help                Show this help message"
+  echo
+  echo "Examples:"
+  echo "  aztec-up install          Install the latest version"
+  echo "  aztec-up install nightly  Install the latest nightly version"
+  echo "  aztec-up install 0.85.0   Install a specific version"
+  echo "  aztec-up use 0.85.0       Switch to version 0.85.0"
+  echo "  aztec-up use              Read version from .aztecrc and switch to it"
+  echo "  aztec-up list             Show all installed versions"
+  echo "  aztec-up self-update      Update aztec-up to latest"
+}
+
+# Get the currently active version (from the 'current' symlink)
+function get_current_version {
+  if [ -L "$AZTEC_HOME/current" ]; then
+    basename "$(readlink "$AZTEC_HOME/current")"
+  else
+    echo ""
+  fi
+}
+
+# Find .aztecrc file by searching up the directory tree
+function find_aztecrc {
+  local dir="$PWD"
+  while [ "$dir" != "/" ] && [ "$dir" != "$HOME" ]; do
+    if [ -f "$dir/.aztecrc" ]; then
+      echo "$dir/.aztecrc"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  # Also check $HOME
+  if [ -f "$HOME/.aztecrc" ]; then
+    echo "$HOME/.aztecrc"
+    return 0
+  fi
+  return 1
+}
+
+# Read version from .aztecrc file (first non-comment, non-empty line)
+function read_aztecrc {
+  local file="$1"
+  grep -v '^#' "$file" | grep -v '^$' | head -n 1 | tr -d '[:space:]'
+}
+
+# Check if a version is installed
+function is_version_installed {
+  local version="$1"
+  [ -d "$AZTEC_HOME/versions/$version" ]
+}
+
+# Check if version string is valid semver
+function is_semver {
+  local version="$1"
+  # Match semver: X.Y.Z with optional pre-release and build metadata
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'
+  [[ "$version" =~ $semver_regex ]]
+}
+
+# Resolve alias (like "latest") to actual version number
+function resolve_version {
+  local version="$1"
+  if is_semver "$version"; then
+    echo "$version"
+  else
+    # Fetch alias file to get actual version
+    local resolved
+    if ! resolved=$(curl -fsSL "$INSTALL_URI/aliases/$version" 2>/dev/null); then
+      echo "Error: Could not resolve alias '$version'" >&2
+      return 1
+    fi
+    echo "$resolved"
+  fi
+}
+
+# Install a version by downloading and running the version-specific installer
+function cmd_install {
+  local version="${1:-latest}"
+
+  # Resolve alias to actual version
+  local resolved_version
+  if ! resolved_version=$(resolve_version "$version"); then
+    exit 1
+  fi
+
+  local install_url="$INSTALL_URI/$resolved_version/install"
+
+  # Check if install script exists
+  if ! curl --head --silent --fail "$install_url" > /dev/null; then
+    echo "Error: Version installer not found at $install_url"
+    echo "Please check the version specified."
+    exit 1
+  fi
+
+  # Download and run the version-specific installer
+  curl -fsSL "$install_url" | VERSION="$resolved_version" bash
+
+  # Update the current symlink
+  ln -sfn "$AZTEC_HOME/versions/$resolved_version" "$AZTEC_HOME/current"
+}
+
+# Switch to a version
+function cmd_use {
+  local version="${1:-}"
+
+  # If no version specified, try to read from .aztecrc
+  if [ -z "$version" ]; then
+    local aztecrc_file
+    if aztecrc_file=$(find_aztecrc); then
+      version=$(read_aztecrc "$aztecrc_file")
+    else
+      echo "Error: No version specified and no .aztecrc file found."
+      echo "Usage: aztec-up use <version>"
+      echo "   or: aztec-up use (with .aztecrc file in current or parent directory)"
+      exit 1
+    fi
+  fi
+
+  # Resolve alias to actual version
+  local resolved_version
+  if ! resolved_version=$(resolve_version "$version"); then
+    exit 1
+  fi
+
+  # Check if version is installed
+  if ! is_version_installed "$resolved_version"; then
+    echo "Error: Version $resolved_version is not installed."
+    echo "Run 'aztec-up install $version' to install it first."
+    exit 1
+  fi
+
+  # Update the current symlink
+  ln -sfn "$AZTEC_HOME/versions/$resolved_version" "$AZTEC_HOME/current"
+  echo_green "Using aztec version $resolved_version"
+}
+
+# List installed versions and available aliases
+function cmd_list {
+  local current_version
+  current_version=$(get_current_version)
+
+  # Show installed versions
+  if [ -d "$AZTEC_HOME/versions" ] && [ -n "$(ls -A "$AZTEC_HOME/versions" 2>/dev/null)" ]; then
+    echo "Installed versions:"
+    echo
+    for dir in "$AZTEC_HOME/versions"/*/; do
+      if [ -d "$dir" ]; then
+        local version
+        version=$(basename "$dir")
+        if [ "$version" = "$current_version" ]; then
+          echo -e "${g}* ${version} (current)${r}"
+        else
+          echo "  $version"
+        fi
+      fi
+    done
+  else
+    echo "No versions installed."
+  fi
+
+  # Show available aliases
+  echo
+  echo "Aliases:"
+  local index
+  if index=$(curl -fsSL "$INSTALL_URI/aliases/index" 2>/dev/null); then
+    while IFS= read -r alias_name; do
+      [ -z "$alias_name" ] && continue
+      local resolved
+      if resolved=$(curl -fsSL "$INSTALL_URI/aliases/$alias_name" 2>/dev/null); then
+        echo "  $alias_name -> $resolved"
+      fi
+    done <<< "$index"
+  else
+    echo "  (could not fetch aliases)"
+  fi
+}
+
+# Uninstall a version
+function cmd_uninstall {
+  local version="${1:-}"
+
+  if [ -z "$version" ]; then
+    echo "Error: Please specify a version to uninstall."
+    echo "Usage: aztec-up uninstall <version>"
+    exit 1
+  fi
+
+  if ! is_version_installed "$version"; then
+    echo "Error: Version $version is not installed."
+    exit 1
+  fi
+
+  local current_version
+  current_version=$(get_current_version)
+
+  if [ "$version" = "$current_version" ]; then
+    echo_yellow "Warning: You are uninstalling the currently active version."
+    echo "You will need to run 'aztec-up use <version>' to switch to another version."
+    rm -f "$AZTEC_HOME/current"
+  fi
+
+  # Remove the version directory
+  rm -rf "$AZTEC_HOME/versions/$version"
+
+  echo_green "Uninstalled version $version"
+}
+
+# Update aztec-up itself
+function cmd_self-update {
+  echo "Updating aztec-up..."
+
+  local self_path="$AZTEC_HOME/bin/aztec-up"
+  local tmp_path=$(mktemp)
+
+  # Download latest aztec-up from root
+  if ! curl -fsSL "$INSTALL_URI/aztec-up" -o "$tmp_path"; then
+    echo "Error: Failed to download latest aztec-up"
+    rm -f "$tmp_path"
+    exit 1
+  fi
+
+  # Replace self
+  chmod +x "$tmp_path"
+  mv "$tmp_path" "$self_path"
+
+  echo_green "aztec-up updated successfully."
+  echo "Run 'aztec-up --help' to see available commands."
+}
+
+# Output PATH for .aztecrc version (for eval in shell scripts)
+function cmd_env {
+  # Find and read .aztecrc
+  local aztecrc_file
+  if ! aztecrc_file=$(find_aztecrc); then
+    echo "Error: No .aztecrc file found." >&2
+    return 1
+  fi
+
+  local version
+  version=$(read_aztecrc "$aztecrc_file")
+
+  # Resolve alias to actual version
+  local resolved_version
+  if ! resolved_version=$(resolve_version "$version"); then
+    return 1
+  fi
+
+  # Check if version is installed
+  if ! is_version_installed "$resolved_version"; then
+    echo "Error: Version $resolved_version is not installed." >&2
+    echo "Run 'aztec-up install $version' to install it first." >&2
+    return 1
+  fi
+
+  local version_dir="$AZTEC_HOME/versions/$resolved_version"
+
+  # Output PATH export with relevant bin directories
+  echo "export PATH=\"$version_dir/bin:$version_dir/node_modules/.bin:\$PATH\""
+}
+
+# Main entry point
+function main {
+  local cmd="${1:-}"
+  shift || true
+
+  case "$cmd" in
+    ""|-h|--help)
+      help
+      ;;
+    install|use|list|uninstall|self-update|env)
+      cmd_$cmd "$@"
+      ;;
+    *)
+      echo "Unknown command: $cmd"
+      help
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"
+
+# We exit here to ensure we don't execute beyond in event of a self-update.
+exit
+}

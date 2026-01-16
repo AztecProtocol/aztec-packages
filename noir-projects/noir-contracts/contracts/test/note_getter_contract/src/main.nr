@@ -1,0 +1,45 @@
+use aztec::macros::aztec;
+
+/// Used to test note getter in e2e_note_getter.test.ts
+#[aztec]
+pub contract NoteGetter {
+    use aztec::{
+        // Core functionality
+        messages::message_delivery::MessageDelivery,
+        note::note_interface::NoteProperties,
+        // Macros
+        macros::{functions::external, storage::storage},
+        note::note_viewer_options::NoteViewerOptions,
+        protocol_types::address::AztecAddress,
+        state_vars::{Owned, PrivateSet},
+    };
+
+    use field_note::field_note::FieldNote;
+
+    #[storage]
+    struct Storage<Context> {
+        set: Owned<PrivateSet<FieldNote, Context>, Context>,
+    }
+
+    #[external("private")]
+    fn insert_note(value: Field) {
+        let owner = self.msg_sender();
+        let note = FieldNote { value };
+
+        self.storage.set.at(owner).insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+    }
+
+    #[external("utility")]
+    unconstrained fn read_note_values(
+        owner: AztecAddress,
+        comparator: u8,
+        value: Field,
+    ) -> BoundedVec<Field, 10> {
+        let notes = self.storage.set.at(owner).view_notes(NoteViewerOptions::new().select(
+            FieldNote::properties().value,
+            comparator,
+            value,
+        ));
+        notes.map(|note| note.value)
+    }
+}

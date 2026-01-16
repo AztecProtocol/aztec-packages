@@ -1,0 +1,12 @@
+{
+  "name": "noir-protocol-circuits-generator",
+  "version": "0.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@iarna/toml": "^2.2.5"
+  },
+  "scripts": {
+    "generate_variants": "node ./scripts/generate_variants.js"
+  },
+  "packageManager": "yarn@4.5.2"
+}

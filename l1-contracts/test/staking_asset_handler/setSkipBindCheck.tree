@@ -1,0 +1,7 @@
+
+SetSkipBindCheck
+├── when caller of setSkipBindCheck is not owner
+│   └── it reverts
+└── when caller of setSkipBindCheck is owner
+    ├── it sets the skipBindCheck
+    └── it emits a {SkipBindCheckUpdated} event

@@ -1,0 +1,334 @@
+#!/usr/bin/env bash
+# Called by 'parallelize' to execute a given test cmd.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+source $ci3/source_cache
+source $ci3/source_refname
+
+# We must enable job control to ensure our test runs in it's own process group.
+# Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
+# This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
+set -m
+
+cmd=$1
+[ -z "$cmd" ] && exit 0
+
+is_merge_queue=0
+[[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
+
+# Ensure SCENARIO_TESTS is always defined
+SCENARIO_TESTS=${SCENARIO_TESTS:-0}
+
+# Extract the first token and export any variable assignments.
+hash_part="${cmd%% *}"
+if [[ "$hash_part" == *:* ]]; then
+  IFS=':' read -ra parts <<< "$hash_part"
+  # The first element is the actual hash; remaining elements are variable assignments.
+  for var_assignment in "${parts[@]:1}"; do
+    export "$var_assignment"
+  done
+fi
+
+# Defaults, unless overridden above.
+TIMEOUT=${TIMEOUT:-600s}
+# The following are exported as they maybe used in the test command.
+# We can schedule on all CPUs by default.
+export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
+export CPUS=${CPUS:-2}
+# TODO: Only currently enforced by docker. Investigate ulimit.
+export MEM=${MEM:-$((CPUS * 4))g}
+
+# Remove the rebuild hash (first field) that is in front of the test command.
+# Exported for use in yq.
+export test_cmd="${cmd#* }"
+key=$(hash_str_orig "$cmd")
+
+# For tracking a list of results for individual tests (excludes the rebuild hash).
+test_hash=$(hash_str_orig "$test_cmd")
+
+# We can skip the test if it's already been successfully run.
+# We actually pre-filter tests in CI runs so this is rarely hit.
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
+  log_key=$(redis_cli GET $key)
+  if [ -n "$log_key" ]; then
+    log_info=" ($(ci_term_link $log_key))"
+    echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
+    exit 0
+  fi
+fi
+
+# If the test has a verbose mode, we want it enabled.
+export VERBOSE=1
+
+function cleanup {
+  if [ -n "${publish_pid:-}" ]; then
+    kill $publish_pid &>/dev/null
+  fi
+  if [ -f ${tmp_file:-} ]; then
+    rm -f $tmp_file
+  fi
+}
+trap cleanup EXIT
+
+function sig_handler {
+  # echo RTC kill $test_pid $cmd >/dev/tty;
+  kill -TERM ${test_pid:-} &>/dev/null
+  # echo RTC waiting on $test_pid >/dev/tty;
+  # wait $test_pid
+  # echo RTC wait complete for $test_pid >/dev/tty;
+  exit
+}
+trap sig_handler SIGTERM SIGINT
+
+# Run the test, capturing output, with a timeout of 10m.
+# We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
+# To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
+tmp_file=/tmp/$key
+touch $tmp_file
+
+# Print test metadata header.
+if [ -n "${PARENT_LOG_ID:-}" ]; then
+  echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)" >>$tmp_file
+fi
+cat <<EOF >>$tmp_file
+Command: $cmd
+Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
+Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
+Date: $(date)
+System: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
+Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
+History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARGET_BRANCH}
+
+EOF
+
+function publish_log {
+  local expire=${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | redis_setexz $log_key $expire
+}
+
+function publish_log_final {
+  local expire=${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
+}
+
+function live_publish_log {
+  # Not replacing previous trap as we run this function in the background.
+  trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
+  # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
+  sleep 30 &
+  local sleep_pid=$!
+  wait $sleep_pid
+  publish_log
+  echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
+  while [ -f $tmp_file ]; do
+    local stat=$(stat -c %Y "$tmp_file" || echo 0)
+    if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
+      publish_log
+    fi
+    sleep 5 &
+    sleep_pid=$!
+    wait $sleep_pid
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  log_key=$(uuid)
+  log_info=" ($(ci_term_link $log_key))"
+
+  if [ "$CI" -eq 1 ]; then
+    # If we're in CI, we want to publish the log live.
+    live_publish_log &
+    publish_pid=$!
+  fi
+fi
+
+# Reset timer.
+# Disable exit on error so we can capture code.
+# Run the test. Bind it to the given or default range of CPUs.
+# Timeout uses foreground so we only signal the test process, not the whole group (better cleanup control).
+# Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
+SECONDS=0
+set +e
+if [ "${ISOLATE:-0}" -eq 1 ]; then
+  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(cat | add_timestamps >> $tmp_file) &
+else
+  [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
+  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
+fi
+test_pid=$!
+# echo "RTC waiting on $test_pid" >/dev/tty
+wait $test_pid
+code=$?
+
+# If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
+if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+  exit $code
+fi
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
+  # If the test succeeded and we're in CI, save the test log.
+  # If the test failed, regardless of CI state, save the test log.
+  if [ $code -eq 0 ]; then
+    if [ "$CI" -eq 1 ]; then
+      redis_cli SETEX $key 604800 $log_key &>/dev/null
+      publish_log_final
+    else
+      log_info=""
+    fi
+  else
+    # Extend lifetime of failed test logs to 12 weeks.
+    publish_log_final $((60 * 60 * 24 * 7 * 12))
+  fi
+fi
+
+function track_test {
+  if [ "$CI" -eq 0 ]; then
+    return
+  fi
+  # For the next branch, we track tests in merge queues only.
+  # For version branches, we don't assume there is a merge queue.
+  if [ "$is_merge_queue" -eq 1 ] || [[ -n "${TARGET_BRANCH:-}" && "$TARGET_BRANCH" =~ ^v[0-9] ]]; then
+    local key=$1
+    local line=$(pr_link "$2")
+
+    redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+    # Keeps only the last 1000 lines.
+    redis_cli RTRIM $key -1000 -1 &>/dev/null
+  fi
+}
+
+# Show PASSED and early out on success.
+function pass {
+  local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
+  echo -e "$line"
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  exit
+}
+
+# Show FAILED and exit with error code.
+function fail {
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  echo -e "$line"
+
+  if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
+    cat $tmp_file
+    echo -e "$line"
+  fi
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
+  # Publish failed status to Redis channel
+  local redis_data=$(jq -n \
+    --arg status "failed" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_url "${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson code "$code" \
+    --argjson duration "$SECONDS" \
+    --argjson is_scenario "$SCENARIO_TESTS" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
+  redis_publish "ci:test:failed" "$redis_data"
+
+  # notify slack if scenario test failed
+  if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+    read -r -d '' data <<EOF
+    {
+      "channel": "#alerts-next-scenario",
+      "text": "Scenario test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` ${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}"
+    }
+EOF
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-type: application/json" \
+      --data "$data" &>/dev/null
+  fi
+
+  exit $code
+}
+
+# Show FLAKED and send slack message to test owner(s). Exit with success.
+function flake {
+  local group_suffix=""
+  if [ -n "${flake_group_id:-}" ]; then
+    group_suffix=" group:$flake_group_id"
+  fi
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix}"
+  echo -e "$line"
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
+
+  # Save flake to buffer file (for PR comment generation)
+  if [ -n "${FLAKES_FILE:-}" ]; then
+    echo "$line" >> "$FLAKES_FILE"
+  fi
+
+  # Publish flake status to Redis channel
+  local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')
+  local redis_data=$(jq -n \
+    --arg status "flaked" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson code "$code" \
+    --argjson duration "$SECONDS" \
+    --argjson owners "$owners_json" \
+    --arg flake_group_id "${flake_group_id:-}" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, owners: $owners, flake_group_id: $flake_group_id, timestamp: now | todate}')
+  redis_publish "ci:test:flaked" "$redis_data"
+
+  # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
+    return
+  fi
+
+  # Send slack message to owners.
+  local slack_uids=""
+  for uid in $owners; do
+    slack_uids+="<@$uid> "
+  done
+  data=$(jq -n \
+    --arg channel "#aztec3-ci" \
+    --arg text "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key" \
+    '{channel: $channel, text: $text}'
+  )
+  curl -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data" &>/dev/null
+  exit
+}
+
+# Test passed.
+[ $code -eq 0 ] && pass
+
+# We're not in CI, fail.
+[ "$CI" -eq 0 ] && fail
+
+# Get matching test entries
+test_entries=$(get_test_entry "$test_cmd" "$tmp_file")
+
+# Extract owners from entries
+owners=$(echo "$test_entries" | jq -r '.owners[]' | sort -u)
+
+# Extract flake_group_id from first matching entry
+flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head -1)
+
+# To not fail a test, we at least need an owner to notify.
+if [ -z "$owners" ]; then
+  fail
+else
+  flake
+fi
