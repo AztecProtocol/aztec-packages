@@ -409,7 +409,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ),
     );
 
-    const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore);
+    const eventService = new EventService(this.anchorBlockStore, this.aztecNode, this.privateEventStore, this.jobId);
     const eventStorePromises = eventValidationRequests.map(request =>
       eventService.storeEvent(
         request.contractAddress,
