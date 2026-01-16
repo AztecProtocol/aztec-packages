@@ -165,7 +165,7 @@ template <typename Curve> class MSM {
         static constexpr size_t BATCH_OVERFLOW_SIZE = 2;
         std::vector<AffineElement> points_to_add;
         std::vector<BaseField> scalar_scratch_space;
-        std::vector<uint64_t> addition_result_bucket_destinations;
+        std::vector<uint32_t> addition_result_bucket_destinations;
 
         AffineAdditionData() noexcept
             : points_to_add(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
