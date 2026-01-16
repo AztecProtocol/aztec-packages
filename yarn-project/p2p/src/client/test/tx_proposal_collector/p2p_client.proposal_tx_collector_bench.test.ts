@@ -6,6 +6,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 
 import {
+  COLLECTOR_DISPLAY_NAMES,
   type CollectorType,
   type DistributionPattern,
   WorkerClientManager,
@@ -20,7 +21,7 @@ const COLLECTOR_TYPES: CollectorType[] = ['batch-requester', 'send-batch-request
 const PEERS_PER_RUN = 30;
 const TIMEOUT_MS = 30_000;
 
-const MISSING_TX_COUNTS = [10, 50, 500] as const;
+const MISSING_TX_COUNTS = [10, 50, 100, 500] as const;
 type MissingTxCount = number;
 
 interface ScenarioBase {
@@ -280,7 +281,8 @@ async function outputResults(benchResults: BenchmarkResult[]): Promise<void> {
   if (process.env.BENCH_OUTPUT_MD) {
     await mkdir(path.dirname(process.env.BENCH_OUTPUT_MD), { recursive: true });
     await writeFile(process.env.BENCH_OUTPUT_MD, toPrettyString(benchResults));
-    console.log(toPrettyString(benchResults));
     return;
   }
+
+  console.log(toPrettyString(benchResults));
 }

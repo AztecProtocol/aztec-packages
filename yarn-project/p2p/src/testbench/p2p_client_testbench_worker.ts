@@ -57,6 +57,7 @@ import {
 import type { PubSubLibp2p } from '../util.js';
 
 export type { DistributionPattern, CollectorType } from '../test-helpers/testbench-utils.js';
+export { COLLECTOR_DISPLAY_NAMES } from '../test-helpers/testbench-utils.js';
 
 export interface BenchReqRespCommand {
   type: 'BENCH_REQRESP';

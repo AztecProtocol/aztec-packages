@@ -571,3 +571,4 @@ class WorkerClientManager {
 
 export { WorkerClientManager, testChainConfig };
 export type { DistributionPattern, CollectorType } from './p2p_client_testbench_worker.js';
+export { COLLECTOR_DISPLAY_NAMES } from './p2p_client_testbench_worker.js';

@@ -299,6 +299,14 @@ export type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
 export type CollectorType = 'batch-requester' | 'send-batch-request';
 
 /**
+ * Display names for collector types (for output/logging only).
+ */
+export const COLLECTOR_DISPLAY_NAMES: Record<CollectorType, string> = {
+  'batch-requester': 'batch-requester (new)',
+  'send-batch-request': 'send-batch-request (old)',
+};
+
+/**
  * Benchmark timing constants.
  */
 export const BENCHMARK_CONSTANTS = {

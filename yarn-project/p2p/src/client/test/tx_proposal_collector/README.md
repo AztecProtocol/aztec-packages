@@ -8,7 +8,7 @@ When proposing a block, the node may have a block proposal containing a list of 
 
 This benchmark answers:
 
-- How long does it take to fetch **N missing txs** (N ∈ **{10, 50, 500}**)?
+- How long does it take to fetch **N missing txs** (N ∈ **{10, 50, 100, 500}**)?
 - How do different **peer availability patterns** affect performance?
 - Which collector strategy performs better under each pattern?
 
@@ -117,7 +117,7 @@ Explicitly caps the number of peers it will involve (`maxPeers`) and uses a retr
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `PEERS_PER_RUN` | 30 | Number of worker processes spawned |
-| `MISSING_TX_COUNTS` | 10, 50, 500 | Number of missing transactions to fetch |
+| `MISSING_TX_COUNTS` | 10, 50, 100, 500 | Number of missing transactions to fetch |
 | `TIMEOUT_MS` | 30,000 ms | Collector timeout per case |
 | `TEST_TIMEOUT_MS` | 600,000 ms | Overall Jest timeout (10 minutes) |
 
