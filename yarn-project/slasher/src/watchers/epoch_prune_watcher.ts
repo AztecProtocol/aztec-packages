@@ -12,13 +12,14 @@ import {
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
-  IFullNodeBlockBuilder,
+  ICheckpointsBuilder,
   ITxProvider,
   MerkleTreeWriteOperations,
   SlasherConfig,
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
+import type { CheckpointGlobalVariables } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -53,7 +54,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private epochCache: EpochCache,
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
-    private blockBuilder: IFullNodeBlockBuilder,
+    private checkpointsBuilder: ICheckpointsBuilder,
     penalties: EpochPruneWatcherPenalties,
   ) {
     super();
@@ -126,7 +127,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
 
     let previousCheckpointOutHashes: Fr[] = [];
-    const fork = await this.blockBuilder.getFork(BlockNumber(blocks[0].header.globalVariables.blockNumber - 1));
+    const fork = await this.checkpointsBuilder.getFork(BlockNumber(blocks[0].header.globalVariables.blockNumber - 1));
     try {
       for (const block of blocks) {
         await this.validateBlock(block, previousCheckpointOutHashes, fork);
@@ -158,14 +159,27 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
     const checkpointNumber = CheckpointNumber.fromBlockNumber(blockFromL1.number);
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
-    const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
-      txs,
+    const gv = blockFromL1.header.globalVariables;
+    const constants: CheckpointGlobalVariables = {
+      chainId: gv.chainId,
+      version: gv.version,
+      slotNumber: gv.slotNumber,
+      coinbase: gv.coinbase,
+      feeRecipient: gv.feeRecipient,
+      gasFees: gv.gasFees,
+    };
+
+    // Use checkpoint builder to validate the block
+    const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
+      checkpointNumber,
+      constants,
       l1ToL2Messages,
       previousCheckpointOutHashes,
-      blockFromL1.header.globalVariables,
-      {},
       fork,
     );
+
+    const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {});
+
     if (numTxs !== txs.length) {
       // This should be detected by state mismatch, but this makes it easier to debug.
       throw new ValidatorError(`Built block with ${numTxs} txs, expected ${txs.length}`);

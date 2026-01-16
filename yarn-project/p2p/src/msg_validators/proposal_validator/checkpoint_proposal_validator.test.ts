@@ -4,8 +4,8 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { MakeCheckpointProposalOptions } from '@aztec/stdlib/testing';
-import { makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
-import { type BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
@@ -20,7 +20,7 @@ describe('CheckpointProposalValidator', () => {
    */
   const makeCheckpointProposalAdapter = (options?: {
     blockHeader?: CheckpointHeader;
-    lastBlockHeader?: BlockHeader;
+    lastBlockHeader?: CheckpointHeader;
     signer?: Secp256k1Signer;
     txHashes?: TxHash[];
     txs?: any[];
@@ -28,13 +28,18 @@ describe('CheckpointProposalValidator', () => {
     // Use the blockHeader directly as the checkpointHeader
     const checkpointHeader = options?.blockHeader ?? makeCheckpointHeader(1);
 
+    // Create a BlockHeader for the lastBlock using the slot from the checkpointHeader
+    const lastBlockBlockHeader = options?.lastBlockHeader
+      ? makeBlockHeader(0, { slotNumber: checkpointHeader.slotNumber })
+      : undefined;
+
     const adaptedOptions: MakeCheckpointProposalOptions = {
       signer: options?.signer,
       checkpointHeader,
-      // Use lastBlockHeader for the lastBlock if provided
-      lastBlock: options?.lastBlockHeader
+      // Create lastBlock with a proper BlockHeader
+      lastBlock: lastBlockBlockHeader
         ? {
-            blockHeader: options.lastBlockHeader,
+            blockHeader: lastBlockBlockHeader,
             txHashes: options?.txHashes,
             txs: options?.txs,
           }

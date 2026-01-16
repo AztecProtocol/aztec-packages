@@ -230,7 +230,7 @@ Tests typically mock these dependencies:
 let epochCache: MockProxy<EpochCache>;
 let blockSource: MockProxy<L2BlockSource>;
 let txProvider: MockProxy<TxProvider>;
-let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
+let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
 let p2pClient: MockProxy<P2P>;
 
 beforeEach(() => {
