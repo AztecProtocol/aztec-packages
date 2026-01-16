@@ -69,6 +69,8 @@ export type L1ContractsConfig = {
   governanceProposerQuorum?: number;
   /** Governance proposing round size */
   governanceProposerRoundSize: number;
+  /** Governance voting duration in seconds (only for local/devnet/next-net, default 3600) */
+  governanceVotingDuration?: number;
   /** The mana target for the rollup */
   manaTarget: bigint;
   /** The proving cost per mana */
@@ -208,6 +210,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE',
     description: 'The governance proposing round size',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE),
+  },
+  governanceVotingDuration: {
+    env: 'AZTEC_GOVERNANCE_VOTING_DURATION',
+    description: 'Governance voting duration in seconds (only for local/devnet/next-net)',
+    ...numberConfigHelper(3600), // 1 hour default, not in generated defaults as it's deployment-time only
   },
   manaTarget: {
     env: 'AZTEC_MANA_TARGET',
