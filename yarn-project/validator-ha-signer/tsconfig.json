@@ -8,9 +8,6 @@
   "references": [
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../node-keystore"
     }
   ],
   "include": ["src"]

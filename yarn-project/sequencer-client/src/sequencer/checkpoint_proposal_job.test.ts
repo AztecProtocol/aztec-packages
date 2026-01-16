@@ -33,6 +33,8 @@ import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
+import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
+import { DutyType } from '@aztec/validator-ha-signer/types';
 
 import { expect, jest } from '@jest/globals';
 import EventEmitter from 'events';
@@ -421,6 +423,72 @@ describe('CheckpointProposalJob', () => {
   });
 
   /**
+   * Helper to set up multiple blocks for testing.
+   * Creates the specified number of blocks with proper global variables and seeds the checkpoint builder.
+   * @param numBlocks - Number of blocks to create
+   * @param txsPerBlock - Number of transactions per block (or array for different counts per block)
+   * @param startBlockNumber - Starting block number (defaults to newBlockNumber)
+   * @returns Object containing the created blocks, txs, and the last block for attestations
+   */
+  async function setupMultipleBlocks(
+    numBlocks: number,
+    txsPerBlock: number | number[] = 1,
+    startBlockNumber: BlockNumber = newBlockNumber,
+  ): Promise<{
+    blocks: Awaited<ReturnType<typeof makeBlock>>[];
+    txs: Awaited<ReturnType<typeof makeTx>>[];
+    lastBlock: Awaited<ReturnType<typeof makeBlock>>;
+  }> {
+    // Create txs - determine total needed
+    const txsPerBlockArray = Array.isArray(txsPerBlock) ? txsPerBlock : Array(numBlocks).fill(txsPerBlock);
+    const totalTxs = txsPerBlockArray.reduce((sum, count) => sum + count, 0);
+    const txs = await Promise.all(Array.from({ length: totalTxs }, (_, i) => makeTx(i + 1, chainId)));
+
+    // Set up p2p mocks
+    p2p.getPendingTxCount.mockResolvedValue(10);
+    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+
+    // Create blocks with incrementing block numbers
+    const blocks: Awaited<ReturnType<typeof makeBlock>>[] = [];
+    const blockTxs: Awaited<ReturnType<typeof makeTx>>[][] = [];
+    let txIndex = 0;
+
+    for (let i = 0; i < numBlocks; i++) {
+      const blockNum = BlockNumber(startBlockNumber + i);
+      const blockGlobalVariables =
+        i === 0
+          ? globalVariables
+          : new GlobalVariables(
+              chainId,
+              version,
+              blockNum,
+              SlotNumber(newSlotNumber),
+              0n,
+              coinbase,
+              feeRecipient,
+              gasFees,
+            );
+
+      const blockTxCount = txsPerBlockArray[i];
+      const blockTxsSlice = txs.slice(txIndex, txIndex + blockTxCount);
+      txIndex += blockTxCount;
+
+      const block = await makeBlock(blockTxsSlice, blockGlobalVariables);
+      blocks.push(block);
+      blockTxs.push(blockTxsSlice);
+    }
+
+    // Seed checkpoint builder with all blocks
+    checkpointBuilder.seedBlocks(blocks, blockTxs);
+
+    return {
+      blocks,
+      txs,
+      lastBlock: blocks[blocks.length - 1],
+    };
+  }
+
+  /**
    * Helper to create a TestCheckpointProposalJob instance with current mocks.
    * Uses TestCheckpointProposalJob which has waitUntilTimeInSlot as a no-op.
    * Called in beforeEach to create the job, and tests can use job.updateConfig()
@@ -483,31 +551,9 @@ describe('CheckpointProposalJob', () => {
         .mockReturnValueOnce({ canStart: true, deadline: 18, isLastBlock: true })
         .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
 
-      // Create enough txs for 2 blocks
-      const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId), makeTx(3, chainId)]);
-
-      // Always have txs available
-      p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-      // Create 2 blocks
-      const block1 = await makeBlock(txs.slice(0, 2), globalVariables);
-      const globalVariables2 = new GlobalVariables(
-        chainId,
-        version,
-        BlockNumber(newBlockNumber + 1),
-        SlotNumber(newSlotNumber),
-        0n,
-        coinbase,
-        feeRecipient,
-        gasFees,
-      );
-      const block2 = await makeBlock([txs[2]], globalVariables2);
-
-      // Seed MockCheckpointBuilder with blocks to return sequentially
-      checkpointBuilder.seedBlocks([block1, block2], [txs.slice(0, 2), [txs[2]]]);
-
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block2));
+      // Set up test data for 2 blocks
+      const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
       // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
@@ -569,16 +615,9 @@ describe('CheckpointProposalJob', () => {
         .mockReturnValueOnce({ canStart: true, deadline: 2 + 3 * blockDurationSeconds, isLastBlock: true })
         .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
 
-      const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId), makeTx(3, chainId)]);
-      const block = await makeBlock(txs, globalVariables);
-
-      p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-      // Seed with 3 identical blocks (each with 1 tx)
-      checkpointBuilder.seedBlocks([block, block, block], [[txs[0]], [txs[1]], [txs[2]]]);
-
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+      // Set up test data for 3 blocks
+      const { lastBlock } = await setupMultipleBlocks(3, 1);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
@@ -799,6 +838,90 @@ describe('CheckpointProposalJob', () => {
 
       // Should handle timeout gracefully
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
+    });
+  });
+
+  describe('HA error handling during block building', () => {
+    it('should stop checkpoint building when block proposal throws DutyAlreadySignedError on first block', async () => {
+      // Set up test data for 3 blocks (to verify it stops even with multiple blocks configured)
+      const { lastBlock } = await setupMultipleBlocks(3, 1);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      // Create job first
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          blockDurationMs: 8000,
+          enforce: true,
+        }),
+      );
+
+      // Mock timetable to allow multiple blocks
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: false })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      // Mock to throw on first block proposal
+      validatorClient.createBlockProposal.mockImplementation(() => {
+        throw new DutyAlreadySignedError(SlotNumber(1), DutyType.BLOCK_PROPOSAL, 0, 'node-2');
+      });
+
+      const result = await job.execute();
+
+      // Should return undefined and stop building
+      expect(result).toBeUndefined();
+      // Should have attempted only 1 block proposal (first one threw)
+      expect(validatorClient.createBlockProposal).toHaveBeenCalledTimes(1);
+      // Should not have attempted checkpoint proposal
+      expect(validatorClient.createCheckpointProposal).not.toHaveBeenCalled();
+      // Should not publish anything
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('should stop checkpoint building when block proposal throws SlashingProtectionError on first block', async () => {
+      // Set up test data for 3 blocks (to verify it stops even with multiple blocks configured)
+      const { lastBlock } = await setupMultipleBlocks(3, 1);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      // Create job first
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          blockDurationMs: 8000,
+          enforce: true,
+        }),
+      );
+
+      // Mock timetable to allow multiple blocks
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: false })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      // Mock to throw on first block proposal
+      validatorClient.createBlockProposal.mockImplementation(() => {
+        throw new SlashingProtectionError(SlotNumber(1), DutyType.BLOCK_PROPOSAL, 0, 'hash1', 'hash2', 'node-1');
+      });
+
+      const result = await job.execute();
+
+      // Should return undefined and stop building
+      expect(result).toBeUndefined();
+      // Should have attempted only 1 block proposal (first one threw)
+      expect(validatorClient.createBlockProposal).toHaveBeenCalledTimes(1);
+      // Should not have attempted checkpoint proposal
+      expect(validatorClient.createCheckpointProposal).not.toHaveBeenCalled();
+      // Should not publish anything
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
     });
   });
 });

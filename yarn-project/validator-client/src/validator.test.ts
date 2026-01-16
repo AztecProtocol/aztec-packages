@@ -53,6 +53,7 @@ import type {
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
+import type { HAKeyStore } from './key_store/ha_key_store.js';
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
@@ -70,8 +71,9 @@ describe('ValidatorClient', () => {
   let txProvider: MockProxy<TxProvider>;
   let keyStoreManager: KeystoreManager;
   let blobClient: MockProxy<BlobClientInterface>;
+  let haKeyStore: MockProxy<HAKeyStore>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     p2pClient = mock<P2P>();
     p2pClient.getCheckpointAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
@@ -98,9 +100,14 @@ describe('ValidatorClient', () => {
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
     blobClient.sendBlobsToFilestore.mockResolvedValue(true);
+    haKeyStore = mock<HAKeyStore>();
+    haKeyStore.start.mockImplementation(() => Promise.resolve());
+    haKeyStore.stop.mockImplementation(() => Promise.resolve());
 
     const validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
     validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
+
+    haKeyStore.getAddresses.mockReturnValue(validatorAccounts.map(account => EthAddress.fromString(account.address)));
 
     config = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
@@ -110,6 +117,11 @@ describe('ValidatorClient', () => {
       validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
       disableTransactions: false,
+      haSigningEnabled: false,
+      nodeId: 'test-node-id',
+      pollingIntervalMs: 1000,
+      signingTimeoutMs: 1000,
+      maxStuckDutiesAgeMs: 72000,
     };
 
     const keyStore: KeyStore = {
@@ -129,7 +141,7 @@ describe('ValidatorClient', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
-    validatorClient = ValidatorClient.new(
+    validatorClient = await ValidatorClient.new(
       config,
       checkpointsBuilder,
       worldState,
@@ -173,7 +185,7 @@ describe('ValidatorClient', () => {
 
   describe('collectAttestations', () => {
     it('should timeout if we do not collect enough attestations in time', async () => {
-      const proposal = await makeCheckpointProposal();
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
 
       await expect(
         validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100)),
@@ -219,7 +231,7 @@ describe('ValidatorClient', () => {
         validatorAccounts.map(account => EthAddress.fromString(account.address)),
       );
       const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
-      const proposal = await makeCheckpointProposal();
+      const proposal = await makeCheckpointProposal({ lastBlock: {} });
       // collectAttestations still throws as we don't have a real p2pClient
       await expect(
         validatorClient.collectAttestations(proposal, 3, new Date(dateProvider.now() + 100)),
@@ -748,6 +760,17 @@ describe('ValidatorClient', () => {
       const addresses = validatorClient.getValidatorAddresses();
       validatorClient.updateConfig({ disabledValidators: [validatorClient.getValidatorAddresses()[0]] });
       expect(validatorClient.getValidatorAddresses()).toEqual(addresses.slice(1));
+    });
+  });
+
+  describe('lifecycle methods', () => {
+    it('should run start() / stop() on the HA key store', async () => {
+      (validatorClient as any).config.haSigningEnabled = true;
+      (validatorClient as any).keyStore = haKeyStore;
+      await validatorClient.start();
+      expect(haKeyStore.start).toHaveBeenCalledTimes(1);
+      await validatorClient.stop();
+      expect(haKeyStore.stop).toHaveBeenCalledTimes(1);
     });
   });
 });

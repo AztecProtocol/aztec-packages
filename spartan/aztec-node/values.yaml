@@ -200,7 +200,7 @@ ingress:
   rpc:
     enabled: false
     annotations: {}
-    host:
+    hosts: []
 
 rbac:
   # -- Specifies whether RBAC resources are to be created
