@@ -209,23 +209,23 @@ template <typename Curve> class MSM {
 
     static Element small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
     static Element pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
-    static Element evaluate_small_pippenger_round(MSMData& msm_data,
-                                                  const size_t round_index,
-                                                  JacobianBucketAccumulators& bucket_data,
-                                                  Element previous_round_output,
-                                                  const size_t bits_per_slice) noexcept;
+    static void evaluate_small_pippenger_round(MSMData& msm_data,
+                                               const size_t round_index,
+                                               JacobianBucketAccumulators& bucket_data,
+                                               Element& msm_accumulator,
+                                               const size_t bits_per_slice) noexcept;
 
-    static Element evaluate_pippenger_round(MSMData& msm_data,
-                                            const size_t round_index,
-                                            AffineAdditionData& affine_data,
-                                            BucketAccumulators& bucket_data,
-                                            Element previous_round_output,
-                                            const size_t bits_per_slice) noexcept;
+    static void evaluate_pippenger_round(MSMData& msm_data,
+                                         const size_t round_index,
+                                         AffineAdditionData& affine_data,
+                                         BucketAccumulators& bucket_data,
+                                         Element& msm_accumulator,
+                                         const size_t bits_per_slice) noexcept;
 
-    static Element accumulate_round_result(Element bucket_result,
-                                           Element previous_round_output,
-                                           size_t round_index,
-                                           size_t bits_per_slice) noexcept;
+    static void accumulate_round_result(Element& msm_accumulator,
+                                        const Element& bucket_result,
+                                        size_t round_index,
+                                        size_t bits_per_slice) noexcept;
 
     static void consume_point_schedule(std::span<const uint64_t> point_schedule,
                                        std::span<const AffineElement> points,

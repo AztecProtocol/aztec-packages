@@ -317,16 +317,16 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
         // get_nonzero_scalar_indices expects non-Montgomery form scalars
         scalar_multiplication::MSM<Curve>::get_nonzero_scalar_indices(scalars, indices);
 
-        Element previous_round_output;
-        previous_round_output.self_set_infinity();
         for (auto x : indices) {
             ASSERT_LT(x, num_points);
         }
         std::vector<uint64_t> point_schedule(scalars.size());
         typename scalar_multiplication::MSM<Curve>::MSMData msm_data(
             scalars, TestFixture::generators, indices, point_schedule);
-        Element result = scalar_multiplication::MSM<Curve>::evaluate_pippenger_round(
-            msm_data, round_index, affine_data, bucket_data, previous_round_output, 7);
+        Element result;
+        result.self_set_infinity();
+        scalar_multiplication::MSM<Curve>::evaluate_pippenger_round(
+            msm_data, round_index, affine_data, bucket_data, result, 7);
         Element expected;
         expected.self_set_infinity();
         for (size_t i = 0; i < num_points; ++i) {

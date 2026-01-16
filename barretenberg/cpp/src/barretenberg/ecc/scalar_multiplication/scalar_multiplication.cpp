@@ -354,14 +354,14 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
     const size_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = 1 << bits_per_slice;
     JacobianBucketAccumulators bucket_data = JacobianBucketAccumulators(num_buckets);
-    Element round_output = Curve::Group::point_at_infinity;
+    Element msm_result = Curve::Group::point_at_infinity;
 
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
 
     for (size_t i = 0; i < num_rounds; ++i) {
-        round_output = evaluate_small_pippenger_round(msm_data, i, bucket_data, round_output, bits_per_slice);
+        evaluate_small_pippenger_round(msm_data, i, bucket_data, msm_result, bits_per_slice);
     }
-    return round_output;
+    return msm_result;
 }
 
 /**
@@ -393,14 +393,14 @@ typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalar
         bucket_data.bucket_exists.resize(num_buckets);
     }
 
-    Element round_output = Curve::Group::point_at_infinity;
+    Element msm_result = Curve::Group::point_at_infinity;
 
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
     for (size_t i = 0; i < num_rounds; ++i) {
-        round_output = evaluate_pippenger_round(msm_data, i, affine_data, bucket_data, round_output, bits_per_slice);
+        evaluate_pippenger_round(msm_data, i, affine_data, bucket_data, msm_result, bits_per_slice);
     }
 
-    return (round_output);
+    return msm_result;
 }
 
 /**
@@ -410,16 +410,15 @@ typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalar
  * @param msm_data
  * @param round_index
  * @param bucket_data
- * @param previous_round_output
+ * @param msm_accumulator Running MSM accumulator (mutated in place)
  * @param bits_per_slice
- * @return Curve::Element
  */
 template <typename Curve>
-typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_data,
-                                                                   const size_t round_index,
-                                                                   MSM<Curve>::JacobianBucketAccumulators& bucket_data,
-                                                                   typename Curve::Element previous_round_output,
-                                                                   const size_t bits_per_slice) noexcept
+void MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_data,
+                                                const size_t round_index,
+                                                MSM<Curve>::JacobianBucketAccumulators& bucket_data,
+                                                typename Curve::Element& msm_accumulator,
+                                                const size_t bits_per_slice) noexcept
 {
     std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
     std::span<const ScalarField>& scalars = msm_data.scalars;
@@ -447,8 +446,8 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
     Element bucket_result = accumulate_buckets(bucket_data);
     bucket_data.bucket_exists.clear();
 
-    // Combine with previous rounds' output
-    return accumulate_round_result(bucket_result, previous_round_output, round_index, bits_per_slice);
+    // Accumulate into running total
+    accumulate_round_result(msm_accumulator, bucket_result, round_index, bits_per_slice);
 }
 
 /**
@@ -459,17 +458,16 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
  * @param round_index
  * @param affine_data
  * @param bucket_data
- * @param previous_round_output
+ * @param msm_accumulator Running MSM accumulator (mutated in place)
  * @param bits_per_slice
- * @return Curve::Element
  */
 template <typename Curve>
-typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
-                                                             const size_t round_index,
-                                                             MSM<Curve>::AffineAdditionData& affine_data,
-                                                             MSM<Curve>::BucketAccumulators& bucket_data,
-                                                             typename Curve::Element previous_round_output,
-                                                             const size_t bits_per_slice) noexcept
+void MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
+                                          const size_t round_index,
+                                          MSM<Curve>::AffineAdditionData& affine_data,
+                                          MSM<Curve>::BucketAccumulators& bucket_data,
+                                          typename Curve::Element& msm_accumulator,
+                                          const size_t bits_per_slice) noexcept
 {
     std::span<const uint32_t>& scalar_indices = msm_data.scalar_indices; // indices of nonzero scalars
     std::span<const ScalarField>& scalars = msm_data.scalars;
@@ -500,8 +498,8 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
         bucket_data.bucket_exists.clear();
     }
 
-    // Combine with previous rounds' output
-    return accumulate_round_result(bucket_result, previous_round_output, round_index, bits_per_slice);
+    // Accumulate into running total
+    accumulate_round_result(msm_accumulator, bucket_result, round_index, bits_per_slice);
 }
 
 /**
@@ -510,17 +508,16 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
  *          Handles the edge case where the last round may process fewer bits.
  *
  * @tparam Curve
+ * @param msm_accumulator Running MSM accumulator (mutated in place)
  * @param bucket_result Result from accumulate_buckets() for this round
- * @param previous_round_output Accumulated result from all previous rounds
  * @param round_index Current round index (0 = most significant bits)
  * @param bits_per_slice Number of bits processed per round
- * @return Curve::Element Combined result: previous_output * 2^bits + bucket_result
  */
 template <typename Curve>
-typename Curve::Element MSM<Curve>::accumulate_round_result(Element bucket_result,
-                                                            Element previous_round_output,
-                                                            size_t round_index,
-                                                            size_t bits_per_slice) noexcept
+void MSM<Curve>::accumulate_round_result(Element& msm_accumulator,
+                                         const Element& bucket_result,
+                                         size_t round_index,
+                                         size_t bits_per_slice) noexcept
 {
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
     const bool is_last_round = (round_index == num_rounds - 1);
@@ -529,12 +526,10 @@ typename Curve::Element MSM<Curve>::accumulate_round_result(Element bucket_resul
     // Last round may process fewer bits if NUM_BITS_IN_FIELD is not divisible by bits_per_slice
     size_t num_doublings = (is_last_round && remainder != 0) ? remainder : bits_per_slice;
 
-    Element result = std::move(previous_round_output);
     for (size_t i = 0; i < num_doublings; ++i) {
-        result.self_dbl();
+        msm_accumulator.self_dbl();
     }
-    result += bucket_result;
-    return result;
+    msm_accumulator += bucket_result;
 }
 
 /**
