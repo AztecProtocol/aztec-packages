@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { filterAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
@@ -144,92 +145,127 @@ export class LogStore {
     return { privateTaggedLogs, publicTaggedLogs };
   }
 
+  async #addPrivateLogs(blocks: L2BlockNew[]): Promise<void> {
+    const newBlocks = await filterAsync(
+      blocks,
+      async block => !(await this.#privateLogKeysByBlock.hasAsync(block.number)),
+    );
+
+    const { privateTaggedLogs } = this.#extractTaggedLogs(newBlocks);
+    const keysOfPrivateLogsToUpdate = Array.from(privateTaggedLogs.keys());
+
+    const currentPrivateTaggedLogs = await Promise.all(
+      keysOfPrivateLogsToUpdate.map(async key => ({
+        tag: key,
+        logBuffers: await this.#privateLogsByTag.getAsync(key),
+      })),
+    );
+
+    for (const taggedLogBuffer of currentPrivateTaggedLogs) {
+      if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
+        privateTaggedLogs.set(
+          taggedLogBuffer.tag,
+          taggedLogBuffer.logBuffers!.concat(privateTaggedLogs.get(taggedLogBuffer.tag)!),
+        );
+      }
+    }
+
+    for (const block of newBlocks) {
+      const privateTagsInBlock: string[] = [];
+      for (const [tag, logs] of privateTaggedLogs.entries()) {
+        await this.#privateLogsByTag.set(tag, logs);
+        privateTagsInBlock.push(tag);
+      }
+      await this.#privateLogKeysByBlock.set(block.number, privateTagsInBlock);
+    }
+  }
+
+  async #addPublicLogs(blocks: L2BlockNew[]): Promise<void> {
+    const newBlocks = await filterAsync(
+      blocks,
+      async block => !(await this.#publicLogKeysByBlock.hasAsync(block.number)),
+    );
+
+    const { publicTaggedLogs } = this.#extractTaggedLogs(newBlocks);
+    const keysOfPublicLogsToUpdate = Array.from(publicTaggedLogs.keys());
+
+    const currentPublicTaggedLogs = await Promise.all(
+      keysOfPublicLogsToUpdate.map(async key => ({
+        tag: key,
+        logBuffers: await this.#publicLogsByContractAndTag.getAsync(key),
+      })),
+    );
+
+    for (const taggedLogBuffer of currentPublicTaggedLogs) {
+      if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
+        publicTaggedLogs.set(
+          taggedLogBuffer.tag,
+          taggedLogBuffer.logBuffers!.concat(publicTaggedLogs.get(taggedLogBuffer.tag)!),
+        );
+      }
+    }
+
+    for (const block of newBlocks) {
+      const blockHash = await block.hash();
+      const publicTagsInBlock: string[] = [];
+      for (const [tag, logs] of publicTaggedLogs.entries()) {
+        await this.#publicLogsByContractAndTag.set(tag, logs);
+        publicTagsInBlock.push(tag);
+      }
+      await this.#publicLogKeysByBlock.set(block.number, publicTagsInBlock);
+
+      const publicLogsInBlock = block.body.txEffects
+        .map((txEffect, txIndex) =>
+          [
+            numToUInt32BE(txIndex),
+            numToUInt32BE(txEffect.publicLogs.length),
+            txEffect.publicLogs.map(log => log.toBuffer()),
+          ].flat(),
+        )
+        .flat();
+
+      await this.#publicLogsByBlock.set(block.number, this.#packWithBlockHash(blockHash, publicLogsInBlock));
+    }
+  }
+
+  async #addContractClassLogs(blocks: L2BlockNew[]): Promise<void> {
+    const newBlocks = await filterAsync(
+      blocks,
+      async block => !(await this.#contractClassLogsByBlock.hasAsync(block.number)),
+    );
+
+    for (const block of newBlocks) {
+      const blockHash = await block.hash();
+
+      const contractClassLogsInBlock = block.body.txEffects
+        .map((txEffect, txIndex) =>
+          [
+            numToUInt32BE(txIndex),
+            numToUInt32BE(txEffect.contractClassLogs.length),
+            txEffect.contractClassLogs.map(log => log.toBuffer()),
+          ].flat(),
+        )
+        .flat();
+
+      await this.#contractClassLogsByBlock.set(
+        block.number,
+        this.#packWithBlockHash(blockHash, contractClassLogsInBlock),
+      );
+    }
+  }
+
   /**
    * Append new logs to the store's list.
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
   addLogs(blocks: L2BlockNew[]): Promise<boolean> {
-    const { privateTaggedLogs, publicTaggedLogs } = this.#extractTaggedLogs(blocks);
-
-    const keysOfPrivateLogsToUpdate = Array.from(privateTaggedLogs.keys());
-    const keysOfPublicLogsToUpdate = Array.from(publicTaggedLogs.keys());
-
     return this.db.transactionAsync(async () => {
-      const currentPrivateTaggedLogs = await Promise.all(
-        keysOfPrivateLogsToUpdate.map(async key => ({
-          tag: key,
-          logBuffers: await this.#privateLogsByTag.getAsync(key),
-        })),
-      );
-      currentPrivateTaggedLogs.forEach(taggedLogBuffer => {
-        if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
-          privateTaggedLogs.set(
-            taggedLogBuffer.tag,
-            taggedLogBuffer.logBuffers!.concat(privateTaggedLogs.get(taggedLogBuffer.tag)!),
-          );
-        }
-      });
-
-      const currentPublicTaggedLogs = await Promise.all(
-        keysOfPublicLogsToUpdate.map(async key => ({
-          key,
-          logBuffers: await this.#publicLogsByContractAndTag.getAsync(key),
-        })),
-      );
-      currentPublicTaggedLogs.forEach(taggedLogBuffer => {
-        if (taggedLogBuffer.logBuffers && taggedLogBuffer.logBuffers.length > 0) {
-          publicTaggedLogs.set(
-            taggedLogBuffer.key,
-            taggedLogBuffer.logBuffers!.concat(publicTaggedLogs.get(taggedLogBuffer.key)!),
-          );
-        }
-      });
-
-      for (const block of blocks) {
-        const blockHash = await block.hash();
-
-        const privateTagsInBlock: string[] = [];
-        for (const [tag, logs] of privateTaggedLogs.entries()) {
-          await this.#privateLogsByTag.set(tag, logs);
-          privateTagsInBlock.push(tag);
-        }
-        await this.#privateLogKeysByBlock.set(block.number, privateTagsInBlock);
-
-        const publicKeysInBlock: string[] = [];
-        for (const [key, logs] of publicTaggedLogs.entries()) {
-          await this.#publicLogsByContractAndTag.set(key, logs);
-          publicKeysInBlock.push(key);
-        }
-        await this.#publicLogKeysByBlock.set(block.number, publicKeysInBlock);
-
-        const publicLogsInBlock = block.body.txEffects
-          .map((txEffect, txIndex) =>
-            [
-              numToUInt32BE(txIndex),
-              numToUInt32BE(txEffect.publicLogs.length),
-              txEffect.publicLogs.map(log => log.toBuffer()),
-            ].flat(),
-          )
-          .flat();
-
-        const contractClassLogsInBlock = block.body.txEffects
-          .map((txEffect, txIndex) =>
-            [
-              numToUInt32BE(txIndex),
-              numToUInt32BE(txEffect.contractClassLogs.length),
-              txEffect.contractClassLogs.map(log => log.toBuffer()),
-            ].flat(),
-          )
-          .flat();
-
-        await this.#publicLogsByBlock.set(block.number, this.#packWithBlockHash(blockHash, publicLogsInBlock));
-        await this.#contractClassLogsByBlock.set(
-          block.number,
-          this.#packWithBlockHash(blockHash, contractClassLogsInBlock),
-        );
-      }
-
+      await Promise.all([
+        this.#addPrivateLogs(blocks),
+        this.#addPublicLogs(blocks),
+        this.#addContractClassLogs(blocks),
+      ]);
       return true;
     });
   }
