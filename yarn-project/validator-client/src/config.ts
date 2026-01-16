@@ -7,6 +7,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import { validatorHASignerConfigMappings } from '@aztec/validator-ha-signer/config';
 
 export type { ValidatorClientConfig };
 
@@ -75,6 +76,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Skip pushing re-executed blocks to archiver (default: true)',
     defaultValue: true,
   },
+  ...validatorHASignerConfigMappings,
 };
 
 /**
