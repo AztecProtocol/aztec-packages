@@ -87,16 +87,34 @@ class Formatter : public CLI::Formatter {
             }
             first_line = false;
 
-            // Now wrap each line individually
-            std::istringstream words(line);
+            // If the line fits within width, output it verbatim to preserve formatting
+            if (line.length() <= width) {
+                out << line;
+                continue;
+            }
+
+            // Line is too long - need to wrap it
+            // Preserve leading whitespace for continuation lines
+            size_t indent = 0;
+            while (indent < line.size() && (line[indent] == ' ' || line[indent] == '\t')) {
+                indent++;
+            }
+            std::string leading_space = line.substr(0, indent);
+            std::string content = line.substr(indent);
+
+            // Output leading whitespace
+            out << leading_space;
+
+            // Now wrap the content, using the same indent for continuation lines
+            std::istringstream words(content);
             std::string word;
-            size_t line_length = 0;
+            size_t line_length = indent;
             while (words >> word) {
                 if (line_length + word.length() + 1 > width) {
-                    out << "\n";
-                    line_length = 0;
+                    out << "\n" << leading_space;
+                    line_length = indent;
                 }
-                if (line_length > 0) {
+                if (line_length > indent) {
                     out << " ";
                     line_length++;
                 }
