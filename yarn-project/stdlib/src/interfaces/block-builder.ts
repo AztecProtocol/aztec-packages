@@ -56,6 +56,7 @@ export interface BuildBlockResult {
   failedTxs: FailedTx[];
   blockBuildingTimer: Timer;
   usedTxs: Tx[];
+  usedTxBlobFields: number;
 }
 
 export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &

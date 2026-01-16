@@ -347,6 +347,7 @@ describe('ValidatorClient', () => {
         failedTxs: [],
         publicGas: Gas.empty(),
         usedTxs: [],
+        usedTxBlobFields: 0,
         block: {
           header: l2BlockHeader,
           body: { txEffects: times(proposal.txHashes.length, () => TxEffect.empty()) },
