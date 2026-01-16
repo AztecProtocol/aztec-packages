@@ -3,7 +3,7 @@
  */
 import { Pool } from 'pg';
 
-import type { CreateHASignerConfig } from './config.js';
+import type { ValidatorHASignerConfig } from './config.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import type { CreateHASignerDeps, SlashingProtectionDatabase } from './types.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
@@ -23,7 +23,7 @@ import { ValidatorHASigner } from './validator_ha_signer.js';
  * ```typescript
  * const { signer, db } = await createHASigner({
  *   databaseUrl: process.env.DATABASE_URL,
- *   enabled: true,
+ *   haSigningEnabled: true,
  *   nodeId: 'validator-node-1',
  *   pollingIntervalMs: 100,
  *   signingTimeoutMs: 3000,
@@ -35,23 +35,15 @@ import { ValidatorHASigner } from './validator_ha_signer.js';
  * await signer.stop(); // On shutdown
  * ```
  *
- * Example with automatic migrations (simpler for dev/testing):
- * ```typescript
- * const { signer, db } = await createHASigner({
- *   databaseUrl: process.env.DATABASE_URL,
- *   enabled: true,
- *   nodeId: 'validator-node-1',
- *   runMigrations: true, // Auto-run migrations on startup
- * });
- * signer.start();
- * ```
+ * Note: Migrations must be run separately using `aztec migrate-ha-db up` before
+ * creating the signer. The factory will verify the schema is initialized via `db.initialize()`.
  *
  * @param config - Configuration for the HA signer
  * @param deps - Optional dependencies (e.g., for testing)
  * @returns An object containing the signer and database instances
  */
 export async function createHASigner(
-  config: CreateHASignerConfig,
+  config: ValidatorHASignerConfig,
   deps?: CreateHASignerDeps,
 ): Promise<{
   signer: ValidatorHASigner;
@@ -60,6 +52,9 @@ export async function createHASigner(
   const { databaseUrl, poolMaxCount, poolMinCount, poolIdleTimeoutMs, poolConnectionTimeoutMs, ...signerConfig } =
     config;
 
+  if (!databaseUrl) {
+    throw new Error('databaseUrl is required for createHASigner');
+  }
   // Create connection pool (or use provided pool)
   let pool: Pool;
   if (!deps?.pool) {

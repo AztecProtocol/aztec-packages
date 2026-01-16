@@ -1,6 +1,8 @@
 /**
  * Custom errors for the validator HA signer
  */
+import type { SlotNumber } from '@aztec/foundation/branded-types';
+
 import type { DutyType } from './db/types.js';
 
 /**
@@ -10,8 +12,9 @@ import type { DutyType } from './db/types.js';
  */
 export class DutyAlreadySignedError extends Error {
   constructor(
-    public readonly slot: bigint,
+    public readonly slot: SlotNumber,
     public readonly dutyType: DutyType,
+    public readonly blockIndexWithinCheckpoint: number,
     public readonly signedByNode: string,
   ) {
     super(`Duty ${dutyType} for slot ${slot} already signed by node ${signedByNode}`);
@@ -28,10 +31,12 @@ export class DutyAlreadySignedError extends Error {
  */
 export class SlashingProtectionError extends Error {
   constructor(
-    public readonly slot: bigint,
+    public readonly slot: SlotNumber,
     public readonly dutyType: DutyType,
+    public readonly blockIndexWithinCheckpoint: number,
     public readonly existingMessageHash: string,
     public readonly attemptedMessageHash: string,
+    public readonly signedByNode: string,
   ) {
     super(
       `Slashing protection: ${dutyType} for slot ${slot} was already signed with different data. ` +

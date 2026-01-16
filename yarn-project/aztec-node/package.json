@@ -87,6 +87,7 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/validator-client": "workspace:^",
+    "@aztec/validator-ha-signer": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "koa": "^2.16.1",
     "koa-router": "^13.1.1",

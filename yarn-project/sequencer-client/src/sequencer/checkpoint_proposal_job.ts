@@ -37,6 +37,7 @@ import { type FailedTx, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { CheckpointBuilder, type FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
+import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
@@ -202,13 +203,40 @@ export class CheckpointProposalJob implements Traceable {
         broadcastInvalidCheckpointProposal: this.config.broadcastInvalidBlockProposal,
       };
 
-      // Main loop: build blocks for the checkpoint
-      const { blocksInCheckpoint, blockPendingBroadcast } = await this.buildBlocksForCheckpoint(
-        checkpointBuilder,
-        checkpointGlobalVariables.timestamp,
-        inHash,
-        blockProposalOptions,
-      );
+      let blocksInCheckpoint: L2BlockNew[] = [];
+      let blockPendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined = undefined;
+
+      try {
+        // Main loop: build blocks for the checkpoint
+        const result = await this.buildBlocksForCheckpoint(
+          checkpointBuilder,
+          checkpointGlobalVariables.timestamp,
+          inHash,
+          blockProposalOptions,
+        );
+        blocksInCheckpoint = result.blocksInCheckpoint;
+        blockPendingBroadcast = result.blockPendingBroadcast;
+      } catch (err) {
+        // These errors are expected in HA mode, so we yield and let another HA node handle the slot
+        // The only distinction between the 2 errors is SlashingProtectionError throws when the payload is different,
+        // which is normal for block building (may have picked different txs)
+        if (err instanceof DutyAlreadySignedError) {
+          this.log.info(`Checkpoint proposal for slot ${this.slot} already signed by another HA node, yielding`, {
+            slot: this.slot,
+            signedByNode: err.signedByNode,
+          });
+          return undefined;
+        }
+        if (err instanceof SlashingProtectionError) {
+          this.log.info(`Checkpoint proposal for slot ${this.slot} blocked by slashing protection, yielding`, {
+            slot: this.slot,
+            existingMessageHash: err.existingMessageHash,
+            attemptedMessageHash: err.attemptedMessageHash,
+          });
+          return undefined;
+        }
+        throw err;
+      }
 
       if (blocksInCheckpoint.length === 0) {
         this.log.warn(`No blocks were built for slot ${this.slot}`, { slot: this.slot });
@@ -263,7 +291,34 @@ export class CheckpointProposalJob implements Traceable {
 
       // Proposer must sign over the attestations before pushing them to L1
       const signer = this.proposer ?? this.publisher.getSenderAddress();
-      const attestationsSignature = await this.validatorClient.signAttestationsAndSigners(attestations, signer);
+      let attestationsSignature: Signature;
+      try {
+        attestationsSignature = await this.validatorClient.signAttestationsAndSigners(
+          attestations,
+          signer,
+          this.slot,
+          this.checkpointNumber,
+        );
+      } catch (err) {
+        // We shouldn't really get here since we yield to another HA node
+        // as soon as we see these errors when creating block proposals.
+        if (err instanceof DutyAlreadySignedError) {
+          this.log.info(`Attestations signature for slot ${this.slot} already signed by another HA node, yielding`, {
+            slot: this.slot,
+            signedByNode: err.signedByNode,
+          });
+          return undefined;
+        }
+        if (err instanceof SlashingProtectionError) {
+          this.log.info(`Attestations signature for slot ${this.slot} blocked by slashing protection, yielding`, {
+            slot: this.slot,
+            existingMessageHash: err.existingMessageHash,
+            attemptedMessageHash: err.attemptedMessageHash,
+          });
+          return undefined;
+        }
+        throw err;
+      }
 
       // Enqueue publishing the checkpoint to L1
       this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slot);
