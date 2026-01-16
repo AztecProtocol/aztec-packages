@@ -20,16 +20,20 @@ where $s_i$ are scalars and $P_i$ are elliptic curve points.
 
 ### Step 1: Scalar Decomposition
 
+**Implementation**: `get_scalar_slice(scalar, round_index, bits_per_slice)`
+
 Each 254-bit scalar $s_i$ is decomposed into $r$ slices of $c$ bits each:
 
 $$s_i = \sum_{j=0}^{r-1} s_i^{(j)} \cdot 2^{jc}$$
 
 where:
-- $c = \lceil \log_2(\sqrt{n}) \rceil$ is the optimal bucket count exponent
-- $r = \lceil 254 / c \rceil$ is the number of rounds
+- $c = \lceil \log_2(\sqrt{n}) \rceil$ is the optimal bucket count exponent (from `get_optimal_log_num_buckets`)
+- $r = \lceil 254 / c \rceil$ is the number of rounds (from `get_num_rounds`)
 - $s_i^{(j)} \in [0, 2^c - 1]$ is the slice value, which becomes the bucket index
 
 ### Step 2: Bucket Accumulation
+
+**Implementation**: `evaluate_pippenger_round()` or `evaluate_small_pippenger_round()`
 
 For each round $j$, points are added into buckets based on their scalar slice value:
 
@@ -37,7 +41,11 @@ $$B_k^{(j)} = \sum_{\{i : s_i^{(j)} = k\}} P_i$$
 
 Each bucket $B_k$ accumulates the sum of all points whose scalar has slice value $k$ in round $j$.
 
+The round evaluation function builds a point schedule (sorted by bucket), then calls `consume_point_schedule()` to perform the actual bucket accumulation using batch affine additions.
+
 ### Step 3: Bucket Reduction
+
+**Implementation**: `accumulate_buckets(bucket_accumulators)`
 
 The round result requires computing a weighted sum of buckets:
 
@@ -47,18 +55,20 @@ This is evaluated efficiently using **prefix sums** (avoiding $k$ repeated addit
 
 $$R^{(j)} = \sum_{k=1}^{2^c - 1} \underbrace{\left( \sum_{m=k}^{2^c - 1} B_m^{(j)} \right)}_{\text{running sum}}$$
 
-**Algorithm**:
-```
-running_sum = 0
-result = 0
-for k = 2^c - 1 down to 1:
+**Algorithm** (from `accumulate_buckets` template in scalar_multiplication.hpp):
+```cpp
+prefix_sum = buckets[highest_nonempty]
+sum = prefix_sum + offset_generator  // offset avoids incomplete addition edge cases
+for k = highest_nonempty - 1 down to 1:
     if bucket[k] exists:
-        running_sum += bucket[k]
-    result += running_sum
-return result
+        prefix_sum += bucket[k]
+    sum += prefix_sum
+return sum - offset_generator
 ```
 
 ### Step 4: Round Combination
+
+**Implementation**: `accumulate_round_result(msm_accumulator, bucket_result, round_index, bits_per_slice)`
 
 The final MSM result combines all rounds:
 
@@ -66,11 +76,15 @@ $$\text{MSM} = \sum_{j=0}^{r-1} R^{(j)} \cdot 2^{jc}$$
 
 Evaluated using Horner's method (starting from the most significant slice):
 
+```cpp
+msm_accumulator = point_at_infinity
+for j = 0 to r-1:
+    for i = 0 to c-1:
+        msm_accumulator = msm_accumulator.double()    // c doublings
+    msm_accumulator += bucket_result[j]               // one addition
 ```
-result = R^(r-1)
-for j = r-2 down to 0:
-    result = result * 2^c + R^(j)    // c doublings, then one addition
-```
+
+Note: The last round may use fewer than $c$ doublings if $254 \mod c \neq 0$.
 
 ## Affine Addition Trick (Montgomery's Trick)
 
@@ -104,25 +118,36 @@ For $m$ independent additions $(P_1 + Q_1), \ldots, (P_m + Q_m)$:
 
 ## Algorithm Variants
 
+**Entry Points**:
+- `msm()` - Main entry point (defaults to fast variant)
+- `pippenger()` - Safe wrapper (defaults to edge-case handling variant)
+- `batch_multi_scalar_mul()` - Multi-MSM batch processing
+
 The implementation provides two algorithm variants selected via `handle_edge_cases`:
 
 ### Small Pippenger (`handle_edge_cases=true`)
 
+**Implementation**: `small_pippenger_low_memory_with_transformed_scalars()`
+
 Uses **Jacobian coordinates** for bucket accumulators (`JacobianBucketAccumulators`).
 
 - **Pros**: Handles all edge cases (point doubling, point at infinity) correctly
-- **Cons**: Slower due to Jacobian arithmetic overhead
+- **Cons**: Slower due to Jacobian arithmetic overhead (~2-3× slower than affine variant)
 - **When to use**: When input points may have dependencies (e.g., same point appears multiple times, or P and -P both appear)
 
 ### Pippenger with Affine Trick (`handle_edge_cases=false`)
 
+**Implementation**: `pippenger_low_memory_with_transformed_scalars()`
+
 Uses **affine coordinates** for bucket accumulators (`BucketAccumulators`) with Montgomery's batch inversion trick.
 
-- **Pros**: Faster due to batch inversion optimization
-- **Cons**: Assumes no edge cases (incomplete addition formula)
-- **When to use**: When input points are guaranteed to be linearly independent (e.g., SRS points)
+- **Pros**: 2-3× faster due to batch inversion optimization (single inversion + 3n muls instead of n inversions)
+- **Cons**: Assumes no edge cases (incomplete addition formula fails on point doubling)
+- **When to use**: When input points are guaranteed to be linearly independent (e.g., SRS points, random points)
 
-The `msm()` function defaults to `handle_edge_cases=false` for performance, while `pippenger()` defaults to `handle_edge_cases=true` for safety.
+**Default behaviors**:
+- `msm()` → `handle_edge_cases=false` (fast, suitable for most use cases)
+- `pippenger()` → `handle_edge_cases=true` (safe, conservative default)
 
 ## Implementation Details
 
@@ -177,7 +202,9 @@ Sorting groups points by their target bucket, so consecutive entries often share
 
 ### consume_point_schedule Algorithm
 
-This function processes the sorted point schedule into bucket accumulators.
+This function processes the sorted point schedule into bucket accumulators using an **iterative batching loop**.
+
+**Core Processing Loop** (implemented in `process_bucket_pair` helper):
 
 For each pair of consecutive schedule entries:
 
@@ -187,7 +214,16 @@ For each pair of consecutive schedule entries:
 | **Case 2**: Different buckets, accumulator exists | Queue point + accumulator for addition | `point_it += 1` |
 | **Case 3**: Different buckets, no accumulator | Cache point into bucket | `point_it += 1` |
 
-When batch reaches 2048 points, call `add_affine_points`, then process results recursively.
+The algorithm uses **branchless conditional moves** in the hot path to minimize pipeline flushes.
+
+**Batching Flow**:
+
+1. **Fill Phase**: Process point schedule entries, queuing additions into scratch space (up to 2048 points)
+2. **Batch Addition**: When scratch space is full, invoke `add_affine_points` (Montgomery's batch inversion trick)
+3. **Recirculation Phase**: Process addition outputs, pairing same-bucket results or caching into bucket accumulators
+4. **Repeat**: Loop back to step 1 with queued results until all points are consumed
+
+The function processes batches iteratively until the entire point schedule is consumed and all partial results are accumulated into buckets.
 
 ## Data Structures
 

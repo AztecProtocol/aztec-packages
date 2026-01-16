@@ -493,7 +493,7 @@ void MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
     if (round_size > 0) {
         std::span<uint64_t> point_schedule(&round_schedule[num_zero_entries], round_size);
         // Iterate through our point schedule and add points into corresponding buckets
-        consume_point_schedule(point_schedule, points, affine_data, bucket_data, 0, 0);
+        consume_point_schedule(point_schedule, points, affine_data, bucket_data);
         bucket_result = accumulate_buckets(bucket_data);
         bucket_data.bucket_exists.clear();
     }
@@ -632,26 +632,24 @@ template <typename Curve>
 
 /**
  * @brief Given a list of points and target buckets to add into, perform required group operations
- * @details This algorithm uses exclusively affine group operations, using batch inversions to amortise costs
+ * @details This algorithm uses exclusively affine group operations, using batch inversions to amortise costs.
+ *          Processes points in batches, filling scratch space, performing batch additions, then recirculating
+ *          outputs until all points are accumulated into buckets.
  *
  * @tparam Curve
- * @param point_schedule
- * @param points
- * @param affine_data
- * @param bucket_data
- * @param num_input_points_processed
- * @param num_queued_affine_points
+ * @param point_schedule Packed entries: (point_index << 32) | bucket_index
+ * @param points Source points (indexed by point_schedule)
+ * @param affine_data Thread-local scratch space for batch additions
+ * @param bucket_data Bucket accumulators and existence bitmap
  */
 template <typename Curve>
 void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule,
                                         std::span<const typename Curve::AffineElement> points,
                                         MSM<Curve>::AffineAdditionData& affine_data,
-                                        MSM<Curve>::BucketAccumulators& bucket_data,
-                                        size_t num_input_points_processed,
-                                        size_t num_queued_affine_points) noexcept
+                                        MSM<Curve>::BucketAccumulators& bucket_data) noexcept
 {
-    size_t point_it = num_input_points_processed;
-    size_t affine_input_it = num_queued_affine_points;
+    size_t point_it = 0;
+    size_t affine_input_it = 0;
 
     // N.B. points and point_schedule MAY HAVE DIFFERENT SIZES
     // We source the number of actual points we work on from the point schedule
@@ -740,7 +738,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         size_t num_affine_output_points = num_affine_points_to_add / 2;
         // This algorithm is equivalent to the one we used to populate `affine_addition_scratch_space` from the point
         // schedule, however here we source points from a different location (the addition results)
-        while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
+        while (affine_output_it + 1 < num_affine_output_points) {
             uint32_t lhs_bucket = affine_addition_output_bucket_destinations[affine_output_it];
             uint32_t rhs_bucket = affine_addition_output_bucket_destinations[affine_output_it + 1];
             BB_ASSERT_DEBUG(lhs_bucket < bucket_accumulator_exists.size());

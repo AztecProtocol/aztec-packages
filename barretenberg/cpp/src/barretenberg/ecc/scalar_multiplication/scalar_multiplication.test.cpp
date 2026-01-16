@@ -176,7 +176,7 @@ TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatch)
         typename scalar_multiplication::MSM<Curve>::AffineAdditionData();
     typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
     scalar_multiplication::MSM<Curve>::consume_point_schedule(
-        input_point_schedule, TestFixture::generators, affine_data, bucket_data, 0, 0);
+        input_point_schedule, TestFixture::generators, affine_data, bucket_data);
 
     std::vector<typename Curve::Element> expected_buckets(num_buckets);
     for (auto& e : expected_buckets) {
@@ -220,7 +220,7 @@ TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatchAndAccumulate)
         typename scalar_multiplication::MSM<Curve>::AffineAdditionData();
     typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
     scalar_multiplication::MSM<Curve>::consume_point_schedule(
-        input_point_schedule, TestFixture::generators, affine_data, bucket_data, 0, 0);
+        input_point_schedule, TestFixture::generators, affine_data, bucket_data);
 
     Element result = scalar_multiplication::MSM<Curve>::accumulate_buckets(bucket_data);
 
