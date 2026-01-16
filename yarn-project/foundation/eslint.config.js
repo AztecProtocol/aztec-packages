@@ -1,6 +1,6 @@
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier/flat';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
 import noOnlyTests from 'eslint-plugin-no-only-tests';
 import tsdoc from 'eslint-plugin-tsdoc';
@@ -68,9 +68,8 @@ export default [
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-constant-condition': 'off',
-      // Warnings
-      'import/no-cycle': 'warn',
       // Errors
+      'import-x/no-cycle': ['error', { maxDepth: 3, ignoreExternal: true }],
       '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
@@ -80,7 +79,7 @@ export default [
       'no-console': 'error',
       curly: ['error', 'all'],
       camelcase: 'error',
-      'import/no-relative-packages': 'error',
+      'import-x/no-relative-packages': 'error',
       'no-restricted-imports': [
         'error',
         {
@@ -92,18 +91,18 @@ export default [
           ],
         },
       ],
-      'import/no-unresolved': [
+      'import-x/no-unresolved': [
         'error',
         {
           ignore: [
             // See https://github.com/import-js/eslint-plugin-import/issues/2703
             '@libp2p/bootstrap',
-            // Seems like ignoring l1-artifacts in the eslint call messes up no-unresolved
-            '@aztec/l1-artifacts',
+            // Workspace packages resolved by yarn
+            '@aztec/.*',
           ],
         },
       ],
-      'import/no-extraneous-dependencies': 'error',
+      'import-x/no-extraneous-dependencies': 'error',
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],
     },
