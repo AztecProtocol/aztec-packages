@@ -165,7 +165,7 @@ template <typename Curve> class MSM {
         static constexpr size_t BATCH_OVERFLOW_SIZE = 2;
         std::vector<AffineElement> points_to_add;
         std::vector<BaseField> scalar_scratch_space;
-        std::vector<uint32_t> addition_result_bucket_destinations;
+        std::vector<uint64_t> addition_result_bucket_destinations;
 
         AffineAdditionData() noexcept
             : points_to_add(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
@@ -230,7 +230,9 @@ template <typename Curve> class MSM {
     static void consume_point_schedule(std::span<const uint64_t> point_schedule,
                                        std::span<const AffineElement> points,
                                        AffineAdditionData& affine_data,
-                                       BucketAccumulators& bucket_data) noexcept;
+                                       BucketAccumulators& bucket_data,
+                                       size_t num_input_points_processed = 0,
+                                       size_t num_queued_affine_points = 0) noexcept;
 
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
                                                              std::span<std::span<ScalarField>> scalars,
