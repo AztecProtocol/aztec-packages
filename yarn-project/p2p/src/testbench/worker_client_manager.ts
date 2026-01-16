@@ -12,6 +12,7 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
+import { BENCHMARK_CONSTANTS } from '../test-helpers/testbench-utils.js';
 import type {
   BenchReqRespCommand,
   BenchResultMessage,
@@ -143,7 +144,6 @@ class WorkerClientManager {
     const readySignal = new Promise<void>((resolve, reject) => {
       let resolved = false;
 
-      // Set a timeout to avoid hanging indefinitely
       const timeout = setTimeout(() => {
         if (resolved) {
           return;
@@ -152,7 +152,7 @@ class WorkerClientManager {
         childProcess.off('message', messageHandler);
         childProcess.off('exit', exitHandler);
         reject(new Error(`Timeout waiting for worker ${clientIndex} to be ready`));
-      }, 30000); // 30 second timeout
+      }, BENCHMARK_CONSTANTS.WORKER_READY_TIMEOUT_MS);
 
       const messageHandler = (msg: any) => {
         if (resolved) {
@@ -258,14 +258,15 @@ class WorkerClientManager {
         }
       }
 
-      // Wait for peers to all connect with each other
-      await sleep(10000);
+      await sleep(BENCHMARK_CONSTANTS.PEER_DISCOVERY_WAIT_MS);
 
-      // Wait for all peers to be booted up with timeout
       await Promise.race([
         Promise.all(readySignals),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout waiting for all workers to be ready')), 30000),
+          setTimeout(
+            () => reject(new Error('Timeout waiting for all workers to be ready')),
+            BENCHMARK_CONSTANTS.WORKER_READY_TIMEOUT_MS,
+          ),
         ),
       ]);
 
@@ -323,11 +324,13 @@ class WorkerClientManager {
 
       this.processes[clientIndex] = childProcess;
 
-      // Wait for the process to be ready with a timeout
       await Promise.race([
         readySignal,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)), 30000),
+          setTimeout(
+            () => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)),
+            BENCHMARK_CONSTANTS.WORKER_READY_TIMEOUT_MS,
+          ),
         ),
       ]);
     } catch (error) {
@@ -347,15 +350,14 @@ class WorkerClientManager {
     }
 
     return new Promise<void>(resolve => {
-      // Set a timeout for the graceful exit
       const forceKillTimeout = setTimeout(() => {
         this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
         try {
-          process.kill('SIGKILL'); // Force kill
+          process.kill('SIGKILL');
         } catch (e) {
           this.logger.error(`Error force killing process ${index}:`, e);
         }
-      }, 5000); // 5 second timeout for graceful exit
+      }, BENCHMARK_CONSTANTS.GRACEFUL_SHUTDOWN_TIMEOUT_MS);
 
       // Listen for process exit
       process.once('exit', () => {
@@ -388,7 +390,6 @@ class WorkerClientManager {
     // Create array of promises for each process termination
     const terminationPromises = this.processes.map((process, index) => this.terminateProcess(process, index));
 
-    // Wait for all processes to terminate with a timeout
     try {
       await Promise.race([
         Promise.all(terminationPromises),
@@ -405,7 +406,7 @@ class WorkerClientManager {
               }
             });
             resolve();
-          }, 10000); // 10 second timeout for all processes
+          }, BENCHMARK_CONSTANTS.CLEANUP_TIMEOUT_MS);
         }),
       ]);
     } catch (error) {

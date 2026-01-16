@@ -28,12 +28,10 @@ export type WorkerResponse =
   | { type: 'READY'; requestId: string; peerId: string }
   | { type: 'TXS_SET'; requestId: string; count: number }
   | { type: 'BLOCK_PROPOSAL_SET'; requestId: string; archiveRoot: string }
-  | { type: 'COLLECTOR_RESULT'; requestId: string; durationMs: number; fetchedCount: number; error?: string }
+  | { type: 'COLLECTOR_RESULT'; requestId: string; durationMs: number; fetchedCount: number }
   | { type: 'PEER_COUNT'; requestId: string; count: number }
   | { type: 'STOPPED'; requestId: string }
   | { type: 'ERROR'; requestId: string; error: string };
-
-export type WorkerMessage = WorkerCommand | WorkerResponse;
 
 export const serializeTx = (tx: Tx) => tx.toBuffer().toString('hex');
 export const deserializeTx = (hex: string) => Tx.fromBuffer(Buffer.from(hex, 'hex'));

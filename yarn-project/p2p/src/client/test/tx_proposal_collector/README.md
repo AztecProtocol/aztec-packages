@@ -208,8 +208,11 @@ This benchmark does **not** measure:
 | File | Purpose |
 |------|---------|
 | `p2p_client.proposal_tx_collector_bench.test.ts` | Test suite (cases, distributions, output formatting) |
+| `proposal_tx_collector_worker.ts` | Collector-specific worker implementation |
+| `proposal_tx_collector_worker_protocol.ts` | IPC message types and serialization |
 | `src/testbench/worker_client_manager.ts` | Worker process manager (forking, IPC, orchestration) |
-| `src/testbench/p2p_client_testbench_worker.ts` | Worker implementation (runs P2P client, hosts tx pool, runs collectors) |
+| `src/testbench/p2p_client_testbench_worker.ts` | General testbench worker implementation |
+| `src/test-helpers/testbench-utils.ts` | Shared mocks and utilities (InMemoryTxPool, InMemoryAttestationPool, etc.) |
 
 ## Implementation Notes
 

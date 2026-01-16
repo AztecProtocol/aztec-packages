@@ -5,11 +5,9 @@
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -20,30 +18,20 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import {
-  type BlockProposal,
-  type CheckpointAttestation,
-  type CheckpointProposal,
-  type CheckpointProposalCore,
-  P2PClientType,
-  P2PMessage,
-} from '@aztec/stdlib/p2p';
+import { type BlockProposal, P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeAztecAddress, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
-import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
-import EventEmitter from 'events';
 
 import type { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
-import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
@@ -55,10 +43,20 @@ import {
   SendBatchRequestCollector,
 } from '../services/tx_collection/proposal_tx_collector.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
+import {
+  BENCHMARK_CONSTANTS,
+  type CollectorType,
+  type DistributionPattern,
+  InMemoryAttestationPool,
+  InMemoryTxPool,
+  UNLIMITED_RATE_LIMIT_QUOTA,
+  createMockEpochCache,
+  createMockWorldStateSynchronizer,
+  filterTxsByDistribution,
+} from '../test-helpers/testbench-utils.js';
 import type { PubSubLibp2p } from '../util.js';
 
-export type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
-export type CollectorType = 'batch-requester' | 'send-batch-request';
+export type { DistributionPattern, CollectorType } from '../test-helpers/testbench-utils.js';
 
 export interface BenchReqRespCommand {
   type: 'BENCH_REQRESP';
@@ -87,235 +85,7 @@ export interface BenchReadyMessage {
   type: 'BENCH_READY';
 }
 
-class StatefulTxPool extends EventEmitter implements TxPool {
-  private txsByHash = new Map<string, Tx>();
-  private logger: Logger | null = null;
-
-  setLogger(logger: Logger): void {
-    this.logger = logger;
-  }
-
-  setTxs(txs: Tx[]): void {
-    this.txsByHash.clear();
-    for (const tx of txs) {
-      const hashStr = tx.getTxHash().toString();
-      this.txsByHash.set(hashStr, tx);
-    }
-    this.logger?.debug(
-      `[TxPool] Set ${txs.length} txs, hashes: ${[...this.txsByHash.keys()].slice(0, 3).join(', ')}...`,
-    );
-  }
-
-  clearTxs(): void {
-    this.txsByHash.clear();
-  }
-
-  resetState(): void {
-    this.txsByHash.clear();
-    this.removeAllListeners();
-  }
-
-  async addTxs(txs: Tx[], opts?: { source?: string }): Promise<number> {
-    const newTxs: Tx[] = [];
-    let added = 0;
-    for (const tx of txs) {
-      const key = tx.getTxHash().toString();
-      if (!this.txsByHash.has(key)) {
-        newTxs.push(tx);
-        added += 1;
-      }
-      this.txsByHash.set(key, tx);
-    }
-    if (newTxs.length > 0) {
-      this.emit('txs-added', { txs: newTxs, source: opts?.source });
-    }
-    return added;
-  }
-
-  async getTxByHash(hash: TxHash): Promise<Tx | undefined> {
-    return this.txsByHash.get(hash.toString());
-  }
-
-  async getTxsByHash(hashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const result = hashes.map(h => this.txsByHash.get(h.toString()));
-    const found = result.filter(tx => tx !== undefined).length;
-    this.logger?.debug(`[TxPool] getTxsByHash: requested ${hashes.length}, found ${found}`);
-    return result;
-  }
-
-  async hasTxs(hashes: TxHash[]): Promise<boolean[]> {
-    return hashes.map(h => this.txsByHash.has(h.toString()));
-  }
-
-  async hasTx(hash: TxHash): Promise<boolean> {
-    return this.txsByHash.has(hash.toString());
-  }
-
-  async getArchivedTxByHash(_hash: TxHash): Promise<Tx | undefined> {
-    return undefined;
-  }
-
-  async markAsMined(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<void> {}
-
-  async markMinedAsPending(_txHashes: TxHash[], _latestBlock: BlockNumber): Promise<void> {}
-
-  async deleteTxs(txHashes: TxHash[], _opts?: { permanently?: boolean }): Promise<void> {
-    for (const txHash of txHashes) {
-      this.txsByHash.delete(txHash.toString());
-    }
-  }
-
-  async getAllTxs(): Promise<Tx[]> {
-    return [...this.txsByHash.values()];
-  }
-
-  async getAllTxHashes(): Promise<TxHash[]> {
-    return [...this.txsByHash.keys()].map(key => TxHash.fromString(key));
-  }
-
-  async getPendingTxHashes(): Promise<TxHash[]> {
-    return [...this.txsByHash.keys()].map(key => TxHash.fromString(key));
-  }
-
-  async getPendingTxCount(): Promise<number> {
-    return this.txsByHash.size;
-  }
-
-  async getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: BlockNumber][]> {
-    return [];
-  }
-
-  async getTxStatus(hash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
-    return this.txsByHash.has(hash.toString()) ? 'pending' : undefined;
-  }
-
-  updateConfig(_config: { maxPendingTxCount?: number; archivedTxLimit?: number }): void {}
-
-  async isEmpty(): Promise<boolean> {
-    return this.txsByHash.size === 0;
-  }
-
-  async markTxsAsNonEvictable(_txHashes: TxHash[]): Promise<void> {}
-
-  async clearNonEvictableTxs(): Promise<void> {}
-
-  async cleanupDeletedMinedTxs(_blockNumber: BlockNumber): Promise<number> {
-    return 0;
-  }
-}
-
-class StatefulAttestationPool implements AttestationPool {
-  private proposals = new Map<string, BlockProposal>();
-
-  async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
-    this.proposals.set(blockProposal.archive.toString(), blockProposal);
-  }
-
-  async getBlockProposal(id: string): Promise<BlockProposal | undefined> {
-    return this.proposals.get(id);
-  }
-
-  async hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return this.proposals.has(id);
-  }
-
-  async canAddProposal(_block: BlockProposal): Promise<boolean> {
-    return true;
-  }
-
-  async addCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {}
-
-  async getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
-    return undefined;
-  }
-
-  async hasCheckpointProposal(_idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    return false;
-  }
-
-  async addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
-
-  async deleteCheckpointAttestationsOlderThan(_slot: SlotNumber): Promise<void> {}
-
-  async getCheckpointAttestationsForSlot(_slot: SlotNumber): Promise<CheckpointAttestation[]> {
-    return [];
-  }
-
-  async getCheckpointAttestationsForSlotAndProposal(
-    _slot: SlotNumber,
-    _proposalId: string,
-  ): Promise<CheckpointAttestation[]> {
-    return [];
-  }
-
-  async hasCheckpointAttestation(_attestation: CheckpointAttestation): Promise<boolean> {
-    return false;
-  }
-
-  async canAddCheckpointProposal(_proposal: CheckpointProposal): Promise<boolean> {
-    return true;
-  }
-
-  async canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
-    return true;
-  }
-
-  async hasReachedCheckpointProposalCap(_slot: SlotNumber): Promise<boolean> {
-    return false;
-  }
-
-  async hasReachedCheckpointAttestationCap(
-    _slot: SlotNumber,
-    _proposalId: string,
-    _committeeSize: number,
-  ): Promise<boolean> {
-    return false;
-  }
-
-  async isEmpty(): Promise<boolean> {
-    return this.proposals.size === 0;
-  }
-
-  resetState(): void {
-    this.proposals.clear();
-  }
-}
-
 const txCache = new Map<number, Tx[]>();
-
-function mockEpochCache(): EpochCacheInterface {
-  return {
-    getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
-    getProposerIndexEncoding: () => '0x' as `0x${string}`,
-    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n }),
-    computeProposerIndex: () => 0n,
-    getCurrentAndNextSlot: () => ({
-      currentSlot: SlotNumber.ZERO,
-      nextSlot: SlotNumber.ZERO,
-    }),
-    getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
-    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
-    isInCommittee: () => Promise.resolve(false),
-    getRegisteredValidators: () => Promise.resolve([]),
-    filterInCommittee: () => Promise.resolve([]),
-  };
-}
-
-function mockWorldStateSynchronizer(): WorldStateSynchronizer {
-  return {
-    status: () =>
-      Promise.resolve({
-        syncSummary: {
-          latestBlockNumber: 0,
-          latestBlockHash: '',
-          finalizedBlockNumber: 0,
-          treesAreSynched: false,
-          oldestHistoricBlockNumber: 0,
-        },
-      }),
-  } as WorldStateSynchronizer;
-}
 
 class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
   private disableTxValidation: boolean;
@@ -419,36 +189,6 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
   return cached.slice(0, txCount);
 }
 
-function filterByDistribution(
-  allTxs: Tx[],
-  peerIndex: number,
-  peerCount: number,
-  distribution: DistributionPattern,
-  pinnedPeerIndex: number = 1,
-): Tx[] {
-  if (peerIndex === 0) {
-    return [];
-  }
-
-  const responderCount = peerCount - 1;
-
-  switch (distribution) {
-    case 'uniform':
-      return allTxs;
-
-    case 'sparse': {
-      const responderIndex = peerIndex - 1;
-      return allTxs.filter((_, txIndex) => {
-        const bucket = txIndex % responderCount;
-        return bucket === responderIndex || bucket === (responderIndex + 1) % responderCount;
-      });
-    }
-
-    case 'pinned-only':
-      return peerIndex === pinnedPeerIndex ? allTxs : [];
-  }
-}
-
 async function createBlockProposal(blockNumber: number, txHashes: TxHash[], seed: number): Promise<BlockProposal> {
   const archiveRoot = new Fr(BigInt(seed) * 1000000n + BigInt(blockNumber));
   return await makeBlockProposal({
@@ -463,12 +203,7 @@ function installUnlimitedRateLimits(client: P2PClient): void {
   const reqResp = (client as any).p2pService.reqresp as any;
   const rateLimiter = reqResp.rateLimiter as any;
 
-  const unlimitedQuota = {
-    peerLimit: { quotaTimeMs: 1000, quotaCount: 10_000 },
-    globalLimit: { quotaTimeMs: 1000, quotaCount: 100_000 },
-  };
-
-  rateLimiter.getRateLimits = () => unlimitedQuota;
+  rateLimiter.getRateLimits = () => UNLIMITED_RATE_LIMIT_QUOTA;
   rateLimiter.allow = () => RateLimitStatus.Allowed;
 }
 
@@ -495,8 +230,8 @@ async function runAggregatorBenchmark(
       typeof reqResp.getConnectionSampler === 'function' ? reqResp.getConnectionSampler() : reqResp.connectionSampler;
 
     const minPeersRequired = Math.max(1, expectedPeerCount - 1);
-    const maxWaitMs = 60_000;
-    const waitInterval = 500;
+    const maxWaitMs = BENCHMARK_CONSTANTS.MAX_PEER_WAIT_MS;
+    const waitInterval = BENCHMARK_CONSTANTS.PEER_CHECK_INTERVAL_MS;
     let waited = 0;
 
     while (waited < maxWaitMs) {
@@ -534,10 +269,6 @@ async function runAggregatorBenchmark(
       }
     }
 
-    // Use fixed, comparable parameters for fair benchmarking
-    const FIXED_MAX_PEERS = 10;
-    const FIXED_MAX_RETRY_ATTEMPTS = 3;
-
     timer = new Timer();
     if (collectorType === 'batch-requester') {
       const collector = new BatchTxRequesterCollector(mockService, logger, new DateProvider());
@@ -551,7 +282,11 @@ async function runAggregatorBenchmark(
       };
     }
 
-    const collector = new SendBatchRequestCollector(mockService, FIXED_MAX_PEERS, FIXED_MAX_RETRY_ATTEMPTS);
+    const collector = new SendBatchRequestCollector(
+      mockService,
+      BENCHMARK_CONSTANTS.FIXED_MAX_PEERS,
+      BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
+    );
     const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
     const durationMs = timer.ms();
     return {
@@ -572,8 +307,8 @@ async function runAggregatorBenchmark(
 }
 
 let workerClient: P2PClient | null = null;
-let workerTxPool: StatefulTxPool | null = null;
-let workerAttestationPool: StatefulAttestationPool | null = null;
+let workerTxPool: InMemoryTxPool | null = null;
+let workerAttestationPool: InMemoryAttestationPool | null = null;
 let workerConfig: P2PConfig | null = null;
 let workerLogger: Logger | null = null;
 let kvStore: Awaited<ReturnType<typeof openTmpStore>> | null = null;
@@ -598,10 +333,10 @@ process.on('message', async msg => {
       } as P2PConfig;
 
       workerConfig = config;
-      workerTxPool = new StatefulTxPool();
-      workerAttestationPool = new StatefulAttestationPool();
-      const epochCache = mockEpochCache();
-      const worldState = mockWorldStateSynchronizer();
+      workerTxPool = new InMemoryTxPool();
+      workerAttestationPool = new InMemoryAttestationPool();
+      const epochCache = createMockEpochCache();
+      const worldState = createMockWorldStateSynchronizer();
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
@@ -732,7 +467,7 @@ process.on('message', async msg => {
 
           process.send!(result);
         } else {
-          const myTxs = filterByDistribution(
+          const myTxs = filterTxsByDistribution(
             allTxs,
             benchCmd.peerIndex,
             benchCmd.peerCount,
