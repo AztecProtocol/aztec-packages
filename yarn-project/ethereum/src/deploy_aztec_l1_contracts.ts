@@ -508,6 +508,7 @@ export function getDeployAztecL1ContractsEnvVars(args: DeployAztecL1ContractsArg
     AZTEC_EJECTION_THRESHOLD: args.ejectionThreshold?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: args.governanceProposerRoundSize?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_QUORUM: args.governanceProposerQuorum?.toString(),
+    AZTEC_GOVERNANCE_VOTING_DURATION: args.governanceVotingDuration?.toString(),
     ZKPASSPORT_DOMAIN: args.zkPassportArgs?.zkPassportDomain,
     ZKPASSPORT_SCOPE: args.zkPassportArgs?.zkPassportScope,
   } as const;

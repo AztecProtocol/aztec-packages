@@ -154,7 +154,7 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
       return GovernanceConfiguration({
         proposeConfig: ProposeWithLockConfiguration({lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 1e24}),
         votingDelay: Timestamp.wrap(60),
-        votingDuration: Timestamp.wrap(60 * 60),
+        votingDuration: Timestamp.wrap(vm.envOr("AZTEC_GOVERNANCE_VOTING_DURATION", uint256(60 * 60))),
         executionDelay: Timestamp.wrap(60),
         gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
         quorum: 0.1e18,
