@@ -19,16 +19,17 @@ An Aztec **node** syncs L2 state and serves RPC requests. A node may also act as
 
 ### When to Run Bootstrap
 
-**ONLY** run `./bootstrap.sh` from the git root when:
+**ALWAYS** run `./bootstrap.sh` from the git root when:
 
 - Pulling new changes that have modifications outside `yarn-project`
 - Switching branches with changes from outside `yarn-project`
+- Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
+(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
 ```
 
-**DO NOT** run bootstrap in any other circumstance - it takes several minutes.
+Bootstrap takes several minutes to run. Be patient.
 
 ### Compile Before Testing
 

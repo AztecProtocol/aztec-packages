@@ -6,7 +6,7 @@ out = 'out'
 libs = ['lib']
 # NOTE!: This line defines the solc version used.
 # It is downloaded by bootstrap.sh, but the version string here is parsed.
-solc = "./solc-0.8.27"
+solc = "./solc-0.8.30"
 evm_version = 'prague'
 optimizer = true
 match_path = "test/**/*.t.sol"

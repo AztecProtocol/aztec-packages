@@ -13,6 +13,7 @@ export class EventService {
     private readonly anchorBlockStore: AnchorBlockStore,
     private readonly aztecNode: AztecNode,
     private readonly privateEventStore: PrivateEventStore,
+    private readonly jobId: string,
   ) {}
 
   public async storeEvent(
@@ -52,14 +53,21 @@ export class EventService {
       );
     }
 
-    return this.privateEventStore.storePrivateEventLog(selector, randomness, content, siloedEventCommitment, {
-      contractAddress,
-      scope,
-      txHash,
-      l2BlockNumber: txEffect.l2BlockNumber,
-      l2BlockHash: txEffect.l2BlockHash,
-      txIndexInBlock: txEffect.txIndexInBlock,
-      eventIndexInTx,
-    });
+    return this.privateEventStore.storePrivateEventLog(
+      selector,
+      randomness,
+      content,
+      siloedEventCommitment,
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: txEffect.l2BlockNumber,
+        l2BlockHash: txEffect.l2BlockHash,
+        txIndexInBlock: txEffect.txIndexInBlock,
+        eventIndexInTx,
+      },
+      this.jobId,
+    );
   }
 }

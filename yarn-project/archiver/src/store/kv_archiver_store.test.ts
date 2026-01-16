@@ -1,5 +1,5 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -2706,6 +2706,352 @@ describe('KVArchiverDataStore', () => {
       const retrievedStatus = await store.getPendingChainValidationStatus();
 
       expect(retrievedStatus).toEqual(statusWithEmptyArrays);
+    });
+  });
+
+  describe('idempotency', () => {
+    it('handles adding blocks via addBlocks then same blocks via addCheckpoints', async () => {
+      // First add checkpoint 1 to establish a base
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        5,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Add provisional block 2 via addBlocks
+      const provisionalBlock = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: 0,
+        lastArchive: checkpoint1.checkpoint.blocks[0].archive,
+      });
+      await store.addBlocks([provisionalBlock]);
+
+      // Now add checkpoint 2 containing the same block via addCheckpoints
+      const checkpoint2 = new Checkpoint(
+        provisionalBlock.archive,
+        CheckpointHeader.random(),
+        [provisionalBlock],
+        CheckpointNumber(2),
+      );
+      const publishedCheckpoint2 = makePublishedCheckpoint(checkpoint2, 10);
+
+      // This should NOT throw - addCheckpoints uses .set() which is idempotent
+      await expect(store.addCheckpoints([publishedCheckpoint2])).resolves.toBe(true);
+
+      // Verify block exists and is consistent
+      const storedBlock = await store.getBlock(BlockNumber(2));
+      expect(storedBlock?.archive.root.equals(provisionalBlock.archive.root)).toBe(true);
+    });
+
+    it('does not throw when adding the same contract class twice', async () => {
+      const contractClass = await makeContractClassPublic();
+      const commitment = await computePublicBytecodeCommitment(contractClass.packedBytecode);
+
+      // Add contract class first time
+      await store.addContractClasses([contractClass], [commitment], BlockNumber(1));
+
+      // Add same contract class again - should not throw (uses setIfNotExists)
+      await store.addContractClasses([contractClass], [commitment], BlockNumber(2));
+
+      // Verify contract class exists
+      const retrieved = await store.getContractClass(contractClass.id);
+      expect(retrieved).toBeDefined();
+    });
+
+    it('does not throw when adding the same contract instance twice', async () => {
+      const contractClass = await makeContractClassPublic();
+      await store.addContractClasses(
+        [contractClass],
+        [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
+        BlockNumber(1),
+      );
+
+      const instance = {
+        ...(await SerializableContractInstance.random({
+          currentContractClassId: contractClass.id,
+          originalContractClassId: contractClass.id,
+        })),
+        address: await AztecAddress.random(),
+      };
+
+      // Add contract instance first time
+      await store.addContractInstances([instance], BlockNumber(1));
+
+      // Add same contract instance again - should not throw (uses set)
+      await store.addContractInstances([instance], BlockNumber(2));
+
+      // Verify instance exists
+      const retrieved = await store.getContractInstance(instance.address, 1000n);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.address.equals(instance.address)).toBe(true);
+    });
+
+    it('does not duplicate logs when addLogs is called twice with same block', async () => {
+      const block = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+      });
+
+      // Add logs first time
+      await store.addLogs([block]);
+
+      // Get initial log count
+      const initialLogs = await store.getPublicLogs({ fromBlock: BlockNumber(1), toBlock: BlockNumber(2) });
+      const initialCount = initialLogs.logs.length;
+      expect(initialCount).toBeGreaterThan(0);
+
+      // Add logs second time (same block)
+      await store.addLogs([block]);
+
+      // Verify logs are NOT duplicated
+      const finalLogs = await store.getPublicLogs({ fromBlock: BlockNumber(1), toBlock: BlockNumber(2) });
+      expect(finalLogs.logs.length).toBe(initialCount);
+    });
+  });
+
+  describe('getBlocksForSlot', () => {
+    it('returns blocks matching the given slot number', async () => {
+      // Create blocks with specific slot numbers
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+        slotNumber: SlotNumber(100),
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+        slotNumber: SlotNumber(100), // Same slot number as block1
+      });
+      const block3 = await L2BlockNew.random(BlockNumber(3), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 2,
+        lastArchive: block2.archive,
+        slotNumber: SlotNumber(101), // Different slot number
+      });
+
+      await store.addBlocks([block1, block2, block3]);
+
+      const blocksForSlot100 = await store.getBlocksForSlot(SlotNumber(100));
+      expect(blocksForSlot100.length).toBe(2);
+      expect(blocksForSlot100[0].equals(block1)).toBe(true);
+      expect(blocksForSlot100[1].equals(block2)).toBe(true);
+
+      const blocksForSlot101 = await store.getBlocksForSlot(SlotNumber(101));
+      expect(blocksForSlot101.length).toBe(1);
+      expect(blocksForSlot101[0].equals(block3)).toBe(true);
+    });
+
+    it('returns empty array when no blocks exist for that slot', async () => {
+      // Create a block with a specific slot number
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+        slotNumber: SlotNumber(100),
+      });
+
+      await store.addBlocks([block1]);
+
+      const blocksForSlot999 = await store.getBlocksForSlot(SlotNumber(999));
+      expect(blocksForSlot999).toEqual([]);
+    });
+
+    it('returns empty array when store is empty', async () => {
+      const blocksForSlot = await store.getBlocksForSlot(SlotNumber(1));
+      expect(blocksForSlot).toEqual([]);
+    });
+
+    it('returns blocks in ascending block number order', async () => {
+      // Create multiple blocks with the same slot number
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+        slotNumber: SlotNumber(50),
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+        slotNumber: SlotNumber(50),
+      });
+      const block3 = await L2BlockNew.random(BlockNumber(3), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 2,
+        lastArchive: block2.archive,
+        slotNumber: SlotNumber(50),
+      });
+
+      await store.addBlocks([block1, block2, block3]);
+
+      const blocksForSlot = await store.getBlocksForSlot(SlotNumber(50));
+      expect(blocksForSlot.length).toBe(3);
+      expect(blocksForSlot[0].number).toBe(1);
+      expect(blocksForSlot[1].number).toBe(2);
+      expect(blocksForSlot[2].number).toBe(3);
+    });
+  });
+
+  describe('removeBlocksAfterBlock', () => {
+    it('removes blocks with number > given blockNumber', async () => {
+      // Create blocks for initial checkpoint
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+      });
+      const block3 = await L2BlockNew.random(BlockNumber(3), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 2,
+        lastArchive: block2.archive,
+      });
+      const block4 = await L2BlockNew.random(BlockNumber(4), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 3,
+        lastArchive: block3.archive,
+      });
+
+      await store.addBlocks([block1, block2, block3, block4]);
+      expect(await store.getLatestBlockNumber()).toBe(4);
+
+      // Remove blocks after block 2
+      await store.removeBlocksAfter(BlockNumber(2));
+
+      expect(await store.getLatestBlockNumber()).toBe(2);
+      expect(await store.getBlock(BlockNumber(1))).toBeDefined();
+      expect(await store.getBlock(BlockNumber(2))).toBeDefined();
+      expect(await store.getBlock(BlockNumber(3))).toBeUndefined();
+      expect(await store.getBlock(BlockNumber(4))).toBeUndefined();
+    });
+
+    it('returns the removed blocks', async () => {
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+      });
+      const block3 = await L2BlockNew.random(BlockNumber(3), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 2,
+        lastArchive: block2.archive,
+      });
+
+      await store.addBlocks([block1, block2, block3]);
+
+      // Remove blocks after block 1
+      const removedBlocks = await store.removeBlocksAfter(BlockNumber(1));
+
+      expect(removedBlocks.length).toBe(2);
+      expect(removedBlocks[0].equals(block2)).toBe(true);
+      expect(removedBlocks[1].equals(block3)).toBe(true);
+    });
+
+    it('returns empty array when no blocks need to be removed', async () => {
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+      });
+
+      await store.addBlocks([block1, block2]);
+
+      // Remove blocks after block 2 (none to remove)
+      const removedBlocks = await store.removeBlocksAfter(BlockNumber(2));
+
+      expect(removedBlocks).toEqual([]);
+      expect(await store.getLatestBlockNumber()).toBe(2);
+    });
+
+    it('returns empty array when store is empty', async () => {
+      const removedBlocks = await store.removeBlocksAfter(BlockNumber(0));
+
+      expect(removedBlocks).toEqual([]);
+    });
+
+    it('cleans up related data (tx effects, hash index, archive index)', async () => {
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+        txsPerBlock: 2,
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+        txsPerBlock: 2,
+      });
+
+      await store.addBlocks([block1, block2]);
+
+      // Verify block2 is retrievable by hash and archive before removal
+      const block2Hash = await block2.header.hash();
+      const block2Archive = block2.archive.root;
+
+      expect(await store.getBlockByHash(block2Hash)).toBeDefined();
+      expect(await store.getBlockByArchive(block2Archive)).toBeDefined();
+
+      // Verify tx effects for block2 are retrievable before removal
+      for (const txEffect of block2.body.txEffects) {
+        const retrieved = await store.getTxEffect(txEffect.txHash);
+        expect(retrieved).toBeDefined();
+      }
+
+      // Remove blocks after block 1
+      await store.removeBlocksAfter(BlockNumber(1));
+
+      // Verify block2 is no longer retrievable by hash or archive
+      expect(await store.getBlockByHash(block2Hash)).toBeUndefined();
+      expect(await store.getBlockByArchive(block2Archive)).toBeUndefined();
+
+      // Verify tx effects for block2 are no longer retrievable
+      for (const txEffect of block2.body.txEffects) {
+        const retrieved = await store.getTxEffect(txEffect.txHash);
+        expect(retrieved).toBeUndefined();
+      }
+
+      // Verify block1's data is still intact
+      const block1Hash = await block1.header.hash();
+      const block1Archive = block1.archive.root;
+
+      expect(await store.getBlockByHash(block1Hash)).toBeDefined();
+      expect(await store.getBlockByArchive(block1Archive)).toBeDefined();
+
+      for (const txEffect of block1.body.txEffects) {
+        const retrieved = await store.getTxEffect(txEffect.txHash);
+        expect(retrieved).toBeDefined();
+      }
+    });
+
+    it('removes all blocks when blockNumber is 0', async () => {
+      const block1 = await L2BlockNew.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 0,
+      });
+      const block2 = await L2BlockNew.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: 1,
+        lastArchive: block1.archive,
+      });
+
+      await store.addBlocks([block1, block2]);
+
+      const removedBlocks = await store.removeBlocksAfter(BlockNumber(0));
+
+      expect(removedBlocks.length).toBe(2);
+      expect(await store.getLatestBlockNumber()).toBe(0);
+      expect(await store.getBlock(BlockNumber(1))).toBeUndefined();
+      expect(await store.getBlock(BlockNumber(2))).toBeUndefined();
     });
   });
 });

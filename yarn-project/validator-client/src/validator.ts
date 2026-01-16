@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -533,16 +533,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return { isValid: false, reason: 'last_block_not_found' };
     }
 
-    // Get the last full block to determine checkpoint number
-    const lastBlock = await this.blockSource.getL2BlockNew(lastBlockHeader.getBlockNumber());
-    if (!lastBlock) {
-      this.log.warn(`Last block ${lastBlockHeader.getBlockNumber()} not found`, proposalInfo);
-      return { isValid: false, reason: 'last_block_not_found' };
-    }
-    const checkpointNumber = lastBlock.checkpointNumber;
-
     // Get all full blocks for the slot and checkpoint
-    const blocks = await this.getBlocksForSlot(slot, lastBlockHeader, checkpointNumber);
+    const blocks = await this.blockSource.getBlocksForSlot(slot);
     if (blocks.length === 0) {
       this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
       return { isValid: false, reason: 'no_blocks_for_slot' };
@@ -556,6 +548,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Get checkpoint constants from first block
     const firstBlock = blocks[0];
     const constants = this.extractCheckpointConstants(firstBlock);
+    const checkpointNumber = firstBlock.checkpointNumber;
 
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
@@ -627,46 +620,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   /**
-   * Get all full blocks for a given slot and checkpoint by walking backwards from the last block.
-   * Returns blocks in ascending order (earliest to latest).
-   * TODO(palla/mbps): Add getL2BlocksForSlot() to L2BlockSource interface for efficiency.
-   */
-  private async getBlocksForSlot(
-    slot: SlotNumber,
-    lastBlockHeader: BlockHeader,
-    checkpointNumber: CheckpointNumber,
-  ): Promise<L2BlockNew[]> {
-    const blocks: L2BlockNew[] = [];
-    let currentHeader = lastBlockHeader;
-    const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
-
-    while (currentHeader.getSlot() === slot) {
-      const block = await this.blockSource.getL2BlockNew(currentHeader.getBlockNumber());
-      if (!block) {
-        this.log.warn(`Block ${currentHeader.getBlockNumber()} not found while getting blocks for slot ${slot}`);
-        break;
-      }
-      if (block.checkpointNumber !== checkpointNumber) {
-        break;
-      }
-      blocks.unshift(block);
-
-      const prevArchive = currentHeader.lastArchive.root;
-      if (prevArchive.equals(genesisArchiveRoot)) {
-        break;
-      }
-
-      const prevHeader = await this.blockSource.getBlockHeaderByArchive(prevArchive);
-      if (!prevHeader || prevHeader.getSlot() !== slot) {
-        break;
-      }
-      currentHeader = prevHeader;
-    }
-
-    return blocks;
-  }
-
-  /**
    * Extract checkpoint global variables from a block.
    */
   private extractCheckpointConstants(block: L2BlockNew): CheckpointGlobalVariables {
@@ -692,14 +645,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         return;
       }
 
-      // Get the last full block to determine checkpoint number
-      const lastBlock = await this.blockSource.getL2BlockNew(lastBlockHeader.getBlockNumber());
-      if (!lastBlock) {
-        this.log.warn(`Failed to get last block for blob upload`, proposalInfo);
-        return;
-      }
-
-      const blocks = await this.getBlocksForSlot(proposal.slotNumber, lastBlockHeader, lastBlock.checkpointNumber);
+      const blocks = await this.blockSource.getBlocksForSlot(proposal.slotNumber);
       if (blocks.length === 0) {
         this.log.warn(`No blocks found for blob upload`, proposalInfo);
         return;

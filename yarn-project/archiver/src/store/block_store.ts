@@ -1,5 +1,5 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -350,6 +350,23 @@ export class BlockStore {
     await this.#blockArchiveIndex.set(block.archive.root.toString(), block.number);
   }
 
+  /** Deletes a block and all associated data (tx effects, indices). */
+  private async deleteBlock(block: L2BlockNew): Promise<void> {
+    // Delete the block from the main blocks map
+    await this.#blocks.delete(block.number);
+
+    // Delete all tx effects for this block
+    await Promise.all(block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
+
+    // Delete block txs mapping
+    const blockHash = (await block.hash()).toString();
+    await this.#blockTxs.delete(blockHash);
+
+    // Clean up indices
+    await this.#blockHashIndex.delete(blockHash);
+    await this.#blockArchiveIndex.delete(block.archive.root.toString());
+  }
+
   /**
    * Unwinds checkpoints from the database
    * @param from -  The tip of the chain, passed for verification purposes,
@@ -387,16 +404,11 @@ export class BlockStore {
             this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
             continue;
           }
-          await this.#blocks.delete(block.number);
-          await Promise.all(block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
-          const blockHash = (await block.hash()).toString();
-          await this.#blockTxs.delete(blockHash);
 
-          // Clean up indices
-          await this.#blockHashIndex.delete(blockHash);
-          await this.#blockArchiveIndex.delete(block.archive.root.toString());
-
-          this.#log.debug(`Unwound block ${blockNumber} ${blockHash} for checkpoint ${checkpointNumber}`);
+          await this.deleteBlock(block);
+          this.#log.debug(
+            `Unwound block ${blockNumber} ${(await block.hash()).toString()} for checkpoint ${checkpointNumber}`,
+          );
         }
       }
 
@@ -452,6 +464,61 @@ export class BlockStore {
 
     const converted = await Promise.all(blocksForCheckpoint.map(x => this.getBlockFromBlockStorage(x[0], x[1])));
     return converted.filter(isDefined);
+  }
+
+  /**
+   * Gets all blocks that have the given slot number.
+   * Iterates backwards through blocks for efficiency since we usually query for the last slot.
+   * @param slotNumber - The slot number to search for.
+   * @returns All blocks with the given slot number, in ascending block number order.
+   */
+  async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+    const blocks: L2BlockNew[] = [];
+
+    // Iterate backwards through all blocks and filter by slot number
+    // This is more efficient since we usually query for the most recent slot
+    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync({ reverse: true })) {
+      const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
+      const blockSlot = block?.header.globalVariables.slotNumber;
+      if (block && blockSlot === slotNumber) {
+        blocks.push(block);
+      } else if (blockSlot && blockSlot < slotNumber) {
+        break; // Blocks are stored in slot ascending order, so we can stop searching
+      }
+    }
+
+    // Reverse to return blocks in ascending order (block number order)
+    return blocks.reverse();
+  }
+
+  /**
+   * Removes all blocks with block number > blockNumber.
+   * @param blockNumber - The block number to remove after.
+   * @returns The removed blocks (for event emission).
+   */
+  async unwindBlocksAfter(blockNumber: BlockNumber): Promise<L2BlockNew[]> {
+    return await this.db.transactionAsync(async () => {
+      const removedBlocks: L2BlockNew[] = [];
+
+      // Get the latest block number to determine the range
+      const latestBlockNumber = await this.getLatestBlockNumber();
+
+      // Iterate from blockNumber + 1 to latestBlockNumber
+      for (let bn = blockNumber + 1; bn <= latestBlockNumber; bn++) {
+        const block = await this.getBlock(BlockNumber(bn));
+
+        if (block === undefined) {
+          this.#log.warn(`Cannot remove block ${bn} from the store since we don't have it`);
+          continue;
+        }
+
+        removedBlocks.push(block);
+        await this.deleteBlock(block);
+        this.#log.debug(`Removed block ${bn} ${(await block.hash()).toString()}`);
+      }
+
+      return removedBlocks;
+    });
   }
 
   async getProvenBlockNumber(): Promise<BlockNumber> {
@@ -538,6 +605,7 @@ export class BlockStore {
     }
     return this.getCheckpointedBlock(BlockNumber(blockNumber));
   }
+
   async getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
     const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
     if (blockNumber === undefined) {
@@ -672,6 +740,7 @@ export class BlockStore {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
+    header.setHash(Fr.fromBuffer(blockHash));
     const blockHashString = bufferToHex(blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {

@@ -33,7 +33,7 @@ export type Prettify<T> = {
  * Type-safe Event Emitter type
  * @example
  * export type ArchiverEmitter = TypedEventEmitter<{
- *  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
+ *  [L2BlockSourceEvents.L2PruneUnproven]: (args: L2BlockSourceEvent) => void;
  *  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
  * }>;
  * class Archiver extends (EventEmitter as new () => ArchiverEmitter) {

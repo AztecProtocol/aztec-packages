@@ -75,7 +75,6 @@ type SessionState =
   | {
       name: 'PRIVATE';
       nextBlockGlobalVariables: GlobalVariables;
-      protocolNullifier: Fr;
       noteCache: ExecutionNoteCache;
       taggingIndexCache: ExecutionTaggingIndexCache;
     }
@@ -163,7 +162,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // Create job coordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore]);
+    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore]);
 
     // Register protocol contracts.
     for (const { contractClass, instance, artifact } of protocolContracts) {
@@ -362,7 +361,7 @@ export class TXESession implements TXESessionStateHandler {
     // difference resides in that the simulator has all information needed in order to run the simulation, while ours
     // will be ongoing as the different oracles will be invoked from the Noir test, until eventually the private
     // execution finishes.
-    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, protocolNullifier, noteCache, taggingIndexCache };
+    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
@@ -459,11 +458,7 @@ export class TXESession implements TXESessionStateHandler {
     // We rely on the note cache to determine the effects of the transaction. This is incomplete as it doesn't private
     // logs (other effects like enqueued public calls don't need to be considered since those are not allowed).
 
-    const txEffect = await makeTxEffect(
-      this.state.noteCache,
-      this.state.protocolNullifier,
-      this.state.nextBlockGlobalVariables.blockNumber,
-    );
+    const txEffect = await makeTxEffect(this.state.noteCache, this.state.nextBlockGlobalVariables.blockNumber);
 
     // We build a block holding just this transaction
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
