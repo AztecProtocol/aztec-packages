@@ -116,18 +116,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
     void process_execution_trace();
 
-    std::vector<uint32_t> get_arithmetic_gate_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_elliptic_gate_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_plookup_gate_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_sort_constraint_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_poseido2s_gate_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_non_native_field_gate_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_memory_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    // Methods with special handling that can't be inlined as pure patterns
     std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
-    // functions for MegaCircuitBuilder
-    std::vector<uint32_t> get_databus_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_eccop_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_eccop_part_connected_component(size_t index, size_t block_idx, auto& blk);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
@@ -140,8 +131,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     bool is_gate_sorted_rom(size_t memory_block_idx, size_t gate_idx) const;
     bool variable_only_in_sorted_rom_gates(uint32_t var_idx, size_t blk_idx) const;
     std::vector<ConnectedComponent> find_connected_components();
-    bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
-                                             const uint32_t& var_index);
     void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector);
 
     bool check_is_not_constant_variable(const uint32_t& variable_index);

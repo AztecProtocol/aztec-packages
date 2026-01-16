@@ -113,163 +113,6 @@ std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variable
 }
 
 /**
- * @brief this method creates connected components from arithmetic gates
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param block_idx index of the current block
- * @param blk block containing the gates
- * @return std::vector<std::vector<uint32_t>> vector of connected components from the gate and minigate
- * @details Uses pattern-based extraction for all arithmetic gates, including fix_witness gates.
- *          Fix_witness variables are excluded from boomerang detection via the circuit builder's
- *          used_witnesses mechanism (fix_witness calls update_used_witnesses at the source).
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_arithmetic_gate_connected_component(
-    size_t index, size_t block_idx, auto& blk)
-{
-    return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::ARITHMETIC, blk.q_arith(), false);
-}
-
-/**
- * @brief this method creates connected components from elliptic gates
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param block_idx index of the current block
- * @param blk block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Uses pattern-based extraction for elliptic curve addition and doubling operations.
- *          Add gates (q_m == 0): w_r, w_o, w_l_shift, w_r_shift, w_o_shift, w_4_shift
- *          Dbl gates (q_m == 1): w_r, w_o, w_r_shift, w_o_shift
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_elliptic_gate_connected_component(
-    size_t index, size_t block_idx, auto& blk)
-{
-    return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::ELLIPTIC, blk.q_elliptic(), false);
-}
-
-/**
- * @brief this method creates connected components from sorted constraints
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param block_idx index of the current block
- * @param block block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Uses pattern-based extraction for delta range constraints.
- *          Filters out zero_idx variables since range lists can be padded with them.
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_sort_constraint_connected_component(
-    size_t index, size_t blk_idx, auto& block)
-{
-    // Use filter_zero_idx=true because range lists can be padded with zero_idx
-    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::DELTA_RANGE, block.q_delta_range(), true);
-}
-
-/**
- * @brief this method creates connected components from plookup gates
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param block_idx index of the current block
- * @param block block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Uses pattern-based extraction for lookup gates.
- *          Always: w_l, w_r, w_o
- *          Shifted wires based on selectors: w_l_shift (q_2), w_r_shift (q_m), w_o_shift (q_c)
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_plookup_gate_connected_component(size_t index,
-                                                                                                       size_t blk_idx,
-                                                                                                       auto& block)
-{
-    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::LOOKUP, block.q_lookup(), false);
-}
-
-/**
- * @brief this method creates connected components from poseidon2 gates
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param blk_idx index of the current block
- * @param block block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Uses pattern-based extraction. Both internal and external patterns use all 8 wires,
- *          so we try internal first, then external if internal is not active.
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_poseido2s_gate_connected_component(size_t index,
-                                                                                                         size_t blk_idx,
-                                                                                                         auto& block)
-{
-    // Try internal selector first
-    auto result = extract_gate_variables(
-        index, blk_idx, block, bb::gate_patterns::POSEIDON2_INTERNAL, block.q_poseidon2_internal(), false);
-    if (!result.empty()) {
-        return result;
-    }
-    // If internal is not active, try external
-    return extract_gate_variables(
-        index, blk_idx, block, bb::gate_patterns::POSEIDON2_EXTERNAL, block.q_poseidon2_external(), false);
-}
-
-/**
- * @brief this method creates connected components from Memory gates (sorted/consistency gates only)
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param blk_idx index of the current block
- * @param block block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Uses pattern-based extraction for sorted/consistency gates:
- *          - RAM timestamp check (q_1 && q_4)
- *          - ROM consistency (q_1 && q_2)
- *          - RAM consistency (q_3)
- *          Access gates (q_1 && q_m) are handled separately by transcript methods.
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_memory_gate_connected_component(size_t index,
-                                                                                                      size_t blk_idx,
-                                                                                                      auto& block)
-{
-    if (block.q_memory()[index].is_zero()) {
-        return {};
-    }
-
-    // Access gates (q_1 && q_m) are handled by transcript methods (get_rom/ram_table_connected_component)
-    // Skip them here to avoid double-processing
-    auto q_1 = block.q_1()[index];
-    auto q_m = block.q_m()[index];
-    if (!q_1.is_zero() && !q_m.is_zero()) {
-        return {};
-    }
-
-    // Use pattern for sorted/consistency gates (timestamp check, ROM/RAM consistency)
-    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::MEMORY, block.q_memory(), false);
-}
-
-/**
- * @brief this method creates connected components from Non-Native Field gates (bigfield operations)
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param index index of the current gate
- * @param blk_idx index of the current block
- * @param block block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Uses pattern-based extraction for NNF gates. The pattern handles all 5 gate types:
- *          Limb Accum 1, Limb Accum 2, Product 1, Product 2, Product 3
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_non_native_field_gate_connected_component(
-    size_t index, size_t blk_idx, auto& block)
-{
-    return extract_gate_variables(index, blk_idx, block, bb::gate_patterns::NON_NATIVE_FIELD, block.q_nnf(), false);
-}
-
-/**
  * @brief this method gets the ROM table connected component by processing ROM transcript records
  * @tparam FF field type
  * @tparam CircuitBuilder
@@ -385,24 +228,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
 }
 
 /**
- * @brief this method creates connected components from databus gates
- * @tparam FF field type
- * @param CircuitBuilder
- * @param index index of the current gate
- * @param block_idx index of the current block
- * @param blk block containing the gates
- * @return std::vector<uint32_t> vector of connected variables from the gate
- * @details Processes databus read operations by collecting variables from left and right wires
- */
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_connected_component(size_t index,
-                                                                                                  size_t block_idx,
-                                                                                                  auto& blk)
-{
-    return extract_gate_variables(index, block_idx, blk, bb::gate_patterns::DATABUS, blk.q_busread(), false);
-}
-
-/**
  * @brief this method creates connected components from elliptic curve operation gates
  * @tparam FF field type
  * @param CircuitBuilder
@@ -459,61 +284,58 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
 
 template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace()
 {
+    using namespace bb::gate_patterns;
     auto block_data = circuit_builder.blocks.get();
 
-    // We have to determine pub_inputs block index based on circuit builder type, because we have to skip it.
-    // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can set
-    // pub_inputs_block_idx
+    // Skip pub_inputs block (index 0 for Ultra, index 3 for Mega)
     size_t pub_inputs_block_idx = 0;
-
-    // For MegaCircuitBuilder, pub_inputs block has index 3
     if constexpr (IsMegaBuilder<CircuitBuilder>) {
         pub_inputs_block_idx = 3;
     }
 
     for (size_t blk_idx = 0; blk_idx < block_data.size(); blk_idx++) {
-        if (block_data[blk_idx].size() == 0 || blk_idx == pub_inputs_block_idx) {
+        auto& blk = block_data[blk_idx];
+        if (blk.size() == 0 || blk_idx == pub_inputs_block_idx) {
             continue;
         }
-        std::vector<uint32_t> sorted_variables;
+
         std::vector<uint32_t> eccop_variables;
-        for (size_t gate_idx = 0; gate_idx < block_data[blk_idx].size(); gate_idx++) {
-            std::vector<std::vector<uint32_t>> all_cc = {
-                get_arithmetic_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]),
-                get_elliptic_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]),
-                get_plookup_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]),
-                get_poseido2s_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]),
-                get_non_native_field_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]),
-                get_memory_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]),
-                get_sort_constraint_connected_component(gate_idx, blk_idx, block_data[blk_idx])
-            };
-            auto non_empty_count =
-                std::count_if(all_cc.begin(), all_cc.end(), [](const auto& vec) { return !vec.empty(); });
-            BB_ASSERT(non_empty_count < 2U);
-            auto not_empty_cc_it =
-                std::find_if(all_cc.begin(), all_cc.end(), [](const auto& vec) { return !vec.empty(); });
-            if (not_empty_cc_it != all_cc.end() && connect_variables) {
-                connect_all_variables_in_vector(*not_empty_cc_it);
-            }
-            if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they can be
-                // databus or eccop
-                auto databus_variables = get_databus_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
-                if (connect_variables) {
-                    connect_all_variables_in_vector(databus_variables);
+        for (size_t gate_idx = 0; gate_idx < blk.size(); gate_idx++) {
+            // Try each pattern until one matches (returns non-empty)
+            std::vector<uint32_t> cc;
+            auto try_pattern = [&](const GatePattern& pattern, const auto& selector, bool filter_zero = false) {
+                if (cc.empty()) {
+                    cc = extract_gate_variables(gate_idx, blk_idx, blk, pattern, selector, filter_zero);
                 }
-                auto eccop_gate_variables = get_eccop_part_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
-                if (connect_variables) {
-                    if (!eccop_gate_variables.empty()) {
-                        // The gotten vector of variables contains all variables from UltraOp element of the table
-                        eccop_variables.insert(
-                            eccop_variables.end(), eccop_gate_variables.begin(), eccop_gate_variables.end());
-                        // if a current opcode is responsible for equality and reset, we have to connect all
-                        // variables in global vector and clear it for the next parts
-                        if (eccop_gate_variables[0] == circuit_builder.equality_op_idx) {
-                            connect_all_variables_in_vector(eccop_variables);
-                            eccop_variables.clear();
-                        }
+            };
+
+            // Standard gate patterns (mutually exclusive - at most one will match)
+            try_pattern(ARITHMETIC, blk.q_arith());
+            try_pattern(ELLIPTIC, blk.q_elliptic());
+            try_pattern(LOOKUP, blk.q_lookup());
+            try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
+            try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
+            try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
+            try_pattern(MEMORY, blk.q_memory());                 // access gates handled by ROM/RAM transcripts
+            try_pattern(DELTA_RANGE, blk.q_delta_range(), true); // filter zero_idx for range lists
+
+            if (!cc.empty() && connect_variables) {
+                connect_all_variables_in_vector(cc);
+            }
+
+            // MegaBuilder-specific patterns
+            if constexpr (IsMegaBuilder<CircuitBuilder>) {
+                auto databus_cc = extract_gate_variables(gate_idx, blk_idx, blk, DATABUS, blk.q_busread(), false);
+                if (!databus_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(databus_cc);
+                }
+
+                auto eccop_cc = get_eccop_part_connected_component(gate_idx, blk_idx, blk);
+                if (!eccop_cc.empty() && connect_variables) {
+                    eccop_variables.insert(eccop_variables.end(), eccop_cc.begin(), eccop_cc.end());
+                    if (eccop_cc[0] == circuit_builder.equality_op_idx) {
+                        connect_all_variables_in_vector(eccop_variables);
+                        eccop_variables.clear();
                     }
                 }
             }

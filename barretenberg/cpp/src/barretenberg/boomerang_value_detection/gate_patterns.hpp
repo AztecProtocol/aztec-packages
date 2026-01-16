@@ -186,11 +186,6 @@ inline const GatePattern
 // ============================================================================
 
 namespace memory_helpers {
-// RAM/ROM access: q_1 && q_m
-inline bool is_access(const Selectors& sel)
-{
-    return sel.q_1_nz && sel.q_m_nz;
-}
 // RAM timestamp check: q_1 && q_4
 inline bool is_timestamp_check(const Selectors& sel)
 {
@@ -208,30 +203,29 @@ inline bool is_ram_consistency(const Selectors& sel)
 }
 } // namespace memory_helpers
 
+// Note: Access gates (q_1 && q_m) are NOT handled here - they're processed separately
+// via ROM/RAM transcript methods.
 inline const GatePattern
     MEMORY = { .name = "memory",
                .wires = {
                    { Wire::W_L,
                      [](const Selectors& sel) {
-                         return memory_helpers::is_access(sel) || memory_helpers::is_timestamp_check(sel) ||
-                                memory_helpers::is_rom_consistency(sel) || memory_helpers::is_ram_consistency(sel);
+                         return memory_helpers::is_timestamp_check(sel) || memory_helpers::is_rom_consistency(sel) ||
+                                memory_helpers::is_ram_consistency(sel);
                      } },
                    { Wire::W_R,
                      [](const Selectors& sel) {
-                         // ROM consistency uses memory_record_check which includes w_2
-                         return memory_helpers::is_access(sel) || memory_helpers::is_timestamp_check(sel) ||
-                                memory_helpers::is_rom_consistency(sel) || memory_helpers::is_ram_consistency(sel);
+                         return memory_helpers::is_timestamp_check(sel) || memory_helpers::is_rom_consistency(sel) ||
+                                memory_helpers::is_ram_consistency(sel);
                      } },
                    { Wire::W_O,
                      [](const Selectors& sel) {
-                         // ROM consistency uses memory_record_check which includes w_3
-                         return memory_helpers::is_access(sel) || memory_helpers::is_timestamp_check(sel) ||
-                                memory_helpers::is_rom_consistency(sel) || memory_helpers::is_ram_consistency(sel);
+                         return memory_helpers::is_timestamp_check(sel) || memory_helpers::is_rom_consistency(sel) ||
+                                memory_helpers::is_ram_consistency(sel);
                      } },
                    { Wire::W_4,
                      [](const Selectors& sel) {
-                         return memory_helpers::is_access(sel) || memory_helpers::is_rom_consistency(sel) ||
-                                memory_helpers::is_ram_consistency(sel);
+                         return memory_helpers::is_rom_consistency(sel) || memory_helpers::is_ram_consistency(sel);
                      } },
                    { Wire::W_L_SHIFT,
                      [](const Selectors& sel) {
