@@ -15,6 +15,20 @@
 
 namespace bb::plookup::sparse_tables {
 
+/**
+ * @brief Computes the sparse form values for a given key, used as a callback for plookup table queries.
+ *
+ * @details Given an input key, returns:
+ *          - t0: The sparse form of the input
+ *          - t1: The sparse form of the input rotated by num_rotated_bits (or t0 if num_rotated_bits == 0)
+ *
+ * @tparam base The base for sparse representation
+ * @tparam num_rotated_bits Number of bits to rotate right (0 for no rotation)
+ *
+ * @param key Array where key[0] is the input value to convert (key[1] is unused; the array
+ *             has 2 elements to conform to the standard plookup callback interface)
+ * @return std::array<bb::fr, 2> The sparse form and optionally rotated sparse form
+ */
 template <uint64_t base, uint64_t num_rotated_bits>
 inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::array<uint64_t, 2> key)
 {
@@ -28,6 +42,37 @@ inline std::array<bb::fr, 2> get_sparse_table_with_rotation_values(const std::ar
     return { bb::fr(t0), bb::fr(t1) };
 }
 
+/**
+ * @brief Generates a plookup table that maps integers to their sparse form representation,
+ *        with optional 32-bit rotation.
+ *
+ * @details Sparse form is a representation where each bit of a binary integer is mapped to a
+ *          coefficient in a higher base. For a binary value with bits b_i ∈ {0,1}, the sparse
+ *          form is: Σ(b_i * base^i). This representation enables efficient XOR computation in
+ *          circuits: XOR can be computed by adding sparse representations and then "normalizing"
+ *          (reducing coefficients modulo 2).
+ *
+ *          Example with base=7: binary 0b101 (decimal 5) → 7^0 + 7^2 = 1 + 49 = 50
+ *
+ *          The table has three columns:
+ *          - Column 1: Original input value in range [0, 2^bits_per_slice)
+ *          - Column 2: Sparse form of the input
+ *          - Column 3: Sparse form of the input rotated right by num_rotated_bits (32-bit rotation),
+ *                      or identical to column 2 if num_rotated_bits == 0
+ *
+ *          Step sizes are used when combining multiple lookups to reconstruct larger values:
+ *          - column_1_step_size = 2^11 (for combining input slices)
+ *          - column_2/3_step_size = base^bits_per_slice (for combining sparse output slices)
+ *
+ * @tparam base The base for sparse representation (e.g., 7 for SHA256 tables)
+ * @tparam bits_per_slice Number of bits per table entry; table size = 2^bits_per_slice
+ * @tparam num_rotated_bits Number of bits to rotate right (0 for no rotation)
+ *
+ * @param id The identifier for this lookup table
+ * @param table_index Index of this table in the table registry
+ *
+ * @return BasicTable The constructed lookup table
+ */
 template <uint64_t base, uint64_t bits_per_slice, uint64_t num_rotated_bits>
 inline BasicTable generate_sparse_table_with_rotation(BasicTableId id, const size_t table_index)
 {

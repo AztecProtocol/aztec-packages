@@ -128,15 +128,67 @@ inline MultiTable get_aes_input_table(const MultiTableId id = AES_INPUT)
     return table;
 }
 
+/**
+ * @brief Computes AES S-box substitution and a derived value for MixColumns, returning both in sparse form.
+ *
+ * @details This function performs two operations needed for efficient AES circuit implementation:
+ *
+ *          1. **S-box substitution**: Converts the sparse input back to a byte, applies the AES S-box
+ *             lookup, and returns the result in sparse form.
+ *
+ *          2. **Swizzled value for MixColumns**: Computes S(x) ⊕ xtime(S(x)), where xtime is
+ *             multiplication by 2 in GF(2^8) using the AES irreducible polynomial (x^8 + x^4 + x^3 + x + 1).
+ *             This equals S(x) * 3 in GF(2^8), which is used in the MixColumns step.
+ *
+ *          The xtime operation is: xtime(a) = (a << 1) ⊕ (0x1b if MSB of a is 1, else 0)
+ *          where 0x1b represents the reduction polynomial coefficients.
+ *
+ *          By precomputing both S(x) and S(x) ⊕ xtime(S(x)) in a single lookup, the MixColumns
+ *          operation can be performed efficiently using only additions of sparse representations.
+ *
+ * @param key Array where key[0] contains the input byte in sparse form (key[1] unused)
+ * @return std::array<bb::fr, 2> where:
+ *         - [0] = S(byte) in sparse form (the S-box output)
+ *         - [1] = S(byte) ⊕ xtime(S(byte)) in sparse form (S(byte) * 3 in GF(2^8))
+ */
 inline std::array<bb::fr, 2> get_aes_sbox_values_from_key(const std::array<uint64_t, 2> key)
 {
+    // Convert the first sparse value to a native byte
     const auto byte = numeric::map_from_sparse_form<AES_BASE>(key[0]);
+    // Get the native value of the S-box output
     uint8_t sbox_value = crypto::aes128_sbox[(uint8_t)byte];
+    // Compute the swizzled value, i.e. S(byte) * 3 for MixColumns
+    // The "swizzled" value is the XTIME operation applied to S(byte)
     uint8_t swizzled = ((uint8_t)(sbox_value << 1) ^ (uint8_t)(((sbox_value >> 7) & 1) * 0x1b));
+
+    // Map the sbox output back to sparse form. Also compute sbox_value ^ swizzled
     return { bb::fr(numeric::map_into_sparse_form<AES_BASE>(sbox_value)),
              bb::fr(numeric::map_into_sparse_form<AES_BASE>((uint8_t)(sbox_value ^ swizzled))) };
 }
 
+/**
+ * @brief Generates a plookup table for AES S-box substitution with precomputed MixColumns values.
+ *
+ * @details This table provides the core non-linear operation of AES (SubBytes) combined with
+ *          a precomputed value needed for MixColumns, all stored in sparse form for efficient
+ *          XOR operations in circuits.
+ *
+ *          Table structure (256 entries, one per byte value):
+ *          - Column 1: Input byte in sparse form (base-9 representation)
+ *          - Column 2: S(input) — the S-box output in sparse form
+ *          - Column 3: S(input) ⊕ xtime(S(input)) — equals S(input) × 3 in GF(2^8), in sparse form
+ *
+ *          The third column precomputes the value needed for MixColumns multiplication by 3,
+ *          since 3 = 2 ⊕ 1, so a × 3 = xtime(a) ⊕ a.
+ *
+ *          Step sizes are all 0 because this table is used for individual byte lookups,
+ *          not for accumulating multiple slices into a larger value.
+ *
+ * @param id The identifier for this lookup table
+ * @param table_index Index of this table in the table registry
+ *
+ * @return BasicTable The constructed 256-entry S-box lookup table
+ */
 inline BasicTable generate_aes_sbox_table(BasicTableId id, const size_t table_index)
 {
     BasicTable table;
