@@ -114,7 +114,6 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
     for (size_t i = 0; i < num_msms; ++i) {
-        BB_ASSERT_LT(i, scalars.size());
         get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
     }
 
@@ -127,12 +126,9 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::vector<ThreadWorkUnits> work_units(num_threads);
 
     const size_t work_per_thread = numeric::ceil_div(total_work, num_threads);
-    size_t work_of_last_thread = total_work - (work_per_thread * (num_threads - 1));
+    const size_t work_of_last_thread = total_work - (work_per_thread * (num_threads - 1));
 
-    // [(MSMs + T - 1) / T] * [T - 1] > MSMs
-    // T = 192
-    // ([M + 191] / 192) * 193 > M
-    // only use a single work unit if we don't have enough work for every thread
+    // Only use a single work unit if we don't have enough work for every thread
     if (num_threads > total_work) {
         for (size_t i = 0; i < num_msms; ++i) {
             work_units[0].push_back(MSMWorkUnit{
@@ -147,31 +143,28 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     size_t thread_accumulated_work = 0;
     size_t current_thread_idx = 0;
     for (size_t i = 0; i < num_msms; ++i) {
-        BB_ASSERT_DEBUG(i < msm_scalar_indices.size());
-        size_t msm_work = msm_scalar_indices[i].size();
-        size_t msm_size = msm_work;
-        while (msm_work > 0) {
+        size_t msm_work_remaining = msm_scalar_indices[i].size();
+        const size_t initial_msm_work = msm_work_remaining;
+
+        while (msm_work_remaining > 0) {
+            BB_ASSERT_LT(current_thread_idx, work_units.size());
+
             const size_t total_thread_work =
                 (current_thread_idx == num_threads - 1) ? work_of_last_thread : work_per_thread;
             const size_t available_thread_work = total_thread_work - thread_accumulated_work;
+            const size_t work_to_assign = std::min(available_thread_work, msm_work_remaining);
 
-            if (available_thread_work >= msm_work) {
-                BB_ASSERT_LT(current_thread_idx, work_units.size());
-                work_units[current_thread_idx].push_back(MSMWorkUnit{
-                    .batch_msm_index = i,
-                    .start_index = msm_size - msm_work,
-                    .size = msm_work,
-                });
-                thread_accumulated_work += msm_work;
-                msm_work = 0;
-            } else {
-                BB_ASSERT_LT(current_thread_idx, work_units.size());
-                work_units[current_thread_idx].push_back(MSMWorkUnit{
-                    .batch_msm_index = i,
-                    .start_index = msm_size - msm_work,
-                    .size = available_thread_work,
-                });
-                msm_work -= available_thread_work;
+            work_units[current_thread_idx].push_back(MSMWorkUnit{
+                .batch_msm_index = i,
+                .start_index = initial_msm_work - msm_work_remaining,
+                .size = work_to_assign,
+            });
+
+            thread_accumulated_work += work_to_assign;
+            msm_work_remaining -= work_to_assign;
+
+            // Move to next thread if current thread is full
+            if (thread_accumulated_work >= total_thread_work) {
                 current_thread_idx++;
                 thread_accumulated_work = 0;
             }
