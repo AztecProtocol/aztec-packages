@@ -49,6 +49,7 @@ type RollupStatus = {
  */
 export class ArchiverL1Synchronizer implements Traceable {
   private l1BlockNumber: bigint | undefined;
+  private l1BlockHash: Buffer32 | undefined;
   private l1Timestamp: bigint | undefined;
 
   private readonly updater: ArchiverDataStoreUpdater;
@@ -73,7 +74,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly instrumentation: ArchiverInstrumentation,
-    private readonly l1constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
+    private readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
     private readonly log: Logger = createLogger('archiver:l1-sync'),
@@ -118,27 +119,36 @@ export class ArchiverL1Synchronizer implements Traceable {
 
   @trackSpan('Archiver.syncFromL1')
   public async syncFromL1(initialSyncComplete: boolean): Promise<void> {
-    /**
-     * We keep track of three "pointers" to L1 blocks:
-     * 1. the last L1 block that published an L2 block
-     * 2. the last L1 block that added L1 to L2 messages
-     * 3. the last L1 block that cancelled L1 to L2 messages
-     *
-     * We do this to deal with L1 data providers that are eventually consistent (e.g. Infura).
-     * We guard against seeing block X with no data at one point, and later, the provider processes the block and it has data.
-     * The archiver will stay back, until there's data on L1 that will move the pointers forward.
-     */
-    const { l1StartBlock, l1StartBlockHash } = this.l1constants;
-    const {
-      blocksSynchedTo = l1StartBlock,
-      messagesSynchedTo = { l1BlockNumber: l1StartBlock, l1BlockHash: l1StartBlockHash },
-    } = await this.store.getSynchPoint();
-
     const currentL1Block = await this.publicClient.getBlock({ includeTransactions: false });
     const currentL1BlockNumber = currentL1Block.number;
     const currentL1BlockHash = Buffer32.fromString(currentL1Block.hash);
+    const currentL1Timestamp = currentL1Block.timestamp;
 
-    this.log.trace(`Starting new archiver sync iteration`, {
+    if (this.l1BlockHash && currentL1BlockHash.equals(this.l1BlockHash)) {
+      this.log.trace(`No new L1 blocks since last sync at L1 block ${this.l1BlockNumber}`);
+      return;
+    }
+
+    // Warn if the latest L1 block timestamp is too old
+    const maxAllowedDelay = this.config.maxAllowedEthClientDriftSeconds;
+    const now = this.dateProvider.nowInSeconds();
+    if (maxAllowedDelay > 0 && Number(currentL1Timestamp) <= now - maxAllowedDelay) {
+      this.log.warn(
+        `Latest L1 block ${currentL1BlockNumber} timestamp ${currentL1Timestamp} is too old. Make sure your Ethereum node is synced.`,
+        { currentL1BlockNumber, currentL1Timestamp, now, maxAllowedDelay },
+      );
+    }
+
+    // Load sync point for blocks and messages defaulting to start block
+    const {
+      blocksSynchedTo = this.l1Constants.l1StartBlock,
+      messagesSynchedTo = {
+        l1BlockNumber: this.l1Constants.l1StartBlock,
+        l1BlockHash: this.l1Constants.l1StartBlockHash,
+      },
+    } = await this.store.getSynchPoint();
+
+    this.log.debug(`Starting new archiver sync iteration`, {
       blocksSynchedTo,
       messagesSynchedTo,
       currentL1BlockNumber,
@@ -165,23 +175,7 @@ export class ArchiverL1Synchronizer implements Traceable {
      */
 
     // ********** Events that are processed per L1 block **********
-    await this.handleL1ToL2Messages(messagesSynchedTo, currentL1BlockNumber, currentL1BlockHash);
-
-    // Get L1 timestamp for the current block
-    const currentL1Timestamp =
-      !this.l1Timestamp || !this.l1BlockNumber || this.l1BlockNumber !== currentL1BlockNumber
-        ? (await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber })).timestamp
-        : this.l1Timestamp;
-
-    // Warn if the latest L1 block timestamp is too old
-    const maxAllowedDelay = this.config.maxAllowedEthClientDriftSeconds;
-    const now = this.dateProvider.nowInSeconds();
-    if (maxAllowedDelay > 0 && Number(currentL1Timestamp) <= now - maxAllowedDelay) {
-      this.log.warn(
-        `Latest L1 block ${currentL1BlockNumber} timestamp ${currentL1Timestamp} is too old. Make sure your Ethereum node is synced.`,
-        { currentL1BlockNumber, currentL1Timestamp, now, maxAllowedDelay },
-      );
-    }
+    await this.handleL1ToL2Messages(messagesSynchedTo, currentL1BlockNumber);
 
     // ********** Events that are processed per checkpoint **********
     if (currentL1BlockNumber > blocksSynchedTo) {
@@ -222,9 +216,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     // but the corresponding blocks have not been processed (see #12631).
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
+    this.l1BlockHash = currentL1BlockHash;
 
     const l1BlockNumberAtEnd = await this.publicClient.getBlockNumber();
-    this.log.trace(`Archiver sync iteration complete`, {
+    this.log.debug(`Archiver sync iteration complete`, {
       l1BlockNumberAtStart: currentL1BlockNumber,
       l1TimestampAtStart: currentL1Timestamp,
       l1BlockNumberAtEnd,
@@ -233,7 +228,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
   /** Queries the rollup contract on whether a prune can be executed on the immediate next L1 block. */
   private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint): Promise<boolean> {
-    const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
+    const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1Constants.ethereumSlotDuration);
     const result = await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
     if (result) {
       this.log.debug(`Rollup contract allows pruning at L1 block ${currentL1BlockNumber} time ${time}`, {
@@ -266,7 +261,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       }
 
       const pruneFromSlotNumber = header.slotNumber;
-      const pruneFromEpochNumber: EpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
+      const pruneFromEpochNumber: EpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1Constants);
 
       const checkpointsToUnwind = localPendingCheckpointNumber - provenCheckpointNumber;
 
@@ -308,7 +303,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   private nextRange(end: bigint, limit: bigint): [bigint, bigint] {
-    const batchSize = (this.config.batchSize * this.l1constants.slotDuration) / this.l1constants.ethereumSlotDuration;
+    const batchSize = (this.config.batchSize * this.l1Constants.slotDuration) / this.l1Constants.ethereumSlotDuration;
     const nextStart = end + 1n;
     const nextEnd = nextStart + BigInt(batchSize);
     if (nextEnd > limit) {
@@ -318,11 +313,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   @trackSpan('Archiver.handleL1ToL2Messages')
-  private async handleL1ToL2Messages(
-    messagesSyncPoint: L1BlockId,
-    currentL1BlockNumber: bigint,
-    _currentL1BlockHash: Buffer32,
-  ): Promise<void> {
+  private async handleL1ToL2Messages(messagesSyncPoint: L1BlockId, currentL1BlockNumber: bigint): Promise<void> {
     this.log.trace(`Handling L1 to L2 messages from ${messagesSyncPoint.l1BlockNumber} to ${currentL1BlockNumber}.`);
     if (currentL1BlockNumber <= messagesSyncPoint.l1BlockNumber) {
       return;
@@ -379,11 +370,8 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     do {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
-      this.log.trace(`Retrieving L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`);
+      this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
       const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
-      this.log.verbose(
-        `Retrieved ${messages.length} new L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`,
-      );
       const timer = new Timer();
       await this.store.addL1ToL2Messages(messages);
       const perMsg = timer.ms() / messages.length;
@@ -415,7 +403,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   private async retrieveL1ToL2Message(leaf: Fr): Promise<InboxMessage | undefined> {
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
     let searchStartBlock: bigint = 0n;
-    let searchEndBlock: bigint = this.l1constants.l1StartBlock - 1n;
+    let searchEndBlock: bigint = this.l1Constants.l1StartBlock - 1n;
 
     do {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
@@ -464,7 +452,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // Update the syncpoint so the loop below reprocesses the changed messages. We go to the block before
     // the last common one, so we force reprocessing it, in case new messages were added on that same L1 block
     // after the last common message.
-    const syncPointL1BlockNumber = commonMsg ? commonMsg.l1BlockNumber - 1n : this.l1constants.l1StartBlock;
+    const syncPointL1BlockNumber = commonMsg ? commonMsg.l1BlockNumber - 1n : this.l1Constants.l1StartBlock;
     const syncPointL1BlockHash = await this.getL1BlockHash(syncPointL1BlockNumber);
     messagesSyncPoint = { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
     await this.store.setMessageSynchedL1Block(messagesSyncPoint);
@@ -554,7 +542,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           await this.store.setProvenCheckpointNumber(provenCheckpointNumber);
           this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
           const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
-          const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
+          const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1Constants);
           const lastBlockNumberInCheckpoint =
             localCheckpointForDestinationProvenCheckpointNumber.startBlock +
             localCheckpointForDestinationProvenCheckpointNumber.numBlocks -
@@ -704,7 +692,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       for (const published of publishedCheckpoints) {
         const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
-          : await validateCheckpointAttestations(published, this.epochCache, this.l1constants, this.log);
+          : await validateCheckpointAttestations(published, this.epochCache, this.l1Constants, this.log);
 
         // Only update the validation result if it has changed, so we can keep track of the first invalid checkpoint
         // in case there is a sequence of more than one invalid checkpoint, as we need to invalidate the first one.
@@ -788,7 +776,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           const previousCheckpoint = previousCheckpointNumber
             ? await this.store.getCheckpointData(CheckpointNumber(previousCheckpointNumber))
             : undefined;
-          const updatedL1SyncPoint = previousCheckpoint?.l1.blockNumber ?? this.l1constants.l1StartBlock;
+          const updatedL1SyncPoint = previousCheckpoint?.l1.blockNumber ?? this.l1Constants.l1StartBlock;
           await this.store.setCheckpointSynchedL1BlockNumber(updatedL1SyncPoint);
           this.log.warn(
             `Attempting to insert checkpoint ${newCheckpointNumber} with previous block ${previousCheckpointNumber}. Rolling back L1 sync point to ${updatedL1SyncPoint} to try and fetch the missing blocks.`,
