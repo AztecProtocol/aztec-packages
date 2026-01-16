@@ -250,22 +250,10 @@ int predict_block_size(ProgramBlock* block)
     case TerminatorType::JUMP:
         return bytecode_length + JMP_SIZE; // finalized with jump
     case TerminatorType::JUMP_IF: {
-        // if boolean condition is not set adding SET_8 instruction to the bytecode
+        // if boolean condition is not set add SET instruction to the bytecode
         if (!block->get_terminating_condition_value().has_value()) {
-            for (uint16_t address = 0; address < 65535; address++) {
-                // if the memory address is already in use, we skip it
-                if (block->is_memory_address_set(address)) {
-                    continue;
-                }
-                auto set_16_instruction =
-                    SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
-                                        .result_address =
-                                            AddressRef{ .address = address, .mode = AddressingMode::Direct },
-                                        .value = 0 };
-                block->process_instruction(set_16_instruction);
-                bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
-                break;
-            }
+            block->process_write_terminating_condition_value();
+            bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
         }
         return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }

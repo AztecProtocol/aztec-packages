@@ -173,6 +173,7 @@ class ProgramBlock {
     void insert_internal_call(ProgramBlock* target_block);
 
     std::optional<uint16_t> get_terminating_condition_value();
+    void process_write_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 
     bool is_memory_address_set(uint16_t address);
