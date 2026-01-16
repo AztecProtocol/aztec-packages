@@ -255,6 +255,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(blocks);
   }
 
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+    const blocks = this.l2Blocks.filter(b => b.header.globalVariables.slotNumber === slotNumber);
+    return Promise.resolve(blocks.map(b => b.toL2Block()));
+  }
+
   async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
     const blocks = await this.getBlocksForEpoch(epochNumber);
     return blocks.map(b => b.getBlockHeader());
