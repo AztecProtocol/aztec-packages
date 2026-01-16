@@ -322,7 +322,6 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
         points[i + 1].x = points[i + 1].y.sqr();
         points[(i + num_points) >> 1].x = points[i + 1].x - (scratch_space[i >> 1]); // x3 = lambda_squared - x2
                                                                                      // - x1
-        // Prefetch next iteration's data to hide memory latency (~100-300 cycles).
         // Output addresses jump non-sequentially: points[(i+n)>>1] defeats hardware prefetcher.
         // Fetching 2 iterations ahead ensures data arrives before needed.
         if (i >= 2) {
@@ -632,7 +631,7 @@ template <typename Curve>
 
 /**
  * @brief Given a list of points and target buckets to add into, perform required group operations
- * @details This algorithm uses exclusively affine group operations, using batch inversions to amortise costs.
+ * @details This algorithm uses exclusively affine group operations, using batch inversions to amortize costs.
  *          Processes points in batches, filling scratch space, performing batch additions, then recirculating
  *          outputs until all points are accumulated into buckets.
  *
