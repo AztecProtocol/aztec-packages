@@ -21,23 +21,21 @@ For detailed documentation, see [`boomerang_value_detection/README.md`](https://
 ### Core Analyzer Tests
 1. `boomerang_value_detection/graph_description.test.cpp`
 2. `boomerang_value_detection/variable_gates_count.test.cpp`
+3. `boomerang_value_detection/graph_description_megacircuitbuilder.test.cpp`
 
 ### Cryptographic Primitives
-3. `boomerang_value_detection/graph_description_sha256.test.cpp`
-4. `boomerang_value_detection/graph_description_aes128.test.cpp`
-5. `boomerang_value_detection/graph_description_blake2s.test.cpp`
-6. `boomerang_value_detection/graph_description_blake3s.test.cpp`
-7. `boomerang_value_detection/graph_description_poseidon2s_permutation.test.cpp`
+4. `boomerang_value_detection/graph_description_sha256.test.cpp`
+5. `boomerang_value_detection/graph_description_aes128.test.cpp`
+6. `boomerang_value_detection/graph_description_blake2s.test.cpp`
+7. `boomerang_value_detection/graph_description_blake3s.test.cpp`
+8. `boomerang_value_detection/graph_description_poseidon2s_permutation.test.cpp`
 
 ### Field Arithmetic and Memory
-8. `boomerang_value_detection/graph_description_bigfield.test.cpp`
-9. `boomerang_value_detection/graph_description_ram_rom.test.cpp`
+9. `boomerang_value_detection/graph_description_bigfield.test.cpp`
+10. `boomerang_value_detection/graph_description_ram_rom.test.cpp`
 
 ### Recursive Verifiers
-10. `boomerang_value_detection/graph_description_ultra_recursive_verifier.test.cpp`
-11. `boomerang_value_detection/graph_description_merge_recursive_verifier.test.cpp`
-12. `boomerang_value_detection/graph_description_goblin.test.cpp`
-13. `boomerang_value_detection/graph_description_ipa_recursive.test.cpp`
-
-### Circuit Builders
-14. `boomerang_value_detection/graph_description_megacircuitbuilder.test.cpp`
+11. `boomerang_value_detection/graph_description_ultra_recursive_verifier.test.cpp`
+12. `boomerang_value_detection/graph_description_merge_recursive_verifier.test.cpp`
+13. `boomerang_value_detection/graph_description_goblin.test.cpp`
+14. `boomerang_value_detection/graph_description_ipa_recursive.test.cpp`
