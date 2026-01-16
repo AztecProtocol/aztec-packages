@@ -219,7 +219,7 @@ describe('LightBlockBuilder', () => {
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, fork);
 
-    return block.getBlockHeader();
+    return block.header;
   };
 
   // Builds the block header using circuit outputs

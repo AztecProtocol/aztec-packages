@@ -16,9 +16,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2BlockNew, Signature } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -63,7 +64,7 @@ describe('SequencerPublisher', () => {
 
   let proposeTxHash: `0x${string}`;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
-  let l2Block: L2Block;
+  let l2Block: L2BlockNew;
 
   let header: CheckpointHeader;
   let archive: Buffer;
@@ -83,9 +84,9 @@ describe('SequencerPublisher', () => {
     blobClient = mock<BlobClientInterface>();
     blobClient.sendBlobsToFilestore.mockResolvedValue(true);
 
-    l2Block = await L2Block.random(BlockNumber(42));
+    l2Block = await L2BlockNew.random(BlockNumber(42));
 
-    header = l2Block.getCheckpointHeader();
+    header = CheckpointHeader.random();
     archive = l2Block.archive.root.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
@@ -165,9 +166,9 @@ describe('SequencerPublisher', () => {
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
-    l2Block = await L2Block.random(BlockNumber(42), undefined, undefined, undefined, undefined, Number(currentL2Slot));
+    l2Block = await L2BlockNew.random(BlockNumber(42), { slotNumber: SlotNumber(Number(currentL2Slot)) });
 
-    header = l2Block.getCheckpointHeader();
+    header = CheckpointHeader.random({ slotNumber: SlotNumber(Number(currentL2Slot)) });
     archive = l2Block.archive.root.toBuffer();
   });
 
@@ -196,13 +197,9 @@ describe('SequencerPublisher', () => {
   };
 
   it('bundles propose and vote tx to l1', async () => {
-    const expectedBlobs = getBlobsPerL1Block(l2Block.getCheckpointBlobFields());
-
-    await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
-      CommitteeAttestationsAndSigners.empty(),
-      Signature.empty(),
-    );
+    const checkpoint = new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber);
+    const expectedBlobs = getBlobsPerL1Block(checkpoint.toBlobFields());
+    await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
     const { govPayload, voteSig } = mockGovernancePayload();
 
@@ -285,7 +282,7 @@ describe('SequencerPublisher', () => {
     });
 
     await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
@@ -298,7 +295,7 @@ describe('SequencerPublisher', () => {
 
     await expect(
       publisher.enqueueProposeCheckpoint(
-        l2Block.toCheckpoint(),
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(),
         Signature.empty(),
       ),
@@ -318,7 +315,7 @@ describe('SequencerPublisher', () => {
     });
 
     await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
@@ -342,7 +339,7 @@ describe('SequencerPublisher', () => {
         }>,
     );
     await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );

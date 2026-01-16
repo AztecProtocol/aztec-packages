@@ -1,6 +1,5 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -8,6 +7,7 @@ import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { L2BlockNew } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   computeAppNullifierSecretKey,
@@ -93,11 +93,11 @@ describe('Keys', () => {
     const getNumNullifiedNotes = async (nskApp: Fr, contractAddress: AztecAddress) => {
       // 1. Get all the note hashes
       const blocks = await aztecNode.getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 1000);
-      const noteHashes = blocks.flatMap((block: L2Block) =>
+      const noteHashes = blocks.flatMap((block: L2BlockNew) =>
         block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
       );
       // 2. Get all the seen nullifiers
-      const nullifiers = blocks.flatMap((block: L2Block) =>
+      const nullifiers = blocks.flatMap((block: L2BlockNew) =>
         block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
       );
       // 3. Derive all the possible nullifiers using nskApp

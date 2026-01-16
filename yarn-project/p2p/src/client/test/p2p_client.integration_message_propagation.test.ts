@@ -9,7 +9,8 @@ import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
-import { type MakeConsensusPayloadOptions, makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { type MakeConsensusPayloadOptions, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -183,7 +184,7 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a block proposal
     const dummyPayload: MakeConsensusPayloadOptions = {
       signer: Secp256k1Signer.random(),
-      header: makeL2BlockHeader(),
+      header: CheckpointHeader.random(),
       archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
@@ -193,7 +194,7 @@ describe('p2p client integration message propagation', () => {
     // client 1 sends a checkpoint attestation
     const attestation = mockCheckpointAttestation(
       Secp256k1Signer.random(),
-      Number(dummyPayload.header!.getSlot()),
+      Number(dummyPayload.header!.slotNumber),
       dummyPayload.archive,
     );
     await client1.broadcastCheckpointAttestations([attestation]);
@@ -335,7 +336,7 @@ describe('p2p client integration message propagation', () => {
         // Client 1 sends a block proposal
         const dummyPayload: MakeConsensusPayloadOptions = {
           signer: Secp256k1Signer.random(),
-          header: makeL2BlockHeader(),
+          header: CheckpointHeader.random(),
           archive: Fr.random(),
           txHashes: [TxHash.random()],
         };
@@ -345,7 +346,7 @@ describe('p2p client integration message propagation', () => {
         // client 1 sends a checkpoint attestation
         const attestation = mockCheckpointAttestation(
           Secp256k1Signer.random(),
-          Number(dummyPayload.header!.getSlot()),
+          Number(dummyPayload.header!.slotNumber),
           dummyPayload.archive,
         );
         await client1.client.broadcastCheckpointAttestations([attestation]);
