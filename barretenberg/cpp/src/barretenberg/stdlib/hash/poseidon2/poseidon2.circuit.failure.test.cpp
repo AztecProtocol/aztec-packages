@@ -71,7 +71,7 @@ class Poseidon2FailureTests : public ::testing::Test {
         // Complete the prover instance (compute selectors, relation parameters, etc.)
         WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_instance);
 
-        auto prover_transcript = Transcript::prover_init_empty();
+        auto prover_transcript = Transcript::test_prover_init_empty();
 
         // Generate challenges via transcript for Fiat-Shamir
         SubrelationSeparator subrelation_separator = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -94,7 +94,7 @@ class Poseidon2FailureTests : public ::testing::Test {
                                        virtual_log_n);
         auto proof = sumcheck_prover.prove();
 
-        auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = Transcript::test_verifier_init_empty(prover_transcript);
 
         SubrelationSeparator verifier_subrelation_separator =
             verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");

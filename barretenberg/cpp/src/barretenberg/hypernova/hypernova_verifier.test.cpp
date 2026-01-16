@@ -155,12 +155,13 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
     /**
      * @brief Build the expected transcript manifest for HyperNova folding
-     * @details The manifest has 50 rounds total:
+     * @details The manifest has 48 rounds total:
      * - Oink (rounds 0-2): vk_hash, public inputs, wires, ECC ops, databus, lookup, inverses
-     * - Main sumcheck (rounds 3-25): gate_challenge, univariates, evaluations + batching challenges
-     * - Batching challenges (round 26): shifted challenges
-     * - MLB data (round 27): accumulator commitments/challenges/evaluations
-     * - MLB sumcheck (rounds 28-49): univariates, final evaluations + claim_batching_challenge
+     * - Main sumcheck (rounds 3-23): gate_challenge, univariates
+     * - Main sumcheck batching (round 24): unshifted/shifted batching challenges + evaluations
+     * - MLB data (round 25): accumulator commitments/challenges/evaluations
+     * - MLB sumcheck (rounds 26-46): univariates
+     * - MLB final (round 47): final evaluations + claim_batching_challenge
      */
     static TranscriptManifest build_expected_folding_manifest()
     {
@@ -213,15 +214,12 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             round++;
         }
 
-        // Round 25: evaluations + unshifted batching challenges
-        manifest.add_entry(25, "Sumcheck:evaluations", 60);
+        // Round 24: unshifted batching challenges + shifted batching challenges + evaluations
         for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
-            manifest.add_challenge(25, "unshifted_challenge_" + std::to_string(i));
+            manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
         }
-
-        // Round 26: shifted batching challenges
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
-            manifest.add_challenge(26, "shifted_challenge_" + std::to_string(i));
+            manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
         manifest.add_entry(round, "Sumcheck:evaluations", 60);
         round++;
