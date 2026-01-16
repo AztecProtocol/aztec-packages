@@ -280,8 +280,7 @@ async function outputResults(benchResults: BenchmarkResult[]): Promise<void> {
   if (process.env.BENCH_OUTPUT_MD) {
     await mkdir(path.dirname(process.env.BENCH_OUTPUT_MD), { recursive: true });
     await writeFile(process.env.BENCH_OUTPUT_MD, toPrettyString(benchResults));
+    console.log(toPrettyString(benchResults));
     return;
   }
-
-  console.log(toPrettyString(benchResults));
 }
