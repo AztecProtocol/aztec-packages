@@ -30,7 +30,7 @@ import {
 } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { BlockBuilder, GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
+import { GlobalVariableBuilder, SequencerClient, type SequencerPublisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -308,18 +308,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    // Create BlockBuilder for EpochPruneWatcher (slasher functionality)
-    const blockBuilder = new BlockBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
-      worldStateSynchronizer,
-      archiver,
-      dateProvider,
-      telemetry,
-    );
-
     // Create FullNodeCheckpointsBuilder for validator and non-validator block proposal handling
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
       { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      worldStateSynchronizer,
       archiver,
       dateProvider,
       telemetry,
@@ -386,7 +378,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         archiver,
         epochCache,
         p2pClient.getTxProvider(),
-        blockBuilder,
+        validatorCheckpointsBuilder,
         config,
       );
       watchers.push(epochPruneWatcher);
@@ -451,6 +443,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
         { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        worldStateSynchronizer,
         archiver,
         dateProvider,
         telemetry,
@@ -579,12 +572,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Get a block specified by its number.
-   * @param number - The block number being requested.
+   * Get a block specified by its block number, block hash, or 'latest'.
+   * @param block - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
    */
-  public async getBlock(number: BlockParameter): Promise<L2BlockNew | undefined> {
-    const blockNumber = number === 'latest' ? await this.getBlockNumber() : (number as BlockNumber);
+  public async getBlock(block: BlockParameter): Promise<L2BlockNew | undefined> {
+    if (block instanceof L2BlockHash) {
+      return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
+    }
+    const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
     if (blockNumber === BlockNumber.ZERO) {
       return this.buildInitialBlock();
     }
@@ -598,7 +594,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
     const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(initialBlockHash)) {
+    if (blockHash.equals(Fr.fromBuffer(initialBlockHash.toBuffer()))) {
       return this.buildInitialBlock();
     }
     return await this.blockSource.getL2BlockNewByHash(blockHash);

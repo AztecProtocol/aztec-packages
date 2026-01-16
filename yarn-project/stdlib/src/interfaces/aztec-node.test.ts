@@ -682,7 +682,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(PublicDataWitness.random());
   }
   getBlock(number: BlockParameter): Promise<L2BlockNew | undefined> {
-    const blockNum = number === 'latest' ? BlockNumber(1) : number;
+    const blockNum = number === 'latest' ? BlockNumber(1) : (number as BlockNumber);
     return L2BlockNew.random(blockNum);
   }
   getBlockByHash(_blockHash: Fr): Promise<L2BlockNew | undefined> {
