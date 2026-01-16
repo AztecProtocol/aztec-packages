@@ -148,8 +148,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             return { ...step, subtotal: acc };
           });
 
-          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce(
-            (acc, calls) => acc + calls.times.length,
+          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls?.perMethod ?? {}).reduce(
+            (acc, calls) => acc + (calls?.times.length ?? 0),
             0,
           );
 
@@ -211,7 +211,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 '& .MuiBadge-badge': {
                   backgroundColor: colors.secondary.main,
                   color: colors.text.primary,
-                }
+                },
               }}
             ></Badge>
           </Typography>
@@ -263,7 +263,15 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 <Typography variant="body1" sx={{ fontWeight: 200, marginRight: '0.5rem' }}>
                   Simulation results:
                 </Typography>
-                <div css={{ backgroundColor: commonStyles.glassDark, border: commonStyles.borderNormal, color: colors.text.primary, padding: '0.5rem', borderRadius: commonStyles.borderRadius }}>
+                <div
+                  css={{
+                    backgroundColor: commonStyles.glassDark,
+                    border: commonStyles.borderNormal,
+                    color: colors.text.primary,
+                    padding: '0.5rem',
+                    borderRadius: commonStyles.borderRadius,
+                  }}
+                >
                   {simulationResults?.success ? (
                     <Typography variant="body1">{simulationResults?.data ?? 'No return value'}</Typography>
                   ) : (
@@ -281,7 +289,11 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                   <>
                     <TableContainer
                       component={Paper}
-                      sx={{ marginRight: '0.5rem', backgroundColor: 'rgba(0, 0, 0, 0.3)', border: '1px solid rgba(212, 255, 40, 0.15)' }}
+                      sx={{
+                        marginRight: '0.5rem',
+                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                        border: '1px solid rgba(212, 255, 40, 0.15)',
+                      }}
                     >
                       <Table size="small">
                         <TableHead>
