@@ -1,14 +1,55 @@
-// This subtrace supports point addition over the Grumpkin curve.
-// Given two points, P & Q, this trace computes R = P + Q.
-// The only assumption here are that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity is considered on the curve).
-// Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17,
-// Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
-// This makes its points natively representable in our VM.
+
+/**
+ * This subtrace supports point addition over the Grumpkin curve.
+ * Given two points, P & Q, this trace computes R = P + Q.
+ * PRECONDITIONS: The only assumption here is that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity is considered on the curve):
+ * Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
+ * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
+ *
+ * USAGE: This is a non-memory aware subtrace used to constrain point addition as defined above. Each point can be looked up
+ *        by coordinates (lookup as defined in ecc_mem.pil):
+ *        #[INPUT_OUTPUT_ECC_ADD]
+ *        sel_should_exec {
+ *          p_x_n, p_y_n, p_is_inf, // Point P
+ *          q_x_n, q_y_n, q_is_inf, // Point Q
+ *          res_x, res_y, res_is_inf // Point R
+ *        } in ecc.sel {
+ *          ecc.p_x, ecc.p_y, ecc.p_is_inf, // Point P
+ *          ecc.q_x, ecc.q_y, ecc.q_is_inf, // Point Q
+ *          ecc.r_x, ecc.r_y, ecc.r_is_inf // Point R
+ *        };
+ *
+ * TRACE SHAPE: 1 single row per computation (P + Q = R).
+ *
+ * INTERACTIONS: This subtrace is looked up by:
+ * - ecc_mem.pil: To retrieve the output point R (written to memory) as the result of point addition (#[INPUT_OUTPUT_ECC_ADD]).
+ * - scalar_mul.pil: To retrieve the output point R as the result of point addition (#[ADD]) or doubling (#[DOUBLE]).
+ * - address_derivation.pil: To constrain that the address is the x coordinate of the result of point addition of preaddress_public_key + incoming_viewing_key (#[ADDRESS_ECADD]).
+ *
+*/
+
 namespace ecc;
 
-    // Infinity is represented as 0,0,true in the standard form
+    ////////////////////////////////////////////////
+    // Intro
+    ////////////////////////////////////////////////
+    //
+    // We perform point addition over our Short Weierstrass (SW) curve with 3 cases. The notation will be as follows:
+    //    P + Q = R where:
+    //      P = (p_x, p_y, p_is_inf), Q = (q_x, q_y, q_is_inf), R = (r_x, r_y, r_is_inf),
+    //    where the coordinates satisfy:
+    //      y^2 = x^3 - 17 (unless is_inf is true).
+    // The point at infinity, O, does not exist on the curve (a property of SW curves). We represent it as:
+    //    O = (0, 0, true).
+    //    Note: this is NOT enforced here for inputs, see ecc_mem.pil for example of constraining.
+    //
+
     pol INFINITY_X = 0;
     pol INFINITY_Y = 0;
+
+    ////////////////////////////////////////////////
+    // Set Up Columns
+    ////////////////////////////////////////////////
 
     // This is the selector with which other subtraces will reference
     pol commit sel; // @boolean
@@ -23,7 +64,7 @@ namespace ecc;
 
     // When the sel is on, we are either doubling, adding or handling the edge case
     #[OP_CHECK]
-    sel = double_op + add_op + INFINITY_PRED;
+    sel = double_op + add_op + INVERSE_PRED;
 
     // Point P in affine form
     pol commit p_x;
@@ -43,56 +84,93 @@ namespace ecc;
     pol commit r_is_inf; // @boolean
     r_is_inf * (1 - r_is_inf) = 0;
 
-    // Check the coordinates to see if we need to handle an edge case
     // Check x coordinates, i.e. p_x == q_x
     pol commit x_match; // @boolean
     x_match * (1 - x_match) = 0;
     pol X_DIFF = q_x - p_x;
-    pol commit inv_x_diff;
+    pol commit inv_x_diff; // @zero-check
     // x_match == 1 IFF X_DIFF = 0
+    #[X_MATCH]
     sel * (X_DIFF * (x_match * (1 - inv_x_diff) + inv_x_diff) - 1 + x_match) = 0;
 
     // Check y coordinates, i.e. p_y == q_y
     pol commit y_match; // @boolean
     y_match * (1 - y_match) = 0;
     pol Y_DIFF = q_y - p_y;
-    pol commit inv_y_diff;
-    // y_match == 1 IFF Y_DIFF = 0,
+    pol commit inv_y_diff; // @zero-check
+    // y_match == 1 IFF Y_DIFF = 0
+    #[Y_MATCH]
     sel * (Y_DIFF * (y_match * (1 - inv_y_diff) + inv_y_diff) - 1 + y_match) = 0;
 
-    // If x and y match, we must double
+    ////////////////////////////////////////////////
+    // Choose Operation - Main Cases
+    ////////////////////////////////////////////////
+    //
+    // For cases without O (use_computed_result == true) we have:
+    //  r_x := lambda^2 - p_x - q_x (= COMPUTED_R_X)
+    //  r_y := lambda * (p_x - r_x) - p_y (= COMPUTED_R_Y)
+    // where lambda is the 'slope' between P & Q.
+    //
+    // To find lambda we either use the double or add operation:
+    //    If P != Q where !x_match (add_op == true):
+    //      lambda := (q_y - p_y) / (q_x - p_x)
+    //    If P == Q <==> x_match & y_match (#[DOUBLE_PRED]: double_op == true):
+    //      lambda := 3*p_x^2 / 2*p_y
+    //
+
+    //  Note: no need to have a standalone relation for add_op since we ensure the double, add,
+    //  and inverse (INVERSE_PRED) flags are mutually exclusive by #[OP_CHECK].
     #[DOUBLE_PRED]
     double_op - (x_match * y_match) = 0;
-    // If x matches but y does not (this implies p_y = -q_y), the result will be the point at infinity
-    pol INFINITY_PRED = x_match * (1 - y_match);
 
-    // Check if the result should be infinity
-    pol BOTH_INF = p_is_inf * q_is_inf;
-    pol BOTH_NON_INF = (1 - p_is_inf) * (1 - q_is_inf);
-    // Used to reduce the degree of the relations
-    pol commit result_infinity;
-    #[INFINITY_RESULT]
-    sel * (result_infinity - (INFINITY_PRED * BOTH_NON_INF + BOTH_INF)) = 0;
-
-    // The lambda calculation for doubling involves division by (2 * p_y);
     pol commit inv_2_p_y;
     (1 - result_infinity) * double_op * (2 * p_y * inv_2_p_y - 1) = 0;
 
-    // We commit to the lambda column to minimise the degree of subsequent relations
+    //  We commit to the lambda column to minimise the degree of subsequent relations.
     pol commit lambda;
     #[COMPUTED_LAMBDA]
     sel * (lambda - (double_op * (3 * p_x * p_x) * inv_2_p_y + add_op * Y_DIFF * inv_x_diff)) = 0;
     pol COMPUTED_R_X = lambda * lambda - p_x - q_x;
     pol COMPUTED_R_Y = lambda * (p_x - r_x) - p_y;
 
-    // Handle each separate edge case
-    // (1) Either p or q is infinity but not both (covered by result_infinity), the result is the non-infinity point
-    // (2) The result is infinity, result is (INFINITY_X, INFINITY_Y)
-    // (3) Neither point is infinity and NOT RESULT_INFINITY, result is (COMPUTED_R_X, COMPUTED_R_Y)
+    ////////////////////////////////////////////////
+    // Choose Operation - Edge Cases
+    ////////////////////////////////////////////////
+    //
+    // For cases with O (use_computed_result == false) we have:
+    //    If P != Q where x_match, this implies p_y == -q_y <==> P == -Q (INVERSE_PRED == true):
+    //      R := O
+    //    If P == O:
+    //      R := Q (r_x := q_x, r_y := q_y, r_is_inf = q_is_inf)
+    //    Vice versa, if Q == O:
+    //      R := P (r_x := p_x, r_y := p_y, r_is_inf = p_is_inf)
+    //
+
+    pol INVERSE_PRED = x_match * (1 - y_match);
+    pol BOTH_INF = p_is_inf * q_is_inf;
+    pol BOTH_NON_INF = (1 - p_is_inf) * (1 - q_is_inf);
     pol EITHER_INF = p_is_inf + q_is_inf - 2 * BOTH_INF;
-    // We commit this intermediate result for the sole purpose of not increasing the degree of the relations beyond 6.
+
+    //  We commit this intermediate result for the sole purpose of not increasing the degree of the relations beyond 6.
     pol commit use_computed_result;
-    use_computed_result = sel * (1 - p_is_inf) * (1 - q_is_inf) * (1 - INFINITY_PRED);
+    use_computed_result = sel * BOTH_NON_INF * (1 - INVERSE_PRED);
+
+    //  This circuit reduces the degree of some relations by combining both cases where R = O (P == -Q or P == Q == O)
+    //  with the flag result_infinity.
+    pol commit result_infinity;
+    #[INFINITY_RESULT]
+    sel * (result_infinity - (INVERSE_PRED * BOTH_NON_INF + BOTH_INF)) = 0;
+
+    ////////////////////////////////////////////////
+    // Assign Result
+    ////////////////////////////////////////////////
+    //  Our final 3 cases are:
+    //    (1) use_computed_result == true:
+    //      Neither point is infinity and !result_infinity, the result is (COMPUTED_R_X, COMPUTED_R_Y, false)
+    //    (2) use_computed_result == false & !result_infinity:
+    //      Either P or Q is infinity but not both, the result is the non-infinity point
+    //    (3) use_computed_result == false & result_infinity:
+    //      The result is the infinity point, (INFINITY_X, INFINITY_Y, true)
 
     #[OUTPUT_X_COORD]
     sel * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - use_computed_result * COMPUTED_R_X) = 0;
