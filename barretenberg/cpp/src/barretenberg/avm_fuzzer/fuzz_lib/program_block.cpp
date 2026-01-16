@@ -1633,6 +1633,15 @@ std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
     return condition_addr;
 }
 
+void ProgramBlock::process_write_terminating_condition_value()
+{
+    uint16_t value = condition_offset_index % 2;
+    process_set_16_instruction(SET_16_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U1,
+        .result_address = AddressRef{ .address = condition_offset_index, .mode = AddressingMode::Direct },
+        .value = value });
+}
+
 bool ProgramBlock::is_memory_address_set(uint16_t address)
 {
     return memory_manager.is_memory_address_set(address);
