@@ -28,14 +28,15 @@ fi
 cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
-function on_exit {
-  set +e
-  if [ -n "${iid:-}" ]; then
-    aws_terminate_instance $iid $sir
-    iid=""
+function cleanup {
+  if [ -d "$state_dir" ]; then
+    aws_terminate_instance $state_dir
   fi
 }
-trap on_exit SIGINT SIGTERM EXIT
+# It's important that cleanup writes to /dev/null.
+# We run this from parallel, which closes stdout/stderr during it's cleanup.
+# This causes cleanup to die silently, probably from a SIGPIPE.
+trap 'cleanup >/dev/null' SIGINT SIGTERM EXIT
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -53,6 +54,8 @@ else
   # In local or pr's, use the branch name as the instance name.
   instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
+
+state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
 
 if semver check $REF_NAME; then
   # Override the public key that aws will load into ~/.ssh/authorized_keys on the launched instance.
@@ -79,11 +82,10 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
-IFS=':' read -r -a parts <<<"$ip_sir"
-ip="${parts[0]}"
-sir="${parts[1]}"
-iid="${parts[2]}"
+KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch $state_dir
+ip=$(cat $state_dir/ip)
+sir=$(cat $state_dir/sir)
+iid=$(cat $state_dir/iid)
 
 # If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
