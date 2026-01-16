@@ -35,6 +35,15 @@ constexpr TxMutationConfig TX_MUTATION_CONFIGURATION = TxMutationConfig({
     { TxMutationOptions::FeePayer, 1 },
 });
 
+enum class EnqueuedCallMutation { Add, Mutate, Remove };
+
+using EnqueuedCallMutationConfig = WeightedSelectionConfig<EnqueuedCallMutation, 3>;
+constexpr EnqueuedCallMutationConfig ENQUEUED_CALL_MUTATION_CONFIGURATION = EnqueuedCallMutationConfig({
+    { EnqueuedCallMutation::Add, 30 },
+    { EnqueuedCallMutation::Mutate, 50 },
+    { EnqueuedCallMutation::Remove, 20 },
+});
+
 namespace bb::avm2::fuzzer {
 
 void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt19937_64& rng);
@@ -42,6 +51,6 @@ void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt199
 void mutate_fuzzer_data_vec(const FuzzerContext& context,
                             std::vector<FuzzerData>& enqueued_calls,
                             std::mt19937_64& rng,
-                            size_t max_size = 10);
+                            size_t max_size = 64);
 
 } // namespace bb::avm2::fuzzer
