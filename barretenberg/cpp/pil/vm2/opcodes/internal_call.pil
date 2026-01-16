@@ -73,8 +73,8 @@ namespace execution;
     pol commit sel_read_unwind_call_stack;
     sel_read_unwind_call_stack = sel_execute_internal_return * (1 - sel_opcode_error);
     pol commit internal_call_return_id_inv;
-    // Guard the zero check with sel_execute_internal_return so we dont compute the inverses when we dont need to
-    // If we do an internal_return, we raise opcode = 1 iff internal_call_return_id = 0
+    // Guard the zero check with sel_execute_internal_return so we do not compute the inverses when we do not need to
+    // If we do an internal_return, we raise `sel_opcode_error` = 1 iff `internal_call_return_id = 0`
     #[INTERNAL_RET_ERROR]
     sel_execute_internal_return * (internal_call_return_id * (sel_opcode_error * (1 - internal_call_return_id_inv) + internal_call_return_id_inv) - 1 + sel_opcode_error) = 0;
 
@@ -101,7 +101,3 @@ namespace execution;
     } in internal_call_stack.sel {
         internal_call_stack.context_id, internal_call_stack.entered_call_id, internal_call_stack.call_id, internal_call_stack.return_call_id, internal_call_stack.return_pc
     };
-
-
-
-
