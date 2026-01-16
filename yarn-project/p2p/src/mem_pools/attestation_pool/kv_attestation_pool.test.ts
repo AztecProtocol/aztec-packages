@@ -3,7 +3,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 
 import { describeAttestationPool } from './attestation_pool_test_suite.js';
 import { ATTESTATION_CAP_BUFFER, KvAttestationPool, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
@@ -25,7 +25,7 @@ describe('KV Attestation Pool', () => {
   describe('BlockProposal behavior', () => {
     it('should allow adding multiple block proposals for the same slot without cap', async () => {
       const slotNumber = 100;
-      const header = makeL2BlockHeader(1, 2, slotNumber);
+      const header = makeBlockHeader(1, { slotNumber: SlotNumber(slotNumber) });
 
       // Add 1 proposal and re-add it (duplicate) → should be idempotent
       const p0 = await makeBlockProposal({ blockHeader: header, archiveRoot: Fr.random() });

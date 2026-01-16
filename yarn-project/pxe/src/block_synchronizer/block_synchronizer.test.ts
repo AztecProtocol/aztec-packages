@@ -1,14 +1,9 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import {
-  GENESIS_CHECKPOINT_HEADER_HASH,
-  L2Block,
-  L2BlockHash,
-  L2BlockNew,
-  type L2BlockStream,
-} from '@aztec/stdlib/block';
+import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockNew, type L2BlockStream } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
@@ -55,11 +50,11 @@ describe('BlockSynchronizer', () => {
 
   it('removes notes from db on a reorg', async () => {
     const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
-    const block3Hash = L2BlockHash.fromNumber(3);
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof L2BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).getBlockHeader();
+    const block3Hash = Fr.fromString('0x3');
+    aztecNode.getBlockHeaderByHash.mockImplementation(async hash => {
+      // For the test, when hash is '0x3', return block header for block 3
+      if (hash.equals(block3Hash)) {
+        return (await L2BlockNew.random(BlockNumber(3))).header;
       }
       return undefined;
     });
@@ -79,11 +74,11 @@ describe('BlockSynchronizer', () => {
 
   it('removes private events from db on a reorg', async () => {
     const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
-    const block3Hash = L2BlockHash.fromNumber(3);
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
-      if (block instanceof L2BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).getBlockHeader();
+    const block3Hash = Fr.fromString('0x3');
+    aztecNode.getBlockHeaderByHash.mockImplementation(async hash => {
+      // For the test, when hash is '0x3', return block header for block 3
+      if (hash.equals(block3Hash)) {
+        return (await L2BlockNew.random(BlockNumber(3))).header;
       }
       return undefined;
     });

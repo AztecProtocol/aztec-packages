@@ -19,7 +19,7 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { makeCheckpointProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
@@ -216,7 +216,7 @@ describe('ValidatorClient HA Integration', () => {
   describe('High-Availability signing coordination', () => {
     it('should allow only one validator instance to create a block proposal for the same slot', async () => {
       // Use all 5 validators - all try to create the same block proposal
-      const blockHeader = makeL2BlockHeader(1, 100, 100).toBlockHeader();
+      const blockHeader = makeBlockHeader(1);
       const indexWithinCheckpoint = 0;
       const inHash = computeInHashFromL1ToL2Messages([]);
       const archive = Fr.random();
@@ -256,7 +256,7 @@ describe('ValidatorClient HA Integration', () => {
       // Each of the 5 validators creates a proposal for a different slot
       const proposals = await Promise.all(
         validators.map((v, i) => {
-          const blockHeader = makeL2BlockHeader(1, 100 + i, 100 + i).toBlockHeader();
+          const blockHeader = makeBlockHeader(i + 1);
           const archive = Fr.random();
           return v.createBlockProposal(blockHeader, 0, inHash, archive, txs, proposerAddress, {
             publishFullTxs: false,
@@ -278,9 +278,9 @@ describe('ValidatorClient HA Integration', () => {
       const testSlot = 200;
       const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
       const checkpointProposal = await makeCheckpointProposal({
-        checkpointHeader: makeL2BlockHeader(1, 100, testSlot).toCheckpointHeader(),
+        checkpointHeader: makeCheckpointHeader(testSlot),
         lastBlock: {
-          blockHeader: makeL2BlockHeader(1, 100, testSlot),
+          blockHeader: makeBlockHeader(testSlot),
           txHashes,
         },
       });

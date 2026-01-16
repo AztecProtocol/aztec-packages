@@ -182,7 +182,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         const limit = event.block.number - from + 1;
         if (limit > 0) {
           const oldBlocks = await this.l2BlockSource.getBlocks(from, limit);
-          await this.handleFinalizedL2Blocks(oldBlocks.map(b => b.toL2Block()));
+          await this.handleFinalizedL2Blocks(oldBlocks);
         }
         break;
       }
