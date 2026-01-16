@@ -239,7 +239,12 @@ contract DeployAztecL1Contracts is Script, Test {
           skipBindCheck: !isSepoliaTestChain // Only skip bind check with mock verifier
         })
       );
-      TestERC20(address(_output.stakingAsset)).addMinter(address(_output.stakingAssetHandler));
+      // Fund the staking asset handler faucet with tokens
+      TestERC20(address(_output.stakingAsset))
+        .mint(
+          address(_output.stakingAssetHandler),
+          100_000_000_000 * 1e18 // 100B STK (enough for 100K claims)
+        );
     }
   }
 
