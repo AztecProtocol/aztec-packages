@@ -10,6 +10,7 @@
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -179,8 +180,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Step (3) Compute grand_product_polynomial[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-    // the `grand_product_polynomial` is shiftable, hence `start_index == 1`.
-    BB_ASSERT_EQ(grand_product_polynomial.start_index(), 1U);
+    // The grand_product_polynomial must be shiftable for the permutation argument
+    BB_ASSERT(grand_product_polynomial.is_shiftable());
     // Compute grand product values
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = thread_data.start[thread_idx];

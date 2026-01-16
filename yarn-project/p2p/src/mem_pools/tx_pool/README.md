@@ -189,7 +189,7 @@ The [`EvictionManager`](eviction/eviction_manager.ts) coordinates eviction by:
 |-------|---------|---------|
 | `TXS_ADDED` | New transactions added | Enforce pool size limits |
 | `BLOCK_MINED` | Block finalized | Remove invalidated transactions |
-| `CHAIN_PRUNED` | Chain reorganization | Remove txs referencing pruned blocks |
+| `CHAIN_PRUNED` | Chain reorganization | Remove txs referencing pruned blocks and re-evaluate fee payer balances |
 
 ### Eviction Rules
 
@@ -211,13 +211,15 @@ Evicts transactions that reference blocks no longer in the canonical chain:
 - Checks each pending tx's anchor block hash against the archive tree
 - Removes txs whose anchor blocks are not found (pruned)
 
-#### 3. `InsufficientFeePayerBalanceRule`
+#### 3. `FeePayerBalanceEvictionRule`
 
-**Triggers on:** `BLOCK_MINED`, `CHAIN_PRUNED`
+**Triggers on:** `TXS_ADDED`, `BLOCK_MINED`, `CHAIN_PRUNED`
 
-Evicts transactions whose fee payer no longer has sufficient balance:
+Evicts low-priority transactions when a fee payer's pending fee limits exceed their Fee Juice balance:
 
-- Uses `GasTxValidator` to check fee payer balances against current world state
+- Evaluates transactions in priority order so higher-priority claims can fund lower-priority spends
+- Accounts for self-funding claims made during setup
+- Removes evictable txs that do not fit within the running balance
 
 #### 4. `LowPriorityEvictionRule`
 

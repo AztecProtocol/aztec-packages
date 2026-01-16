@@ -2,19 +2,16 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { sleep } from '@aztec/foundation/sleep';
-import {
-  type InvalidCheckpointDetectedEvent,
-  type L2BlockSourceEventEmitter,
-  L2BlockSourceEvents,
-  type ValidateCheckpointNegativeResult,
+import type {
+  InvalidCheckpointDetectedEvent,
+  L2BlockSourceEventEmitter,
+  ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import type { CheckpointInfo } from '@aztec/stdlib/checkpoint';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import EventEmitter from 'node:events';
 
 import { DefaultSlasherConfig, type SlasherConfig } from '../config.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
@@ -22,7 +19,6 @@ import { AttestationsBlockWatcher } from './attestations_block_watcher.js';
 
 describe('AttestationsBlockWatcher', () => {
   let watcher: AttestationsBlockWatcher;
-  let l2BlockSource: L2BlockSourceEventEmitter;
   let epochCache: MockProxy<EpochCache>;
   let config: SlasherConfig;
   let handler: jest.MockedFunction<(args: WantToSlashArgs[]) => void>;
@@ -30,15 +26,13 @@ describe('AttestationsBlockWatcher', () => {
   let proposer: EthAddress;
   let committee: EthAddress[];
 
-  beforeEach(async () => {
-    l2BlockSource = new MockL2BlockSource() as unknown as L2BlockSourceEventEmitter;
+  beforeEach(() => {
     epochCache = mock<EpochCache>();
     config = DefaultSlasherConfig;
     handler = jest.fn();
 
-    watcher = new AttestationsBlockWatcher(l2BlockSource, epochCache, config);
+    watcher = new AttestationsBlockWatcher(mock<L2BlockSourceEventEmitter>(), epochCache, config);
     watcher.on(WANT_TO_SLASH_EVENT, handler);
-    await watcher.start();
 
     // Set up common test data
     checkpointInfo = {
@@ -55,11 +49,7 @@ describe('AttestationsBlockWatcher', () => {
     epochCache.getProposerFromEpochCommittee.mockReturnValue(proposer);
   });
 
-  afterEach(async () => {
-    await watcher.stop();
-  });
-
-  it('should emit WANT_TO_SLASH_EVENT for proposer when invalid checkpoint detected due to insufficient attestations', async () => {
+  it('should emit WANT_TO_SLASH_EVENT for proposer when invalid checkpoint detected due to insufficient attestations', () => {
     const validationResult: ValidateCheckpointNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
@@ -76,9 +66,7 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
-
-    await sleep(100);
+    watcher.handleInvalidCheckpoint(event);
 
     expect(handler).toHaveBeenCalledWith([
       {
@@ -91,7 +79,7 @@ describe('AttestationsBlockWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('should emit WANT_TO_SLASH_EVENT for proposer when invalid checkpoint detected due to invalid attestations', async () => {
+  it('should emit WANT_TO_SLASH_EVENT for proposer when invalid checkpoint detected due to invalid attestations', () => {
     const validationResult: ValidateCheckpointNegativeResult = {
       valid: false,
       reason: 'invalid-attestation',
@@ -109,9 +97,7 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
-
-    await sleep(100);
+    watcher.handleInvalidCheckpoint(event);
 
     expect(handler).toHaveBeenCalledWith([
       {
@@ -124,8 +110,8 @@ describe('AttestationsBlockWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('should emit WANT_TO_SLASH_EVENT for attestors when checkpoint built on invalid parent', async () => {
-    // First, emit an invalid checkpoint using the pre-configured data
+  it('should emit WANT_TO_SLASH_EVENT for attestors when checkpoint built on invalid parent', () => {
+    // First, handle an invalid checkpoint using the pre-configured data
     const invalidCheckpointValidationResult: ValidateCheckpointNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
@@ -142,11 +128,9 @@ describe('AttestationsBlockWatcher', () => {
       validationResult: invalidCheckpointValidationResult,
     };
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointEvent);
+    watcher.handleInvalidCheckpoint(invalidCheckpointEvent);
 
-    await sleep(100);
-
-    // Now emit a checkpoint that builds on the invalid checkpoint
+    // Now handle a checkpoint that builds on the invalid checkpoint
     const childCheckpointInfo: CheckpointInfo = {
       archive: Fr.random(),
       lastArchive: checkpointInfo.archive, // Parent archive
@@ -178,9 +162,7 @@ describe('AttestationsBlockWatcher', () => {
     };
 
     handler.mockClear();
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, childEvent);
-
-    await sleep(100);
+    watcher.handleInvalidCheckpoint(childEvent);
 
     expect(handler).toHaveBeenCalledWith([
       {
@@ -208,7 +190,7 @@ describe('AttestationsBlockWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
-  it('should not process the same invalid checkpoint twice', async () => {
+  it('should not process the same invalid checkpoint twice', () => {
     const validationResult: ValidateCheckpointNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
@@ -225,17 +207,15 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    // Emit the same event twice
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
-    await sleep(100);
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
-    await sleep(100);
+    // Handle the same event twice
+    watcher.handleInvalidCheckpoint(event);
+    watcher.handleInvalidCheckpoint(event);
 
-    // Should only emit once
+    // Should only emit once (duplicate was skipped)
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle case when no proposer is found', async () => {
+  it('should handle case when no proposer is found', () => {
     epochCache.getProposerFromEpochCommittee.mockReturnValue(undefined);
 
     const validationResult: ValidateCheckpointNegativeResult = {
@@ -254,17 +234,9 @@ describe('AttestationsBlockWatcher', () => {
       validationResult,
     };
 
-    l2BlockSource.events.emit(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, event);
-
-    await sleep(100);
+    watcher.handleInvalidCheckpoint(event);
 
     // Should not emit any events
     expect(handler).not.toHaveBeenCalled();
   });
 });
-
-class MockL2BlockSource {
-  public readonly events = new EventEmitter();
-
-  constructor() {}
-}

@@ -1,7 +1,11 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { type BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
 
+import { getFeePayerBalanceDelta } from '../../../msg_validators/tx_validator/fee_payer_balance.js';
+import { getTxPriorityFee } from '../priority.js';
 import type { TxPoolOptions } from '../tx_pool.js';
 
 export const EvictionEvent = {
@@ -16,6 +20,7 @@ export type EvictionContext =
   | {
       event: typeof EvictionEvent.TXS_ADDED;
       newTxs: TxHash[];
+      feePayers: AztecAddress[];
     }
   | {
       event: typeof EvictionEvent.CHAIN_PRUNED;
@@ -25,7 +30,7 @@ export type EvictionContext =
       event: typeof EvictionEvent.BLOCK_MINED;
       block: BlockHeader;
       newNullifiers: Fr[];
-      minedFeePayers: AztecAddress[];
+      feePayers: AztecAddress[];
     };
 
 /**
@@ -63,7 +68,8 @@ export interface TxPoolOperations {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
   getPendingTxInfos(): Promise<PendingTxInfo[]>;
   getPendingTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]>;
-  getPendingTxsWithFeePayer(feePayer: AztecAddress[]): Promise<PendingTxInfo[]>;
+  getPendingFeePayers(): Promise<AztecAddress[]>;
+  getFeePayerTxInfos(feePayer: AztecAddress): AsyncIterable<FeePayerTxInfo>;
   /** Cheap count of current pending transactions. */
   getPendingTxCount(): Promise<number>;
   /**
@@ -90,4 +96,53 @@ export interface EvictionRule {
    * Rules should ignore config options that don't apply to them.
    */
   updateConfig(config: TxPoolOptions): void;
+}
+
+/**
+ * Balance-related information about a transaction for a fee payer.
+ */
+export class FeePayerTxInfo {
+  txHash: TxHash;
+  priority: bigint;
+  feeLimit: bigint;
+  claimAmount: bigint;
+  isEvictable: boolean;
+
+  constructor(fields: {
+    txHash: TxHash;
+    priority: bigint;
+    feeLimit: bigint;
+    claimAmount: bigint;
+    isEvictable: boolean;
+  }) {
+    this.txHash = fields.txHash;
+    this.priority = fields.priority;
+    this.feeLimit = fields.feeLimit;
+    this.claimAmount = fields.claimAmount;
+    this.isEvictable = fields.isEvictable;
+  }
+
+  static async encode(tx: Tx, txHash: string | TxHash): Promise<Buffer> {
+    const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
+    const priority = Buffer32.fromBigInt(getTxPriorityFee(tx)).toBuffer();
+    const hashBuffer = (typeof txHash === 'string' ? TxHash.fromString(txHash) : txHash).toBuffer();
+    const feeLimitBuffer = Buffer32.fromBigInt(feeLimit).toBuffer();
+    const claimAmountBuffer = Buffer32.fromBigInt(claimAmount).toBuffer();
+    return Buffer.concat([priority, hashBuffer, feeLimitBuffer, claimAmountBuffer]);
+  }
+
+  static decode(value: Buffer, isEvictable = true): FeePayerTxInfo {
+    const priority = Buffer32.fromBuffer(value.subarray(0, Buffer32.SIZE)).toBigInt();
+    const hashOffset = Buffer32.SIZE;
+    const feeLimitOffset = hashOffset + TxHash.SIZE;
+    const claimOffset = feeLimitOffset + Buffer32.SIZE;
+
+    return new FeePayerTxInfo({
+      txHash: TxHash.fromBuffer(value.subarray(hashOffset, feeLimitOffset)),
+      priority,
+      feeLimit: Buffer32.fromBuffer(value.subarray(feeLimitOffset, claimOffset)).toBigInt(),
+      claimAmount: Buffer32.fromBuffer(value.subarray(claimOffset, claimOffset + Buffer32.SIZE)).toBigInt(),
+      isEvictable,
+    });
+  }
 }

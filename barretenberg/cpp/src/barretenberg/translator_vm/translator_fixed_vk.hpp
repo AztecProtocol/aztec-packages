@@ -13,12 +13,16 @@ namespace bb {
 /**
  * @brief Stores the fixed Translator VK commitments (to precomputed polynomials) that depend only on the circuit size
  * constant CONST_TRANSLATOR_LOG_N.
- * @details If the constant CONST_TRANSLATOR_LOG_N changes, these commitments must be updated accordingly. Their values
- * can be obtained from the test TranslatorTests::FixedVK.
+ * @details If the constant CONST_TRANSLATOR_LOG_N changes, these commitments and vk_hash must be updated accordingly.
+ * Their values can be obtained from the test TranslatorTests::FixedVK.
  *
  */
-struct TranslatorFixedVKCommitments {
+struct TranslatorHardcodedVKAndHash {
     using Commitment = curve::BN254::AffineElement;
+    using FF = curve::BN254::ScalarField;
+
+    // Precomputed VK hash (hash of all commitments below). Update via TranslatorTests::FixedVK if commitments change.
+    static FF vk_hash() { return FF(uint256_t("0x1398de71c1c28f7843039b1f71ffb3dbb9fedd7c01b3f590f4205449c7813dcb")); }
 
     static std::vector<Commitment> get_all()
     {

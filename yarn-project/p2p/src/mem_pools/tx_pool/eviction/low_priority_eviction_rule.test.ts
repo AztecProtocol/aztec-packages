@@ -43,7 +43,7 @@ describe('LowPriorityEvictionRule', () => {
           event: EvictionEvent.BLOCK_MINED,
           block: BlockHeader.empty(),
           newNullifiers: [],
-          minedFeePayers: [],
+          feePayers: [],
         };
 
         const result = await rule.evict(context, txPool);
@@ -78,6 +78,7 @@ describe('LowPriorityEvictionRule', () => {
         context = {
           event: EvictionEvent.TXS_ADDED,
           newTxs: [TxHash.random(), TxHash.random()],
+          feePayers: [],
         };
       });
 

@@ -40,7 +40,16 @@ EOF
     npm i -g verdaccio
   fi
 
-  if ! cache_download aztec-release-test-image-$hash.zst; then
+  local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
+  if ! cache_download aztec-up-test-base-image-$base_hash.zst; then
+    docker build -t aztecprotocol/aztec-up-test-base -f Dockerfile.base .
+    docker save aztecprotocol/aztec-up-test-base:latest > aztec-up-test-base-image
+    cache_upload aztec-up-test-base-image-$base_hash.zst aztec-up-test-base-image
+  else
+    docker load < aztec-up-test-base-image
+  fi
+
+  if ! cache_download aztec-up-test-image-$hash.zst; then
     rm -rf verdaccio-storage
     verdaccio --config /tmp/verdaccio-config.yaml --listen 4873 &>/dev/null &
     verdaccio_pid=$!
@@ -76,12 +85,12 @@ EOF
     npm i -g --prefix /tmp/npm-prime @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
     rm -rf /tmp/npm-prime
 
-    docker build -t aztecprotocol/aztec-release-test .
-    docker save aztecprotocol/aztec-release-test:latest > aztec-release-test-image
+    docker build -t aztecprotocol/aztec-up-test .
+    docker save aztecprotocol/aztec-up-test:latest > aztec-up-test-image
 
-    cache_upload aztec-release-test-image-$hash.zst aztec-release-test-image
+    cache_upload aztec-up-test-image-$hash.zst aztec-up-test-image
   else
-    docker load < aztec-release-test-image
+    docker load < aztec-up-test-image
   fi
 }
 

@@ -3,7 +3,7 @@ import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { sleep } from '@aztec/foundation/sleep';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import {
   type PublicInputsAndRecursiveProof,
@@ -100,16 +100,20 @@ describe('prover/orchestrator', () => {
         // the prover broker deduplicates jobs, so the base parity proof
         // for the three sets empty messages is called only once. so total
         // calls is one for the empty messages and one for the custom message.
-        await sleep(2000);
-        expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(2);
+        await retryFastUntil(
+          () => mockProver.getBaseParityProof.mock.calls.length === 2,
+          'base parity proofs to be called',
+        );
         expect(mockProver.getRootParityProof).not.toHaveBeenCalled();
 
         // only after the base parity proof is resolved, the root parity should be called
         pendingBaseParityResult.resolve(expectedBaseParityResult);
 
         // give the orchestrator a chance to calls its callbacks
-        await sleep(5000);
-        expect(mockProver.getRootParityProof).toHaveBeenCalledTimes(1);
+        await retryFastUntil(
+          () => mockProver.getRootParityProof.mock.calls.length === 1,
+          'root parity proof to be called',
+        );
 
         orchestrator.cancel();
       });
@@ -145,9 +149,6 @@ describe('prover/orchestrator', () => {
         const { blockNumber, timestamp } = header.globalVariables;
         await orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
 
-        // wait for the block root proof to try to be enqueued
-        await sleep(1000);
-
         // now finish the block
         await orchestrator.setBlockCompleted(blockNumber);
 
@@ -176,9 +177,6 @@ describe('prover/orchestrator', () => {
 
         const { blockNumber, timestamp } = header.globalVariables;
         await orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
-
-        // wait for the block root proof to try to be enqueued
-        await sleep(1000);
 
         // now finish the block
         await orchestrator.setBlockCompleted(blockNumber);
@@ -226,8 +224,7 @@ describe('prover/orchestrator', () => {
           ),
         );
 
-        await sleep(100);
-        expect(getChonkVerifierSpy).toHaveBeenCalledTimes(2);
+        await retryFastUntil(() => getChonkVerifierSpy.mock.calls.length === 2, 'chonk verifier proofs to be called');
         getChonkVerifierSpy.mockReset();
 
         const { blockNumber, timestamp } = header.globalVariables;

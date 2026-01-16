@@ -106,14 +106,15 @@ template <typename Fr> class Polynomial {
      */
     static Polynomial shiftable(size_t virtual_size)
     {
-        return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
+        return Polynomial(
+            /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
     /**
      * @brief Utility to create a shiftable polynomial of given size and virtual size.
      */
     static Polynomial shiftable(size_t size, size_t virtual_size)
     {
-        return Polynomial(/*actual size*/ size - 1, virtual_size, /*shiftable offset*/ 1);
+        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
@@ -339,6 +340,7 @@ template <typename Fr> class Polynomial {
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }
     size_t end_index() const { return coefficients_.end_; }
+    bool is_shiftable() const { return start_index() == NUM_ZERO_ROWS; }
 
     /**
      * @brief Strictly iterates the defined region of the polynomial.

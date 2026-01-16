@@ -79,12 +79,21 @@ export class EcAdd extends Instruction {
     }
 
     let dest;
-    if (p1IsInfinite) {
+    if (p1IsInfinite && p2IsInfinite) {
+      dest = Point.ZERO;
+    } else if (p1IsInfinite) {
       dest = p2;
     } else if (p2IsInfinite) {
       dest = p1;
     } else {
-      dest = await Grumpkin.add(p1, p2);
+      // TS<>BB ecc add communication is broken for points that add up to infinity.
+      // However, here we know that both points are on the curve, and that none is infinity
+      // so we can check for the case where you add p + (-p) = infinity.
+      if (p1.x.equals(p2.x) && !p1.y.equals(p2.y)) {
+        dest = Point.ZERO;
+      } else {
+        dest = await Grumpkin.add(p1, p2);
+      }
     }
 
     // Important to use setSlice() and not set() in the two following statements as

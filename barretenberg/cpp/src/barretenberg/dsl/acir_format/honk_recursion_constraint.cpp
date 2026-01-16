@@ -69,7 +69,6 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                 create_mock_honk_proof<NativeFlavor, IO>(/*acir_public_inputs_size=*/input.public_inputs.size()),
                 create_mock_honk_vk<NativeFlavor, IO>(
                     /*dyadic_size=*/1 << NativeFlavor::VIRTUAL_LOG_N,
-                    /*pub_inputs_offset=*/NativeFlavor::has_zero_row ? 1 : 0,
                     /*acir_public_inputs_size=*/input.public_inputs.size()));
         }
 
