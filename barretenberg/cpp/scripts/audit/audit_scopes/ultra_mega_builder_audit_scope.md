@@ -1,7 +1,9 @@
 # External Audit Scope: Ultra + MegaCircuitBuilder
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: To be added in January
+
+Commit hash: [6d14241271ad07c72937498b66f28df630662c2c](https://github.com/AztecProtocol/aztec-packages/tree/6d14241271ad07c72937498b66f28df630662c2c)
+
 Status: Planned, [Luke, Raju]
 
 ## Files to Audit
