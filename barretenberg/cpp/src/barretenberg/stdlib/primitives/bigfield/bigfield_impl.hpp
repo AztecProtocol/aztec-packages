@@ -1799,6 +1799,18 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
                 limb_overflow_test_2 || limb_overflow_test_3));
 }
 
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_zero_if(const bool_t<Builder>& predicate, std::string const& msg) const
+{
+    // Assert that all limbs are zero when predicate is true
+    const field_ct predicate_field = field_ct(predicate);
+    (binary_basis_limbs[0].element * predicate_field).assert_is_zero(msg + ": binary limb 0 not zero");
+    (binary_basis_limbs[1].element * predicate_field).assert_is_zero(msg + ": binary limb 1 not zero");
+    (binary_basis_limbs[2].element * predicate_field).assert_is_zero(msg + ": binary limb 2 not zero");
+    (binary_basis_limbs[3].element * predicate_field).assert_is_zero(msg + ": binary limb 3 not zero");
+    (prime_basis_limb * predicate_field).assert_is_zero(msg + ": prime limb not zero");
+}
+
 // Underneath performs unsafe_assert_less_than(modulus)
 // create a version with mod 2^t element part in [0,p-1]
 // After range-constraining to size 2^s, we check (p-1)-a is non-negative as integer.

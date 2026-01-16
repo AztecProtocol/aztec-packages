@@ -23,12 +23,28 @@ element<C, Fq, Fr, G>::element()
     , _is_infinity()
 {}
 
+/**
+ * @brief Construct a biggroup element from its coordinates
+ * @details The infinity flag is automatically determined: if both x and y are zero, the point is
+ * considered the point at infinity. This ensures a single canonical representation and prevents
+ * inconsistent states where coordinates and infinity flag disagree.
+ *
+ * @param x_in The x coordinate
+ * @param y_in The y coordinate
+ * @param assert_on_curve If true, validate that (x, y) satisfies the curve equation (unless point is at infinity)
+ */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert_on_curve)
     : _x(x_in)
     , _y(y_in)
-    , _is_infinity(_x.get_context() ? _x.get_context() : _y.get_context(), false)
 {
+    // Detect infinity: point is at infinity iff both coordinates are zero
+    const Fq zero = Fq::zero();
+    const bool_ct x_is_zero = (_x == zero);
+    const bool_ct y_is_zero = (_y == zero);
+    _is_infinity = x_is_zero && y_is_zero;
+
+    // Validate on-curve if requested
     if (assert_on_curve) {
         validate_on_curve();
     }

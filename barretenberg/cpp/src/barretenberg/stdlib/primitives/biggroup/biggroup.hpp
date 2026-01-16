@@ -38,6 +38,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element();
 
     // Construct a biggroup element from its coordinates
+    // The infinity flag is automatically set based on whether both coordinates are zero.
     // By default, we validate that the point is on the curve
     element(const Fq& x, const Fq& y, const bool assert_on_curve = true);
     element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve = true);
@@ -70,23 +71,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        element out;
-        if (input.is_point_at_infinity()) {
-            Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
-            Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
-            out._x = x;
-            out._y = y;
-        } else {
-            Fq x = Fq::from_witness(ctx, input.x);
-            Fq y = Fq::from_witness(ctx, input.y);
-            out._x = x;
-            out._y = y;
-        }
-        out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
+        // Reject if the input is a point at infinity
+        BB_ASSERT(!(input.is_point_at_infinity()),
+                  "biggroup::from_witness: cannot create biggroup element from point at infinity");
+
+        Fq x = Fq::from_witness(ctx, input.x);
+        Fq y = Fq::from_witness(ctx, input.y);
+        element out = element(x, y, /*assert_on_curve=*/true);
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
-        out.validate_on_curve();
         return out;
     }
 
@@ -101,23 +95,22 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             return;
         }
 
+        // If this is a point at infinity, it must have (x, y) = (0, 0)
+        _x.assert_zero_if(is_point_at_infinity(), "biggroup::validate_on_curve: infinity point must have x = 0");
+        _y.assert_zero_if(is_point_at_infinity(), "biggroup::validate_on_curve: infinity point must have y = 0");
+
         bool has_circuit_failed = get_context()->failed();
 
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
         Fq adjusted_b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
-        Fq adjusted_x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _x);
-        Fq adjusted_y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _y);
         if constexpr (!NativeGroup::has_a) {
             // we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ adjusted_x.sqr(), adjusted_y }, { adjusted_x, -adjusted_y }, { adjusted_b }, true);
+            Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { adjusted_b }, true);
         } else {
             Fq a(get_context(), uint256_t(NativeGroup::curve_a));
             Fq adjusted_a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
             // we validate y^2 = x^3 + ax + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ adjusted_x.sqr(), adjusted_x, adjusted_y },
-                          { adjusted_x, adjusted_a, -adjusted_y },
-                          { adjusted_b },
-                          true);
+            Fq::mult_madd({ _x.sqr(), _x, _y }, { _x, adjusted_a, -_y }, { adjusted_b }, true);
         }
 
         if ((!has_circuit_failed) && (get_context()->failed())) {
