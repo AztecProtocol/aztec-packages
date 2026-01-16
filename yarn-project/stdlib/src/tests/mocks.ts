@@ -569,7 +569,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
     archiveRoot,
     txHashes,
     txs,
-    payload => Promise.resolve(signer.signMessage(payload)),
+    (_payload, _context) => Promise.resolve(signer.signMessage(_payload)),
   );
 };
 

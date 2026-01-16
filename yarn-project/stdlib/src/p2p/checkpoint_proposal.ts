@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
@@ -152,13 +153,18 @@ export class CheckpointProposal extends Gossipable {
     checkpointHeader: CheckpointHeader,
     archiveRoot: Fr,
     lastBlockInfo: CheckpointLastBlockData | undefined,
-    payloadSigner: (payload: Buffer32) => Promise<Signature>,
+    payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<CheckpointProposal> {
-    // Sign the checkpoint payload
+    // Sign the checkpoint payload with CHECKPOINT_PROPOSAL duty type
     const tempProposal = new CheckpointProposal(checkpointHeader, archiveRoot, Signature.empty(), undefined);
-
     const checkpointHash = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.checkpointProposal);
-    const checkpointSignature = await payloadSigner(checkpointHash);
+
+    const checkpointContext: SigningContext = {
+      slot: checkpointHeader.slotNumber,
+      blockNumber: lastBlockInfo?.blockHeader?.globalVariables.blockNumber ?? BlockNumber(0),
+      dutyType: DutyType.CHECKPOINT_PROPOSAL,
+    };
+    const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
 
     if (!lastBlockInfo) {
       return new CheckpointProposal(checkpointHeader, archiveRoot, checkpointSignature);

@@ -332,7 +332,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const watchers: Watcher[] = [];
 
     // Create validator client if required
-    const validatorClient = createValidatorClient(config, {
+    const validatorClient = await createValidatorClient(config, {
       checkpointsBuilder: validatorCheckpointsBuilder,
       worldState: worldStateSynchronizer,
       p2pClient,

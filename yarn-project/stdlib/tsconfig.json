@@ -20,6 +20,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../validator-ha-signer"
     }
   ],
   "include": ["src"]

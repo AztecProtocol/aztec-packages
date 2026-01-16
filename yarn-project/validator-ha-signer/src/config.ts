@@ -4,66 +4,34 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
+import type { ZodFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 /**
- * Configuration for the slashing protection service
+ * Configuration for the Validator HA Signer
+ *
+ * This config is used for distributed locking and slashing protection
+ * when running multiple validator nodes in a high-availability setup.
  */
-export interface SlashingProtectionConfig {
-  /** Whether slashing protection is enabled */
-  enabled: boolean;
+export interface ValidatorHASignerConfig {
+  /** Whether HA signing / slashing protection is enabled */
+  haSigningEnabled: boolean;
   /** Unique identifier for this node */
   nodeId: string;
   /** How long to wait between polls when a duty is being signed (ms) */
   pollingIntervalMs: number;
   /** Maximum time to wait for a duty being signed to complete (ms) */
   signingTimeoutMs: number;
-  /** Maximum age of a stuck duty in ms */
-  maxStuckDutiesAgeMs: number;
-}
-
-export const slashingProtectionConfigMappings: ConfigMappingsType<SlashingProtectionConfig> = {
-  enabled: {
-    env: 'SLASHING_PROTECTION_ENABLED',
-    description: 'Whether slashing protection is enabled',
-    ...booleanConfigHelper(true),
-  },
-  nodeId: {
-    env: 'SLASHING_PROTECTION_NODE_ID',
-    description: 'The unique identifier for this node',
-    defaultValue: '',
-  },
-  pollingIntervalMs: {
-    env: 'SLASHING_PROTECTION_POLLING_INTERVAL_MS',
-    description: 'The number of ms to wait between polls when a duty is being signed',
-    ...numberConfigHelper(100),
-  },
-  signingTimeoutMs: {
-    env: 'SLASHING_PROTECTION_SIGNING_TIMEOUT_MS',
-    description: 'The maximum time to wait for a duty being signed to complete',
-    ...numberConfigHelper(3_000),
-  },
-  maxStuckDutiesAgeMs: {
-    env: 'SLASHING_PROTECTION_MAX_STUCK_DUTIES_AGE_MS',
-    description: 'The maximum age of a stuck duty in ms',
-    // hard-coding at current 2 slot duration. This should be set by the validator on init
-    ...numberConfigHelper(72_000),
-  },
-};
-
-export const defaultSlashingProtectionConfig: SlashingProtectionConfig = getDefaultConfig(
-  slashingProtectionConfigMappings,
-);
-
-/**
- * Configuration for creating an HA signer with PostgreSQL backend
- */
-export interface CreateHASignerConfig extends SlashingProtectionConfig {
+  /** Maximum age of a stuck duty in ms (defaults to 2x hardcoded Aztec slot duration if not set) */
+  maxStuckDutiesAgeMs?: number;
   /**
    * PostgreSQL connection string
    * Format: postgresql://user:password@host:port/database
    */
-  databaseUrl: string;
+  databaseUrl?: string;
   /**
    * PostgreSQL connection pool configuration
    */
@@ -77,8 +45,32 @@ export interface CreateHASignerConfig extends SlashingProtectionConfig {
   poolConnectionTimeoutMs?: number;
 }
 
-export const createHASignerConfigMappings: ConfigMappingsType<CreateHASignerConfig> = {
-  ...slashingProtectionConfigMappings,
+export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASignerConfig> = {
+  haSigningEnabled: {
+    env: 'VALIDATOR_HA_SIGNING_ENABLED',
+    description: 'Whether HA signing / slashing protection is enabled',
+    ...booleanConfigHelper(false),
+  },
+  nodeId: {
+    env: 'VALIDATOR_HA_NODE_ID',
+    description: 'The unique identifier for this node',
+    defaultValue: '',
+  },
+  pollingIntervalMs: {
+    env: 'VALIDATOR_HA_POLLING_INTERVAL_MS',
+    description: 'The number of ms to wait between polls when a duty is being signed',
+    ...numberConfigHelper(100),
+  },
+  signingTimeoutMs: {
+    env: 'VALIDATOR_HA_SIGNING_TIMEOUT_MS',
+    description: 'The maximum time to wait for a duty being signed to complete',
+    ...numberConfigHelper(3_000),
+  },
+  maxStuckDutiesAgeMs: {
+    env: 'VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS',
+    description: 'The maximum age of a stuck duty in ms (defaults to 2x Aztec slot duration)',
+    ...optionalNumberConfigHelper(),
+  },
   databaseUrl: {
     env: 'VALIDATOR_HA_DATABASE_URL',
     description:
@@ -106,11 +98,28 @@ export const createHASignerConfigMappings: ConfigMappingsType<CreateHASignerConf
   },
 };
 
+export const defaultValidatorHASignerConfig: ValidatorHASignerConfig = getDefaultConfig(
+  validatorHASignerConfigMappings,
+);
+
 /**
  * Returns the validator HA signer configuration from environment variables.
  * Note: If an environment variable is not set, the default value is used.
  * @returns The validator HA signer configuration.
  */
-export function getConfigEnvVars(): CreateHASignerConfig {
-  return getConfigFromMappings<CreateHASignerConfig>(createHASignerConfigMappings);
+export function getConfigEnvVars(): ValidatorHASignerConfig {
+  return getConfigFromMappings<ValidatorHASignerConfig>(validatorHASignerConfigMappings);
 }
+
+export const ValidatorHASignerConfigSchema = z.object({
+  haSigningEnabled: z.boolean(),
+  nodeId: z.string(),
+  pollingIntervalMs: z.number().min(0),
+  signingTimeoutMs: z.number().min(0),
+  maxStuckDutiesAgeMs: z.number().min(0).optional(),
+  databaseUrl: z.string().optional(),
+  poolMaxCount: z.number().min(0).optional(),
+  poolMinCount: z.number().min(0).optional(),
+  poolIdleTimeoutMs: z.number().min(0).optional(),
+  poolConnectionTimeoutMs: z.number().min(0).optional(),
+}) satisfies ZodFor<ValidatorHASignerConfig>;
