@@ -86,6 +86,11 @@ void FuzzerContext::set_existing_note_hashes(std::span<const std::pair<FF, uint6
     existing_note_hashes_.assign(note_hashes.begin(), note_hashes.end());
 }
 
+void FuzzerContext::set_existing_contract_addresses(std::span<const AztecAddress> contract_addresses)
+{
+    contract_addresses_.assign(contract_addresses.begin(), contract_addresses.end());
+}
+
 void FuzzerContext::reset()
 {
     contract_addresses_.clear();

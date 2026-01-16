@@ -61,6 +61,7 @@ using FuzzerContext = bb::avm2::fuzzer::FuzzerContext;
 
 // Mutation configuration
 enum class FuzzerTxDataMutationType : uint8_t {
+    TxFuzzerDataMutation,
     TxMutation,
     BytecodeMutation,
     ContractClassMutation,
@@ -69,9 +70,10 @@ enum class FuzzerTxDataMutationType : uint8_t {
     ProtocolContractsMutation
 };
 
-using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 6>;
+using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 7>;
 
 constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = FuzzerTxDataMutationConfig({
+    { FuzzerTxDataMutationType::TxFuzzerDataMutation, 20 },
     { FuzzerTxDataMutationType::TxMutation, 10 },
     { FuzzerTxDataMutationType::BytecodeMutation, 1 },
     { FuzzerTxDataMutationType::ContractClassMutation, 1 },

@@ -57,6 +57,8 @@ class FuzzerContext {
 
     void set_existing_note_hashes(std::span<const std::pair<FF, uint64_t>> note_hashes);
 
+    void set_existing_contract_addresses(std::span<const FF> contract_addresses);
+
   private:
     std::vector<FF> contract_addresses_;
     std::unique_ptr<FuzzerContractDB> contract_db_;

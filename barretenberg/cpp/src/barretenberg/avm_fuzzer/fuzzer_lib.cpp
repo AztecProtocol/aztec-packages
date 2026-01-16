@@ -322,12 +322,6 @@ size_t mutate_tx_data(FuzzerContext& context,
 
     populate_context_from_tx_data(context, tx_data);
 
-    // Mutate the fuzzer data multiple times for better bytecode variety
-    auto num_mutations = std::uniform_int_distribution<uint8_t>(1, 5)(rng);
-    for (uint8_t i = 0; i < num_mutations; i++) {
-        mutate_fuzzer_data_vec(context, tx_data.input_programs, rng, 64);
-    }
-
     // Build up bytecodes, contract classes and instances from the fuzzer data
     tx_data.contract_classes.clear();
     tx_data.contract_instances.clear();
@@ -357,8 +351,8 @@ size_t mutate_tx_data(FuzzerContext& context,
 
     // Ensure all enqueued calls have valid contract addresses (not placeholders)
     // We may add more advanced mutation to change contract addresses later, right now we just ensure they are valid
-    auto idx_dist = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1);
     if (!contract_addresses.empty()) {
+        auto idx_dist = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1);
         for (auto& call : tx_data.tx.setup_enqueued_calls) {
             call.request.contract_address = contract_addresses[idx_dist(rng)];
         }
@@ -371,23 +365,22 @@ size_t mutate_tx_data(FuzzerContext& context,
     FuzzerTxDataMutationType mutation_choice = FUZZER_TX_DATA_MUTATION_CONFIGURATION.select(rng);
 
     switch (mutation_choice) {
+    case FuzzerTxDataMutationType::TxFuzzerDataMutation:
+        mutate_fuzzer_data_vec(context, tx_data.input_programs, rng, 64);
+        break;
     case FuzzerTxDataMutationType::TxMutation:
         mutate_tx(tx_data.tx, contract_addresses, rng);
         break;
-    case FuzzerTxDataMutationType::BytecodeMutation: {
-        // Mutate bytecode and append public data writes for world state setup
+    case FuzzerTxDataMutationType::BytecodeMutation:
         mutate_bytecode(tx_data.contract_classes,
                         tx_data.contract_instances,
                         tx_data.contract_addresses,
                         tx_data.public_data_writes,
                         rng);
         break;
-    }
+
     case FuzzerTxDataMutationType::ContractClassMutation:
         mutate_contract_classes(tx_data.contract_classes, tx_data.contract_instances, tx_data.contract_addresses, rng);
-        // The fuzzer (like the AVM) assumes that all triplets of contract classes, instances and addresses are in sync
-        // So when we mutate contract classes, we also need to update the corresponding artifacts
-
         break;
     case FuzzerTxDataMutationType::ContractInstanceMutation:
         mutate_contract_instances(tx_data.contract_instances, tx_data.contract_addresses, rng);
@@ -413,8 +406,8 @@ size_t mutate_tx_data(FuzzerContext& context,
         }
     }
 
-    // todo: do we need to ensure this or are should we able to process 0 enqueued calls?
-    // Ensure at least 1 app_logic enqueued call exists (mutations may have deleted all)
+    // Ensure at least 1 app_logic enqueued call exists (mutations may have deleted all), the public base kernel circuit
+    // guarantees that there is at least 1 enqueued call in an public tx (so this is a valid assumption)
     if (tx_data.tx.app_logic_enqueued_calls.empty() && !contract_addresses.empty()) {
         auto idx = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1)(rng);
         std::vector<FF> calldata = {};
@@ -473,4 +466,6 @@ void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& t
     }
 
     context.set_existing_note_hashes(note_hash_leaf_index_pairs);
+
+    context.set_existing_contract_addresses(tx_data.contract_addresses);
 }
