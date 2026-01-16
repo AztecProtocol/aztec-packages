@@ -240,11 +240,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_instruction(std::mt199
     case InstructionGenerationOptions::NOTEHASHEXISTS:
         return generate_notehashexists_instruction(rng);
     case InstructionGenerationOptions::CALLDATACOPY:
-        return { CALLDATACOPY_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                           .copy_size = generate_random_uint8(rng),
-                                           .copy_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
-                                           .cd_start = generate_random_uint16(rng),
-                                           .cd_start_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+        return generate_calldatacopy_instruction(rng);
     case InstructionGenerationOptions::SENDL2TOL1MSG:
         return { SENDL2TOL1MSG_Instruction{ .recipient = generate_random_field(rng),
                                             .recipient_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
@@ -254,10 +250,10 @@ std::vector<FuzzInstruction> InstructionMutator::generate_instruction(std::mt199
         return generate_emitunencryptedlog_instruction(rng);
     case InstructionGenerationOptions::CALL:
         return generate_call_instruction(rng);
-    case InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY:
-        return { RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction{ .copy_size_offset = generate_random_uint16(rng),
-                                                                 .dst_address = generate_random_uint16(rng),
-                                                                 .rd_start_offset = generate_random_uint16(rng) } };
+    case InstructionGenerationOptions::RETURNDATASIZE:
+        return generate_returndatasize_instruction(rng);
+    case InstructionGenerationOptions::RETURNDATACOPY:
+        return generate_returndatacopy_instruction(rng);
     case InstructionGenerationOptions::GETCONTRACTINSTANCE:
         return generate_getcontractinstance_instruction(rng);
     case InstructionGenerationOptions::SUCCESSCOPY:
@@ -336,9 +332,8 @@ void InstructionMutator::mutate_instruction(FuzzInstruction& instruction, std::m
             [&rng, this](SENDL2TOL1MSG_Instruction& instr) { mutate_sendl2tol1msg_instruction(instr, rng); },
             [&rng, this](EMITUNENCRYPTEDLOG_Instruction& instr) { mutate_emitunencryptedlog_instruction(instr, rng); },
             [&rng, this](CALL_Instruction& instr) { mutate_call_instruction(instr, rng); },
-            [&rng, this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instr) {
-                mutate_returndatasize_with_returndatacopy_instruction(instr, rng);
-            },
+            [&rng, this](RETURNDATASIZE_Instruction& instr) { mutate_returndatasize_instruction(instr, rng); },
+            [&rng, this](RETURNDATACOPY_Instruction& instr) { mutate_returndatacopy_instruction(instr, rng); },
             [&rng, this](GETCONTRACTINSTANCE_Instruction& instr) {
                 mutate_getcontractinstance_instruction(instr, rng);
             },
@@ -907,6 +902,69 @@ std::vector<FuzzInstruction> InstructionMutator::generate_notehashexists_instruc
     return instructions;
 }
 
+std::vector<FuzzInstruction> InstructionMutator::generate_returndatasize_instruction(std::mt19937_64& rng)
+{
+    return { RETURNDATASIZE_Instruction{ .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+}
+
+std::vector<FuzzInstruction> InstructionMutator::generate_returndatacopy_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+    if (!use_backfill) {
+        return { RETURNDATACOPY_Instruction{ .copy_size_address = generate_variable_ref(rng),
+                                             .rd_offset_address = generate_variable_ref(rng),
+                                             .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    }
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+    auto copy_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = copy_size_address,
+                                               // We generate small sizes so we fail less often due to gas
+                                               // Mutations might change this to a larger value.
+                                               .value = generate_random_uint8(rng) });
+
+    auto rd_offset_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = rd_offset_address,
+                                               .value = generate_random_uint8(rng) });
+
+    instructions.push_back(RETURNDATACOPY_Instruction{ .copy_size_address = copy_size_address,
+                                                       .rd_offset_address = rd_offset_address,
+                                                       .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+
+    return instructions;
+}
+
+std::vector<FuzzInstruction> InstructionMutator::generate_calldatacopy_instruction(std::mt19937_64& rng)
+{
+    bool use_backfill = std::uniform_int_distribution<int>(0, 4)(rng) != 0;
+    if (!use_backfill) {
+        return { CALLDATACOPY_Instruction{ .copy_size_address = generate_variable_ref(rng),
+                                           .cd_offset_address = generate_variable_ref(rng),
+                                           .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
+    }
+    std::vector<FuzzInstruction> instructions;
+    instructions.reserve(3);
+    auto copy_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = copy_size_address,
+                                               // We generate small sizes so we fail less often due to gas
+                                               // Mutations might change this to a larger value.
+                                               .value = generate_random_uint8(rng) });
+
+    auto cd_offset_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                                               .result_address = cd_offset_address,
+                                               .value = generate_random_uint8(rng) });
+
+    instructions.push_back(CALLDATACOPY_Instruction{ .copy_size_address = copy_size_address,
+                                                     .cd_offset_address = cd_offset_address,
+                                                     .dst_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
+
+    return instructions;
+}
+
 void InstructionMutator::mutate_param_ref(ParamRef& param,
                                           std::mt19937_64& rng,
                                           std::optional<MemoryTag> default_tag,
@@ -1259,20 +1317,14 @@ void InstructionMutator::mutate_calldatacopy_instruction(CALLDATACOPY_Instructio
 {
     CalldataCopyMutationOptions option = BASIC_CALLDATACOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
+    case CalldataCopyMutationOptions::copy_size_address:
+        mutate_param_ref(instruction.copy_size_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
+    case CalldataCopyMutationOptions::cd_offset_address:
+        mutate_param_ref(instruction.cd_offset_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
+        break;
     case CalldataCopyMutationOptions::dst_address:
         mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
-        break;
-    case CalldataCopyMutationOptions::copy_size:
-        mutate_uint8_t(instruction.copy_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
-        break;
-    case CalldataCopyMutationOptions::copy_size_address:
-        mutate_address_ref(instruction.copy_size_address, rng, MAX_16BIT_OPERAND);
-        break;
-    case CalldataCopyMutationOptions::cd_start:
-        mutate_uint16_t(instruction.cd_start, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    case CalldataCopyMutationOptions::cd_start_address:
-        mutate_address_ref(instruction.cd_start_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }
@@ -1338,20 +1390,25 @@ void InstructionMutator::mutate_call_instruction(CALL_Instruction& instruction, 
     }
 }
 
-void InstructionMutator::mutate_returndatasize_with_returndatacopy_instruction(
-    RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction& instruction, std::mt19937_64& rng)
+void InstructionMutator::mutate_returndatasize_instruction(RETURNDATASIZE_Instruction& instruction,
+                                                           std::mt19937_64& rng)
 {
-    ReturndatasizeWithReturndatacopyMutationOptions option =
-        BASIC_RETURNDATASIZE_WITH_RETURNDATACOPY_MUTATION_CONFIGURATION.select(rng);
+    mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
+}
+
+void InstructionMutator::mutate_returndatacopy_instruction(RETURNDATACOPY_Instruction& instruction,
+                                                           std::mt19937_64& rng)
+{
+    ReturndataCopyMutationOptions option = BASIC_RETURNDATACOPY_MUTATION_CONFIGURATION.select(rng);
     switch (option) {
-    case ReturndatasizeWithReturndatacopyMutationOptions::copy_size_offset:
-        mutate_uint16_t(instruction.copy_size_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case ReturndataCopyMutationOptions::copy_size_address:
+        mutate_param_ref(instruction.copy_size_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case ReturndatasizeWithReturndatacopyMutationOptions::dst_address:
-        mutate_uint16_t(instruction.dst_address, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case ReturndataCopyMutationOptions::rd_offset_address:
+        mutate_param_ref(instruction.rd_offset_address, rng, MemoryTag::U32, MAX_16BIT_OPERAND);
         break;
-    case ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset:
-        mutate_uint16_t(instruction.rd_start_offset, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+    case ReturndataCopyMutationOptions::dst_address:
+        mutate_address_ref(instruction.dst_address, rng, MAX_16BIT_OPERAND);
         break;
     }
 }

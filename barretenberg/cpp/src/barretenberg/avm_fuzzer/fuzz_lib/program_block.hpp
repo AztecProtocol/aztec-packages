@@ -106,8 +106,8 @@ class ProgramBlock {
     void process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction);
     void process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction instruction);
     void process_call_instruction(CALL_Instruction instruction);
-    void process_returndatasize_with_returndatacopy_instruction(
-        RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction);
+    void process_returndatasize_instruction(RETURNDATASIZE_Instruction instruction);
+    void process_returndatacopy_instruction(RETURNDATACOPY_Instruction instruction);
     void process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction);
     void process_successcopy_instruction(SUCCESSCOPY_Instruction instruction);
     void process_ecadd_instruction(ECADD_Instruction instruction);
