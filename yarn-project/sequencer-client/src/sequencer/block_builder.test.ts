@@ -137,9 +137,10 @@ describe('BlockBuilder', () => {
     publicProcessor.process.mockImplementation(
       async (
         pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>,
-      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> => {
+      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> => {
         const processedTxs: ProcessedTx[] = [];
         const allTxs: Tx[] = [];
+        let totalBlobFields = 0;
 
         for await (const tx of pendingTxsIterator) {
           allTxs.push(tx);
@@ -150,9 +151,10 @@ describe('BlockBuilder', () => {
             globalVariables,
           );
           processedTxs.push(processedTx);
+          totalBlobFields += processedTx.txEffect.getNumBlobFields();
         }
         // Assuming all txs are processed successfully and none failed for this mock
-        return [processedTxs, [], allTxs, []];
+        return [processedTxs, [], allTxs, [], totalBlobFields];
       },
     );
     blockBuilder = new TestBlockBuilder(l1Constants, worldState, contractDataSource, dateProvider);
@@ -211,10 +213,11 @@ describe('BlockBuilder', () => {
     publicProcessor.process.mockImplementation(
       async (
         pendingTxsIterator: AsyncIterable<Tx> | Iterable<Tx>,
-      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> => {
+      ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> => {
         const processedTxs: ProcessedTx[] = [];
         const usedTxs: Tx[] = [];
         const failedTxs: FailedTx[] = [];
+        let totalBlobFields = 0;
 
         for await (const tx of pendingTxsIterator) {
           if (validTxHashes.includes(tx.getTxHash())) {
@@ -227,12 +230,13 @@ describe('BlockBuilder', () => {
             );
 
             processedTxs.push(processedTx);
+            totalBlobFields += processedTx.txEffect.getNumBlobFields();
           } else {
             failedTxs.push({ tx, error: new Error() });
           }
         }
         // Assuming all txs are processed successfully and none failed for this mock
-        return [processedTxs, failedTxs, usedTxs, []];
+        return [processedTxs, failedTxs, usedTxs, [], totalBlobFields];
       },
     );
 
