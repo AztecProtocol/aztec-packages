@@ -80,15 +80,15 @@ describe('storeEvent', () => {
 
     aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
-    eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore);
+    eventService = new EventService(anchorBlockStore, aztecNode, privateEventStore, 'test');
   });
 
-  function runStoreEvent(
+  async function runStoreEvent(
     overrides: {
       eventCommitment?: Fr;
     } = {},
   ) {
-    return eventService.storeEvent(
+    await eventService.storeEvent(
       contractAddress,
       eventSelector,
       randomness,
@@ -97,6 +97,8 @@ describe('storeEvent', () => {
       txEffect.txHash,
       recipient,
     );
+
+    await privateEventStore.commit('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {

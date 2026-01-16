@@ -163,7 +163,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // Create job coordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore]);
+    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore]);
 
     // Register protocol contracts.
     for (const { contractClass, instance, artifact } of protocolContracts) {
