@@ -21,8 +21,7 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
     // Build input byte array by appending constrained byte_arrays
     byte_array_ct arr = byte_array_ct::constant_padding(&builder, 0); // Start with empty array
 
-    for (const auto& witness_index_num_bits : constraint.inputs) {
-        auto witness_index = witness_index_num_bits.blackbox_input;
+    for (const auto& witness_index : constraint.inputs) {
         field_ct element = to_field_ct(witness_index, builder);
 
         // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte. Note that num_bytes =
