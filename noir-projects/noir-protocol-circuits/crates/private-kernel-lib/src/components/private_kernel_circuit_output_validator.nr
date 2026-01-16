@@ -15,7 +15,7 @@ use dep::types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    hash::create_protocol_nullifier,
+    hash::{create_protocol_nullifier, silo_nullifier},
     traits::Empty,
 };
 
@@ -39,6 +39,7 @@ impl PrivateKernelCircuitOutputValidator {
         PrivateKernelCircuitOutputValidator { output }
     }
 
+    /// Called by the Init circuit.
     pub fn validate_as_first_call(
         self,
         tx_request: TxRequest,
@@ -49,7 +50,7 @@ impl PrivateKernelCircuitOutputValidator {
         first_nullifier_hint: Field,
         revertible_counter_hint: u32,
     ) {
-        self.validate_initial_values(
+        let nullifier_offset = self.validate_initial_values(
             tx_request,
             private_call,
             vk_tree_root,
@@ -59,13 +60,10 @@ impl PrivateKernelCircuitOutputValidator {
             revertible_counter_hint,
         );
 
-        // If first_nullifier_hint == 0, the composer injected a protocol nullifier at index 0.
-        // We need to offset our array validation to account for this.
-        let nullifier_offset: u32 = if first_nullifier_hint == 0 { 1 } else { 0 };
-
         self.validate_propagated_from_initial_private_call(private_call, nullifier_offset);
     }
 
+    /// Called by the Inner circuit.
     pub fn validate_as_inner_call(
         self,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
@@ -77,6 +75,9 @@ impl PrivateKernelCircuitOutputValidator {
         self.validate_propagated_from_private_call(private_call, previous_kernel_public_inputs);
     }
 
+    /// Validates that the initial values of the public inputs are correctly populated by the tx request, the hints, and
+    /// the first private call.
+    /// Returns the offset to apply to the nullifier array validation to account for the protocol nullifier if present.
     fn validate_initial_values(
         self,
         tx_request: TxRequest,
@@ -86,37 +87,19 @@ impl PrivateKernelCircuitOutputValidator {
         is_private_only: bool,
         first_nullifier_hint: Field,
         revertible_counter_hint: u32,
-    ) {
+    ) -> u32 {
         // Validate constants are correctly initialized.
-        assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
-        assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
             self.output.constants.anchor_block_header,
             private_call.public_inputs.anchor_block_header,
             "mismatch anchor_block_header",
         );
+        assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
             self.output.constants.protocol_contracts,
             protocol_contracts,
             "mismatch protocol_contracts",
-        );
-
-        // Validate protocol nullifier if one was created (when first_nullifier_hint == 0).
-        // When hint is nonzero, claimed_first_nullifier is verified in Tail against the actual first nullifier.
-        let protocol_nullifier = create_protocol_nullifier(tx_request);
-        if first_nullifier_hint == 0 {
-            assert_eq(
-                self.output.end.nullifiers.array[0],
-                protocol_nullifier,
-                "protocol nullifier must be the tx request nullifier",
-            );
-        }
-
-        assert_eq(
-            self.output.claimed_revertible_counter,
-            revertible_counter_hint,
-            "incorrect initial claimed_revertible_counter",
         );
 
         // The `min_revertible_side_effect_counter` is set by private functions. The initial value is from the first
@@ -126,6 +109,48 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.public_inputs.min_revertible_side_effect_counter,
             "incorrect initial min_revertible_side_effect_counter",
         );
+
+        // Validate protocol nullifier if one needs to be created.
+        // Note: It's possible for the protocol nullifier to be injected even when private calls emit some nullifiers.
+        // This doesn't affect correctness, but the user will pay for the unnecessary creation of a protocol nullifier.
+        let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
+        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+        let should_inject_protocol_nullifier = first_nullifier_hint == protocol_nullifier;
+        if should_inject_protocol_nullifier {
+            assert_eq(
+                self.output.end.nullifiers.array[0],
+                scoped_protocol_nullifier,
+                "protocol nullifier must be the tx request nullifier",
+            );
+        }
+        // If the protocol nullifier is injected, offset subsequent array validation accordingly.
+        // This offset is later used in `validate_propagated_from_initial_private_call` to conditionally skip the
+        // nullifier at index 0 and validate the remaining items against the nullifiers emitted by the private call.
+        let nullifier_offset = if should_inject_protocol_nullifier {
+            1
+        } else {
+            0
+        };
+
+        // The other accumulated data in `validation_requests` and `end` is validated in
+        // `validate_propagated_from_initial_private_call`.
+
+        // The `public_teardown_call_request` may be set by at most one private function.
+        // Here we simply copy the value from the first private call.
+        assert_eq(
+            self.output.public_teardown_call_request,
+            private_call.public_inputs.public_teardown_call_request,
+            "incorrect initial public_teardown_call_request",
+        );
+
+        // The `fee_payer` must be set by exactly one private function.
+        // Here we set it to the contract address of the first private call if it nominates itself as the fee payer.
+        let initial_fee_payer = if private_call.public_inputs.is_fee_payer {
+            private_call.public_inputs.call_context.contract_address
+        } else {
+            AztecAddress::zero()
+        };
+        assert_eq(self.output.fee_payer, initial_fee_payer, "incorrect initial fee_payer");
 
         // `include_by_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each iteration. Here we take the minimum of:
@@ -141,18 +166,27 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect initial include_by_timestamp",
         );
 
+        // The following 3 values (is_private_only, claimed_first_nullifier, claimed_revertible_counter) are provided
+        // as hints and remain constant throughout private execution.
+        // They are verified against the final values after the last kernel iteration in the Tail(-to-Public) circuit.
+
+        assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
+
+        // There must be at lease one nullifier for the private execution, which is used to compute note hash nonces.
+        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
         assert_eq(
-            self.output.public_teardown_call_request,
-            private_call.public_inputs.public_teardown_call_request,
-            "incorrect initial public_teardown_call_request",
+            self.output.claimed_first_nullifier,
+            first_nullifier_hint,
+            "incorrect initial claimed_first_nullifier",
         );
 
-        let initial_fee_payer = if private_call.public_inputs.is_fee_payer {
-            private_call.public_inputs.call_context.contract_address
-        } else {
-            AztecAddress::zero()
-        };
-        assert_eq(self.output.fee_payer, initial_fee_payer, "incorrect initial fee_payer");
+        assert_eq(
+            self.output.claimed_revertible_counter,
+            revertible_counter_hint,
+            "incorrect initial claimed_revertible_counter",
+        );
+
+        nullifier_offset
     }
 
     fn validate_aggregated_values(
