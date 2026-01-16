@@ -14,9 +14,9 @@ template <typename FF_> class to_radix_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 39> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3,
-                                                                            3, 3, 3, 5, 3, 5, 3, 5, 3, 6, 3, 4, 4,
-                                                                            3, 3, 4, 4, 4, 4, 4, 4, 7, 4, 4, 3, 3 };
+    static constexpr std::array<size_t, 39> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 5, 3, 5, 3, 5, 3, 6, 3, 4, 3,
+                                                                            3, 3, 4, 4, 4, 4, 3, 4, 6, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -39,7 +39,7 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_LAST_HAS_SEL_ON = 3;
     static constexpr size_t SR_START_AFTER_LAST = 4;
-    static constexpr size_t SR_SEL_CONTINUITY = 5;
+    static constexpr size_t SR_TRACE_CONTINUITY = 5;
     static constexpr size_t SR_EXEC_CLK_CONTINUITY = 6;
     static constexpr size_t SR_SPACE_ID_CONTINUITY = 7;
     static constexpr size_t SR_VALUE_CONTINUITY = 8;
@@ -65,8 +65,8 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
             return "LAST_HAS_SEL_ON";
         case SR_START_AFTER_LAST:
             return "START_AFTER_LAST";
-        case SR_SEL_CONTINUITY:
-            return "SEL_CONTINUITY";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_EXEC_CLK_CONTINUITY:
             return "EXEC_CLK_CONTINUITY";
         case SR_SPACE_ID_CONTINUITY:
