@@ -276,10 +276,81 @@ export const DEFAULT_VALUE = 42;
 EOF
 
   # Test from pkg-a (--noEmit doesn't work with project references from root)
-  if (cd "$test_root/pkg-a" && ../scripts/tsc.sh --noEmit) 2>&1; then
+  if (cd "$test_root/pkg-a" && CLAUDECODE=1 ../scripts/tsc.sh --noEmit) 2>&1; then
     fail "Should have detected type error"
   else
     pass "Type error detected correctly"
+  fi
+
+  # Restore valid code
+  cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value };
+}
+
+export const DEFAULT_VALUE = 42;
+EOF
+}
+
+test_quiet_success_output() {
+  log "\nTest 7: Quiet success output"
+  clean_build_artifacts
+
+  local output
+  output=$(cd "$test_root" && ./scripts/tsc.sh 2>&1)
+
+  if [[ "$output" == "Typescript build succeeded" ]]; then
+    pass "Success output is single line 'Typescript build succeeded'"
+  else
+    fail "Success output should be 'Typescript build succeeded', got: $output"
+  fi
+}
+
+test_quiet_error_output() {
+  log "\nTest 8: Quiet error output (only failed command output shown)"
+  clean_build_artifacts
+
+  # Introduce a type error
+  cat > "$test_root/pkg-a/src/index.ts" << 'EOF'
+export interface Config {
+  name: string;
+  value: number;
+}
+
+export function createConfig(name: string, value: number): Config {
+  return { name, value: "not a number" };  // Type error!
+}
+
+export const DEFAULT_VALUE = 42;
+EOF
+
+  local output
+  output=$(cd "$test_root" && CLAUDECODE=1 ./scripts/tsc.sh 2>&1) || true
+
+  # Check that output contains error line
+  if echo "$output" | grep -q ": error TS"; then
+    pass "Error output contains TypeScript error"
+  else
+    fail "Error output should contain TypeScript error"
+  fi
+
+  # Check that output does NOT contain swc success messages
+  if echo "$output" | grep -q "Successfully compiled"; then
+    fail "Error output should not contain swc success messages"
+  else
+    pass "Error output does not contain swc noise"
+  fi
+
+  # Check that output does NOT contain "Typescript build succeeded"
+  if echo "$output" | grep -q "Typescript build succeeded"; then
+    fail "Error output should not contain 'Typescript build succeeded'"
+  else
+    pass "Error output does not contain success message"
   fi
 
   # Restore valid code
@@ -308,6 +379,8 @@ main() {
   test_root_full_build
   test_no_emit
   test_type_error_detection
+  test_quiet_success_output
+  test_quiet_error_output
 
   log "\n=== Results ==="
   echo -e "\033[32mPassed: $passed\033[0m"
