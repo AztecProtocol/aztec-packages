@@ -22,8 +22,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   }
 
   // TXE-specific method for adding checkpoints
-  public addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
-    return this.updater.addCheckpointsWithContractData(checkpoints, result);
+  public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
+    await this.updater.setNewCheckpointData(checkpoints, result);
+    return true;
   }
 
   // Abstract method implementations

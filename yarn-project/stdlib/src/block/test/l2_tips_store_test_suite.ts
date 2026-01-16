@@ -243,7 +243,6 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(5),
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
@@ -268,7 +267,6 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeTip(0),
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
@@ -334,7 +332,6 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(5),
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
@@ -399,7 +396,6 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(3),
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
@@ -478,7 +474,6 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-pruned',
       block: makeBlockId(3),
-      reason: 'unproven',
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 

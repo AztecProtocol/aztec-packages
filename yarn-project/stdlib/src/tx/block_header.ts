@@ -168,6 +168,11 @@ export class BlockHeader {
     return this._cachedHash;
   }
 
+  /** Manually set the hash for this block header if already computed */
+  setHash(hashed: Fr) {
+    this._cachedHash = Promise.resolve(hashed);
+  }
+
   static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {
     return BlockHeader.from({
       lastArchive: AppendOnlyTreeSnapshot.random(),

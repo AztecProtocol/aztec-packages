@@ -195,6 +195,13 @@ export interface L2BlockSource {
   getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]>;
 
   /**
+   * Returns all blocks for a given slot.
+   * @dev Use this method only with recent slots, since it walks the block list backwards.
+   * @param slotNumber - The slot number to return blocks for.
+   */
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]>;
+
+  /**
    * Gets a published block by its block hash.
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block (or undefined if not found).
@@ -238,7 +245,8 @@ export interface L2BlockSink {
  * see L2BlockSourceEvents for the events emitted.
  */
 export type ArchiverEmitter = TypedEventEmitter<{
-  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
+  [L2BlockSourceEvents.L2PruneUnproven]: (args: L2PruneUnprovenEvent) => void;
+  [L2BlockSourceEvents.L2PruneUncheckpointed]: (args: L2PruneUncheckpointedEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
@@ -255,13 +263,6 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource {
  * - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
  */
 export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
-
-/**
- * Reason for L2 block prune.
- * - uncheckpointed: L2 blocks were pruned due to a failure to checkpoint.
- * - unproven: L2 blocks were pruned due to a failure to prove.
- */
-export type L2BlockPruneReason = 'uncheckpointed' | 'unproven';
 
 /** Tips of the L2 chain. */
 export type L2Tips = {
@@ -316,7 +317,8 @@ export const L2TipsSchema = z.object({
 });
 
 export enum L2BlockSourceEvents {
-  L2PruneDetected = 'l2PruneDetected',
+  L2PruneUnproven = 'l2PruneUnproven',
+  L2PruneUncheckpointed = 'l2PruneUncheckpointed',
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
@@ -329,9 +331,15 @@ export type L2BlockProvenEvent = {
   epochNumber: EpochNumber;
 };
 
-export type L2BlockPruneEvent = {
-  type: 'l2PruneDetected';
+export type L2PruneUnprovenEvent = {
+  type: 'l2PruneUnproven';
   epochNumber: EpochNumber;
+  blocks: L2BlockNew[];
+};
+
+export type L2PruneUncheckpointedEvent = {
+  type: 'l2PruneUncheckpointed';
+  slotNumber: SlotNumber;
   blocks: L2BlockNew[];
 };
 
