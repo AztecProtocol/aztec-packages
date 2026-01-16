@@ -97,6 +97,17 @@ locals {
     "global.l1ConsensusHostApiKeyHeaders" = var.L1_CONSENSUS_HOST_API_KEY_HEADERS
   }
 
+  # Generate a set of _external_ host ports to use for P2P
+  # K8s will use these values to schedule pods on appropriate machines. Using random ports here will allow it to
+  # colocate pods from different services or even pods from different networks onto the same physical machine
+  # (so long as the VM has enough resources)
+  p2p_port_p2p_bootstrap = 40400 + (parseint(substr(md5("${var.NAMESPACE}-p2p-bootstrap"), 0, 4), 16) % 100)
+  p2p_port_validator     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-validator"), 0, 4), 16) % 100)
+  p2p_port_prover        = 40400 + (parseint(substr(md5("${var.NAMESPACE}-prover"), 0, 4), 16) % 100)
+  p2p_port_rpc           = 40400 + (parseint(substr(md5("${var.NAMESPACE}-rpc"), 0, 4), 16) % 100)
+  p2p_port_full_node     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-full-node"), 0, 4), 16) % 100)
+  p2p_port_archive       = 40400 + (parseint(substr(md5("${var.NAMESPACE}-archive"), 0, 4), 16) % 100)
+
   # Define all releases in a map
   helm_releases = {
     snapshot = var.STORE_SNAPSHOT_URL != null ? {
@@ -129,6 +140,7 @@ locals {
       custom_settings = {
         "nodeType"                    = "p2p-bootstrap"
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"    = local.p2p_port_p2p_bootstrap
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -153,6 +165,7 @@ locals {
       })]
       custom_settings = merge({
         "validator.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
+        "validator.service.p2p.announcePort"                       = local.p2p_port_validator
         "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
@@ -262,6 +275,7 @@ locals {
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
           "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
+          "node.service.p2p.announcePort"                       = local.p2p_port_prover
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
@@ -318,6 +332,7 @@ locals {
         "nodeType"                    = "rpc"
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"    = local.p2p_port_rpc
 
         # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
@@ -372,6 +387,7 @@ locals {
         "nodeType"                                    = "full-node"
         "replicaCount"                                = var.FULL_NODE_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"                    = local.p2p_port_full_node
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
@@ -411,6 +427,7 @@ locals {
       custom_settings = {
         "nodeType"                                    = "archive"
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"                    = local.p2p_port_archive
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
