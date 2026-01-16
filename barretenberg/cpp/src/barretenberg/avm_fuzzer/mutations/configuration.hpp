@@ -265,7 +265,8 @@ enum class InstructionGenerationOptions {
     SENDL2TOL1MSG,
     EMITUNENCRYPTEDLOG,
     CALL,
-    RETURNDATASIZE_WITH_RETURNDATACOPY,
+    RETURNDATASIZE,
+    RETURNDATACOPY,
     GETCONTRACTINSTANCE,
     SUCCESSCOPY,
     ECADD,
@@ -276,7 +277,7 @@ enum class InstructionGenerationOptions {
     DEBUGLOG,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 59>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 60>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -329,7 +330,8 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SENDL2TOL1MSG, 1 },
     { InstructionGenerationOptions::EMITUNENCRYPTEDLOG, 1 },
     { InstructionGenerationOptions::CALL, 1 },
-    { InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY, 1 },
+    { InstructionGenerationOptions::RETURNDATASIZE, 1 },
+    { InstructionGenerationOptions::RETURNDATACOPY, 1 },
     { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
     { InstructionGenerationOptions::SUCCESSCOPY, 1 },
     { InstructionGenerationOptions::ECADD, 1 },
@@ -401,15 +403,17 @@ constexpr NoteHashExistsMutationConfig BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATI
     { NoteHashExistsMutationOptions::result_address, 1 },
 });
 
-enum class CalldataCopyMutationOptions { dst_address, copy_size, copy_size_address, cd_start, cd_start_address };
-using CalldataCopyMutationConfig = WeightedSelectionConfig<CalldataCopyMutationOptions, 5>;
+enum class CalldataCopyMutationOptions {
+    copy_size_address,
+    cd_offset_address,
+    dst_address,
+};
+using CalldataCopyMutationConfig = WeightedSelectionConfig<CalldataCopyMutationOptions, 3>;
 
 constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION = CalldataCopyMutationConfig({
-    { CalldataCopyMutationOptions::dst_address, 1 },
-    { CalldataCopyMutationOptions::copy_size, 1 },
     { CalldataCopyMutationOptions::copy_size_address, 1 },
-    { CalldataCopyMutationOptions::cd_start, 1 },
-    { CalldataCopyMutationOptions::cd_start_address, 1 },
+    { CalldataCopyMutationOptions::cd_offset_address, 1 },
+    { CalldataCopyMutationOptions::dst_address, 1 },
 });
 
 enum class SendL2ToL1MsgMutationOptions { recipient, recipient_address, content, content_address };
@@ -452,16 +456,14 @@ constexpr CallMutationConfig BASIC_CALL_MUTATION_CONFIGURATION = CallMutationCon
     { CallMutationOptions::is_static_call, 1 },
 });
 
-enum class ReturndatasizeWithReturndatacopyMutationOptions { copy_size_offset, dst_address, rd_start_offset };
-using ReturndatasizeWithReturndatacopyMutationConfig =
-    WeightedSelectionConfig<ReturndatasizeWithReturndatacopyMutationOptions, 3>;
+enum class ReturndataCopyMutationOptions { copy_size_address, rd_offset_address, dst_address };
+using ReturndataCopyMutationConfig = WeightedSelectionConfig<ReturndataCopyMutationOptions, 3>;
 
-constexpr ReturndatasizeWithReturndatacopyMutationConfig
-    BASIC_RETURNDATASIZE_WITH_RETURNDATACOPY_MUTATION_CONFIGURATION = ReturndatasizeWithReturndatacopyMutationConfig({
-        { ReturndatasizeWithReturndatacopyMutationOptions::copy_size_offset, 1 },
-        { ReturndatasizeWithReturndatacopyMutationOptions::dst_address, 1 },
-        { ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset, 1 },
-    });
+constexpr ReturndataCopyMutationConfig BASIC_RETURNDATACOPY_MUTATION_CONFIGURATION = ReturndataCopyMutationConfig({
+    { ReturndataCopyMutationOptions::copy_size_address, 1 },
+    { ReturndataCopyMutationOptions::rd_offset_address, 1 },
+    { ReturndataCopyMutationOptions::dst_address, 1 },
+});
 
 enum class GetContractInstanceMutationOptions { contract_address_address, dst_address, member_enum };
 using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 3>;

@@ -1103,39 +1103,23 @@ void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction ins
 #ifdef DISABLE_CALLDATACOPY_INSTRUCTION
     return;
 #endif
-    auto copy_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                                         .result_address = instruction.copy_size_address,
-                                                         .value = instruction.copy_size };
-    this->process_set_32_instruction(copy_size_set_instruction);
-    auto cd_start_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                                        .result_address = instruction.cd_start_address,
-                                                        .value = instruction.cd_start };
-    this->process_set_32_instruction(cd_start_set_instruction);
-    // CALLDATACOPY expects UINT16 operands for all three addresses
     auto copy_size_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.copy_size_address);
-    auto cd_start_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.cd_start_address);
+    auto cd_offset_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.cd_offset_address);
     auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
-    if (!copy_size_address_operand.has_value() || !cd_start_address_operand.has_value() ||
+    if (!copy_size_address_operand.has_value() || !cd_offset_address_operand.has_value() ||
         !dst_address_operand.has_value()) {
         return;
     }
 
     preprocess_memory_addresses(copy_size_address_operand.value().first);
-    preprocess_memory_addresses(cd_start_address_operand.value().first);
+    preprocess_memory_addresses(cd_offset_address_operand.value().first);
     preprocess_memory_addresses(dst_address_operand.value().first);
     auto calldatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALLDATACOPY)
                                         .operand(copy_size_address_operand.value().second)
-                                        .operand(cd_start_address_operand.value().second)
+                                        .operand(cd_offset_address_operand.value().second)
                                         .operand(dst_address_operand.value().second)
                                         .build();
     instructions.push_back(calldatacopy_instruction);
-
-    // setting calldata_addr to u32 to avoid overflows
-    uint32_t calldata_base_offset = dst_address_operand.value().first.absolute_address;
-    auto loop_upper_bound = static_cast<uint32_t>(std::min((calldata_base_offset) + instruction.copy_size, 65535U));
-    for (uint32_t calldata_addr = calldata_base_offset; calldata_addr < loop_upper_bound; calldata_addr++) {
-        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
-    }
 }
 
 void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction)
@@ -1224,29 +1208,44 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
     instructions.push_back(call_instruction);
 }
 
-void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
-    RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction)
+void ProgramBlock::process_returndatasize_instruction(RETURNDATASIZE_Instruction instruction)
 {
-#ifdef DISABLE_RETURNDATASIZE_WITH_RETURNDATACOPY_INSTRUCTION
+#ifdef DISABLE_RETURNDATASIZE_INSTRUCTION
     return;
 #endif
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
     auto returndatasize_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATASIZE)
-                                          .operand(instruction.copy_size_offset)
+                                          .operand(dst_address_operand.value().second)
                                           .build();
     instructions.push_back(returndatasize_instruction);
-    auto rd_start_set_instruction =
-        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address =
-                                AddressRef{ .address = instruction.rd_start_offset, .mode = AddressingMode::Direct },
-                            .value = instruction.rd_start };
-    this->process_set_32_instruction(rd_start_set_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U32, dst_address_operand.value().first.absolute_address);
+}
+
+void ProgramBlock::process_returndatacopy_instruction(RETURNDATACOPY_Instruction instruction)
+{
+#ifdef DISABLE_RETURNDATACOPY_INSTRUCTION
+    return;
+#endif
+    auto copy_size_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.copy_size_address);
+    auto rd_offset_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.rd_offset_address);
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!copy_size_address_operand.has_value() || !rd_offset_address_operand.has_value() ||
+        !dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(copy_size_address_operand.value().first);
+    preprocess_memory_addresses(rd_offset_address_operand.value().first);
+    preprocess_memory_addresses(dst_address_operand.value().first);
+
     auto returndatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATACOPY)
-                                          .operand(instruction.copy_size_offset)
-                                          .operand(instruction.rd_start_offset)
-                                          .operand(instruction.dst_address)
+                                          .operand(copy_size_address_operand.value().second)
+                                          .operand(rd_offset_address_operand.value().second)
+                                          .operand(dst_address_operand.value().second)
                                           .build();
-    // TODO(defkit): function can return more than one value :D
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.dst_address);
     instructions.push_back(returndatacopy_instruction);
 }
 
@@ -1726,8 +1725,11 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 return this->process_emitunencryptedlog_instruction(instruction);
             },
             [this](CALL_Instruction instruction) { return this->process_call_instruction(instruction); },
-            [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
-                return this->process_returndatasize_with_returndatacopy_instruction(instruction);
+            [this](RETURNDATASIZE_Instruction instruction) {
+                return this->process_returndatasize_instruction(instruction);
+            },
+            [this](RETURNDATACOPY_Instruction instruction) {
+                return this->process_returndatacopy_instruction(instruction);
             },
             [this](GETCONTRACTINSTANCE_Instruction instruction) {
                 return this->process_getcontractinstance_instruction(instruction);
