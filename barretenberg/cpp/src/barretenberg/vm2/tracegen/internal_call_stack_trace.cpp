@@ -1,5 +1,9 @@
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 
+#include <cstdint>
+
+#include "barretenberg/vm2/generated/columns.hpp"
+
 namespace bb::avm2::tracegen {
 
 void InternalCallStackBuilder::process(
