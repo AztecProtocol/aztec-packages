@@ -101,6 +101,26 @@ template <typename Curve> class MSM {
         std::span<const AffineElement> points;    // Input points
         std::span<const uint32_t> scalar_indices; // Indices of nonzero scalars
         std::span<uint64_t> point_schedule;       // Scratch space for point scheduling
+
+        /**
+         * @brief Factory method to construct MSMData from a work unit
+         * @details Extracts the appropriate slices from the full arrays based on MSMWorkUnit parameters
+         */
+        static MSMData from_work_unit(std::span<std::span<ScalarField>> all_scalars,
+                                      std::span<std::span<const AffineElement>> all_points,
+                                      const std::vector<std::vector<uint32_t>>& all_indices,
+                                      std::span<uint64_t> point_schedule_buffer,
+                                      const MSMWorkUnit& work_unit) noexcept
+        {
+            return MSMData{
+                .scalars = all_scalars[work_unit.batch_msm_index],
+                .points = all_points[work_unit.batch_msm_index],
+                .scalar_indices =
+                    std::span<const uint32_t>{ &all_indices[work_unit.batch_msm_index][work_unit.start_index],
+                                               work_unit.size },
+                .point_schedule = point_schedule_buffer,
+            };
+        }
     };
 
     /**
@@ -201,6 +221,11 @@ template <typename Curve> class MSM {
                                             BucketAccumulators& bucket_data,
                                             Element previous_round_output,
                                             const size_t bits_per_slice) noexcept;
+
+    static Element accumulate_round_result(Element bucket_result,
+                                           Element previous_round_output,
+                                           size_t round_index,
+                                           size_t bits_per_slice) noexcept;
 
     static void consume_point_schedule(std::span<const uint64_t> point_schedule,
                                        std::span<const AffineElement> points,

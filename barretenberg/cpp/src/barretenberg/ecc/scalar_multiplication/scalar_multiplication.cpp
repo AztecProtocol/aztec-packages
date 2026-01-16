@@ -25,18 +25,16 @@ namespace bb::scalar_multiplication {
  * @brief Fallback method for very small numbers of input points (< PIPPENGER_THRESHOLD)
  *
  * @tparam Curve
- * @param scalars (in non-Montgomery form)
- * @param points
- * @param scalar_indices indices of nonzero scalars to process
- * @param range number of indices to process
+ * @param msm_data MSM input data (scalars in non-Montgomery form)
  * @return Curve::Element
  */
-template <typename Curve>
-typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& scalars,
-                                  std::span<const typename Curve::AffineElement>& points,
-                                  std::span<const uint32_t> scalar_indices,
-                                  size_t range) noexcept
+template <typename Curve> typename Curve::Element small_mul(const typename MSM<Curve>::MSMData& msm_data) noexcept
 {
+    const auto& scalars = msm_data.scalars;
+    const auto& points = msm_data.points;
+    const auto& scalar_indices = msm_data.scalar_indices;
+    const size_t range = scalar_indices.size();
+
     typename Curve::Element r = Curve::Group::point_at_infinity;
     for (size_t i = 0; i < range; ++i) {
         typename Curve::Element f = points[scalar_indices[i]];
@@ -324,9 +322,9 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
         points[i + 1].x = points[i + 1].y.sqr();
         points[(i + num_points) >> 1].x = points[i + 1].x - (scratch_space[i >> 1]); // x3 = lambda_squared - x2
                                                                                      // - x1
-        // Memory bandwidth is a bit of a bottleneck here.
-        // There's probably a more elegant way of structuring our data so we don't need to do all of this
-        // prefetching
+        // Prefetch next iteration's data to hide memory latency (~100-300 cycles).
+        // Output addresses jump non-sequentially: points[(i+n)>>1] defeats hardware prefetcher.
+        // Fetching 2 iterations ahead ensures data arrives before needed.
         if (i >= 2) {
             __builtin_prefetch(points + i - 2);
             __builtin_prefetch(points + i - 1);
@@ -427,6 +425,7 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
     std::span<const ScalarField>& scalars = msm_data.scalars;
     std::span<const AffineElement>& points = msm_data.points;
 
+    // Populate buckets using simple Jacobian accumulation
     const size_t size = nonzero_scalar_indices.size();
     for (size_t i = 0; i < size; ++i) {
         BB_ASSERT_DEBUG(nonzero_scalar_indices[i] < scalars.size());
@@ -443,21 +442,13 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
             }
         }
     }
-    Element round_output;
-    round_output.self_set_infinity();
-    round_output = accumulate_buckets(bucket_data);
-    bucket_data.bucket_exists.clear();
-    Element result = previous_round_output;
-    const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
-    size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
-                               ? NUM_BITS_IN_FIELD % bits_per_slice
-                               : bits_per_slice;
-    for (size_t i = 0; i < num_doublings; ++i) {
-        result.self_dbl();
-    }
 
-    result += round_output;
-    return result;
+    // Reduce buckets to single point for this round
+    Element bucket_result = accumulate_buckets(bucket_data);
+    bucket_data.bucket_exists.clear();
+
+    // Combine with previous rounds' output
+    return accumulate_round_result(bucket_result, previous_round_output, round_index, bits_per_slice);
 }
 
 /**
@@ -492,34 +483,57 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
         uint32_t bucket_index = get_scalar_slice(scalars[scalar_indices[i]], round_index, bits_per_slice);
         round_schedule[i] = PointScheduleEntry::create(scalar_indices[i], bucket_index).data;
     }
+
     // Sort our point schedules based on their bucket values. Reduces memory throughput in next step of algo
     const size_t num_zero_entries = scalar_multiplication::process_buckets_count_zero_entries(
         &round_schedule[0], size, static_cast<uint32_t>(bits_per_slice));
     BB_ASSERT_DEBUG(num_zero_entries <= size);
     const size_t round_size = size - num_zero_entries;
 
-    Element round_output;
-    round_output.self_set_infinity();
-
+    // Populate buckets using affine addition with batch inversion
+    Element bucket_result = Curve::Group::point_at_infinity;
     if (round_size > 0) {
         std::span<uint64_t> point_schedule(&round_schedule[num_zero_entries], round_size);
         // Iterate through our point schedule and add points into corresponding buckets
         consume_point_schedule(point_schedule, points, affine_data, bucket_data, 0, 0);
-        round_output = accumulate_buckets(bucket_data);
+        bucket_result = accumulate_buckets(bucket_data);
         bucket_data.bucket_exists.clear();
     }
 
+    // Combine with previous rounds' output
+    return accumulate_round_result(bucket_result, previous_round_output, round_index, bits_per_slice);
+}
+
+/**
+ * @brief Common logic for accumulating a round's bucket result into the running MSM output
+ * @details Combines previous round output (shifted left by doubling) with current round's bucket accumulation.
+ *          Handles the edge case where the last round may process fewer bits.
+ *
+ * @tparam Curve
+ * @param bucket_result Result from accumulate_buckets() for this round
+ * @param previous_round_output Accumulated result from all previous rounds
+ * @param round_index Current round index (0 = most significant bits)
+ * @param bits_per_slice Number of bits processed per round
+ * @return Curve::Element Combined result: previous_output * 2^bits + bucket_result
+ */
+template <typename Curve>
+typename Curve::Element MSM<Curve>::accumulate_round_result(Element bucket_result,
+                                                            Element previous_round_output,
+                                                            size_t round_index,
+                                                            size_t bits_per_slice) noexcept
+{
     const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
     const bool is_last_round = (round_index == num_rounds - 1);
     const size_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
+
+    // Last round may process fewer bits if NUM_BITS_IN_FIELD is not divisible by bits_per_slice
     size_t num_doublings = (is_last_round && remainder != 0) ? remainder : bits_per_slice;
 
     Element result = std::move(previous_round_output);
     for (size_t i = 0; i < num_doublings; ++i) {
         result.self_dbl();
     }
-
-    result += round_output;
+    result += bucket_result;
     return result;
 }
 
@@ -738,6 +752,11 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::vector<std::vector<std::pair<Element, size_t>>> thread_msm_results(num_cpus);
     BB_ASSERT_EQ(thread_work_units.size(), num_cpus);
 
+    // Select Pippenger implementation once (hoisting branch outside hot loop)
+    // Jacobian: safe, handles edge cases | Affine: faster, assumes linearly independent points
+    auto pippenger_impl = handle_edge_cases ? small_pippenger_low_memory_with_transformed_scalars
+                                            : pippenger_low_memory_with_transformed_scalars;
+
     // Once we have our work units, each thread can independently evaluate its assigned msms
     parallel_for(num_cpus, [&](size_t thread_idx) {
         if (!thread_work_units[thread_idx].empty()) {
@@ -749,24 +768,12 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
             std::vector<uint64_t> point_schedule;
 
             for (const MSMWorkUnit& msm : msms) {
-                std::span<const ScalarField> work_scalars = scalars[msm.batch_msm_index];
-                std::span<const AffineElement> work_points = points[msm.batch_msm_index];
-                std::span<const uint32_t> work_indices =
-                    std::span<const uint32_t>{ &msm_scalar_indices[msm.batch_msm_index][msm.start_index], msm.size };
                 point_schedule.resize(msm.size);
-                MSMData msm_data(work_scalars, work_points, work_indices, std::span<uint64_t>(point_schedule));
-                Element msm_result = Curve::Group::point_at_infinity;
-                if (msm.size < PIPPENGER_THRESHOLD) {
-                    msm_result = small_mul<Curve>(work_scalars, work_points, msm_data.scalar_indices, msm.size);
-                } else {
-                    // Our non-affine method implicitly handles cases where Weierstrass edge cases may occur
-                    // Note: not as fast! use unsafe version if you know all input base points are linearly independent
-                    if (handle_edge_cases) {
-                        msm_result = small_pippenger_low_memory_with_transformed_scalars(msm_data);
-                    } else {
-                        msm_result = pippenger_low_memory_with_transformed_scalars(msm_data);
-                    }
-                }
+                MSMData msm_data = MSMData::from_work_unit(
+                    scalars, points, msm_scalar_indices, std::span<uint64_t>(point_schedule), msm);
+                Element msm_result =
+                    (msm.size < PIPPENGER_THRESHOLD) ? small_mul<Curve>(msm_data) : pippenger_impl(msm_data);
+
                 msm_results.push_back(std::make_pair(msm_result, msm.batch_msm_index));
             }
         }
