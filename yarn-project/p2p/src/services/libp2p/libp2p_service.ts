@@ -8,7 +8,7 @@ import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { EthAddress, L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockNew, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -1336,7 +1336,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }))
   private async validateRequestedBlock(
     requestedBlockNumber: Fr,
-    responseBlock: L2Block,
+    responseBlock: L2BlockNew,
     peerId: PeerId,
   ): Promise<boolean> {
     try {

@@ -167,7 +167,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
 
     const block = await this.aztecNode.getBlock(blockNumber);
-    return block?.getBlockHeader() || undefined;
+    return block?.header;
   }
 
   /**

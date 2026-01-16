@@ -212,7 +212,7 @@ describe('Archiver Sync', () => {
           const expectedTotalNumLogs = (name: 'private' | 'public' | 'contractClass') =>
             sum(block.body.txEffects.map(txEffect => txEffect[`${name}Logs`].length));
 
-          const privateLogs = (await archiver.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
+          const privateLogs = (await archiver.getBlock(blockNumber))!.getPrivateLogs();
           expect(privateLogs.length).toBe(expectedTotalNumLogs('private'));
 
           const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;

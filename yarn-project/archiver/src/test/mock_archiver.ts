@@ -1,6 +1,6 @@
 import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
@@ -57,7 +57,7 @@ export class MockPrefilledArchiver extends MockArchiver {
 
     const fromBlock = this.l2Blocks.length;
     // TODO: Add L2 blocks and checkpoints separately once archiver has the apis for that.
-    this.addBlocks(this.prefilled.slice(fromBlock, fromBlock + numBlocks).map(c => L2Block.fromCheckpoint(c)));
+    this.addBlocks(this.prefilled.slice(fromBlock, fromBlock + numBlocks).flatMap(c => c.blocks));
     return Promise.resolve();
   }
 }

@@ -12,7 +12,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { L2BlockNew, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -332,32 +332,32 @@ describe('aztec node', () => {
     });
 
     describe('getBlock', () => {
-      let block1: L2Block;
-      let block2: L2Block;
+      let block1: L2BlockNew;
+      let block2: L2BlockNew;
 
       beforeEach(() => {
-        block1 = L2Block.empty();
-        block2 = L2Block.empty();
+        block1 = L2BlockNew.empty();
+        block2 = L2BlockNew.empty();
 
         l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
       it('returns requested block number', async () => {
-        l2BlockSource.getBlock.mockResolvedValue(block1);
+        l2BlockSource.getL2BlockNew.mockResolvedValue(block1);
         expect(await node.getBlock(BlockNumber(1))).toEqual(block1);
-        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(BlockNumber(1));
+        expect(l2BlockSource.getL2BlockNew).toHaveBeenCalledWith(BlockNumber(1));
       });
 
       it('returns latest block', async () => {
-        l2BlockSource.getBlock.mockResolvedValue(block2);
+        l2BlockSource.getL2BlockNew.mockResolvedValue(block2);
         expect(await node.getBlock('latest')).toEqual(block2);
-        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(2);
+        expect(l2BlockSource.getL2BlockNew).toHaveBeenCalledWith(2);
       });
 
       it('returns undefined for non-existent block', async () => {
-        l2BlockSource.getBlock.mockResolvedValue(undefined);
+        l2BlockSource.getL2BlockNew.mockResolvedValue(undefined);
         expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
-        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(3);
+        expect(l2BlockSource.getL2BlockNew).toHaveBeenCalledWith(3);
       });
     });
   });

@@ -2,7 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Timer } from '@aztec/foundation/timer';
 
-import type { L2Block } from '../block/l2_block.js';
+import type { L2BlockNew } from '../block/l2_block_new.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
@@ -32,7 +32,7 @@ export interface IBlockFactory extends ProcessedTxHandler {
   /**
    * Assembles the block and updates the archive tree.
    */
-  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
+  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2BlockNew>;
 }
 
 export interface PublicProcessorLimits {
@@ -48,7 +48,7 @@ export interface PublicProcessorValidator {
   nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
 }
 export interface BuildBlockResult {
-  block: L2Block;
+  block: L2BlockNew;
   publicGas: Gas;
   publicProcessorDuration: number;
   numMsgs: number;

@@ -1,15 +1,11 @@
-import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
+import { SpongeBlob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { L2Block, L2BlockHeader } from '@aztec/stdlib/block';
+import { L2BlockNew } from '@aztec/stdlib/block';
 import type { IBlockFactory, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import {
-  accumulateCheckpointOutHashes,
-  computeBlockOutHash,
-  computeInHashFromL1ToL2Messages,
-} from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { GlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -67,18 +63,18 @@ export class LightweightBlockFactory implements IBlockFactory {
     return Promise.resolve();
   }
 
-  setBlockCompleted(): Promise<L2Block> {
+  setBlockCompleted(): Promise<L2BlockNew> {
     return this.buildBlock();
   }
 
-  private async buildBlock(): Promise<L2Block> {
+  private async buildBlock(): Promise<L2BlockNew> {
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
     const state = await this.db.getStateReference();
 
     const txs = this.txs ?? [];
     const startSpongeBlob = SpongeBlob.init();
 
-    const { header, body, blockBlobFields } = await buildHeaderAndBodyFromTxs(
+    const { header, body } = await buildHeaderAndBodyFromTxs(
       txs,
       lastArchive,
       state,
@@ -92,24 +88,11 @@ export class LightweightBlockFactory implements IBlockFactory {
     await this.db.updateArchive(header);
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
-    const blockOutHash = computeBlockOutHash(txs.map(tx => tx.txEffect.l2ToL1Msgs));
-    // There's only one block per checkpoint, so the checkpoint out hash equals the block out hash.
-    const checkpointOutHash = blockOutHash;
-    const epochOutHash = accumulateCheckpointOutHashes([...this.previousCheckpointOutHashes, checkpointOutHash]);
-    const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages!);
-    const numBlobFields = blockBlobFields.length + 1;
-    const blobFields = blockBlobFields.concat([encodeCheckpointEndMarker({ numBlobFields })]);
-    const blobsHash = computeBlobsHashFromBlobs(getBlobsPerL1Block(blobFields));
-    const blockHeaderHash = await header.hash();
-    const l2BlockHeader = L2BlockHeader.from({
-      ...header,
-      blockHeadersHash: blockHeaderHash,
-      blobsHash,
-      inHash,
-      epochOutHash,
-    });
+    // For LightweightBlockFactory, we assume one block per checkpoint
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(header.globalVariables.blockNumber);
+    const indexWithinCheckpoint = 0;
 
-    const block = new L2Block(newArchive, l2BlockHeader, body);
+    const block = new L2BlockNew(newArchive, header, body, checkpointNumber, indexWithinCheckpoint);
 
     this.logger.debug(`Built block ${block.number}`, {
       globalVariables: this.globalVariables?.toInspect(),
