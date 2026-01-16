@@ -5,8 +5,11 @@ use dep::aztec::macros::aztec;
 
 /// The purpose of this contract is to perform a check in public without revealing what contract enqueued the public
 /// call. This can be achieved by enqueueing an `incognito` public call.
+///
+/// Note that this contract should not be grouped with protocol contracts as it is not part of the protocol. We keep
+/// it here for now as it allows us to use hardcoded address.
 #[aztec]
-pub contract Router {
+pub contract PublicChecks {
     use aztec::{macros::functions::{external, view}, utils::comparison::compare};
 
     // docs:start:check_timestamp

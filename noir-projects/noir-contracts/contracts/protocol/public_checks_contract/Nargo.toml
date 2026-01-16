@@ -1,5 +1,5 @@
 [package]
-name = "router_contract"
+name = "public_checks_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"
