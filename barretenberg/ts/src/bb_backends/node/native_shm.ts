@@ -1,6 +1,6 @@
 import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
-import { openSync, closeSync } from 'fs';
+import { openSync, closeSync, unlinkSync } from 'fs';
 import { IMsgpackBackendSync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 
@@ -31,6 +31,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
   /**
    * Create and initialize a shared memory backend.
    * @param bbBinaryPath Path to bb binary
+   * @param napiPath Path to NAPI binary
    * @param threads Optional number of threads
    */
   static async new(
@@ -67,6 +68,28 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
       logPath = `/tmp/${shmName}.log`;
       logFd = openSync(logPath, 'w');
       logger(`BB process logs redirected to: ${logPath}`);
+    }
+
+    // Clean up any stale shared memory files from previous runs
+    // This handles the case where a previous process crashed without cleanup
+    const shmRequestPath = `/dev/shm/${shmName}_request`;
+    const shmResponsePath = `/dev/shm/${shmName}_response`;
+    try {
+      unlinkSync(shmRequestPath);
+    } catch (err) {
+      const isNotFound = err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT';
+      if (!isNotFound) {
+        throw new Error(`Failed to clean up stale shared memory file ${shmRequestPath}: ${err}`);
+      }
+    }
+
+    try {
+      unlinkSync(shmResponsePath);
+    } catch (err) {
+      const isNotFound = err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT';
+      if (!isNotFound) {
+        throw new Error(`Failed to clean up stale shared memory file ${shmResponsePath}: ${err}`);
+      }
     }
 
     // Spawn bb process with shared memory mode (SPSC-only, no max-clients needed)
