@@ -114,7 +114,7 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check' './scripts/tsc.sh --emitDeclarationOnly')
+  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
   if [ "${CI:-0}" -eq 1 ]; then
     cmds+=('lint --check')
   fi

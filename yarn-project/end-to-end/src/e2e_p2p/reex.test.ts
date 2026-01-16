@@ -11,6 +11,7 @@ import type { CppPublicTxSimulator, PublicTxResult } from '@aztec/simulator/serv
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorKeyStore } from '@aztec/validator-client';
+import { DutyType } from '@aztec/validator-ha-signer/types';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -148,7 +149,13 @@ describe('e2e_p2p_reex', () => {
           proposal.archiveRoot,
           proposal.txHashes,
           undefined,
-          payload => signer.signMessageWithAddress(proposerAddress!, payload),
+          payload =>
+            signer.signMessageWithAddress(proposerAddress!, payload, {
+              slot: proposal.blockHeader.globalVariables.slotNumber,
+              blockNumber: proposal.blockHeader.globalVariables.blockNumber,
+              blockIndexWithinCheckpoint: proposal.indexWithinCheckpoint,
+              dutyType: DutyType.BLOCK_PROPOSAL,
+            }),
         );
 
         const p2pService = (p2pClient as any).p2pService as LibP2PService;

@@ -294,10 +294,11 @@ locals {
         }
         ingress = {
           rpc = {
+            hosts = var.RPC_INGRESS_HOSTS
             annotations = {
               "kubernetes.io/ingress.class"                 = "gce"
               "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
-              "ingress.gcp.kubernetes.io/pre-shared-cert"   = var.RPC_INGRESS_SSL_CERT_NAME
+              "ingress.gcp.kubernetes.io/pre-shared-cert"   = join(",", var.RPC_INGRESS_SSL_CERT_NAMES)
               "kubernetes.io/ingress.allow-http"            = "false"
             }
           }
@@ -320,7 +321,6 @@ locals {
         # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
-        "ingress.rpc.host"                            = var.RPC_INGRESS_HOST
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG

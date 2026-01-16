@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -37,6 +37,8 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
+import { createHASigner } from '@aztec/validator-ha-signer/factory';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
@@ -44,6 +46,8 @@ import type { TypedDataDefinition } from 'viem';
 import { BlockProposalHandler, type BlockProposalValidationFailureReason } from './block_proposal_handler.js';
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { ValidationService } from './duties/validation_service.js';
+import { HAKeyStore } from './key_store/ha_key_store.js';
+import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
 
@@ -83,7 +87,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private validatedBlockSlots: Set<SlotNumber> = new Set();
 
   protected constructor(
-    private keyStore: NodeKeystoreAdapter,
+    private keyStore: ExtendedValidatorKeyStore,
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private blockProposalHandler: BlockProposalHandler,
@@ -166,7 +170,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
   }
 
-  static new(
+  static async new(
     config: ValidatorClientFullConfig,
     checkpointsBuilder: FullNodeCheckpointsBuilder,
     worldState: WorldStateSynchronizer,
@@ -198,8 +202,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
+    let validatorKeyStore: ExtendedValidatorKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
+    if (config.haSigningEnabled) {
+      // If maxStuckDutiesAgeMs is not explicitly set, compute it from Aztec slot duration
+      const haConfig = {
+        ...config,
+        maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
+      };
+      const { signer } = await createHASigner(haConfig);
+      validatorKeyStore = new HAKeyStore(validatorKeyStore, signer);
+    }
+
     const validator = new ValidatorClient(
-      NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager),
+      validatorKeyStore,
       epochCache,
       p2pClient,
       blockProposalHandler,
@@ -226,8 +241,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.blockProposalHandler;
   }
 
-  public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
-    return this.keyStore.signTypedDataWithAddress(addr, msg);
+  public signWithAddress(addr: EthAddress, msg: TypedDataDefinition, context: SigningContext) {
+    return this.keyStore.signTypedDataWithAddress(addr, msg, context);
   }
 
   public getCoinbaseForAttestor(attestor: EthAddress): EthAddress {
@@ -252,6 +267,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
+    await this.keyStore.start();
+
     await this.registerHandlers();
 
     const myAddresses = this.getValidatorAddresses();
@@ -267,6 +284,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public async stop() {
     await this.epochCacheUpdateLoop.stop();
+    await this.keyStore.stop();
   }
 
   /** Register handlers on the p2p client */
@@ -748,8 +766,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
+    slot: SlotNumber,
+    blockNumber: BlockNumber | CheckpointNumber,
   ): Promise<Signature> {
-    return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer);
+    return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer, slot, blockNumber);
   }
 
   async collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]> {
@@ -856,7 +876,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const payloadToSign = authRequest.getPayloadToSign();
-    const signature = await this.keyStore.signMessageWithAddress(addressToUse, payloadToSign);
+    // AUTH_REQUEST doesn't require HA protection - multiple signatures are safe
+    const context: SigningContext = { dutyType: DutyType.AUTH_REQUEST };
+    const signature = await this.keyStore.signMessageWithAddress(addressToUse, payloadToSign, context);
     const authResponse = new AuthResponse(statusMessage, signature);
     return authResponse.toBuffer();
   }

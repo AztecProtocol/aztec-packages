@@ -85,6 +85,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/validator-ha-signer": "workspace:^",
     "@google-cloud/storage": "^7.15.0",
     "axios": "^1.12.0",
     "json-stringify-deterministic": "1.0.12",
