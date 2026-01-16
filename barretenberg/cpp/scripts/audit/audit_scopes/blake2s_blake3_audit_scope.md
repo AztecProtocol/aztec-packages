@@ -75,3 +75,11 @@ Lookup tables: https://github.com/AztecProtocol/aztec-packages/blob/next/barrete
 
 ### Note
 Previously, certain inputs were pushing the addition overflows in `g` to beyond 3 bits (where `add_normalize` can tolerate up to 3 bits of overflow), causing failures. This has been addressed by calling `add_normalize` in the second half of every call to `g` to ensure that the overflow doesn't go beyond 3 bits. The input that was causing failures earlier has been added as a test case now. A detailed description of the issue can be found here: https://hackmd.io/@aztec-network/SyTHLkAWZx.
+
+### Security Mechanisms
+
+1. `boomerang_value_detection/graph_description_blake2s.test.cpp`
+   - Boomerang value detection for BLAKE2s: verifies no under-constrained variables
+
+2. `boomerang_value_detection/graph_description_blake3s.test.cpp`
+   - Boomerang value detection for BLAKE3s: verifies no under-constrained variables
