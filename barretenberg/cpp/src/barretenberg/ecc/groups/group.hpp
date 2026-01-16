@@ -96,7 +96,7 @@ template <typename Fq_, typename Fr_, typename Params> class group {
         if (num_generators > 0) {
             BB_ASSERT(starting_index <= static_cast<size_t>(UINT32_MAX),
                       "derive_generators: starting_index exceeds uint32 range");
-            BB_ASSERT(num_generators <= (static_cast<size_t>(UINT32_MAX) - starting_index + 1),
+            BB_ASSERT(num_generators - 1 <= static_cast<size_t>(UINT32_MAX) - starting_index,
                       "derive_generators: starting_index + num_generators exceeds uint32 range");
         }
 
