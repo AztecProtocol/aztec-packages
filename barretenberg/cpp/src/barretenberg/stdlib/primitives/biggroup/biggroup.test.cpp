@@ -386,7 +386,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         size_t num_repetitions = 5;
         for (size_t i = 0; i < num_repetitions; ++i) {
             // Check both constant and witness case
-            element_ct input_a(element::random_element());
+            element native_a = element::random_element();
+            element_ct input_a(native_a.x, native_a.y);
             element_ct input_b = element_ct::from_witness(&builder, element::random_element());
             input_a.set_point_at_infinity(true);
             input_b.set_point_at_infinity(true);
@@ -2187,7 +2188,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             const auto [scalar, scalar_ct] = get_random_scalar(&builder, InputType::WITNESS);
             points_native.push_back(point);
             scalars_native.push_back(scalar);
-            circuit_points.push_back(element_ct(point));                          // Constant
+            circuit_points.push_back(element_ct(point.x, point.y));               // Constant
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalar)); // Witness
         }
 

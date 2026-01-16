@@ -36,7 +36,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
 
     element();
-    element(const typename NativeGroup::affine_element& input);
 
     // Construct a biggroup element from its coordinates
     // By default, we validate that the point is on the curve
@@ -96,6 +95,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     void validate_on_curve(std::string const& msg = "biggroup::validate_on_curve") const
     {
+        // Return early for constant inputs (must check before accessing context since it may be nullptr)
+        if (this->is_constant()) {
+            BB_ASSERT(this->get_value().on_curve(), "biggroup::validate_on_curve: constant point not on curve");
+            return;
+        }
+
         bool has_circuit_failed = get_context()->failed();
 
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));

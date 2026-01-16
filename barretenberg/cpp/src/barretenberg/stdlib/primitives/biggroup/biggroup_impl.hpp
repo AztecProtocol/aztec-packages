@@ -24,13 +24,6 @@ element<C, Fq, Fr, G>::element()
 {}
 
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G>::element(const typename G::affine_element& input)
-    : _x(nullptr, input.x)
-    , _y(nullptr, input.y)
-    , _is_infinity(nullptr, input.is_point_at_infinity())
-{}
-
-template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert_on_curve)
     : _x(x_in)
     , _y(y_in)
@@ -696,7 +689,9 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
     const uint256_t offset_multiplier = uint256_t(1) << uint256_t(num_rounds - 1);
 
     const typename G::affine_element offset_generator_end = typename G::element(offset_generator) * offset_multiplier;
-    return std::make_pair<element, element>(offset_generator, offset_generator_end);
+
+    return std::make_pair<element, element>(element(offset_generator.x, offset_generator.y),
+                                            element(offset_generator_end.x, offset_generator_end.y));
 }
 
 template <typename C, class Fq, class Fr, class G>
@@ -933,7 +928,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     // (to handle the case where all points were filtered out by handle_points_at_infinity)
     const bool has_no_points = big_points.empty() && small_points.empty();
     if (has_constant_terms || has_no_points) {
-        accumulator = element(constant_accumulator);
+        // Convert from projective to affine to get correct (x, y) coordinates
+        typename G::affine_element constant_accumulator_affine(constant_accumulator);
+        accumulator = element(constant_accumulator_affine.x, constant_accumulator_affine.y);
+        accumulator.set_point_at_infinity(constant_accumulator_affine.is_point_at_infinity());
         accumulator_initialized = true;
     }
 
