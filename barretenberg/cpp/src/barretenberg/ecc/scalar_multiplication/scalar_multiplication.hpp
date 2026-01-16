@@ -198,8 +198,8 @@ template <typename Curve> class MSM {
     static void add_affine_points(AffineElement* points,
                                   const size_t num_points,
                                   typename Curve::BaseField* scratch_space) noexcept;
-    static void get_nonzero_scalar_indices(std::span<const ScalarField> scalars,
-                                           std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
+    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
+                                                                std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
 
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;

@@ -44,20 +44,22 @@ template <typename Curve> typename Curve::Element small_mul(const typename MSM<C
 }
 
 /**
- * @brief Populate `nonzero_scalar_indices` with indices of nonzero scalars
- * @details Scalars must already be in non-Montgomery (standard) form for correct zero-detection
+ * @brief Transform scalars from Montgomery form and get indices of non-zero scalars
+ * @details Operates in two passes: (1) each thread converts scalars from Montgomery form and collects
+ *          non-zero indices into its own vector, (2) threads copy their results to a consolidated output vector.
+ *          Montgomery conversion is done lazily during filtering - each scalar is converted exactly once.
  *
  * @tparam Curve
- * @param scalars (must be in non-Montgomery form)
+ * @param scalars (will be converted from Montgomery form in-place)
  * @param nonzero_scalar_indices
  */
 template <typename Curve>
-void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::ScalarField> scalars,
-                                            std::vector<uint32_t>& nonzero_scalar_indices) noexcept
+void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
+                                                                 std::vector<uint32_t>& nonzero_scalar_indices) noexcept
 {
     std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
-    // Pass 1: Each thread collects nonzero indices into its own vector
+    // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
     parallel_for([&](const ThreadChunk& chunk) {
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         auto range = chunk.range(scalars.size());
@@ -68,7 +70,10 @@ void MSM<Curve>::get_nonzero_scalar_indices(std::span<const typename Curve::Scal
         thread_scalar_indices.reserve(range.size());
         for (size_t i : range) {
             BB_ASSERT_DEBUG(i < scalars.size());
-            if (!scalars[i].is_zero()) {
+            auto& scalar = scalars[i];
+            scalar.self_from_montgomery_form();
+
+            if (!scalar.is_zero()) {
                 thread_scalar_indices.push_back(static_cast<uint32_t>(i));
             }
         }
@@ -112,7 +117,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
     for (size_t i = 0; i < num_msms; ++i) {
-        get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
+        transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
     }
 
     size_t total_work = 0;
@@ -621,6 +626,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
                                         size_t num_input_points_processed,
                                         size_t num_queued_affine_points) noexcept
 {
+    BB_BENCH_NAME("consume_point_schedule");
 
     size_t point_it = num_input_points_processed;
     size_t affine_input_it = num_queued_affine_points;
@@ -645,37 +651,40 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     }
 
     // Step 1: Fill up `affine_addition_scratch_space` with up to AffineAdditionData::BATCH_SIZE/2 independent additions
-    while (((affine_input_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < end)) {
+    {
+        BB_BENCH_NAME("fill_scratch_from_schedule");
+        while (((affine_input_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < end)) {
 
-        // Prefetch points we'll need soon (every 16 iterations, prefetch the next 16-32 points)
-        if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
-            for (size_t i = 16; i < 32; ++i) {
-                PointScheduleEntry entry{ point_schedule[point_it + i] };
-                __builtin_prefetch(&points[entry.point_index()]);
+            // Prefetch points we'll need soon (every 16 iterations, prefetch the next 16-32 points)
+            if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
+                for (size_t i = 16; i < 32; ++i) {
+                    PointScheduleEntry entry{ point_schedule[point_it + i] };
+                    __builtin_prefetch(&points[entry.point_index()]);
+                }
             }
+
+            // Process pair of points using branchless conditional moves
+            // Case 1: Same bucket → add both points
+            // Case 2: Different buckets, lhs bucket has accumulator → add point + accumulator
+            // Case 3: Different buckets, lhs bucket empty → cache point
+            PointScheduleEntry lhs{ point_schedule[point_it] };
+            PointScheduleEntry rhs{ point_schedule[point_it + 1] };
+            uint32_t lhs_bucket = lhs.bucket_index();
+            uint32_t rhs_bucket = rhs.bucket_index();
+            uint32_t lhs_point = lhs.point_index();
+            uint32_t rhs_point = rhs.point_index();
+
+            point_it += process_bucket_pair<Curve>(lhs_bucket,
+                                                   rhs_bucket,
+                                                   &points[lhs_point],
+                                                   &points[rhs_point],
+                                                   affine_addition_scratch_space,
+                                                   bucket_accumulators,
+                                                   bucket_accumulator_exists,
+                                                   affine_addition_output_bucket_destinations,
+                                                   affine_input_it,
+                                                   null_location);
         }
-
-        // Process pair of points using branchless conditional moves
-        // Case 1: Same bucket → add both points
-        // Case 2: Different buckets, lhs bucket has accumulator → add point + accumulator
-        // Case 3: Different buckets, lhs bucket empty → cache point
-        PointScheduleEntry lhs{ point_schedule[point_it] };
-        PointScheduleEntry rhs{ point_schedule[point_it + 1] };
-        uint32_t lhs_bucket = lhs.bucket_index();
-        uint32_t rhs_bucket = rhs.bucket_index();
-        uint32_t lhs_point = lhs.point_index();
-        uint32_t rhs_point = rhs.point_index();
-
-        point_it += process_bucket_pair<Curve>(lhs_bucket,
-                                               rhs_bucket,
-                                               &points[lhs_point],
-                                               &points[rhs_point],
-                                               affine_addition_scratch_space,
-                                               bucket_accumulators,
-                                               bucket_accumulator_exists,
-                                               affine_addition_output_bucket_destinations,
-                                               affine_input_it,
-                                               null_location);
     }
     // Handle final odd point (edge case to avoid bounds overflow)
     if (point_it == num_points - 1) {
@@ -697,8 +706,11 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     // Now that we have populated `affine_addition_scratch_space`,
     // compute `num_affine_points_to_add` independent additions using the Affine trick
     size_t num_affine_points_to_add = affine_input_it;
-    if (num_affine_points_to_add >= 2) {
-        add_affine_points(&affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
+    {
+        BB_BENCH_NAME("batch_affine_addition");
+        if (num_affine_points_to_add >= 2) {
+            add_affine_points(&affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
+        }
     }
     // `add_affine_points` stores the result in the top-half of the used scratch space
     G1* affine_output = &affine_addition_scratch_space[0] + (num_affine_points_to_add / 2);
@@ -710,37 +722,40 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     size_t affine_output_it = 0;
     size_t num_affine_output_points = num_affine_points_to_add / 2;
     // Recirculate addition outputs: same algorithm as point schedule processing, but sourcing from affine_output
-    while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
-        size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
-        size_t rhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it + 1]);
-        BB_ASSERT_DEBUG(lhs_bucket < bucket_accumulator_exists.size());
+    {
+        BB_BENCH_NAME("recirculate_affine_outputs");
+        while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
+            size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
+            size_t rhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it + 1]);
+            BB_ASSERT_DEBUG(lhs_bucket < bucket_accumulator_exists.size());
 
-        affine_output_it += process_bucket_pair<Curve>(lhs_bucket,
-                                                       rhs_bucket,
-                                                       &affine_output[affine_output_it],
-                                                       &affine_output[affine_output_it + 1],
-                                                       affine_addition_scratch_space,
-                                                       bucket_accumulators,
-                                                       bucket_accumulator_exists,
-                                                       output_point_schedule,
-                                                       new_scratch_space_it,
-                                                       null_location);
-    }
-    // Handle final odd affine output (edge case)
-    if (affine_output_it == (num_affine_output_points - 1)) {
-        size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
-        BB_ASSERT_DEBUG(lhs_bucket < bucket_accumulators.size());
-        BB_ASSERT_DEBUG(new_scratch_space_it + 1 < affine_addition_scratch_space.size());
-        BB_ASSERT_DEBUG((new_scratch_space_it >> 1) < output_point_schedule.size());
+            affine_output_it += process_bucket_pair<Curve>(lhs_bucket,
+                                                           rhs_bucket,
+                                                           &affine_output[affine_output_it],
+                                                           &affine_output[affine_output_it + 1],
+                                                           affine_addition_scratch_space,
+                                                           bucket_accumulators,
+                                                           bucket_accumulator_exists,
+                                                           output_point_schedule,
+                                                           new_scratch_space_it,
+                                                           null_location);
+        }
+        // Handle final odd affine output (edge case)
+        if (affine_output_it == (num_affine_output_points - 1)) {
+            size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
+            BB_ASSERT_DEBUG(lhs_bucket < bucket_accumulators.size());
+            BB_ASSERT_DEBUG(new_scratch_space_it + 1 < affine_addition_scratch_space.size());
+            BB_ASSERT_DEBUG((new_scratch_space_it >> 1) < output_point_schedule.size());
 
-        process_single_point<Curve>(lhs_bucket,
-                                    &affine_output[affine_output_it],
-                                    affine_addition_scratch_space,
-                                    bucket_accumulators,
-                                    bucket_accumulator_exists,
-                                    output_point_schedule,
-                                    new_scratch_space_it);
-        affine_output_it += 1;
+            process_single_point<Curve>(lhs_bucket,
+                                        &affine_output[affine_output_it],
+                                        affine_addition_scratch_space,
+                                        bucket_accumulators,
+                                        bucket_accumulator_exists,
+                                        output_point_schedule,
+                                        new_scratch_space_it);
+            affine_output_it += 1;
+        }
     }
 
     // If we have not finished iterating over the point schedule,
@@ -758,9 +773,11 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  *          The Pippenger algorithm runtime is O(N/log(N)) so there will be slight gains as each inner-thread MSM will
  *          have a larger N.
  *
+ *          Scalars are converted from Montgomery form during work unit creation (lazy conversion during filtering).
+ *
  * @tparam Curve
  * @param points
- * @param scalars (must be in non-Montgomery form)
+ * @param scalars (will be converted from Montgomery form during processing)
  * @return std::vector<typename Curve::AffineElement>
  */
 template <typename Curve>
@@ -830,10 +847,10 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 
 /**
  * @brief Helper method to evaluate a single MSM. Internally calls `batch_multi_scalar_mul`
- * @details This is the main entry point for MSM computation. It handles the Montgomery form conversion:
- *          scalars are converted FROM Montgomery form at entry, and back TO Montgomery form at exit.
- *          This ensures the scalars remain unchanged from the caller's perspective while allowing
- *          the internal algorithm to work with non-Montgomery form scalars.
+ * @details This is the main entry point for MSM computation. The internal algorithm converts scalars
+ *          FROM Montgomery form during work unit creation (lazy conversion during zero filtering),
+ *          then this method converts them back TO Montgomery form before returning.
+ *          This ensures the scalars remain unchanged from the caller's perspective.
  *
  *          The const_cast is safe because we restore the original Montgomery form before returning.
  *
@@ -852,18 +869,11 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     }
     BB_ASSERT_GTE(points.size(), scalars.start_index + scalars.size());
 
-    // const_cast is safe: we convert from Montgomery form, run MSM, then convert back.
+    // const_cast is safe: batch_multi_scalar_mul converts from Montgomery, then we convert back.
     // Scalars are unchanged from the caller's perspective.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     ScalarField* scalar_ptr = const_cast<ScalarField*>(&scalars[scalars.start_index]);
     const size_t num_scalars = scalars.size();
-
-    // Convert scalars FROM Montgomery form for the MSM algorithm
-    parallel_for_range(num_scalars, [&](size_t start, size_t end) {
-        for (size_t i = start; i < end; ++i) {
-            scalar_ptr[i].self_from_montgomery_form();
-        }
-    });
 
     std::vector<std::span<const AffineElement>> pp{ points.subspan(scalars.start_index) };
     std::vector<std::span<ScalarField>> ss{ std::span<ScalarField>(scalar_ptr, num_scalars) };
