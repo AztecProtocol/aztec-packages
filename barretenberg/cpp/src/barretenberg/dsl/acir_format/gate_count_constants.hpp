@@ -27,7 +27,7 @@ template <typename Builder> inline constexpr size_t BIG_QUAD = 2 + ZERO_GATE + M
 template <typename Builder> inline constexpr size_t LOGIC_XOR_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t LOGIC_AND_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t RANGE_32 = 2744 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t SHA256_COMPRESSION = 3963 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t SHA256_COMPRESSION = 6695 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t AES128_ENCRYPTION = 1432 + ZERO_GATE + MEGA_OFFSET<Builder>;
 
 // The mega offset works differently for ECDSA opcodes because of the use of ROM tables, which use indices that

@@ -451,7 +451,7 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // The final add_normalize outputs are not consumed by lookup tables, so they must be explicitly range-constrained.
     // (Within the compression loop, lookup tables provide implicit 32-bit constraints on add_normalize outputs.)
     for (const auto& val : output) {
-        apply_32_bit_range_constraint_via_lookup(val);
+        val.create_range_constraint(32);
     }
 
     return output;
