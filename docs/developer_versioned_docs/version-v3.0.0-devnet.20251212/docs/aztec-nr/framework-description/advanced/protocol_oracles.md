@@ -21,20 +21,21 @@ If we fetch the notes using an oracle call, we can keep the function signature i
 Oracles introduce **non-determinism** into a circuit, and thus are `unconstrained`. It is important that any information that is injected into a circuit through an oracle is later constrained for correctness. Otherwise, the circuit will be **under-constrained** and potentially insecure!
 
 `Aztec.nr` has a module dedicated to its oracles. If you are interested, you can view them by following the link below:
+
 ```rust title="oracles-module" showLineNumbers
 /// Oracles module
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3</a></sub></sup>
 
 ## Inbuilt oracles
 
-- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/debug_log.nr) - Provides a couple of debug functions that can be used to log information to the console. Read more about debugging [here](../../debugging.md).
-- [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
-- [`get_l1_to_l2_message`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/get_l1_to_l2_message.nr) - Useful for application that receive messages from L1 to be consumed on L2, such as token bridges or other cross-chain applications.
-- [`notes`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/notes.nr) - Provides a lot of functions related to notes, such as fetches notes from storage etc, used behind the scenes for value notes and other pre-build note implementations.
-- [`logs`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/logs.nr) - Provides functions to log encrypted and unencrypted data.
+- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/noir-protocol-circuits/crates/types/src/debug_log.nr) - Provides debug functions that can be used to log information to the console. Read more about debugging [here](../../debugging.md).
+- [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
+- [`get_l1_to_l2_membership_witness`](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle/get_l1_to_l2_membership_witness.nr) - Returns the leaf index and sibling path for an L1 to L2 message, used to prove message existence in cross-chain applications like token bridges.
+- [`notes`](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle/notes.nr) - Provides functions related to notes, such as fetching notes from storage, used behind the scenes for value notes and other pre-built note implementations.
+- [`logs`](https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle/logs.nr) - Provides functions to log encrypted and unencrypted data.
 
-Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/aztec/src/oracle).
+Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/oracle).
 
 Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [capsules](./how_to_use_capsules.md).
