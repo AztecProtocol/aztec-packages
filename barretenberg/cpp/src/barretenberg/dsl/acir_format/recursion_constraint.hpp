@@ -8,7 +8,6 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/gate_counter.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
@@ -40,7 +39,7 @@ constexpr bool is_hypernova_proof_type(uint32_t proof_type)
            proof_type == PROOF_TYPE::HN_FINAL;
 }
 
-// Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Aborts for non-HyperNova types.
+// Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Throws for non-HyperNova types.
 // Note: QUEUE_TYPE::MEGA is internal to Chonk and has no ACIR equivalent.
 inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
 {
@@ -54,12 +53,11 @@ inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
     case PROOF_TYPE::HN_FINAL:
         return Chonk::QUEUE_TYPE::HN_FINAL;
     default:
-        BB_ASSERT(false, "proof_type_to_chonk_queue_type: invalid type");
-        __builtin_unreachable();
+        throw_or_abort("proof_type_to_chonk_queue_type: invalid type " + std::to_string(proof_type));
     }
 }
 
-// Inverse of proof_type_to_chonk_queue_type. Aborts for MEGA (no ACIR equivalent).
+// Inverse of proof_type_to_chonk_queue_type. Throws for MEGA (no ACIR equivalent).
 inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
 {
     switch (queue_type) {
@@ -72,11 +70,9 @@ inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
     case Chonk::QUEUE_TYPE::HN_FINAL:
         return PROOF_TYPE::HN_FINAL;
     case Chonk::QUEUE_TYPE::MEGA:
-        BB_ASSERT(false, "queue_type_to_proof_type: MEGA has no ACIR equivalent");
-        __builtin_unreachable();
+        throw_or_abort("queue_type_to_proof_type: MEGA has no ACIR equivalent");
     }
-    BB_ASSERT(false, "queue_type_to_proof_type: unknown type");
-    __builtin_unreachable();
+    throw_or_abort("queue_type_to_proof_type: unknown type");
 }
 
 // Static assertions to catch PROOF_TYPE/QUEUE_TYPE enum desync at compile time

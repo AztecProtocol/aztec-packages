@@ -245,7 +245,9 @@ void process_hn_recursion_constraints(
         process_with_ivc(mock_ivc);
     } else {
         auto chonk = std::dynamic_pointer_cast<Chonk>(ivc_base);
-        BB_ASSERT(chonk != nullptr, "process_hn_recursion_constraints: ivc_base is not a Chonk instance");
+        if (!chonk) {
+            throw_or_abort("process_hn_recursion_constraints: ivc_base is not a Chonk instance");
+        }
         process_with_ivc(chonk);
     }
 }
