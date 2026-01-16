@@ -11,8 +11,7 @@ const noopDeserializer: FromBuffer<Buffer> = {
   fromBuffer: (buffer: Buffer) => buffer,
 };
 
-// Follows sol implementation and tests in UnbalancedMerkle.t.sol
-describe('Wonky tree', () => {
+describe('Unbalanced tree', () => {
   let hasher: Hasher;
   let tree: UnbalancedTree<Buffer>;
   let leaves: Buffer[];

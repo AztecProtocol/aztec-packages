@@ -103,6 +103,10 @@ impl TestBuilder {
         assert_eq(pi.new_archive, right.new_archive);
         assert(pi.previous_archive != pi.new_archive);
 
+        assert_eq(pi.previous_out_hash, left.previous_out_hash);
+        assert_eq(pi.new_out_hash, right.new_out_hash);
+        assert(pi.previous_out_hash != pi.new_out_hash);
+
         let mut expected_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         let mut expected_fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
         for i in 0..self.num_left_checkpoints as u32 {

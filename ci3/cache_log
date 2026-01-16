@@ -9,10 +9,15 @@ source $ci3/source_cache
 name=$1
 
 key=${2:-$(uuid)}
-outfile=/tmp/$key
 dup=${DUP:-0}
+outfile=/tmp/$key
+touch $outfile
 trap 'rm -f $outfile' EXIT
-echo -e "Parent Log: ${PARENT_LOG_URL:-none}" >$outfile
+if [ -n "${PARENT_LOG_ID:-}" ]; then
+  echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)" >>$outfile
+else
+  echo -e "Parent Log: none" >>$outfile
+fi
 echo -e "Started: $(date)" >>$outfile
 echo -e "Completed: in-progress" >>$outfile
 echo -e "Took: in-progress\n" >>$outfile

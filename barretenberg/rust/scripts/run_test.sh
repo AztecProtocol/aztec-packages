@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
-cd "$(dirname "$0")/.."
+cd $(git rev-parse --show-toplevel)/barretenberg/rust
 
 # Ensure Cargo is in PATH
 if [ -f "$HOME/.cargo/env" ]; then
@@ -9,4 +9,4 @@ if [ -f "$HOME/.cargo/env" ]; then
 fi
 
 # Run all tests (FFI is enabled by default, links to cpp/build/lib automatically)
-cargo test --release
+denoise "cargo test --release"

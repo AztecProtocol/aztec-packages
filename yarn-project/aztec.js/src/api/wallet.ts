@@ -20,8 +20,6 @@ export {
   ProfileOptionsSchema,
   MessageHashOrIntentSchema,
   BatchedMethodSchema,
-  ContractMetadataSchema,
-  ContractClassMetadataSchema,
   EventMetadataDefinitionSchema,
   PrivateEventSchema,
   PrivateEventFilterSchema,

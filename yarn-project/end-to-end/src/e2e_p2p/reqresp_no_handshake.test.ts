@@ -41,13 +41,14 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
         p2pDisableStatusHandshake: true, // DIFFERENCE FROM reqresp.test.ts
         listenAddress: '127.0.0.1',
         aztecEpochDuration: 64, // stable committee
       },
     });
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
@@ -77,7 +78,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, p2pDisableStatusHandshake: true }, // DIFFERENCE FROM reqresp.test.ts
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -97,7 +98,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
 
     t.logger.info('Preparing transactions to send');
     const txss = await timesAsync(2, () =>
-      prepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
+      prepareTransactions(t.logger, t.ctx.aztecNodeService!, NUM_TXS_PER_NODE, t.fundedAccount),
     );
 
     t.logger.info('Removing initial node');
@@ -105,7 +106,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
 
     t.logger.info('Starting fresh slot');
     const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
+    t.ctx.dateProvider!.setTime(Number(timestamp) * 1000);
 
     const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
     t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip.map(getNodePort)}`);

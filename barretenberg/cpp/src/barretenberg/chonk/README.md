@@ -482,27 +482,28 @@ For MegaFlavor: `NUM_ALL_ENTITIES = 60` evaluations (55 unshifted + 5 shifted).
 
 The individual evaluation claims are batched using random linear combinations:
 
-**1. Generate batching challenges:**
-- Unshifted: $\rho_0, \rho_1, \ldots, \rho_{N_u-1}$ where $N_u$ = `NUM_UNSHIFTED_ENTITIES`
-- Shifted: $\sigma_0, \sigma_1, \ldots, \sigma_{N_s-1}$ where $N_s$ = `NUM_SHIFTED_ENTITIES`
+**1. Generate batching scalars:**
+- Unshifted: $(1, \rho_1, \rho_2, \ldots, \rho_{N_u-1})$
+- Shifted: $(1, \sigma_1, \sigma_2, \ldots, \sigma_{N_s-1})$
+where $N_u$ = `NUM_UNSHIFTED_ENTITIES` and $N_s$ = `NUM_SHIFTED_ENTITIES`, and $\rho_i$, $\sigma_i$ are transcript challenges.
 
 **2. Batch polynomials:**
 
-$$p_{\text{unshifted}} = \sum_{i=0}^{N_u-1} \rho_i \cdot p_i$$
+$$p_{\text{unshifted}} = p_0 + \sum_{i=1}^{N_u-1} \rho_i \cdot p_i$$
 
-$$p_{\text{shifted}} = \sum_{j=0}^{N_s-1} \sigma_j \cdot p_j$$
+$$p_{\text{shifted}} = p_0 + \sum_{j=1}^{N_s-1} \sigma_j \cdot p_j$$
 
 **3. Batch evaluations:**
 
-$$v_{\text{unshifted}} = \sum_{i=0}^{N_u-1} \rho_i \cdot p_i(r)$$
+$$v_{\text{unshifted}} = p_0(r) + \sum_{i=1}^{N_u-1} \rho_i \cdot p_i(r)$$
 
-$$v_{\text{shifted}} = \sum_{j=0}^{N_s-1} \sigma_j \cdot p_{j,\text{shifted}}(r)$$
+$$v_{\text{shifted}} = p_{0,\text{shifted}}(r) + \sum_{j=1}^{N_s-1} \sigma_j \cdot p_{j,\text{shifted}}(r)$$
 
 **4. Batch commitments:**
 
-$$[p_{\text{unshifted}}] = \sum_{i=0}^{N_u-1} \rho_i \cdot [p_i]$$
+$$[p_{\text{unshifted}}] = [p_0] + \sum_{i=1}^{N_u-1} \rho_i \cdot [p_i]$$
 
-$$[p_{\text{shifted}}] = \sum_{j=0}^{N_s-1} \sigma_j \cdot [p_j]$$
+$$[p_{\text{shifted}}] = [p_0] + \sum_{j=1}^{N_s-1} \sigma_j \cdot [p_j]$$
 
 The resulting accumulator contains $(r, v_{\text{unshifted}}, v_{\text{shifted}}, [p_{\text{unshifted}}], [p_{\text{shifted}}])$.
 
@@ -726,7 +727,7 @@ This chain ensures the op queue history is maintained correctly. The Merge proto
 
 ```cpp
 // In OinkVerifier::verify() (called by HypernovaFoldingVerifier for each instance)
-FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
 // All subsequent challenges now depend on this hash
 ```

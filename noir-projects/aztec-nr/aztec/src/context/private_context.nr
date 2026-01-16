@@ -242,35 +242,22 @@ impl PrivateContext {
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
-    /// Important Note: Since Aztec doesn't have a concept of an EoA (
-    /// Externally-owned Account), the msg_sender is "null" for the first
-    /// function call of every transaction.
-    /// The first function call of a tx is likely to be a call to the user's
-    /// account contract, so this quirk will most often be handled by account
-    /// contract developers.
+    /// Important Note: Since Aztec doesn't have a concept of an EoA (Externally-owned Account), the msg_sender is
+    /// "none" for the first function call of every transaction. The first function call of a tx is likely to be a call
+    /// to the user's account contract, so this quirk will most often be handled by account contract developers.
     ///
     /// # Returns
-    /// * `Option<AztecAddress>` - The address of the smart contract that called
-    ///   this function (be it an app contract or a user's account contract).
-    ///   Returns `Option<AztecAddress>::none` for the first function call of
-    ///   the tx. No other _private_ function calls in the tx will have a `none`
-    ///   msg_sender, but _public_ function calls might (see the PublicContext).
-    ///
-    pub fn msg_sender(self) -> Option<AztecAddress> {
+    /// * `Option<AztecAddress>` - The address of the smart contract that called this function (be it an app contract
+    ///   or a user's account contract). Returns `Option<AztecAddress>::none` for the first function call of the tx. No
+    ///   other _private_ function calls in the tx will have a `none` msg_sender, but _public_ function calls might
+    ///   (see the PublicContext).
+    pub fn maybe_msg_sender(self) -> Option<AztecAddress> {
         let maybe_msg_sender = self.inputs.call_context.msg_sender;
         if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
             Option::none()
         } else {
             Option::some(maybe_msg_sender)
         }
-    }
-
-    /// "Unsafe" versus calling `context.msg_sender()`, because it doesn't
-    /// translate `NULL_MSG_SENDER_CONTRACT_ADDRESS` as
-    /// `Option<AztecAddress>::none`.
-    /// Used by some internal aztecnr functions.
-    pub fn msg_sender_unsafe(self) -> AztecAddress {
-        self.inputs.call_context.msg_sender
     }
 
     /// Returns the contract address of the current function being executed.
@@ -752,7 +739,7 @@ impl PrivateContext {
     /// revealing which specific note was read.
     ///
     /// This can be used to prove existence of both settled notes (created in
-    /// prior transactions) and transient notes (created in the current
+    /// prior transactions) and pending notes (created in the current
     /// transaction).
     /// If you need to prove existence of a settled note _at a specific block
     /// number_, use `note_inclusion::prove_note_inclusion`.
@@ -833,39 +820,46 @@ impl PrivateContext {
         assert_eq(request.innermost(), note_hash);
     }
 
-    /// Requests to read a specific nullifier from the nullifier tree.
+    /// Requests the private kernel to ensure an `unsiloed_nullifier` has been emitted by `contract_address`, failing
+    /// the transaction otherwise.
     ///
-    /// Nullifier read requests are used to prove that a nullifier exists without
-    /// revealing which specific nullifier preimage was read.
+    /// Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
+    /// [crate::hash::compute_siloed_nullifier] with the emitting contract's address.
     ///
-    /// This can be used to prove existence of both settled nullifiers (created in
-    /// prior transactions) and transient nullifiers (created in the current
-    /// transaction).
-    /// If you need to prove existence of a settled nullifier _at a specific block
-    /// number_, use `nullifier_inclusion::prove_nullifier_inclusion`.
+    /// ## Pending Nullifiers
     ///
-    /// Low-level function. Ordinarily, smart contract developers will not need
-    /// to call this directly. Aztec-nr's state variables (see `../state_vars/`)
-    /// are designed to understand when to create and push new nullifier read
-    /// requests.
+    /// Both settled nullifiers (emitted in prior transactions) and pending nullifiers (emitted in the current
+    /// transaction) will be considered by this function. This is the **only** mechanism via which it is possible to
+    /// assert that a pending nullifier exists, since those are otherwise hidden from contracts by the kernels.
     ///
-    /// # Arguments
-    /// * `nullifier` - The nullifier to read and verify
-    /// * `contract_address` - The contract address that emitted the nullifier
+    /// The nullifier must have been emitted **before** this call is made for the transaction to not fail.
     ///
-    /// # Advanced
-    /// This approach improves latency between writes and reads:
-    /// a function can read a nullifier which was created earlier in the tx
-    /// (rather than performing the read in a later tx, after waiting for the
-    /// earlier tx to be included, to ensure the nullifier is included in the tree).
+    /// In order to instead prove existence of a settled nullifier at a specific block number, use
+    /// [crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion].
     ///
+    /// ## Public vs Private
+    ///
+    /// In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
+    /// possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
+    /// block. Private functions instead prove existence via this function and 'prove' non-existence by _emitting_ the
+    /// nullifer, which would cause the transaction to fail if the nullifier existed.
+    ///
+    /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
+    /// prove whether a nullifier exists or not via
+    /// [crate::context::public_context::PublicContext::nullifier_exists_unsafe].
+    ///
+    /// ## Cost
+    ///
+    /// This uses up one of the call's kernel nullifier read requests, which are limited. Like all kernel requests,
+    /// proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
+    /// an additional invocation of the kernel reset circuit.
     pub fn push_nullifier_read_request(
         &mut self,
-        nullifier: Field,
+        unsiloed_nullifier: Field,
         contract_address: AztecAddress,
     ) {
         let request = Scoped::new(
-            Counted::new(nullifier, self.next_counter()),
+            Counted::new(unsiloed_nullifier, self.next_counter()),
             contract_address,
         );
         self.nullifier_read_requests.push(request);

@@ -44,14 +44,14 @@ AvmProvingHelper::VkData AvmProvingHelper::get_verification_key()
     auto verification_key =
         std::make_shared<AvmVerifier::VerificationKey>(constraining::AvmFixedVKCommitments::get_all());
 
-    info("AVM vk hash: ", verification_key->hash());
+    vinfo("AVM vk hash: ", verification_key->hash());
 
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
 
     return serialized_vk;
 }
 
-std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
+AvmProvingHelper::Proof AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     auto proving_key =
@@ -66,7 +66,7 @@ std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::p
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
 
-    return { std::move(proof), std::move(serialized_vk) };
+    return proof;
 }
 
 bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
@@ -97,8 +97,9 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     return true;
 }
 
-bool AvmProvingHelper::verify(const AvmProvingHelper::Proof& proof, const PublicInputs& pi, const VkData& vk_data)
+bool AvmProvingHelper::verify(const AvmProvingHelper::Proof& proof, const PublicInputs& pi)
 {
+    auto vk_data = AVM_TRACK_TIME_V("proving/verify:get_verification_key", get_verification_key());
     auto vk = AVM_TRACK_TIME_V("proving/verify:create_verification_key", create_verification_key(vk_data));
     auto verifier = AVM_TRACK_TIME_V("proving/verify:construct_verifier", AvmVerifier(std::move(vk)));
     return AVM_TRACK_TIME_V("proving/verify_proof", verifier.verify_proof(proof, pi.to_columns()));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <vector>
@@ -48,6 +49,7 @@ class ContextInterface {
 
     virtual TransactionPhase get_phase() const = 0;
 
+    // Should not throw.
     virtual std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
     virtual std::vector<MemoryValue> get_returndata(uint32_t rd_addr, uint32_t rd_size) const = 0;
     virtual ContextInterface& get_child_context() = 0;

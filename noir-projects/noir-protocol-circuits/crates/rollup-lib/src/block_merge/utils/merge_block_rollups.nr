@@ -2,6 +2,7 @@ use crate::{abis::BlockRollupPublicInputs, tx_merge::accumulate_out_hash};
 use types::hash::poseidon2_hash;
 
 pub fn accumulate_block_headers_hash(left_hash: Field, right_hash: Field) -> Field {
+    // TODO: this needs a domain separator, to be safe.
     poseidon2_hash([left_hash, right_hash])
 }
 
@@ -9,6 +10,9 @@ pub fn merge_block_rollups(
     left: BlockRollupPublicInputs,
     right: BlockRollupPublicInputs,
 ) -> BlockRollupPublicInputs {
+    // We need a way to, given a checkpoint header and a set of block headers, verify that the block headers
+    // are indeed part of that checkpoint. The `block_headers_hash` is a commitment to all block hashes: the
+    // root of a small unbalanced merkle tree of all block hashes.
     let block_headers_hash =
         accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);
 

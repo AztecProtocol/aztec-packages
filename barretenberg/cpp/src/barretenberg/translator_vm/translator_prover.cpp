@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "translator_prover.hpp"
@@ -33,7 +33,7 @@ void TranslatorProver::execute_preamble_round()
 {
     // Fiat-Shamir the vk hash
     Flavor::VerificationKey vk;
-    typename Flavor::FF vk_hash = vk.hash();
+    typename Flavor::FF vk_hash = vk.get_hash();
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("Translator vk hash in prover: ", vk_hash);
 

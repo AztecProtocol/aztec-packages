@@ -113,6 +113,10 @@ export class ProvingOrchestrator implements EpochProver {
     return this.proverId;
   }
 
+  public getNumActiveForks() {
+    return this.dbs.size;
+  }
+
   public stop(): Promise<void> {
     this.cancel();
     return Promise.resolve();
@@ -143,6 +147,14 @@ export class ProvingOrchestrator implements EpochProver {
     this.provingPromise = promise;
   }
 
+  /**
+   * Starts a new checkpoint.
+   * @param checkpointIndex - The index of the checkpoint in the epoch.
+   * @param constants - The constants for this checkpoint.
+   * @param l1ToL2Messages - The set of L1 to L2 messages to be inserted at the beginning of this checkpoint.
+   * @param totalNumBlocks - The total number of blocks expected in the checkpoint (must be at least one).
+   * @param headerOfLastBlockInPreviousCheckpoint - The header of the last block in the previous checkpoint.
+   */
   public async startNewCheckpoint(
     checkpointIndex: number,
     constants: CheckpointConstantData,
@@ -255,7 +267,8 @@ export class ProvingOrchestrator implements EpochProver {
       await endSpongeBlob.absorb(blockEndBlobFields);
       blockProvingState.setEndSpongeBlob(endSpongeBlob);
 
-      // And also try to accumulate the blobs as far as we can:
+      // Try to accumulate the out hashes and blobs as far as we can:
+      await this.provingState.accumulateCheckpointOutHashes();
       await this.provingState.setBlobAccumulators();
     }
   }
@@ -352,7 +365,8 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.setEndSpongeBlob(spongeBlobState);
 
-    // Txs have been added to the block. Now try to accumulate the blobs as far as we can:
+    // Txs have been added to the block. Now try to accumulate the out hashes and blobs as far as we can:
+    await this.provingState.accumulateCheckpointOutHashes();
     await this.provingState.setBlobAccumulators();
   }
 
@@ -486,12 +500,7 @@ export class ProvingOrchestrator implements EpochProver {
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
     // but have to make sure it only runs once all operations are completed, otherwise some function here
     // will attempt to access the fork after it was closed.
-    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
-    void this.dbs
-      .get(blockNumber)
-      ?.close()
-      .then(() => this.dbs.delete(blockNumber))
-      .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
+    void this.cleanupDBFork(blockNumber);
   }
 
   /**
@@ -532,6 +541,21 @@ export class ProvingOrchestrator implements EpochProver {
     });
 
     return epochProofResult;
+  }
+
+  private async cleanupDBFork(blockNumber: BlockNumber): Promise<void> {
+    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
+    const fork = this.dbs.get(blockNumber);
+    if (!fork) {
+      return;
+    }
+
+    try {
+      await fork.close();
+      this.dbs.delete(blockNumber);
+    } catch (err) {
+      logger.error(`Error closing db for block ${blockNumber}`, err);
+    }
   }
 
   /**
@@ -851,19 +875,22 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
-        await this.verifyBuiltBlockAgainstSyncedState(provingState);
-
         logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
 
         const leafLocation = provingState.setBlockRootRollupProof(result);
         const checkpointProvingState = provingState.parentCheckpoint;
+
+        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
+        await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
         if (checkpointProvingState.totalNumBlocks === 1) {
           this.checkAndEnqueueCheckpointRootRollup(checkpointProvingState);
         } else {
           this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
         }
+
+        // We are finished with the block at this point, ensure the fork is cleaned up
+        void this.cleanupDBFork(provingState.blockNumber);
       },
     );
   }
@@ -1219,9 +1246,9 @@ export class ProvingOrchestrator implements EpochProver {
       },
     );
 
-    this.deferredProving(provingState, doAvmProving, proofAndVk => {
+    this.deferredProving(provingState, doAvmProving, proof => {
       logger.debug(`Proven VM for tx index: ${txIndex}`);
-      txProvingState.setAvmProof(proofAndVk);
+      txProvingState.setAvmProof(proof);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
   }

@@ -165,8 +165,8 @@ jobs:
           ./.github/ci3.sh network-deploy next-scenario "$namespace" "$docker_image"
 
       - name: Cleanup network resources
-        # Clean up if this is a CI label.
-        if: always() && !startsWith(github.ref, 'refs/tags/v')
+        # Clean up if this is a CI label or nightly.
+        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nightly.'))
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -175,8 +175,7 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
-        run:
-          ./.github/ci3.sh network-teardown next-scenario "$NAMESPACE"
+        run: ./.github/ci3.sh network-teardown next-scenario "$NAMESPACE"
 
       #############
       # Benchmarks

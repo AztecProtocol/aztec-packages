@@ -4,6 +4,7 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/common/process.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -24,8 +25,11 @@ struct FuzzerSimulationRequest {
     std::vector<ContractClass> contract_classes;
     // Having addresses here avoids doing re-work in TS.
     std::vector<std::pair<AztecAddress, ContractInstance>> contract_instances;
+    // Public data tree writes to apply before simulation (e.g., for bytecode upgrades)
+    std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
 
-    MSGPACK_CAMEL_CASE_FIELDS(ws_data_dir, ws_map_size_kb, tx, globals, contract_classes, contract_instances);
+    MSGPACK_CAMEL_CASE_FIELDS(
+        ws_data_dir, ws_map_size_kb, tx, globals, contract_classes, contract_instances, public_data_writes);
 };
 
 struct SimulatorResult {
@@ -45,17 +49,21 @@ class Simulator {
     Simulator(Simulator&&) = delete;
     Simulator& operator=(Simulator&&) = delete;
     Simulator() = default;
-    virtual SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                                     fuzzer::FuzzerContractDB& contract_db,
-                                     const Tx& tx) = 0;
+    virtual SimulatorResult simulate(
+        fuzzer::FuzzerWorldStateManager& ws_mgr,
+        fuzzer::FuzzerContractDB& contract_db,
+        const Tx& tx,
+        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes) = 0;
 };
 
 /// @brief uses barretenberg/vm2 to simulate the bytecode
 class CppSimulator : public Simulator {
   public:
-    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                             fuzzer::FuzzerContractDB& contract_db,
-                             const Tx& tx) override;
+    SimulatorResult simulate(
+        fuzzer::FuzzerWorldStateManager& ws_mgr,
+        fuzzer::FuzzerContractDB& contract_db,
+        const Tx& tx,
+        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes) override;
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
@@ -77,9 +85,11 @@ class JsSimulator : public Simulator {
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
 
-    SimulatorResult simulate(fuzzer::FuzzerWorldStateManager& ws_mgr,
-                             fuzzer::FuzzerContractDB& contract_db,
-                             const Tx& tx) override;
+    SimulatorResult simulate(
+        fuzzer::FuzzerWorldStateManager& ws_mgr,
+        fuzzer::FuzzerContractDB& contract_db,
+        const Tx& tx,
+        const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes) override;
 };
 
 GlobalVariables create_default_globals();
@@ -91,6 +101,6 @@ Tx create_default_tx(const AztecAddress& contract_address,
                      bool is_static_call,
                      const Gas& gas_limit);
 
-bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2);
+bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2);
 
 GlobalVariables create_default_globals();

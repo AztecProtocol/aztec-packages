@@ -95,7 +95,15 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
     // Store the promise so cancel() can wait for it
     this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-    this.simulationPromise = avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel, this.cancellationToken);
+    this.simulationPromise = avmSimulate(
+      inputBuffer,
+      contractProvider,
+      wsCppHandle,
+      logLevel,
+      // TODO: re-enable logging
+      undefined,
+      this.cancellationToken,
+    );
 
     let resultBuffer: Buffer;
     try {

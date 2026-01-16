@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/gadgets/context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"

@@ -1,6 +1,5 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/contract_db_proxy.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction_settings.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -12,21 +11,11 @@
 
 void ProgramBlock::preprocess_memory_addresses(ResolvedAddress resolved_address)
 {
-    if (resolved_address.base_pointer.has_value()) {
-        auto set_base_offset_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
-                                               .operand(static_cast<uint16_t>(0))
-                                               .operand(bb::avm2::MemoryTag::U32)
-                                               .operand(resolved_address.base_pointer.value())
-                                               .build();
-        instructions.push_back(set_base_offset_instruction);
-        memory_manager.set_memory_address(bb::avm2::ValueTag::U32, 0U);
-    }
     if (resolved_address.pointer_address.has_value()) {
-        if (resolved_address.base_pointer.has_value()) {
+        if (resolved_address.via_relative) {
             // Indirect relative: Write the pointer in a relative manner
             auto set_pointer_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
-                                               .operand(static_cast<uint16_t>(resolved_address.pointer_address.value() -
-                                                                              resolved_address.base_pointer.value()))
+                                               .operand(static_cast<uint16_t>(resolved_address.operand_address))
                                                .relative()
                                                .operand(bb::avm2::MemoryTag::U32)
                                                .operand(resolved_address.absolute_address)
@@ -994,7 +983,6 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
 #ifdef DISABLE_GETENVVAR_INSTRUCTION
     return;
 #endif
-    auto instruction_type = static_cast<uint8_t>(instruction.type % 12);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!result_address_operand.has_value()) {
         return;
@@ -1002,11 +990,11 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
     preprocess_memory_addresses(result_address_operand.value().first);
     auto getenvvar_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETENVVAR_16)
                                      .operand(result_address_operand.value().second)
-                                     .operand(instruction_type)
+                                     .operand(instruction.type)
                                      .build();
     instructions.push_back(getenvvar_instruction);
     // special case for timestamp, it returns a 64-bit value
-    if (instruction_type == 6) {
+    if (instruction.type == 6) {
         memory_manager.set_memory_address(bb::avm2::MemoryTag::U64,
                                           result_address_operand.value().first.absolute_address);
     } else {
@@ -1291,33 +1279,25 @@ void ProgramBlock::process_getcontractinstance_instruction(GETCONTRACTINSTANCE_I
 #ifdef DISABLE_GETCONTRACTINSTANCE_INSTRUCTION
     return;
 #endif
-    auto contract_address =
-        bb::avm2::fuzzer::ContractDBProxy::get_instance()->get_function_address(instruction.contract_index);
-    auto set_function_address_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                                .result_address = instruction.contract_address_address,
-                                                                .value = contract_address };
-    this->process_set_ff_instruction(set_function_address_instruction);
-    auto contract_address_address_operand =
+    auto contract_address_address =
         memory_manager.get_resolved_address_and_operand_16(instruction.contract_address_address);
-    if (!contract_address_address_operand.has_value()) {
+
+    auto dst_address = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!contract_address_address.has_value() || !dst_address.has_value()) {
         return;
     }
-    preprocess_memory_addresses(contract_address_address_operand.value().first);
-    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
-    if (!dst_address_operand.has_value()) {
-        return;
-    }
-    preprocess_memory_addresses(dst_address_operand.value().first);
+    preprocess_memory_addresses(contract_address_address.value().first);
+    preprocess_memory_addresses(dst_address.value().first);
+
     auto get_contract_instance_instruction =
         bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETCONTRACTINSTANCE)
-            .operand(contract_address_address_operand.value().second)
-            .operand(dst_address_operand.value().second)
-            .operand(
-                static_cast<uint8_t>(instruction.member_enum % 3)) // taking modulo 3 to ensure the member enum is valid
+            .operand(contract_address_address.value().second)
+            .operand(dst_address.value().second)
+            .operand(instruction.member_enum)
             .build();
     instructions.push_back(get_contract_instance_instruction);
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address_operand.value().first.absolute_address);
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address_operand.value().first.absolute_address + 1);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, dst_address.value().first.absolute_address);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, dst_address.value().first.absolute_address + 1);
 }
 
 void ProgramBlock::process_successcopy_instruction(SUCCESSCOPY_Instruction instruction)
@@ -1520,6 +1500,34 @@ void ProgramBlock::process_toradixbe_instruction(TORADIXBE_Instruction instructi
     memory_manager.set_memory_address(output_tag, dst_operand.value().first.absolute_address);
 }
 
+void ProgramBlock::process_debuglog_instruction(DEBUGLOG_Instruction instruction)
+{
+    auto level_operand = memory_manager.get_resolved_address_and_operand_16(instruction.level_offset);
+    auto message_operand = memory_manager.get_resolved_address_and_operand_16(instruction.message_offset);
+    auto fields_operand = memory_manager.get_resolved_address_and_operand_16(instruction.fields_offset);
+    auto fields_size_operand = memory_manager.get_resolved_address_and_operand_16(instruction.fields_size_offset);
+    auto message_size = instruction.message_size;
+
+    if (!level_operand.has_value() || !message_operand.has_value() || !fields_operand.has_value() ||
+        !fields_size_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(level_operand.value().first);
+    preprocess_memory_addresses(message_operand.value().first);
+    preprocess_memory_addresses(fields_operand.value().first);
+    preprocess_memory_addresses(fields_size_operand.value().first);
+
+    auto debuglog_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::DEBUGLOG)
+                                    .operand(level_operand.value().second)
+                                    .operand(message_operand.value().second)
+                                    .operand(fields_operand.value().second)
+                                    .operand(fields_size_operand.value().second)
+                                    .operand(message_size)
+                                    .build();
+    instructions.push_back(debuglog_instruction);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1654,6 +1662,18 @@ bool ProgramBlock::is_memory_address_set(uint16_t address)
     return memory_manager.is_memory_address_set(address);
 }
 
+void ProgramBlock::process_instruction_block(InstructionBlock& instruction_block)
+{
+    memory_manager.set_base_offset(instruction_block.base_offset);
+    process_set_32_instruction(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = instruction_block.base_offset });
+    for (const auto& instr : instruction_block.instructions) {
+        process_instruction(instr);
+    }
+}
+
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
 {
     std::visit(
@@ -1740,6 +1760,7 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 return this->process_l1tol2msgexists_instruction(instruction);
             },
             [this](TORADIXBE_Instruction instruction) { return this->process_toradixbe_instruction(instruction); },
+            [this](DEBUGLOG_Instruction instruction) { return this->process_debuglog_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

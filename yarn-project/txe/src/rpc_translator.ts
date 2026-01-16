@@ -444,7 +444,7 @@ export class RPCTranslator {
         randomness: noteData.randomness,
         storageSlot: noteData.storageSlot,
         noteNonce: noteData.noteNonce,
-        index: noteData.index,
+        isPending: noteData.isPending,
         note: noteData.note,
       }),
     );

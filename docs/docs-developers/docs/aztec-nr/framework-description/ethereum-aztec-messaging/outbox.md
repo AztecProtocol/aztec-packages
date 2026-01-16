@@ -4,25 +4,24 @@ description: Learn about the outbox mechanism in Aztec portals for sending messa
 tags: [portals, contracts]
 ---
 
-The `Outbox` is a contract deployed on L1 that handles message passing from L2 to L1. Portal contracts call `consume()` to receive and process messages that were sent from L2 contracts. The Rollup contract inserts message roots via `insert()` when checkpoints are proven.
+The `Outbox` is a contract deployed on L1 that handles message passing from L2 to L1. Portal contracts call `consume()` to receive and process messages that were sent from L2 contracts. The Rollup contract inserts message roots via `insert()` when epochs are proven.
 
 **Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/messagebridge/Outbox.sol).
 
 ## `insert()`
 
-Inserts the root of a merkle tree containing all of the L2 to L1 messages in a checkpoint. This function is only callable by the Rollup contract.
+Inserts the root of a merkle tree containing all of the L2 to L1 messages in an epoch. This function is only callable by the Rollup contract.
 
 #include_code outbox_insert l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
-| Name                | Type      | Description                                                            |
-| ------------------- | --------- | ---------------------------------------------------------------------- |
-| `_checkpointNumber` | `uint256` | The checkpoint number in which the L2 to L1 messages reside            |
-| `_root`             | `bytes32` | The merkle root of the tree where all the L2 to L1 messages are leaves |
+| Name           | Type      | Description                                                            |
+| -------------- | --------- | ---------------------------------------------------------------------- |
+| `_epochNumber` | `uint256` | The epoch number in which the L2 to L1 messages reside                 |
+| `_root`        | `bytes32` | The merkle root of the tree where all the L2 to L1 messages are leaves |
 
 ### Edge cases
 
 - Will revert with `Outbox__Unauthorized()` if `msg.sender != ROLLUP_CONTRACT`.
-- Will revert with `Outbox__CheckpointAlreadyProven(uint256 checkpointNumber)` if the checkpoint has already been proven.
 
 ## `consume()`
 
@@ -30,36 +29,35 @@ Allows a recipient to consume a message from the `Outbox`.
 
 #include_code outbox_consume l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
-| Name                | Type        | Description                                                                                  |
-| ------------------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `_message`          | `L2ToL1Msg` | The L2 to L1 message to consume                                                              |
-| `_checkpointNumber` | `uint256`   | The checkpoint number specifying the checkpoint that contains the message to consume         |
-| `_leafIndex`        | `uint256`   | The index inside the merkle tree where the message is located                                |
-| `_path`             | `bytes32[]` | The sibling path used to prove inclusion of the message                                      |
+| Name           | Type        | Description                                                                |
+| -------------- | ----------- | -------------------------------------------------------------------------- |
+| `_message`     | `L2ToL1Msg` | The L2 to L1 message to consume                                            |
+| `_epochNumber` | `uint256`   | The epoch number specifying the epoch that contains the message to consume |
+| `_leafIndex`   | `uint256`   | The index inside the merkle tree where the message is located              |
+| `_path`        | `bytes32[]` | The sibling path used to prove inclusion of the message                    |
 
 ### Edge cases
 
 - Will revert with `Outbox__PathTooLong()` if the path length is >= 256.
 - Will revert with `Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength)` if the leaf index exceeds the tree capacity for the given path length.
-- Will revert with `Outbox__CheckpointNotProven(uint256 checkpointNumber)` if the checkpoint has not been proven yet.
 - Will revert with `Outbox__VersionMismatch(uint256 expected, uint256 actual)` if the message version does not match the Outbox version.
 - Will revert with `Outbox__InvalidRecipient(address expected, address actual)` if `msg.sender != _message.recipient.actor`.
 - Will revert with `Outbox__InvalidChainId()` if `block.chainid != _message.recipient.chainId`.
-- Will revert with `Outbox__NothingToConsumeAtCheckpoint(uint256 checkpointNumber)` if the root for the checkpoint has not been set.
-- Will revert with `Outbox__AlreadyNullified(uint256 checkpointNumber, uint256 leafIndex)` if the message has already been consumed.
+- Will revert with `Outbox__NothingToConsumeAtEpoch(uint256 epochNumber)` if the root for the epoch has not been set.
+- Will revert with `Outbox__AlreadyNullified(uint256 epochNumber, uint256 leafIndex)` if the message has already been consumed.
 - Will revert with `MerkleLib__InvalidIndexForPathLength()` if the leaf index has bits set beyond the tree height.
 - Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex)` if the merkle proof verification fails.
 
-## `hasMessageBeenConsumedAtCheckpoint()`
+## `hasMessageBeenConsumedAtEpoch()`
 
-Checks if an L2 to L1 message in a specific checkpoint has been consumed.
+Checks if an L2 to L1 message in a specific epoch has been consumed.
 
-#include_code outbox_has_message_been_consumed_at_checkpoint_and_index l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+#include_code outbox_has_message_been_consumed_at_epoch_and_index l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
-| Name                | Type      | Description                                                                                             |
-| ------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
-| `_checkpointNumber` | `uint256` | The checkpoint number specifying the checkpoint that contains the message to check                      |
-| `_leafId`           | `uint256` | The unique id of the message leaf                                                                       |
+| Name           | Type      | Description                                                              |
+| -------------- | --------- | ------------------------------------------------------------------------ |
+| `_epochNumber` | `uint256` | The epoch number specifying the epoch that contains the message to check |
+| `_leafId`      | `uint256` | The unique id of the message leaf                                        |
 
 ### Edge cases
 
@@ -67,17 +65,17 @@ Checks if an L2 to L1 message in a specific checkpoint has been consumed.
 
 ## `getRootData()`
 
-Returns the merkle root for a given checkpoint number. Returns `bytes32(0)` if the checkpoint has not been proven.
+Returns the merkle root for a given epoch number. Returns `bytes32(0)` if the epoch has not been proven.
 
 ```solidity
-function getRootData(uint256 _checkpointNumber) external view returns (bytes32);
+function getRootData(uint256 _epochNumber) external view returns (bytes32);
 ```
 
-| Name                | Type      | Description                                      |
-| ------------------- | --------- | ------------------------------------------------ |
-| `_checkpointNumber` | `uint256` | The checkpoint number to fetch the root data for |
+| Name           | Type      | Description                                 |
+| -------------- | --------- | ------------------------------------------- |
+| `_epochNumber` | `uint256` | The epoch number to fetch the root data for |
 
-**Returns**: The merkle root of the L2 to L1 message tree for the checkpoint, or `bytes32(0)` if not proven.
+**Returns**: The merkle root of the L2 to L1 message tree for the epoch, or `bytes32(0)` if not proven.
 
 ## Related pages
 

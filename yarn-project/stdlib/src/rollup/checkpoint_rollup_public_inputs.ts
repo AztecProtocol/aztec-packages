@@ -28,6 +28,14 @@ export class CheckpointRollupPublicInputs {
      */
     public newArchive: AppendOnlyTreeSnapshot,
     /**
+     * The out hash tree snapshot immediately before this checkpoint range.
+     */
+    public previousOutHash: AppendOnlyTreeSnapshot,
+    /**
+     * The out hash tree snapshot after applying this checkpoint range.
+     */
+    public newOutHash: AppendOnlyTreeSnapshot,
+    /**
      * The hashes of the headers of the constituent checkpoints.
      */
     public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
@@ -55,6 +63,8 @@ export class CheckpointRollupPublicInputs {
       reader.readObject(EpochConstantData),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       reader.readObject(BlobAccumulator),
@@ -68,6 +78,8 @@ export class CheckpointRollupPublicInputs {
       this.constants,
       this.previousArchive,
       this.newArchive,
+      this.previousOutHash,
+      this.newOutHash,
       this.checkpointHeaderHashes,
       this.fees,
       this.startBlobAccumulator,

@@ -16,7 +16,6 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
-import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
@@ -112,12 +111,26 @@ library EpochProofLib {
     // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
-    verifyLastCheckpointAttestations(_args.end, _args.attestations);
+    verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.tips = rollupStore.tips.updateProven(Math.max(rollupStore.tips.getProven(), _args.end));
+
+    // Advance the proven block number and insert the out hash if the chain is extended.
+    if (_args.end > rollupStore.tips.getProven()) {
+      rollupStore.tips = rollupStore.tips.updateProven(_args.end);
+
+      // Handle L2->L1 message processing.
+      // The circuit outputs an empty out hash tree root if the epoch contains no messages.
+      // Since the out hash tree is append-only, with the first checkpoint at index 0, the second at index 1, and so on,
+      // a partial epoch cannot produce a non-empty out hash and later revert to an empty one as more checkpoints are
+      // included. Therefore, it is safe to skip insertion when the out hash is empty.
+      if (_args.args.outHash != bytes32(Constants.EMPTY_EPOCH_OUT_HASH)) {
+        // Insert L2->L1 messages root into outbox for consumption.
+        rollupStore.config.outbox.insert(endEpoch, _args.args.outHash);
+      }
+    }
 
     RewardLib.handleRewardsAndFees(_args, endEpoch);
 
@@ -171,6 +184,7 @@ library EpochProofLib {
     // struct RootRollupPublicInputs {
     //   previous_archive_root: Field,
     //   end_archive_root: Field,
+    //   out_hash: Field,
     //   checkpointHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   chain_id: Field,
@@ -178,7 +192,7 @@ library EpochProofLib {
     //   vk_tree_root: Field,
     //   protocol_contracts_hash: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
+    //   blob_public_inputs: FinalBlobAccumulator,
     // }
     {
       // previous_archive.root: the previous archive tree root
@@ -186,15 +200,17 @@ library EpochProofLib {
 
       // end_archive.root: the new archive tree root
       publicInputs[1] = _args.endArchive;
+
+      publicInputs[2] = _args.outHash;
     }
 
     uint256 numCheckpoints = _end - _start + 1;
 
     for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[2 + i] = STFLib.getHeaderHash(_start + i);
+      publicInputs[3 + i] = STFLib.getHeaderHash(_start + i);
     }
 
-    uint256 offset = 2 + Constants.AZTEC_MAX_EPOCH_DURATION;
+    uint256 offset = 3 + Constants.AZTEC_MAX_EPOCH_DURATION;
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
@@ -249,7 +265,6 @@ library EpochProofLib {
     publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
     // c[1]
     publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
-    offset += 2;
 
     return publicInputs;
   }
@@ -272,9 +287,11 @@ library EpochProofLib {
    * @param _endCheckpointNumber The last checkpoint number in the epoch to verify attestations for
    * @param _attestations The committee attestations containing signatures and validator information
    */
-  function verifyLastCheckpointAttestations(uint256 _endCheckpointNumber, CommitteeAttestations memory _attestations)
-    private
-  {
+  function verifyLastCheckpointAttestationsAndOutHash(
+    uint256 _endCheckpointNumber,
+    CommitteeAttestations memory _attestations,
+    bytes32 _outHash
+  ) private {
     // Get the stored attestation hash and payload digest for the last checkpoint
     CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
 
@@ -300,6 +317,10 @@ library EpochProofLib {
     }
 
     ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, checkpointLog.payloadDigest);
+
+    // Verify that the out hash matches the stored value
+    // The stored out hash is part of the payloadDigest that was attested to.
+    require(checkpointLog.outHash == _outHash, Errors.Rollup__InvalidOutHash(checkpointLog.outHash, _outHash));
   }
 
   /**

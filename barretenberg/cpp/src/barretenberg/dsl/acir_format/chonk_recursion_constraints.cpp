@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
@@ -37,12 +37,10 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
     BB_ASSERT_EQ(proof_size, ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
-    uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
 
     // Generate mock honk vk
     // Note: log_circuit_size = VIRTUAL_LOG_N
-    auto honk_vk = create_mock_honk_vk<MegaZKFlavor, IO>(
-        1 << MegaZKFlavor::VIRTUAL_LOG_N, pub_inputs_offset, num_inner_public_inputs);
+    auto honk_vk = create_mock_honk_vk<MegaZKFlavor, IO>(1 << MegaZKFlavor::VIRTUAL_LOG_N, num_inner_public_inputs);
 
     // Set honk vk in builder
     populate_fields(builder, key_fields, honk_vk->to_field_elements());

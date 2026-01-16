@@ -54,6 +54,10 @@ export class MockEpochCache implements EpochCacheInterface {
     });
   }
 
+  getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
+    return Promise.resolve(undefined);
+  }
+
   isInCommittee(_slot: SlotTag, _validator: EthAddress): Promise<boolean> {
     return Promise.resolve(false);
   }

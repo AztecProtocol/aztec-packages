@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -31,6 +31,65 @@ using namespace stdlib;
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
 enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
+
+// Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_TAIL, HN_FINAL)
+constexpr bool is_hypernova_proof_type(uint32_t proof_type)
+{
+    return proof_type == PROOF_TYPE::OINK || proof_type == PROOF_TYPE::HN || proof_type == PROOF_TYPE::HN_TAIL ||
+           proof_type == PROOF_TYPE::HN_FINAL;
+}
+
+// Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Throws for non-HyperNova types.
+// Note: QUEUE_TYPE::MEGA is internal to Chonk and has no ACIR equivalent.
+inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
+{
+    switch (proof_type) {
+    case PROOF_TYPE::OINK:
+        return Chonk::QUEUE_TYPE::OINK;
+    case PROOF_TYPE::HN:
+        return Chonk::QUEUE_TYPE::HN;
+    case PROOF_TYPE::HN_TAIL:
+        return Chonk::QUEUE_TYPE::HN_TAIL;
+    case PROOF_TYPE::HN_FINAL:
+        return Chonk::QUEUE_TYPE::HN_FINAL;
+    default:
+        throw_or_abort("proof_type_to_chonk_queue_type: invalid type " + std::to_string(proof_type));
+    }
+}
+
+// Inverse of proof_type_to_chonk_queue_type. Throws for MEGA (no ACIR equivalent).
+inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
+{
+    switch (queue_type) {
+    case Chonk::QUEUE_TYPE::OINK:
+        return PROOF_TYPE::OINK;
+    case Chonk::QUEUE_TYPE::HN:
+        return PROOF_TYPE::HN;
+    case Chonk::QUEUE_TYPE::HN_TAIL:
+        return PROOF_TYPE::HN_TAIL;
+    case Chonk::QUEUE_TYPE::HN_FINAL:
+        return PROOF_TYPE::HN_FINAL;
+    case Chonk::QUEUE_TYPE::MEGA:
+        throw_or_abort("queue_type_to_proof_type: MEGA has no ACIR equivalent");
+    }
+    throw_or_abort("queue_type_to_proof_type: unknown type");
+}
+
+// Static assertions to catch PROOF_TYPE/QUEUE_TYPE enum desync at compile time
+namespace detail {
+// PROOF_TYPE values must match Noir constants
+static_assert(PROOF_TYPE::OINK == 1);
+static_assert(PROOF_TYPE::HN == 2);
+static_assert(PROOF_TYPE::HN_FINAL == 7);
+static_assert(PROOF_TYPE::HN_TAIL == 8);
+
+// QUEUE_TYPE ordering (internal, but catch unexpected changes)
+static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::OINK) == 0);
+static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN) == 1);
+static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_TAIL) == 2);
+static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_FINAL) == 3);
+static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::MEGA) == 4);
+} // namespace detail
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof

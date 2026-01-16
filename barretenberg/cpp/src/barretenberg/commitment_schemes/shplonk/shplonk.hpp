@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -551,6 +551,9 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
                                                                  bool committed_sumcheck = false)
 {
     // Minimum size of `denominators`
+    // Note that when the claim batch has no interleaving this will create one power more than it is used, so the
+    // circuit will have a witness appearing only in one gate. Getting rid of this extra power is complicated because of
+    // how Gemini and interleaving are coupled. This is not a security issue, we just compute a value that we never use.
     size_t num_powers = 2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;

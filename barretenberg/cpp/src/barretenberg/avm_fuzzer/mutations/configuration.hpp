@@ -105,22 +105,20 @@ constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = Memo
     { MemoryTagOptions::FF, 1 },
 });
 
-enum class VariableRefMutationOptions { tag, index, pointer_address, base_offset, mode };
-using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 5>;
+enum class VariableRefMutationOptions { tag, index, pointer_address, mode };
+using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 4>;
 constexpr VariableRefMutationConfig BASIC_VARIABLE_REF_MUTATION_CONFIGURATION = VariableRefMutationConfig({
     { VariableRefMutationOptions::tag, 3 },
     { VariableRefMutationOptions::index, 4 },
     { VariableRefMutationOptions::pointer_address, 1 },
-    { VariableRefMutationOptions::base_offset, 1 },
     { VariableRefMutationOptions::mode, 2 },
 });
 
-enum class AddressRefMutationOptions { address, pointer_address, base_offset, mode };
-using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
+enum class AddressRefMutationOptions { address, pointer_address, mode };
+using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 3>;
 constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
     { AddressRefMutationOptions::address, 1 },
     { AddressRefMutationOptions::pointer_address, 1 },
-    { AddressRefMutationOptions::base_offset, 1 },
     { AddressRefMutationOptions::mode, 1 },
 });
 
@@ -275,9 +273,10 @@ enum class InstructionGenerationOptions {
     KECCAKF1600,
     SHA256COMPRESSION,
     TORADIXBE,
+    DEBUGLOG,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 58>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 59>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -338,6 +337,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::KECCAKF1600, 1 },
     { InstructionGenerationOptions::SHA256COMPRESSION, 1 },
     { InstructionGenerationOptions::TORADIXBE, 1 },
+    { InstructionGenerationOptions::DEBUGLOG, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
@@ -464,12 +464,11 @@ constexpr ReturndatasizeWithReturndatacopyMutationConfig
         { ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset, 1 },
     });
 
-enum class GetContractInstanceMutationOptions { contract_index, contract_address_address, dst_address, member_enum };
-using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 4>;
+enum class GetContractInstanceMutationOptions { contract_address_address, dst_address, member_enum };
+using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 3>;
 
 constexpr GetContractInstanceMutationConfig BASIC_GETCONTRACTINSTANCE_MUTATION_CONFIGURATION =
     GetContractInstanceMutationConfig({
-        { GetContractInstanceMutationOptions::contract_index, 1 },
         { GetContractInstanceMutationOptions::contract_address_address, 1 },
         { GetContractInstanceMutationOptions::dst_address, 1 },
         { GetContractInstanceMutationOptions::member_enum, 1 },
@@ -499,6 +498,17 @@ constexpr ToRadixBEMutationConfig BASIC_TORADIXBE_MUTATION_CONFIGURATION = ToRad
     { ToRadixBEMutationOptions::output_bits_address, 1 },
     { ToRadixBEMutationOptions::dst_address, 1 },
     { ToRadixBEMutationOptions::is_output_bits, 1 },
+});
+
+enum class DebugLogMutationOptions { level_offset, message_offset, fields_offset, fields_size_offset, message_size };
+using DebugLogMutationConfig = WeightedSelectionConfig<DebugLogMutationOptions, 5>;
+
+constexpr DebugLogMutationConfig BASIC_DEBUGLOG_MUTATION_CONFIGURATION = DebugLogMutationConfig({
+    { DebugLogMutationOptions::level_offset, 1 },
+    { DebugLogMutationOptions::message_offset, 1 },
+    { DebugLogMutationOptions::fields_offset, 1 },
+    { DebugLogMutationOptions::fields_size_offset, 1 },
+    { DebugLogMutationOptions::message_size, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };

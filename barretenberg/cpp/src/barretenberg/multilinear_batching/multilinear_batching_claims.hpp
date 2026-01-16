@@ -1,25 +1,32 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 
-#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
+
+/**
+ * @brief Verifier's claim for multilinear batching - contains commitments and evaluation claims.
+ * @details Templated on Curve to support both native (BN254) and recursive (stdlib) verification.
+ */
 template <typename Curve> struct MultilinearBatchingVerifierClaim {
-    using FF = Curve::ScalarField;
-    using Commitment = Curve::AffineElement;
-    std::vector<FF> challenge;
-    FF non_shifted_evaluation;
-    FF shifted_evaluation;
-    Commitment non_shifted_commitment;
-    Commitment shifted_commitment;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+
+    std::vector<FF> challenge;         // Evaluation point r
+    FF non_shifted_evaluation;         // Claimed value P(r)
+    FF shifted_evaluation;             // Claimed value P_shifted(r)
+    Commitment non_shifted_commitment; // Commitment [P]
+    Commitment shifted_commitment;     // Commitment [P_shifted]
 
     /**
-     * @brief Constructor for instantiating a recursive claim from a native one
-     *
-     * @tparam RecursiveCurve
-     * @param builder
-     * @param native_claim
-     * @return MultilinearBatchingVerifierClaim
+     * @brief Construct a recursive claim from a native one.
      */
     template <typename RecursiveCurve>
     static MultilinearBatchingVerifierClaim stdlib_from_native(
@@ -42,7 +49,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     }
 
     /**
-     * @brief Return the native claim underlying the recursive one
+     * @brief Extract native claim from recursive one.
      */
     template <typename T>
     T get_value()
@@ -63,96 +70,40 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     }
 
     /**
-     * @brief Tag claim components and hash.
+     * @brief Tag claim components and hash for origin tagging.
      */
-    template <typename T>
-    FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator, T& transcript) const
+    template <typename Codec, typename HashFn> FF hash_with_origin_tagging(const OriginTag& tag) const
     {
-        using Codec = typename T::Codec;
+        constexpr bool in_circuit = Curve::is_stdlib_type;
         std::vector<FF> claim_elements;
 
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
-
-        // Tag, serialize, and append
         auto append_tagged = [&]<typename U>(const U& component) {
-            auto frs = bb::tag_and_serialize<T::in_circuit, Codec>(component, tag);
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
             claim_elements.insert(claim_elements.end(), frs.begin(), frs.end());
         };
 
-        // Tag and serialize all challenge elements
         for (const auto& element : challenge) {
             append_tagged(element);
         }
 
-        // Tag and serialize evaluations and commitments
         append_tagged(non_shifted_evaluation);
         append_tagged(shifted_evaluation);
         append_tagged(non_shifted_commitment);
         append_tagged(shifted_commitment);
 
-        // Sanitize free witness tags before hashing
-        bb::unset_free_witness_tags<T::in_circuit, FF>(claim_elements);
+        bb::unset_free_witness_tags<in_circuit, FF>(claim_elements);
 
-        // Hash the tagged elements directly
-        return T::HashFunction::hash(claim_elements);
+        return HashFn::hash(claim_elements);
     }
-};
 
-struct MultilinearBatchingProverClaim {
-    using FF = MultilinearBatchingFlavor::FF;
-    using Commitment = MultilinearBatchingFlavor::Commitment;
-    using Polynomial = MultilinearBatchingFlavor::Polynomial;
-    std::vector<FF> challenge;
-    FF non_shifted_evaluation;
-    FF shifted_evaluation;
-    Polynomial non_shifted_polynomial;
-    Polynomial shifted_polynomial;
-    Commitment non_shifted_commitment;
-    Commitment shifted_commitment;
-    size_t dyadic_size;
-
-#ifndef NDEBUG
-    bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim)
+    /**
+     * @brief Convenience overload that extracts tag from transcript.
+     */
+    template <typename TranscriptType> FF hash_with_origin_tagging(const TranscriptType& transcript) const
     {
-        bool is_a_match = true;
-        CommitmentKey<curve::BN254> bn254_commitment_key(dyadic_size);
-
-        for (size_t idx = 0;
-             auto [prover_challenge, verifier_challenge] : zip_view(challenge, verifier_claim.challenge)) {
-            if (prover_challenge != verifier_challenge) {
-                info("Challenge mismatch at index ", idx);
-                is_a_match = false;
-            }
-            idx++;
-        }
-
-        if (verifier_claim.non_shifted_commitment != bn254_commitment_key.commit(non_shifted_polynomial)) {
-            info("Non-shifted commitment mismatch");
-            is_a_match = false;
-        }
-
-        if (verifier_claim.shifted_commitment != bn254_commitment_key.commit(shifted_polynomial)) {
-            info("Shifted commitment mismatch");
-            is_a_match = false;
-        }
-
-        // Bump the virtual size to compute mle evaluations
-        non_shifted_polynomial.increase_virtual_size(1 << challenge.size());
-        shifted_polynomial.increase_virtual_size(1 << challenge.size());
-
-        if (verifier_claim.non_shifted_evaluation != non_shifted_polynomial.evaluate_mle(verifier_claim.challenge)) {
-            info("Non-shifted evaluation mismatch");
-            is_a_match = false;
-        }
-
-        if (verifier_claim.shifted_evaluation != shifted_polynomial.evaluate_mle(verifier_claim.challenge, true)) {
-            info("Shifted evaluation mismatch");
-            is_a_match = false;
-        }
-
-        return is_a_match;
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging<typename TranscriptType::Codec, typename TranscriptType::HashFunction>(tag);
     }
-#endif
 };
 
 } // namespace bb

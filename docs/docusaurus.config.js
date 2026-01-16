@@ -124,17 +124,17 @@ const config = {
         includeCurrentVersion: process.env.CONTEXT !== "production",
         lastVersion: devnetVersion,
         versions: {
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
-            },
-          }),
           ...(devnetVersion && {
             [devnetVersion]: {
               label: `Devnet (${devnetVersion})`,
               path: "",
               banner: "none",
+            },
+          }),
+          ...(nightlyVersion && {
+            [nightlyVersion]: {
+              path: "nightly",
+              banner: "unreleased",
             },
           }),
           ...(process.env.CONTEXT !== "production" && {
@@ -282,13 +282,13 @@ const config = {
             label: "Build",
           },
 
-          // Network sidebar link
+          // Network portal link
           {
-            type: "docSidebar",
-            sidebarId: "sidebar",
+            type: "doc",
+            docId: "index",
             docsPluginId: "network",
             position: "left",
-            label: "Run a node",
+            label: "Network",
           },
           {
             to: "/networks",

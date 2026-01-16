@@ -76,8 +76,8 @@ export abstract class BaseTestWallet extends BaseWallet {
     this.simulatedSimulations = false;
   }
 
-  setBaseFeePadding(value?: number) {
-    this.baseFeePadding = value ?? 0.5;
+  setMinFeePadding(value?: number) {
+    this.minFeePadding = value ?? 0.5;
   }
 
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {

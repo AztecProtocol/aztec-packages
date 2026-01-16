@@ -27,7 +27,7 @@ include "../trees/public_data_check.pil";
 // in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
 //
 namespace update_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -68,10 +68,6 @@ namespace update_check;
     sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
 
     // TODO: Remove this as a column when we can lookup with constants
-    pol commit public_leaf_index_domain_separator;
-    sel * (constants.DOM_SEP__PUBLIC_LEAF_INDEX - public_leaf_index_domain_separator) = 0;
-
-    // TODO: Remove this as a column when we can lookup with constants
     pol commit deployer_protocol_contract_address;
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
@@ -91,7 +87,7 @@ namespace update_check;
     // ======== DELAYED PUBLIC MUTABLE PREIMAGE CONSTRAINING ========
 
     pol commit update_hash_inv;
-    pol commit hash_not_zero;
+    pol commit hash_not_zero; // @boolean
     hash_not_zero * (1 - hash_not_zero) = 0;
     pol HASH_IS_ZERO = 1 - hash_not_zero;
 
@@ -140,20 +136,20 @@ namespace update_check;
     // ======== CLASS ID CHECK ========
     // We are going to use the gt gadget to compare `timestamp` and `timestamp_of_change` and derive
     // the boolean value of `timestamp_is_lt_timestamp_of_change`.
-    pol commit timestamp_is_lt_timestamp_of_change; // Boolean value enforced by gt gadget (under condition hash_not_zero == 1).
+    pol commit timestamp_is_lt_timestamp_of_change; // @boolean (by lookup) Boolean value enforced by gt gadget (under condition hash_not_zero == 1).
 
     // Equivalent to "timestamp_of_change > timestamp"
     #[TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE]
     hash_not_zero { timestamp_of_change, timestamp, timestamp_is_lt_timestamp_of_change }
     in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    pol commit update_pre_class_id_is_zero;
+    pol commit update_pre_class_id_is_zero; // @boolean
     update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;
     pol commit update_pre_class_inv;
     #[UPDATE_PRE_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_id_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_id_is_zero) = 0;
 
-    pol commit update_post_class_id_is_zero;
+    pol commit update_post_class_id_is_zero; // @boolean
     update_post_class_id_is_zero * (1 - update_post_class_id_is_zero) = 0;
     pol commit update_post_class_inv;
     #[UPDATE_POST_CLASS_IS_ZERO]

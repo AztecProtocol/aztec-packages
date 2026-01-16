@@ -75,7 +75,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                                    static_cast<View>(in.get(C::to_radix_mem_space_id)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    { // VALUE_CONTNUITY
+    { // VALUE_CONTINUITY
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = CView(to_radix_mem_NOT_LAST) * (static_cast<View>(in.get(C::to_radix_mem_value_to_decompose_shift)) -
                                                    static_cast<View>(in.get(C::to_radix_mem_value_to_decompose)));
@@ -285,14 +285,20 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                             static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem)));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SEL_SHOULD_WRITE_MEM_REQUIRES_SEL
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem)) *
+                   (FF(1) - static_cast<View>(in.get(C::to_radix_mem_sel)));
+        std::get<37>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::to_radix_mem_output_tag)) -
                     static_cast<View>(in.get(C::to_radix_mem_sel_should_write_mem)) *
                         ((CView(constants_MEM_TAG_U1) - CView(constants_MEM_TAG_U8)) *
                              static_cast<View>(in.get(C::to_radix_mem_is_output_bits)) +
                          CView(constants_MEM_TAG_U8)));
-        std::get<37>(evals) += (tmp * scaling_factor);
+        std::get<38>(evals) += (tmp * scaling_factor);
     }
 }
 

@@ -4,7 +4,7 @@ import { waitForProven } from '@aztec/aztec.js/contracts';
 import { Tx, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -42,8 +42,6 @@ describe('full_prover', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
     await t.setup();
 
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
@@ -158,13 +156,17 @@ describe('full_prover', () => {
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
       const reward = await rollup.getCheckpointReward();
-      const newProvenBlockNumber = Number(newProvenCheckpointNumber);
-      const fees = (
-        await Promise.all([
-          t.aztecNode.getBlock(BlockNumber(newProvenBlockNumber - 1)),
-          t.aztecNode.getBlock(BlockNumber(newProvenBlockNumber)),
-        ])
-      ).map(b => b!.header.totalFees.toBigInt());
+
+      // Get all checkpoints that were proven in this epoch
+      const numCheckpointsProven = Number(newProvenCheckpointNumber) - Number(oldProvenCheckpointNumber);
+      const publishedCheckpoints = await t.aztecNode.getPublishedCheckpoints(
+        CheckpointNumber(Number(oldProvenCheckpointNumber) + 1),
+        numCheckpointsProven,
+      );
+
+      // Extract all blocks from all proven checkpoints
+      const allBlocks = publishedCheckpoints.flatMap(pc => pc.checkpoint.blocks);
+      const fees = allBlocks.map(b => b.header.totalFees.toBigInt());
 
       const totalRewards = fees.map(fee => fee + reward).reduce((acc, reward) => acc + reward, 0n);
       const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;

@@ -115,7 +115,7 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let mut inserted_cards = &[];
+        let mut inserted_cards = @[];
         for card in cards {
             let card_note = CardNote::from_card(card);
             self.owned_set.at(owner).insert(card_note.note).deliver(

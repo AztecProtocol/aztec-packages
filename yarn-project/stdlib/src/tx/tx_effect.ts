@@ -28,7 +28,6 @@ import { RevertCode } from '../avm/revert_code.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
-import { computeTxOutHash } from '../messaging/out_hash.js';
 import { TxHash } from './tx_hash.js';
 
 export class TxEffect {
@@ -182,14 +181,6 @@ export class TxEffect {
       reader.readVector(PublicLog),
       reader.readVectorUint8Prefix(ContractClassLog),
     );
-  }
-
-  /**
-   * Computes txOutHash of this tx effect.
-   * @dev Follows new_sha in unbalanced_merkle_tree.nr
-   */
-  txOutHash(): Fr {
-    return computeTxOutHash(this.l2ToL1Msgs);
   }
 
   static async random({

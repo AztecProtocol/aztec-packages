@@ -1,10 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 
 namespace bb {
 
@@ -12,6 +14,10 @@ template <typename Flavor>
 HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>::verify_proof(
     Accumulator& accumulator, const HypernovaDeciderVerifier::Proof& proof)
 {
+    using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
+
     vinfo("HypernovaDeciderVerifier: verifying PCS proof...");
     transcript->load_proof(proof);
 

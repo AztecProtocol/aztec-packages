@@ -43,7 +43,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
@@ -88,6 +88,7 @@ import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { L2BlockHeader } from '../block/l2_block_header.js';
+import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
   ContractDeploymentData,
@@ -164,7 +165,6 @@ import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
@@ -850,11 +850,13 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeEpochConstantData(seed),
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x400),
-    makeBlobAccumulator(seed + 0x500),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    makeAppendOnlyTreeSnapshot(seed + 0x350),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeBlobAccumulator(seed + 0x600),
-    makeFinalBlobBatchingChallenges(seed + 0x700),
+    makeBlobAccumulator(seed + 0x700),
+    makeFinalBlobBatchingChallenges(seed + 0x800),
   );
 }
 
@@ -886,18 +888,12 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
     fr(seed + 0x100),
     fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
+    fr(seed + 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
     makeFinalBlobAccumulator(seed + 0x700),
   );
-}
-
-/**
- * Makes content commitment
- */
-export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
 export function makeBlockHeader(
@@ -923,7 +919,9 @@ export function makeL2BlockHeader(
 ) {
   return new L2BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200),
+    overrides?.blobsHash ?? fr(seed + 0x200),
+    overrides?.inHash ?? fr(seed + 0x300),
+    overrides?.epochOutHash ?? fr(seed + 0x400),
     overrides?.state ?? makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
       ...(blockNumber !== undefined ? { blockNumber: BlockNumber(blockNumber) } : {}),
@@ -940,7 +938,9 @@ export function makeCheckpointHeader(seed = 0) {
   return CheckpointHeader.from({
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
-    contentCommitment: makeContentCommitment(seed + 0x200),
+    blobsHash: fr(seed + 0x200),
+    inHash: fr(seed + 0x210),
+    epochOutHash: fr(seed + 0x220),
     slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),
     coinbase: makeEthAddress(seed + 0x500),
@@ -987,7 +987,7 @@ function makeCountedL2ToL1Message(seed = 0) {
   return new CountedL2ToL1Message(makeL2ToL1Message(seed), seed + 2);
 }
 
-function makeScopedL2ToL1Message(seed = 1) {
+export function makeScopedL2ToL1Message(seed = 1) {
   return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
@@ -1739,4 +1739,44 @@ export async function randomTxScopedPublicL2Log(opts?: {
     opts?.noteHashes ?? [Fr.random(), Fr.random()],
     opts?.firstNullifier ?? Fr.random(),
   );
+}
+
+/**
+ * Creates L2Tips with all tips pointing to the same block number.
+ * Useful for mocking aztecNode.getL2Tips() in tests.
+ * @param blockNumber - The block number to use for all tips.
+ * @param hash - Optional hash for the block (defaults to empty string).
+ * @param checkpointNumber - Optional checkpoint number (defaults to blockNumber).
+ * @param checkpointHash - Optional checkpoint hash (defaults to block hash).
+ * @returns L2Tips object with all tips at the same block.
+ */
+export function makeL2Tips(
+  blockNumber: number | BlockNumber,
+  hash = '',
+  checkpointNumber?: number | CheckpointNumber,
+  checkpointHash?: string,
+): L2Tips {
+  const bn = typeof blockNumber === 'number' ? BlockNumber(blockNumber) : blockNumber;
+  const cpn =
+    checkpointNumber !== undefined
+      ? typeof checkpointNumber === 'number'
+        ? CheckpointNumber(checkpointNumber)
+        : checkpointNumber
+      : CheckpointNumber(bn);
+  const cph = checkpointHash ?? hash;
+  return {
+    proposed: { number: bn, hash },
+    checkpointed: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    proven: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    finalized: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+  };
 }

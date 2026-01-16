@@ -71,7 +71,6 @@ namespace nullifier_check;
     // Inputs to the gadget
     pol commit write;
     write * (1 - write) = 0;
-    pol READ = 1 - write;
     // If writing, sel must be on
     write * (1 - sel) = 0;
 

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /**
@@ -124,19 +124,55 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
 };
 
 /**
+ * @brief Simple verification key class for fixed-size circuits (ECCVM, Translator).
+ * @details Stores only the commitments and a precomputed hash. Circuit size and public inputs
+ * count are known constants for these fixed circuits and don't need to be stored.
+ *
+ * @tparam PrecomputedCommitments The precomputed entities containing VK commitments
+ * @tparam HashType The field type for the precomputed hash (e.g., fr for both ECCVM and Translator)
+ * @tparam HardcodedVKAndHash Class containing static vk_hash() and get_all() methods with hardcoded values
+ */
+template <typename PrecomputedCommitments, typename HashType, typename HardcodedVKAndHash>
+class FixedVKAndHash_ : public PrecomputedCommitments {
+  public:
+    using Commitment = typename PrecomputedCommitments::DataType;
+
+    bool operator==(const FixedVKAndHash_&) const = default;
+
+    // Default construct the fixed VK from hardcoded commitments and precomputed hash
+    FixedVKAndHash_()
+        : hash(HardcodedVKAndHash::vk_hash())
+    {
+        for (auto [vk_commitment, fixed_commitment] : zip_view(this->get_all(), HardcodedVKAndHash::get_all())) {
+            vk_commitment = fixed_commitment;
+        }
+    }
+
+    HashType get_hash() const { return hash; }
+
+  private:
+    HashType hash{};
+};
+
+/**
  * @brief Base Native verification key class.
  * @details We want a separate native and stdlib verification key class because we don't have nice mappings from native
  * to stdlib and back. Examples of mappings that don't exist are from uint64_t to field_t, .get_value() doesn't
  * have a native equivalent, and Builder also doesn't have a native equivalent.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
+ * @tparam Codec The codec used for serialization (e.g., FrCodec, U256Codec)
+ * @tparam HashFunction The hash function used for VK hashing (e.g., Poseidon2, Keccak)
  */
 template <typename PrecomputedCommitments,
-          typename Transcript,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKey = void,
           VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
+    using DataType = typename Codec::DataType;
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
@@ -177,10 +213,25 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     virtual ~NativeVerificationKey_() = default;
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
+        : log_circuit_size(numeric::get_msb(circuit_size))
+        , num_public_inputs(num_public_inputs) {};
+
+    /**
+     * @brief Construct VK from precomputed data by committing to polynomials
+     * @details Only available when CommitmentKeyType is specified (not void)
+     */
+    template <typename PrecomputedData>
+        requires(!std::is_void_v<CommitmentKey>)
+    explicit NativeVerificationKey_(const PrecomputedData& precomputed)
+        : log_circuit_size(numeric::get_msb(precomputed.metadata.dyadic_size))
+        , num_public_inputs(precomputed.metadata.num_public_inputs)
+        , pub_inputs_offset(precomputed.metadata.pub_inputs_offset)
     {
-        this->log_circuit_size = numeric::get_msb(circuit_size);
-        this->num_public_inputs = num_public_inputs;
-    };
+        CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+        for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+            commitment = commitment_key.commit(polynomial);
+        }
+    }
 
     /**
      * @brief Calculate the number of field elements needed for serialization
@@ -189,12 +240,11 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     static size_t calc_num_data_types()
     {
         // Create a temporary instance to get the number of precomputed entities
-        size_t commitments_size =
-            PrecomputedCommitments::size() * Transcript::Codec::template calc_num_fields<Commitment>();
+        size_t commitments_size = PrecomputedCommitments::size() * Codec::template calc_num_fields<Commitment>();
         size_t metadata_size = 0;
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
-            metadata_size = 3 * Transcript::Codec::template calc_num_fields<uint64_t>();
+            metadata_size = 3 * Codec::template calc_num_fields<uint64_t>();
         }
         // else NO_METADATA: metadata_size remains 0
         return metadata_size + commitments_size;
@@ -205,15 +255,15 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<typename Transcript::DataType> to_field_elements() const
+    virtual std::vector<DataType> to_field_elements() const
     {
 
-        auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
-            std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
+        auto serialize = [](const auto& input, std::vector<DataType>& buffer) {
+            std::vector<DataType> input_fields = Codec::serialize_to_fields(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
-        std::vector<typename Transcript::DataType> elements;
+        std::vector<DataType> elements;
 
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             serialize(this->log_circuit_size, elements);
@@ -235,13 +285,13 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @brief Populate verification key from field elements
      * @param elements Field elements to deserialize from
      */
-    size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
+    size_t from_field_elements(const std::span<const DataType>& elements)
     {
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
-            size_t size = Transcript::Codec::template calc_num_fields<T>();
-            target = Transcript::template deserialize<T>(elements.subspan(idx, size));
+            size_t size = Codec::template calc_num_fields<T>();
+            target = Codec::template deserialize_from_fields<T>(elements.subspan(idx, size));
             idx += size;
         };
 
@@ -264,7 +314,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     fr hash() const
     {
-        fr vk_hash = Transcript::HashFunction::hash(this->to_field_elements());
+        fr vk_hash = HashFunction::hash(this->to_field_elements());
         return vk_hash;
     }
 
@@ -275,21 +325,17 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
      * @param domain_separator (currently unused, kept for API compatibility)
-     * @param transcript Used to extract tag context (transcript_index, round_index)
+     * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
-    virtual typename Transcript::DataType hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                                                   Transcript& transcript) const
+    virtual DataType hash_with_origin_tagging(const OriginTag& tag) const
     {
-        using DataType = typename Transcript::DataType;
-        using Codec = typename Transcript::Codec;
+        static constexpr bool in_circuit = InCircuit<DataType>;
         std::vector<DataType> vk_elements;
-
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
         // Tag, serialize, and append to vk_elements
         auto tag_and_append = [&]<typename T>(const T& component) {
-            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
         };
 
@@ -304,23 +350,77 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         }
 
         // Sanitize free witness tags before hashing
-        bb::unset_free_witness_tags<Transcript::in_circuit, DataType>(vk_elements);
+        bb::unset_free_witness_tags<in_circuit, DataType>(vk_elements);
 
         // Hash the tagged elements directly
-        return Transcript::HashFunction::hash(vk_elements);
+        return HashFunction::hash(vk_elements);
     }
+
+    /**
+     * @brief An overload that accepts a transcript and extracts the tag internally
+     * @tparam TranscriptType The transcript type (Codec and HashFunction deduced automatically)
+     * @param transcript The transcript to extract the origin tag from
+     * @returns The hash of the verification key
+     */
+    template <typename Transcript> DataType hash_with_origin_tagging(const Transcript& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging(tag);
+    }
+};
+
+/**
+ * @brief Simple stdlib verification key class for fixed-size circuits (ECCVM, Translator).
+ * @details Stores only the commitments and precomputed VK hash as witnesses. Circuit size and public inputs
+ * are known constants for these fixed circuits and don't need to be stored.
+ *
+ * @tparam Builder_ The circuit builder type
+ * @tparam PrecomputedCommitments The precomputed entities type
+ * @tparam NativeVerificationKey The native VK type for construction from native key
+ */
+template <typename Builder_, typename PrecomputedCommitments, typename NativeVerificationKey>
+class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
+  public:
+    using Builder = Builder_;
+    using Commitment = typename PrecomputedCommitments::DataType;
+    using FF = stdlib::field_t<Builder>;
+
+    bool operator==(const FixedStdlibVKAndHash_&) const = default;
+    FixedStdlibVKAndHash_() = default;
+
+    /**
+     * @brief Construct from native verification key and fix all witnesses (VK is constant for fixed circuits)
+     */
+    FixedStdlibVKAndHash_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+        : hash(FF::from_witness(builder, native_key->get_hash()))
+    {
+        for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
+            comm = Commitment::from_witness(builder, native_comm);
+        }
+        // Fix all witnesses since fixed VKs are always constant
+        hash.fix_witness();
+        for (Commitment& commitment : this->get_all()) {
+            commitment.fix_witness();
+        }
+    }
+
+    FF get_hash() const { return hash; }
+
+  private:
+    FF hash;
 };
 
 /**
  * @brief Base Stdlib verification key class.
  *
- * @tparam Builder
- * @tparam FF
- * @tparam PrecomputedCommitments
+ * @tparam Builder_ The circuit builder type
+ * @tparam PrecomputedCommitments The precomputed entities type
+ * @tparam NativeVerificationKey_ The native VK type (optional, enables native<->stdlib conversion)
  * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA)
  */
 template <typename Builder_,
           typename PrecomputedCommitments,
+          typename NativeVerificationKey_ = void,
           VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
@@ -328,6 +428,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
     using Transcript = StdlibTranscript<Builder>;
+    using NativeVerificationKey = NativeVerificationKey_;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -335,50 +436,88 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     bool operator==(const StdlibVerificationKey_&) const = default;
     virtual ~StdlibVerificationKey_() = default;
     StdlibVerificationKey_() = default;
-    StdlibVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
-    {
-        this->log_circuit_size = numeric::get_msb(circuit_size);
-        this->num_public_inputs = num_public_inputs;
-    };
 
     /**
-     * @brief Serialize verification key to field elements.
-     *
-     * @return std::vector<FF>
+     * @brief Construct a new Verification Key with stdlib types from a provided native verification key
+     * @details Only available when NativeVerificationKey is specified (not void)
      */
-    virtual std::vector<FF> to_field_elements() const
+    template <typename T = NativeVerificationKey_>
+        requires(!std::is_void_v<T>)
+    StdlibVerificationKey_(Builder* builder, const std::shared_ptr<T>& native_key)
+        : log_circuit_size(FF::from_witness(builder, typename FF::native(native_key->log_circuit_size)))
+        , num_public_inputs(FF::from_witness(builder, typename FF::native(native_key->num_public_inputs)))
+        , pub_inputs_offset(FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset)))
+    {
+
+        for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
+            commitment = Commitment::from_witness(builder, native_commitment);
+        }
+    }
+
+    /**
+     * @brief Deserialize a verification key from a vector of field elements
+     */
+    explicit StdlibVerificationKey_(std::span<FF> elements)
     {
         using Codec = stdlib::StdlibCodec<FF>;
 
-        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
-            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-        };
+        size_t num_frs_read = 0;
 
-        std::vector<FF> elements;
+        this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+        this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+        this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
 
-        serialize_to_field_buffer(this->log_circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
-        for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
+        for (Commitment& commitment : this->get_all()) {
+            commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
         }
-
-        return elements;
-    };
+    }
 
     /**
-     * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
-     * @details Currently only used in testing.
-     * @param builder
-     * @return FF
+     * @brief Construct a VerificationKey from a set of corresponding witness indices
      */
-    FF hash()
+    static StdlibVerificationKey_ from_witness_indices(Builder& builder,
+                                                       const std::span<const uint32_t>& witness_indices)
     {
-        FF vk_hash = stdlib::poseidon2<Builder>::hash(to_field_elements());
-        return vk_hash;
+        std::vector<FF> vk_fields;
+        vk_fields.reserve(witness_indices.size());
+        for (const auto& idx : witness_indices) {
+            vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
+        }
+        return StdlibVerificationKey_(vk_fields);
     }
+
+    /**
+     * @brief Fixes witnesses of VK to be constants.
+     */
+    void fix_witness()
+    {
+        this->log_circuit_size.fix_witness();
+        this->num_public_inputs.fix_witness();
+        this->pub_inputs_offset.fix_witness();
+        for (Commitment& commitment : this->get_all()) {
+            commitment.fix_witness();
+        }
+    }
+
+#ifndef NDEBUG
+    /**
+     * @brief Get the native verification key corresponding to this stdlib verification key
+     * @details Only available when NativeVerificationKey is specified (not void)
+     */
+    template <typename T = NativeVerificationKey_>
+        requires(!std::is_void_v<T>)
+    T get_value() const
+    {
+        T native_vk;
+        native_vk.log_circuit_size = static_cast<uint64_t>(this->log_circuit_size.get_value());
+        native_vk.num_public_inputs = static_cast<uint64_t>(this->num_public_inputs.get_value());
+        native_vk.pub_inputs_offset = static_cast<uint64_t>(this->pub_inputs_offset.get_value());
+        for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_vk.get_all())) {
+            native_commitment = commitment.get_value();
+        }
+        return native_vk;
+    }
+#endif
 
     /**
      * @brief Tag VK components and hash.
@@ -387,20 +526,18 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags.
      *
      * @param domain_separator (currently unused, kept for API compatibility)
-     * @param transcript Used to extract tag context (transcript_index, round_index)
+     * @param tag The origin tag extracted from the transcript
      * @returns The hash of the verification key
      */
-    virtual FF hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                        Transcript& transcript) const
+    virtual FF hash_with_origin_tagging(const OriginTag& tag) const
     {
         using Codec = stdlib::StdlibCodec<FF>;
+        static constexpr bool in_circuit = true; // StdlibVerificationKey_ is always in-circuit
         std::vector<FF> vk_elements;
-
-        const OriginTag tag = bb::extract_transcript_tag(transcript);
 
         // Tag, serialize, and append to vk_elements
         auto append_tagged = [&]<typename T>(const T& component) {
-            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            auto frs = bb::tag_and_serialize<in_circuit, Codec>(component, tag);
             vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
         };
 
@@ -415,10 +552,22 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         }
 
         // Sanitize free witness tags before hashing
-        bb::unset_free_witness_tags<Transcript::in_circuit, FF>(vk_elements);
+        bb::unset_free_witness_tags<in_circuit, FF>(vk_elements);
 
         // Hash the tagged elements directly
-        return Transcript::HashFunction::hash(vk_elements);
+        return stdlib::poseidon2<Builder>::hash(vk_elements);
+    }
+
+    /**
+     * @brief An overload that accepts a transcript and extracts the tag internally
+     * @tparam TranscriptType The transcript type (Codec and HashFunction deduced automatically)
+     * @param transcript The transcript to extract the origin tag from
+     * @returns The hash of the verification key
+     */
+    template <typename Transcript> FF hash_with_origin_tagging(const Transcript& transcript) const
+    {
+        const OriginTag tag = bb::extract_transcript_tag(transcript);
+        return hash_with_origin_tagging(tag);
     }
 };
 
@@ -480,12 +629,6 @@ template <typename FF, typename VerificationKey> class VKAndHash_ {
     {}
     std::shared_ptr<VerificationKey> vk;
     FF hash;
-};
-
-// Because of how Gemini is written, it is important to put the polynomials out in this order.
-auto get_unshifted_then_shifted(const auto& all_entities)
-{
-    return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
 /**
@@ -583,17 +726,23 @@ template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 // Serialization methods for NativeVerificationKey_.
 // These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata
 // is set in the template parameters.
-template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
-inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>& vk)
+template <typename PrecomputedCommitments,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKey,
+          VKSerializationMode SerializeMetadata>
+inline void read(
+    uint8_t const*& it,
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>& vk)
 {
     using serialize::read;
+    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>;
 
     // Get the size directly from the static method
-    size_t num_frs =
-        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
+    size_t num_frs = VK::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
-    std::vector<typename Transcript::DataType> field_elements(num_frs);
+    std::vector<typename Codec::DataType> field_elements(num_frs);
     for (auto& element : field_elements) {
         read(it, element);
     }
@@ -601,11 +750,18 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
     vk.from_field_elements(field_elements);
 }
 
-template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
-inline void write(std::vector<uint8_t>& buf,
-                  NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata> const& vk)
+template <typename PrecomputedCommitments,
+          typename Codec,
+          typename HashFunction,
+          typename CommitmentKey,
+          VKSerializationMode SerializeMetadata>
+inline void write(
+    std::vector<uint8_t>& buf,
+    NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata> const& vk)
 {
     using serialize::write;
+    using VK = NativeVerificationKey_<PrecomputedCommitments, Codec, HashFunction, CommitmentKey, SerializeMetadata>;
+
     size_t before = buf.size();
     // Convert to field elements and write them directly without length prefix
     auto field_elements = vk.to_field_elements();
@@ -613,8 +769,7 @@ inline void write(std::vector<uint8_t>& buf,
         write(buf, element);
     }
     size_t after = buf.size();
-    size_t num_frs =
-        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
+    size_t num_frs = VK::calc_num_data_types();
     BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
 }
 

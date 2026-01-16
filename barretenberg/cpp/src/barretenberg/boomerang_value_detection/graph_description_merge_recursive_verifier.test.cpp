@@ -66,7 +66,8 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
     {
         RecursiveBuilder outer_circuit;
 
-        MergeProver merge_prover{ op_queue, settings };
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ op_queue, prover_transcript, settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier

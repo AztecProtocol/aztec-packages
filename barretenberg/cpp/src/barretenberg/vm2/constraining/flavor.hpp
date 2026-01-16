@@ -93,8 +93,6 @@ class AvmFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr bool has_zero_row = true;
-
     static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 
@@ -226,8 +224,17 @@ class AvmFlavor {
         std::vector<FF> public_inputs;
     };
 
-    class VerificationKey
-        : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript, VKSerializationMode::NO_METADATA> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                                          typename Transcript::Codec,
+                                                          typename Transcript::HashFunction,
+                                                          void,
+                                                          VKSerializationMode::NO_METADATA> {
+        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>,
+                                            typename Transcript::Codec,
+                                            typename Transcript::HashFunction,
+                                            void,
+                                            VKSerializationMode::NO_METADATA>;
+
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
@@ -256,8 +263,7 @@ class AvmFlavor {
          * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
          * the provided VK hash directly to the transcript.
          */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
+        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

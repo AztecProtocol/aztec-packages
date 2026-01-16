@@ -4,11 +4,28 @@ use types::{
     constants::CHECKPOINT_MERGE_ROLLUP_VK_INDEX, tests::utils::pad_end, traits::Empty,
 };
 
+// -- checkpoint header hashes ---
+
 #[test]
-fn correct_default_inputs() {
-    let builder = TestBuilder::default();
+fn accumulated_checkpoint_header_hashes_from_both_sides() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let checkpoint_header_hashes = [123, 456, 7890, 12345];
+
+    builder.left_rollup.checkpoint_header_hashes[0] = checkpoint_header_hashes[0];
+    builder.left_rollup.checkpoint_header_hashes[1] = checkpoint_header_hashes[1];
+    builder.right_rollup.checkpoint_header_hashes[0] = checkpoint_header_hashes[2];
+    builder.right_rollup.checkpoint_header_hashes[1] = checkpoint_header_hashes[3];
+
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.checkpoint_header_hashes, pad_end(checkpoint_header_hashes));
 }
 
 // --- fees ---
@@ -107,6 +124,13 @@ fn preserve_empty_fees_from_both_sides() {
 
 // -- constants ---
 
+#[test]
+fn correct_default_inputs() {
+    let builder = TestBuilder::default();
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+}
+
 #[test(should_fail_with = "Mismatched constants in checkpoint rollups")]
 fn mismatch_chain_id() {
     let mut builder = TestBuilder::default();
@@ -187,6 +211,28 @@ fn non_consecutive_archive_next_available_leaf_indices() {
 
     // Tweak the next_available_leaf_index of the right rollup.
     builder.right_rollup.previous_archive.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+// --- out hashes ---
+
+#[test(should_fail_with = "Mismatched out hashes: expected right.previous_out_hash to match left.new_out_hash")]
+fn non_consecutive_out_hash_roots() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the previous out hash root of the right rollup.
+    builder.right_rollup.previous_out_hash.root += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched out hashes: expected right.previous_out_hash to match left.new_out_hash")]
+fn non_consecutive_out_hash_next_available_leaf_indices() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the next_available_leaf_index of the right rollup.
+    builder.right_rollup.previous_out_hash.next_available_leaf_index += 1;
 
     builder.execute_and_fail();
 }

@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js/contracts';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import type { MetricsType } from '@aztec/telemetry-client';
+import type { MetricDefinition } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -16,7 +16,7 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
-    /** What metrics to export */ metrics: (MetricsType | MetricFilter)[];
+    /** What metrics to export */ metrics: (MetricDefinition | MetricFilter)[];
     /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
     benchOutput?: string;
   },
@@ -47,7 +47,7 @@ export async function benchmarkSetup(
 }
 
 type MetricFilter = {
-  source: MetricsType;
+  source: MetricDefinition;
   transform: (value: number) => number;
   name: string;
   unit?: string;
@@ -62,17 +62,21 @@ export type GithubActionBenchmarkResult = {
   extra?: string;
 };
 
+function isMetricDefinition(f: MetricDefinition | MetricFilter): f is MetricDefinition {
+  return 'description' in f;
+}
+
 function formatMetricsForGithubBenchmarkAction(
   data: BenchmarkMetricsType,
-  filter: (MetricsType | MetricFilter)[],
+  filter: (MetricDefinition | MetricFilter)[],
 ): GithubActionBenchmarkResult[] {
   const allFilters: MetricFilter[] = filter.map(f =>
-    typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
+    isMetricDefinition(f) ? { name: f.name, source: f, transform: (x: number) => x, unit: f.unit } : f,
   );
   return data.flatMap(meter => {
     return meter.metrics
-      .filter(metric => allFilters.map(f => f.source).includes(metric.name as MetricsType))
-      .map(metric => [metric, allFilters.find(f => f.source === metric.name)!] as const)
+      .filter(metric => allFilters.map(f => f.source.name).includes(metric.name))
+      .map(metric => [metric, allFilters.find(f => f.source.name === metric.name)!] as const)
       .map(([metric, filter]) => ({
         name: `${meter.name}/${filter.name}`,
         unit: filter.unit ?? metric.unit ?? 'unknown',

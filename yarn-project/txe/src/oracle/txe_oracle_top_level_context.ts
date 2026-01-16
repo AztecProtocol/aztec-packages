@@ -106,6 +106,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
+    private jobId: string,
     private nextBlockTimestamp: bigint,
     private version: Fr,
     private chainId: Fr,
@@ -156,7 +157,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async txeGetLastTxEffects() {
-    const block = await this.stateMachine.archiver.getL2Block('latest');
+    const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
+    const block = await this.stateMachine.archiver.getBlock(latestBlockNumber);
 
     if (block!.body.txEffects.length != 1) {
       // Note that calls like env.mine() will result in blocks with no transactions, hitting this
@@ -315,6 +317,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
+    // In production, the account contract sets the min revertible counter before calling the app function.
+    // Since TXE bypasses the account contract, we simulate this by setting minRevertibleSideEffectCounter to 1,
+    // marking all side effects as revertible.
+    const minRevertibleSideEffectCounter = 1;
+    await noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const simulator = new WASMSimulator();
@@ -344,8 +351,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      0,
-      1,
+      this.jobId,
+      0, // totalPublicArgsCount
+      minRevertibleSideEffectCounter, // (start) sideEffectCounter
       undefined, // log
       undefined, // scopes
       /**
@@ -381,19 +389,21 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }),
       );
 
-      // TXE's top level context does not track side effect counters, and as such, minRevertibleSideEffectCounter is always 0.
-      // This has the unfortunate consequence of always producing revertible nullifiers, which means we
-      // must set the firstNullifierHint to Fr.ZERO so the txRequestHash is always used as nonce generator
-      result = new PrivateExecutionResult(executionResult, Fr.ZERO, publicFunctionsCalldata);
+      noteCache.finish();
+      const nonceGenerator = noteCache.getNonceGenerator();
+      result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
 
-    // According to the protocol rules, the nonce generator for the note hashes
-    // can either be the first nullifier in the tx or the hash of the initial tx request
-    // if there are none.
-    const nonceGenerator = result.firstNullifier.equals(Fr.ZERO) ? protocolNullifier : result.firstNullifier;
-    const { publicInputs } = await generateSimulatedProvingResult(result, nonceGenerator, this.contractStore);
+    // According to the protocol rules, there must be at least one nullifier in the tx. The first nullifier is used as
+    // the nonce generator for the note hashes.
+    // We pass the non-zero minRevertibleSideEffectCounter to make sure the side effects are split correctly.
+    const { publicInputs } = await generateSimulatedProvingResult(
+      result,
+      this.contractStore,
+      minRevertibleSideEffectCounter,
+    );
 
     const globals = makeGlobalVariables();
     globals.blockNumber = blockNumber;
@@ -681,6 +691,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.senderAddressBookStore,
         this.capsuleStore,
         this.privateEventStore,
+        this.jobId,
       );
       const acirExecutionResult = await new WASMSimulator()
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

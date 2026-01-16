@@ -55,10 +55,12 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
   // Tx effects should not exceed 128kb, so 512kb for the full tx obj should be sufficient
   [TopicType.tx]: 512,
   // An attestation has roughly 30 fields, which is 1kb, so 5x is plenty
-  [TopicType.block_attestation]: 5,
+  [TopicType.checkpoint_attestation]: 5,
   // Proposals may carry some tx objects, so we allow a larger size capped at 10mb
   // Note this may not be enough for carrying all tx objects in a block
   [TopicType.block_proposal]: 1024 * 10,
+  // TODO(palla/mbps): Check size for checkpoint proposal
+  [TopicType.checkpoint_proposal]: 1024 * 10,
 };
 
 /**

@@ -1,14 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/common/throw_or_abort.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <vector>
 
 #include "../uint256/uint256.hpp"
@@ -157,7 +157,6 @@ template <uint64_t base, size_t num_bits> class sparse_int {
   private:
     std::array<uint64_t, num_bits> limbs;
     uint64_t value;
-    uint64_t sparse_value;
 };
 
 } // namespace bb::numeric

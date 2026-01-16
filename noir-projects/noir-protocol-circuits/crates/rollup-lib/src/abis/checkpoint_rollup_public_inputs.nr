@@ -20,12 +20,17 @@ pub struct CheckpointRollupPublicInputs {
     // Archive tree root after applying this checkpoint range.
     pub new_archive: AppendOnlyTreeSnapshot,
 
+    // Snapshot of the epoch out hash tree immediately before this checkpoint range.
+    // The `previous_out_hash` of the first checkpoint in an epoch must be empty. The out hash of the first checkpoint
+    // will be inserted into the tree at index 0, the second at index 1, and so on.
+    pub previous_out_hash: AppendOnlyTreeSnapshot,
+    // Snapshot of the epoch out hash tree after applying this checkpoint range.
+    // The `new_out_hash` of the last checkpoint in an epoch contains all checkpoint out hashes. The root becomes the
+    // final epoch out hash inserted into the Outbox on L1.
+    pub new_out_hash: AppendOnlyTreeSnapshot,
+
     // Hashes of checkpoint headers for this checkpoint range.
     pub checkpoint_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION],
-
-    // TODO(#15793): Keep accumulating `out_hash` all the way up to the root rollup, and set the final hash on L1 when
-    // proving an epoch.
-    // pub out_hash: Field,
 
     // Concatenation of all coinbase and fees for each checkpoint in this checkpoint range.
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
@@ -54,6 +59,8 @@ impl Empty for CheckpointRollupPublicInputs {
             constants: EpochConstantData::empty(),
             previous_archive: AppendOnlyTreeSnapshot::empty(),
             new_archive: AppendOnlyTreeSnapshot::empty(),
+            previous_out_hash: AppendOnlyTreeSnapshot::empty(),
+            new_out_hash: AppendOnlyTreeSnapshot::empty(),
             checkpoint_header_hashes: [0; AZTEC_MAX_EPOCH_DURATION],
             fees: [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
             start_blob_accumulator: BlobAccumulator::empty(),

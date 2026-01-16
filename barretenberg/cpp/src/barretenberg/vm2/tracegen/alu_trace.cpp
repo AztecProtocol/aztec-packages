@@ -247,7 +247,7 @@ std::vector<std::pair<C, FF>> get_operation_specific_columns(const simulation::A
             uint128_t a_lo_bits = overflow ? max_bits : max_bits - b_num;
             // Cast to uint256_t to be sure that the shift 1 << a_lo_bits is cpp defined behaviour.
             const uint128_t mask =
-                static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
+                static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
             // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
             // prove b > max_bits).
             uint128_t a_lo =
@@ -265,8 +265,8 @@ std::vector<std::pair<C, FF>> get_operation_specific_columns(const simulation::A
                     { C::alu_a_hi_bits, a_hi_bits },
                     { C::alu_shift_lo_bits, a_lo_bits },
                     { C::alu_two_pow_shift_lo_bits,
-                      overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits) },
-                    { C::alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(b_num) },
+                      overflow ? 0 : static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits) },
+                    { C::alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << static_cast<uint256_t>(b_num) },
                 });
         }
         return res;
@@ -306,7 +306,7 @@ std::vector<std::pair<C, FF>> get_operation_specific_columns(const simulation::A
                            { C::alu_a_hi_bits, a_hi_bits },
                            { C::alu_shift_lo_bits, a_lo_bits },
                            { C::alu_two_pow_shift_lo_bits,
-                             overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits) },
+                             overflow ? 0 : static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits) },
                        });
         }
         return res;

@@ -109,6 +109,11 @@ tests:
     owners:
       - *tom
 
+  - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::"
+    error_regex: "Failed to solve brillig function"
+    owners:
+      - *nico
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
@@ -190,6 +195,14 @@ tests:
     error_regex: "Received number of calls: 1"
     owners:
       - *palla
+  - regex: "archiver/src/archiver/archiver.test.ts"
+    error_regex: "Failed to commit transaction: InitialBlockNumberNotSequentialError: Cannot insert new block"
+    owners:
+      - *palla
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    owners:
+      - *phil
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
@@ -261,10 +274,6 @@ tests:
     owners:
       - *david
 
-  - regex: "src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
-    owners:
-      - *grego
-
   - regex: "amm_flow.sh"
     owners:
       - *grego
@@ -282,17 +291,18 @@ tests:
   - regex: "src/e2e_p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
-      - *palla
+      - *phil
 
   - regex: "src/e2e_epochs/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
 
-  - regex: "p2p/.*\\.test\\.ts"
+  - regex: "p2p/src/client/test/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
+      - *phil
 
   - regex: "ethereum/src/l1_tx_utils/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
@@ -309,3 +319,45 @@ tests:
     error_regex: "Failed to send L1 transaction: FormattedViemError: Error: Transaction timed out before sending"
     owners:
       - *palla
+
+  - regex: "src/e2e_token_bridge_tutorial.test.ts"
+    error_regex: "Error: Unable to find low leaf for block"
+    owners:
+      - *leila
+
+  # http://ci.aztec-labs.com/61d96be1402847b1
+  - regex: "src/composed/e2e_token_bridge_tutorial_test.test.ts"
+    error_regex: "Exceeded timeout of [0-9]+ ms for a test"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/963635a09039594f
+  # http://ci.aztec-labs.com/d3b12131764bce18
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
+
+  - regex: "validator-ha-signer/src/db/postgres.test.ts"
+    error_regex: "FailureMessage Object"
+    owners:
+      - *spyros
+
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "1:PARITY_BASE"
+    owners:
+      - *alex
+
+  # http://ci.aztec-labs.com/e8228a36afda93b8
+  # Test passed but there was an error on stopping
+  - regex: "playground/scripts/run_test.sh"
+    error_regex: "playground-1\\s+\\|\\s+1 passed \\("
+    owners:
+      - *adam
+
+  # http://ci.aztec-labs.com/21afdb4a42f3474d
+  # Test passed but there was an error on stopping
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose"
+    error_regex: "tried to kill container, but did not receive an exit event"
+    owners:
+      - *adam

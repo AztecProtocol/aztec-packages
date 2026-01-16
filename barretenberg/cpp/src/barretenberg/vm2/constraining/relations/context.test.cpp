@@ -114,7 +114,6 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_rop_1_, 600 },      // Return data offset
               { C::execution_register_0_, 200 }, // Return data size
               { C::execution_sel_exit_call, 1 },
-              { C::execution_nested_exit_call, 1 },
               { C::execution_nested_return, 1 },
               { C::execution_context_id, 2 },
               { C::execution_next_context_id, 3 },
@@ -146,6 +145,10 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
               { C::execution_parent_da_gas_used, 1500 },
+              // End of enqueued call (last active row)
+              { C::execution_sel_exit_call, 1 },
+              { C::execution_sel_execute_return, 1 },
+              { C::execution_enqueued_call_end, 1 },
           },
           {
               { C::execution_sel, 0 },
@@ -242,7 +245,6 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
               { C::execution_rop_1_, 600 },      // Return data offset
               { C::execution_register_0_, 200 }, // Return data size
               { C::execution_sel_exit_call, 1 },
-              { C::execution_nested_exit_call, 1 },
               { C::execution_sel_error, 1 }, // Exceptional Halt
               { C::execution_sel_failure, 1 },
               { C::execution_nested_failure, 1 },
@@ -276,6 +278,10 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
               { C::execution_parent_da_gas_used, 1500 },
+              // End of enqueued call (last active row)
+              { C::execution_sel_exit_call, 1 },
+              { C::execution_sel_execute_return, 1 },
+              { C::execution_enqueued_call_end, 1 },
           },
           {
               { C::execution_sel, 0 },
@@ -319,7 +325,7 @@ TEST(ContextConstrainingTest, GasNextRow)
                                    // Return
                                    { C::execution_sel, 1 },
                                    { C::execution_sel_exit_call, 1 },
-                                   { C::execution_nested_exit_call, 1 },
+                                   { C::execution_nested_return, 1 },
                                    { C::execution_parent_l2_gas_limit, 1000 },
                                    { C::execution_parent_da_gas_limit, 2000 },
                                    { C::execution_parent_l2_gas_used, 200 },
@@ -332,23 +338,27 @@ TEST(ContextConstrainingTest, GasNextRow)
                                    { C::execution_da_gas_limit, 2000 },
                                    { C::execution_parent_l2_gas_limit, 2000 },
                                    { C::execution_parent_da_gas_limit, 4000 },
+                                   // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                },
                                {
                                    { C::execution_sel, 0 },
                                } });
 
     check_relation<context>(trace,
-                            context::SR_L2_GAS_LIMIT_NEXT_ROW,
+                            context::SR_L2_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_L2_GAS_LIMIT_RESTORE_ON_EXIT,
-                            context::SR_DA_GAS_LIMIT_NEXT_ROW,
+                            context::SR_DA_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_DA_GAS_LIMIT_RESTORE_ON_EXIT,
-                            context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW,
+                            context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER,
-                            context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW,
+                            context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT,
                             context::SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER,
-                            context::SR_PARENT_L2_GAS_USED_NEXT_ROW,
+                            context::SR_PARENT_L2_GAS_USED_NEXT_ROW_DEFAULT,
                             context::SR_PARENT_L2_GAS_USED_STORE_ON_ENTER,
-                            context::SR_PARENT_DA_GAS_USED_NEXT_ROW,
+                            context::SR_PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT,
                             context::SR_PARENT_DA_GAS_USED_STORE_ON_ENTER);
 
     // Negative test: after return, restore wrong limits
@@ -375,24 +385,24 @@ TEST(ContextConstrainingTest, GasNextRow)
 
     // Negative test: when no calls have been made, limits, parent limits, and parent used shouldn't change
     trace.set(C::execution_l2_gas_limit, 2, 1001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_LIMIT_NEXT_ROW),
-                              "L2_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "L2_GAS_LIMIT_NEXT_ROW_DEFAULT");
     trace.set(C::execution_da_gas_limit, 2, 2001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_LIMIT_NEXT_ROW),
-                              "DA_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "DA_GAS_LIMIT_NEXT_ROW_DEFAULT");
 
     trace.set(C::execution_parent_l2_gas_limit, 2, 2001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW),
-                              "PARENT_L2_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT");
     trace.set(C::execution_parent_da_gas_limit, 2, 4001);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW),
-                              "PARENT_DA_GAS_LIMIT_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT),
+                              "PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT");
 
     trace.set(C::execution_parent_l2_gas_used, 2, 501);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_NEXT_ROW),
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_L2_GAS_USED_NEXT_ROW_DEFAULT),
                               "PARENT_L2_GAS_USED_NEXT_ROW");
     trace.set(C::execution_parent_da_gas_used, 2, 1501);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_NEXT_ROW),
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT),
                               "PARENT_DA_GAS_USED_NEXT_ROW");
 }
 
@@ -418,7 +428,7 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                                    // Return
                                    { C::execution_sel, 1 },
                                    { C::execution_sel_exit_call, 1 },
-                                   { C::execution_nested_exit_call, 1 },
+                                   { C::execution_nested_return, 1 },
                                    { C::execution_l2_gas_used, 50 },
                                    { C::execution_da_gas_used, 60 },
                                    { C::execution_parent_l2_gas_used, 110 },
@@ -433,16 +443,20 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                                    { C::execution_da_gas_used, 260 },
                                    { C::execution_prev_l2_gas_used, 160 }, // 110 + 50
                                    { C::execution_prev_da_gas_used, 260 }, // 200 + 60
+                                                                           // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                },
                                {
                                    { C::execution_sel, 0 },
                                } });
 
     check_relation<context>(trace,
-                            context::SR_L2_GAS_USED_CONTINUITY,
+                            context::SR_L2_GAS_USED_DEFAULT_ROW,
                             context::SR_L2_GAS_USED_ZERO_AFTER_CALL,
                             context::SR_L2_GAS_USED_INGEST_AFTER_EXIT,
-                            context::SR_DA_GAS_USED_CONTINUITY,
+                            context::SR_DA_GAS_USED_DEFAULT_ROW,
                             context::SR_DA_GAS_USED_ZERO_AFTER_CALL,
                             context::SR_DA_GAS_USED_INGEST_AFTER_EXIT);
 
@@ -467,12 +481,12 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
 
     // Negative test: when no calls are made, prev gas used should be gas used of the previous row
     trace.set(C::execution_prev_l2_gas_used, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_CONTINUITY),
-                              "L2_GAS_USED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L2_GAS_USED_DEFAULT_ROW),
+                              "L2_GAS_USED_DEFAULT_ROW");
 
     trace.set(C::execution_prev_da_gas_used, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_CONTINUITY),
-                              "DA_GAS_USED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_DA_GAS_USED_DEFAULT_ROW),
+                              "DA_GAS_USED_DEFAULT_ROW");
 }
 
 TEST(ContextConstrainingTest, TreeStateContinuity)
@@ -530,6 +544,10 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                                    { C::execution_l1_l2_tree_root, 27 },
                                    { C::execution_prev_retrieved_bytecodes_tree_root, 260 },
                                    { C::execution_prev_retrieved_bytecodes_tree_size, 250 },
+                                   // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                } });
 
     check_relation<context>(trace,
@@ -663,6 +681,11 @@ TEST(ContextConstrainingTest, BytecodeIdPropagation)
                                    { C::execution_context_id, 1 },
                                    { C::execution_next_context_id, 1 },
                                    { C::execution_bytecode_id, 42 }, // Same bytecode_id (propagated)
+
+                                   // End of enqueued call (last active row)
+                                   { C::execution_sel_exit_call, 1 },
+                                   { C::execution_sel_execute_return, 1 },
+                                   { C::execution_enqueued_call_end, 1 },
                                } });
 
     check_relation<context>(trace);
@@ -790,17 +813,183 @@ TEST(ContextConstrainingTest, IsStaticPropagationWithoutCalls)
             { C::execution_context_id, 1 },
             { C::execution_next_context_id, 1 },
             { C::execution_is_static, 1 }, // Should propagate
+
+            // End of enqueued call (last active row)
+            { C::execution_sel_exit_call, 1 },
+            { C::execution_sel_execute_return, 1 },
+            { C::execution_enqueued_call_end, 1 },
         },
     });
-    check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW);
+    check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW_DEFAULT);
 
     // Negative test: change is_static
     // staticness must propagate without calls
     trace.set(C::execution_is_static, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW), "IS_STATIC_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW_DEFAULT),
+                              "IS_STATIC_NEXT_ROW_DEFAULT");
 
     // reset is_static
     trace.set(C::execution_is_static, 2, 1);
+}
+
+// =================================================================================================
+// Test: Tree state must be inherited when entering a nested call (sel_enter_call=1)
+// =================================================================================================
+// Previously this was a vulnerability - tree state was unconstrained on enter_call.
+// Now fixed with *_ON_ENTER_CALL constraints that enforce continuity.
+// =================================================================================================
+TEST(ContextConstrainingTest, NegativeTreeStateOnEnterCall)
+{
+    // Setup: Row 1 (CALL instruction) has tree state, Row 2 (nested context) has DIFFERENT tree state
+    // The new *_ON_ENTER_CALL constraints should catch this manipulation
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // CALL instruction - has current tree state
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 },
+            // Current tree state at end of this instruction
+            { C::execution_note_hash_tree_root, 100 },
+            { C::execution_note_hash_tree_size, 50 },
+            { C::execution_num_note_hashes_emitted, 10 },
+            { C::execution_nullifier_tree_root, 200 },
+            { C::execution_nullifier_tree_size, 60 },
+            { C::execution_num_nullifiers_emitted, 20 },
+            { C::execution_public_data_tree_root, 300 },
+            { C::execution_public_data_tree_size, 70 },
+            { C::execution_written_public_data_slots_tree_root, 400 },
+            { C::execution_written_public_data_slots_tree_size, 80 },
+            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_l2_to_l1_messages, 3 },
+        },
+        {
+            // First row of nested context - MALICIOUS: completely different tree state!
+            // A malicious prover tries to set arbitrary values here
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_parent_id, 1 },
+            { C::execution_has_parent_ctx, 1 },
+            { C::execution_is_parent_id_inv, 1 },
+            // ATTACK ATTEMPT: These should equal the previous row's values
+            { C::execution_prev_note_hash_tree_root, 999999 },                 // Should be 100
+            { C::execution_prev_note_hash_tree_size, 888888 },                 // Should be 50
+            { C::execution_prev_num_note_hashes_emitted, 777777 },             // Should be 10
+            { C::execution_prev_nullifier_tree_root, 666666 },                 // Should be 200
+            { C::execution_prev_nullifier_tree_size, 555555 },                 // Should be 60
+            { C::execution_prev_num_nullifiers_emitted, 444444 },              // Should be 20
+            { C::execution_prev_public_data_tree_root, 333333 },               // Should be 300
+            { C::execution_prev_public_data_tree_size, 222222 },               // Should be 70
+            { C::execution_prev_written_public_data_slots_tree_root, 111111 }, // Should be 400
+            { C::execution_prev_written_public_data_slots_tree_size, 99999 },  // Should be 80
+            { C::execution_prev_num_unencrypted_log_fields, 88888 },           // Should be 5
+            { C::execution_prev_num_l2_to_l1_messages, 77777 },                // Should be 3
+        },
+        {
+            { C::execution_sel, 0 },
+        },
+    });
+
+    // Each of the new *_ON_ENTER_CALL constraints should catch the manipulation
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY),
+                              "NOTE_HASH_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY),
+                              "NOTE_HASH_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY),
+                              "NUM_NOTE_HASHES_EMITTED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_ROOT_CONTINUITY),
+                              "NULLIFIER_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
+                              "NULLIFIER_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
+                              "NUM_NULLIFIERS_EMITTED_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
+                              "PUBLIC_DATA_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
+                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
+                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
+                              "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+}
+
+// Positive test: Correct tree state inheritance on enter call
+TEST(ContextConstrainingTest, TreeStateOnEnterCallCorrect)
+{
+    // Tree state is correctly inherited (prev values on row 2 match current values on row 1)
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // CALL instruction
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 },
+            // Current tree state
+            { C::execution_note_hash_tree_root, 100 },
+            { C::execution_note_hash_tree_size, 50 },
+            { C::execution_num_note_hashes_emitted, 10 },
+            { C::execution_nullifier_tree_root, 200 },
+            { C::execution_nullifier_tree_size, 60 },
+            { C::execution_num_nullifiers_emitted, 20 },
+            { C::execution_public_data_tree_root, 300 },
+            { C::execution_public_data_tree_size, 70 },
+            { C::execution_written_public_data_slots_tree_root, 400 },
+            { C::execution_written_public_data_slots_tree_size, 80 },
+            { C::execution_num_unencrypted_log_fields, 5 },
+            { C::execution_num_l2_to_l1_messages, 3 },
+        },
+        {
+            // First row of nested context - CORRECT: inherits parent's tree state
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_parent_id, 1 },
+            { C::execution_has_parent_ctx, 1 },
+            { C::execution_is_parent_id_inv, 1 },
+            // Correctly inherited from previous row
+            { C::execution_prev_note_hash_tree_root, 100 },
+            { C::execution_prev_note_hash_tree_size, 50 },
+            { C::execution_prev_num_note_hashes_emitted, 10 },
+            { C::execution_prev_nullifier_tree_root, 200 },
+            { C::execution_prev_nullifier_tree_size, 60 },
+            { C::execution_prev_num_nullifiers_emitted, 20 },
+            { C::execution_prev_public_data_tree_root, 300 },
+            { C::execution_prev_public_data_tree_size, 70 },
+            { C::execution_prev_written_public_data_slots_tree_root, 400 },
+            { C::execution_prev_written_public_data_slots_tree_size, 80 },
+            { C::execution_prev_num_unencrypted_log_fields, 5 },
+            { C::execution_prev_num_l2_to_l1_messages, 3 },
+        },
+        {
+            { C::execution_sel, 0 },
+        },
+    });
+
+    // All constraints should pass with correct values
+    check_relation<context>(trace,
+                            context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY,
+                            context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_ROOT_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
+                            context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 }
 
 TEST(ContextConstrainingTest, ContextIdPropagation)
@@ -821,7 +1010,7 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
             { C::execution_context_id, 2 },
             { C::execution_next_context_id, 3 },
             { C::execution_sel_exit_call, 1 },
-            { C::execution_nested_exit_call, 1 },
+            { C::execution_nested_return, 1 },
             { C::execution_parent_id, 1 },
         },
         {
@@ -833,12 +1022,16 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
             { C::execution_sel, 1 },
             { C::execution_context_id, 1 },
             { C::execution_next_context_id, 3 },
+            // End of enqueued call (last active row)
+            { C::execution_sel_exit_call, 1 },
+            { C::execution_sel_execute_return, 1 },
+            { C::execution_enqueued_call_end, 1 },
         },
     });
     check_relation<context>(trace,
                             context::SR_ENQUEUED_CALL_START_NEXT_CTX_ID,
                             context::SR_INCR_NEXT_CONTEXT_ID,
-                            context::SR_CONTEXT_ID_NEXT_ROW,
+                            context::SR_CONTEXT_ID_NEXT_DEFAULT_ROW,
                             context::SR_CONTEXT_ID_EXT_CALL,
                             context::SR_CONTEXT_ID_NESTED_EXIT);
 
@@ -860,7 +1053,8 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
 
     // Negative test: context id should be propagated
     trace.set(C::execution_context_id, 4, 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NEXT_ROW), "CONTEXT_ID_NEXT_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NEXT_DEFAULT_ROW),
+                              "CONTEXT_ID_NEXT_DEFAULT_ROW");
     trace.set(C::execution_context_id, 4, 1);
 
     // Negative test: context id should be next context id when entering call

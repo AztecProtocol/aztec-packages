@@ -5,108 +5,79 @@ tags: [contracts]
 sidebar_position: 13
 ---
 
-After compiling a contract you'll get a Contract Artifact file, that contains the data needed to interact with a specific contract, including its name, functions that can be executed, and the interface and code of those functions. Since private functions are not published in the Aztec network, you'll need this artifact file to be able to call private functions of contracts.
+Compiling an Aztec contract produces a contract artifact file (`.json`) containing everything needed to interact with that contract: its name, functions, their interfaces, and compiled bytecode. Since private function bytecode is never published to the network, you need this artifact file to call private functions.
 
-The artifact file can be used with `aztec.js` to instantiate contract objects and interact with them.
+:::tip Most developers don't need this
+When you [compile a contract](../how_to_compile_contract.md) and use [`aztec codegen`](../../aztec-js/how_to_deploy_contract.md#generate-typescript-bindings), you get type-safe TypeScript classes that handle artifacts automatically. This page is useful if you're:
+- Building custom tooling around Aztec contracts
+- Debugging compilation or deployment issues
+- Understanding what data is available in artifacts
+:::
+
+## Where to Find Artifacts
+
+After running `aztec compile`, artifacts are output to the `target/` directory:
+
+```
+target/
+└── my_contract-MyContract.json    # Contract artifact
+```
+
+Use `aztec codegen` to generate TypeScript bindings from these artifacts for type-safe contract interaction.
 
 ## Contract Artifact Structure
 
-The structure of a contract artifact is as follows:
-```json
-{
-  "name": "CardGame",
-  "functions": [
-    {
-      "name": "constructor",
-      "functionType": "private",
-      "isInternal": false,
-      "parameters": [],
-      "returnTypes": [],
-      "bytecode": "...",
-      "verificationKey": "..."
-    },
-    {
-      "name": "on_card_played",
-      "functionType": "public",
-      "isInternal": true,
-      "parameters": [
-        {
-          "name": "game",
-          "type": {
-            "kind": "integer",
-            "sign": "unsigned",
-            "width": 32
-          },
-          "visibility": "private"
-        },
-        {
-          "name": "player",
-          "type": {
-            "kind": "field"
-          },
-          "visibility": "private"
-        },
-        {
-          "name": "card_as_field",
-          "type": {
-            "kind": "field"
-          },
-          "visibility": "private"
-        }
-      ],
-      "returnTypes": [
-        ...
-      ],
-      "bytecode": "...",
-      "verificationKey": "..."
-    },
-   ...
-  ]
-}
+A contract artifact contains:
 
-```
+- **`name`**: The contract name as defined in Noir
+- **`functions`**: Array of function artifacts (private, public dispatch, and utility functions)
+- **`nonDispatchPublicFunctions`**: Public function ABIs (excluding the dispatch function)
+- **`outputs`**: Exported structs and globals from the contract
+- **`storageLayout`**: Storage slot mappings for contract state
+- **`fileMap`**: Source file mappings for debugging
 
-### `name`
-It is a simple string that matches the name that the contract developer used for this contract in noir. It's used for logs and errors.
+## Function Properties
 
-### `functions`
-A contract is a collection of several functions that can be called. Each function has the following properties:
+Each function in the artifact includes:
 
-#### `function.name`
-A simple string that matches the name that the contract developer used for this function in noir. For logging and debugging purposes.
+| Property | Description |
+|----------|-------------|
+| `name` | Function name as defined in Noir |
+| `functionType` | One of `private`, `public`, or `utility` |
+| `isOnlySelf` | If `true`, function can only be called from within the same contract |
+| `isStatic` | If `true`, function cannot alter state |
+| `isInitializer` | If `true`, function can be used as a constructor |
+| `parameters` | Array of input parameters with name, type, and visibility |
+| `returnTypes` | Array of return value types |
+| `errorTypes` | Custom error types the function can throw |
+| `bytecode` | Compiled ACIR bytecode (base64 encoded) |
+| `verificationKey` | Verification key for private functions (optional) |
+| `debugSymbols` | Compressed debug information linking to source code |
 
-#### `function.functionType`
-The function type can have one of the following values:
+### Function Types
 
-- Private: The function is ran and proved locally by the clients, and its bytecode not published to the network.
-- Public: The function is ran and proved by the sequencer, and its bytecode is published to the network.
-- Utility: The function is ran locally by the clients to generate digested information useful for the user. It cannot be called in a transaction.
+- **`private`**: Executed and proved locally by the client. Bytecode is not published to the network.
+- **`public`**: Executed and proved by the sequencer. Bytecode is published to the network.
+- **`utility`**: Executed locally to compute information (e.g., view functions). Cannot be called in transactions.
 
-#### `function.isInternal`
-The is internal property is a boolean that indicates whether the function is internal to the contract and cannot be called from outside.
+## Parameter and Return Types
 
-#### `function.parameters`
-Each function can have multiple parameters that are arguments to execute the function. Parameters have a name, and type (like integers, strings, or complex types like arrays and structures).
+Parameters and return values use these type definitions:
 
-#### `function.returnTypes`
-The return types property defines the types of values that the function returns after execution.
+| Type | Description |
+|------|-------------|
+| `field` | A field element in the BN254 curve's scalar field |
+| `boolean` | True/false value |
+| `integer` | Whole number with `sign` (`signed`/`unsigned`) and `width` (bits) |
+| `array` | Collection of elements with `length` and element `type` |
+| `string` | Character sequence with fixed `length` |
+| `struct` | Composite type with named `fields` and a `path` identifier |
+| `tuple` | Unnamed composite type with ordered `fields` |
 
-#### `function.bytecode`
-The bytecode is a string representing the compiled ACIR of the function, ready for execution on the network.
+Parameter visibility can be `public`, `private`, or `databus`.
 
-#### `function.verificationKey`
-The verification key is an optional property that contains the verification key of the function. This key is used to verify the proof of the function execution.
+## Next Steps
 
-### `debug` (Optional)
-Although not significant for non-developer users, it is worth mentioning that there is a debug section in the contract artifact which helps contract developers to debug and test their contracts. This section mainly contains debug symbols and file maps that link back to the original source code.
-
-## Understanding Parameter and Return Types
-To make the most of the functions, it's essential to understand the types of parameters and return values. Here are some common types you might encounter:
-
- - `field`: A basic type representing a field element in the finite field of the curve used in the Aztec protocol.
- - `boolean`: A simple true/false value.
- - `integer`: Represents whole numbers. It has attributes defining its sign (positive or negative) and width (the number of bits representing the integer).
- - `array`: Represents a collection of elements, all of the same type. It has attributes defining its length and the type of elements it holds.
- - `string`: Represents a sequence of characters with a specified length.
- - `struct`: A complex type representing a structure with various fields, each having a specific type and name.
-
+- [Compile contracts](../how_to_compile_contract.md) to generate artifacts
+- [Deploy contracts](../../aztec-js/how_to_deploy_contract.md) using generated TypeScript bindings
+- [Send transactions](../../aztec-js/how_to_send_transaction.md) to interact with deployed contracts

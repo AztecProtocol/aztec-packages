@@ -1,10 +1,11 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
-  L2Block,
+  L2BlockNew,
   type L2BlockPruneEvent,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
@@ -16,7 +17,7 @@ import type {
   MerkleTreeWriteOperations,
   SlasherConfig,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 import {
   ReExFailedTxsError,
@@ -63,12 +64,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
+    this.l2BlockSource.events.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
@@ -95,10 +96,10 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 
-  private async processPruneL2Blocks(blocks: L2Block[], epochNumber: EpochNumber): Promise<void> {
+  private async processPruneL2Blocks(blocks: L2BlockNew[], epochNumber: EpochNumber): Promise<void> {
     try {
       const l1Constants = this.epochCache.getL1Constants();
-      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
+      const epochBlocks = blocks.filter(b => getEpochAtSlot(b.header.getSlot(), l1Constants) === epochNumber);
       this.log.info(
         `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
         { blocks: epochBlocks.map(b => b.toBlockInfo()) },
@@ -119,21 +120,31 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
   }
 
-  public async validateBlocks(blocks: L2Block[]): Promise<void> {
+  public async validateBlocks(blocks: L2BlockNew[]): Promise<void> {
     if (blocks.length === 0) {
       return;
     }
+
+    let previousCheckpointOutHashes: Fr[] = [];
     const fork = await this.blockBuilder.getFork(BlockNumber(blocks[0].header.globalVariables.blockNumber - 1));
     try {
       for (const block of blocks) {
-        await this.validateBlock(block, fork);
+        await this.validateBlock(block, previousCheckpointOutHashes, fork);
+
+        // TODO(mbps): This assumes one block per checkpoint, which is only true for now.
+        const checkpointOutHash = computeCheckpointOutHash([block.body.txEffects.map(tx => tx.l2ToL1Msgs)]);
+        previousCheckpointOutHashes = [...previousCheckpointOutHashes, checkpointOutHash];
       }
     } finally {
       await fork.close();
     }
   }
 
-  public async validateBlock(blockFromL1: L2Block, fork: MerkleTreeWriteOperations): Promise<void> {
+  public async validateBlock(
+    blockFromL1: L2BlockNew,
+    previousCheckpointOutHashes: Fr[],
+    fork: MerkleTreeWriteOperations,
+  ): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
     // We load txs from the mempool directly, since the TxCollector running in the background has already been
@@ -150,6 +161,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
       txs,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       blockFromL1.header.globalVariables,
       {},
       fork,

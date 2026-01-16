@@ -63,7 +63,6 @@ on:
         required: true
         type: string
         default: "aztec-gke-private"
-
 jobs:
   deploy-irm:
     env:
@@ -95,6 +94,13 @@ jobs:
       - name: Configure kubectl with GKE cluster
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
+
+      - name: Get IRM version from VERSION file
+        id: get_version
+        run: |
+          VERSION=$(cat spartan/metrics/irm-monitor/VERSION | tr -d '[:space:]')
+          echo "IRM version: ${VERSION}"
+          echo "IMAGE_TAG=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Validate inputs
         run: |
@@ -136,10 +142,12 @@ jobs:
         env:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
           echo "Deploying IRM to network: ${{ inputs.network }}"
           echo "Namespace to monitor: ${NAMESPACE}"
           echo "Monitoring namespace: ${MONITORING_NAMESPACE}"
           echo "L1 network: ${{ inputs.l1_network }}"
+          echo "Image tag: ${IMAGE_TAG}"
 
           ./spartan/metrics/irm-monitor/scripts/update-monitoring.sh $NAMESPACE $MONITORING_NAMESPACE ${{ inputs.network }} $INFURA_SECRET_NAME

@@ -9,12 +9,7 @@ import {EscapeHatch} from "@aztec/core/EscapeHatch.sol";
 import {Epoch, Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {
-  ProposedHeader,
-  ProposedHeaderLib,
-  GasFees,
-  ContentCommitment
-} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {ProposedHeader, ProposedHeaderLib, GasFees} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib, ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {
   CommitteeAttestations,
@@ -133,23 +128,25 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
    * @dev Uses:
    *   - archive: GENESIS_ARCHIVE_ROOT
    *   - oracleInput: zero
-   *   - header fields from fixture for contentCommitment/blockHeadersHash, rest overridden
+   *   - header fields from fixture for blockHeadersHash/blobsHash/inHash/outHash, rest overridden
    */
   function _buildProposeArgs(address _proposer) internal view returns (ProposeArgs memory args, bytes memory blobs) {
     bytes32 archive = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
     Slot slotNumber = rollup.getCurrentSlot();
 
-    // Build header fresh, only copying contentCommitment and blockHeadersHash from fixture
+    // Build header fresh, only copying blockHeadersHash/blobsHash/inHash/outHash from fixture
     ProposedHeader memory header = ProposedHeader({
       lastArchiveRoot: archive,
       blockHeadersHash: full.checkpoint.header.blockHeadersHash,
-      contentCommitment: full.checkpoint.header.contentCommitment,
+      blobsHash: full.checkpoint.header.blobsHash,
+      inHash: full.checkpoint.header.inHash,
+      outHash: full.checkpoint.header.outHash,
       slotNumber: slotNumber,
       timestamp: rollup.getTimestampForSlot(slotNumber),
       coinbase: _proposer,
       feeRecipient: bytes32(0),
       gasFees: GasFees({
-        feePerDaGas: 0, feePerL2Gas: uint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true))
+        feePerDaGas: 0, feePerL2Gas: uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true))
       }),
       totalManaUsed: 0
     });
@@ -198,8 +195,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
 
     // Update header with current values
     {
-      uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
-      header.gasFees.feePerL2Gas = manaBaseFee;
+      uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
+      header.gasFees.feePerL2Gas = manaMinFee;
     }
 
     ProposeArgs memory proposeArgs =
@@ -304,8 +301,9 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     bytes32 previousArchive = rollup.archiveAt(_start - 1);
     bytes32 endArchive = rollup.archiveAt(_end);
 
-    PublicInputArgs memory args =
-      PublicInputArgs({previousArchive: previousArchive, endArchive: endArchive, proverId: _prover});
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: previousArchive, endArchive: endArchive, outHash: bytes32(0), proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     uint256 size = _end - _start + 1;

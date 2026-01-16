@@ -38,7 +38,7 @@ impl TestBuilder {
             tx_request,
             private_call,
             is_private_only: false,
-            first_nullifier_hint: 0,
+            first_nullifier_hint: 123, // Set a random value to not inject the protocol nullifier by default.
             revertible_counter_hint: 0,
         }
     }
@@ -86,9 +86,11 @@ impl TestBuilder {
         }
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
-        if self.first_nullifier_hint == 0 {
+        let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
+        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
+        if self.first_nullifier_hint == protocol_nullifier {
             accumulated_data.nullifiers.length = 1;
-            accumulated_data.nullifiers.array[0] = create_protocol_nullifier(self.tx_request);
+            accumulated_data.nullifiers.array[0] = scoped_protocol_nullifier;
         }
         assert_eq(pi.end, accumulated_data);
 
@@ -109,12 +111,7 @@ impl TestBuilder {
 
         assert_eq(pi.is_private_only, self.is_private_only);
 
-        let expected_claimed_first_nullifier = if self.first_nullifier_hint != 0 {
-            self.first_nullifier_hint
-        } else {
-            silo_nullifier(accumulated_data.nullifiers.array[0])
-        };
-        assert_eq(pi.claimed_first_nullifier, expected_claimed_first_nullifier);
+        assert_eq(pi.claimed_first_nullifier, self.first_nullifier_hint);
 
         assert_eq(pi.claimed_revertible_counter, self.revertible_counter_hint);
     }

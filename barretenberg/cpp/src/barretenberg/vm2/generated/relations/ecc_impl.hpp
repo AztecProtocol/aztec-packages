@@ -43,7 +43,7 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::ecc_add_op)) * (FF(1) - static_cast<View>(in.get(C::ecc_add_op)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // OP_CHECK
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::ecc_sel)) -
                     (static_cast<View>(in.get(C::ecc_double_op)) + static_cast<View>(in.get(C::ecc_add_op)) +

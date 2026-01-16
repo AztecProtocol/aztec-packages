@@ -54,8 +54,8 @@ export type BotConfig = {
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
   feePaymentMethod: 'fee_juice';
-  /** 'How much is the bot willing to overpay vs. the current base fee' */
-  baseFeePadding: number;
+  /** 'How much is the bot willing to overpay vs. the current min fee' */
+  minFeePadding: number;
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -96,7 +96,7 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       privateTransfersPerTx: z.number().int().nonnegative(),
       publicTransfersPerTx: z.number().int().nonnegative(),
       feePaymentMethod: z.literal('fee_juice'),
-      baseFeePadding: z.number().int().nonnegative(),
+      minFeePadding: z.number().int().nonnegative(),
       noStart: z.boolean(),
       txMinedWaitSeconds: z.number(),
       followChain: z.enum(BotFollowChain),
@@ -193,8 +193,8 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     parseEnv: val => (val as 'fee_juice') || undefined,
     defaultValue: 'fee_juice',
   },
-  baseFeePadding: {
-    env: 'BOT_BASE_FEE_PADDING',
+  minFeePadding: {
+    env: 'BOT_MIN_FEE_PADDING',
     description: 'How much is the bot willing to overpay vs. the current base fee',
     ...numberConfigHelper(3),
   },

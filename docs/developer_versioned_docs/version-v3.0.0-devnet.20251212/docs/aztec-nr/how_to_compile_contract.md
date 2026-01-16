@@ -32,14 +32,22 @@ The compiler automatically generates type-safe interfaces for contract interacti
 Use generated interfaces instead of manual function calls:
 
 ```rust
-contract FPC {
+contract MyContract {
     use dep::token::Token;
 
     #[external("private")]
-    fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
-        assert(asset == storage.other_asset.read());
-        Token::at(asset).transfer_to_public(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
-        FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).enqueue(&mut context);
+    fn transfer_tokens(token_address: AztecAddress, recipient: AztecAddress, amount: u128) {
+        // Use the generated Token interface to call another contract
+        self.call(Token::at(token_address).transfer(recipient, amount));
+    }
+
+    #[external("private")]
+    fn transfer_then_mint(token_address: AztecAddress, recipient: AztecAddress, amount: u128) {
+        // Private call executed immediately
+        self.call(Token::at(token_address).transfer(recipient, amount));
+
+        // Public call enqueued for later execution
+        self.enqueue(Token::at(token_address).mint_to_public(recipient, amount));
     }
 }
 ```

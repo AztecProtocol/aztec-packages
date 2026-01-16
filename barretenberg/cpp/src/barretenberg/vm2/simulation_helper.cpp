@@ -63,6 +63,7 @@
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
@@ -79,6 +80,7 @@
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
+#include "barretenberg/vm2/simulation/standalone/noop_calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/standalone/noop_update_check.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
@@ -110,8 +112,10 @@ PublicTxEffect extract_public_tx_effect(const TxExecutionResult& tx_execution_re
     public_tx_effect.public_logs = side_effects.public_logs.to_logs();
 
     // We need to copy the storage writes slot to value in the order of the slots by insertion.
-    for (uint32_t i = 0; i < side_effects.storage_writes_slots_by_insertion.size(); i++) {
-        const auto& slot = side_effects.storage_writes_slots_by_insertion.at(i);
+    const size_t num_storage_writes = side_effects.storage_writes_slots_by_insertion.size();
+    public_tx_effect.public_data_writes.reserve(num_storage_writes);
+    for (size_t i = 0; i < num_storage_writes; i++) {
+        const auto& slot = side_effects.storage_writes_slots_by_insertion[i];
         const auto& value = side_effects.storage_writes_slot_to_value.at(slot);
         public_tx_effect.public_data_writes.push_back(PublicDataWrite{ .leaf_slot = slot, .value = value });
     }
@@ -201,7 +205,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     }
 
     NoteHashTreeCheck note_hash_tree_check(
-        tx.non_revertible_accumulated_data.nullifiers.at(0), poseidon2, merkle_check, note_hash_tree_check_emitter);
+        tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
@@ -231,7 +235,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     SideEffectTracker side_effect_tracker;
 
     SideEffectTrackingDB merkle_db(
-        tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
+        tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
 
     UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
@@ -404,7 +408,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<RangeCheckEvent> range_check_emitter;
     NoopEventEmitter<ContextStackEvent> context_stack_emitter;
     NoopEventEmitter<TxEvent> tx_event_emitter;
-    NoopEventEmitter<CalldataEvent> calldata_emitter;
     NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
@@ -440,10 +443,10 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     }
 
     PureMerkleDB base_merkle_db(
-        tx.non_revertible_accumulated_data.nullifiers.at(0), raw_merkle_db, written_public_data_slots_tree_check);
+        tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
     SideEffectTrackingDB merkle_db(
 
-        tx.non_revertible_accumulated_data.nullifiers.at(0), base_merkle_db, side_effect_tracker);
+        tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
 
     NoopUpdateCheck update_check;
     InstructionInfoDB instruction_info_db;
@@ -455,7 +458,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
 
     PureMemoryProvider memory_provider;
-    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    NoopCalldataHashingProvider calldata_hashing_provider;
     InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
     ContextProvider context_provider(tx_bytecode_manager,
                                      memory_provider,
@@ -478,7 +481,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
             const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
             return std::make_unique<DebugLogger>(debug_log_level,
                                                  config.collection_limits.max_debug_log_memory_reads,
-                                                 [](const std::string& message) { info(message); });
+                                                 [](const std::string& message) { vinfo(message); });
         } else {
             return std::make_unique<NoopDebugLogger>();
         }
@@ -509,7 +512,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
                               *debug_log_component,
                               merkle_db,
                               *call_stack_metadata_collector,
-                              cancellation_token);
+                              std::move(cancellation_token));
     TxExecution tx_execution(execution,
                              context_provider,
                              contract_db,

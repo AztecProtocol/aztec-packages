@@ -31,15 +31,15 @@ describe('e2e_fees gas_estimation', () => {
   const t = new FeesTest('gas_estimation');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
+    await t.setup();
+    await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = await t.setup());
+    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);
   });
 
   beforeEach(async () => {
     // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aztecNode.getCurrentBaseFees();
+    const gasFees = await aztecNode.getCurrentMinFees();
     gasSettings = GasSettings.from({
       ...gasSettings,
       maxFeesPerGas: gasFees,

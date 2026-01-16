@@ -9,7 +9,7 @@ describe('e2e_token_contract private transfer recursion', () => {
   let { asset, wallet, adminAddress, account1Address, node } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    t.applyBaseSnapshots();
     await t.setup();
     ({ asset, wallet, adminAddress, account1Address, node } = t);
   });

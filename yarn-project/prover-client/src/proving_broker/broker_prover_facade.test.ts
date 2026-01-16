@@ -1,7 +1,7 @@
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { sleep } from '@aztec/foundation/sleep';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import { type ProvingJobStatus, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
@@ -110,7 +110,7 @@ describe('BrokerCircuitProverFacade', () => {
 
     const resultPromise = promiseWithResolvers<any>();
     jest.spyOn(broker, 'enqueueProvingJob');
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
+    const getBaseParityProofSpy = jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
     jest.spyOn(errorProofStore, 'saveProofInput');
 
     // send N identical proof requests
@@ -120,7 +120,7 @@ describe('BrokerCircuitProverFacade', () => {
       promises.push(facade.getBaseParityProof(inputs, controller.signal, EpochNumber(42)).catch(err => ({ err })));
     }
 
-    await sleep(agentPollInterval);
+    await retryFastUntil(() => getBaseParityProofSpy.mock.calls.length > 0, 'prover to be called');
 
     resultPromise.reject(new Error('TEST ERROR'));
 
@@ -155,13 +155,12 @@ describe('BrokerCircuitProverFacade', () => {
 
     const resultPromise = promiseWithResolvers<any>();
     jest.spyOn(broker, 'enqueueProvingJob');
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
+    const getBaseParityProofSpy = jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
     jest.spyOn(errorProofStore, 'saveProofInput');
 
     const promise = facade.getBaseParityProof(inputs, controller.signal, EpochNumber(42)).catch(err => ({ err }));
 
-    await sleep(agentPollInterval);
-    expect(prover.getBaseParityProof).toHaveBeenCalled();
+    await retryFastUntil(() => getBaseParityProofSpy.mock.calls.length > 0, 'prover to be called');
 
     controller.abort();
 
@@ -191,11 +190,11 @@ describe('BrokerCircuitProverFacade', () => {
 
     // make sure the job hangs on waiting for the broker
     const enqueueJobPromise = promiseWithResolvers<ProvingJobStatus>();
-    jest.spyOn(broker, 'enqueueProvingJob').mockReturnValue(enqueueJobPromise.promise);
+    const enqueueProvingJobSpy = jest.spyOn(broker, 'enqueueProvingJob').mockReturnValue(enqueueJobPromise.promise);
     const promise = facade.getBaseParityProof(inputs, controller.signal, EpochNumber(42));
 
     // now stop the facade after giving it time, which will trigger a rejection
-    await sleep(agentPollInterval);
+    await retryFastUntil(() => enqueueProvingJobSpy.mock.calls.length > 0, 'broker to be called');
     await facade.stop();
 
     // and expect we don't blow up the entire node process

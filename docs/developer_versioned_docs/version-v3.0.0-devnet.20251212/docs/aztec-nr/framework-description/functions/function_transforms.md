@@ -5,236 +5,169 @@ tags: [functions]
 description: Understand how Aztec transforms contract functions during compilation for privacy and efficiency.
 ---
 
-Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract. The [next page](./attributes.md) will give you more information about what the attributes are really doing.
+This page explains what happens under the hood when you create a function in an Aztec contract. The [next page](./attributes.md) covers what the function attributes do.
 
+## Overview
+
+Private functions in Aztec compile to standalone circuits that must conform to the protocol's kernel circuit interface. Public functions compile to AVM bytecode. The transformations described below bridge the gap between developer-friendly Aztec.nr syntax and these underlying requirements.
+
+Utility functions (marked with `#[utility]`) do not undergo these transformations—they remain as regular Noir functions.
 
 ## Function transformation
 
-When you define a function in an Aztec contract, it undergoes several transformations when it is compiled. These transformations prepare the function for execution. These transformations include:
+When you define a private or public function in an Aztec contract, it undergoes several transformations during compilation:
 
 - [Creating a context for the function](#context-creation)
 - [Handling function inputs](#private-and-public-input-injection)
 - [Processing return values](#return-value-handling)
-- [Generating function signatures](#function-signature-generation)
-- [Generating contract artifacts](#contract-artifacts)
-
-Let's explore each of these transformations in detail.
 
 ## Context creation
 
-Every function in an Aztec contract operates within a specific context which provides some extra information and functionality. This is either a `PrivateContext` or `PublicContext` object, depending on whether it is a private or public function. For private functions, it creates a hash of all input parameters to ensure privacy.
+Every function in an Aztec contract operates within a specific context that provides execution information and functionality. This is either a `PrivateContext` or `PublicContext` object, depending on whether it is a private or public function.
 
 ### Private functions
 
-For private functions, the context creation involves hashing all input parameters:
+For private functions, context creation involves serializing and hashing all input parameters:
 
 ```rust
-let mut args_hasher = ArgsHasher::new();
-// Hash each parameter
-args_hasher.add(param1);
-args_hasher.add(param2);
-// add all parameters
+// Parameters are serialized into an array
+let serialized_args: [Field; N] = /* serialized parameters */;
 
-let mut context = PrivateContext::new(inputs, args_hasher.hash());
+// Hash the arguments using poseidon2
+let args_hash = aztec::hash::hash_args(serialized_args);
+
+// Create the context with the inputs and args hash
+let mut context = PrivateContext::new(inputs, args_hash);
 ```
 
-This hashing process is important because it is used to verify the function's execution without exposing the input data.
+This hashing is important because the kernel circuit uses it to verify the function received the correct parameters without exposing the input data.
 
 ### Public functions
 
-For public functions, context creation is simpler:
+For public functions, context creation uses a lazy evaluation pattern:
 
 ```rust
-let mut context = PublicContext::new(inputs);
+let mut context = PublicContext::new(|| {
+    // compute args hash when needed
+    hash_args(serialized_args)
+});
 ```
 
-These `inputs` are explained in the [private and public input injection](#private-and-public-input-injection) further down on this page.
+### Using the context
 
-### Using the context in functions
-
-Once created, the context object provides various useful methods. Here are some common use cases:
-
-#### Accessing storage
-
-The context allows you to interact with contract storage. eg if you have a function that calls storage like this:
-
-```rust
-let sender_balance = storage.balances.at(owner);
-```
-
-This calls the context to read from the appropriate storage slot.
-
-#### Interacting with other contracts
-
-The context provides methods to call other contracts:
-
-```rust
-let token_contract = TokenContract::at(token);
-```
-
-Under the hood, this creates a new instance of the contract interface with the specified address.
+The context object provides methods for interacting with the blockchain. Storage access and contract calls are handled through a `ContractSelf` wrapper that the macros generate automatically.
 
 ## Private and public input injection
 
-An additional parameter is automatically added to every function.
+An additional parameter is automatically added to every private function.
 
-The injected input is always the first parameter of the transformed function and is of type `PrivateContextInputs` for private functions or `PublicContextInputs` for public functions.
+The injected input is always the first parameter of the transformed function and is of type `PrivateContextInputs` for private functions.
 
-Original function definition
-   ```rust
-   fn my_function(param1: Type1, param2: Type2) { ... }
-   ```
+Original function definition:
 
-Transformed function with injected input
-   ```rust
-   fn my_function(inputs: PrivateContextInputs, param1: Type1, param2: Type2) { ... }
-   ```
+```rust
+fn my_function(param1: Type1, param2: Type2) { ... }
+```
 
-The `inputs` parameter includes:
+Transformed function with injected input:
 
-- msg sender, ie the address of the account calling the function
-- contract address
-- chain ID
-- block context, eg the block number & timestamp
-- function selector of the function being called
+```rust
+fn my_function(inputs: PrivateContextInputs, param1: Type1, param2: Type2) { ... }
+```
 
-This makes these inputs available to be consumed within private annotated functions.
+The `PrivateContextInputs` struct contains:
+
+- `call_context` - information about how the function was called (msg_sender, contract_address, function_selector, is_static_call)
+- `anchor_block_header` - the historical block header used during private execution
+- `tx_context` - transaction-level data (chain_id, version, gas_settings)
+- `start_side_effect_counter` - the side effect counter at function entry
+
+These inputs are made available through the `PrivateContext` object within your function.
+
+Public functions run in the AVM and access their context data through AVM opcodes rather than injected inputs.
 
 ## Return value handling
 
-Return values in Aztec contracts are processed differently from traditional smart contracts when using private functions.
+Return values in Aztec contracts are processed differently from traditional smart contracts.
 
 ### Private functions
 
-- The original return value is assigned to a special variable:
-   ```rust
-   let macro__returned__values = original_return_expression;
-   ```
+For private functions, the return value is serialized, hashed, and stored in the context:
 
-- A new `ArgsHasher` is created for the return values:
-   ```rust
-   let mut returns_hasher = ArgsHasher::new();
-   ```
+```rust
+// The original return value is captured
+let macro__returned__values = original_return_expression;
 
-- The hash of the return value is set in the context:
-   ```rust
-   context.set_return_hash(returns_hasher);
-   ```
+// The return value is serialized and hashed
+let serialized_return: [Field; N] = /* serialized return value */;
+self.context.set_return_hash(serialized_return);
+```
 
-- The function's return type is changed to `PrivateCircuitPublicInputs`, which is returned by calling `context.finish()` at the end of the function.
+The function's return type is changed to `PrivateCircuitPublicInputs`, which is returned by calling `context.finish()` at the end of the function.
 
-This process allows the return values to be included in the function's computation result while maintaining privacy.
+This process allows the return values to be included in the function's computation result while maintaining privacy. The actual return values are stored in the execution cache and can be retrieved by the caller using the hash.
 
 ### Public functions
 
-In public functions, the return value is directly used, and the function's return type remains as specified by the developer.
+In public functions, the return value is handled directly by the AVM and the function's return type remains as specified by the developer.
 
 ## Function signature generation
 
-Unique function signatures are generated for each contract function.
-
-The function signature is computed like this:
+Each contract function has a unique 4-byte function selector. The selector is computed by hashing the function's signature string using Poseidon2:
 
 ```rust
-fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
-    let signature = format!(
-        "{}({})",
-        fn_name,
-        parameters.iter().map(signature_of_type).collect::<Vec<_>>().join(",")
-    );
-    let mut keccak = Keccak::v256();
-    let mut result = [0u8; 32];
-    keccak.update(signature.as_bytes());
-    keccak.finalize(&mut result);
-    // Take the first 4 bytes of the hash and convert them to an integer
-    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
-    let num_bytes_per_note_type_id = 4;
-    u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
+impl FunctionSelector {
+    pub fn from_signature<let N: u32>(signature: str<N>) -> Self {
+        let bytes = signature.as_bytes();
+        let hash = poseidon2_hash_bytes(bytes);
+        // hash is truncated to fit within 32 bits (4 bytes)
+        FunctionSelector::from_field(hash)
+    }
 }
 ```
 
-- A string representation of the function is created, including the function name and parameter types
-- This signature string is then hashed using Keccak-256
-- The first 4 bytes of the resulting hash are converted to a u32 integer
+The signature string follows the format `function_name(param_types)`. For example, `transfer(Field,Field)`.
 
-### Integration into contract interface
-
-The computed function signatures are integrated into the contract interface like this:
-
-- During contract compilation, placeholder values (0) are initially used for function selectors
-
-- After type checking, the `update_fn_signatures_in_contract_interface()` function is called to replace these placeholders with the actual computed signatures
-
-- For each function in the contract interface:
-   - The function's parameters are extracted
-   - The signature hash is computed using `compute_fn_signature_hash`
-   - The placeholder in the contract interface is replaced with the computed hash
-
-This process ensures that each function in the contract has a unique, deterministic signature based on its name and parameter types. They are inspired by Solidity's function selector mechanism.
+This approach is inspired by Solidity's function selector mechanism, but uses Poseidon2 instead of Keccak-256 for compatibility with Aztec's circuit-friendly hash functions.
 
 ## Contract artifacts
 
-Contract artifacts in Aztec are automatically generated structures that describe the contract's interface. They provide information about the contract's functions, their parameters, and return types.
+Contract artifacts are automatically generated structures that describe the contract's interface. They preserve the original function signatures (parameters and return types) before macro transformations are applied.
 
-### Contract artifact generation process
+For each function in the contract, an ABI export is generated with:
 
-For each function in the contract, an artifact is generated like this:
+1. A parameters struct containing all function parameters
+2. An ABI struct marked with `#[abi(functions)]` containing the parameters and return type
 
-- A struct is created to represent the function's parameters:
-
-   ```rust
-   struct {function_name}_parameters {
-       // Function parameters are listed here
-   }
-   ```
-
-   This struct is only created if the function has parameters.
-
-- An ABI struct is generated for the function:
+For example, given a function:
 
 ```rust
- let export_struct_source = format!(
-        "
-        #[abi(functions)]
-        struct {}_abi {{
-            {}{}
-        }}",
-        func.name(),
-        parameters,
-        return_type
-    );
+fn increment(owner: AztecAddress) -> Field { ... }
 ```
 
-- These structs are added to the contract's types.
-
-### Content of artifacts
-
-The artifacts contain:
-
-- Function name
-- Parameters (if any), including their names and types
-- Return type (if the function has returns)
-
-For example, for a function `transfer(recipient: Address, amount: Field) -> bool`, the artifact would look like:
+The following structs are generated:
 
 ```rust
-struct transfer_parameters {
-    recipient: Address,
-    amount: Field,
+pub struct increment_parameters {
+    pub owner: AztecAddress
 }
 
 #[abi(functions)]
-struct transfer_abi {
-    parameters: transfer_parameters,
-    return_type: bool,
+pub struct increment_abi {
+    parameters: increment_parameters,
+    return_type: Field
 }
 ```
 
-Contract artifacts are important because:
+The `#[abi(functions)]` attribute marks the struct for inclusion in the contract ABI's `outputs.functions` array. This is important because macro processing changes the actual return type of private functions to `PrivateCircuitPublicInputs`, but the toolchain needs access to the original signatures.
 
-- They provide a machine-readable description of the contract
-- They can be used to generate bindings for interacting with the contract (read [here](../../../aztec-nr/how_to_compile_contract.md) to learn how to create TypeScript bindings)
-- They help decode function return values in the simulator
+Contract artifacts enable:
+
+- Machine-readable contract interface descriptions
+- TypeScript binding generation (see [how to compile contracts](../../how_to_compile_contract.md))
+- Function return value decoding in the simulator
 
 ## Further reading
+
 - [Function attributes and macros](./attributes.md)
+- [Aztec.nr macro source code](https://github.com/AztecProtocol/aztec-packages/tree/v3.0.0-devnet.20251212/noir-projects/aztec-nr/aztec/src/macros) - for those who want to see the actual transformation implementation

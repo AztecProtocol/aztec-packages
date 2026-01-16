@@ -7,6 +7,7 @@
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -265,8 +266,8 @@ bool is_phase_discarded(TransactionPhase phase, const FailingContexts& failures)
  */
 uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& failures)
 {
-    assert((phase == TransactionPhase::APP_LOGIC || phase == TransactionPhase::TEARDOWN) &&
-           "Execution events must have app logic or teardown phase");
+    BB_ASSERT((phase == TransactionPhase::APP_LOGIC || phase == TransactionPhase::TEARDOWN),
+              "Execution events must have app logic or teardown phase");
 
     switch (phase) {
     case TransactionPhase::APP_LOGIC: {
@@ -331,6 +332,7 @@ void ExecutionTraceBuilder::process(
                 // Context
                 { C::execution_context_id, ex_event.after_context_event.id },
                 { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                // Warning: pc in after_context_event is the pc of the next instruction, not the current instruction.
                 { C::execution_pc, ex_event.before_context_event.pc },
                 { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
                 { C::execution_contract_address, ex_event.after_context_event.contract_addr },
@@ -454,7 +456,13 @@ void ExecutionTraceBuilder::process(
         if (instruction_fetching_success) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
+
             // If we fetched an instruction successfully, we can set the next PC.
+            // In circuit, we enforce next_pc to be pc + instr_length, but in simulation,
+            // we set next_pc (as member of the context) to be the real pc of the next instruction
+            // which is different for JUMP, JUMPI, INTERNALCALL, and INTERNALRETURN.
+            // Therefore, we must not use after_context_event.pc (which is simulation next_pc) to set
+            // C::execution_next_pc.
             trace.set(row,
                       { {
                           { C::execution_next_pc,
@@ -572,8 +580,9 @@ void ExecutionTraceBuilder::process(
                 sel_exit_call = true;
                 should_execute_revert = true;
             } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
-                assert(ex_event.addressing_event.resolution_info.size() == 2 &&
-                       "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
+                BB_ASSERT_EQ(ex_event.addressing_event.resolution_info.size(),
+                             static_cast<size_t>(2),
+                             "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
                 Operand envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
@@ -587,6 +596,8 @@ void ExecutionTraceBuilder::process(
                     trace.set(C::execution_sel_read_unwind_call_stack, row, 1);
                 }
             } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
+                // Equivalent to PIL's (MAX + INITIAL_SIZE - prev_written_public_data_slots_tree_size)
+                // since prev_size = counter + 1 and INITIAL_SIZE = 1.
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
                                                  ex_event.before_context_event.tree_states.public_data_tree.counter;
 
@@ -682,14 +693,12 @@ void ExecutionTraceBuilder::process(
         const bool is_err = ex_event.error != ExecutionError::NONE;
         sel_exit_call = sel_exit_call || is_err; // sel_execute_revert || sel_execute_return || sel_error
         const bool is_failure = should_execute_revert || is_err;
-        const bool nested_exit_call = sel_exit_call && has_parent;
         const bool enqueued_call_end = sel_exit_call && !has_parent;
         const bool nested_failure = is_failure && has_parent;
 
         trace.set(row,
                   { {
                       { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
                       { C::execution_nested_failure, nested_failure ? 1 : 0 },
                       { C::execution_sel_error, is_err ? 1 : 0 },
                       { C::execution_sel_failure, is_failure ? 1 : 0 },
@@ -745,13 +754,13 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
               { {
                   { C::execution_sel_instruction_fetching_success, 1 },
                   { C::execution_ex_opcode, static_cast<uint8_t>(instruction.get_exec_opcode()) },
-                  { C::execution_indirect, instruction.indirect },
+                  { C::execution_addressing_mode, instruction.addressing_mode },
                   { C::execution_instr_length, instruction.size_in_bytes() },
               } });
 
     // At this point we can assume instruction fetching succeeded.
     auto operands = instruction.operands;
-    assert(operands.size() <= AVM_MAX_OPERANDS);
+    BB_ASSERT_LTE(operands.size(), static_cast<size_t>(AVM_MAX_OPERANDS), "Operands size is out of range");
     operands.resize(AVM_MAX_OPERANDS, Operand::from<FF>(0));
 
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
@@ -843,7 +852,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     const ExecInstructionSpec& ex_spec = get_exec_instruction_spec().at(exec_opcode);
 
     auto resolution_info_vec = addr_event.resolution_info;
-    assert(resolution_info_vec.size() <= AVM_MAX_OPERANDS);
+    BB_ASSERT_LTE(
+        resolution_info_vec.size(), static_cast<size_t>(AVM_MAX_OPERANDS), "Resolution info size is out of range");
     // Pad with default values for the missing operands.
     resolution_info_vec.resize(AVM_MAX_OPERANDS,
                                {
@@ -876,8 +886,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        is_relative[i] = is_operand_relative(instruction.indirect, i);
-        is_indirect[i] = is_operand_indirect(instruction.indirect, i);
+        is_relative[i] = is_operand_relative(instruction.addressing_mode, i);
+        is_indirect[i] = is_operand_indirect(instruction.addressing_mode, i);
         is_relative_effective[i] = op_is_address && is_relative[i];
         is_indirect_effective[i] = op_is_address && is_indirect[i];
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i] && !base_address_invalid;
@@ -911,8 +921,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     // We need to compute relative and indirect over the whole 16 bits of the indirect flag.
     // See comment in PIL file about indirect upper bits.
     for (size_t i = AVM_MAX_OPERANDS; i < TOTAL_INDIRECT_BITS / 2; i++) {
-        bool is_relative = is_operand_relative(instruction.indirect, i);
-        bool is_indirect = is_operand_indirect(instruction.indirect, i);
+        bool is_relative = is_operand_relative(instruction.addressing_mode, i);
+        bool is_indirect = is_operand_indirect(instruction.addressing_mode, i);
         trace.set(row,
                   { {
                       { OPERAND_IS_RELATIVE_WIRE_COLUMNS[i], is_relative ? 1 : 0 },
@@ -1013,7 +1023,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
                                               TraceContainer& trace,
                                               uint32_t row)
 {
-    assert(registers.size() == AVM_MAX_REGISTERS);
+    BB_ASSERT_EQ(registers.size(), static_cast<size_t>(AVM_MAX_REGISTERS), "Registers size is out of range");
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
 
@@ -1087,7 +1097,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(Operand envvar_enum,
                                                        TraceContainer& trace,
                                                        uint32_t row)
 {
-    assert(envvar_enum.get_tag() == ValueTag::U8);
+    BB_ASSERT_EQ(envvar_enum.get_tag(), ValueTag::U8, "Envvar enum tag is not U8");
     const auto& envvar_spec = GetEnvVarSpec::get_table(envvar_enum.as<uint8_t>());
 
     trace.set(row,

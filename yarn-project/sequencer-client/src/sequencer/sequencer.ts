@@ -12,7 +12,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockNew, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
+import type { L2BlockNew, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -24,16 +24,15 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
 
 import EventEmitter from 'node:events';
 
 import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import type { InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError, SequencerTooSlowError } from './errors.js';
@@ -91,7 +90,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
     protected slasherClient: SlasherClientInterface | undefined,
-    protected l2BlockSource: L2BlockSource,
+    protected l2BlockSource: L2BlockSource & L2BlockSink,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected l1Constants: SequencerRollupConstants,
@@ -160,7 +159,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info('Stopped sequencer');
   }
 
-  @trackSpan('Sequencer.work')
   /** Main sequencer loop with a try/catch */
   protected async safeWork() {
     try {
@@ -198,12 +196,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * - Collect attestations for the final block
    * - Submit checkpoint
    */
+  @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
     const { slot, ts, now, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
-    const checkpointProposalJob = await this.prepareCheckpointProposal(slot, ts, now);
+    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now);
     if (!checkpointProposalJob) {
       return;
     }
@@ -233,7 +232,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * This is the initial step in the main loop.
    * @returns CheckpointProposalJob if successful, undefined if we are not yet synced or are not the proposer.
    */
+  @trackSpan('Sequencer.prepareCheckpointProposal')
   private async prepareCheckpointProposal(
+    epoch: EpochNumber,
     slot: SlotNumber,
     ts: bigint,
     now: bigint,
@@ -263,8 +264,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // TODO(palla/mbps): Compute proper checkpoint number
-    const checkpointNumber = CheckpointNumber.fromBlockNumber(BlockNumber(syncedTo.blockNumber + 1));
+    // Next checkpoint follows from the last synced one
+    const checkpointNumber = CheckpointNumber(syncedTo.checkpointNumber + 1);
 
     const logCtx = {
       now,
@@ -280,9 +281,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.PROPOSER_CHECK, slot);
     const [canPropose, proposer] = await this.checkCanPropose(slot);
 
-    // If we are not a proposer check if we should invalidate a invalid block, and bail
+    // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
     if (!canPropose) {
-      await this.considerInvalidatingBlock(syncedTo, slot);
+      await this.considerInvalidatingCheckpoint(syncedTo, slot);
       return undefined;
     }
 
@@ -312,15 +313,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    // TODO(palla/mbps): We need to invalidate checkpoints, not blocks
-    const invalidateBlock = await publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
+    const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Check with the rollup contract if we can indeed propose at the next L2 slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
     const canProposeCheck = await publisher.canProposeAtNextEthBlock(
       syncedTo.archive,
       proposer ?? EthAddress.ZERO,
-      invalidateBlock,
+      invalidateCheckpoint,
     );
 
     if (canProposeCheck === undefined) {
@@ -358,39 +358,44 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Create and return the checkpoint proposal job
     return this.createCheckpointProposalJob(
+      epoch,
       slot,
       checkpointNumber,
       syncedTo.blockNumber,
       proposer,
       publisher,
       attestorAddress,
-      invalidateBlock,
+      invalidateCheckpoint,
     );
   }
 
   protected createCheckpointProposalJob(
+    epoch: EpochNumber,
     slot: SlotNumber,
     checkpointNumber: CheckpointNumber,
     syncedToBlockNumber: BlockNumber,
     proposer: EthAddress | undefined,
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
-    invalidateBlock: InvalidateBlockRequest | undefined,
+    invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
+      epoch,
       slot,
       checkpointNumber,
       syncedToBlockNumber,
       proposer,
       publisher,
       attestorAddress,
-      invalidateBlock,
+      invalidateCheckpoint,
       this.validatorClient,
       this.globalsBuilder,
       this.p2pClient,
       this.worldState,
       this.l1ToL2MessageSource,
+      this.l2BlockSource,
       this.checkpointsBuilder,
+      this.l2BlockSource,
       this.l1Constants,
       this.config,
       this.timetable,
@@ -401,6 +406,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this,
       this.setState.bind(this),
       this.log,
+      this.tracer,
     );
   }
 
@@ -469,9 +475,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource.getL2Tips().then(t => t.latest),
+      this.l2BlockSource.getL2Tips().then(t => t.proposed),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
-      this.l1ToL2MessageSource.getL2Tips().then(t => t.latest),
+      this.l1ToL2MessageSource.getL2Tips().then(t => t.proposed),
       this.l2BlockSource.getPendingChainValidationStatus(),
     ] as const);
 
@@ -479,6 +485,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
     // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
+    // TODO(palla/mbps): Fix the above. All components should be able to handle dynamic genesis block hashes.
     const result =
       (l2BlockSource.number === 0 && worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0) ||
       (worldState.hash === l2BlockSource.hash &&
@@ -494,7 +501,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockNumber = worldState.number;
     if (blockNumber < INITIAL_L2_BLOCK_NUM) {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM - 1), archive, l1Timestamp, pendingChainValidationStatus };
+      return {
+        checkpointNumber: CheckpointNumber.ZERO,
+        blockNumber: BlockNumber.ZERO,
+        archive,
+        l1Timestamp,
+        pendingChainValidationStatus,
+      };
     }
 
     const block = await this.l2BlockSource.getL2BlockNew(blockNumber);
@@ -507,6 +520,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return {
       block,
       blockNumber: block.number,
+      checkpointNumber: block.checkpointNumber,
       archive: block.archive.root,
       l1Timestamp,
       pendingChainValidationStatus,
@@ -555,6 +569,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Tries to vote on slashing actions and governance when the sync check fails but we're past the max time for initializing a proposal.
    * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
    */
+  @trackSpan('Seqeuencer.tryVoteWhenSyncFails', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
   protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; ts: bigint }): Promise<void> {
     const { slot } = args;
 
@@ -626,12 +641,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Considers invalidating a block if the pending chain is invalid. Depends on how long the invalid block
+   * Considers invalidating a checkpoint if the pending chain is invalid. Depends on how long the invalid checkpoint
    * has been there without being invalidated and whether the sequencer is in the committee or not. We always
    * have the proposer try to invalidate, but if they fail, the sequencers in the committee are expected to try,
    * and if they fail, any sequencer will try as well.
    */
-  protected async considerInvalidatingBlock(
+  protected async considerInvalidatingCheckpoint(
     syncedTo: SequencerSyncCheckResult,
     currentSlot: SlotNumber,
   ): Promise<void> {
@@ -640,18 +655,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const invalidBlockNumber = pendingChainValidationStatus.block.blockNumber;
-    const invalidBlockTimestamp = pendingChainValidationStatus.block.timestamp;
-    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidBlockTimestamp);
+    const invalidCheckpointNumber = pendingChainValidationStatus.checkpoint.checkpointNumber;
+    const invalidCheckpointTimestamp = pendingChainValidationStatus.checkpoint.timestamp;
+    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidCheckpointTimestamp);
     const ourValidatorAddresses = this.validatorClient.getValidatorAddresses();
 
     const { secondsBeforeInvalidatingBlockAsCommitteeMember, secondsBeforeInvalidatingBlockAsNonCommitteeMember } =
       this.config;
 
     const logData = {
-      invalidL1Timestamp: invalidBlockTimestamp,
+      invalidL1Timestamp: invalidCheckpointTimestamp,
       l1Timestamp,
-      invalidBlock: pendingChainValidationStatus.block,
+      invalidCheckpoint: pendingChainValidationStatus.checkpoint,
       secondsBeforeInvalidatingBlockAsCommitteeMember,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember,
       ourValidatorAddresses,
@@ -697,25 +712,25 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const { publisher } = await this.publisherFactory.create(validatorToUse);
 
-    const invalidateBlock = await publisher.simulateInvalidateBlock(pendingChainValidationStatus);
-    if (!invalidateBlock) {
-      this.log.warn(`Failed to simulate invalidate block`, logData);
+    const invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(pendingChainValidationStatus);
+    if (!invalidateCheckpoint) {
+      this.log.warn(`Failed to simulate invalidate checkpoint`, logData);
       return;
     }
 
     this.log.info(
       invalidateAsCommitteeMember
-        ? `Invalidating block ${invalidBlockNumber} as committee member`
-        : `Invalidating block ${invalidBlockNumber} as non-committee member`,
+        ? `Invalidating checkpoint ${invalidCheckpointNumber} as committee member`
+        : `Invalidating checkpoint ${invalidCheckpointNumber} as non-committee member`,
       logData,
     );
 
-    publisher.enqueueInvalidateBlock(invalidateBlock);
+    publisher.enqueueInvalidateCheckpoint(invalidateCheckpoint);
 
     if (!this.config.fishermanMode) {
       await publisher.sendRequests();
     } else {
-      this.log.info('Invalidating block in fisherman mode, clearing pending requests');
+      this.log.info('Invalidating checkpoint in fisherman mode, clearing pending requests');
       publisher.clearPendingRequests();
     }
   }
@@ -789,8 +804,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
 type SequencerSyncCheckResult = {
   block?: L2BlockNew;
+  checkpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;
   l1Timestamp: bigint;
-  pendingChainValidationStatus: ValidateBlockResult;
+  pendingChainValidationStatus: ValidateCheckpointResult;
 };

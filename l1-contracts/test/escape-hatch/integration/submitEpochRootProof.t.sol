@@ -109,9 +109,11 @@ contract submitEpochRootProofTest is EscapeHatchIntegrationBase {
   function _submitProofWithAttestations(CommitteeAttestation[] memory _attestations) internal {
     bytes32 previousArchive = rollup.archiveAt(0);
     bytes32 endArchive = rollup.archiveAt(1);
+    bytes32 outHash = rollup.getCheckpoint(1).outHash;
 
-    PublicInputArgs memory args =
-      PublicInputArgs({previousArchive: previousArchive, endArchive: endArchive, proverId: address(this)});
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: previousArchive, endArchive: endArchive, outHash: outHash, proverId: address(this)
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(("sequencer")))));

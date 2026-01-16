@@ -24,7 +24,7 @@ contract Updatable {
     #[initializer]
     #[external("private")]
     fn initialize(initial_value: Field) {
-        let owner = self.msg_sender().unwrap();
+        let owner = self.msg_sender();
         let note = FieldNote { value: initial_value };
         self.storage.private_value.at(owner).initialize(note).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,

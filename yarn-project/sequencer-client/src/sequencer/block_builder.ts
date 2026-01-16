@@ -28,8 +28,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
+import { createValidatorForBlockBuilding } from '@aztec/validator-client';
 
 const log = createLogger('block-builder');
 
@@ -37,6 +36,7 @@ const log = createLogger('block-builder');
 async function buildBlock(
   pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
   l1ToL2Messages: Fr[],
+  previousCheckpointOutHashes: Fr[],
   newGlobalVariables: GlobalVariables,
   opts: PublicProcessorLimits = {},
   worldStateFork: MerkleTreeWriteOperations,
@@ -63,7 +63,7 @@ async function buildBlock(
     initialArchiveRoot: bufferToHex(archiveTree.root),
     opts,
   });
-  const blockFactory = new LightweightBlockFactory(worldStateFork, telemetryClient);
+  const blockFactory = new LightweightBlockFactory(previousCheckpointOutHashes, worldStateFork, telemetryClient);
   await blockFactory.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
   const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
@@ -168,6 +168,7 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   async buildBlock(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
     globalVariables: GlobalVariables,
     opts: PublicProcessorLimits,
     suppliedFork?: MerkleTreeWriteOperations,
@@ -182,6 +183,7 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       const res = await buildBlock(
         pendingTxs,
         l1ToL2Messages,
+        previousCheckpointOutHashes,
         globalVariables,
         opts,
         fork,

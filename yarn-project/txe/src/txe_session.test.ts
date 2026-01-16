@@ -21,6 +21,8 @@ describe('TXESession.processFunction', () => {
       {} as any, // senderAddressBook
       {} as any, // capsuleStore
       {} as any, // privateEventStore
+      {} as any, // jobCoordinator
+      {} as any, // initialJobId
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp

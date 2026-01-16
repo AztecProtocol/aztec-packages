@@ -6,8 +6,12 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
+#include "barretenberg/avm_fuzzer/mutations/bytecode.hpp"
+#include "barretenberg/avm_fuzzer/mutations/tx_data.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -19,7 +23,7 @@ struct FuzzerTxData {
     std::vector<FuzzerData> input_programs;
     // These are the contract classes and instances that will be registered to addresses in the WS
     // The contract addresses may contain duplicates if multiple contracts derive to the same address
-    std::vector<ContractClass> contract_classes;
+    std::vector<ContractClassWithCommitment> contract_classes;
     std::vector<ContractInstance> contract_instances;
     std::vector<AztecAddress> contract_addresses;
 
@@ -27,13 +31,17 @@ struct FuzzerTxData {
     GlobalVariables global_variables;
     ProtocolContracts protocol_contracts;
 
+    // Public data tree writes to be applied during state setup (e.g., for bytecode upgrades)
+    std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
+
     MSGPACK_FIELDS(input_programs,
                    contract_classes,
                    contract_instances,
                    contract_addresses,
                    tx,
                    global_variables,
-                   protocol_contracts);
+                   protocol_contracts,
+                   public_data_writes);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
@@ -46,25 +54,33 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
 }
 
 using Bytecode = std::vector<uint8_t>;
-using ContractArtifacts = std::tuple<Bytecode, ContractClass, ContractInstance>;
+using ContractArtifacts = std::tuple<Bytecode, ContractClassWithCommitment, ContractInstance>;
+using FuzzerContext = bb::avm2::fuzzer::FuzzerContext;
 
 // Mutation configuration
-enum class TxDataMutationType : uint8_t {
+enum class FuzzerTxDataMutationType : uint8_t {
     TxMutation,
-    // todo: implement other mutation types
-    // BytecodeMutation,
-    // ContractClassMutation,
+    BytecodeMutation,
+    ContractClassMutation,
     // ContractInstanceMutation,
     // GlobalVariablesMutation,
     // ProtocolContractsMutation
 };
 
+using FuzzerTxDataMutationConfig = WeightedSelectionConfig<FuzzerTxDataMutationType, 3>;
+
+constexpr FuzzerTxDataMutationConfig FUZZER_TX_DATA_MUTATION_CONFIGURATION = FuzzerTxDataMutationConfig({
+    { FuzzerTxDataMutationType::TxMutation, 10 },
+    { FuzzerTxDataMutationType::BytecodeMutation, 1 },
+    { FuzzerTxDataMutationType::ContractClassMutation, 1 },
+});
+
 // Build bytecode and contract artifacts from fuzzer data
 ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data);
 
 // Create a default FuzzerTxData with sensible defaults
-FuzzerTxData create_default_tx_data(std::mt19937_64& rng);
-FuzzerTxData create_default_tx_data();
+FuzzerTxData create_default_tx_data(std::mt19937_64& rng, const FuzzerContext& context);
+FuzzerTxData create_default_tx_data(const FuzzerContext& context);
 
 // Setup fuzzer state: register contracts and addresses in the world state
 void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
@@ -87,7 +103,8 @@ int fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
 
 // Common custom mutator logic shared between fuzzers
 // Returns the new size of the mutated data, or 0 if mutation failed
-size_t mutate_tx_data(uint8_t* serialized_fuzzer_data,
+size_t mutate_tx_data(FuzzerContext& context,
+                      uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
                       size_t max_size,
                       unsigned int seed);

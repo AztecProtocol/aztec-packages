@@ -14,7 +14,7 @@ import {
   PriceLib,
   FeeHeader,
   L1FeeData,
-  ManaBaseFeeComponents,
+  ManaMinFeeComponents,
   L1GasOracleValues,
   CompressedFeeHeader,
   CompressedL1FeeData,
@@ -22,7 +22,7 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
-  ManaBaseFeeComponentsModel,
+  ManaMinFeeComponentsModel,
   L1FeesModel,
   L1GasOracleValuesModel,
   FeeHeaderModel
@@ -80,11 +80,11 @@ contract MinimalFeeModel {
   }
 
   // For all of the estimations we have been using `3` blobs.
-  function manaBaseFeeComponents(bool _inFeeAsset) public view returns (ManaBaseFeeComponentsModel memory) {
-    ManaBaseFeeComponents memory components =
-      FeeLib.getManaBaseFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
+  function manaMinFeeComponents(bool _inFeeAsset) public view returns (ManaMinFeeComponentsModel memory) {
+    ManaMinFeeComponents memory components =
+      FeeLib.getManaMinFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
 
-    return ManaBaseFeeComponentsModel({
+    return ManaMinFeeComponentsModel({
       congestion_cost: components.congestionCost,
       congestion_multiplier: components.congestionMultiplier,
       prover_cost: components.proverCost,
@@ -117,6 +117,7 @@ contract MinimalFeeModel {
       TempCheckpointLog({
         headerHash: bytes32(0),
         blobCommitmentsHash: bytes32(0),
+        outHash: bytes32(0),
         attestationsHash: bytes32(0),
         payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),

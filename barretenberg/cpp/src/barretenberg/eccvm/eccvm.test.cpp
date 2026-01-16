@@ -25,6 +25,31 @@ using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
 using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 using eccvm_test_utils::add_hiding_op_for_test;
 
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+ECCVMFlavor::VerificationKey create_vk_from_proving_key(const std::shared_ptr<PK>& proving_key)
+{
+    ECCVMFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
+// Compute VK hash from fixed commitments (for test verification that vk_hash() is correct)
+ECCVMFlavor::BF compute_eccvm_vk_hash()
+{
+    std::vector<ECCVMFlavor::BF> elements;
+    // Serialize commitments using the Codec
+    for (const auto& commitment : ECCVMHardcodedVKAndHash::get_all()) {
+        auto frs = ECCVMFlavor::Codec::serialize_to_fields(commitment);
+        for (const auto& fr : frs) {
+            elements.push_back(fr);
+        }
+    }
+    return ECCVMFlavor::HashFunction::hash(elements);
+}
+
 class ECCVMTests : public ::testing::Test {
   protected:
     void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -370,7 +395,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 /**
  * @brief Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit.
  * @note If this test fails, it may be because the constant ECCVM_FIXED_SIZE has changed and the fixed VK commitments in
- * ECCVMFixedVKCommitments must be updated accordingly. Their values can be taken right from the output of this test.
+ * ECCVMHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the output of this test.
  *
  */
 TEST_F(ECCVMTests, FixedVK)
@@ -387,7 +412,7 @@ TEST_F(ECCVMTests, FixedVK)
     // Generate the default fixed VK
     ECCVMFlavor::VerificationKey fixed_vk{};
     // Generate a VK from PK
-    ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
+    ECCVMFlavor::VerificationKey vk_computed_by_prover = create_vk_from_proving_key(prover.key);
 
     const auto& labels = bb::ECCVMFlavor::VerificationKey::get_labels();
     size_t index = 0;
@@ -399,4 +424,13 @@ TEST_F(ECCVMTests, FixedVK)
 
     // Check that the fixed VK is equal to the generated VK
     EXPECT_EQ(fixed_vk, vk_computed_by_prover);
+
+    // Verify that the hardcoded VK hash matches the computed hash
+    auto computed_hash = compute_eccvm_vk_hash();
+    auto hardcoded_hash = ECCVMHardcodedVKAndHash::vk_hash();
+    if (computed_hash != hardcoded_hash) {
+        info("VK hash mismatch! Update ECCVMHardcodedVKAndHash::vk_hash() with:");
+        info("0x", computed_hash);
+    }
+    EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";
 }

@@ -371,3 +371,16 @@ notegetteroptions
 lookback
 noirfmt
 postprocesses
+blobscan
+fusaka
+healthcheck
+supernode
+supernodes
+Garaga
+satisfiability
+nullptr
+favo
+supermajority
+finalise
+undelegation
+unbonding

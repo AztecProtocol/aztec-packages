@@ -32,10 +32,10 @@ export interface NoteData {
   noteNonce: Fr;
   /** A hash of the note as it gets stored in the note hash tree. */
   noteHash: Fr;
+  /** True if the note is pending, false if settled. */
+  isPending: boolean;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
-  /** The note's leaf index in the note hash tree. Undefined for pending notes. */
-  index?: bigint;
 }
 
 // These interfaces contain the list of oracles required by aztec-nr in order to simulate and execute transactions, i.e.

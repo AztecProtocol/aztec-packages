@@ -17,14 +17,14 @@ export class GetContractInstance extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect bits
+    OperandType.UINT8, // addressing_mode bits
     OperandType.UINT16, // addressOffset
     OperandType.UINT16, // dstOffset
     OperandType.UINT8, // member enum (immediate)
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private addressOffset: number,
     private dstOffset: number,
     private memberEnum: number,
@@ -34,7 +34,7 @@ export class GetContractInstance extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

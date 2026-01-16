@@ -1,5 +1,6 @@
-#include "avm_simulate_napi.hpp"
+#include "barretenberg/nodejs_module/avm_simulate/avm_simulate_napi.hpp"
 
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -13,20 +14,71 @@
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 
 namespace bb::nodejs {
-
 namespace {
+
 // Log levels from TS foundation/src/log/log-levels.ts: ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug',
 // 'trace'] Map: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=verbose, 6=debug, 7=trace
-constexpr int LOG_LEVEL_VERBOSE = 5;
-constexpr int LOG_LEVEL_TRACE = 7;
 
-// Helper to set logging flags based on TS log level
-inline void set_logging_from_level(int log_level)
+// Helper to set logging level based on TS log level
+inline void set_logging_from_level(int ts_log_level)
 {
-    // Turn verbose_logging on if log level is verbose (5) or above
-    verbose_logging = (log_level >= LOG_LEVEL_VERBOSE);
-    // Turn debug_logging on if log level is trace (7) or above
-    debug_logging = (log_level >= LOG_LEVEL_TRACE);
+    // Map TS log level (0-7) to C++ LogLevel enum
+    // TS: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=verbose, 6=debug, 7=trace
+    // C++: SILENT=0, FATAL=1, ERROR=2, WARN=3, INFO=4, VERBOSE=5, DEBUG=6, TRACE=7
+    // They map 1:1
+    if (ts_log_level >= 0 && ts_log_level <= 7) {
+        bb_log_level = static_cast<LogLevel>(ts_log_level);
+    } else {
+        log_warn("Invalid log level from TypeScript: ", ts_log_level, ". Using default.");
+    }
+}
+
+// Map C++ LogLevel enum to TypeScript log level string
+// C++ LogLevel: SILENT=0, FATAL=1, ERROR=2, WARN=3, INFO=4, VERBOSE=5, DEBUG=6, TRACE=7
+// TS LogLevels: ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace']
+inline const char* cpp_log_level_to_ts(LogLevel level)
+{
+    switch (level) {
+    case LogLevel::SILENT:
+        return "silent";
+    case LogLevel::FATAL:
+        return "fatal";
+    case LogLevel::ERROR:
+        return "error";
+    case LogLevel::WARN:
+        return "warn";
+    case LogLevel::INFO:
+        return "info";
+    case LogLevel::VERBOSE:
+        return "verbose";
+    case LogLevel::DEBUG:
+        return "debug";
+    case LogLevel::TRACE:
+        return "trace";
+    default:
+        return "info";
+    }
+}
+
+// Helper to create a LogFunction wrapper from a ThreadSafeFunction
+// This allows C++ logging to call back to TypeScript logger from worker threads
+LogFunction create_log_function_from_tsfn(const std::shared_ptr<Napi::ThreadSafeFunction>& logger_tsfn)
+{
+    return [logger_tsfn](LogLevel level, const std::string& msg) {
+        // Convert C++ LogLevel to TS log level string
+        const char* ts_level = cpp_log_level_to_ts(level);
+
+        // Call TypeScript logger function on the JS main thread
+        // Using BlockingCall to ensure synchronous execution
+        // Ignore errors - logging failures shouldn't crash the simulation
+        // NOTE: We copy the string because it might be destroyed before the callback is called.
+        logger_tsfn->BlockingCall([ts_level, msg](Napi::Env env, Napi::Function js_logger) {
+            // Create arguments: (level: string, msg: string)
+            auto level_js = Napi::String::New(env, ts_level);
+            auto msg_js = Napi::String::New(env, msg);
+            js_logger.Call({ level_js, msg_js });
+        });
+    };
 }
 
 // Callback method names
@@ -117,63 +169,42 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
 {
     Napi::Env env = cb_info.Env();
 
-    // Validate arguments - expects 4-5 arguments
+    // Validate arguments - expects 3-6 arguments
     // arg[0]: inputs Buffer (required)
     // arg[1]: contractProvider object (required)
     // arg[2]: worldStateHandle external (required)
-    // arg[3]: logLevel number (required) - index into TS LogLevels array
-    // arg[4]: cancellationToken external (optional)
-    if (cb_info.Length() < 4) {
-        throw Napi::TypeError::New(env,
-                                   "Wrong number of arguments. Expected 4-5 arguments: inputs Buffer, contractProvider "
-                                   "object, worldStateHandle, logLevel, and optional cancellationToken.");
+    // arg[3]: logLevel number (optional) - index into TS LogLevels array, -1 if omitted
+    // arg[4]: loggerFunction (optional) - can be null/undefined
+    // arg[5]: cancellationToken external (optional)
+    if (cb_info.Length() < 3) {
+        throw Napi::TypeError::New(
+            env,
+            "Wrong number of arguments. Expected 3-6 arguments: inputs Buffer, contractProvider "
+            "object, worldStateHandle, optional logLevel, optional loggerFunction, and optional cancellationToken.");
     }
 
+    /*******************************
+     *** AvmFastSimulationInputs ***
+     *******************************/
     if (!cb_info[0].IsBuffer()) {
         throw Napi::TypeError::New(env,
                                    "First argument must be a Buffer containing serialized AvmFastSimulationInputs");
     }
-
-    if (!cb_info[1].IsObject()) {
-        throw Napi::TypeError::New(env, "Second argument must be a contractProvider object");
-    }
-
-    if (!cb_info[2].IsExternal()) {
-        throw Napi::TypeError::New(env, "Third argument must be a WorldState handle (External)");
-    }
-
-    if (!cb_info[3].IsNumber()) {
-        throw Napi::TypeError::New(env, "Fourth argument must be a log level number (0-7)");
-    }
-
-    // Extract optional cancellation token (5th argument)
-    avm2::simulation::CancellationTokenPtr cancellation_token = nullptr;
-    if (cb_info.Length() > 4 && cb_info[4].IsExternal()) {
-        auto token_external = cb_info[4].As<Napi::External<avm2::simulation::CancellationToken>>();
-        // Wrap the raw pointer in a shared_ptr that does NOT delete (since the External owns it)
-        cancellation_token = std::shared_ptr<avm2::simulation::CancellationToken>(
-            token_external.Data(), [](avm2::simulation::CancellationToken*) {
-                // No-op deleter: the External
-                // (via shared_ptr destructor
-                // callback) owns the token
-            });
-    }
-
-    // Extract log level and set logging flags
-    int log_level = cb_info[3].As<Napi::Number>().Int32Value();
-    set_logging_from_level(log_level);
-
     // Extract the inputs buffer
     auto inputs_buffer = cb_info[0].As<Napi::Buffer<uint8_t>>();
     size_t length = inputs_buffer.Length();
-
     // Copy the buffer data into C++ memory (we can't access Napi objects from worker thread)
     auto data = std::make_shared<std::vector<uint8_t>>(inputs_buffer.Data(), inputs_buffer.Data() + length);
 
+    /***********************************
+     *** ContractProvider (required) ***
+     ***********************************/
+    if (!cb_info[1].IsObject()) {
+        throw Napi::TypeError::New(env, "Second argument must be a contractProvider object");
+    }
     // Extract and validate contract provider callbacks
     auto contract_provider = cb_info[1].As<Napi::Object>();
     ContractCallbacks::validate(env, contract_provider);
-
     // Create thread-safe function wrappers for callbacks
     // These allow us to call TypeScript from the C++ worker thread
     ContractTsfns tsfns{
@@ -196,18 +227,68 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
             env, ContractCallbacks::get(contract_provider, CALLBACK_REVERT_CHECKPOINT), CALLBACK_REVERT_CHECKPOINT),
     };
 
+    /*****************************
+     *** WorldState (required) ***
+     *****************************/
+    if (!cb_info[2].IsExternal()) {
+        throw Napi::TypeError::New(env, "Third argument must be a WorldState handle (External)");
+    }
     // Extract WorldState handle (3rd argument)
     auto external = cb_info[2].As<Napi::External<world_state::WorldState>>();
     world_state::WorldState* ws_ptr = external.Data();
 
-    // Create a deferred promise
-    auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
+    /***************************
+     *** LogLevel (optional) ***
+     ***************************/
+    int log_level = -1;
+    if (cb_info.Length() > 3 && cb_info[3].IsNumber()) {
+        log_level = cb_info[3].As<Napi::Number>().Int32Value();
+        set_logging_from_level(log_level);
+    }
 
+    /*********************************
+     *** LoggerFunction (optional) ***
+     *********************************/
+    std::shared_ptr<Napi::ThreadSafeFunction> logger_tsfn = nullptr;
+    if (cb_info.Length() > 4 && !cb_info[4].IsNull() && !cb_info[4].IsUndefined()) {
+        if (cb_info[4].IsFunction()) {
+            // Logger function provided - create thread-safe wrapper
+            auto logger_function = cb_info[4].As<Napi::Function>();
+            logger_tsfn = make_tsfn(env, logger_function, "LoggerCallback");
+            // Create LogFunction wrapper and set it as the global log function
+            // This will be used by C++ logging macros (info, debug, vinfo, important)
+            set_log_function(create_log_function_from_tsfn(logger_tsfn));
+        } else {
+            throw Napi::TypeError::New(env, "Fifth argument must be a logger function, null, or undefined");
+        }
+    }
+
+    /*************************************
+     *** Cancellation Token (optional) ***
+     *************************************/
+    avm2::simulation::CancellationTokenPtr cancellation_token = nullptr;
+    if (cb_info.Length() > 5 && cb_info[5].IsExternal()) {
+        auto token_external = cb_info[5].As<Napi::External<avm2::simulation::CancellationToken>>();
+        // Wrap the raw pointer in a shared_ptr that does NOT delete (since the External owns it)
+        cancellation_token = std::shared_ptr<avm2::simulation::CancellationToken>(
+            token_external.Data(), [](avm2::simulation::CancellationToken*) {
+                // No-op deleter: the External (via shared_ptr destructor callback) owns the token
+            });
+    }
+
+    /**********************************************************
+     *** Create Deferred Promise and launch async operation ***
+     **********************************************************/
+
+    auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
     // Create async operation that will run on a worker thread
-    auto* op =
-        new AsyncOperation(env, deferred, [data, tsfns, ws_ptr, cancellation_token](msgpack::sbuffer& result_buffer) {
+    auto* op = new AsyncOperation(
+        env, deferred, [data, tsfns, logger_tsfn, ws_ptr, cancellation_token](msgpack::sbuffer& result_buffer) {
+            // Collect all thread-safe functions including logger for cleanup
+            auto all_tsfns = tsfns.to_vector();
+            all_tsfns.push_back(logger_tsfn);
             // Ensure all thread-safe functions are released in all code paths
-            TsfnReleaser releaser = TsfnReleaser(tsfns.to_vector());
+            TsfnReleaser releaser = TsfnReleaser(std::move(all_tsfns));
 
             try {
                 // Deserialize inputs from msgpack

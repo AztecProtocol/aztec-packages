@@ -9,10 +9,22 @@ import {
 import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { writeSync } from 'fs';
 import { createInterface } from 'readline';
 
 import { AvmFuzzerSimulator, FuzzerSimulationRequest } from './avm_fuzzer_simulator.js';
+
+/** Write data to stdout, letting Node handle buffering. */
+function writeOutput(data: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    process.stdout.write(data, err => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
 
 // This cache holds opened world states to avoid reopening them for each invocation.
 // It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
@@ -43,10 +55,14 @@ async function simulateWithFuzzer(
   globals: GlobalVariables,
   rawContractClasses: any[], // Replace these when we are moving contract classes to TS
   rawContractInstances: [any, any][], // Replace these when we are moving contract instances to TS
+  rawPublicDataWrites: any[], // Public data tree writes to apply before simulation
 ): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
 
   const simulator = await AvmFuzzerSimulator.create(worldStateService, globals);
+
+  // Apply public data writes before simulation (e.g., for bytecode upgrades)
+  await simulator.applyPublicDataWrites(rawPublicDataWrites);
 
   // Register contract classes from C++
   for (const rawClass of rawContractClasses) {
@@ -87,6 +103,7 @@ async function execute(base64Line: string): Promise<void> {
       request.globals,
       request.contractClasses,
       request.contractInstances,
+      request.publicDataWrites,
     );
 
     // Serialize the result to msgpack and encode it in base64 for output
@@ -96,16 +113,17 @@ async function execute(base64Line: string): Promise<void> {
       revertReason: result.revertReason ?? '',
       endTreeSnapshots: result.publicInputs.endTreeSnapshots,
     });
-    writeSync(process.stdout.fd, resultBuffer.toString('base64') + '\n');
+    const base64Response = resultBuffer.toString('base64') + '\n';
+    await writeOutput(base64Response);
   } catch (error: any) {
     // If we error, treat as reverted
     const errorResult = serializeWithMessagePack({
       reverted: true,
-      output: [] as string[],
+      output: [] as Fr[],
       revertReason: `Unexpected Error ${error.message}`,
       endTreeSnapshots: TreeSnapshots.empty(),
     });
-    writeSync(process.stdout.fd, errorResult.toString('base64') + '\n');
+    await writeOutput(errorResult.toString('base64') + '\n');
   }
 }
 

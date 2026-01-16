@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -46,7 +46,6 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
                            const Parameters& /* unused */,
                            const FF& scaling_factor);
 
-    // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
     {
         if constexpr (FF::modulus == bb::fq::modulus) {
@@ -54,7 +53,7 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         } else if constexpr (FF::modulus == grumpkin::fq::modulus) {
             return grumpkin::g1::curve_b;
         } else {
-            return 0;
+            static_assert(!std::is_same_v<FF, FF>, "Unsupported field type for ECC transcript relation");
         }
     }
 };

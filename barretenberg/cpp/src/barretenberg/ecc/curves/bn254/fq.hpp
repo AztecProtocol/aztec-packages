@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -27,7 +27,7 @@ class Bn254FqParams {
     static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
 
     // A little-endian representation of R^2 modulo the modulus (R=2^256 mod modulus) split into 4 64-bit words
-    // This paremeter is used to convert an element of Fq in standard from to Montgomery form
+    // This parameter is used to convert an element of Fq in standard form to Montgomery form
     static constexpr uint64_t r_squared_0 = 0xF32CFC5B538AFA89UL;
     static constexpr uint64_t r_squared_1 = 0xB5E71911D44501FBUL;
     static constexpr uint64_t r_squared_2 = 0x47AB1EFF0A417FF6UL;

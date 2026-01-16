@@ -1241,9 +1241,6 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plook
                                                             BasicTableId::SHA256_WITNESS_SLICE_14_ROTATE_1,
                                                             BasicTableId::SHA256_BASE16,
                                                             BasicTableId::SHA256_BASE16_ROTATE2,
-                                                            BasicTableId::SHA256_BASE16_ROTATE6,
-                                                            BasicTableId::SHA256_BASE16_ROTATE7,
-                                                            BasicTableId::SHA256_BASE16_ROTATE8,
                                                             BasicTableId::SHA256_BASE28,
                                                             BasicTableId::SHA256_BASE28_ROTATE3,
                                                             BasicTableId::SHA256_BASE28_ROTATE6 };
@@ -1264,6 +1261,47 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plook
                 // we want to remove false cases for special tables even though their selectors != 0
                 // because they are used in read_from_1_to_2_table function, and they aren't dangerous
                 variables_in_one_gate.erase(real_out_idx);
+            }
+        }
+    }
+}
+
+/**
+ * @brief This method removes false positive cases from keccak lookup tables.
+ * Tables which are enumerated in keccak_plookup_tables are used by keccak lookup constraints. Some lookup-gate outputs
+ * are auxiliary (e.g. MSB) and may appear in only one gate but this is not dangerous. So we remove these variables.
+ * @tparam FF
+ * @tparam CircuitBuilder
+ * @param table_id
+ * @param gate_index
+ */
+template <typename FF, typename CircuitBuilder>
+inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_keccak_plookup_variables(BasicTableId& table_id,
+                                                                                             size_t gate_index)
+{
+    auto find_position = [&](uint32_t real_variable_index) {
+        return variables_in_one_gate.contains(real_variable_index);
+    };
+
+    std::unordered_set<BasicTableId> keccak_plookup_tables{
+        BasicTableId::KECCAK_INPUT, BasicTableId::KECCAK_OUTPUT, BasicTableId::KECCAK_CHI,   BasicTableId::KECCAK_THETA,
+        BasicTableId::KECCAK_RHO,   BasicTableId::KECCAK_RHO_1,  BasicTableId::KECCAK_RHO_2, BasicTableId::KECCAK_RHO_3,
+        BasicTableId::KECCAK_RHO_4, BasicTableId::KECCAK_RHO_5,  BasicTableId::KECCAK_RHO_6, BasicTableId::KECCAK_RHO_7,
+        BasicTableId::KECCAK_RHO_8, BasicTableId::KECCAK_RHO_9
+    };
+
+    auto& lookup_block = circuit_builder.blocks.lookup;
+
+    if (keccak_plookup_tables.contains(table_id)) {
+        uint32_t real_out_idx = this->to_real(lookup_block.w_o()[gate_index]);
+        uint32_t real_right_idx = this->to_real(lookup_block.w_r()[gate_index]);
+        if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+            bool find_out = find_position(real_out_idx);
+            auto q_c = lookup_block.q_c()[gate_index];
+            if (q_c.is_zero()) {
+                if (find_out) {
+                    variables_in_one_gate.erase(real_out_idx);
+                }
             }
         }
     }
@@ -1297,6 +1335,8 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_current_plookup_gate(si
             this->remove_unnecessary_aes_plookup_variables(table_id, gate_index);
             // false cases for sha256
             this->remove_unnecessary_sha256_plookup_variables(table_id, gate_index);
+            // false cases for keccak
+            this->remove_unnecessary_keccak_plookup_variables(table_id, gate_index);
             // if the amount of unique elements from columns of plookup tables = 1, it means that
             // variable from this column aren't used and we can remove it.
             if (column_1.size() == 1) {

@@ -106,7 +106,10 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Control flow
     ////////////////////////////////////////////////
-    pol commit start;
+    pol commit start; // @boolean (by definition)
+    // start * (1 - sel) = 0; means that start != 0 ==> sel == 1 or equivalently sel == 0 ==> start == 0
+    // And from #[START_AFTER_LAST], we have sel == 1 ==> start is boolean.
+    // Together, we have the guarantee that start is boolean.
     start * (1 - sel) = 0;
 
     // Selector to indicate end of this chunk of sha256
@@ -132,6 +135,12 @@ namespace sha256;
     (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
     #[CONTINUITY_OUTPUT_ADDR] // Propagate output addr down
     (1 - LATCH_CONDITION) * (output_addr' - output_addr) = 0;
+
+    // Enforce input_addr increments by 1 during input rounds (first 16 rows)
+    // and stays constant otherwise. This prevents malicious provers from
+    // setting arbitrary memory addresses during SHA256 input loading.
+    #[CONTINUITY_INPUT_ADDR]
+    (1 - LATCH_CONDITION) * (input_addr' - (input_addr + sel_is_input_round)) = 0;
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access

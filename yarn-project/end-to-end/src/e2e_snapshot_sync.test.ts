@@ -75,12 +75,13 @@ describe('e2e_snapshot_sync', () => {
       context.config,
       { ...config, realProofs: false, dataDirectory },
       context.aztecNode,
+      context.prefilledPublicData ?? [],
     );
   };
 
   const expectNodeSyncedToL2Block = async (node: AztecNode | ProverNode, blockNumber: number) => {
     const tips = await node.getL2Tips();
-    expect(tips.latest.number).toBeGreaterThanOrEqual(blockNumber);
+    expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
     const worldState = await node.getWorldStateSyncStatus();
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
   };

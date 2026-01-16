@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'The git reference to update to (default: latest nightly)'
+        description: "The git reference to update to (default: latest nightly)"
         required: false
         type: string
 
@@ -66,7 +66,9 @@ jobs:
           git fetch --tags
           git checkout ${{ steps.noir_versions.outputs.latest_nightly }}
           cd ../..
-          git add noir/noir-repo
+          # Update Cargo.lock if needed, but don't fail if transpiler no longer builds
+          cargo check --manifest-path avm-transpiler/Cargo.toml || true
+          git add noir/noir-repo avm-transpiler/Cargo.lock
 
       - name: Check for existing PR
         if: steps.noir_versions.outputs.update_needed == 'true'

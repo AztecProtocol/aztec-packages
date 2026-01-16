@@ -1,41 +1,66 @@
 ---
-sidebar_position: 4
-title: Upgrades
-description: Learn about the network upgrade process for the Aztec network.
+title: Network Upgrades
+description: Learn how the Aztec network upgrades to new rollup versions and how validators transition.
+displayed_sidebar: conceptsSidebar
 ---
 
-Upgrades involve transitioning the network to a new instance of the Rollup contract. They might fix vulnerabilities, introduce new features, or enhance performance.
+# Network Upgrades
 
-## AZIP
+Network upgrades transition the Aztec network to a new rollup contract instance. This page explains why upgrades happen, how the Registry model works, and how validators migrate to new versions.
 
-It is expected that the community will coordinate upgrade proposals via an AZIP process, which is a design document outlining the upgrade rationale and one that allows for collecting technical input from and by the community.
+For the detailed governance stages (signaling, voting, execution), see [Proposal Lifecycle](./proposal-lifecycle).
 
-Once developers of client software agree to support the upgrade, sequencers can begin signaling to table this proposal from a certain block height.
+## Why Upgrades Happen
 
-## Initial Contract Deployment
+The Aztec protocol evolves over time. Common reasons for upgrades include:
 
-The initial deployment creates a set of contracts, as described in the [Deployment section](../deployments/what_is_deployment.md).
+- **Security Fixes**: Patching vulnerabilities discovered in the rollup
+- **Feature Additions**: Adding new functionality to the protocol
+- **Performance Improvements**: Optimizing proof generation or block processing
+- **Parameter Changes**: Adjusting staking requirements, fees, or timing
 
-## Upgrading the Rollup Contract
+## The Registry Model
 
-1. **Proposal Creation:**
+The Aztec governance system maintains a [Registry](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol) of all rollup contract instances. This design enables:
 
-   - A new Rollup contract is deployed to the network
-   - Proposal code to execute the upgrade is deployed separately
+1. **Backwards Compatibility**: Every rollup that has ever existed remains accessible. Users can always bridge assets in or out of any historical rollup version.
 
-2. **Sequencer Participation:**
+2. **Canonical Selection**: Only the most recent rollup in the Registry is "canonical" and receives block rewards.
 
-   - Sequencers must signal their readiness by voting through the Proposals contract.
-   - This vote occurs during their assigned L2 slot, as dictated by the L1 Rollup smart contract.
+When an upgrade passes governance, the new rollup address is added to the Registry via `addRollup()`.
 
-3. **Governance Approval:**
-   - Hypothetical Asset holders vote to approve or reject the proposal. Votes are proportional to the amount of Hypothetical Asset locked in the Governance contract.
+## Validator Transition
 
-## Proposal Execution
+The [GSE](./gse) enables smooth validator transitions during upgrades.
 
-After governance approval and a delay period, the proposal becomes executable:
+### Automatic Migration
 
-- Any Ethereum account can call `execute(_proposalId)` on the Governance contract.
-- The `execute` function calls the proposal code, transitioning the network to the new Rollup instance.
+Validators who deposited with `moveWithLatestRollup = true`:
+- Stake automatically becomes available to the new rollup
+- No action required—they can validate immediately
+- Voting power moves with their stake
 
-For a more hands-on guide to participating in governance as a sequencer, see the [Governance and Proposal Process](../../operation/sequencer_management/creating_and_voting_on_proposals.md) guide.
+### Manual Migration
+
+Validators who deposited with `moveWithLatestRollup = false`:
+- Must initiate withdrawal from the old rollup (has a delay)
+- Then deposit into the new rollup (may have an entry queue)
+- Temporary gap in validation ability
+
+### Best Practice
+
+Use `moveWithLatestRollup = true` for seamless upgrades. Only use `false` if you specifically want to remain on an older rollup version.
+
+## After an Upgrade
+
+Once an upgrade is executed:
+
+1. **New Rollup is Canonical**: Block rewards go to the new rollup; Governance Proposer accepts signals only from new rollup validators
+
+2. **Old Rollup Remains Accessible**: Users can still bridge assets in/out; validators with unmoved stake can still operate
+
+## Related Topics
+
+- [Proposal Lifecycle](./proposal-lifecycle) - Detailed stages from signaling to execution
+- [GSE and Stake Mobility](./gse) - How stake transitions work
+- [Governance Participation](../../operators/sequencer-management/creating_and_voting_on_proposals) - How to participate as a sequencer

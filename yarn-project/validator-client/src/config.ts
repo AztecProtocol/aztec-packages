@@ -53,11 +53,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
   },
-  validatorReexecuteDeadlineMs: {
-    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
-    description: 'Will re-execute until this many milliseconds are left in the slot',
-    ...numberConfigHelper(6000),
-  },
   alwaysReexecuteBlockProposals: {
     env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
     description:
@@ -69,6 +64,16 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description:
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
+  },
+  // TODO(palla/mbps): Change default to false once checkpoint validation is stable
+  skipCheckpointProposalValidation: {
+    description: 'Skip checkpoint proposal validation and always attest (default: true)',
+    defaultValue: true,
+  },
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  skipPushProposedBlocksToArchiver: {
+    description: 'Skip pushing re-executed blocks to archiver (default: true)',
+    defaultValue: true,
   },
 };
 

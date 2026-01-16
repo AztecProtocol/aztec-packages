@@ -13,7 +13,7 @@ import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_
 import { CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import type { ValidateBlockResult } from '../block/validate_block_result.js';
+import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -181,6 +181,14 @@ describe('ArchiverApiSchema', () => {
     expect(result!.l1).toBeDefined();
   });
 
+  it('getCheckpointedBlocks', async () => {
+    const result = await context.client.getCheckpointedBlocks(BlockNumber(1), 10);
+    expect(result).toHaveLength(1);
+    expect(result[0].block.constructor.name).toEqual('L2BlockNew');
+    expect(result[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(result[0].l1).toBeDefined();
+  });
+
   it('getBlocksForEpoch', async () => {
     const result = await context.client.getBlocksForEpoch(EpochNumber(1));
     expect(result).toEqual([expect.any(L2Block)]);
@@ -198,10 +206,15 @@ describe('ArchiverApiSchema', () => {
 
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
+    const expectedTipId = {
+      block: { number: 1, hash: `0x01` },
+      checkpoint: { number: 1, hash: `0x01` },
+    };
     expect(result).toEqual({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      proposed: { number: 1, hash: `0x01` },
+      checkpointed: expectedTipId,
+      proven: expectedTipId,
+      finalized: expectedTipId,
     });
   });
 
@@ -319,6 +332,16 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getGenesisValues();
     expect(result).toEqual({ genesisArchiveRoot: expect.any(Fr) });
   });
+
+  it('getL2BlockNew', async () => {
+    const result = await context.client.getL2BlockNew(BlockNumber(1));
+    expect(result).toEqual(expect.any(L2BlockNew));
+  });
+
+  it('getL2BlocksNew', async () => {
+    const result = await context.client.getL2BlocksNew(BlockNumber(1), 1);
+    expect(result).toEqual([expect.any(L2BlockNew)]);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
@@ -330,7 +353,7 @@ class MockArchiver implements ArchiverApi {
   isPendingChainInvalid(): Promise<boolean> {
     return Promise.resolve(false);
   }
-  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
   }
   syncImmediate() {
@@ -364,6 +387,16 @@ class MockArchiver implements ArchiverApi {
       }),
     );
   }
+  async getCheckpointedBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<CheckpointedL2Block[]> {
+    return [
+      CheckpointedL2Block.fromFields({
+        checkpointNumber: CheckpointNumber(1),
+        block: await L2BlockNew.random(from),
+        attestations: [CommitteeAttestation.random()],
+        l1: new L1PublishedData(1n, 0n, `0x`),
+      }),
+    ];
+  }
   async getBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<L2Block[]> {
     return [await L2Block.random(from)];
   }
@@ -388,6 +421,12 @@ class MockArchiver implements ArchiverApi {
       }),
     ];
   }
+
+  async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
+    const block = await L2BlockNew.random(from);
+    return [block];
+  }
+
   async getPublishedBlockByHash(_blockHash: Fr): Promise<PublishedL2Block | undefined> {
     return PublishedL2Block.fromFields({
       block: await L2Block.random(BlockNumber(1)),
@@ -448,10 +487,15 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve(true);
   }
   getL2Tips(): Promise<L2Tips> {
+    const tipId = {
+      block: { number: BlockNumber(1), hash: `0x01` },
+      checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
+    };
     return Promise.resolve({
-      latest: { number: BlockNumber(1), hash: `0x01` },
-      proven: { number: BlockNumber(1), hash: `0x01` },
-      finalized: { number: BlockNumber(1), hash: `0x01` },
+      proposed: { number: BlockNumber(1), hash: `0x01` },
+      checkpointed: tipId,
+      proven: tipId,
+      finalized: tipId,
     });
   }
   getL2BlockHash(blockNumber: BlockNumber): Promise<string | undefined> {

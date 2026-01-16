@@ -3,10 +3,10 @@ import { TopicType, getTopicFromString, getTopicsForClientAndConfig } from './to
 
 describe('Gossip topic retrieval', () => {
   it.each([
-    [P2PClientType.Full, ['tx', 'block_proposal', 'block_attestation'], true],
-    [P2PClientType.Prover, ['tx', 'block_proposal'], true],
-    [P2PClientType.Full, ['block_proposal', 'block_attestation'], false],
-    [P2PClientType.Prover, ['block_proposal'], false],
+    [P2PClientType.Full, ['tx', 'block_proposal', 'checkpoint_proposal', 'checkpoint_attestation'], true],
+    [P2PClientType.Prover, ['tx', 'block_proposal', 'checkpoint_proposal'], true],
+    [P2PClientType.Full, ['block_proposal', 'checkpoint_proposal', 'checkpoint_attestation'], false],
+    [P2PClientType.Prover, ['block_proposal', 'checkpoint_proposal'], false],
   ])(
     'Node type %s subscribes to topics %s with transactions enabled: %s',
     (clientType: P2PClientType, expectedTopics: string[], transactionsEnabled: boolean) => {
@@ -27,9 +27,9 @@ describe('getTopicFromString', () => {
       expect(result).toBe(TopicType.block_proposal);
     });
 
-    it('should parse block_attestation topic with version 0.1.0', () => {
-      const result = getTopicFromString('/aztec/block_attestation/0.1.0');
-      expect(result).toBe(TopicType.block_attestation);
+    it('should parse checkpoint_attestation topic with version 0.1.0', () => {
+      const result = getTopicFromString('/aztec/checkpoint_attestation/0.1.0');
+      expect(result).toBe(TopicType.checkpoint_attestation);
     });
 
     it('should parse topic with different protocol version', () => {
@@ -126,7 +126,8 @@ describe('getTopicFromString', () => {
       const topicStrings = [
         ['/aztec/tx/0.1.0', TopicType.tx],
         ['/aztec/block_proposal/0.1.0', TopicType.block_proposal],
-        ['/aztec/block_attestation/0.1.0', TopicType.block_attestation],
+        ['/aztec/checkpoint_proposal/0.1.0', TopicType.checkpoint_proposal],
+        ['/aztec/checkpoint_attestation/0.1.0', TopicType.checkpoint_attestation],
       ] as const;
 
       topicStrings.forEach(([topicStr, expectedType]) => {

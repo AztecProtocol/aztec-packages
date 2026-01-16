@@ -56,14 +56,14 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -76,7 +76,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     sentinel = await createNonValidatorNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
       t.bootstrapNodeEnr,
       t.prefilledPublicData,

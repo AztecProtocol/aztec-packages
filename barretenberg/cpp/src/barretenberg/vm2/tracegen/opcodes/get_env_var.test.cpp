@@ -209,7 +209,7 @@ TEST(GetEnvVarTracegenTest, FeePerL2GasEnvironmentVariable)
     ExecutionTraceBuilder builder;
 
     Operand envvar_enum =
-        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS)); // enum value
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERL2GAS)); // enum value
 
     uint128_t fee_per_l2_gas = 42;
     MemoryValue output = MemoryValue::from_tag(ValueTag::U128, fee_per_l2_gas);
@@ -237,7 +237,7 @@ TEST(GetEnvVarTracegenTest, FeePerDaGasEnvironmentVariable)
     ExecutionTraceBuilder builder;
 
     Operand envvar_enum =
-        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERDAGAS)); // enum value
+        Operand::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERDAGAS)); // enum value
 
     uint128_t fee_per_da_gas = 42;
     MemoryValue output = MemoryValue::from_tag(ValueTag::U128, fee_per_da_gas);

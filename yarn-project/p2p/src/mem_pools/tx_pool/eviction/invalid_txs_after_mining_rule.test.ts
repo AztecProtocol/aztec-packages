@@ -23,6 +23,7 @@ describe('InvalidTxsAfterMiningRule', () => {
         const context: EvictionContext = {
           event: EvictionEvent.TXS_ADDED,
           newTxs: [],
+          feePayers: [],
         };
 
         const result = await rule.evict(context, txPool);
@@ -65,7 +66,7 @@ describe('InvalidTxsAfterMiningRule', () => {
           event: EvictionEvent.BLOCK_MINED,
           block: blockHeader,
           newNullifiers,
-          minedFeePayers: [],
+          feePayers: [],
         };
       });
 

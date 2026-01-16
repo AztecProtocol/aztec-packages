@@ -2,19 +2,16 @@ pub(crate) mod assert_trailing_zeros;
 pub(crate) mod copy_items_into_array;
 pub(crate) mod find_index;
 pub(crate) mod get_sorted_tuples;
+pub(crate) mod claimed_length_array;
 
 // Re-exports.
 pub use assert_trailing_zeros::assert_trailing_zeros;
+pub use claimed_length_array::ClaimedLengthArray;
 pub use copy_items_into_array::copy_items_into_array;
 pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_tuples::{get_sorted_tuples, SortedTuple};
 
-use crate::traits::{Deserialize, Empty, Serialize};
-use super::for_loop::for_i_in_0_;
-
-//**********************************************************************************
-// ARRAY
-//**********************************************************************************
+use crate::traits::Empty;
 
 // TODO: Consider making this a part of the noir stdlib.
 /// Helper fn to create a subarray from a given array.
@@ -29,50 +26,8 @@ where
     result
 }
 
-// Helper function to find the index of the first element in an array that satisfies a given predicate.
-// If the element is not found, the function returns Option::none.
-// TODO: Consider making this a part of the noir stdlib.
-pub unconstrained fn find_index_hint<T, let N: u32, Env>(
-    array: [T; N],
-    find: fn[Env](T) -> bool,
-) -> Option<u32> {
-    let mut index: Option<u32> = Option::none();
-    for i in 0..N {
-        if find(array[i]) {
-            index = Option::some(i);
-            break;
-        }
-    }
-    index
-}
-
-// Helper function to find the index of the first element (starting from the back) of an array that satisfies a given predicate.
-// If the element is not found, the function returns Option::none.
-// TODO: Consider making this a part of the noir stdlib.
-pub unconstrained fn find_index_hint_in_reverse<T, let N: u32, Env>(
-    array: [T; N],
-    find: fn[Env](T) -> bool,
-) -> Option<u32> {
-    let mut index: Option<u32> = Option::none();
-    for i in 0..N {
-        let j = N - i - 1;
-        if find(array[j]) {
-            index = Option::some(j);
-            break;
-        }
-    }
-    index
-}
-
-//**********************************************************************************
-// FREE ARRAY FUNCTIONS (to deprecate or make into methods of array wrappers)
-//**********************************************************************************
-
-/// Deprecated.
-///
 /// Helper function to count the number of non-empty elements in a validated array.
-/// Important: Only use it for validated arrays where validate_array(array) returns true,
-/// which ensures that:
+/// Danger: This is only safe to call if the input arrays have been "validated" (dense lhs, empty rhs).
 /// 1. All elements before the first empty element are non-empty
 /// 2. All elements after and including the first empty element are empty
 /// 3. The array forms a contiguous sequence of non-empty elements followed by empty elements
@@ -82,23 +37,32 @@ where
 {
     // We get the length by checking the index of the first empty element.
 
-    // Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    // Safety: This is safe because we have validated the array (see function doc comment above) and the emptiness
     // of the element and non-emptiness of the previous element is checked below.
-    let maybe_length = unsafe { find_index_hint(array, |elem: T| elem.is_empty()) };
+    let length = unsafe { find_first_index(array, |elem: T| elem.is_empty()) };
 
-    let mut length = N;
+    validate_array_length_hint(array, length);
 
-    if maybe_length.is_some() {
-        length = maybe_length.unwrap_unchecked();
+    length
+}
 
-        array[length].assert_empty("Expected array empty");
+// Extracted into a standalone function to enable testing of bad hints.
+fn validate_array_length_hint<T, let N: u32>(array: [T; N], length: u32)
+where
+    T: Empty,
+{
+    // Note: if length > N, the below `array` access will throw an out of bounds error.
+
+    if length != N {
+        array[length].assert_empty("Expected array[length] to be empty");
     }
 
     if length != 0 {
-        assert(!array[length - 1].is_empty());
+        assert(
+            !array[length - 1].is_empty(),
+            "Expected claimed final element of array (array[length - 1]) to be nonempty",
+        );
     }
-
-    length
 }
 
 // Returns an array length defined by fully trimming _all_ "empty" items
@@ -107,57 +71,13 @@ pub unconstrained fn trimmed_array_length_hint<T, let N: u32>(array: [T; N]) -> 
 where
     T: Empty,
 {
-    let maybe_index_of_last_nonempty =
-        find_index_hint_in_reverse(array, |elem: T| !elem.is_empty());
-    let length: u32 = if maybe_index_of_last_nonempty.is_some() {
-        1 + maybe_index_of_last_nonempty.unwrap_unchecked()
+    let index_of_last_nonempty = find_last_index(array, |elem: T| !elem.is_empty());
+    let length: u32 = if index_of_last_nonempty != N {
+        1 + index_of_last_nonempty
     } else {
         0
     };
     length
-}
-
-/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
-/// if this is not the case then elements from the end of `array2` will be dropped.
-pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
-where
-    T: Empty,
-{
-    // Safety: we constrain this array below
-    let result = unsafe { array_merge_helper(array1, array2) };
-    // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
-    let array1_len = array_length(array1);
-    let mut add_from_left = true;
-    for i in 0..N {
-        add_from_left &= i != array1_len;
-        if add_from_left {
-            assert_eq(result[i], array1[i]);
-        } else {
-            assert_eq(result[i], array2[i - array1_len]);
-        }
-    }
-    result
-}
-
-unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
-where
-    T: Empty,
-{
-    let mut result: [T; N] = [T::empty(); N];
-    let mut i = 0;
-    for elem in array1 {
-        if !elem.is_empty() {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    for elem in array2 {
-        if !elem.is_empty() {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    result
 }
 
 // Returns the number of consecutive elements at the start of the array for which the predicate returns false.
@@ -179,6 +99,63 @@ pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](
     length
 }
 
+/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
+/// if this is not the case then elements from the end of `array2` will be dropped.
+/// Danger: This is only safe to call if the input arrays have been "validated" (dense lhs, empty rhs).
+pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty,
+{
+    // Safety: we constrain this array below
+    let result = unsafe { array_merge_helper(array1, array2) };
+
+    validate_array_merge_hint(array1, array2, result);
+
+    result
+}
+
+// Danger: assumes the array's length has already been validated.
+unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty,
+{
+    let mut result: [T; N] = [T::empty(); N];
+    let mut i = 0;
+    for elem in array1 {
+        // This function should only be used with validated arrays, so it's fine to simply skip empty elements here.
+        if !elem.is_empty() {
+            result[i] = elem;
+            i += 1;
+        }
+    }
+    for elem in array2 {
+        if !elem.is_empty() {
+            result[i] = elem;
+            i += 1;
+        }
+    }
+    result
+}
+
+/// Extracted into a standalone function to enable testing of bad hints.
+/// Danger: This is only safe to call if the input arrays have been "validated" (dense lhs, empty rhs).
+fn validate_array_merge_hint<T, let N: u32>(array1: [T; N], array2: [T; N], result: [T; N])
+where
+    T: Empty,
+{
+    // We assume the array length has been validated. The only use cases so far are with previously validated arrays.
+    let array1_len = array_length(array1);
+    let mut add_from_left = true;
+    for i in 0..N {
+        add_from_left &= i != array1_len;
+        if add_from_left {
+            assert_eq(result[i], array1[i], "Incorrect array merge hint");
+        } else {
+            assert_eq(result[i], array2[i - array1_len], "Incorrect array merge hint");
+        }
+    }
+}
+
 pub fn check_permutation<T, let N: u32>(
     original_array: [T; N],
     permuted_array: [T; N],
@@ -198,7 +175,6 @@ where
 }
 
 // Helper function to check if an array is padded with a given value from a given index.
-// Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
 pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
 where
     T: Eq,
@@ -212,120 +188,30 @@ where
     is_valid
 }
 
-//**********************************************************************************
-// ARRAY WRAPPERS
-//**********************************************************************************
-
-/// ClaimedLengthArray - An array interpreted by Kernel circuits.
-/// Its `length` is merely a claim that must eventually be validated.
-/// Validation must include:
-/// - Asserting all items to the LHS of the length are nonempty (dense).
-/// - Asserting all items to the RHS of the length are empty.
-#[derive(Deserialize, Serialize)]
-pub struct ClaimedLengthArray<T, let N: u32> {
-    pub array: [T; N],
-    pub length: u32,
-}
-
-impl<T, let N: u32> ClaimedLengthArray<T, N>
-where
-    T: Empty,
-{
-    // No constructor. Append to an empty one.
-
-    // For constrained append functions, see the dedicated file: assert_array_appended.nr
-
-    pub fn assert_dense_trimmed(self) {
-        for_i_in_0_(
-            self.length,
-            self.array.len(),
-            |i| {
-                assert(!self.array[i].is_empty(), "LHS of input array is not dense")
-                // Requires Noir #9002:
-                // self.array[i].assert_not_empty("LHS of input array is not dense"); // LHS of input array is not dense.
-            },
-            |i| self.array[i].assert_empty("RHS of input array is not empty"),
-            false,
-        );
-    }
-
-    pub fn assert_empty<let S: u32>(self, msg: str<S>) {
-        for i in 0..N {
-            self.array[i].assert_empty(msg);
-        }
-        assert_eq(self.length, 0);
-    }
-
-    pub fn assert_length_within_bounds<let S: u32>(self, msg: str<S>) {
-        assert(self.length <= N, msg);
-    }
-
-    pub fn push(&mut self, item: T) {
-        assert(self.length != N, "Array full");
-
-        let next_index = self.length;
-        self.array[next_index] = item;
-        self.length += 1;
-    }
-
-    pub fn pop(&mut self) -> T {
-        assert(self.length != 0, "Array empty");
-
-        let mut top_index = self.length - 1;
-        let popped_item = self.array[top_index];
-        self.array[top_index] = T::empty();
-        self.length -= 1;
-        popped_item
-    }
-
-    pub fn for_each<Env>(self, f: fn[Env](T) -> ()) {
-        let mut within_range = true;
-        for i in 0..N {
-            within_range &= i != self.length;
-            if within_range {
-                f(self.array[i]);
-            }
-        }
-    }
-
-    // E.g.
-    // dest.for_each_i(|source_item, i| { assert_eq(dest.array[i], source_item, "bad copy"); })
-    pub fn for_each_i<Env>(self, f: fn[Env](T, u32) -> ()) {
-        let mut within_range = true;
-        for i in 0..N {
-            within_range &= i != self.length;
-            if within_range {
-                f(self.array[i], i);
-            }
-        }
-    }
-
-    pub fn from_bounded_vec(vec: BoundedVec<T, N>) -> Self {
-        Self { array: vec.storage(), length: vec.len() }
-    }
-}
-
-// TODO: compiler bug. No idea why this is needed, if we have #[derive(Eq)] above the struct definition.
-impl<T, let N: u32> Eq for ClaimedLengthArray<T, N>
-where
-    T: Eq,
-{
-    fn eq(self, other: Self) -> bool {
-        (self.array == other.array) & (self.length == other.length)
-    }
-}
-
-impl<T, let N: u32> Empty for ClaimedLengthArray<T, N>
-where
-    T: Empty,
-{
-    fn empty() -> Self {
-        Self { array: [T::empty(); N], length: 0 }
-    }
-}
+// ==================== subarray tests ====================
 
 #[test]
-fn test_empty_array_length() {
+fn test_subarray() {
+    assert_eq(subarray::<_, 5, 3>([10, 20, 30, 40, 50], 1), [20, 30, 40]);
+    assert_eq(subarray::<_, 5, 2>([10, 20, 30, 40, 50], 0), [10, 20]);
+    assert_eq(subarray::<_, 3, 0>([10, 20, 30], 2), []);
+    assert_eq(subarray::<_, 3, 1>([10, 20, 30], 2), [30]);
+}
+
+#[test(should_fail_with = "out of bounds")]
+fn test_subarray_offset_out_of_bounds() {
+    let _: [Field; 1] = subarray([10, 20, 30], 5);
+}
+
+#[test(should_fail_with = "out of bounds")]
+fn test_subarray_result_size_exceeds_available() {
+    let _: [Field; 3] = subarray([10, 20, 30, 40, 50], 3);
+}
+
+// ==================== array_length tests ====================
+
+#[test]
+fn test_array_length_empty_array() {
     assert_eq(array_length([0]), 0);
     assert_eq(array_length([0, 0, 0]), 0);
 }
@@ -341,11 +227,77 @@ fn test_array_length() {
 #[test]
 fn test_array_length_invalid_arrays() {
     // Result can be misleading (but correct) for invalid arrays.
+    // This is why the arrays being passed-into `array_length` must already have been "validated"
+    // (dense lhs, empty rhs).
     assert_eq(array_length([0, 0, 123]), 0);
     assert_eq(array_length([0, 123, 0]), 0);
     assert_eq(array_length([0, 123, 456]), 0);
     assert_eq(array_length([123, 0, 456]), 1);
 }
+
+// ==================== validate_array_length_hint tests ====================
+
+#[test]
+fn test_validate_array_length_hint_valid() {
+    validate_array_length_hint([0, 0, 0], 0);
+    validate_array_length_hint([10, 20, 0], 2);
+    validate_array_length_hint([10, 20, 30], 3);
+}
+
+#[test(should_fail_with = "Expected array[length] to be empty")]
+fn test_validate_array_length_hint_claims_zero_when_not_empty() {
+    // Invalid: hint says length 0, but first element is not empty
+    validate_array_length_hint([10, 20, 30], 0);
+}
+
+#[test(should_fail_with = "Expected array[length] to be empty")]
+fn test_validate_array_length_hint_too_short() {
+    // Invalid: hint says length 1, but element at index 1 is not empty
+    validate_array_length_hint([10, 20, 0], 1);
+}
+
+#[test(should_fail_with = "Expected claimed final element of array (array[length - 1]) to be nonempty")]
+fn test_validate_array_length_hint_too_long() {
+    // Invalid: hint says length 2, but element at index 1 is empty
+    validate_array_length_hint([10, 0, 0], 2);
+}
+
+#[test(should_fail_with = "Expected claimed final element of array (array[length - 1]) to be nonempty")]
+fn test_validate_array_length_hint_of_empty_too_long() {
+    // Invalid: hint says length 2, but element at index 1 is empty
+    validate_array_length_hint([0, 0, 0], 2);
+}
+
+#[test(should_fail_with = "out of bounds")]
+fn test_validate_array_length_hint_out_of_bounds() {
+    // Invalid: hint says length 4, but array only has 3 elements
+    validate_array_length_hint([10, 20, 30], 4);
+}
+
+// ==================== trimmed_array_length_hint tests ====================
+
+#[test]
+unconstrained fn test_trimmed_array_length_hint_with_trailing_empties() {
+    assert_eq(trimmed_array_length_hint([10, 20, 30, 0, 0]), 3);
+}
+
+#[test]
+unconstrained fn test_trimmed_array_length_hint_fully_empty() {
+    assert_eq(trimmed_array_length_hint([0, 0, 0, 0, 0]), 0);
+}
+
+#[test]
+unconstrained fn test_trimmed_array_length_hint_no_empties() {
+    assert_eq(trimmed_array_length_hint([10, 20, 30, 40, 50]), 5);
+}
+
+#[test]
+unconstrained fn test_trimmed_array_length_hint_with_gaps() {
+    // Unlike array_length, this trims from the right only, so gaps don't matter
+    assert_eq(trimmed_array_length_hint([10, 0, 30, 0, 0]), 3);
+}
+
+// ==================== array_length_until tests ====================
 
 #[test]
 fn test_array_length_until() {
@@ -368,24 +320,98 @@ fn test_array_length_until_first_non_matching_fails() {
     let _ = array_length_until(array, |x| x == 1);
 }
 
-#[test]
-unconstrained fn find_index_greater_than_min() {
-    let values = [10, 20, 30, 40];
-    let min = 22;
-    let maybe_index = find_index_hint(values, |v: Field| min.lt(v));
-    assert_eq(maybe_index.unwrap_unchecked(), 2);
-}
+// ==================== array_merge tests ====================
 
 #[test]
-unconstrained fn find_index_not_found() {
-    let values = [10, 20, 30, 40];
-    let min = 100;
-    let maybe_index = find_index_hint(values, |v: Field| min.lt(v));
-    assert_eq(maybe_index.is_none(), true);
+fn test_array_merge() {
+    assert_eq(array_merge([10, 20, 0, 0, 0], [30, 40, 50, 0, 0]), [10, 20, 30, 40, 50]);
+    assert_eq(array_merge([0, 0, 0], [10, 20, 0]), [10, 20, 0]);
+    assert_eq(array_merge([10, 20, 0], [0, 0, 0]), [10, 20, 0]);
+    assert_eq(array_merge::<Field, 3>([0, 0, 0], [0, 0, 0]), [0, 0, 0]);
 }
 
+#[test(should_fail_with = "out of bounds")]
+fn test_array_merge_combined_exceeds_capacity() {
+    let _ = array_merge([10, 20, 30, 0, 0], [40, 50, 60, 0, 0]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_array_merge_rejects_array1_with_gaps() {
+    // array_merge assumes validated arrays (no gaps). The helper compacts empties,
+    // but the validation expects array1's structure to be preserved, causing failure.
+    let _ = array_merge([10, 0, 20, 0, 0], [30, 0, 0, 0, 0]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_array_merge_rejects_array2_with_gaps() {
+    // array_merge assumes validated arrays (no gaps). The helper compacts empties,
+    // but the validation expects array2's structure to be preserved, causing failure.
+    let _ = array_merge([10, 0, 0, 0, 0], [0, 20, 0, 30, 0]);
+}
+
+// ==================== validate_array_merge_hint tests ====================
+
 #[test]
-fn check_permutation_basic_test() {
+fn test_validate_array_merge_hint_valid() {
+    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [10, 20, 30]);
+    validate_array_merge_hint([0, 0, 0], [10, 20, 0], [10, 20, 0]);
+    validate_array_merge_hint([10, 20, 0], [0, 0, 0], [10, 20, 0]);
+    validate_array_merge_hint([0, 0, 0], [0, 0, 0], [0, 0, 0]);
+    validate_array_merge_hint([10, 20, 0, 0], [30, 40, 0, 0], [10, 20, 30, 40]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_wrong_result_from_array1() {
+    // Invalid: result doesn't match array1 elements
+    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [99, 20, 30]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_wrong_result_from_array2() {
+    // Invalid: result doesn't match array2 elements
+    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [10, 20, 99]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_swapped_order() {
+    // Invalid: result has array2 elements before array1 elements
+    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [30, 10, 20]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_missing_element_from_array1() {
+    // Invalid: result is missing an element from array1
+    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [10, 30, 0]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_missing_element_from_array2() {
+    // Invalid: result is missing an element from array2 (truncated)
+    validate_array_merge_hint([10, 20, 0, 0], [30, 40, 0, 0], [10, 20, 30, 0]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_extra_element_in_padding() {
+    // Invalid: result has garbage where array2's empties should be
+    validate_array_merge_hint([10, 0, 0], [20, 0, 0], [10, 20, 99]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_rejects_compacted_result_for_array1_with_gaps() {
+    // If array1 has gaps, a compacted result won't match the expected structure
+    validate_array_merge_hint([10, 0, 20, 0, 0], [30, 0, 0, 0, 0], [10, 20, 30, 0, 0]);
+}
+
+#[test(should_fail_with = "Incorrect array merge hint")]
+fn test_validate_array_merge_hint_rejects_compacted_result_for_array2_with_gaps() {
+    // If array2 has gaps, a compacted result won't match the expected structure
+    validate_array_merge_hint([10, 0, 0, 0, 0], [0, 20, 0, 30, 0], [10, 20, 30, 0, 0]);
+}
+
+// ==================== check_permutation tests ====================
+
+#[test]
+fn test_check_permutation() {
     let original_array = [1, 2, 3];
     let permuted_array = [3, 1, 2];
     let indexes = [2, 0, 1];
@@ -393,7 +419,7 @@ fn check_permutation_basic_test() {
 }
 
 #[test(should_fail_with = "Duplicated index")]
-fn check_permutation_duplicated_index() {
+fn test_check_permutation_duplicated_index() {
     let original_array = [0, 1, 0];
     let permuted_array = [1, 0, 0];
     let indexes = [1, 0, 0];
@@ -401,12 +427,14 @@ fn check_permutation_duplicated_index() {
 }
 
 #[test(should_fail_with = "Invalid index")]
-fn check_permutation_invalid_index() {
+fn test_check_permutation_invalid_index() {
     let original_array = [0, 1, 2];
     let permuted_array = [1, 0, 0];
     let indexes = [1, 0, 2];
     check_permutation(original_array, permuted_array, indexes);
 }
+
+// ==================== array_padded_with tests ====================
 
 #[test]
 fn test_array_padded_with() {

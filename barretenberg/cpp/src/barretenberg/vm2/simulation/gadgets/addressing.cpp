@@ -52,12 +52,12 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
 
     // This represents either: (1) wrong info in the spec, or (2) a wrong witgen deserialization.
     // Therefore, it is not an error the circuit should be able to prove.
-    assert(spec.num_addresses <= instruction.operands.size());
+    BB_ASSERT_LTE(spec.num_addresses, instruction.operands.size(), "Spec num addresses out of bounds");
 
     // Check if there is any relative address.
     bool has_relative_address = false;
     for (size_t i = 0; i < spec.num_addresses; ++i) {
-        if (is_operand_relative(instruction.indirect, i)) {
+        if (is_operand_relative(instruction.addressing_mode, i)) {
             has_relative_address = true;
             break;
         }
@@ -86,7 +86,9 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // This should be guaranteed by instruction fetching and the wire format.
             // The operand must fit in a MemoryAddress but does not need to be of the right tag.
             // For instance, a 16-bit operand can be cast to a MemoryAddress and fit.
-            assert(FF(static_cast<MemoryAddress>(instruction.operands[i].as_ff())) == instruction.operands[i].as_ff());
+            // NOTE: Only asserting in debug builds because these convertions are in the hot path.
+            BB_ASSERT_DEBUG(FF(static_cast<MemoryAddress>(instruction.operands[i].as_ff())) ==
+                            instruction.operands[i].as_ff());
 
             // Guarantees at this point:
             // - original operand is a valid address IF interpreted as a MemoryAddress.
@@ -102,7 +104,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // Note that the operands were stored as is, and then we'll update them if they are relative.
             // Namely, the above initialization guarantees:
             // resolution_info.after_relative = instruction.operands[i].as_ff(); // default value if not relative.
-            if (is_operand_relative(instruction.indirect, i)) {
+            if (is_operand_relative(instruction.addressing_mode, i)) {
                 // We extend the address to uint64_t to avoid overflows.
                 auto offset = static_cast<uint64_t>(resolution_info.after_relative);
                 // Note: Since we know that the offset and the base address are valid, the addition fits in 33 bits.
@@ -131,7 +133,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
             // We first store the after_relative values as is, and then we'll update them if they are indirect.
             const auto after_relative_address = static_cast<MemoryAddress>(resolution_info.after_relative);
             resolution_info.resolved_operand = Operand::from(after_relative_address);
-            if (is_operand_indirect(instruction.indirect, i)) {
+            if (is_operand_indirect(instruction.addressing_mode, i)) {
                 resolution_info.resolved_operand = memory.get(after_relative_address);
                 // Check the tag of the resolved operand.
                 if (!memory.is_valid_address(resolution_info.resolved_operand)) {

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -15,6 +15,7 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -46,7 +47,9 @@ class ECCVMFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using MSM = bb::eccvm::MSM<CycleGroup>;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
     using Proof = HonkProof;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
@@ -763,26 +766,8 @@ class ECCVMFlavor {
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
-        {
-            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                // After the initial sumcheck round, the new size is CEIL(size/2).
-                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    using PartiallyEvaluatedMultivariates =
+        PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
 
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
@@ -807,68 +792,10 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
+     * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
+     * @details ECCVM has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        bool operator==(const VerificationKey&) const = default;
-
-        // Identity point for PCS operations (Shplemini/Shplonk)
-        Commitment pcs_g1_identity = []() {
-            auto pcs_vk = VerifierCommitmentKey(1); // Just need the identity (first point)
-            return pcs_vk.get_g1_identity();
-        }();
-
-        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
-        VerificationKey()
-            : NativeVerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
-        {
-            this->pub_inputs_offset = 0;
-
-            // Populate the commitments of the precomputed polynomials using the fixed VK data
-            for (auto [vk_commitment, fixed_commitment] :
-                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
-                vk_commitment = fixed_commitment;
-            }
-        }
-
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-        {
-            this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = 0;
-            this->pub_inputs_offset = 0;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
-            }
-        }
-
-        /**
-         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
-         */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from the verification key.
-    };
+    using VerificationKey = FixedVKAndHash_<PrecomputedEntities<Commitment>, BF, ECCVMHardcodedVKAndHash>;
 
     /**
      * @brief A container for commitment labels.

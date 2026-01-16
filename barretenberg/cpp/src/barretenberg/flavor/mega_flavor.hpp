@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -11,6 +11,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -42,7 +43,9 @@ class MegaFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using TraceBlocks = MegaExecutionTraceBlocks;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     // An upper bound on the size of the Mega-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit sizes in the Chonk
     // context.
@@ -129,8 +132,6 @@ class MegaFlavor {
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
 
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
-    static constexpr bool has_zero_row = true;
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -451,66 +452,16 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const VerificationKey& vk) = default;
-
-        void set_metadata(const MetaData& metadata)
-        {
-            this->log_circuit_size = numeric::get_msb(metadata.dyadic_size);
-            this->num_public_inputs = metadata.num_public_inputs;
-            this->pub_inputs_offset = metadata.pub_inputs_offset;
-        }
-
-        VerificationKey(const PrecomputedData& precomputed)
-        {
-            set_metadata(precomputed.metadata);
-
-            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-                commitment = commitment_key.commit(polynomial);
-            }
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
-    };
+    using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    template <bool HasZK_ = HasZK> class PartiallyEvaluatedMultivariates_ : public AllEntities_<Polynomial, HasZK_> {
-
-      public:
-        PartiallyEvaluatedMultivariates_() = default;
-        PartiallyEvaluatedMultivariates_(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
-        PartiallyEvaluatedMultivariates_(const ProverPolynomials_<HasZK_>& full_polynomials, size_t circuit_size)
-        {
-            for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
-                // After the initial sumcheck round, the new size is CEIL(size/2).
-                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    template <bool HasZK_ = HasZK>
+    using PartiallyEvaluatedMultivariates_ =
+        PartiallyEvaluatedMultivariatesBase<AllEntities_<Polynomial, HasZK_>, ProverPolynomials_<HasZK_>, Polynomial>;
 
     using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
 

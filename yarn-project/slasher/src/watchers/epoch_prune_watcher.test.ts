@@ -1,8 +1,8 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type {
   BuildBlockResult,
@@ -74,9 +74,12 @@ describe('EpochPruneWatcher', () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
     const epochNumber = EpochNumber(1);
 
-    const block = await L2Block.random(
+    const block = await L2BlockNew.random(
       BlockNumber(12), // block number
-      4, // txs per block
+      {
+        txsPerBlock: 4,
+        slotNumber: SlotNumber(10),
+      },
     );
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
 
@@ -90,7 +93,7 @@ describe('EpochPruneWatcher', () => {
       epoch: epochNumber,
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -118,9 +121,12 @@ describe('EpochPruneWatcher', () => {
   it('should slash if the data is available and the epoch could have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const block = await L2Block.random(
+    const block = await L2BlockNew.random(
       BlockNumber(12), // block number
-      4, // txs per block
+      {
+        txsPerBlock: 4,
+        slotNumber: SlotNumber(10),
+      },
     );
     const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
@@ -140,7 +146,7 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [block],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -164,19 +170,26 @@ describe('EpochPruneWatcher', () => {
       },
     ] satisfies WantToSlashArgs[]);
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], block.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], block.header.globalVariables, {}, fork);
   });
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
     const emitSpy = jest.spyOn(watcher, 'emit');
 
-    const blockFromL1 = await L2Block.random(
+    const blockFromL1 = await L2BlockNew.random(
       BlockNumber(12), // block number
-      1, // txs per block
+      {
+        txsPerBlock: 1,
+        slotNumber: SlotNumber(10),
+      },
     );
-    const blockFromBuilder = await L2Block.random(
+
+    const blockFromBuilder = await L2BlockNew.random(
       BlockNumber(13), // block number
-      1, // txs per block
+      {
+        txsPerBlock: 1,
+        slotNumber: SlotNumber(10),
+      },
     );
     const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
@@ -196,7 +209,7 @@ describe('EpochPruneWatcher', () => {
       epoch: EpochNumber(1),
     });
 
-    l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
+    l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: EpochNumber(1),
       blocks: [blockFromL1],
       type: L2BlockSourceEvents.L2PruneDetected,
@@ -207,12 +220,12 @@ describe('EpochPruneWatcher', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], blockFromL1.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], [], blockFromL1.header.globalVariables, {}, fork);
   });
 });
 
-class MockL2BlockSource extends EventEmitter {
-  constructor() {
-    super();
-  }
+class MockL2BlockSource {
+  public readonly events = new EventEmitter();
+
+  constructor() {}
 }

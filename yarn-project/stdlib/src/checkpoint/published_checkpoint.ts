@@ -8,6 +8,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { CommitteeAttestation } from '../block/proposal/committee_attestation.js';
+import { MAX_BLOCK_HASH_STRING_LENGTH, MAX_COMMITTEE_SIZE } from '../deserialization/index.js';
 import { Checkpoint } from './checkpoint.js';
 
 export class L1PublishedData {
@@ -42,7 +43,7 @@ export class L1PublishedData {
   static fromBuffer(bufferOrReader: Buffer | BufferReader): L1PublishedData {
     const reader = BufferReader.asReader(bufferOrReader);
     const l1BlockNumber = reader.readBigInt();
-    const l1BlockHash = reader.readString();
+    const l1BlockHash = reader.readString(MAX_BLOCK_HASH_STRING_LENGTH);
     const l1Timestamp = reader.readBigInt();
     return new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash);
   }
@@ -82,9 +83,9 @@ export class PublishedCheckpoint {
     const reader = BufferReader.asReader(bufferOrReader);
     const checkpoint = reader.readObject(Checkpoint);
     const l1BlockNumber = reader.readBigInt();
-    const l1BlockHash = reader.readString();
+    const l1BlockHash = reader.readString(MAX_BLOCK_HASH_STRING_LENGTH);
     const l1Timestamp = reader.readBigInt();
-    const attestations = reader.readVector(CommitteeAttestation);
+    const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
     return new PublishedCheckpoint(
       checkpoint,
       new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash),

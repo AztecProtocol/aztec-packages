@@ -2,7 +2,7 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { retryUntil } from '@aztec/foundation/retry';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
@@ -75,12 +75,12 @@ describe('P2P Client', () => {
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
-    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= blockNumber, 'synced', 10, 0.1);
+    await retryFastUntil(async () => (await client.getSyncedProvenBlockNum()) >= blockNumber, 'synced');
   };
 
   const advanceToFinalizedBlock = async (blockNumber: BlockNumber) => {
     blockSource.setFinalizedBlockNumber(blockNumber);
-    await retryUntil(async () => (await client.getSyncedFinalizedBlockNum()) >= blockNumber, 'synced', 10, 0.1);
+    await retryFastUntil(async () => (await client.getSyncedFinalizedBlockNum()) >= blockNumber, 'synced');
   };
 
   afterEach(async () => {
@@ -321,15 +321,19 @@ describe('P2P Client', () => {
 
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
+      // Set checkpointed before starting so blocks are synced as checkpointed
+      blockSource.setCheckpointedBlockNumber(100);
       await client.start();
 
       await advanceToProvenBlock(BlockNumber(90));
       await advanceToFinalizedBlock(BlockNumber(50));
 
+      const anyCheckpoint = { number: expect.any(Number), hash: expect.any(String) };
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(100), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        proposed: { number: BlockNumber(100), hash: expect.any(String) },
+        checkpointed: { block: { number: BlockNumber(100), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
 
       blockSource.removeBlocks(10);
@@ -337,19 +341,22 @@ describe('P2P Client', () => {
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(90), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        proposed: { number: BlockNumber(90), hash: expect.any(String) },
+        checkpointed: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
 
       blockSource.addBlocks([await L2Block.random(BlockNumber(91)), await L2Block.random(BlockNumber(92))]);
+      blockSource.setCheckpointedBlockNumber(92);
 
       await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
-        latest: { number: BlockNumber(92), hash: expect.any(String) },
-        proven: { number: BlockNumber(90), hash: expect.any(String) },
-        finalized: { number: BlockNumber(50), hash: expect.any(String) },
+        proposed: { number: BlockNumber(92), hash: expect.any(String) },
+        checkpointed: { block: { number: BlockNumber(92), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        proven: { block: { number: BlockNumber(90), hash: expect.any(String) }, checkpoint: anyCheckpoint },
+        finalized: { block: { number: BlockNumber(50), hash: expect.any(String) }, checkpoint: anyCheckpoint },
       });
     });
 
@@ -408,22 +415,25 @@ describe('P2P Client', () => {
 
   describe('Attestation pool pruning', () => {
     it('deletes attestations for finalized blocks', async () => {
-      const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
+      const deleteCheckpointAttestationsOlderThanSpy = jest.spyOn(
+        attestationPool,
+        'deleteCheckpointAttestationsOlderThan',
+      );
 
       blockSource.setProvenBlockNumber(0);
       await client.start();
-      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
+      expect(deleteCheckpointAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToProvenBlock(BlockNumber(10));
-      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
+      expect(deleteCheckpointAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToFinalizedBlock(BlockNumber(10));
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(10));
 
       await advanceToFinalizedBlock(BlockNumber(15));
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
-      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledTimes(2);
+      expect(deleteCheckpointAttestationsOlderThanSpy).toHaveBeenCalledWith(SlotNumber(15));
     });
   });
 

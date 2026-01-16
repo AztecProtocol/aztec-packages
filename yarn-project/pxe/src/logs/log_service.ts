@@ -26,6 +26,7 @@ export class LogService {
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
     private readonly addressStore: AddressStore,
+    private readonly jobId: string,
   ) {}
 
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
@@ -122,6 +123,7 @@ export class LogService {
               this.aztecNode,
               this.recipientTaggingStore,
               anchorBlockNumber,
+              this.jobId,
             ),
           ),
         );
@@ -186,7 +188,7 @@ export class LogService {
     });
 
     // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
+    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
   }
 
   async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

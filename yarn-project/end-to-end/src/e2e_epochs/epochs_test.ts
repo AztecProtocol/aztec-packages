@@ -211,7 +211,7 @@ export class EpochsTestContext {
           ...opts,
         },
         this.context.aztecNode,
-        undefined,
+        this.context.prefilledPublicData ?? [],
         { dateProvider: this.context.dateProvider },
       ),
     );
@@ -348,7 +348,7 @@ export class EpochsTestContext {
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
-        synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
       } else if (type === 'finalized') {
         synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {

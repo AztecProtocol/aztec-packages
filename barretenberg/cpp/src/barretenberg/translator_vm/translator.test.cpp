@@ -16,6 +16,32 @@ using Transcript = TranslatorFlavor::Transcript;
 using OpQueue = ECCOpQueue;
 static auto& engine = numeric::get_debug_randomness();
 
+// Test helper: Create a VK by committing to proving key polynomials (for comparing with fixed VK)
+TranslatorFlavor::VerificationKey create_vk_from_proving_key(
+    const std::shared_ptr<TranslatorFlavor::ProvingKey>& proving_key)
+{
+    TranslatorFlavor::VerificationKey vk;
+    // Overwrite fixed commitments with computed commitments from the proving key
+    for (auto [polynomial, commitment] : zip_view(proving_key->polynomials.get_precomputed(), vk.get_all())) {
+        commitment = proving_key->commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
+// Compute VK hash from fixed commitments (for test verification that vk_hash() is correct)
+TranslatorFlavor::FF compute_translator_vk_hash()
+{
+    std::vector<TranslatorFlavor::FF> elements;
+    // Serialize commitments using the Codec
+    for (const auto& commitment : TranslatorHardcodedVKAndHash::get_all()) {
+        auto frs = TranslatorFlavor::Codec::serialize_to_fields(commitment);
+        for (const auto& fr : frs) {
+            elements.push_back(fr);
+        }
+    }
+    return TranslatorFlavor::HashFunction::hash(elements);
+}
+
 class TranslatorTests : public ::testing::Test {
     using G1 = g1::affine_element;
     using Fr = fr;
@@ -327,7 +353,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
  * circuit
  * @note If this test fails, it may be because the constant CONST_TRANSLATOR_LOG_N has changed and the fixed VK
- * commitments in TranslatorFixedVKCommitments must be updated accordingly. Their values can be taken right from the
+ * commitments in TranslatorHardcodedVKAndHash must be updated accordingly. Their values can be taken right from the
  * output of this test.
  *
  */
@@ -350,7 +376,7 @@ TEST_F(TranslatorTests, FixedVK)
             generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
-        TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
+        TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
         size_t index = 0;
         for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {
@@ -368,6 +394,15 @@ TEST_F(TranslatorTests, FixedVK)
 
     compare_computed_vk_against_fixed(circuit_size_parameter_1);
     compare_computed_vk_against_fixed(circuit_size_parameter_2);
+
+    // Verify that the hardcoded VK hash matches the computed hash
+    auto computed_hash = compute_translator_vk_hash();
+    auto hardcoded_hash = TranslatorHardcodedVKAndHash::vk_hash();
+    if (computed_hash != hardcoded_hash) {
+        info("VK hash mismatch! Update TranslatorHardcodedVKAndHash::vk_hash() with:");
+        info("0x", computed_hash);
+    }
+    EXPECT_EQ(computed_hash, hardcoded_hash) << "Hardcoded VK hash does not match computed hash";
 }
 
 /**

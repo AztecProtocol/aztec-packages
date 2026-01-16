@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -139,15 +139,25 @@ template <typename Curve> struct ClaimBatcher_ {
                                                         Fr shplonk_batching_pos = { 0 },
                                                         Fr shplonk_batching_neg = { 0 })
     {
-        Fr rho_power(1);
+        size_t num_powers = 0;
+        num_powers += unshifted.has_value() ? unshifted->commitments.size() : 0;
+        num_powers += shifted.has_value() ? shifted->commitments.size() : 0;
+        num_powers += interleaved.has_value() ? interleaved->evaluations.size() : 0;
+
+        Fr rho_power = Fr(1);
+        size_t power_idx = 0;
+
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
-        auto aggregate_claim_data_and_update_batched_evaluation = [&](const Batch& batch, Fr& rho_power) {
+        auto aggregate_claim_data_and_update_batched_evaluation = [&](const Batch& batch) {
             for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
                 commitments.emplace_back(std::move(commitment));
                 scalars.emplace_back(-batch.scalar * rho_power);
                 batched_evaluation += evaluation * rho_power;
-                rho_power *= rho;
+                power_idx++;
+                if (power_idx < num_powers) {
+                    rho_power *= rho;
+                }
             }
         };
 
@@ -155,11 +165,11 @@ template <typename Curve> struct ClaimBatcher_ {
         // scalars for the batch mul
         if (unshifted) {
             // i-th Unshifted commitment will be multiplied by ρ^i and (1/(z−r) + ν/(z+r))
-            aggregate_claim_data_and_update_batched_evaluation(*unshifted, rho_power);
+            aggregate_claim_data_and_update_batched_evaluation(*unshifted);
         }
         if (shifted) {
             // i-th shifted commitments will be multiplied by ρ^{num_unshifted + i} and r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
-            aggregate_claim_data_and_update_batched_evaluation(*shifted, rho_power);
+            aggregate_claim_data_and_update_batched_evaluation(*shifted);
         }
         if (interleaved) {
             if (get_groups_to_be_interleaved_size() % 2 != 0) {
@@ -177,12 +187,15 @@ template <typename Curve> struct ClaimBatcher_ {
                                           shplonk_batching_neg * interleaved->scalars_neg[i]));
                 }
                 batched_evaluation += interleaved->evaluations[group_idx] * rho_power;
-                if (j != interleaved->commitments_groups.size() - 1) {
+                power_idx++;
+                if (power_idx < num_powers) {
                     rho_power *= rho;
                 }
                 group_idx++;
             }
         }
+
+        BB_ASSERT_EQ(power_idx, num_powers);
     }
 };
 

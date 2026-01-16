@@ -133,7 +133,7 @@ A common pattern is to enqueue public calls to check some validity condition on 
 #include_code enqueueing /noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
-For this reason we've created a canonical router contract which implements some of the checks commonly performed: this conceals the calling contract, as the `context.msg_sender()` in the public function will be the router itself (since it is the router that enqueues the public call).
+To prevent this you can enqueue a call to a public function using `self.enqueue_incognito` that behaves the same as `self.enqueue` but conceals the message sender.
 
 An example of how a deadline can be checked using the router contract follows:
 

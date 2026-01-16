@@ -14,7 +14,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
@@ -64,16 +64,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Users can also use this to get a clearer idea of what's happened during a simulation.
    */
   private newNotes: NoteAndSlot[] = [];
-  /**
-   * Notes from previous transactions that are returned to the oracle call `getNotes` during this execution.
-   * The mapping maps from the unique siloed note hash to the index for notes created in private executions.
-   * It maps from siloed note hash to the index for notes created by public functions.
-   *
-   * They are not part of the ExecutionNoteCache and being forwarded to nested contexts via `extend()`
-   * because these notes are meant to be maintained on a per-call basis
-   * They should act as references for the read requests output by an app circuit via public inputs.
-   */
-  private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
@@ -104,6 +94,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     senderAddressBookStore: SenderAddressBookStore,
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
+    jobId: string,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
@@ -126,6 +117,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      jobId,
       log,
       scopes,
     );
@@ -158,14 +150,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const fields = [...privateContextInputsAsFields, ...args];
     return toACVMWitness(0, fields);
-  }
-
-  /**
-   * The KernelProver will use this to fully populate witnesses and provide hints to the kernel circuit
-   * regarding which note hash each settled read request corresponds to.
-   */
-  public getNoteHashLeafIndexMap() {
-    return this.noteHashLeafIndexMap;
   }
 
   /**
@@ -281,9 +265,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore);
+      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore, this.jobId);
 
-      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret);
+      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -402,23 +386,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         .join(', ')}`,
     );
 
-    const noteHashesAndIndexes = await Promise.all(
-      notes.map(async n => {
-        if (n.index !== undefined) {
-          const siloedNoteHash = await siloNoteHash(n.contractAddress, n.noteHash);
-          const uniqueNoteHash = await computeUniqueNoteHash(n.noteNonce, siloedNoteHash);
-
-          return { hash: uniqueNoteHash, index: n.index };
-        }
-      }),
-    );
-
-    noteHashesAndIndexes
-      .filter(n => n !== undefined)
-      .forEach(n => {
-        this.noteHashLeafIndexMap.set(n!.hash.toBigInt(), n!.index);
-      });
-
     return notes;
   }
 
@@ -461,6 +428,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,
+        isPending: true, // This note has just been created and hence is not settled yet.
       },
       counter,
     );
@@ -586,6 +554,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
+      this.jobId,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,

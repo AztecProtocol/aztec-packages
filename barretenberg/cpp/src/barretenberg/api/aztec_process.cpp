@@ -324,7 +324,7 @@ bool process_all_artifacts(const std::string& search_path, bool force)
     auto artifacts = find_contract_artifacts(search_path);
 
     if (artifacts.empty()) {
-        info("No contract artifacts found. Please compile your contracts first with 'nargo compile'.");
+        info("No contract artifacts found in '", search_path, "'.");
         return false;
     }
 
