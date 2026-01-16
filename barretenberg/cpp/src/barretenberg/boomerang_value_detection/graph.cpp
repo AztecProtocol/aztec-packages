@@ -15,42 +15,23 @@ using namespace bb;
 namespace cdg {
 
 /**
- * @brief this method finds index of the block in circuit builder by comparing pointers to blocks
- * @tparam FF field type
- * @tparam CircuitBuilder
- * @param block block to find
- * @return size_t index of the found block
- */
-template <typename FF, typename CircuitBuilder>
-std::optional<size_t> StaticAnalyzer_<FF, CircuitBuilder>::find_block_index(const auto& block)
-{
-    auto blocks_data = circuit_builder.blocks.get();
-    for (size_t i = 0; i < blocks_data.size(); i++) {
-        if (std::addressof(blocks_data[i]) == std::addressof(block)) {
-            return i;
-        }
-    }
-    return std::nullopt;
-}
-
-/**
  * @brief this method processes variables from a gate by removing duplicates and updating tracking structures
  * @tparam FF field type
  * @tparam CircuitBuilder
  * @param gate_variables vector of variables to process
  * @param gate_index index of the current gate
- * @param block_idx index of the current block
+ * @param blk reference to the block containing the gate
  * @details The method performs several operations:
  *          1) Removes duplicate variables from the input vector
  *          2) Converts each variable to its real index using to_real
- *          3) Creates key-value pairs of (variable_index, block_index) for tracking
+ *          3) Creates key-value pairs of (variable_index, block_pointer) for tracking
  *          4) Updates variable_gates map with gate indices for each variable
  *          5) Increments the gate count for each processed variable
  */
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vector<uint32_t>& gate_variables,
                                                                         size_t gate_index,
-                                                                        size_t block_idx)
+                                                                        auto& blk)
 {
     auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
     gate_variables.erase(unique_variables, gate_variables.end());
@@ -58,7 +39,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
         return;
     }
     for (auto& var_idx : gate_variables) {
-        KeyPair key = std::make_pair(var_idx, block_idx);
+        KeyPair key = std::make_pair(var_idx, &blk);
         variable_gates[key].emplace_back(gate_index);
     }
     for (const auto& variable_index : gate_variables) {
@@ -73,7 +54,6 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
  * then extracts the variable indices from those wire positions.
  *
  * @param index Gate index within the block
- * @param block_idx Block index in the circuit
  * @param blk The block containing the gate
  * @param pattern The GatePattern describing which wires are constrained
  * @param gate_selector_column The selector column for this gate type (e.g., q_arith, q_elliptic)
@@ -84,7 +64,6 @@ template <typename FF, typename CircuitBuilder>
 template <typename Block, typename GateSelectorColumn>
 std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variables(
     size_t index,
-    size_t block_idx,
     Block& blk,
     const bb::gate_patterns::GatePattern& pattern,
     const GateSelectorColumn& gate_selector_column,
@@ -108,7 +87,7 @@ std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variable
 
     // Convert to real indices and process
     gate_variables = to_real(gate_variables);
-    process_gate_variables(gate_variables, index, block_idx);
+    process_gate_variables(gate_variables, index, blk);
     return gate_variables;
 }
 
@@ -128,47 +107,41 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
     // 2) states contains values witness indexes that we can find in the ROM record in the RomTrascript, so we can
     // ignore state of the ROM transcript, because we still can connect all variables using variables from records.
     std::vector<uint32_t> rom_table_variables;
-    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.memory); blk_idx) {
-        // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
-        // 1) records contains values that were put in the gate, we can use them to create connections between variables
-        // 2) states contains values witness indexes that we can find in the ROM record in the RomTrascript, so we can
-        // ignore state of the ROM transcript, because we still can connect all variables using variables from records.
-        for (const auto& record : rom_array.records) {
-            std::vector<uint32_t> gate_variables;
-            size_t gate_index = record.gate_index;
+    auto& memory_block = circuit_builder.blocks.memory;
+    for (const auto& record : rom_array.records) {
+        std::vector<uint32_t> gate_variables;
+        size_t gate_index = record.gate_index;
 
-            auto q_1 = circuit_builder.blocks.memory.q_1()[gate_index];
-            auto q_2 = circuit_builder.blocks.memory.q_2()[gate_index];
-            auto q_3 = circuit_builder.blocks.memory.q_3()[gate_index];
-            auto q_4 = circuit_builder.blocks.memory.q_4()[gate_index];
-            auto q_m = circuit_builder.blocks.memory.q_m()[gate_index];
-            auto q_c = circuit_builder.blocks.memory.q_c()[gate_index];
+        auto q_1 = memory_block.q_1()[gate_index];
+        auto q_2 = memory_block.q_2()[gate_index];
+        auto q_3 = memory_block.q_3()[gate_index];
+        auto q_4 = memory_block.q_4()[gate_index];
+        auto q_m = memory_block.q_m()[gate_index];
+        auto q_c = memory_block.q_c()[gate_index];
 
-            auto index_witness = record.index_witness;
-            auto vc1_witness = record.value_column1_witness; // state[0] from RomTranscript
-            auto vc2_witness = record.value_column2_witness; // state[1] from RomTranscript
-            auto record_witness = record.record_witness;
+        auto index_witness = record.index_witness;
+        auto vc1_witness = record.value_column1_witness; // state[0] from RomTranscript
+        auto vc2_witness = record.value_column2_witness; // state[1] from RomTranscript
+        auto record_witness = record.record_witness;
 
-            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-                q_c.is_zero()) {
-                // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness,
-                // vc2_witness, record_witness) So we can update all of them
-                gate_variables.emplace_back(index_witness);
-                if (vc1_witness != circuit_builder.zero_idx()) {
-                    gate_variables.emplace_back(vc1_witness);
-                }
-                if (vc2_witness != circuit_builder.zero_idx()) {
-                    gate_variables.emplace_back(vc2_witness);
-                }
-                gate_variables.emplace_back(record_witness);
+        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_c.is_zero()) {
+            // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness,
+            // vc2_witness, record_witness) So we can update all of them
+            gate_variables.emplace_back(index_witness);
+            if (vc1_witness != circuit_builder.zero_idx()) {
+                gate_variables.emplace_back(vc1_witness);
             }
-            gate_variables = to_real(gate_variables);
-            process_gate_variables(gate_variables, gate_index, *blk_idx);
-            // after process_gate_variables function gate_variables constists of real variables indexes, so we can
-            // add all this variables in the final vector to connect all of them
-            if (!gate_variables.empty()) {
-                rom_table_variables.insert(rom_table_variables.end(), gate_variables.begin(), gate_variables.end());
+            if (vc2_witness != circuit_builder.zero_idx()) {
+                gate_variables.emplace_back(vc2_witness);
             }
+            gate_variables.emplace_back(record_witness);
+        }
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, gate_index, memory_block);
+        // after process_gate_variables function gate_variables constists of real variables indexes, so we can
+        // add all this variables in the final vector to connect all of them
+        if (!gate_variables.empty()) {
+            rom_table_variables.insert(rom_table_variables.end(), gate_variables.begin(), gate_variables.end());
         }
     }
     return rom_table_variables;
@@ -178,7 +151,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
  * @brief this method gets the RAM table connected component by processing RAM transcript records
  * @tparam FF field type
  * @param CircuitBuilder
- * @param ultra_builder circuit builder containing the gates
  * @param ram_array RAM transcript containing records with witness indices and gate information
  * @return std::vector<uint32_t> vector of connected variables from RAM table gates
  */
@@ -187,42 +159,41 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
     const bb::RamTranscript& ram_array)
 {
     std::vector<uint32_t> ram_table_variables;
-    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.memory); blk_idx) {
-        for (const auto& record : ram_array.records) {
-            std::vector<uint32_t> gate_variables;
-            size_t gate_index = record.gate_index;
+    auto& memory_block = circuit_builder.blocks.memory;
+    for (const auto& record : ram_array.records) {
+        std::vector<uint32_t> gate_variables;
+        size_t gate_index = record.gate_index;
 
-            auto q_1 = circuit_builder.blocks.memory.q_1()[gate_index];
-            auto q_2 = circuit_builder.blocks.memory.q_2()[gate_index];
-            auto q_3 = circuit_builder.blocks.memory.q_3()[gate_index];
-            auto q_4 = circuit_builder.blocks.memory.q_4()[gate_index];
-            auto q_m = circuit_builder.blocks.memory.q_m()[gate_index];
-            auto q_c = circuit_builder.blocks.memory.q_c()[gate_index];
+        auto q_1 = memory_block.q_1()[gate_index];
+        auto q_2 = memory_block.q_2()[gate_index];
+        auto q_3 = memory_block.q_3()[gate_index];
+        auto q_4 = memory_block.q_4()[gate_index];
+        auto q_m = memory_block.q_m()[gate_index];
+        auto q_c = memory_block.q_c()[gate_index];
 
-            auto index_witness = record.index_witness;
-            auto timestamp_witness = record.timestamp_witness;
-            auto value_witness = record.value_witness;
-            auto record_witness = record.record_witness;
+        auto index_witness = record.index_witness;
+        auto timestamp_witness = record.timestamp_witness;
+        auto value_witness = record.value_witness;
+        auto record_witness = record.record_witness;
 
-            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-                (q_c.is_zero() || q_c == FF::one())) {
-                // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness,
-                // timestamp_witness, value_witness, record_witness) So we can update all of them
-                gate_variables.emplace_back(index_witness);
-                if (timestamp_witness != circuit_builder.zero_idx()) {
-                    gate_variables.emplace_back(timestamp_witness);
-                }
-                if (value_witness != circuit_builder.zero_idx()) {
-                    gate_variables.emplace_back(value_witness);
-                }
-                gate_variables.emplace_back(record_witness);
+        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+            (q_c.is_zero() || q_c == FF::one())) {
+            // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness,
+            // timestamp_witness, value_witness, record_witness) So we can update all of them
+            gate_variables.emplace_back(index_witness);
+            if (timestamp_witness != circuit_builder.zero_idx()) {
+                gate_variables.emplace_back(timestamp_witness);
             }
-            gate_variables = to_real(gate_variables);
-            process_gate_variables(gate_variables, gate_index, *blk_idx);
-            // after process_gate_variables function gate_variables constists of real variables indexes, so we can add
-            // all these variables in the final vector to connect all of them
-            ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
+            if (value_witness != circuit_builder.zero_idx()) {
+                gate_variables.emplace_back(value_witness);
+            }
+            gate_variables.emplace_back(record_witness);
         }
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, gate_index, memory_block);
+        // after process_gate_variables function gate_variables constists of real variables indexes, so we can add
+        // all these variables in the final vector to connect all of them
+        ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
     }
     return ram_table_variables;
 }
@@ -232,7 +203,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
  * @tparam FF field type
  * @param CircuitBuilder
  * @param index index of the current gate
- * @param block_idx index of the current block
  * @param blk block containing the gates
  * @return std::vector<uint32_t> vector of connected variables from the gate
  * @details Processes elliptic curve operations by collecting variables from current and next gates,
@@ -241,7 +211,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
  */
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part_connected_component(size_t index,
-                                                                                                     size_t block_idx,
                                                                                                      auto& blk)
 {
     std::vector<uint32_t> gate_variables;
@@ -270,8 +239,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
         }
         first_row_variables = to_real(first_row_variables);
         second_row_variables = to_real(second_row_variables);
-        process_gate_variables(first_row_variables, index, block_idx);
-        process_gate_variables(second_row_variables, index, block_idx);
+        process_gate_variables(first_row_variables, index, blk);
+        process_gate_variables(second_row_variables, index, blk);
     }
     if (!first_row_variables.empty()) {
         gate_variables.insert(gate_variables.end(), first_row_variables.cbegin(), first_row_variables.cend());
@@ -285,17 +254,9 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
 template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace()
 {
     using namespace bb::gate_patterns;
-    auto block_data = circuit_builder.blocks.get();
 
-    // Skip pub_inputs block (index 0 for Ultra, index 3 for Mega)
-    size_t pub_inputs_block_idx = 0;
-    if constexpr (IsMegaBuilder<CircuitBuilder>) {
-        pub_inputs_block_idx = 3;
-    }
-
-    for (size_t blk_idx = 0; blk_idx < block_data.size(); blk_idx++) {
-        auto& blk = block_data[blk_idx];
-        if (blk.size() == 0 || blk_idx == pub_inputs_block_idx) {
+    for (auto& blk : circuit_builder.blocks.get()) {
+        if (blk.size() == 0 || &blk == &circuit_builder.blocks.pub_inputs) {
             continue;
         }
 
@@ -305,7 +266,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             std::vector<uint32_t> cc;
             auto try_pattern = [&](const GatePattern& pattern, const auto& selector, bool filter_zero = false) {
                 if (cc.empty()) {
-                    cc = extract_gate_variables(gate_idx, blk_idx, blk, pattern, selector, filter_zero);
+                    cc = extract_gate_variables(gate_idx, blk, pattern, selector, filter_zero);
                 }
             };
 
@@ -325,12 +286,12 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
 
             // MegaBuilder-specific patterns
             if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                auto databus_cc = extract_gate_variables(gate_idx, blk_idx, blk, DATABUS, blk.q_busread(), false);
+                auto databus_cc = extract_gate_variables(gate_idx, blk, DATABUS, blk.q_busread(), false);
                 if (!databus_cc.empty() && connect_variables) {
                     connect_all_variables_in_vector(databus_cc);
                 }
 
-                auto eccop_cc = get_eccop_part_connected_component(gate_idx, blk_idx, blk);
+                auto eccop_cc = get_eccop_part_connected_component(gate_idx, blk);
                 if (!eccop_cc.empty() && connect_variables) {
                     eccop_variables.insert(eccop_variables.end(), eccop_cc.begin(), eccop_cc.end());
                     if (eccop_cc[0] == circuit_builder.equality_op_idx) {
@@ -556,15 +517,13 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
  * @brief this method checks if current gate is sorted ROM gate
  * @tparam FF
  * @tparam CircuitBuilder
- * @param memory_block_idx
+ * @param memory_block reference to the memory block
  * @param gate_idx
  */
 
 template <typename FF, typename CircuitBuilder>
-bool StaticAnalyzer_<FF, CircuitBuilder>::is_gate_sorted_rom(size_t memory_block_idx, size_t gate_idx) const
+bool StaticAnalyzer_<FF, CircuitBuilder>::is_gate_sorted_rom(auto& memory_block, size_t gate_idx) const
 {
-
-    auto& memory_block = circuit_builder.blocks.get()[memory_block_idx];
     return memory_block.q_memory()[gate_idx] == FF::one() && memory_block.q_1()[gate_idx] == FF::one() &&
            memory_block.q_2()[gate_idx] == FF::one();
 }
@@ -574,20 +533,19 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::is_gate_sorted_rom(size_t memory_block
  * @tparam FF
  * @tparam CircuitBuilder
  * @param var_idx
- * @param blk_idx
+ * @param blk reference to the block
  */
 
 template <typename FF, typename CircuitBuilder>
-bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint32_t var_idx, size_t blk_idx) const
+bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint32_t var_idx, auto& blk) const
 {
     bool result = false;
-    KeyPair key = { var_idx, blk_idx };
+    KeyPair key = { var_idx, &blk };
     auto it = variable_gates.find(key);
     if (it != variable_gates.end()) {
         const auto& gates = it->second;
-        result = std::all_of(gates.begin(), gates.end(), [this, blk_idx](size_t gate_idx) {
-            return is_gate_sorted_rom(blk_idx, gate_idx);
-        });
+        result = std::all_of(
+            gates.begin(), gates.end(), [this, &blk](size_t gate_idx) { return is_gate_sorted_rom(blk, gate_idx); });
     }
     return result;
 }
@@ -604,16 +562,12 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::mark_process_rom_connected_component()
 {
-    std::optional<size_t> block_idx_opt = find_block_index(circuit_builder.blocks.memory);
-    if (!block_idx_opt.has_value()) {
-        return;
-    }
-    size_t block_idx = block_idx_opt.value();
+    auto& memory_block = circuit_builder.blocks.memory;
     for (auto& cc : connected_components) {
         const std::vector<uint32_t>& variables = cc.vars();
         cc.is_process_rom_cc =
-            std::all_of(variables.begin(), variables.end(), [this, block_idx](uint32_t real_var_idx) {
-                return variable_only_in_sorted_rom_gates(real_var_idx, block_idx);
+            std::all_of(variables.begin(), variables.end(), [this, &memory_block](uint32_t real_var_idx) {
+                return variable_only_in_sorted_rom_gates(real_var_idx, memory_block);
             });
     }
 }
@@ -985,35 +939,33 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_plookup_vari
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_record_witness_variables()
 {
-    auto block_data = circuit_builder.blocks.get();
-    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.memory); blk_idx) {
-        std::vector<uint32_t> to_remove;
-        for (const auto& var_idx : variables_in_one_gate) {
-            KeyPair key = { var_idx, *blk_idx };
-            if (auto search = variable_gates.find(key); search != variable_gates.end()) {
-                std::vector<size_t> gate_indexes = variable_gates[key];
-                BB_ASSERT_EQ(gate_indexes.size(), 1U);
-                size_t gate_idx = gate_indexes[0];
-                auto q_1 = block_data[*blk_idx].q_1()[gate_idx];
-                auto q_2 = block_data[*blk_idx].q_2()[gate_idx];
-                auto q_3 = block_data[*blk_idx].q_3()[gate_idx];
-                auto q_4 = block_data[*blk_idx].q_4()[gate_idx];
-                auto q_m = block_data[*blk_idx].q_m()[gate_idx];
-                auto q_arith = block_data[*blk_idx].q_arith()[gate_idx];
-                if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-                    q_arith.is_zero()) {
-                    // record witness can be in both ROM and RAM gates, so we can ignore q_c
-                    // record witness is written as 4th variable in RAM/ROM read/write gate, so we can get 4th
-                    // wire value and check it with our variable
-                    if (this->to_real(block_data[*blk_idx].w_4()[gate_idx]) == var_idx) {
-                        to_remove.emplace_back(var_idx);
-                    }
+    auto& memory_block = circuit_builder.blocks.memory;
+    std::vector<uint32_t> to_remove;
+    for (const auto& var_idx : variables_in_one_gate) {
+        KeyPair key = { var_idx, &memory_block };
+        if (auto search = variable_gates.find(key); search != variable_gates.end()) {
+            std::vector<size_t> gate_indexes = variable_gates[key];
+            BB_ASSERT_EQ(gate_indexes.size(), 1U);
+            size_t gate_idx = gate_indexes[0];
+            auto q_1 = memory_block.q_1()[gate_idx];
+            auto q_2 = memory_block.q_2()[gate_idx];
+            auto q_3 = memory_block.q_3()[gate_idx];
+            auto q_4 = memory_block.q_4()[gate_idx];
+            auto q_m = memory_block.q_m()[gate_idx];
+            auto q_arith = memory_block.q_arith()[gate_idx];
+            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+                q_arith.is_zero()) {
+                // record witness can be in both ROM and RAM gates, so we can ignore q_c
+                // record witness is written as 4th variable in RAM/ROM read/write gate, so we can get 4th
+                // wire value and check it with our variable
+                if (this->to_real(memory_block.w_4()[gate_idx]) == var_idx) {
+                    to_remove.emplace_back(var_idx);
                 }
             }
         }
-        for (const auto& elem : to_remove) {
-            variables_in_one_gate.erase(elem);
-        }
+    }
+    for (const auto& elem : to_remove) {
+        variables_in_one_gate.erase(elem);
     }
 }
 
@@ -1058,16 +1010,15 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     // Remove variables that only appear in sorted ROM gates - these are constrained via tau tags
     // (permutation argument) rather than copy constraints, matching how connected components
     // are filtered with is_process_rom_cc
-    if (std::optional<size_t> blk_idx = find_block_index(circuit_builder.blocks.memory); blk_idx) {
-        std::vector<uint32_t> to_remove;
-        for (const auto& var_idx : variables_in_one_gate) {
-            if (variable_only_in_sorted_rom_gates(var_idx, *blk_idx)) {
-                to_remove.emplace_back(var_idx);
-            }
+    auto& memory_block = circuit_builder.blocks.memory;
+    std::vector<uint32_t> to_remove;
+    for (const auto& var_idx : variables_in_one_gate) {
+        if (variable_only_in_sorted_rom_gates(var_idx, memory_block)) {
+            to_remove.emplace_back(var_idx);
         }
-        for (const auto& elem : to_remove) {
-            variables_in_one_gate.erase(elem);
-        }
+    }
+    for (const auto& elem : to_remove) {
+        variables_in_one_gate.erase(elem);
     }
 
     return variables_in_one_gate;
@@ -1356,12 +1307,13 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_memory_gate_info(size_t gate_ind
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t real_idx)
 {
-    const auto& block_data = circuit_builder.blocks.get();
+    using BlockType = std::conditional_t<IsMegaBuilder<CircuitBuilder>, bb::MegaTraceBlock, bb::UltraTraceBlock>;
     for (const auto& [key, gates] : variable_gates) {
         if (key.first == real_idx) {
             for (size_t i = 0; i < gates.size(); i++) {
                 size_t gate_index = gates[i];
-                auto& block = block_data[key.second];
+                // key.second is a pointer to the block
+                auto& block = *const_cast<BlockType*>(static_cast<const BlockType*>(key.second));
                 info("---- printing variables in this gate");
                 info("w_l == ",
                      block.w_l()[gate_index],
