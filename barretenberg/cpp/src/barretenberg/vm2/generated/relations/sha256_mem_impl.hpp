@@ -45,31 +45,31 @@ void sha256_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         auto tmp = static_cast<View>(in.get(C::sha256_sel)) * (FF(1) - static_cast<View>(in.get(C::sha256_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_sel)));
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
+                   (FF(1) - static_cast<View>(in.get(C::sha256_sel))) * static_cast<View>(in.get(C::sha256_sel_shift));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_latch)) * (FF(1) - static_cast<View>(in.get(C::sha256_latch)));
+        auto tmp = static_cast<View>(in.get(C::sha256_start)) * (FF(1) - static_cast<View>(in.get(C::sha256_sel)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    { // LATCH_HAS_SEL_ON
+    {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_latch)) * (FF(1) - static_cast<View>(in.get(C::sha256_sel)));
+        auto tmp = static_cast<View>(in.get(C::sha256_latch)) * (FF(1) - static_cast<View>(in.get(C::sha256_latch)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    { // START_AFTER_LAST
+    { // LATCH_HAS_SEL_ON
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_sel_shift)) *
-                   (static_cast<View>(in.get(C::sha256_start_shift)) - CView(sha256_LATCH_CONDITION));
+        auto tmp = static_cast<View>(in.get(C::sha256_latch)) * (FF(1) - static_cast<View>(in.get(C::sha256_sel)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    { // CONTINUITY_SEL
+    { // START_AFTER_LAST
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - CView(sha256_LATCH_CONDITION)) *
-                   (static_cast<View>(in.get(C::sha256_sel_shift)) - static_cast<View>(in.get(C::sha256_sel)));
+        auto tmp = static_cast<View>(in.get(C::sha256_sel_shift)) *
+                   (static_cast<View>(in.get(C::sha256_start_shift)) - CView(sha256_LATCH_CONDITION));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     { // CONTINUITY_EXEC_CLK
@@ -128,9 +128,10 @@ void sha256_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::sha256_mem_out_of_range_err)) -
-                    (FF(1) - (FF(1) - static_cast<View>(in.get(C::sha256_sel_state_out_of_range_err))) *
-                                 (FF(1) - static_cast<View>(in.get(C::sha256_sel_input_out_of_range_err))) *
-                                 (FF(1) - static_cast<View>(in.get(C::sha256_sel_output_out_of_range_err)))));
+                    static_cast<View>(in.get(C::sha256_start)) *
+                        (FF(1) - (FF(1) - static_cast<View>(in.get(C::sha256_sel_state_out_of_range_err))) *
+                                     (FF(1) - static_cast<View>(in.get(C::sha256_sel_input_out_of_range_err))) *
+                                     (FF(1) - static_cast<View>(in.get(C::sha256_sel_output_out_of_range_err)))));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
     {
@@ -371,8 +372,7 @@ void sha256_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::sha256_sel)) * CView(sha256_LATCH_ON_ERROR) *
-                   (static_cast<View>(in.get(C::sha256_latch)) - FF(1));
+        auto tmp = CView(sha256_LATCH_ON_ERROR) * (static_cast<View>(in.get(C::sha256_latch)) - FF(1));
         std::get<48>(evals) += (tmp * scaling_factor);
     }
     { // TAG_ERROR_INIT

@@ -101,14 +101,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     return bytecode_id;
 }
 
-Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, uint32_t pc)
+Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, PC pc)
 {
     return read_instruction(bytecode_id, get_bytecode_data(bytecode_id), pc);
 }
 
 Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
                                                 std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                                uint32_t pc)
+                                                PC pc)
 {
     BB_BENCH_NAME("TxBytecodeManager::read_instruction");
 
