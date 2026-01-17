@@ -547,7 +547,7 @@ __attribute__((always_inline)) static inline void process_single_point(
     std::vector<typename Curve::AffineElement>& scratch_space,
     std::vector<typename Curve::AffineElement>& bucket_accumulators,
     BitVector& bucket_accumulator_exists,
-    std::vector<uint64_t>& affine_addition_output_bucket_destinations,
+    std::vector<uint32_t>& affine_addition_output_bucket_destinations,
     size_t& scratch_it) noexcept
 {
     bool has_accumulator = bucket_accumulator_exists.get(bucket);
@@ -555,7 +555,7 @@ __attribute__((always_inline)) static inline void process_single_point(
         scratch_space[scratch_it] = *point_source;
         scratch_space[scratch_it + 1] = bucket_accumulators[bucket];
         bucket_accumulator_exists.set(bucket, false);
-        affine_addition_output_bucket_destinations[scratch_it >> 1] = static_cast<uint64_t>(bucket);
+        affine_addition_output_bucket_destinations[scratch_it >> 1] = static_cast<uint32_t>(bucket);
         scratch_it += 2;
     } else {
         bucket_accumulators[bucket] = *point_source;
@@ -577,7 +577,7 @@ template <typename Curve>
     std::vector<typename Curve::AffineElement>& scratch_space,
     std::vector<typename Curve::AffineElement>& bucket_accumulators,
     BitVector& bucket_accumulator_exists,
-    std::vector<uint64_t>& affine_addition_output_bucket_destinations,
+    std::vector<uint32_t>& affine_addition_output_bucket_destinations,
     size_t& scratch_it,
     typename Curve::AffineElement& null_location) noexcept
 {
@@ -592,8 +592,8 @@ template <typename Curve>
         do_affine_add ? &scratch_space[scratch_it] : &bucket_accumulators[lhs_bucket];
     typename Curve::AffineElement* rhs_destination = do_affine_add ? &scratch_space[scratch_it + 1] : &null_location;
 
-    uint64_t& dest_bucket = affine_addition_output_bucket_destinations[scratch_it >> 1];
-    dest_bucket = do_affine_add ? static_cast<uint64_t>(lhs_bucket) : dest_bucket;
+    uint32_t& dest_bucket = affine_addition_output_bucket_destinations[scratch_it >> 1];
+    dest_bucket = do_affine_add ? static_cast<uint32_t>(lhs_bucket) : dest_bucket;
 
     *lhs_destination = *lhs_source;
     *rhs_destination = *rhs_source;
@@ -630,171 +630,122 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
 
     size_t point_it = num_input_points_processed;
     size_t affine_input_it = num_queued_affine_points;
-    // N.B. points and point_schedule MAY HAVE DIFFERENT SIZES
-    // We source the number of actual points we work on from the point schedule
-    size_t num_points = point_schedule.size();
+    const size_t num_points = point_schedule.size();
     auto& bucket_accumulator_exists = bucket_data.bucket_exists;
     auto& affine_addition_scratch_space = affine_data.points_to_add;
     auto& bucket_accumulators = bucket_data.buckets;
     auto& affine_addition_output_bucket_destinations = affine_data.addition_result_bucket_destinations;
     auto& scalar_scratch_space = affine_data.scalar_scratch_space;
     AffineElement null_location{};
-    // We do memory prefetching, `prefetch_max` ensures we do not overflow our containers
-    size_t prefetch_max = (num_points >= PREFETCH_LOOKAHEAD) ? (num_points - PREFETCH_LOOKAHEAD) : 0;
-    size_t end = (num_points > 0) ? (num_points - 1) : 0;
+    const size_t prefetch_max = (num_points >= PREFETCH_LOOKAHEAD) ? (num_points - PREFETCH_LOOKAHEAD) : 0;
+    const size_t end = (num_points > 0) ? (num_points - 1) : 0;
 
-    // Step 1: Fill up `affine_addition_scratch_space` with up to AffineAdditionData::BATCH_SIZE/2 independent additions
-    {
-        BB_BENCH_NAME("fill_scratch_from_schedule");
-        while (((affine_input_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < end)) {
-
-            // Prefetch points we'll need soon (every 16 iterations, prefetch the next 16-32 points)
-            if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
-                for (size_t i = PREFETCH_LOOKAHEAD / 2; i < PREFETCH_LOOKAHEAD; ++i) {
-                    PointScheduleEntry entry{ point_schedule[point_it + i] };
-                    __builtin_prefetch(&points[entry.point_index()]);
+    // Iterative loop - continues until all points processed and no work remains in scratch space
+    while (point_it < num_points || affine_input_it != 0) {
+        // Step 1: Fill `affine_addition_scratch_space` with up to BATCH_SIZE/2 independent additions
+        {
+            BB_BENCH_NAME("fill_scratch_from_schedule");
+            while (((affine_input_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < end)) {
+                // Prefetch points we'll need soon (every 16 iterations, prefetch the next 16-32 points)
+                if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
+                    for (size_t i = PREFETCH_LOOKAHEAD / 2; i < PREFETCH_LOOKAHEAD; ++i) {
+                        PointScheduleEntry entry{ point_schedule[point_it + i] };
+                        __builtin_prefetch(&points[entry.point_index()]);
+                    }
                 }
+
+                PointScheduleEntry lhs{ point_schedule[point_it] };
+                PointScheduleEntry rhs{ point_schedule[point_it + 1] };
+                uint32_t lhs_bucket = lhs.bucket_index();
+                uint32_t rhs_bucket = rhs.bucket_index();
+                uint32_t lhs_point = lhs.point_index();
+                uint32_t rhs_point = rhs.point_index();
+
+                size_t consumed = process_bucket_pair<Curve>(lhs_bucket,
+                                                             rhs_bucket,
+                                                             &points[lhs_point],
+                                                             &points[rhs_point],
+                                                             affine_addition_scratch_space,
+                                                             bucket_accumulators,
+                                                             bucket_accumulator_exists,
+                                                             affine_addition_output_bucket_destinations,
+                                                             affine_input_it,
+                                                             null_location);
+                point_it += consumed;
+            }
+        }
+
+        // Handle the last point (odd count case) - separate to avoid bounds check on point_schedule[point_it + 1]
+        if (point_it == num_points - 1) {
+            PointScheduleEntry last{ point_schedule[point_it] };
+            uint32_t bucket = last.bucket_index();
+            uint32_t point_idx = last.point_index();
+
+            process_single_point<Curve>(bucket,
+                                        &points[point_idx],
+                                        affine_addition_scratch_space,
+                                        bucket_accumulators,
+                                        bucket_accumulator_exists,
+                                        affine_addition_output_bucket_destinations,
+                                        affine_input_it);
+            point_it += 1;
+        }
+
+        // Now that we have populated `affine_addition_scratch_space`,
+        // compute `num_affine_points_to_add` independent additions using the Affine trick
+        size_t num_affine_points_to_add = affine_input_it;
+        {
+            BB_BENCH_NAME("batch_affine_addition");
+            if (num_affine_points_to_add >= 2) {
+                add_affine_points(
+                    &affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
+            }
+        }
+
+        // `add_affine_points` stores the result in the top-half of the used scratch space
+        G1* affine_output = &affine_addition_scratch_space[0] + (num_affine_points_to_add / 2);
+
+        // Process the addition outputs: feed them back into scratch space or store in bucket accumulators
+        size_t new_scratch_space_it = 0;
+        size_t affine_output_it = 0;
+        size_t num_affine_output_points = num_affine_points_to_add / 2;
+
+        // Recirculate addition outputs using the same bucket pair logic
+        {
+            BB_BENCH_NAME("recirculate_affine_outputs");
+            while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
+                uint32_t lhs_bucket = affine_addition_output_bucket_destinations[affine_output_it];
+                uint32_t rhs_bucket = affine_addition_output_bucket_destinations[affine_output_it + 1];
+
+                size_t consumed = process_bucket_pair<Curve>(lhs_bucket,
+                                                             rhs_bucket,
+                                                             &affine_output[affine_output_it],
+                                                             &affine_output[affine_output_it + 1],
+                                                             affine_addition_scratch_space,
+                                                             bucket_accumulators,
+                                                             bucket_accumulator_exists,
+                                                             affine_addition_output_bucket_destinations,
+                                                             new_scratch_space_it,
+                                                             null_location);
+                affine_output_it += consumed;
             }
 
-            // We use branchless programming here (conditional moves) to minimize instruction pipeline flushes.
-            // We are iterating through our points and can come across the following scenarios:
-            // Case 1: Next 2 points go to the *same* bucket (happy path - add both to scratch space)
-            // Case 2: Different buckets AND lhs bucket has accumulator (add point + accumulator to scratch)
-            // Case 3: Different buckets AND lhs bucket is empty (cache point into bucket)
-            // We advance point_it by 2 (case 1), or by 1 (case 2 or 3).
-            PointScheduleEntry lhs{ point_schedule[point_it] };
-            PointScheduleEntry rhs{ point_schedule[point_it + 1] };
-            uint32_t lhs_bucket = lhs.bucket_index();
-            uint32_t rhs_bucket = rhs.bucket_index();
-            uint32_t lhs_point = lhs.point_index();
-            uint32_t rhs_point = rhs.point_index();
-
-            bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
-            bool buckets_match = lhs_bucket == rhs_bucket;
-            bool do_affine_add = buckets_match || has_bucket_accumulator;
-
-            const AffineElement* lhs_source = &points[lhs_point];
-            const AffineElement* rhs_source = buckets_match ? &points[rhs_point] : &bucket_accumulators[lhs_bucket];
-
-            // either two points are set to be added (point to point or point into bucket accumulator), or lhs is stored
-            // in the bucket and rhs is temporarily ignored
-            AffineElement* lhs_destination =
-                do_affine_add ? &affine_addition_scratch_space[affine_input_it] : &bucket_accumulators[lhs_bucket];
-            AffineElement* rhs_destination =
-                do_affine_add ? &affine_addition_scratch_space[affine_input_it + 1] : &null_location;
-
-            // if performing an affine add, set the destination bucket corresponding to the addition result
-            if (do_affine_add) {
-                affine_addition_output_bucket_destinations[affine_input_it >> 1] = lhs_bucket;
+            // Handle the last affine output (odd count case)
+            if (affine_output_it == (num_affine_output_points - 1)) {
+                uint32_t bucket = affine_addition_output_bucket_destinations[affine_output_it];
+                process_single_point<Curve>(bucket,
+                                            &affine_output[affine_output_it],
+                                            affine_addition_scratch_space,
+                                            bucket_accumulators,
+                                            bucket_accumulator_exists,
+                                            affine_addition_output_bucket_destinations,
+                                            new_scratch_space_it);
+                affine_output_it += 1;
             }
-
-            // unconditional swap. No if statements here.
-            *lhs_destination = *lhs_source;
-            *rhs_destination = *rhs_source;
-
-            // indicate whether bucket_accumulators[lhs_bucket] will contain a point after this iteration
-            bucket_accumulator_exists.set(
-                lhs_bucket,
-                (has_bucket_accumulator && buckets_match) || /* bucket has an accum and its
-                                                                 not being used in current add */
-                    !do_affine_add);                         /* lhs point is cached into the bucket */
-
-            affine_input_it += do_affine_add ? 2 : 0;
-            point_it += (do_affine_add && buckets_match) ? 2 : 1;
         }
-    }
-    // Handle the last point (odd count case) - separate to avoid bounds check on point_schedule[point_it + 1]
-    if (point_it == num_points - 1) {
-        PointScheduleEntry last{ point_schedule[point_it] };
-        uint32_t bucket = last.bucket_index();
-        uint32_t point_idx = last.point_index();
 
-        if (bucket_accumulator_exists.get(bucket)) {
-            affine_addition_scratch_space[affine_input_it] = points[point_idx];
-            affine_addition_scratch_space[affine_input_it + 1] = bucket_accumulators[bucket];
-            bucket_accumulator_exists.set(bucket, false);
-            affine_addition_output_bucket_destinations[affine_input_it >> 1] = bucket;
-            affine_input_it += 2;
-        } else {
-            BB_ASSERT_DEBUG(point_idx < points.size());
-            bucket_accumulators[bucket] = points[point_idx];
-            bucket_accumulator_exists.set(bucket, true);
-        }
-        point_it += 1;
-    }
-
-    // Now that we have populated `affine_addition_scratch_space`,
-    // compute `num_affine_points_to_add` independent additions using the Affine trick
-    size_t num_affine_points_to_add = affine_input_it;
-    {
-        BB_BENCH_NAME("batch_affine_addition");
-        if (num_affine_points_to_add >= 2) {
-            add_affine_points(&affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
-        }
-    }
-    // `add_affine_points` stores the result in the top-half of the used scratch space
-    G1* affine_output = &affine_addition_scratch_space[0] + (num_affine_points_to_add / 2);
-
-    // Process the addition outputs.
-    // We either need to feed the addition outputs back into affine_addition_scratch_space for more addition operations.
-    // Or, if there are no more additions for a bucket, we store the addition output in a bucket accumulator.
-    size_t new_scratch_space_it = 0;
-    size_t affine_output_it = 0;
-    size_t num_affine_output_points = num_affine_points_to_add / 2;
-    // Recirculate addition outputs: same algorithm as point schedule processing, but sourcing from affine_output
-    {
-        BB_BENCH_NAME("recirculate_affine_outputs");
-        while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
-            uint32_t lhs_bucket = affine_addition_output_bucket_destinations[affine_output_it];
-            uint32_t rhs_bucket = affine_addition_output_bucket_destinations[affine_output_it + 1];
-
-            bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
-            bool buckets_match = lhs_bucket == rhs_bucket;
-            bool do_affine_add = buckets_match || has_bucket_accumulator;
-
-            const AffineElement* lhs_source = &affine_output[affine_output_it];
-            const AffineElement* rhs_source =
-                buckets_match ? &affine_output[affine_output_it + 1] : &bucket_accumulators[lhs_bucket];
-
-            AffineElement* lhs_destination =
-                do_affine_add ? &affine_addition_scratch_space[new_scratch_space_it] : &bucket_accumulators[lhs_bucket];
-            AffineElement* rhs_destination =
-                do_affine_add ? &affine_addition_scratch_space[new_scratch_space_it + 1] : &null_location;
-
-            if (do_affine_add) {
-                affine_addition_output_bucket_destinations[new_scratch_space_it >> 1] = lhs_bucket;
-            }
-
-            *lhs_destination = *lhs_source;
-            *rhs_destination = *rhs_source;
-
-            bucket_accumulator_exists.set(lhs_bucket, (has_bucket_accumulator && buckets_match) || !do_affine_add);
-
-            new_scratch_space_it += do_affine_add ? 2 : 0;
-            affine_output_it += (do_affine_add && buckets_match) ? 2 : 1;
-        }
-        // Handle the last affine output (odd count case)
-        if (affine_output_it == (num_affine_output_points - 1)) {
-            uint32_t bucket = affine_addition_output_bucket_destinations[affine_output_it];
-
-            if (bucket_accumulator_exists.get(bucket)) {
-                affine_addition_scratch_space[new_scratch_space_it] = affine_output[affine_output_it];
-                affine_addition_scratch_space[new_scratch_space_it + 1] = bucket_accumulators[bucket];
-                bucket_accumulator_exists.set(bucket, false);
-                affine_addition_output_bucket_destinations[new_scratch_space_it >> 1] = bucket;
-                new_scratch_space_it += 2;
-            } else {
-                bucket_accumulators[bucket] = affine_output[affine_output_it];
-                bucket_accumulator_exists.set(bucket, true);
-            }
-            affine_output_it += 1;
-        }
-    }
-
-    // If we have not finished iterating over the point schedule,
-    // OR we have affine additions to perform in the scratch space, continue
-    if (point_it < num_points || new_scratch_space_it != 0) {
-        consume_point_schedule(point_schedule, points, affine_data, bucket_data, point_it, new_scratch_space_it);
+        // Update iterator for next iteration: start with recirculated points in scratch space
+        affine_input_it = new_scratch_space_it;
     }
 }
 

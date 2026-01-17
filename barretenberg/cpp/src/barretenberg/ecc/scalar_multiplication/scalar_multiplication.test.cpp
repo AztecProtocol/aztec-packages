@@ -304,18 +304,22 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
             uint64_t slice = engine.get_random_uint64() & ((1 << num_bits_in_slice) - 1);
             // Scalars in non-Montgomery form (as expected by MSM internals)
             uint256_t scalar = uint256_t(slice) << lo_bit;
-            scalars[i].data[0] = scalar.data[0];
-            scalars[i].data[1] = scalar.data[1];
-            scalars[i].data[2] = scalar.data[2];
-            scalars[i].data[3] = scalar.data[3];
+            // Keep non-Montgomery form for later use
+            ScalarField scalar_nonmontgomery;
+            scalar_nonmontgomery.data[0] = scalar.data[0];
+            scalar_nonmontgomery.data[1] = scalar.data[1];
+            scalar_nonmontgomery.data[2] = scalar.data[2];
+            scalar_nonmontgomery.data[3] = scalar.data[3];
+            // Create Montgomery form for input to transform_scalar_and_get_nonzero_scalar_indices
+            scalars[i] = scalar_nonmontgomery;
+            scalars[i].self_to_montgomery_form();
             // Keep Montgomery form copy for expected computation
             scalars_montgomery[i] = scalars[i];
-            scalars_montgomery[i].self_to_montgomery_form();
         }
 
         std::vector<uint32_t> indices;
-        // get_nonzero_scalar_indices expects non-Montgomery form scalars
-        scalar_multiplication::MSM<Curve>::get_nonzero_scalar_indices(scalars, indices);
+        // transform_scalar_and_get_nonzero_scalar_indices expects Montgomery form and converts to non-Montgomery
+        scalar_multiplication::MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(scalars, indices);
 
         for (auto x : indices) {
             ASSERT_LT(x, num_points);
@@ -392,10 +396,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
         // Compute expected with Montgomery form scalars
         expected[k] = TestFixture::naive_msm(batch_scalars_spans[k], batch_points_span[k]);
 
-        // Convert to non-Montgomery form for batch_multi_scalar_mul
-        for (auto& scalar : batch_scalars_copies[k]) {
-            scalar.self_from_montgomery_form();
-        }
+        // batch_multi_scalar_mul now expects Montgomery form and handles conversion internally
     }
 
     std::vector<AffineElement> result =
@@ -441,10 +442,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulSparse)
         // Compute expected with Montgomery form scalars
         expected[k] = TestFixture::naive_msm(batch_scalars[k], batch_points);
 
-        // Convert to non-Montgomery form for batch_multi_scalar_mul
-        for (auto& scalar : scalars) {
-            scalar.self_from_montgomery_form();
-        }
+        // batch_multi_scalar_mul now expects Montgomery form and handles conversion internally
     }
 
     std::vector<AffineElement> result =
