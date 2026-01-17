@@ -1,11 +1,4 @@
-import {
-  CANONICAL_AUTH_REGISTRY_ADDRESS,
-  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  FEE_JUICE_ADDRESS,
-  MULTI_CALL_ENTRYPOINT_ADDRESS,
-  PUBLIC_CHECKS_ADDRESS,
-} from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -549,12 +542,5 @@ export class PublicPersistableStateManager {
 }
 
 function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
-  return (
-    contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(PUBLIC_CHECKS_ADDRESS))
-  );
+  return contractAddress.toBigInt() >= 1 && contractAddress.toBigInt() <= MAX_PROTOCOL_CONTRACTS;
 }

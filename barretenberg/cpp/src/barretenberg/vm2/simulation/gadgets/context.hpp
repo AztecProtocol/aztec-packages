@@ -72,10 +72,10 @@ class BaseContext : public ContextInterface {
         return *internal_call_stack_manager;
     }
 
-    uint32_t get_pc() const override { return pc; }
-    void set_pc(uint32_t new_pc) override { pc = new_pc; }
-    uint32_t get_next_pc() const override { return next_pc; }
-    void set_next_pc(uint32_t new_next_pc) override { next_pc = new_next_pc; }
+    PC get_pc() const override { return pc; }
+    void set_pc(PC new_pc) override { pc = new_pc; }
+    PC get_next_pc() const override { return next_pc; }
+    void set_next_pc(PC new_next_pc) override { next_pc = new_next_pc; }
     bool halted() const override { return has_halted; }
     void halt() override { has_halted = true; }
 
@@ -142,8 +142,8 @@ class BaseContext : public ContextInterface {
     uint32_t context_id;
 
     // Machine state.
-    uint32_t pc = 0;
-    uint32_t next_pc = 0;
+    PC pc = 0;
+    PC next_pc = 0;
     bool has_halted = false;
     Gas gas_used;
     Gas gas_limit;

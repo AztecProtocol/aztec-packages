@@ -211,7 +211,7 @@ class Execution : public ExecutionInterface {
         MemoryAddress rd_size;
         Gas gas_used;
         bool success;
-        uint32_t halting_pc = 0;                    // PC at which the context halted.
+        PC halting_pc = 0;                          // PC at which the context halted.
         std::optional<std::string> halting_message; // If reverted.
     };
 
