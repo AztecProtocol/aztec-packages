@@ -55,10 +55,9 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     ...booleanConfigHelper(true),
   },
   alwaysReexecuteBlockProposals: {
-    env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
     description:
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
-    ...booleanConfigHelper(false),
+    defaultValue: true,
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
