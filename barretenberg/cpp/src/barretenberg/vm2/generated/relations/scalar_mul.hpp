@@ -14,9 +14,8 @@ template <typename FF_> class scalar_mulImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 4, 4, 4, 3, 4, 4, 4
-    };
+    static constexpr std::array<size_t, 29> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 2, 2, 2, 4, 4, 4, 3, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -40,11 +39,11 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
     static constexpr size_t SR_START_AFTER_LATCH = 4;
     static constexpr size_t SR_SELECTOR_ON_START_OR_END = 5;
     static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
-    static constexpr size_t SR_INPUT_CONSISTENCY_X = 9;
-    static constexpr size_t SR_INPUT_CONSISTENCY_Y = 10;
-    static constexpr size_t SR_INPUT_CONSISTENCY_INF = 11;
-    static constexpr size_t SR_INPUT_CONSISTENCY_SCALAR = 12;
-    static constexpr size_t SR_DECREMENT_INDEX = 15;
+    static constexpr size_t SR_INPUT_CONSISTENCY_X = 8;
+    static constexpr size_t SR_INPUT_CONSISTENCY_Y = 9;
+    static constexpr size_t SR_INPUT_CONSISTENCY_INF = 10;
+    static constexpr size_t SR_INPUT_CONSISTENCY_SCALAR = 11;
+    static constexpr size_t SR_DECREMENT_INDEX = 14;
 
     static std::string get_subrelation_label(size_t index)
     {

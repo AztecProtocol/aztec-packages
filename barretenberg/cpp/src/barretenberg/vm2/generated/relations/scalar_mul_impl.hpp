@@ -16,7 +16,7 @@ void scalar_mulImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto scalar_mul_LATCH_CONDITION = in.get(C::scalar_mul_end) + in.get(C::precomputed_first_row);
-    const auto scalar_mul_SHOULD_PASS = in.get(C::scalar_mul_not_end) * (FF(1) - in.get(C::scalar_mul_bit));
+    const auto scalar_mul_SHOULD_PASS = in.get(C::scalar_mul_sel_not_end) * (FF(1) - in.get(C::scalar_mul_bit));
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -63,150 +63,145 @@ void scalar_mulImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp =
-            (static_cast<View>(in.get(C::scalar_mul_not_end)) -
+            (static_cast<View>(in.get(C::scalar_mul_sel_not_end)) -
              static_cast<View>(in.get(C::scalar_mul_sel)) * (FF(1) - static_cast<View>(in.get(C::scalar_mul_end))));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // INPUT_CONSISTENCY_X
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = ((static_cast<View>(in.get(C::scalar_mul_end)) + static_cast<View>(in.get(C::scalar_mul_not_end))) -
-                    static_cast<View>(in.get(C::scalar_mul_sel)));
+        auto tmp =
+            static_cast<View>(in.get(C::scalar_mul_sel_not_end)) *
+            (static_cast<View>(in.get(C::scalar_mul_point_x)) - static_cast<View>(in.get(C::scalar_mul_point_x_shift)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    { // INPUT_CONSISTENCY_X
+    { // INPUT_CONSISTENCY_Y
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::scalar_mul_not_end)) *
-            (static_cast<View>(in.get(C::scalar_mul_point_x)) - static_cast<View>(in.get(C::scalar_mul_point_x_shift)));
+            static_cast<View>(in.get(C::scalar_mul_sel_not_end)) *
+            (static_cast<View>(in.get(C::scalar_mul_point_y)) - static_cast<View>(in.get(C::scalar_mul_point_y_shift)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
-    { // INPUT_CONSISTENCY_Y
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::scalar_mul_not_end)) *
-            (static_cast<View>(in.get(C::scalar_mul_point_y)) - static_cast<View>(in.get(C::scalar_mul_point_y_shift)));
-        std::get<10>(evals) += (tmp * scaling_factor);
-    }
     { // INPUT_CONSISTENCY_INF
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_not_end)) *
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_sel_not_end)) *
                    (static_cast<View>(in.get(C::scalar_mul_point_inf)) -
                     static_cast<View>(in.get(C::scalar_mul_point_inf_shift)));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
     { // INPUT_CONSISTENCY_SCALAR
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::scalar_mul_not_end)) *
+            static_cast<View>(in.get(C::scalar_mul_sel_not_end)) *
             (static_cast<View>(in.get(C::scalar_mul_scalar)) - static_cast<View>(in.get(C::scalar_mul_scalar_shift)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_start)) *
+                   (static_cast<View>(in.get(C::scalar_mul_bit_idx)) - FF(253));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_start)) *
-                   (static_cast<View>(in.get(C::scalar_mul_bit_idx)) - FF(253));
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) * static_cast<View>(in.get(C::scalar_mul_bit_idx));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) * static_cast<View>(in.get(C::scalar_mul_bit_idx));
-        std::get<14>(evals) += (tmp * scaling_factor);
-    }
     { // DECREMENT_INDEX
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_not_end)) *
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_sel_not_end)) *
                    (static_cast<View>(in.get(C::scalar_mul_bit_idx)) -
                     (static_cast<View>(in.get(C::scalar_mul_bit_idx_shift)) + FF(1)));
+        std::get<14>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::scalar_mul_sel)) * (static_cast<View>(in.get(C::scalar_mul_const_two)) - FF(2));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::scalar_mul_sel)) * (static_cast<View>(in.get(C::scalar_mul_bit_radix)) - FF(2));
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
+                   (static_cast<View>(in.get(C::scalar_mul_temp_x)) - static_cast<View>(in.get(C::scalar_mul_point_x)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
-                   (static_cast<View>(in.get(C::scalar_mul_temp_x)) - static_cast<View>(in.get(C::scalar_mul_point_x)));
+                   (static_cast<View>(in.get(C::scalar_mul_temp_y)) - static_cast<View>(in.get(C::scalar_mul_point_y)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
-                   (static_cast<View>(in.get(C::scalar_mul_temp_y)) - static_cast<View>(in.get(C::scalar_mul_point_y)));
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) * (static_cast<View>(in.get(C::scalar_mul_temp_inf)) -
+                                                                   static_cast<View>(in.get(C::scalar_mul_point_inf)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) * (static_cast<View>(in.get(C::scalar_mul_temp_inf)) -
-                                                                   static_cast<View>(in.get(C::scalar_mul_point_inf)));
+        auto tmp = (static_cast<View>(in.get(C::scalar_mul_temp_x_shift)) -
+                    static_cast<View>(in.get(C::scalar_mul_temp_x_shift)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::scalar_mul_temp_x_shift)) -
-                    static_cast<View>(in.get(C::scalar_mul_temp_x_shift)));
+        auto tmp = (static_cast<View>(in.get(C::scalar_mul_temp_y_shift)) -
+                    static_cast<View>(in.get(C::scalar_mul_temp_y_shift)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::scalar_mul_temp_y_shift)) -
-                    static_cast<View>(in.get(C::scalar_mul_temp_y_shift)));
+        auto tmp = (static_cast<View>(in.get(C::scalar_mul_temp_inf_shift)) -
+                    static_cast<View>(in.get(C::scalar_mul_temp_inf_shift)));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::scalar_mul_temp_inf_shift)) -
-                    static_cast<View>(in.get(C::scalar_mul_temp_inf_shift)));
+        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
+                   (static_cast<View>(in.get(C::scalar_mul_point_x)) * static_cast<View>(in.get(C::scalar_mul_bit)) -
+                    static_cast<View>(in.get(C::scalar_mul_res_x)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
-                   (static_cast<View>(in.get(C::scalar_mul_point_x)) * static_cast<View>(in.get(C::scalar_mul_bit)) -
-                    static_cast<View>(in.get(C::scalar_mul_res_x)));
+                   (static_cast<View>(in.get(C::scalar_mul_point_y)) * static_cast<View>(in.get(C::scalar_mul_bit)) -
+                    static_cast<View>(in.get(C::scalar_mul_res_y)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
-                   (static_cast<View>(in.get(C::scalar_mul_point_y)) * static_cast<View>(in.get(C::scalar_mul_bit)) -
-                    static_cast<View>(in.get(C::scalar_mul_res_y)));
-        std::get<24>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::scalar_mul_end)) *
                    (((static_cast<View>(in.get(C::scalar_mul_point_inf)) - FF(1)) *
                          static_cast<View>(in.get(C::scalar_mul_bit)) +
                      FF(1)) -
                     static_cast<View>(in.get(C::scalar_mul_res_inf)));
+        std::get<24>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
+        auto tmp =
+            (static_cast<View>(in.get(C::scalar_mul_should_add)) -
+             static_cast<View>(in.get(C::scalar_mul_sel_not_end)) * static_cast<View>(in.get(C::scalar_mul_bit)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::scalar_mul_should_add)) -
-                    static_cast<View>(in.get(C::scalar_mul_not_end)) * static_cast<View>(in.get(C::scalar_mul_bit)));
+        auto tmp = CView(scalar_mul_SHOULD_PASS) * (static_cast<View>(in.get(C::scalar_mul_res_x)) -
+                                                    static_cast<View>(in.get(C::scalar_mul_res_x_shift)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp = CView(scalar_mul_SHOULD_PASS) * (static_cast<View>(in.get(C::scalar_mul_res_x)) -
-                                                    static_cast<View>(in.get(C::scalar_mul_res_x_shift)));
+        auto tmp = CView(scalar_mul_SHOULD_PASS) * (static_cast<View>(in.get(C::scalar_mul_res_y)) -
+                                                    static_cast<View>(in.get(C::scalar_mul_res_y_shift)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = CView(scalar_mul_SHOULD_PASS) * (static_cast<View>(in.get(C::scalar_mul_res_y)) -
-                                                    static_cast<View>(in.get(C::scalar_mul_res_y_shift)));
-        std::get<28>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
         auto tmp = CView(scalar_mul_SHOULD_PASS) * (static_cast<View>(in.get(C::scalar_mul_res_inf)) -
                                                     static_cast<View>(in.get(C::scalar_mul_res_inf_shift)));
-        std::get<29>(evals) += (tmp * scaling_factor);
+        std::get<28>(evals) += (tmp * scaling_factor);
     }
 }
 

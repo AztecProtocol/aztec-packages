@@ -38,14 +38,14 @@ include "to_radix.pil";
  *
  * TRACE SHAPE: 1 single row per bit of the scalar s. Since s is FF, each scalar mul operation has 254 rows:
  *
- * +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
- * | start | end | not_end | point:Point | scalar | res:Point | bit | bit_idx | temp:Point | should_add |
- * +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
- * |     1 |   0 |       1 | p           | s      | res'      |   0 |     253 | temp'*2    |          0 | <= lookup
- * |     0 |   0 |       1 | p           | s      | res'+temp |   1 |     252 | temp'*2    |          1 |
+ * +-------+-----+-------------+-------------+--------+-----------+-----+---------+------------+------------+
+ * | start | end | sel_not_end | point:Point | scalar | res:Point | bit | bit_idx | temp:Point | should_add |
+ * +-------+-----+-------------+-------------+--------+-----------+-----+---------+------------+------------+
+ * |     1 |   0 |       1     | p           | s      | res'      |   0 |     253 | temp'*2    |          0 | <= lookup
+ * |     0 |   0 |       1     | p           | s      | res'+temp |   1 |     252 | temp'*2    |          1 |
  * ...
- * |     0 |   1 |       0 | p           | s      | p         |   1 |       0 | p          |          0 |
- * +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
+ * |     0 |   1 |       0     | p           | s      | p         |   1 |       0 | p          |          0 |
+ * +-------+-----+-------------+-------------+--------+-----------+-----+---------+------------+------------+
  *
  * INTERACTIONS: This subtrace is looked up by:
  * - address_derivation.pil: To constrain that the preaddress public key is the result of the scalar multiplication of preaddress * G (#[PREADDRESS_SCALAR_MUL]).
@@ -55,13 +55,15 @@ include "to_radix.pil";
 
 namespace scalar_mul;
 
-    #[skippable_if]
-    sel = 0;
+    ////////////////////////////////////////////////
+    // Set Up Columns
+    ////////////////////////////////////////////////
 
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
+    #[skippable_if]
+    sel = 0;
 
-    // These are the inputs to perform the scalar mul:
     // The scalar s
     pol commit scalar;
     // Point P in affine form
@@ -75,85 +77,83 @@ namespace scalar_mul;
     pol commit res_y;
     pol commit res_inf; // @boolean (constrained to be @boolean by lookup in the ecc subtrace)
 
-    // LIFECYCLE
+    ///////////////////////////////
+    // Trace Shape
+    ///////////////////////////////
 
-    // After this section:
-    // - start can be 1 only after an end or the first row
-    // - There can be any number of rows between start and end
-    // - end can be 1 only N rows after a start (we'll constrain that N=253 in the BIT DECOMPOSITION section)
-    // - sel should be 1 on start and after and can change after end
     pol commit start; // @boolean
     start * (1 - start) = 0;
-
     pol commit end; // @boolean
     end * (1 - end) = 0;
 
-    // end and first_row are NAND
     // LATCH_CONDITION is @boolean because both end and first_row are boolean and mutually exclusive
     pol LATCH_CONDITION = end + precomputed.first_row;
 
+    // start can be 1 only after an end or the first row
     #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // Selector must be 1 in a start or end row
     #[SELECTOR_ON_START_OR_END]
     (start + end) * (1 - sel) = 0;
+
     // Next selector must be current selector unless LATCH_CONDITION
     #[SELECTOR_CONSISTENCY]
     (sel' - sel) * (1 - LATCH_CONDITION) = 0;
 
     // Needs to be committed because it's used in the #[DOUBLE] lookup
-    pol commit not_end; // @boolean (since end and sel are boolean)
-    // not_end = sel & !end
-    not_end - sel * (1 - end) = 0;
-
-    // Double check: sel = not_end | end
-    end + not_end - sel = 0;
+    pol commit sel_not_end; // @boolean (since end and sel are boolean)
+    // sel_not_end = sel & !end
+    sel_not_end - sel * (1 - end) = 0;
 
     // Input consistency
     #[INPUT_CONSISTENCY_X]
-    not_end * (point_x - point_x') = 0;
+    sel_not_end * (point_x - point_x') = 0;
     #[INPUT_CONSISTENCY_Y]
-    not_end * (point_y - point_y') = 0;
+    sel_not_end * (point_y - point_y') = 0;
     #[INPUT_CONSISTENCY_INF]
-    not_end * (point_inf - point_inf') = 0;
+    sel_not_end * (point_inf - point_inf') = 0;
     #[INPUT_CONSISTENCY_SCALAR]
-    not_end * (scalar - scalar') = 0;
+    sel_not_end * (scalar - scalar') = 0;
 
-
-    // BIT DECOMPOSITION
+    ///////////////////////////////
+    // Bit Decomposition
+    ///////////////////////////////
+    // We lookup this row's bit value against the scalar's decomposition at bit_idx in #[TO_RADIX].
+    // The bit index must be decremented each row, unless we are at end where it must equal 0.
+    // From above, every active row has either end or sel_not_end. Since we start at bit_idx == 253, this
+    // constrains that an end row must be 253 rows after start.
 
     pol commit bit; // @boolean (by lookup #[TO_RADIX], which links bit to #[LIMB_LESS_THAN_RADIX_RANGE], which constrains bit < radix for radix == 2)
-    // Should we have an explicit end boolean or callers should look up rows where bit_idx is 253?
     pol commit bit_idx;
 
     // We start with bit index 253
     start * (bit_idx - 253) = 0;
-    // End can only be 1 when bit_idx is 0.
-    // This does not imply that end will be 1 when bit_idx is zero. The prover can choose to not turn end on
+    // End can only be 1 when the bit index is 0. This does not imply that end will be 1 when bit_idx is zero. The prover can choose to not turn end on
     // but then they won't be able to reach an end again in the whole trace, rendering the trace invalid.
     end * bit_idx = 0;
 
     // Next bit index has to be 1 less except on end
     #[DECREMENT_INDEX]
-    not_end * (bit_idx - (bit_idx' + 1)) = 0;
+    sel_not_end * (bit_idx - (bit_idx' + 1)) = 0;
 
     // Needs to be committed because it's used in the #[TO_RADIX] lookup
-    pol commit bit_radix;
-    sel * (bit_radix - 2) = 0;
+    pol commit const_two;
+    sel * (const_two - 2) = 0;
 
     #[TO_RADIX]
-    sel { scalar, bit, bit_idx, bit_radix /* == 2 */ }
+    sel { scalar, bit, bit_idx, const_two /* == bit_radix */ }
     in
     to_radix.sel
         { to_radix.value, to_radix.limb, to_radix.limb_index, to_radix.radix };
 
-
-    // TEMP COMPUTATION
-
+    ///////////////////////////////
+    // Temp Computation
+    ///////////////////////////////
     // See double and add algorithm above. Temp starts as P, then is doubled for each iteration.
     // Since we do reverse aggregation, temp == P at end (bit_idx = 0), temp == 2P at the previous
     // row (bit_idx = 1), ..., == 2^254P at start (bit_idx = 253).
+
     pol commit temp_x;
     pol commit temp_y;
     pol commit temp_inf; // @boolean (constrained to be @boolean by lookup in the ecc subtrace)
@@ -169,14 +169,14 @@ namespace scalar_mul;
     temp_inf' - temp_inf' = 0;
 
     #[DOUBLE]
-    not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', temp_x', temp_y', temp_inf' }
+    sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', temp_x', temp_y', temp_inf' }
     in
     ecc.sel
         { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
 
-
-    // RES COMPUTATION
-
+    ///////////////////////////////
+    // Result Computation
+    ///////////////////////////////
     // See double and add algorithm above. Res starts as O (the point at infinity), then is added to temp if
     // the current bit is 1. At each row, res == bit ? res + temp : res.
     // Since we do reverse aggregation, res == bit ? P : O at end (bit_idx = 0), then res == bit ? res' + temp : res' at
@@ -189,9 +189,9 @@ namespace scalar_mul;
     end * ((point_inf - 1) * bit + 1 - res_inf) = 0;
 
     // Needs to be committed because it's used in the #[ADD] lookup
-    pol commit should_add; // @boolean (since not_end and bit are boolean)
-    should_add - not_end * bit = 0;
-    pol SHOULD_PASS = not_end * (1 - bit);
+    pol commit should_add; // @boolean (since sel_not_end and bit are boolean)
+    should_add - sel_not_end * bit = 0;
+    pol SHOULD_PASS = sel_not_end * (1 - bit);
     SHOULD_PASS * (res_x - res_x') = 0;
     SHOULD_PASS * (res_y - res_y') = 0;
     SHOULD_PASS * (res_inf - res_inf') = 0;

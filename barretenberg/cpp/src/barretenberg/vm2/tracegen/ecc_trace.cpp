@@ -166,7 +166,7 @@ void EccTraceBuilder::process_scalar_mul(
                           { C::scalar_mul_res_inf, res.is_infinity() },
                           { C::scalar_mul_start, is_start },
                           { C::scalar_mul_end, is_end },
-                          { C::scalar_mul_not_end, !is_end },
+                          { C::scalar_mul_sel_not_end, !is_end },
                           { C::scalar_mul_bit, bit },
                           { C::scalar_mul_bit_idx, intermediate_state_idx },
                           { C::scalar_mul_temp_x, temp.x() },
@@ -176,7 +176,7 @@ void EccTraceBuilder::process_scalar_mul(
                               C::scalar_mul_should_add,
                               (!is_end) && bit,
                           },
-                          { C::scalar_mul_bit_radix, 2 } } });
+                          { C::scalar_mul_const_two, 2 } } });
 
             row++;
         }
