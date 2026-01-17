@@ -125,6 +125,23 @@ await contract.methods
   .wait();
 ```
 
+### Deploy with a specific initializer
+
+Some contracts have multiple initializer functions (e.g., both a private `constructor` and a `public_constructor`). By default, the generated `deploy()` method uses the default initializer (typically named `constructor`). To deploy using a different initializer, use `deployWithOpts`:
+
+#include_code deploy_with_opts yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+
+The `deployWithOpts` method accepts an options object as its first argument:
+- `wallet`: The wallet to use for deployment (required)
+- `method`: The name of the initializer function to call (optional, defaults to `constructor`)
+- `publicKeys`: Custom public keys for the contract instance (optional)
+
+The remaining arguments are the parameters for the chosen initializer function.
+
+:::tip
+This is useful for contracts that support multiple initialization patterns, such as token standards that allow both private and public minting during deployment.
+:::
+
 ## Calculate deployment address
 
 ### Get address before deployment

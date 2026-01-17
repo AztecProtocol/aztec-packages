@@ -32,7 +32,7 @@ function dump_fail {
   output=$(mktemp)
 
   set +e
-  ($1) &>$output
+  ($@) &>$output
   status=$?
   set -e
 
@@ -40,7 +40,7 @@ function dump_fail {
   if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
     {
       echo
-      echo -e "${y}command failed${r}: $1 (exit: $status)"
+      echo -e "${y}command failed${r}: $@ (exit: $status)"
       echo -e "${b}--- output ---${r}"
       cat $output
     } >&2
@@ -49,6 +49,21 @@ function dump_fail {
   rm $output
 
   return $status
+}
+
+function retry {
+  local attempts=3
+  # Retries up to 3 times with 5 second intervals
+  for i in $(seq 1 $attempts); do
+    set +e
+    ($@)
+    code=$?
+    set -e
+    [ $code -eq 0 ] || [ $code -eq 143 ] && return 0
+    [ "$i" != "$attempts" ] && sleep 5
+  done
+
+  return 1
 }
 
 function check_toolchains {
@@ -63,12 +78,14 @@ function check_toolchains {
 }
 
 function install_versions_file {
+  set -euo pipefail
   # Determine the correct URI for fetching the versions file
   local versions_uri="$INSTALL_URI"
   curl -fsSL "$versions_uri/$VERSION/versions" -o "$version_path/versions"
 }
 
 function install_noir {
+  set -euo pipefail
   local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
 
   # Create a temp directory for noirup to install to
@@ -91,6 +108,7 @@ function install_noir {
 }
 
 function install_foundry {
+  set -euo pipefail
   local foundry_version=$(cat "$version_path/versions" | grep foundry | cut -d' ' -f2)
 
   # Create a temp directory for foundryup to install to
@@ -117,6 +135,7 @@ function install_foundry {
 }
 
 function install_aztec_packages {
+  set -euo pipefail
   # Install npm packages to the version directory using --prefix
   npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
 }
@@ -127,7 +146,7 @@ function main {
 
   # Download versions manifest
   echo -n "Installing version manifest... "
-  dump_fail install_versions_file
+  dump_fail retry install_versions_file
   echo_green "done."
 
   # Check Node.js version
@@ -135,17 +154,17 @@ function main {
 
   # Install noir
   echo -n "Installing nargo... "
-  dump_fail install_noir
+  dump_fail retry install_noir
   echo_green "done."
 
   # Install foundry
   echo -n "Installing foundry... "
-  dump_fail install_foundry
+  dump_fail retry install_foundry
   echo_green "done."
 
   # Install aztec npm packages
   echo -n "Installing aztec packages... "
-  dump_fail install_aztec_packages
+  dump_fail retry install_aztec_packages
   echo_green "done."
 }
 

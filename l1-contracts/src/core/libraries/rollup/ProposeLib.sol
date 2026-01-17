@@ -198,10 +198,19 @@ library ProposeLib {
     // Compute header hash for computing the payload digest
     v.headerHash = ProposedHeaderLib.hash(v.header);
 
+    // Compute current epoch and check escape hatch BEFORE setupEpoch.
+    v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    v.escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+    if (address(v.escapeHatch) != address(0)) {
+      (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
+    }
+
     // Setup epoch by sampling the committee for the current epoch and setting the seed for the one after the next.
     // This is a no-op if the epoch is already set up, so it only gets executed by the first checkpoint of the epoch.
-    v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setupEpoch(v.currentEpoch);
+    // Skip during escape hatch to allow proposals even with insufficient validators for committee formation.
+    if (!v.isEscapeHatch) {
+      ValidatorSelectionLib.setupEpoch(v.currentEpoch);
+    }
 
     // Calculate mana min fee components for header validation
     ManaMinFeeComponents memory components;
@@ -226,12 +235,6 @@ library ProposeLib {
     );
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    {
-      v.escapeHatch = ValidatorSelectionLib.getEscapeHatch();
-      if (address(v.escapeHatch) != address(0)) {
-        (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
-      }
-    }
 
     if (v.isEscapeHatch) {
       // During escape hatch, only the designated proposer can propose

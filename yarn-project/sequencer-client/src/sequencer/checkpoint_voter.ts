@@ -5,6 +5,8 @@ import type { SlasherClientInterface } from '@aztec/slasher';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
 import type { ValidatorClient } from '@aztec/validator-client';
+import { DutyAlreadySignedError } from '@aztec/validator-ha-signer/errors';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { TypedDataDefinition } from 'viem';
 
@@ -17,7 +19,8 @@ import type { SequencerRollupConstants } from './types.js';
  */
 export class CheckpointVoter {
   private slotTimestamp: bigint;
-  private signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>;
+  private governanceSigner: (msg: TypedDataDefinition) => Promise<`0x${string}`>;
+  private slashingSigner: (msg: TypedDataDefinition) => Promise<`0x${string}`>;
 
   constructor(
     private readonly slot: SlotNumber,
@@ -31,8 +34,16 @@ export class CheckpointVoter {
     private readonly log: Logger,
   ) {
     this.slotTimestamp = getTimestampForSlot(this.slot, this.l1Constants);
-    this.signer = (msg: TypedDataDefinition) =>
-      this.validatorClient.signWithAddress(this.attestorAddress, msg).then(s => s.toString());
+
+    // Create separate signers with appropriate duty contexts for governance and slashing votes
+    // These use HA protection to ensure only one node signs per slot/duty
+    const governanceContext: SigningContext = { slot: this.slot, dutyType: DutyType.GOVERNANCE_VOTE };
+    this.governanceSigner = (msg: TypedDataDefinition) =>
+      this.validatorClient.signWithAddress(this.attestorAddress, msg, governanceContext).then(s => s.toString());
+
+    const slashingContext: SigningContext = { slot: this.slot, dutyType: DutyType.SLASHING_VOTE };
+    this.slashingSigner = (msg: TypedDataDefinition) =>
+      this.validatorClient.signWithAddress(this.attestorAddress, msg, slashingContext).then(s => s.toString());
   }
 
   /**
@@ -68,10 +79,17 @@ export class CheckpointVoter {
         this.slot,
         this.slotTimestamp,
         this.attestorAddress,
-        this.signer,
+        this.governanceSigner,
       );
     } catch (err) {
-      this.log.error(`Error enqueuing governance vote`, err, { slot: this.slot });
+      if (err instanceof DutyAlreadySignedError) {
+        this.log.info(`Governance vote already signed by another node`, {
+          slot: this.slot,
+          signedByNode: err.signedByNode,
+        });
+      } else {
+        this.log.error(`Error enqueueing governance vote`, err);
+      }
       return false;
     }
   }
@@ -95,10 +113,17 @@ export class CheckpointVoter {
         this.slot,
         this.slotTimestamp,
         this.attestorAddress,
-        this.signer,
+        this.slashingSigner,
       );
     } catch (err) {
-      this.log.error(`Error enqueuing slashing vote`, err, { slot: this.slot });
+      if (err instanceof DutyAlreadySignedError) {
+        this.log.info(`Slashing vote already signed by another node`, {
+          slot: this.slot,
+          signedByNode: err.signedByNode,
+        });
+      } else {
+        this.log.error(`Error enqueueing slashing vote`, err);
+      }
       return false;
     }
   }

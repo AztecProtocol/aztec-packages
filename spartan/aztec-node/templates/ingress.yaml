@@ -5,21 +5,23 @@ metadata:
   name: {{ include "chart.fullname" . }}
   {{- with .Values.ingress.rpc.annotations }}
   annotations:
-    {{- toYaml . | nindent 8 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   {{- if .Values.ingress.rpc.className }}
   ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
   rules:
-  - host: {{ .Values.ingress.rpc.host }}
+  {{- range .Values.ingress.rpc.hosts }}
+  - host: {{ . }}
     http:
       paths:
       - backend:
           service:
-            name: {{ include "chart.fullname" . }}
+            name: {{ include "chart.fullname" $ }}
             port:
               name: rpc
         path: /
         pathType: Prefix
+  {{- end }}
 {{- end }}

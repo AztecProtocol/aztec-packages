@@ -1,6 +1,14 @@
-// An entrypoint contract that allows everything to go through. Only used for testing
-// Pair this with SignerlessWallet to perform multiple actions before any account contracts are deployed (and without authentication)
-use dep::aztec::macros::aztec;
+// An entrypoint contract that allows all calls to go through.
+//
+// Used for testing and for situations such as account contract self-deployments (when the account's own entrypoint
+// cannot be used because it is not yet deployed).
+//
+// Pair this with SignerlessWallet to perform multiple actions before any account contracts are deployed (and without
+// authentication).
+//
+// Note that this contract should not be grouped with protocol contracts as it is not part of the protocol. We keep
+// it here for now as it allows us to use hardcoded address.
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract MultiCallEntrypoint {

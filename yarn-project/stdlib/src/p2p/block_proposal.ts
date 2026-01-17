@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
@@ -125,7 +126,7 @@ export class BlockProposal extends Gossipable {
     archiveRoot: Fr,
     txHashes: TxHash[],
     txs: Tx[] | undefined,
-    payloadSigner: (payload: Buffer32) => Promise<Signature>,
+    payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<BlockProposal> {
     // Create a temporary proposal to get the payload to sign
     const tempProposal = new BlockProposal(
@@ -137,13 +138,23 @@ export class BlockProposal extends Gossipable {
       Signature.empty(),
     );
 
+    // Create the block signing context
+    const blockContext: SigningContext = {
+      slot: blockHeader.globalVariables.slotNumber,
+      blockNumber: blockHeader.globalVariables.blockNumber,
+      blockIndexWithinCheckpoint: indexWithinCheckpoint,
+      dutyType: DutyType.BLOCK_PROPOSAL,
+    };
+
     const hashed = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.blockProposal);
-    const sig = await payloadSigner(hashed);
+    const sig = await payloadSigner(hashed, blockContext);
 
     // If txs are provided, sign them as well
     let signedTxs: SignedTxs | undefined;
     if (txs) {
-      signedTxs = await SignedTxs.createFromSigner(txs, payloadSigner);
+      const txsSigningContext: SigningContext = { dutyType: DutyType.TXS };
+      const txsSigner = (payload: Buffer32) => payloadSigner(payload, txsSigningContext);
+      signedTxs = await SignedTxs.createFromSigner(txs, txsSigner);
     }
 
     return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, sig, signedTxs);

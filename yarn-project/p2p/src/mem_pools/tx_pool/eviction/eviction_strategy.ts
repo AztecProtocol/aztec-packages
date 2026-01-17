@@ -146,3 +146,62 @@ export class FeePayerTxInfo {
     });
   }
 }
+
+/**
+ * Read-only access to pool state for pre-add eviction checks.
+ * Passed to pre-add rules during the addTxs transaction.
+ */
+export interface PreAddPoolAccess {
+  /**
+   * Get the pending tx hash that uses a specific nullifier, if any.
+   * Returns undefined if no pending tx uses this nullifier.
+   */
+  getTxHashByNullifier(nullifier: Fr): Promise<TxHash | undefined>;
+
+  /**
+   * Get a pending transaction by its hash.
+   */
+  getPendingTxByHash(hash: TxHash): Promise<Tx | undefined>;
+
+  /**
+   * Get the priority string for a transaction (for fee comparison).
+   */
+  getTxPriority(tx: Tx): string;
+}
+
+/**
+ * Result of a pre-add eviction check for a single transaction.
+ */
+export interface PreAddEvictionResult {
+  /** Whether the incoming tx should be rejected */
+  readonly shouldReject: boolean;
+  /** Sorted array of existing tx hashes that should be evicted if this tx is added */
+  readonly txHashesToEvict: TxHash[];
+  /** Optional reason for rejection */
+  readonly reason?: string;
+}
+
+/**
+ * Strategy interface for pre-add eviction rules.
+ * These run inside the addTxs transaction before a tx is added,
+ * deciding whether to evict existing txs or reject the incoming tx.
+ */
+export interface PreAddEvictionRule {
+  readonly name: string;
+
+  /**
+   * Check if incoming tx should be added and which existing txs to evict.
+   * Called inside the addTxs database transaction for atomicity.
+   *
+   * @param tx - The incoming transaction to check
+   * @param poolAccess - Read-only access to current pool state
+   * @returns Result indicating whether to reject and what to evict
+   */
+  check(tx: Tx, poolAccess: PreAddPoolAccess): Promise<PreAddEvictionResult>;
+
+  /**
+   * Updates the configuration for this rule.
+   * Rules should ignore config options that don't apply to them.
+   */
+  updateConfig?(config: TxPoolOptions): void;
+}

@@ -73,6 +73,9 @@
       "path": "../validator-client"
     },
     {
+      "path": "../validator-ha-signer"
+    },
+    {
       "path": "../world-state"
     }
   ],
