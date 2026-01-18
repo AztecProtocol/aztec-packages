@@ -22,7 +22,7 @@ Writes a new nullifier to the Nullifier Tree. This opcode can only emit nullifie
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -31,7 +31,7 @@ Writes a new nullifier to the Nullifier Tree. This opcode can only emit nullifie
 | `nullifierOffset` | Memory offset | Memory offset of the nullifier to emit |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **EMITNULLIFIER** (Opcode 0x34):
 
@@ -49,7 +49,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

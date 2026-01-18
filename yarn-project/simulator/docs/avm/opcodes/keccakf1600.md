@@ -22,17 +22,17 @@ Computes the Keccak-f[1600] permutation on a state of 25 Uint64 elements. Input 
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
 | Name | Type | Description |
 |------|------|-------------|
-| `dstOffset` | Memory offset | Memory offset for output state will be written |
+| `dstOffset` | Memory offset | Memory offset where the output state will be written |
 | `inputOffset` | Memory offset | Memory offset of the input state (25 Uint64 elements) |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **KECCAKF1600** (Opcode 0x41):
 
@@ -51,7 +51,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
