@@ -21,7 +21,7 @@ Pops return PC from internal call stack and sets PC to it.
 | L2 Base | 9 |
 | DA Base | 0 |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Wire Formats
 See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).

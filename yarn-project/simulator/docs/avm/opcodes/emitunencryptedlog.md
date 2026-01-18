@@ -24,7 +24,7 @@ Emits a public log from the currently executing contract. Log size must be Uint3
 | L2 Dynamic | 3 | `M[logSizeOffset]` |
 | DA Dynamic | 512 | `M[logSizeOffset]` |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
