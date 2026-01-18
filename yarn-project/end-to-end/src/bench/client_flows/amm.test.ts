@@ -26,10 +26,10 @@ const DEBUG_ROUND_TRIPS = false;
 
 // Expected number of node round trips per account contract and payment method.
 const EXPECTED_ROUND_TRIPS: Record<string, number> = {
-  'ecdsar1+private_fpc': 118,
-  'ecdsar1+sponsored_fpc': 80,
-  'schnorr+private_fpc': 118,
-  'schnorr+sponsored_fpc': 82,
+  'ecdsar1+private_fpc': 165,
+  'ecdsar1+sponsored_fpc': 12,
+  'schnorr+private_fpc': 143,
+  'schnorr+sponsored_fpc': 217,
 };
 
 interface RoundTripData {
@@ -181,7 +181,7 @@ describe('AMM benchmark', () => {
               .with({ authWitnesses: [token0Authwit, token1Authwit] });
 
             // Get node stats from the benchmarked node to track RPC calls
-            const nodeStats = t.benchmarkedNode.getStats();
+            const nodeStats = t.benchmarkedNode.getAndResetStats();
 
             await captureProfile(
               `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
