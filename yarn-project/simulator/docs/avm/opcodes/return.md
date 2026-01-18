@@ -23,7 +23,7 @@ Halts execution and returns data to the caller. Return size must be Uint32. Sets
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 

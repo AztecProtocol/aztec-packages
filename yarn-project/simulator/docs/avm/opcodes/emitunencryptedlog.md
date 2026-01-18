@@ -24,7 +24,7 @@ Emits a public log from the currently executing contract. Log size must be Uint3
 | L2 Dynamic | 3 | `M[logSizeOffset]` |
 | DA Dynamic | 512 | `M[logSizeOffset]` |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -86,7 +86,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Log size is not Uint32 or log data is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted log emission in static call context
+- **STATIC_CALL_VIOLATION**: Attempted log emission in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum cumulative log size per transaction (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 

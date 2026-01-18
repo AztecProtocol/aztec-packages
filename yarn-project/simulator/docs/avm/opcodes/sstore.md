@@ -23,7 +23,7 @@ Writes to public storage at the specified slot. Performs a write to the Public D
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | DA Dynamic | 1024 | - |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -85,7 +85,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Slot or value operand is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted storage write in static call context
+- **STATIC_CALL_VIOLATION**: Attempted storage write in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum public data updates per transaction (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 

@@ -21,7 +21,7 @@ Sets the program counter to the specified offset. The offset is an immediate val
 | L2 Base | 9 |
 | DA Base | 0 |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 

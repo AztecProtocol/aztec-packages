@@ -14,8 +14,7 @@ The AVM bytecode uses a compact binary encoding where each instruction is serial
 
 ### Example: `ADD_8` and `ADD_16`
 
-The numeric suffixes in these opcode names (`_8` or `_16`) indicate the **size of memory offset operands
- in the bytecode**, not the type of data being operated on.
+The numeric suffixes in these opcode names (`_8` or `_16`) indicate the **size of memory offset operands in the bytecode**, not the type of data being operated on.
 
 The actual operation type is determined by the [type tags](memory.md#type-tags) of the resolved memory
 locations. For example, `ADD_8` encodes its `aOffset` and `bOffset` operands as 8-bit values in the

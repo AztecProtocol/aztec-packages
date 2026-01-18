@@ -28,9 +28,9 @@ Decomposes a field element into limbs in the specified radix (2-256). If outputB
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | `M[numLimbsOffset]`, `M[radixOffset]`* |
 
-*Note: The L2 gas cost scales linearly with M[numLimbsOffset], but also includes a per-limb multiplier based on M[radixOffset]
+\*Note: The L2 gas cost scales linearly with M[numLimbsOffset], but also includes a per-limb multiplier based on M[radixOffset]
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
