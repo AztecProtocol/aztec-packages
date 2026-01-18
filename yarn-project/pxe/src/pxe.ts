@@ -54,7 +54,6 @@ import { inspect } from 'util';
 
 import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
-import { BenchmarkedNodeFactory } from './contract_function_simulator/benchmarked_node.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
@@ -207,7 +206,7 @@ export class PXE {
       this.noteStore,
       this.keyStore,
       this.addressStore,
-      BenchmarkedNodeFactory.create(this.node),
+      this.node,
       this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
@@ -656,7 +655,6 @@ export class PXE {
 
         const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
           timings,
-          nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
         // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
@@ -762,8 +760,7 @@ export class PXE {
             total - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        const simulatorStats = contractFunctionSimulator.getStats();
-        return new TxProfileResult(executionSteps, { timings, nodeRPCCalls: simulatorStats.nodeRPCCalls });
+        return new TxProfileResult(executionSteps, { timings });
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), `profileMode=${profileMode}`);
       }
@@ -905,10 +902,8 @@ export class PXE {
             : {}),
         });
 
-        const simulatorStats = contractFunctionSimulator.getStats();
         return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput, {
           timings,
-          nodeRPCCalls: simulatorStats.nodeRPCCalls,
         });
       } catch (err: any) {
         throw this.#contextualizeError(
@@ -972,8 +967,7 @@ export class PXE {
           unaccounted: totalTime - (syncTime + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        const simulationStats = contractFunctionSimulator.getStats();
-        return { result: executionResult, stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls } };
+        return { result: executionResult, stats: { timings } };
       } catch (err: any) {
         const { to, name, args } = call;
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');

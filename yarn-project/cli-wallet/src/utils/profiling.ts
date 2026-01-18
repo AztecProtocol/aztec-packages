@@ -93,41 +93,6 @@ export function printProfileResult(
     );
   }
 
-  if (stats.nodeRPCCalls) {
-    log(format('\nRPC calls:\n'));
-    for (const [method, { times }] of Object.entries(stats.nodeRPCCalls.perMethod)) {
-      const calls = times.length;
-      const total = times.reduce((acc, time) => acc + time, 0);
-      const avg = total / calls;
-      const min = Math.min(...times);
-      const max = Math.max(...times);
-      log(
-        format(
-          method.padEnd(ORACLE_NAME_PADDING),
-          `${calls} calls`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
-          `${total.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
-          `min: ${min.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
-          `avg: ${avg.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
-          `max: ${max.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
-        ),
-      );
-    }
-
-    const { roundTrips } = stats.nodeRPCCalls;
-    log(format('\nRound trips (actual blocking waits):\n'));
-    log(format('Round trips:'.padEnd(25), `${roundTrips.roundTrips}`.padStart(COLUMN_MAX_WIDTH)));
-    log(
-      format(
-        'Total blocking time:'.padEnd(25),
-        `${roundTrips.totalBlockingTime.toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH),
-      ),
-    );
-    if (roundTrips.roundTrips > 0) {
-      const avgRoundTrip = roundTrips.totalBlockingTime / roundTrips.roundTrips;
-      log(format('Avg round trip:'.padEnd(25), `${avgRoundTrip.toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH)));
-    }
-  }
-
   log(format('\nSync time:'.padEnd(25), `${timings.sync?.toFixed(2)}ms`.padStart(16)));
   log(
     format(

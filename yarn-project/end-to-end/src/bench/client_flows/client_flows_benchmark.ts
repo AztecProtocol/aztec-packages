@@ -38,6 +38,7 @@ import {
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
 import { ProxyLogger } from './benchmark.js';
+import { type BenchmarkedNode, BenchmarkedNodeFactory } from './benchmarked_node.js';
 import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
 
 const { BENCHMARK_CONFIG } = process.env;
@@ -84,6 +85,9 @@ export class ClientFlowsBenchmark {
 
   // PXE and Wallet used by the benchmarking user. It can be set up with client-side proving enabled
   public userWallet!: TestWallet;
+
+  // Benchmarked node that tracks RPC call stats (wraps aztecNode)
+  public benchmarkedNode!: BenchmarkedNode;
 
   public realProofs = ['true', '1'].includes(process.env.REAL_PROOFS ?? '');
 
@@ -224,7 +228,10 @@ export class ClientFlowsBenchmark {
       proverEnabled: this.realProofs,
     } as PXEConfig;
 
-    this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
+    // Wrap the node with BenchmarkedNode to track RPC call stats
+    this.benchmarkedNode = BenchmarkedNodeFactory.create(this.aztecNode);
+
+    this.userWallet = await TestWallet.create(this.benchmarkedNode, userPXEConfigWithContracts, {
       loggers: {
         prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
       },

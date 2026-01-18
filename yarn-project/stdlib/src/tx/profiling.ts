@@ -17,24 +17,12 @@ export type RoundTripStats = {
   roundTripMethods: string[][];
 };
 
-const RoundTripStatsSchema = z.object({
-  roundTrips: z.number(),
-  totalBlockingTime: z.number(),
-  roundTripDurations: z.array(z.number()),
-  roundTripMethods: z.array(z.array(z.string())),
-});
-
 export type NodeStats = {
   /** Per-method call stats */
   perMethod: Partial<Record<keyof AztecNode, { times: number[] }>>;
   /** Round trip stats tracking actual blocking waits */
   roundTrips: RoundTripStats;
 };
-
-const NodeStatsSchema = z.object({
-  perMethod: z.record(z.string(), z.object({ times: z.array(z.number()) })),
-  roundTrips: RoundTripStatsSchema,
-});
 
 type FunctionTiming = {
   functionName: string;
@@ -66,12 +54,10 @@ export const ProvingTimingsSchema = z.object({
 
 export interface ProvingStats {
   timings: ProvingTimings;
-  nodeRPCCalls?: NodeStats;
 }
 
 export const ProvingStatsSchema = z.object({
   timings: ProvingTimingsSchema,
-  nodeRPCCalls: optional(NodeStatsSchema),
 });
 
 export interface SimulationTimings {
@@ -94,12 +80,10 @@ export const SimulationTimingsSchema = z.object({
 
 export interface SimulationStats {
   timings: SimulationTimings;
-  nodeRPCCalls: NodeStats;
 }
 
 export const SimulationStatsSchema = z.object({
   timings: SimulationTimingsSchema,
-  nodeRPCCalls: NodeStatsSchema,
 });
 
 export class TxProfileResult {
@@ -131,15 +115,6 @@ export class TxProfileResult {
         },
       ],
       {
-        nodeRPCCalls: {
-          perMethod: { getBlockHeader: { times: [1] } },
-          roundTrips: {
-            roundTrips: 1,
-            totalBlockingTime: 1,
-            roundTripDurations: [1],
-            roundTripMethods: [['getBlockHeader']],
-          },
-        },
         timings: {
           sync: 1,
           proving: 1,
@@ -174,15 +149,6 @@ export class UtilitySimulationResult {
 
   static random(): UtilitySimulationResult {
     return new UtilitySimulationResult([Fr.random()], {
-      nodeRPCCalls: {
-        perMethod: { getBlockHeader: { times: [1] } },
-        roundTrips: {
-          roundTrips: 1,
-          totalBlockingTime: 1,
-          roundTripDurations: [1],
-          roundTripMethods: [['getBlockHeader']],
-        },
-      },
       timings: {
         sync: 1,
         publicSimulation: 1,

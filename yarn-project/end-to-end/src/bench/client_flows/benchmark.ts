@@ -8,6 +8,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { createLogger } from '@aztec/foundation/log';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type {
+  NodeStats,
   ProvingStats,
   ProvingTimings,
   RoundTripStats,
@@ -180,6 +181,7 @@ export function generateBenchmark(
   privateExecutionSteps: PrivateExecutionStep[],
   proverType: ProverType,
   error: string | undefined,
+  nodeStats?: NodeStats,
 ): ClientFlowBenchmark {
   let maxMemory = 0;
   let minimumTrace: StructuredTrace;
@@ -219,7 +221,7 @@ export function generateBenchmark(
   }, []);
   const timings = stats.timings;
   const totalGateCount = steps[steps.length - 1].accGateCount;
-  const nodeRPCCalls = stats.nodeRPCCalls ?? {
+  const nodeRPCCalls = nodeStats ?? {
     perMethod: {},
     roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
   };
@@ -325,6 +327,7 @@ export async function captureProfile(
   interaction: ContractFunctionInteraction | DeployMethod,
   opts: Omit<ProfileInteractionOptions & DeployOptions, 'profileMode'>,
   expectedSteps?: number,
+  nodeStats?: NodeStats,
 ) {
   // Make sure the proxy logger starts from a clean slate
   ProxyLogger.getInstance().flushLogs();
@@ -333,7 +336,7 @@ export async function captureProfile(
   if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
     throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
   }
-  const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined);
+  const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined, nodeStats);
 
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;
   if (ivcFolder) {

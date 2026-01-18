@@ -22,7 +22,7 @@ const AMOUNT_PER_NOTE = 1_000_000;
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
 // Set to true to print out the round trip information to the console.
-const DEBUG_ROUND_TRIPS = true;
+const DEBUG_ROUND_TRIPS = false;
 
 // Expected number of node round trips per account contract and payment method.
 const EXPECTED_ROUND_TRIPS: Record<string, number> = {
@@ -35,7 +35,7 @@ const EXPECTED_ROUND_TRIPS: Record<string, number> = {
 interface RoundTripData {
   accountType: AccountType;
   paymentMethod: BenchmarkingFeePaymentMethod;
-  roundTrips: RoundTripStats | undefined;
+  roundTrips: RoundTripStats;
 }
 
 describe('AMM benchmark', () => {
@@ -180,7 +180,10 @@ describe('AMM benchmark', () => {
               .methods.add_liquidity(amountToSend, amountToSend, amountToSend, amountToSend, nonceForAuthwits)
               .with({ authWitnesses: [token0Authwit, token1Authwit] });
 
-            const profileResult = await captureProfile(
+            // Get node stats from the benchmarked node to track RPC calls
+            const nodeStats = t.benchmarkedNode.getStats();
+
+            await captureProfile(
               `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
               addLiquidityInteraction,
               options,
@@ -196,6 +199,7 @@ describe('AMM benchmark', () => {
                 1 + // Kernel reset
                 1 + // Kernel tail
                 1, // Kernel hiding
+              nodeStats,
             );
 
             if (process.env.SANITY_CHECKS) {
@@ -207,11 +211,11 @@ describe('AMM benchmark', () => {
               roundTripData.push({
                 accountType,
                 paymentMethod: benchmarkingPaymentMethod,
-                roundTrips: profileResult.stats.nodeRPCCalls?.roundTrips,
+                roundTrips: nodeStats.roundTrips,
               });
             } else {
               const roundTripsKey = `${accountType}+${benchmarkingPaymentMethod}`;
-              const actualRoundTrips = profileResult.stats.nodeRPCCalls?.roundTrips.roundTrips ?? 0;
+              const actualRoundTrips = nodeStats.roundTrips.roundTrips;
               const expectedRoundTrips = EXPECTED_ROUND_TRIPS[roundTripsKey];
               if (expectedRoundTrips === undefined) {
                 throw new Error(
@@ -246,14 +250,6 @@ describe('AMM benchmark', () => {
    * Prints out the round trip information that can be used to debug unexpected round trip changes.
    */
   function printRoundTripDebuggingInfo(data: RoundTripData[]) {
-    for (const trip of data) {
-      if (!trip.roundTrips) {
-        throw new Error(
-          `Round trip stats are undefined for ${trip.accountType}+${trip.paymentMethod}. This should not happen.`,
-        );
-      }
-    }
-
     const width = 120; // Fixed standard width
     const title = '  ROUND TRIP DEBUGGING INFORMATION';
 
@@ -325,13 +321,7 @@ describe('AMM benchmark', () => {
 
       for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
         const item = items[itemIdx];
-
-        if (!item.roundTrips) {
-          throw new Error(
-            `Round trip stats are undefined for ${item.accountType}+${item.paymentMethod}. This should not happen.`,
-          );
-        }
-        const roundTrips = item.roundTrips; // TypeScript now knows it's defined
+        const roundTrips = item.roundTrips;
 
         if (itemIdx > 0) {
           output += leftBorder + ' '.repeat(width - 2) + rightBorder + '\n';

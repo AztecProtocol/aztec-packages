@@ -80,7 +80,6 @@ import type { PrivateEventStore } from '../storage/private_event_store/private_e
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
-import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
@@ -325,22 +324,6 @@ export class ContractFunctionSimulator {
     }
   }
   // docs:end:execute_utility_function
-
-  /**
-   * Returns the execution statistics collected during the simulator run.
-   * @returns The execution statistics.
-   */
-  getStats() {
-    const nodeRPCCalls =
-      typeof (this.aztecNode as BenchmarkedNode).getStats === 'function'
-        ? (this.aztecNode as BenchmarkedNode).getStats()
-        : {
-            perMethod: {},
-            roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
-          };
-
-    return { nodeRPCCalls };
-  }
 }
 
 class OrderedSideEffect<T> {
