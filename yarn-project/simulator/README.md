@@ -12,7 +12,7 @@ It's able to simulate three different types of functions:
 
 Private functions are simulated and proved client-side, and verified client-side in the private kernel circuit.
 
-The public inputs of private functions is defined [here](../stdlib/src/structs/private_circuit_public_inputs.ts).
+The public inputs of private functions are defined [here](../stdlib/src/structs/private_circuit_public_inputs.ts).
 
 They are run with the assistance of a DB oracle that provides any private data requested by the function.
 
@@ -22,17 +22,17 @@ Private functions can call another private function, and can request to call a p
 
 Public functions are simulated and proved on the sequencer side, and verified by the public kernel circuit.
 
-The public inputs of public functions is defined [here](../stdlib/src/structs/avm/avm_circuit_public_inputs.ts).
+The public inputs of public functions are defined [here](../stdlib/src/structs/avm/avm_circuit_public_inputs.ts).
 
 They are run with the assistance of an oracle that provides any value read from the public state tree.
 
-Public functions can call other public function, but no private functions.
+Public functions can call other public functions, but cannot call private functions.
 
 See the specifications of the [Aztec Virtual Machine (AVM) for public execution](./docs/avm/index.md).
 
 ### Unconstrained Functions
 
-Unconstrained functions are useful to extract useful data for users that could produce very large execution traces - such as the summed balance of all a users notes
+Unconstrained functions are useful to extract data for users that could produce very large execution traces - such as the summed balance of all of a user's notes.
 They are not proved, and are simulated client-side.
 
 They are run with the assistance of a DB oracle that provides any private data requested by the function.
