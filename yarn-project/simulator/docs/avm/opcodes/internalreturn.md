@@ -41,7 +41,7 @@ packet-beta
 
 ## Error Conditions
 
-- **INTERNAL_CALL_STACK_EMPTY**: Internal call stack is empty
+- **INTERNAL_CALL_STACK_UNDERFLOW**: Internal call stack is empty
 
 ---
 

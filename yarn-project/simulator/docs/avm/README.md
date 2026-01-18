@@ -53,7 +53,7 @@ single AVM proof.
 
 ### Overview of Public Simulation
 - **[Enqueued Calls](./enqueued-calls.md)**: How public calls are enqueued from private and delivered to the AVM
-- **[Public Transaction Simulation](./public-tx-simulation.md)**: Execution phases, rollback on reverts, fee payment, and finalization
+- **[Public Transaction Simulation](./public-tx-simulation.md)**: Execution phases, rollback on reverts, fee payment, and tree padding
 
 ### The Machine Model
 - **[State](./state.md)**: World state (persistent) vs execution state (transient)

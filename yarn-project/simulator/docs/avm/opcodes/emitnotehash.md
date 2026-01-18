@@ -81,7 +81,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Note hash operand is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted note hash emission in static call context
+- **STATIC_CALL_VIOLATION**: Attempted note hash emission in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum note hashes per transaction (MAX_NOTE_HASHES_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 

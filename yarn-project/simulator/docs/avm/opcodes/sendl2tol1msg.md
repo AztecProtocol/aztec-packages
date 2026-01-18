@@ -84,7 +84,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Recipient or content is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted L2-to-L1 message send in static call context
+- **STATIC_CALL_VIOLATION**: Attempted L2-to-L1 message send in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum L2-to-L1 messages per transaction (MAX_L2_TO_L1_MSGS_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 

@@ -122,7 +122,8 @@ This is not a comprehensive list. See individual opcode docs for more details.
 | Error | Cause |
 |-------|-------|
 | OUT_OF_GAS | Insufficient gas for instruction |
-| INVALID_TAG | Type tag mismatch on operands |
+| INVALID_TAG | Operand tag is not valid for the operation |
+| TAG_MISMATCH | Type tag mismatch between operands |
 | MEMORY_ACCESS_OUT_OF_RANGE | Memory offset exceeds addressable space |
 | SIDE_EFFECT_LIMIT_REACHED | Transaction limit exceeded (see [Transaction Limits](#transaction-limits)) |
 | STATIC_CALL_VIOLATION | State modification attempted in static context |

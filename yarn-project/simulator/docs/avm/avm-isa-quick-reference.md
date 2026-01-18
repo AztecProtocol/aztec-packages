@@ -6,7 +6,7 @@ Quick reference for all Aztec Virtual Machine (AVM) opcodes.
 
 Before diving into the instruction set, familiarize yourself with these core concepts:
 
-- **[Introduction](index.md)**: What is the AVM and why do we need it?
+- **[Introduction](README.md)**: What is the AVM and why do we need it?
 - **[State](state.md)**: World state (persistent) vs execution state (transient)
 - **[Memory Model](memory.md)**: Memory notation and tagged memory (`M[x]` and `T[x]`)
 - **[Addressing Modes](addressing.md)**: Direct, indirect, and relative addressing along with their gas implications
@@ -265,3 +265,6 @@ Click on an opcode name to view its detailed documentation.
         /*outputBits=*/M[outputBitsOffset]
     )
     ```
+
+---
+← Previous: [Wire Formats](./wire-format.md) | Next: [Tooling and Compilation](./tooling.md) →

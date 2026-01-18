@@ -86,7 +86,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Log size is not Uint32 or log data is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted log emission in static call context
+- **STATIC_CALL_VIOLATION**: Attempted log emission in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum cumulative log size per transaction (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 

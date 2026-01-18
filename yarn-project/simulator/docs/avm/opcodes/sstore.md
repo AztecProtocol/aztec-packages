@@ -85,7 +85,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Slot or value operand is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted storage write in static call context
+- **STATIC_CALL_VIOLATION**: Attempted storage write in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum public data updates per transaction (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
