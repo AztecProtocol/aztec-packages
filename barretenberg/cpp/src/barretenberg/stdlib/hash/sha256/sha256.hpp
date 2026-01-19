@@ -138,13 +138,15 @@ template <typename Builder> class SHA256 {
 
     static sparse_witness_limbs convert_witness(const field_ct& input);
 
+    static void apply_32_bit_range_constraint_via_lookup(const field_ct& input);
+
     static field_ct choose_with_sigma1(sparse_value& e, const sparse_value& f, const sparse_value& g);
 
     static field_ct majority_with_sigma0(sparse_value& a, const sparse_value& b, const sparse_value& c);
     static sparse_value map_into_choose_sparse_form(const field_ct& input);
     static sparse_value map_into_maj_sparse_form(const field_ct& input);
 
-    static field_ct add_normalize(const field_ct& a, const field_ct& b);
+    static field_ct add_normalize_unsafe(const field_ct& a, const field_ct& b, size_t overflow_bits);
 
   public:
     static std::array<field_ct, 8> sha256_block(const std::array<field_ct, 8>& h_init,

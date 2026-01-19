@@ -622,21 +622,13 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
-                    .inputs = transform::map(arg.inputs,
-                                             [&](auto& e) {
-                                                 return Blake2sInput{
-                                                     .blackbox_input = parse_input(e),
-                                                     .num_bits = 8,
-                                                 };
-                                             }),
+                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
                     .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
-                    .inputs = transform::map(
-                        arg.inputs,
-                        [&](auto& e) { return Blake3Input{ .blackbox_input = parse_input(e), .num_bits = 8 }; }),
+                    .inputs = transform::map(arg.inputs, to_witness_or_constant),
                     .result = transform::map(*arg.outputs, to_witness),
                 });
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);

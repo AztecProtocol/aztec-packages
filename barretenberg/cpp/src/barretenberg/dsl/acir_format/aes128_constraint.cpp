@@ -48,7 +48,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         return converted;
     };
 
-    const size_t padding_size = 16 - constraint.inputs.size() % 16;
+    const size_t padding_size = 16 - (constraint.inputs.size() % 16);
 
     // Perform the conversions from array of bytes to field elements
     std::vector<field_ct> converted_inputs;
