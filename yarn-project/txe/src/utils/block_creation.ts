@@ -4,7 +4,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Body, L2BlockNew } from '@aztec/stdlib/block';
@@ -89,7 +89,7 @@ export async function makeTXEBlock(
 
   // L2BlockNew requires checkpointNumber and indexWithinCheckpoint
   const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
-  const indexWithinCheckpoint = 0;
+  const indexWithinCheckpoint = IndexWithinCheckpoint(0);
 
   return new L2BlockNew(newArchive, header, new Body(txEffects), checkpointNumber, indexWithinCheckpoint);
 }

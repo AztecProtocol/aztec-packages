@@ -1,7 +1,13 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -728,7 +734,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async createBlockProposal(
     blockHeader: BlockHeader,
-    indexWithinCheckpoint: number,
+    indexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archive: Fr,
     txs: Tx[],

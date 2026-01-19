@@ -7,7 +7,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -428,7 +428,7 @@ export async function mockCheckpointAndMessages(
         blocks?.[i] ??
         (await L2BlockNew.random(blockNumber, {
           checkpointNumber,
-          indexWithinCheckpoint: i,
+          indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
           slotNumber,
           ...options,
@@ -501,7 +501,7 @@ export interface MakeConsensusPayloadOptions {
 export interface MakeBlockProposalOptions {
   signer?: Secp256k1Signer;
   blockHeader?: BlockHeader;
-  indexWithinCheckpoint?: number;
+  indexWithinCheckpoint?: IndexWithinCheckpoint;
   inHash?: Fr;
   archiveRoot?: Fr;
   txHashes?: TxHash[];
@@ -515,7 +515,7 @@ export interface MakeCheckpointProposalOptions {
   /** Options for the lastBlock - if undefined, no lastBlock is included */
   lastBlock?: {
     blockHeader?: BlockHeader;
-    indexWithinCheckpoint?: number;
+    indexWithinCheckpoint?: IndexWithinCheckpoint;
     txHashes?: TxHash[];
     txs?: Tx[];
   };
@@ -553,7 +553,7 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
 
 export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<BlockProposal> => {
   const blockHeader = options?.blockHeader ?? makeBlockHeader(1);
-  const indexWithinCheckpoint = options?.indexWithinCheckpoint ?? 0;
+  const indexWithinCheckpoint = options?.indexWithinCheckpoint ?? IndexWithinCheckpoint(0);
   const inHash = options?.inHash ?? Fr.random();
   const archiveRoot = options?.archiveRoot ?? Fr.random();
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
@@ -581,7 +581,7 @@ export const makeCheckpointProposal = (options?: MakeCheckpointProposalOptions):
   const lastBlockInfo = options?.lastBlock
     ? {
         blockHeader,
-        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? 4, // Last block in a 5-block checkpoint
+        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4), // Last block in a 5-block checkpoint
         txHashes: options.lastBlock.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
         txs: options.lastBlock.txs,
       }

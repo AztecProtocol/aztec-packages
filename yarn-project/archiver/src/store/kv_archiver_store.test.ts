@@ -1,5 +1,11 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -150,11 +156,11 @@ describe('KVArchiverDataStore', () => {
       // Create a checkpoint with non-sequential indexes
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block3 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
       });
 
       const checkpoint = new Checkpoint(
@@ -173,11 +179,11 @@ describe('KVArchiverDataStore', () => {
       // Create a checkpoint with non-sequential indexes
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
       });
       const block3 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
       });
 
       const checkpoint = new Checkpoint(
@@ -196,7 +202,7 @@ describe('KVArchiverDataStore', () => {
       // Create a block wit an invalid checkpoint index
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: -1,
+        indexWithinCheckpoint: -1 as IndexWithinCheckpoint,
       });
 
       const checkpoint = new Checkpoint(
@@ -214,7 +220,7 @@ describe('KVArchiverDataStore', () => {
     it('throws an error if checkpoint has invalid initial number', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
       const checkpoint = new Checkpoint(
@@ -233,7 +239,7 @@ describe('KVArchiverDataStore', () => {
     it('allows the correct initial checkpoint', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
       const checkpoint = new Checkpoint(
@@ -250,12 +256,12 @@ describe('KVArchiverDataStore', () => {
     it('throws on duplicate initial checkpoint', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
       const block2 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
       const checkpoint = new Checkpoint(
@@ -630,17 +636,17 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block5 = await L2BlockNew.random(BlockNumber(5), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block4.archive,
       });
       const block6 = await L2BlockNew.random(BlockNumber(6), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block5.archive,
       });
 
@@ -664,12 +670,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
       await store.addBlocks([block3, block4]);
@@ -683,7 +689,7 @@ describe('KVArchiverDataStore', () => {
 
       const block5 = await L2BlockNew.random(BlockNumber(5), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block4.archive,
       });
       await store.addBlocks([block5]);
@@ -704,11 +710,11 @@ describe('KVArchiverDataStore', () => {
       // Add uncheckpointed blocks (no checkpoints at all) for initial checkpoint 1, chaining archive roots
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
       await store.addBlocks([block1, block2]);
@@ -728,11 +734,11 @@ describe('KVArchiverDataStore', () => {
       // Add uncheckpointed blocks for initial checkpoint 1, chaining archive roots
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
       await store.addBlocks([block1, block2]);
@@ -760,12 +766,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
       await store.addBlocks([block3, block4]);
@@ -787,7 +793,7 @@ describe('KVArchiverDataStore', () => {
       // Add uncheckpointed blocks for initial checkpoint 1
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       await store.addBlocks([block1]);
 
@@ -804,7 +810,7 @@ describe('KVArchiverDataStore', () => {
       // Add uncheckpointed blocks for initial checkpoint 1
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       await store.addBlocks([block1]);
 
@@ -821,16 +827,16 @@ describe('KVArchiverDataStore', () => {
       // Add blocks 1-3 without a checkpoint (for initial checkpoint 1), chaining archive roots
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block2.archive,
       });
       await store.addBlocks([block1, block2, block3]);
@@ -880,17 +886,17 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
       const block5 = await L2BlockNew.random(BlockNumber(5), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block4.archive,
       });
       await store.addBlocks([block3, block4, block5]);
@@ -944,12 +950,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
       await store.addBlocks([block3, block4]);
@@ -975,12 +981,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(3),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
 
@@ -998,11 +1004,11 @@ describe('KVArchiverDataStore', () => {
       // Try to add blocks for checkpoint 3 (skipping checkpoint 2)
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(3),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(3),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
       });
 
       await expect(store.addBlocks([block3, block4])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
@@ -1020,12 +1026,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
 
@@ -1040,11 +1046,11 @@ describe('KVArchiverDataStore', () => {
       // Add blocks for the initial checkpoint (1), chaining archive roots
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
 
@@ -1060,11 +1066,11 @@ describe('KVArchiverDataStore', () => {
       // Add blocks for the initial checkpoint (1)
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
       await expect(store.addBlocks([block1])).resolves.toBe(true);
@@ -1075,11 +1081,11 @@ describe('KVArchiverDataStore', () => {
       // Try to add blocks for checkpoint 2 when store is empty (should start at 1)
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
       });
 
       await expect(store.addBlocks([block1, block2])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
@@ -1097,7 +1103,7 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       await expect(store.addBlocks([block3])).resolves.toBe(true);
@@ -1105,7 +1111,7 @@ describe('KVArchiverDataStore', () => {
       // Add block 4 for the same checkpoint 2 in a separate call
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block3.archive,
       });
       await expect(store.addBlocks([block4])).resolves.toBe(true);
@@ -1125,7 +1131,7 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       await expect(store.addBlocks([block3])).resolves.toBe(true);
@@ -1133,7 +1139,7 @@ describe('KVArchiverDataStore', () => {
       // Add block 4 for the same checkpoint 2 in a separate call but with a missing index
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block3.archive,
       });
       await expect(store.addBlocks([block4])).rejects.toThrow(BlockIndexNotSequentialError);
@@ -1153,7 +1159,7 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       await store.addBlocks([block3]);
@@ -1161,7 +1167,7 @@ describe('KVArchiverDataStore', () => {
       // Try to add block 4 for checkpoint 3 (should fail because current checkpoint is still 2)
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(3),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: block3.archive,
       });
       await expect(store.addBlocks([block4])).rejects.toThrow(InitialCheckpointNumberNotSequentialError);
@@ -1179,12 +1185,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(5),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: block3.archive,
       });
 
@@ -1203,12 +1209,12 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block3.archive,
       });
 
@@ -1226,7 +1232,7 @@ describe('KVArchiverDataStore', () => {
       // Add block 3 for checkpoint 2 with incorrect archive
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       await expect(store.addBlocks([block3])).rejects.toThrow(BlockArchiveNotConsistentError);
 
@@ -1245,7 +1251,7 @@ describe('KVArchiverDataStore', () => {
       const lastBlockArchive = checkpoint1.checkpoint.blocks.at(-1)!.archive;
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: lastBlockArchive,
       });
       await expect(store.addBlocks([block3])).resolves.toBe(true);
@@ -1253,7 +1259,7 @@ describe('KVArchiverDataStore', () => {
       // Add block 4 with incorrect archive (should fail)
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: AppendOnlyTreeSnapshot.random(),
       });
       await expect(store.addBlocks([block4])).rejects.toThrow(BlockArchiveNotConsistentError);
@@ -2721,7 +2727,7 @@ describe('KVArchiverDataStore', () => {
       // Add provisional block 2 via addBlocks
       const provisionalBlock = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(2),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         lastArchive: checkpoint1.checkpoint.blocks[0].archive,
       });
       await store.addBlocks([provisionalBlock]);
@@ -2789,7 +2795,7 @@ describe('KVArchiverDataStore', () => {
     it('does not duplicate logs when addLogs is called twice with same block', async () => {
       const block = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
 
       // Add logs first time
@@ -2814,18 +2820,18 @@ describe('KVArchiverDataStore', () => {
       // Create blocks with specific slot numbers
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
         slotNumber: SlotNumber(100), // Same slot number as block1
       });
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block2.archive,
         slotNumber: SlotNumber(101), // Different slot number
       });
@@ -2846,7 +2852,7 @@ describe('KVArchiverDataStore', () => {
       // Create a block with a specific slot number
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
 
@@ -2865,18 +2871,18 @@ describe('KVArchiverDataStore', () => {
       // Create multiple blocks with the same slot number
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(50),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
         slotNumber: SlotNumber(50),
       });
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block2.archive,
         slotNumber: SlotNumber(50),
       });
@@ -2896,21 +2902,21 @@ describe('KVArchiverDataStore', () => {
       // Create blocks for initial checkpoint
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block2.archive,
       });
       const block4 = await L2BlockNew.random(BlockNumber(4), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 3,
+        indexWithinCheckpoint: IndexWithinCheckpoint(3),
         lastArchive: block3.archive,
       });
 
@@ -2930,16 +2936,16 @@ describe('KVArchiverDataStore', () => {
     it('returns the removed blocks', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
       const block3 = await L2BlockNew.random(BlockNumber(3), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 2,
+        indexWithinCheckpoint: IndexWithinCheckpoint(2),
         lastArchive: block2.archive,
       });
 
@@ -2956,11 +2962,11 @@ describe('KVArchiverDataStore', () => {
     it('returns empty array when no blocks need to be removed', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
 
@@ -2982,12 +2988,12 @@ describe('KVArchiverDataStore', () => {
     it('cleans up related data (tx effects, hash index, archive index)', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         txsPerBlock: 2,
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
         txsPerBlock: 2,
       });
@@ -3036,11 +3042,11 @@ describe('KVArchiverDataStore', () => {
     it('removes all blocks when blockNumber is 0', async () => {
       const block1 = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       const block2 = await L2BlockNew.random(BlockNumber(2), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 1,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
         lastArchive: block1.archive,
       });
 

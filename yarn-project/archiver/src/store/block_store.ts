@@ -1,5 +1,5 @@
 import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -765,7 +765,7 @@ export class BlockStore {
       header,
       body,
       CheckpointNumber(blockStorage.checkpointNumber!),
-      blockStorage.indexWithinCheckpoint,
+      IndexWithinCheckpoint(blockStorage.indexWithinCheckpoint),
     );
 
     if (block.number !== blockNumber) {

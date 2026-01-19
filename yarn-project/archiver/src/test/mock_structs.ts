@@ -4,7 +4,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt, randomInt } from '@aztec/foundation/crypto/random';
@@ -270,7 +270,7 @@ export async function makeCheckpointWithLogs(
 
   const block = await L2BlockNew.random(BlockNumber(blockNumber), {
     checkpointNumber: CheckpointNumber(blockNumber),
-    indexWithinCheckpoint: 0,
+    indexWithinCheckpoint: IndexWithinCheckpoint(0),
     state: makeStateForBlock(blockNumber, numTxsPerBlock),
     ...(previousArchive ? { lastArchive: previousArchive } : {}),
   });
