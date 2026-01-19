@@ -167,10 +167,10 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     Fr low_wide_relation_limb_part_1 =
         previous_accumulator_limbs[0] * x_witnesses[0]          +
         op_code                                                 +
-        v_witnesses[0]                * p_x_limbs[0]            +
-        v_squared_witnesses[0]        * p_y_limbs[0]            +
-        v_cubed_witnesses[0]          * z_1_limbs[0]            +
-        v_quarted_witnesses[0]        * z_2_limbs[0]            +
+        p_x_limbs[0]                  * v_witnesses[0]          +
+        p_y_limbs[0]                  * v_squared_witnesses[0]  +
+        z_1_limbs[0]                  * v_cubed_witnesses[0]    +
+        z_2_limbs[0]                  * v_quarted_witnesses[0]  +
         quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[0] -
         remainder_limbs[0];
 
@@ -178,14 +178,14 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         low_wide_relation_limb_part_1 +
         (previous_accumulator_limbs[1] * x_witnesses[0]            +
          previous_accumulator_limbs[0] * x_witnesses[1]            +
-         v_witnesses[1]                * p_x_limbs[0]              +
+         p_x_limbs[0]                  * v_witnesses[1]            +
          p_x_limbs[1]                  * v_witnesses[0]            +
-         v_squared_witnesses[1]        * p_y_limbs[0]              +
-         v_squared_witnesses[0]        * p_y_limbs[1]              +
-         v_cubed_witnesses[1]          * z_1_limbs[0]              +
+         p_y_limbs[0]                  * v_squared_witnesses[1]    +
+         p_y_limbs[1]                  * v_squared_witnesses[0]    +
+         z_1_limbs[0]                  * v_cubed_witnesses[1]      +
          z_1_limbs[1]                  * v_cubed_witnesses[0]      +
-         v_quarted_witnesses[1]        * z_2_limbs[0]              +
-         v_quarted_witnesses[0]        * z_2_limbs[1]              +
+         z_2_limbs[0]                  * v_quarted_witnesses[1]    +
+         z_2_limbs[1]                  * v_quarted_witnesses[0]    +
          quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[1] +
          quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[0] -
          remainder_limbs[1]) * SHIFT_1;
@@ -204,16 +204,16 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         previous_accumulator_limbs[2] * x_witnesses[0]            +
         previous_accumulator_limbs[1] * x_witnesses[1]            +
         previous_accumulator_limbs[0] * x_witnesses[2]            +
-        v_witnesses[2]                * p_x_limbs[0]              +
-        v_witnesses[1]                * p_x_limbs[1]              +
-        v_witnesses[0]                * p_x_limbs[2]              +
-        v_squared_witnesses[2]        * p_y_limbs[0]              +
-        v_squared_witnesses[1]        * p_y_limbs[1]              +
-        v_squared_witnesses[0]        * p_y_limbs[2]              +
-        v_cubed_witnesses[2]          * z_1_limbs[0]              +
-        v_cubed_witnesses[1]          * z_1_limbs[1]              +
-        v_quarted_witnesses[2]        * z_2_limbs[0]              +
-        v_quarted_witnesses[1]        * z_2_limbs[1]              +
+        p_x_limbs[0]                  * v_witnesses[2]            +
+        p_x_limbs[1]                  * v_witnesses[1]            +
+        p_x_limbs[2]                  * v_witnesses[0]            +
+        p_y_limbs[0]                  * v_squared_witnesses[2]    +
+        p_y_limbs[1]                  * v_squared_witnesses[1]    +
+        p_y_limbs[2]                  * v_squared_witnesses[0]    +
+        z_1_limbs[0]                  * v_cubed_witnesses[2]      +
+        z_1_limbs[1]                  * v_cubed_witnesses[1]      +
+        z_2_limbs[0]                  * v_quarted_witnesses[2]    +
+        z_2_limbs[1]                  * v_quarted_witnesses[1]    +
         quotient_limbs[2]             * NEGATIVE_MODULUS_LIMBS[0] +
         quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[1] +
         quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[2] -
@@ -225,18 +225,18 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
          previous_accumulator_limbs[2] * x_witnesses[1]            +
          previous_accumulator_limbs[1] * x_witnesses[2]            +
          previous_accumulator_limbs[0] * x_witnesses[3]            +
-         v_witnesses[3]                * p_x_limbs[0]              +
-         v_witnesses[2]                * p_x_limbs[1]              +
-         v_witnesses[1]                * p_x_limbs[2]              +
-         v_witnesses[0]                * p_x_limbs[3]              +
-         v_squared_witnesses[3]        * p_y_limbs[0]              +
-         v_squared_witnesses[2]        * p_y_limbs[1]              +
-         v_squared_witnesses[1]        * p_y_limbs[2]              +
-         v_squared_witnesses[0]        * p_y_limbs[3]              +
-         v_cubed_witnesses[3]          * z_1_limbs[0]              +
-         v_cubed_witnesses[2]          * z_1_limbs[1]              +
-         v_quarted_witnesses[3]        * z_2_limbs[0]              +
-         v_quarted_witnesses[2]        * z_2_limbs[1]              +
+         p_x_limbs[0]                  * v_witnesses[3]            +
+         p_x_limbs[1]                  * v_witnesses[2]            +
+         p_x_limbs[2]                  * v_witnesses[1]            +
+         p_x_limbs[3]                  * v_witnesses[0]            +
+         p_y_limbs[0]                  * v_squared_witnesses[3]    +
+         p_y_limbs[1]                  * v_squared_witnesses[2]    +
+         p_y_limbs[2]                  * v_squared_witnesses[1]    +
+         p_y_limbs[3]                  * v_squared_witnesses[0]    +
+         z_1_limbs[0]                  * v_cubed_witnesses[3]      +
+         z_1_limbs[1]                  * v_cubed_witnesses[2]      +
+         z_2_limbs[0]                  * v_quarted_witnesses[3]    +
+         z_2_limbs[1]                  * v_quarted_witnesses[2]    +
          quotient_limbs[3]             * NEGATIVE_MODULUS_LIMBS[0] +
          quotient_limbs[2]             * NEGATIVE_MODULUS_LIMBS[1] +
          quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[2] +
