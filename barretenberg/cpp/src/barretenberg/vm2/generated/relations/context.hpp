@@ -14,10 +14,10 @@ template <typename FF_> class contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 88> SUBRELATION_PARTIAL_LENGTHS = {
-        2, 2, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3,
-        3, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4
+    static constexpr std::array<size_t, 87> SUBRELATION_PARTIAL_LENGTHS = {
+        2, 2, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3, 3,
+        3, 3, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -48,7 +48,7 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_PARENT_ID_NEXT_EXT_CALL = 12;
     static constexpr size_t SR_PARENT_ID_NEXT_DEFAULT_ROW = 13;
     static constexpr size_t SR_NEXT_PC = 14;
-    static constexpr size_t SR_PC_NEXT_ROW_EXT_CALL = 15;
+    static constexpr size_t SR_PC_NEW_CONTEXT_INIT = 15;
     static constexpr size_t SR_PC_NEXT_ROW_DEFAULT = 16;
     static constexpr size_t SR_MSG_SENDER_NEXT_ROW_EXT_CALL = 17;
     static constexpr size_t SR_MSG_SENDER_NEXT_ROW_DEFAULT = 18;
@@ -78,47 +78,46 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_LAST_CHILD_SUCCESS_NEXT_ROW_DEFAULT = 42;
     static constexpr size_t SR_LAST_CHILD_ID_INIT = 43;
     static constexpr size_t SR_EXIT_CALL_LAST_CHILD_ID = 44;
-    static constexpr size_t SR_ENTER_CALL_LAST_CHILD_ID = 45;
-    static constexpr size_t SR_LAST_CHILD_ID_NEXT_ROW_DEFAULT = 46;
-    static constexpr size_t SR_L2_GAS_LIMIT_RESTORE_ON_EXIT = 47;
-    static constexpr size_t SR_L2_GAS_LIMIT_NEXT_ROW_DEFAULT = 48;
-    static constexpr size_t SR_DA_GAS_LIMIT_RESTORE_ON_EXIT = 49;
-    static constexpr size_t SR_DA_GAS_LIMIT_NEXT_ROW_DEFAULT = 50;
-    static constexpr size_t SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER = 51;
-    static constexpr size_t SR_PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT = 52;
-    static constexpr size_t SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER = 53;
-    static constexpr size_t SR_PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT = 54;
-    static constexpr size_t SR_PARENT_L2_GAS_USED_STORE_ON_ENTER = 55;
-    static constexpr size_t SR_PARENT_L2_GAS_USED_NEXT_ROW_DEFAULT = 56;
-    static constexpr size_t SR_PARENT_DA_GAS_USED_STORE_ON_ENTER = 57;
-    static constexpr size_t SR_PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT = 58;
-    static constexpr size_t SR_INTERNAL_CALL_ID_INIT = 59;
-    static constexpr size_t SR_INTERNAL_CALL_ID_NEXT_ROW_DEFAULT = 60;
-    static constexpr size_t SR_INTERNAL_CALL_RETURN_ID_INIT = 61;
-    static constexpr size_t SR_INTERNAL_CALL_RETURN_ID_NEXT_ROW_DEFAULT = 62;
-    static constexpr size_t SR_NEXT_INTERNAL_CALL_ID_INIT = 63;
-    static constexpr size_t SR_NEXT_INTERNAL_CALL_ID_NEXT_ROW_DEFAULT = 64;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY = 65;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY = 66;
-    static constexpr size_t SR_L2_GAS_USED_ZERO_AFTER_CALL = 69;
-    static constexpr size_t SR_L2_GAS_USED_INGEST_AFTER_EXIT = 70;
-    static constexpr size_t SR_L2_GAS_USED_DEFAULT_ROW = 71;
-    static constexpr size_t SR_DA_GAS_USED_ZERO_AFTER_CALL = 72;
-    static constexpr size_t SR_DA_GAS_USED_INGEST_AFTER_EXIT = 73;
-    static constexpr size_t SR_DA_GAS_USED_DEFAULT_ROW = 74;
-    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_CONTINUITY = 75;
-    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 76;
-    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 77;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 78;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 79;
-    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 80;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 81;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 82;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 83;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 84;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 85;
-    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 86;
-    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 87;
+    static constexpr size_t SR_LAST_CHILD_ID_NEXT_ROW_DEFAULT = 45;
+    static constexpr size_t SR_L2_GAS_LIMIT_RESTORE_ON_EXIT = 46;
+    static constexpr size_t SR_L2_GAS_LIMIT_NEXT_ROW_DEFAULT = 47;
+    static constexpr size_t SR_DA_GAS_LIMIT_RESTORE_ON_EXIT = 48;
+    static constexpr size_t SR_DA_GAS_LIMIT_NEXT_ROW_DEFAULT = 49;
+    static constexpr size_t SR_PARENT_L2_GAS_LIMIT_STORE_ON_ENTER = 50;
+    static constexpr size_t SR_PARENT_L2_GAS_LIMIT_NEXT_ROW_DEFAULT = 51;
+    static constexpr size_t SR_PARENT_DA_GAS_LIMIT_STORE_ON_ENTER = 52;
+    static constexpr size_t SR_PARENT_DA_GAS_LIMIT_NEXT_ROW_DEFAULT = 53;
+    static constexpr size_t SR_PARENT_L2_GAS_USED_STORE_ON_ENTER = 54;
+    static constexpr size_t SR_PARENT_L2_GAS_USED_NEXT_ROW_DEFAULT = 55;
+    static constexpr size_t SR_PARENT_DA_GAS_USED_STORE_ON_ENTER = 56;
+    static constexpr size_t SR_PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT = 57;
+    static constexpr size_t SR_INTERNAL_CALL_ID_INIT = 58;
+    static constexpr size_t SR_INTERNAL_CALL_ID_NEXT_ROW_DEFAULT = 59;
+    static constexpr size_t SR_INTERNAL_CALL_RETURN_ID_INIT = 60;
+    static constexpr size_t SR_INTERNAL_CALL_RETURN_ID_NEXT_ROW_DEFAULT = 61;
+    static constexpr size_t SR_NEXT_INTERNAL_CALL_ID_INIT = 62;
+    static constexpr size_t SR_NEXT_INTERNAL_CALL_ID_NEXT_ROW_DEFAULT = 63;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY = 64;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY = 65;
+    static constexpr size_t SR_L2_GAS_USED_ZERO_AFTER_CALL = 68;
+    static constexpr size_t SR_L2_GAS_USED_INGEST_AFTER_EXIT = 69;
+    static constexpr size_t SR_L2_GAS_USED_DEFAULT_ROW = 70;
+    static constexpr size_t SR_DA_GAS_USED_ZERO_AFTER_CALL = 71;
+    static constexpr size_t SR_DA_GAS_USED_INGEST_AFTER_EXIT = 72;
+    static constexpr size_t SR_DA_GAS_USED_DEFAULT_ROW = 73;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_CONTINUITY = 74;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 75;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 76;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 77;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 78;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 79;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 80;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 81;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 82;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 83;
+    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 84;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 85;
+    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 86;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -141,8 +140,8 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "PARENT_ID_NEXT_DEFAULT_ROW";
         case SR_NEXT_PC:
             return "NEXT_PC";
-        case SR_PC_NEXT_ROW_EXT_CALL:
-            return "PC_NEXT_ROW_EXT_CALL";
+        case SR_PC_NEW_CONTEXT_INIT:
+            return "PC_NEW_CONTEXT_INIT";
         case SR_PC_NEXT_ROW_DEFAULT:
             return "PC_NEXT_ROW_DEFAULT";
         case SR_MSG_SENDER_NEXT_ROW_EXT_CALL:
@@ -201,8 +200,6 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "LAST_CHILD_ID_INIT";
         case SR_EXIT_CALL_LAST_CHILD_ID:
             return "EXIT_CALL_LAST_CHILD_ID";
-        case SR_ENTER_CALL_LAST_CHILD_ID:
-            return "ENTER_CALL_LAST_CHILD_ID";
         case SR_LAST_CHILD_ID_NEXT_ROW_DEFAULT:
             return "LAST_CHILD_ID_NEXT_ROW_DEFAULT";
         case SR_L2_GAS_LIMIT_RESTORE_ON_EXIT:

@@ -198,12 +198,13 @@ namespace execution;
     enqueued_call_start * (context_id + 1 - next_context_id) = 0;
 
     // We increment next_context_id iff there is an invocation of an external call or a new enqueued call.
+    // This is captured by the selector `sel_first_row_in_context` defined in execution.pil.
     // We slightly overconstrain next_context_id on rows with `enqueued_call_start == 1` except in the first enqueued call,
-    // as constrain the increment over boundaries of enqueued calls while at the same time #[ENQUEUED_CALL_START_NEXT_CTX_ID]
+    // as we constrain the increment over boundaries of enqueued calls while at the same time #[ENQUEUED_CALL_START_NEXT_CTX_ID]
     // initializes next_context_id to context_id + 1 at the start of an enqueued call.
     // This also enforces the enqueued calls to be placed in order of execution in this trace.
     #[INCR_NEXT_CONTEXT_ID]
-    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call + enqueued_call_start')) = 0;
+    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_first_row_in_context')) = 0;
 
     // Initialization: enqueued_call_start = 1 ==> context_id = tx.next_context_id (#[DISPATCH_EXEC_START] (tx.pil))
     // Propagation:
@@ -246,8 +247,9 @@ namespace execution;
     sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
 
     // Initialization: enqueued_call_start = 1 ==> pc = 0;
+    //                 sel_enter_call      = 1 ==> pc' = 0;
+    //                 Both are equivalent to `sel_first_row_in_context == 1 ==> pc = 0`.
     // Propagation:
-    // sel_enter_call   = 1 ==> pc' = 0
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // internal_call    = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
     // internal_return  = 1 && no error ==> pc' = internal_call_stack.return_pc (#[UNWIND_CALL_STACK] internal_call.pil)
@@ -256,8 +258,8 @@ namespace execution;
     // otherwise            ==> pc' = next_pc
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
-    #[PC_NEXT_ROW_EXT_CALL]
-    (sel_enter_call + enqueued_call_start') * pc' = 0;
+    #[PC_NEW_CONTEXT_INIT]
+    sel_first_row_in_context * pc = 0;
     #[PC_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
 
@@ -446,18 +448,17 @@ namespace execution;
     // =============================
 
     // Initialization: enqueued_call_start = 1 ==> last_child_id = 0;
+    //                 sel_enter_call      = 1 ==> last_child_id' = 0;
+    //                 Both are equivalent to `sel_first_row_in_context == 1 ==> last_child_id = 0`.
     // Propagation:
     // NESTED_EXIT_CALL    = 1 ==> last_child_id' = context_id;
-    // sel_enter_call      = 1 ==> last_child_id' = 0;
     // default row             ==> last_child_id' = last_child_id;
     // Note: There is no propagation constraint when `enqueued_call_end == 1` because the next active
     //       row (enqueued_call_start == 1) is initialized.
     #[LAST_CHILD_ID_INIT]
-    enqueued_call_start * last_child_id = 0;
+    sel_first_row_in_context * last_child_id = 0;
     #[EXIT_CALL_LAST_CHILD_ID]
     NESTED_EXIT_CALL * (last_child_id' - context_id) = 0;
-    #[ENTER_CALL_LAST_CHILD_ID]
-    sel_enter_call * last_child_id' = 0;
     #[LAST_CHILD_ID_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
