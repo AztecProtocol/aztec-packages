@@ -577,7 +577,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The requested block.
    */
   public async getBlock(block: BlockParameter): Promise<L2BlockNew | undefined> {
-    if (block instanceof L2BlockHash) {
+    if (L2BlockHash.isL2BlockHash(block)) {
       return this.getBlockByHash(Fr.fromBuffer(block.toBuffer()));
     }
     const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
@@ -1090,7 +1090,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    if (block instanceof L2BlockHash) {
+    if (L2BlockHash.isL2BlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
@@ -1411,7 +1411,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    if (block instanceof L2BlockHash) {
+    if (L2BlockHash.isL2BlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
         // Block source doesn't handle initial header so we need to handle the case separately.
