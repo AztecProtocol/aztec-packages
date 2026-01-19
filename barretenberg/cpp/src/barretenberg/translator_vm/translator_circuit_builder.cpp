@@ -55,13 +55,20 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     };
 
     /**
-     * @brief A method for splitting wide limbs (P_x_lo, P_y_hi, etc) into two limbs
+     * @brief A function for splitting wide limbs (P_x_lo, P_y_hi, etc) into two limbs
      */
     auto split_wide_limb_into_2_limbs = [](const Fr& wide_limb) {
         return std::array<Fr, NUM_Z_LIMBS>{ Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
                                             Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)) };
     };
 
+    /**
+     * @brief A function to split a limb into microlimbs for range constraints
+     *
+     * @details Splits a limb of arbitrary bit size into 14-bit microlimbs. For partial microlimbs,
+     * stores both the actual value and its shifted version for proper range constraint handling.
+     * Always returns NUM_MICRO_LIMBS (6) elements, padding with zeros if needed.
+     */
     auto split_limb_into_microlimbs = [](const Fr& limb, const size_t num_bits) {
         static_assert(MICRO_LIMB_BITS == 14);
         size_t num_full_micro_limbs = num_bits / MICRO_LIMB_BITS;
@@ -464,8 +471,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     top_quotient_microlimbs[NUM_MICRO_LIMBS - 1] = high_relation_microlimbs[NUM_MICRO_LIMBS - 1];
 
     /**
-     * @brief Put several values in sequential wires
-     *
+     * @brief A function to place an array of values into sequential wires starting from a given wire ID
      */
     auto lay_limbs_in_row = [this]<size_t array_size>(std::array<Fr, array_size> input, WireIds starting_wire) {
         size_t wire_index = starting_wire;
