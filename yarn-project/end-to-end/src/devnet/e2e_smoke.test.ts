@@ -4,7 +4,6 @@ import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -171,7 +170,7 @@ describe('End-to-end tests for devnet', () => {
     //   waitOpts.interval,
     // );
 
-    expect(txReceipt.status).toBe(TxStatus.SUCCESS);
+    expect(txReceipt.isMined() && txReceipt.hasExecutionSucceeded()).toBe(true);
     const feeJuice = FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
     const balance = await feeJuice.methods.balance_of_public(l2AccountAddress).simulate({ from: l2AccountAddress });
     expect(balance).toEqual(amount - txReceipt.transactionFee!);

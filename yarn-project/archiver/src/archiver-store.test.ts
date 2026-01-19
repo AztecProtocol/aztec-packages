@@ -61,7 +61,7 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000, { epochDuration: 4 });
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
