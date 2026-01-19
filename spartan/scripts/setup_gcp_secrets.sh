@@ -148,4 +148,13 @@ if [[ -n "${SNAPSHOT_BUCKET_DIRECTORY:-}" ]]; then
     export STORE_SNAPSHOT_URL="s3://testnet-bucket/${SNAPSHOT_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com&publicBaseUrl=https://aztec-labs-snapshots.com"
 fi
 
+# Construct BLOB_FILE_STORE_UPLOAD_URL from the r2-account-id secret and BLOB_BUCKET_DIRECTORY
+# Uses the same R2 bucket as snapshots but with a different directory for blobs
+if [[ -n "${BLOB_BUCKET_DIRECTORY:-}" ]]; then
+    secret_file=$(get_secret "r2-account-id")
+    mask_secret_value "BLOB_FILE_STORE_UPLOAD_URL" "$secret_file"
+    r2_account_id=$(cat "$secret_file")
+    export BLOB_FILE_STORE_UPLOAD_URL="s3://testnet-bucket/${BLOB_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com"
+fi
+
 echo "Successfully set up GCP secrets for $NETWORK"

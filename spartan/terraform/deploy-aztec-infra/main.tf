@@ -151,7 +151,7 @@ locals {
           }
         }
       })]
-      custom_settings = {
+      custom_settings = merge({
         "validator.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
         "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
@@ -199,7 +199,8 @@ locals {
         "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
         "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
         "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
-      }
+        }
+      )
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
       wait                 = true
@@ -418,6 +419,42 @@ locals {
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
+        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    } : null
+
+    # Blob sink: uploads blobs to filestore as it syncs
+    blob_sink = var.BLOB_FILE_STORE_UPLOAD_URL != null ? {
+      name  = "${var.RELEASE_PREFIX}-blob-sink"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "blob-sink.yaml",
+        "blob-sink-resources-dev.yaml"
+      ]
+      inline_values = [yamlencode({
+        service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
+        }
+      })]
+      custom_settings = {
+        "nodeType"                                    = "blob-sink"
+        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.BLOB_FILE_STORE_UPLOAD_URL"         = var.BLOB_FILE_STORE_UPLOAD_URL
+        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
+        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
