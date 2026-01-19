@@ -1,4 +1,4 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { describe, expect, it } from '@jest/globals';
@@ -67,7 +67,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
       const duty: BlockProposalDutyIdentifier = {
         validatorAddress,
         slot,
-        blockIndexWithinCheckpoint: 0,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
       };
       expect(getBlockIndexFromDutyIdentifier(duty)).toBe(0);
@@ -75,7 +75,7 @@ describe('getBlockIndexFromDutyIdentifier', () => {
       const duty2: BlockProposalDutyIdentifier = {
         validatorAddress,
         slot,
-        blockIndexWithinCheckpoint: 5,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(5),
         dutyType: DutyType.BLOCK_PROPOSAL,
       };
       expect(getBlockIndexFromDutyIdentifier(duty2)).toBe(5);

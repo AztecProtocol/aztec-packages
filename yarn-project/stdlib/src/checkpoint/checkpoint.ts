@@ -1,5 +1,11 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, CheckpointNumberSchema, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointNumberSchema,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -139,7 +145,7 @@ export class Checkpoint {
     let lastArchive = previousArchive;
     for (let i = 0; i < numBlocks; i++) {
       const block = await L2BlockNew.random(BlockNumber(startBlockNumber + i), {
-        indexWithinCheckpoint: i,
+        indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),
       });

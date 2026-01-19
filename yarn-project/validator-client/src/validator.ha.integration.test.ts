@@ -6,6 +6,7 @@
  */
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -217,7 +218,7 @@ describe('ValidatorClient HA Integration', () => {
     it('should allow only one validator instance to create a block proposal for the same slot', async () => {
       // Use all 5 validators - all try to create the same block proposal
       const blockHeader = makeBlockHeader(1);
-      const indexWithinCheckpoint = 0;
+      const indexWithinCheckpoint = IndexWithinCheckpoint(0);
       const inHash = computeInHashFromL1ToL2Messages([]);
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3].map(() => mockTx()));
@@ -258,7 +259,7 @@ describe('ValidatorClient HA Integration', () => {
         validators.map((v, i) => {
           const blockHeader = makeBlockHeader(i + 1);
           const archive = Fr.random();
-          return v.createBlockProposal(blockHeader, 0, inHash, archive, txs, proposerAddress, {
+          return v.createBlockProposal(blockHeader, IndexWithinCheckpoint(0), inHash, archive, txs, proposerAddress, {
             publishFullTxs: false,
           });
         }),

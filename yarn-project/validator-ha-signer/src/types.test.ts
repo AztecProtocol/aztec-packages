@@ -1,4 +1,4 @@
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -18,7 +18,7 @@ describe('getBlockNumberFromSigningContext', () => {
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
         dutyType: DutyType.BLOCK_PROPOSAL,
-        blockIndexWithinCheckpoint: 0,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
       };
       expect(getBlockNumberFromSigningContext(context)).toBe(BlockNumber(50));
     });
@@ -56,7 +56,7 @@ describe('getBlockNumberFromSigningContext', () => {
         slot: SlotNumber(100),
         blockNumber: largeBlockNumber,
         dutyType: DutyType.BLOCK_PROPOSAL,
-        blockIndexWithinCheckpoint: 0,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
       };
       expect(getBlockNumberFromSigningContext(context)).toBe(largeBlockNumber);
     });
@@ -95,7 +95,7 @@ describe('getBlockNumberFromSigningContext', () => {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
           dutyType: DutyType.BLOCK_PROPOSAL,
-          blockIndexWithinCheckpoint: 0,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
         {
           slot: SlotNumber(100),

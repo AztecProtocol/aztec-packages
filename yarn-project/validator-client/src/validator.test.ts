@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
@@ -157,7 +157,7 @@ describe('ValidatorClient', () => {
   describe('createBlockProposal', () => {
     it('should create a valid block proposal without txs', async () => {
       const blockHeader = makeBlockHeader();
-      const indexWithinCheckpoint = 0;
+      const indexWithinCheckpoint = IndexWithinCheckpoint(0);
       const inHash = Fr.random();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
@@ -338,7 +338,7 @@ describe('ValidatorClient', () => {
       const parentSlot = SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1);
       blockSource.getL2BlockNew.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         header: {
           globalVariables: blockHeader.globalVariables,
           getSlot: () => parentSlot,
@@ -362,7 +362,7 @@ describe('ValidatorClient', () => {
           body: { txEffects: times(proposal.txHashes.length, () => TxEffect.empty()) },
           archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),
           checkpointNumber: CheckpointNumber(1),
-          indexWithinCheckpoint: 0,
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
         } as unknown as L2BlockNew,
       };
     });
@@ -392,7 +392,7 @@ describe('ValidatorClient', () => {
         checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
         lastBlock: {
           blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
-          indexWithinCheckpoint: 0,
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
           txHashes: proposal.txHashes,
         },
       });
@@ -413,7 +413,7 @@ describe('ValidatorClient', () => {
         checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
         lastBlock: {
           blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
-          indexWithinCheckpoint: 0,
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
           txHashes: proposal.txHashes,
         },
       });
@@ -628,7 +628,7 @@ describe('ValidatorClient', () => {
 
         const nonFirstBlockProposal = await makeBlockProposal({
           blockHeader: proposalBlockHeader,
-          indexWithinCheckpoint: 1, // Non-first block in checkpoint
+          indexWithinCheckpoint: IndexWithinCheckpoint(1), // Non-first block in checkpoint
           inHash: emptyInHash,
         });
 
@@ -651,7 +651,7 @@ describe('ValidatorClient', () => {
         // Mock parent block returned by getL2BlockNew
         const parentBlock = {
           checkpointNumber: parentCheckpointNumber,
-          indexWithinCheckpoint: 0, // Parent is first block in checkpoint
+          indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
           header: {
             globalVariables: parentGlobalVariables,
           },

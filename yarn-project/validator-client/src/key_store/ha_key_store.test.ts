@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -195,7 +195,7 @@ describe('HAKeyStore', () => {
       slot: SlotNumber(100),
       blockNumber: BlockNumber(50),
       dutyType: DutyType.BLOCK_PROPOSAL,
-      blockIndexWithinCheckpoint: 0,
+      blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
     };
 
     beforeEach(() => {
@@ -213,7 +213,7 @@ describe('HAKeyStore', () => {
           slot: context.slot,
           blockNumber: context.blockNumber,
           dutyType: DutyType.BLOCK_PROPOSAL,
-          blockIndexWithinCheckpoint: 0,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
         expect.any(Function),
       );
@@ -338,7 +338,7 @@ describe('HAKeyStore', () => {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
           dutyType: DutyType.BLOCK_PROPOSAL,
-          blockIndexWithinCheckpoint: 0,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
         { slot: SlotNumber(100), blockNumber: BlockNumber(50), dutyType: DutyType.ATTESTATION },
         { slot: SlotNumber(100), blockNumber: BlockNumber(50), dutyType: DutyType.ATTESTATIONS_AND_SIGNERS },
@@ -391,7 +391,7 @@ describe('HAKeyStore', () => {
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
         dutyType: DutyType.BLOCK_PROPOSAL,
-        blockIndexWithinCheckpoint: 0,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
       };
       expect(isHAProtectedContext(context)).toBe(true);
     });

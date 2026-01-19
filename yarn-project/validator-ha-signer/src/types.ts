@@ -1,4 +1,9 @@
-import { BlockNumber, type CheckpointNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  type CheckpointNumber,
+  type IndexWithinCheckpoint,
+  type SlotNumber,
+} from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import type { Pool } from 'pg';
@@ -68,7 +73,7 @@ interface BaseSigningContext {
  */
 export interface BlockProposalSigningContext extends BaseSigningContext {
   /** Block index within checkpoint (0, 1, 2...). Required for block proposals. */
-  blockIndexWithinCheckpoint: number;
+  blockIndexWithinCheckpoint: IndexWithinCheckpoint;
   dutyType: DutyType.BLOCK_PROPOSAL;
 }
 

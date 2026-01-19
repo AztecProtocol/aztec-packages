@@ -3,7 +3,13 @@ import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -207,7 +213,11 @@ describe('Archiver Store', () => {
   describe('addBlock (L2BlockSink)', () => {
     // State reference needs to be valid for LogStore's dataStartIndexForBlock calculation
     // All blocks use checkpoint number 1 since they're being added to the initial checkpoint
-    const makeBlock = (blockNumber: BlockNumber, indexIntoCheckpoint = 0, previousArchive?: AppendOnlyTreeSnapshot) =>
+    const makeBlock = (
+      blockNumber: BlockNumber,
+      indexIntoCheckpoint = IndexWithinCheckpoint(0),
+      previousArchive?: AppendOnlyTreeSnapshot,
+    ) =>
       L2BlockNew.random(blockNumber, {
         checkpointNumber: CheckpointNumber(1),
         state: makeStateReference(0x100),
@@ -219,7 +229,7 @@ describe('Archiver Store', () => {
     const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
 
     it('adds a block to the store', async () => {
-      const block = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       await archiver.addBlock(block);
 
       const retrievedBlock = await archiver.getL2BlockNew(BlockNumber(1));
@@ -229,9 +239,9 @@ describe('Archiver Store', () => {
     });
 
     it('adds multiple blocks incrementally', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
-      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
       await archiver.addBlock(block1);
       await archiver.addBlock(block2);
@@ -247,8 +257,8 @@ describe('Archiver Store', () => {
     });
 
     it('rejects blocks with non-incremental block number (gap)', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block3 = await makeBlock(BlockNumber(3), 2, block1.archive); // Skip block 2
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block1.archive); // Skip block 2
 
       await archiver.addBlock(block1);
 
@@ -257,8 +267,8 @@ describe('Archiver Store', () => {
     });
 
     it('rejects blocks with duplicate block numbers', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
 
       await archiver.addBlock(block1);
       await archiver.addBlock(block2);
@@ -268,14 +278,14 @@ describe('Archiver Store', () => {
     });
 
     it('rejects first block if not starting from block 1', async () => {
-      const block5 = await makeBlock(BlockNumber(5), 0, genesisArchive);
+      const block5 = await makeBlock(BlockNumber(5), IndexWithinCheckpoint(0), genesisArchive);
 
       // First block must be block 1
       await expect(archiver.addBlock(block5)).rejects.toThrow();
     });
 
     it('allows block number to start from 1 (initial block)', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
 
       await archiver.addBlock(block1);
 
@@ -285,9 +295,9 @@ describe('Archiver Store', () => {
     });
 
     it('retrieves multiple blocks with getL2BlocksNew', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
-      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
       await archiver.addBlock(block1);
       await archiver.addBlock(block2);
@@ -301,9 +311,9 @@ describe('Archiver Store', () => {
     });
 
     it('retrieves blocks with limit in getL2BlocksNew', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
-      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
       await archiver.addBlock(block1);
       await archiver.addBlock(block2);
@@ -317,9 +327,9 @@ describe('Archiver Store', () => {
     });
 
     it('retrieves blocks starting from middle with getL2BlocksNew', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
-      const block3 = await makeBlock(BlockNumber(3), 2, block2.archive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
+      const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
       await archiver.addBlock(block1);
       await archiver.addBlock(block2);
@@ -333,7 +343,7 @@ describe('Archiver Store', () => {
     });
 
     it('returns empty array when requesting blocks beyond available range', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
 
       await archiver.addBlock(block1);
 
@@ -343,8 +353,8 @@ describe('Archiver Store', () => {
     });
 
     it('returns partial results when limit exceeds available blocks', async () => {
-      const block1 = await makeBlock(BlockNumber(1), 0, genesisArchive);
-      const block2 = await makeBlock(BlockNumber(2), 1, block1.archive);
+      const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
+      const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
 
       await archiver.addBlock(block1);
       await archiver.addBlock(block2);
