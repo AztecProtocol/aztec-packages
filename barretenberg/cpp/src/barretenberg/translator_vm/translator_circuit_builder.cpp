@@ -258,19 +258,24 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_2_microlimbs;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> current_accumulator_microlimbs;
     std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
-    // Split P_x into microlimbs for range constraining
+
+    // Split all standard limbs (68-bit) into microlimbs for range constraining
     for (size_t i = 0; i < last_limb_index; i++) {
         P_x_microlimbs[i] = split_limb_into_microlimbs(p_x_limbs[i], NUM_LIMB_BITS);
-    }
-    P_x_microlimbs[last_limb_index] = split_limb_into_microlimbs(p_x_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
-
-    // Split P_y into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
         P_y_microlimbs[i] = split_limb_into_microlimbs(p_y_limbs[i], NUM_LIMB_BITS);
+        current_accumulator_microlimbs[i] = split_limb_into_microlimbs(remainder_limbs[i], NUM_LIMB_BITS);
+        quotient_microlimbs[i] = split_limb_into_microlimbs(quotient_limbs[i], NUM_LIMB_BITS);
     }
-    P_y_microlimbs[last_limb_index] = split_limb_into_microlimbs(p_y_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
 
-    // Split z scalars into microlimbs for range constraining
+    // Split top limbs (varying bit sizes) into microlimbs
+    P_x_microlimbs[last_limb_index] = split_limb_into_microlimbs(p_x_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
+    P_y_microlimbs[last_limb_index] = split_limb_into_microlimbs(p_y_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
+    current_accumulator_microlimbs[last_limb_index] =
+        split_limb_into_microlimbs(remainder_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
+    quotient_microlimbs[last_limb_index] =
+        split_limb_into_microlimbs(quotient_limbs[last_limb_index], NUM_LAST_QUOTIENT_LIMB_BITS);
+
+    // Split z scalars into microlimbs (handled separately due to different limb count)
     for (size_t i = 0; i < NUM_Z_LIMBS - 1; i++) {
         z_1_microlimbs[i] = split_limb_into_microlimbs(z_1_limbs[i], NUM_LIMB_BITS);
         z_2_microlimbs[i] = split_limb_into_microlimbs(z_2_limbs[i], NUM_LIMB_BITS);
@@ -279,20 +284,6 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         split_limb_into_microlimbs(z_1_limbs[NUM_Z_LIMBS - 1], NUM_Z_BITS - NUM_LIMB_BITS);
     z_2_microlimbs[NUM_Z_LIMBS - 1] =
         split_limb_into_microlimbs(z_2_limbs[NUM_Z_LIMBS - 1], NUM_Z_BITS - NUM_LIMB_BITS);
-
-    // Split current accumulator into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        current_accumulator_microlimbs[i] = split_limb_into_microlimbs(remainder_limbs[i], NUM_LIMB_BITS);
-    }
-    current_accumulator_microlimbs[last_limb_index] =
-        split_limb_into_microlimbs(remainder_limbs[last_limb_index], NUM_LAST_LIMB_BITS);
-
-    // Split quotient into microlimbs for range constraining
-    for (size_t i = 0; i < last_limb_index; i++) {
-        quotient_microlimbs[i] = split_limb_into_microlimbs(quotient_limbs[i], NUM_LIMB_BITS);
-    }
-    quotient_microlimbs[last_limb_index] =
-        split_limb_into_microlimbs(quotient_limbs[last_limb_index], NUM_LAST_QUOTIENT_LIMB_BITS);
 
     // Start filling the witness container
     AccumulationInput input{
