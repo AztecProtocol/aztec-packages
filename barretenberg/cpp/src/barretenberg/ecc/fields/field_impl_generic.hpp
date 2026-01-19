@@ -399,24 +399,27 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
         mac(t2, k, modulus.data[2], c, t1, c);
         mac(t3, k, modulus.data[3], c, t2, c);
         t3 = addc(c, t4, 0, c); // c is now in {0, 1}
-        t4 = t5 + c;            // t4 is in {0, 1, 2}.
-    }
-    // AUDITTODO: explain why t4 is always in {0, 1}, which justifies the subtractions.
-    // TODELETE: if it's 2, which is the upper bound, some handling for me.
-    if (!std::is_constant_evaluated() && (t4 > 1)) {
-        std::cout << "WOAH NELLY!!!! t4 is " << t4 << "\n";
-        std::cout << "WOAH NELLY!!!! t4 is " << t4 << "\n";
+        t4 = t5 + c;
     }
     // The result is now contains in the 64*5-bit number with limbs {t0, t1, t2, t3, t4}. In fact, this number has at
-    // most 258 bits because t4 is in {0, 1, 2}. we are in the 256-bit field regime and need to subtract off copies of p
-    // until we are 256 bits.
+    // most 257 bits because t4 is in {0, 1}. Proof: we have just computed (aR * bR + \sum_i k_i p)/(2^256), where each
+    // k_i is less than 2^{64i} * (2^64 - 1) for i = 0..3. The numerator is therefore upper-bounded by (2^256 - 1)^2 +
+    // (2^256 - 1) * p, hence the whole quantity is bounded by 2^256 + p - 1. Therefore, t4 is in {0, 1}, and we must do
+    // at most one subtraction to get in range. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): if
+    // we demand that the numbers are strictly in [0, p-1], then this bound improves to 2p - 1, which is what is written
+    // in the field docs.
 
+    // constant-time "conditional reduction" that computes the following without branches:
+    // `result = (value >= modulus) ? value - modulus : value`
     uint64_t borrow = 0;
     uint64_t r0 = sbb(t0, modulus.data[0], borrow, borrow);
     uint64_t r1 = sbb(t1, modulus.data[1], borrow, borrow);
     uint64_t r2 = sbb(t2, modulus.data[2], borrow, borrow);
     uint64_t r3 = sbb(t3, modulus.data[3], borrow, borrow);
-    borrow = borrow ^ (0ULL - t4);
+    // if t4 == 1, then from the above upper bound of 2^256 + p - 1, it follows that borrow != 0, i.e., borrow == 2^64
+    // - 1. if t4 == 0, both options for borrow are possible.
+    borrow = borrow ^ (0ULL - t4); // borrow is set to 0 if (t4 == 1 and hence borrow == 2^64 - 1) OR if (borrow == 0
+                                   // AND t4 == 1). borrow is set to 2^64 - 1 if (t4 == 0 AND borrow == 2^64 - 1)
     r0 += (modulus.data[0] & borrow);
     uint64_t carry = r0 < (modulus.data[0] & borrow);
     r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
