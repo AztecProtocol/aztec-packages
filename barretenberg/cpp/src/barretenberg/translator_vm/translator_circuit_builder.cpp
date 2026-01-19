@@ -135,14 +135,23 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // The formula is `accumulator = accumulator⋅x + (op + v⋅p.x + v²⋅p.y + v³⋅z₁ + v⁴z₂)`. We need to compute the
     // remainder (new accumulator value)
-
-    const Fq remainder = previous_accumulator * evaluation_input_x + base_z_2 * v_quarted + base_z_1 * v_cubed +
-                         base_p_y * v_squared + base_p_x * batching_challenge_v + base_op;
+    // clang-format off
+    const Fq remainder = previous_accumulator * evaluation_input_x +
+                         base_op                                   +
+                         base_p_x * batching_challenge_v           +
+                         base_p_y * v_squared                      +
+                         base_z_1 * v_cubed                        +
+                         base_z_2 * v_quarted;
 
     // We also need to compute the quotient
-    uint512_t quotient_by_modulus = uint_previous_accumulator * uint_x + uint_z2 * uint_v_quarted +
-                                    uint_z1 * uint_v_cubed + uint_p_y * uint_v_squared + uint_p_x * uint_v + uint_op -
+    uint512_t quotient_by_modulus = uint_previous_accumulator * uint_x +
+                                    uint_op                            +
+                                    uint_p_x * uint_v                  +
+                                    uint_p_y * uint_v_squared          +
+                                    uint_z1  * uint_v_cubed            +
+                                    uint_z2  * uint_v_quarted          -
                                     uint512_t(remainder);
+    // clang-format on
 
     uint512_t quotient = quotient_by_modulus / uint512_t(Fq::modulus);
 
@@ -154,21 +163,27 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // We will divide by shift_2 instantly in the relation itself, but first we need to compute the low part (0*0) and
     // the high part (0*1, 1*0) multiplied by a single limb shift
-    Fr low_wide_relation_limb_part_1 = previous_accumulator_limbs[0] * x_witnesses[0] + op_code +
-                                       v_witnesses[0] * p_x_limbs[0] + v_squared_witnesses[0] * p_y_limbs[0] +
-                                       v_cubed_witnesses[0] * z_1_limbs[0] + v_quarted_witnesses[0] * z_2_limbs[0] +
-                                       quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[0] -
-                                       remainder_limbs[0]; // This covers the lowest limb
+    // clang-format off
+    Fr low_wide_relation_limb_part_1 = previous_accumulator_limbs[0] * x_witnesses[0]         +
+                                       op_code                                                 +
+                                       v_witnesses[0]         * p_x_limbs[0]                   +
+                                       v_squared_witnesses[0] * p_y_limbs[0]                   +
+                                       v_cubed_witnesses[0]   * z_1_limbs[0]                   +
+                                       v_quarted_witnesses[0] * z_2_limbs[0]                   +
+                                       quotient_limbs[0]      * NEGATIVE_MODULUS_LIMBS[0]      -
+                                       remainder_limbs[0];  // This covers the lowest limb
+    // clang-format on
 
-    Fr low_wide_relation_limb =
-        low_wide_relation_limb_part_1 +
-        (previous_accumulator_limbs[1] * x_witnesses[0] + previous_accumulator_limbs[0] * x_witnesses[1] +
-         v_witnesses[1] * p_x_limbs[0] + p_x_limbs[1] * v_witnesses[0] + v_squared_witnesses[1] * p_y_limbs[0] +
-         v_squared_witnesses[0] * p_y_limbs[1] + v_cubed_witnesses[1] * z_1_limbs[0] +
-         z_1_limbs[1] * v_cubed_witnesses[0] + v_quarted_witnesses[1] * z_2_limbs[0] +
-         v_quarted_witnesses[0] * z_2_limbs[1] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[1] +
-         quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[0] - remainder_limbs[1]) *
-            SHIFT_1;
+    // clang-format off
+    Fr low_wide_relation_limb = low_wide_relation_limb_part_1 +
+        (previous_accumulator_limbs[1] * x_witnesses[0]         + previous_accumulator_limbs[0] * x_witnesses[1]         +
+         v_witnesses[1]                * p_x_limbs[0]           + p_x_limbs[1]                * v_witnesses[0]           +
+         v_squared_witnesses[1]        * p_y_limbs[0]           + v_squared_witnesses[0]        * p_y_limbs[1]           +
+         v_cubed_witnesses[1]          * z_1_limbs[0]           + z_1_limbs[1]                 * v_cubed_witnesses[0]    +
+         v_quarted_witnesses[1]        * z_2_limbs[0]           + v_quarted_witnesses[0]        * z_2_limbs[1]           +
+         quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[1] + quotient_limbs[1]          * NEGATIVE_MODULUS_LIMBS[0] -
+         remainder_limbs[1]) * SHIFT_1;
+    // clang-format on
 
     // Low bits have to be zero
     BB_ASSERT_EQ(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS), 0U);
@@ -177,28 +192,24 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     // The high relation limb is the accumulation of the low limb divided by 2¹³⁶ and the combination of limbs with
     // indices (0*2,1*1,2*0) with limbs with indices (0*3,1*2,2*1,3*0) multiplied by 2⁶⁸
-
+    // clang-format off
     Fr high_wide_relation_limb =
-        low_wide_relation_limb_divided + previous_accumulator_limbs[2] * x_witnesses[0] +
-        previous_accumulator_limbs[1] * x_witnesses[1] + previous_accumulator_limbs[0] * x_witnesses[2] +
-        v_witnesses[2] * p_x_limbs[0] + v_witnesses[1] * p_x_limbs[1] + v_witnesses[0] * p_x_limbs[2] +
-        v_squared_witnesses[2] * p_y_limbs[0] + v_squared_witnesses[1] * p_y_limbs[1] +
-        v_squared_witnesses[0] * p_y_limbs[2] + v_cubed_witnesses[2] * z_1_limbs[0] +
-        v_cubed_witnesses[1] * z_1_limbs[1] + v_quarted_witnesses[2] * z_2_limbs[0] +
-        v_quarted_witnesses[1] * z_2_limbs[1] + quotient_limbs[2] * NEGATIVE_MODULUS_LIMBS[0] +
-        quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[1] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[2] -
-        remainder_limbs[2] +
-        (previous_accumulator_limbs[3] * x_witnesses[0] + previous_accumulator_limbs[2] * x_witnesses[1] +
-         previous_accumulator_limbs[1] * x_witnesses[2] + previous_accumulator_limbs[0] * x_witnesses[3] +
-         v_witnesses[3] * p_x_limbs[0] + v_witnesses[2] * p_x_limbs[1] + v_witnesses[1] * p_x_limbs[2] +
-         v_witnesses[0] * p_x_limbs[3] + v_squared_witnesses[3] * p_y_limbs[0] + v_squared_witnesses[2] * p_y_limbs[1] +
-         v_squared_witnesses[1] * p_y_limbs[2] + v_squared_witnesses[0] * p_y_limbs[3] +
-         v_cubed_witnesses[3] * z_1_limbs[0] + v_cubed_witnesses[2] * z_1_limbs[1] +
-         v_quarted_witnesses[3] * z_2_limbs[0] + v_quarted_witnesses[2] * z_2_limbs[1] +
-         quotient_limbs[3] * NEGATIVE_MODULUS_LIMBS[0] + quotient_limbs[2] * NEGATIVE_MODULUS_LIMBS[1] +
-         quotient_limbs[1] * NEGATIVE_MODULUS_LIMBS[2] + quotient_limbs[0] * NEGATIVE_MODULUS_LIMBS[3] -
-         remainder_limbs[3]) *
-            SHIFT_1;
+        low_wide_relation_limb_divided                                                                         +
+        previous_accumulator_limbs[2] * x_witnesses[0]         + previous_accumulator_limbs[1] * x_witnesses[1]         + previous_accumulator_limbs[0] * x_witnesses[2]         +
+        v_witnesses[2]                * p_x_limbs[0]           + v_witnesses[1]                * p_x_limbs[1]           + v_witnesses[0]                * p_x_limbs[2]           +
+        v_squared_witnesses[2]        * p_y_limbs[0]           + v_squared_witnesses[1]        * p_y_limbs[1]           + v_squared_witnesses[0]        * p_y_limbs[2]           +
+        v_cubed_witnesses[2]          * z_1_limbs[0]           + v_cubed_witnesses[1]          * z_1_limbs[1]                                                                    +
+        v_quarted_witnesses[2]        * z_2_limbs[0]           + v_quarted_witnesses[1]        * z_2_limbs[1]                                                                    +
+        quotient_limbs[2]             * NEGATIVE_MODULUS_LIMBS[0] + quotient_limbs[1]          * NEGATIVE_MODULUS_LIMBS[1] + quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[2] -
+        remainder_limbs[2]                                                                                     +
+        (previous_accumulator_limbs[3] * x_witnesses[0]         + previous_accumulator_limbs[2] * x_witnesses[1]         + previous_accumulator_limbs[1] * x_witnesses[2]         + previous_accumulator_limbs[0] * x_witnesses[3]         +
+         v_witnesses[3]                * p_x_limbs[0]           + v_witnesses[2]                * p_x_limbs[1]           + v_witnesses[1]                * p_x_limbs[2]           + v_witnesses[0]                * p_x_limbs[3]           +
+         v_squared_witnesses[3]        * p_y_limbs[0]           + v_squared_witnesses[2]        * p_y_limbs[1]           + v_squared_witnesses[1]        * p_y_limbs[2]           + v_squared_witnesses[0]        * p_y_limbs[3]           +
+         v_cubed_witnesses[3]          * z_1_limbs[0]           + v_cubed_witnesses[2]          * z_1_limbs[1]                                                                                                                            +
+         v_quarted_witnesses[3]        * z_2_limbs[0]           + v_quarted_witnesses[2]        * z_2_limbs[1]                                                                                                                            +
+         quotient_limbs[3]             * NEGATIVE_MODULUS_LIMBS[0] + quotient_limbs[2]          * NEGATIVE_MODULUS_LIMBS[1] + quotient_limbs[1]             * NEGATIVE_MODULUS_LIMBS[2] + quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[3] -
+         remainder_limbs[3]) * SHIFT_1;
+    // clang-format on
 
     // Check that the results lower 136 bits are zero
     BB_ASSERT_EQ(uint256_t(high_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS), 0U);
