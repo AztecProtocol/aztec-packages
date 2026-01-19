@@ -1,3 +1,5 @@
+//! The `self` contract value.
+
 use crate::{
     context::{
         calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall},
