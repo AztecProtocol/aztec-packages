@@ -264,7 +264,7 @@ TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntries)
         input_point_schedule.push_back(schedule);
     }
 
-    size_t result = scalar_multiplication::process_buckets_count_zero_entries(
+    size_t result = scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
         &input_point_schedule[0], input_point_schedule.size(), 7);
     size_t expected = 0;
     for (size_t i = 0; i < total_points; ++i) {
@@ -329,7 +329,7 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
             scalars, TestFixture::generators, indices, point_schedule);
         Element result;
         result.self_set_infinity();
-        scalar_multiplication::MSM<Curve>::evaluate_pippenger_round(
+        scalar_multiplication::MSM<Curve>::evaluate_affine_pippenger_round(
             msm_data, round_index, affine_data, bucket_data, result, 7);
         Element expected;
         expected.self_set_infinity();

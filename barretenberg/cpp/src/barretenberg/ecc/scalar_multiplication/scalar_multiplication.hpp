@@ -25,7 +25,6 @@ template <typename Curve> class MSM {
     using BaseField = typename Curve::BaseField;
     using AffineElement = typename Curve::AffineElement;
 
-    using G1 = AffineElement;
     static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
 
     // ======================= Algorithm Tuning Constants =======================
@@ -45,6 +44,10 @@ template <typename Curve> class MSM {
 
     // Number of points to look ahead for memory prefetching
     static constexpr size_t PREFETCH_LOOKAHEAD = 32;
+
+    // Prefetch every N iterations (must be power of 2); mask is N-1 for efficient modulo
+    static constexpr size_t PREFETCH_INTERVAL = 16;
+    static constexpr size_t PREFETCH_INTERVAL_MASK = PREFETCH_INTERVAL - 1;
 
     // ======================= Cost Model Constants =======================
     //
@@ -164,12 +167,12 @@ template <typename Curve> class MSM {
         // when adding affine points, we have an edge case where the number of points in the batch can overflow by 2
         static constexpr size_t BATCH_OVERFLOW_SIZE = 2;
         std::vector<AffineElement> points_to_add;
-        std::vector<BaseField> scalar_scratch_space;
+        std::vector<BaseField> inversion_scratch_space; // Used for Montgomery batch inversion denominators
         std::vector<uint32_t> addition_result_bucket_destinations;
 
         AffineAdditionData() noexcept
             : points_to_add(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
-            , scalar_scratch_space(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
+            , inversion_scratch_space(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
             , addition_result_bucket_destinations(((BATCH_SIZE + BATCH_OVERFLOW_SIZE) / 2))
         {}
     };
@@ -207,20 +210,20 @@ template <typename Curve> class MSM {
     static size_t get_optimal_log_num_buckets(const size_t num_points) noexcept;
     static bool use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept;
 
-    static Element small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
-    static Element pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
-    static void evaluate_small_pippenger_round(MSMData& msm_data,
-                                               const size_t round_index,
-                                               JacobianBucketAccumulators& bucket_data,
-                                               Element& msm_accumulator,
-                                               const size_t bits_per_slice) noexcept;
+    static Element jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
+    static Element affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
+    static void evaluate_jacobian_pippenger_round(MSMData& msm_data,
+                                                  const size_t round_index,
+                                                  JacobianBucketAccumulators& bucket_data,
+                                                  Element& msm_accumulator,
+                                                  const size_t bits_per_slice) noexcept;
 
-    static void evaluate_pippenger_round(MSMData& msm_data,
-                                         const size_t round_index,
-                                         AffineAdditionData& affine_data,
-                                         BucketAccumulators& bucket_data,
-                                         Element& msm_accumulator,
-                                         const size_t bits_per_slice) noexcept;
+    static void evaluate_affine_pippenger_round(MSMData& msm_data,
+                                                const size_t round_index,
+                                                AffineAdditionData& affine_data,
+                                                BucketAccumulators& bucket_data,
+                                                Element& msm_accumulator,
+                                                const size_t bits_per_slice) noexcept;
 
     static void accumulate_round_result(Element& msm_accumulator,
                                         const Element& bucket_result,
@@ -230,9 +233,7 @@ template <typename Curve> class MSM {
     static void consume_point_schedule(std::span<const uint64_t> point_schedule,
                                        std::span<const AffineElement> points,
                                        AffineAdditionData& affine_data,
-                                       BucketAccumulators& bucket_data,
-                                       size_t num_input_points_processed = 0,
-                                       size_t num_queued_affine_points = 0) noexcept;
+                                       BucketAccumulators& bucket_data) noexcept;
 
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
                                                              std::span<std::span<ScalarField>> scalars,
