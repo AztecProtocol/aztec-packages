@@ -93,6 +93,7 @@ describe('ValidatorClient', () => {
     >[1] as any);
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getBlocksForEpoch.mockResolvedValue([]);
+    epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
@@ -329,6 +330,7 @@ describe('ValidatorClient', () => {
         nextSlot: SlotNumber(proposal.slotNumber + 1),
       });
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+      epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
 
       // Return parent block header when requested
       blockSource.getBlockHeaderByArchive.mockResolvedValue({
@@ -374,6 +376,56 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
+    });
+
+    it('should return early when escape hatch is open', async () => {
+      epochCache.isEscapeHatchOpenAtSlot.mockResolvedValueOnce(true);
+
+      const handleSpy = jest.spyOn(validatorClient.getBlockProposalHandler(), 'handleBlockProposal');
+
+      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+      expect(isValid).toBe(false);
+      // We still validate for observability, but we reject the proposal while escape hatch is open.
+      expect(handleSpy).toHaveBeenCalled();
+    });
+
+    it('should not attest to a checkpoint proposal if we did not validate a block for that slot', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+
+      const checkpointProposal = await makeCheckpointProposal({
+        archiveRoot: proposal.archive,
+        lastBlock: {
+          blockHeader: makeL2BlockHeader(1, 123, proposal.slotNumber),
+          indexWithinCheckpoint: 0,
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
+      expect(attestations).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should attest to a checkpoint proposal after validating a block for that slot', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addCheckpointAttestations');
+
+      const didValidate = await validatorClient.validateBlockProposal(proposal, sender);
+      expect(didValidate).toBe(true);
+
+      const checkpointProposal = await makeCheckpointProposal({
+        archiveRoot: proposal.archive,
+        lastBlock: {
+          blockHeader: makeL2BlockHeader(1, 123, proposal.slotNumber),
+          indexWithinCheckpoint: 0,
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      const attestations = await validatorClient.attestToCheckpointProposal(checkpointProposal, sender);
+
+      expect(attestations).toBeDefined();
+      expect(attestations).toHaveLength(1);
+      expect(addCheckpointAttestationsSpy).toHaveBeenCalledTimes(1);
     });
 
     it('should wait for previous block to sync', async () => {

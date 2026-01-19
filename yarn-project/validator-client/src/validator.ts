@@ -321,6 +321,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    */
   async validateBlockProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> {
     const slotNumber = proposal.slotNumber;
+
+    // Note: During escape hatch, we still want to "validate" proposals for observability,
+    // but we intentionally reject them and disable slashing invalid block and attestation flow.
+    const escapeHatchOpen = await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber);
+
     const proposer = proposal.getSender();
 
     // Reject proposals with invalid signatures
@@ -354,7 +359,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const validationResult = await this.blockProposalHandler.handleBlockProposal(
       proposal,
       proposalSender,
-      !!shouldReexecute,
+      !!shouldReexecute && !escapeHatchOpen,
     );
 
     if (!validationResult.isValid) {
@@ -379,6 +384,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
       // Slash invalid block proposals (can happen even when not in committee)
       if (
+        !escapeHatchOpen &&
         validationResult.reason &&
         SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(validationResult.reason) &&
         slashBroadcastedInvalidBlockPenalty > 0n
@@ -393,7 +399,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       ...proposalInfo,
       inCommittee: partOfCommittee,
       fishermanMode: this.config.fishermanMode || false,
+      escapeHatchOpen,
     });
+
+    if (escapeHatchOpen) {
+      this.log.warn(`Escape hatch open for slot ${slotNumber}, rejecting block proposal`, proposalInfo);
+      return false;
+    }
 
     // TODO(palla/mbps): Remove this once checkpoint validation is stable.
     // Track that we successfully validated a block for this slot, so we can attest to checkpoint proposals for it.
@@ -414,6 +426,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   ): Promise<CheckpointAttestation[] | undefined> {
     const slotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
+
+    // If escape hatch is open for this slot's epoch, do not attest.
+    if (await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber)) {
+      this.log.warn(`Escape hatch open for slot ${slotNumber}, skipping checkpoint attestation handling`);
+      return undefined;
+    }
 
     // Reject proposals with invalid signatures
     if (!proposer) {

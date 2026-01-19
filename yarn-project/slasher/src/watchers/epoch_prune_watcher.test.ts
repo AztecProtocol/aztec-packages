@@ -91,6 +91,7 @@ describe('EpochPruneWatcher', () => {
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
       epoch: epochNumber,
+      isEscapeHatchOpen: false,
     });
 
     l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
@@ -144,6 +145,7 @@ describe('EpochPruneWatcher', () => {
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
       epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
     });
 
     l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
@@ -207,6 +209,7 @@ describe('EpochPruneWatcher', () => {
       committee: committee.map(EthAddress.fromString),
       seed: 0n,
       epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
     });
 
     l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUnproven, {
