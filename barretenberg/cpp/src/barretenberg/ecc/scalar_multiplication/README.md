@@ -10,7 +10,11 @@ $$\text{MSM}(\vec{s}, \vec{P}) = \sum_{i=0}^{n-1} s_i \cdot P_i$$
 
 where $s_i$ are scalars and $P_i$ are elliptic curve points.
 
-**Complexity**: $O(n / \log n)$ group operations, compared to $O(n)$ for naive scalar multiplication.
+**Complexity**: For $n$ points with $q$-bit scalars and $c$-bit slices, the cost is approximately:
+
+$$O\left(\frac{q}{c} \cdot (n + 2^c)\right) \text{ group operations}$$
+
+With $c$ chosen by the implementation's cost model (typically on the order of $\log n$), this reduces to roughly $O(n \cdot q / \log n)$, compared to $O(n \cdot q)$ for naive scalar multiplication.
 
 ## Algorithm
 
@@ -22,46 +26,31 @@ where $s_i$ are scalars and $P_i$ are elliptic curve points.
 
 **Implementation**: `get_scalar_slice(scalar, round_index, bits_per_slice)`
 
-Each 254-bit scalar $s_i$ is decomposed into $r$ slices of $c$ bits each:
+Each NUM_BITS_IN_FIELD-bit scalar $s_i$ is decomposed into $r$ slices of $c$ bits each, processed **MSB-first**:
 
-$$s_i = \sum_{j=0}^{r-1} s_i^{(j)} \cdot 2^{jc}$$
+$$s_i = \sum_{j=0}^{r-1} s_i^{(j)} \cdot 2^{c(r-1-j)}$$
 
 where:
 - $c$ is the bits per slice (from `get_optimal_log_num_buckets`)
-- $r = \lceil 254 / c \rceil$ is the number of rounds (from `get_num_rounds`)
+- $r = \lceil NUM_BITS_IN_FIELD / c \rceil$ is the number of rounds (from `get_num_rounds`)
 - $s_i^{(j)} \in [0, 2^c - 1]$ is the slice value, which becomes the bucket index
+- **Round 0 extracts the most significant bits**; round $r-1$ extracts the least significant bits
 
-#### Optimal Bucket Count Derivation
+#### Optimal Bucket Count Selection
 
 The choice of $c$ (bits per slice) minimizes total group operations. Let $B = 2^c$ be the number of buckets.
 
-**Cost components per round:**
-1. **Bucket accumulation**: $n$ additions (one per point)
-2. **Bucket reduction**: $B - 1$ additions (prefix sum over buckets)
+**Cost model** used by the implementation:
 
-**Total cost** for $r = 254/c$ rounds:
+$$\text{cost}(c) = \text{rounds} \cdot (n + B \cdot \text{BUCKET\_ACCUMULATION\_COST})$$
 
-$$T(c) = r \cdot (n + 2^c) = \frac{254}{c} \cdot (n + 2^c)$$
+where $\text{rounds} = \lceil NUM_BITS_IN_FIELD / c \rceil$ and $\text{BUCKET\_ACCUMULATION\_COST} = 5$.
 
-**Minimizing** by taking $\frac{dT}{dc} = 0$:
+**Implementation**: `get_optimal_log_num_buckets(num_points)` performs a **bounded brute-force search** over slice sizes from 2 to `MAX_SLICE_BITS` (20), selecting the $c$ that minimizes the cost model. This is more accurate than closed-form approximations because it accounts for the discrete nature of rounds and the bucket reduction overhead.
 
-$$\frac{dT}{dc} = -\frac{254}{c^2}(n + 2^c) + \frac{254}{c} \cdot 2^c \ln 2 = 0$$
-
-Solving: $2^c \ln 2 = \frac{n + 2^c}{c}$
-
-For large $n$ where $n \gg 2^c$: $2^c \approx \frac{n}{c \ln 2}$
-
-Taking $\log_2$: $c \approx \log_2(n) - \log_2(c) - \log_2(\ln 2)$
-
-For practical $n$, this gives $c \approx \frac{1}{2}\log_2(n)$, hence:
-
-$$c = \left\lceil \log_2(\sqrt{n}) \right\rceil$$
-
-**Implementation**: `get_optimal_log_num_buckets(num_points)` computes this with bounds checking ($1 \leq c \leq 20$).
+**Intuition**: The classic Pippenger heuristic suggests $c \approx \frac{1}{2}\log_2(n)$, but the actual implementation uses empirical cost modeling rather than this formula.
 
 ### Step 2: Bucket Accumulation
-
-**Implementation**: Inlined in `affine_pippenger_with_transformed_scalars()` and `jacobian_pippenger_with_transformed_scalars()`
 
 For each round $j$, points are added into buckets based on their scalar slice value:
 
@@ -69,7 +58,11 @@ $$B_k^{(j)} = \sum_{\{i : s_i^{(j)} = k\}} P_i$$
 
 Each bucket $B_k$ accumulates the sum of all points whose scalar has slice value $k$ in round $j$.
 
-The pippenger functions build a point schedule (sorted by bucket), then call `batch_accumulate_points_into_buckets()` to perform the actual bucket accumulation using batch affine additions.
+**Two implementation paths:**
+
+- **Affine variant** (`affine_pippenger_with_transformed_scalars`): Builds a point schedule (array of `(point_index, bucket_index)` pairs), radix-sorts by bucket, then calls `batch_accumulate_points_into_buckets()` to perform batched affine additions with Montgomery's trick.
+
+- **Jacobian variant** (`jacobian_pippenger_with_transformed_scalars`): Directly loops over `scalar_indices` and adds each point to its target bucket using Jacobian addition. No sorting or scheduling required—simpler but slower.
 
 ### Step 3: Bucket Reduction
 
@@ -79,43 +72,44 @@ The round result requires computing a weighted sum of buckets:
 
 $$R^{(j)} = \sum_{k=1}^{2^c - 1} k \cdot B_k^{(j)}$$
 
-This is evaluated efficiently using **prefix sums** (avoiding $k$ repeated additions per bucket):
+This is evaluated efficiently using a **running sum from high to low** (avoiding $k$ repeated additions per bucket):
 
-$$R^{(j)} = \sum_{k=1}^{2^c - 1} \underbrace{\left( \sum_{m=k}^{2^c - 1} B_m^{(j)} \right)}_{\text{running sum}}$$
+$$R^{(j)} = \sum_{k=1}^{2^c - 1} \underbrace{\left( \sum_{m=k}^{2^c - 1} B_m^{(j)} \right)}_{\text{suffix sum}}$$
 
 **Algorithm** (from `accumulate_buckets` template in scalar_multiplication.hpp):
 ```cpp
-prefix_sum = buckets[highest_nonempty]
-sum = prefix_sum + offset_generator  // offset avoids incomplete addition edge cases
+running_sum = buckets[highest_nonempty]
+result = running_sum + offset_generator  // offset mitigates edge cases
 for k = highest_nonempty - 1 down to 1:
     if bucket[k] exists:
-        prefix_sum += bucket[k]
-    sum += prefix_sum
-return sum - offset_generator
+        running_sum += bucket[k]
+    result += running_sum
+return result - offset_generator
 ```
+
+Note: This is effectively a **suffix sum** (iterating from high indices to low), not a traditional prefix sum.
 
 #### Why the Offset Generator?
 
-The offset generator $G_{\text{off}}$ prevents edge cases during the prefix sum accumulation:
+The offset generator $G_{\text{off}}$ mitigates edge cases during the bucket reduction:
 
-**Problem**: During the loop, `sum += prefix_sum` might encounter:
-- `sum == prefix_sum` → requires point doubling (different formula)
-- `sum == -prefix_sum` → result is point at infinity $\mathcal{O}$
-- `sum == O` → addition with infinity (special case)
+**Problem**: Some optimized addition paths have exceptional cases (e.g., when adding a point to itself, or when intermediate results land on special values). While `Element::operator+` generally handles these correctly, the offset provides defense-in-depth.
 
-**Solution**: Adding a fixed offset $G_{\text{off}}$ at the start guarantees `sum` never equals `prefix_sum` or its negation (assuming $G_{\text{off}}$ is chosen to be linearly independent of bucket values). The offset is subtracted at the end:
+**Solution**: Adding a fixed offset $G_{\text{off}}$ at the start makes it statistically unlikely that `running_sum` equals `result` or its negation during accumulation. The offset is subtracted at the end:
 
-$$R = \left( \sum_k \text{prefix\_sum}_k + G_{\text{off}} \right) - G_{\text{off}} = \sum_k \text{prefix\_sum}_k$$
+$$R = \left( \sum_k \text{running\_sum}_k + G_{\text{off}} \right) - G_{\text{off}} = \sum_k \text{running\_sum}_k$$
 
 **Implementation**: `get_offset_generator()` returns a deterministically-derived point that is statistically independent of the input points.
+
+**Security note**: This is a **probabilistic** mitigation, not an algebraic guarantee. The offset generator is chosen to be linearly independent of typical bucket values with overwhelming probability. Both affine and Jacobian variants use this offset.
 
 ### Step 4: Round Combination
 
 **Implementation**: Inlined in the pippenger functions
 
-The final MSM result combines all rounds:
+The final MSM result combines all rounds (MSB-first weighting):
 
-$$\text{MSM} = \sum_{j=0}^{r-1} R^{(j)} \cdot 2^{jc}$$
+$$\text{MSM} = \sum_{j=0}^{r-1} R^{(j)} \cdot 2^{c(r-1-j)}$$
 
 Evaluated using Horner's method (starting from the most significant slice):
 
@@ -127,7 +121,7 @@ for j = 0 to r-1:
     msm_accumulator += bucket_result[j]               // one addition
 ```
 
-Note: The last round may use fewer than $c$ doublings if $254 \mod c \neq 0$.
+Note: The last round may use fewer than $c$ doublings if `NUM_BITS_IN_FIELD % c != 0`.
 
 ## Affine Addition Trick (Montgomery's Trick)
 
@@ -157,14 +151,15 @@ For $m$ independent additions $(P_1 + Q_1), \ldots, (P_m + Q_m)$:
    $$d_{m-1}^{-1} = \pi_{m-2} \cdot (d_m \cdot \pi_m^{-1})$$
    $$\vdots$$
 
-**Cost**: 1 inversion + $3(m-1)$ multiplications, instead of $m$ inversions.
+**Cost**: 1 inversion + $O(m)$ multiplications (forward product + backward propagation), instead of $m$ inversions.
 
 ## Algorithm Variants
 
 **Entry Points**:
-- `msm()` - Main entry point (defaults to fast variant)
-- `pippenger()` - Safe wrapper (defaults to edge-case handling variant)
-- `batch_multi_scalar_mul()` - Multi-MSM batch processing
+- `msm()` - Main entry point (**unsafe by default**, `handle_edge_cases=false`)
+- `pippenger()` - Safe wrapper (**safe by default**, `handle_edge_cases=true`)
+- `pippenger_unsafe()` - Explicitly unsafe wrapper (`handle_edge_cases=false`)
+- `batch_multi_scalar_mul()` - Multi-MSM batch processing (**safe by default**, `handle_edge_cases=true`)
 
 The implementation provides two algorithm variants selected via `handle_edge_cases`:
 
@@ -184,7 +179,7 @@ This formula is **incomplete**—it fails in three cases:
 
 **Point doubling** requires a different formula: $\lambda = \frac{3P_x^2 + a}{2P_y}$ (where $a$ is the curve parameter).
 
-**Jacobian coordinates** handle all cases with unified formulas (no branching), at the cost of more field operations per addition.
+**Jacobian coordinates** handle all edge cases correctly (doubling, infinity, inverse points), at the cost of more field operations per addition.
 
 ### Jacobian Pippenger (`handle_edge_cases=true`)
 
@@ -206,9 +201,12 @@ Uses **affine coordinates** for bucket accumulators (`BucketAccumulators`) with 
 - **Cons**: Assumes no edge cases (incomplete addition formula fails on point doubling)
 - **When to use**: When input points are guaranteed to be linearly independent (e.g., SRS points, random points)
 
-**Default behaviors**:
-- `msm()` → `handle_edge_cases=false` (fast, suitable for most use cases)
-- `pippenger()` → `handle_edge_cases=true` (safe, conservative default)
+**Entry point defaults**:
+- `msm()` → `handle_edge_cases=false` (**unsafe by default**, assumes linearly independent points)
+- `pippenger()` → `handle_edge_cases=true` (safe wrapper, handles edge cases)
+- `pippenger_unsafe()` → explicitly uses `handle_edge_cases=false`
+
+⚠️ **Use `msm()` or `pippenger_unsafe()` only when points are guaranteed linearly independent** (e.g., SRS points, randomly sampled points). For user-controlled or potentially duplicate points, use `pippenger()`.
 
 ## Tuning Constants and Cost Model
 
@@ -321,11 +319,11 @@ where `bucket_index = get_scalar_slice(scalar[point_index], round, bits_per_slic
 
 #### Why This Packing Format?
 
-**Bucket index in low 32 bits**: Radix sort operates on the low bits of each key. By placing `bucket_index` in bits [31:0], we sort by bucket without bit manipulation. The sort naturally groups points by their target bucket.
+**Bucket index in low 32 bits**: We pack `bucket_index` in bits [31:0] so the radix digits are taken directly from the low word. The MSD radix sort operates over the `bucket_index_bits` range (padded to a byte boundary), grouping entries by bucket.
 
 **Point index in high 32 bits**: After sorting, extracting `point_index` is a simple right-shift (`entry >> 32`). No masking needed.
 
-**Why not two separate arrays?** A single packed array has better cache locality during sorting. The radix sort touches each element once per pass; having point_index and bucket_index co-located in the same cache line improves throughput.
+**Why not two separate arrays?** A single packed array has better cache locality during sorting. Co-locating point_index and bucket_index in the same cache line improves throughput.
 
 **32-bit fields**: Sufficient for $2^{32}$ points (4 billion) and $2^{32}$ buckets. In practice, we never exceed $2^{24}$ points or $2^{20}$ buckets.
 
@@ -351,20 +349,44 @@ Sorting groups points by their target bucket, so consecutive entries often share
 
 **Implementation**: `sort_point_schedule_and_count_zero_buckets()` in `process_buckets.cpp`
 
-We use **Most Significant Digit (MSD) radix sort** rather than comparison-based sorting (e.g., `std::sort`):
+We use **in-place MSD radix sort** rather than comparison-based sorting (e.g., `std::sort`):
 
 | Property | MSD Radix Sort | `std::sort` (introsort) |
 |----------|----------------|------------------------|
-| Complexity | $O(n \cdot k)$ where $k$ = digits | $O(n \log n)$ comparisons |
-| Cache behavior | Sequential scans | Random access (pivot comparisons) |
+| Complexity | $O(n \cdot k)$ where $k$ = digit levels | $O(n \log n)$ comparisons |
+| Cache behavior | Sequential scans per bucket | Random access (pivot comparisons) |
 | Branch prediction | Predictable loops | Data-dependent branches |
-| Parallelism | Bucket-level parallelism | Limited (partition step) |
+| Memory | In-place (no extra buffer) | In-place |
 
-For $n = 2^{20}$ points with 10-bit bucket indices, MSD radix sort performs $\lceil 10/8 \rceil = 2$ passes of $O(n)$ work each. Comparison sort would perform $\sim 20n$ comparisons with unpredictable branches.
+**Algorithm details**:
 
-**Why MSD over LSD?** MSD radix sort can terminate early when buckets become small (single-element buckets need no further sorting). It also enables counting zero-bucket entries during the final pass without a separate scan.
+1. **Byte-aligned padding**: `bucket_index_bits` is rounded up to the next multiple of `RADIX_BITS` (8) so the initial digit is byte-aligned. For 10-bit bucket indices, we pad to 16 bits and start at shift 8.
 
-**Why 8 bits per pass (RADIX_BITS=8)?** The counting histogram (256 entries × 4 bytes = 1 KB) fits in L1 cache. Each pass makes two sequential scans over the data: one for counting, one for permutation.
+2. **Recursive MSD traversal**: Sorting proceeds from the most significant radix digit down to the least significant via recursion. Each level counts bucket sizes, computes prefix offsets, then performs an **in-place cycle permutation** to place elements into their digit buckets.
+
+3. **Early termination**: Sub-buckets of size 0 or 1 are not recursed, reducing work when distribution is sparse.
+
+4. **Not stable**: The in-place permutation does not preserve relative order of equal keys (stability not required for this use case).
+
+**Why MSD over LSD?** MSD allows early termination for small buckets and naturally integrates zero-bucket counting (see below).
+
+**Why 8 bits per pass (RADIX_BITS=8)?** The counting histogram (256 entries × 4 bytes = 1 KB) fits in L1 cache.
+
+#### Zero-Bucket Counting Mechanism
+
+The sort function counts entries whose **bucket index is 0 for this round** (slice value == 0). These entries contribute nothing to this round's buckets and can be skipped.
+
+**How it works**:
+
+1. **Condition**: Zero counting via `bucket_counts[0]` only happens when `initial_shift == 0`, i.e., when `bits_per_slice <= RADIX_BITS` (8). In this case, there's only one radix digit and no recursion.
+
+2. **Counting**: At the final digit level on the top-level array, `bucket_counts[0]` gives the count of entries with bucket index 0.
+
+3. **Validation**: After sorting, we verify the first entry has `bucket_index == 0`. If not (e.g., no zeros exist), we return `num_zero_entries = 0`.
+
+**Limitation**: For `bits_per_slice > RADIX_BITS`, the recursion splits the array before reaching `shift == 0` at the top level, so zero counting is not performed (returns 0). This is acceptable because larger slice sizes are rare in practice.
+
+**Note**: "Bucket index 0" means the scalar slice is zero for *this round*, not that the entire scalar is zero.
 
 ### batch_accumulate_points_into_buckets Algorithm
 
@@ -432,43 +454,6 @@ After batch addition, we have $m/2$ result points (from $m$ input points). These
 
 The iterative loop continues until the scratch buffer drains completely, with each iteration roughly halving the number of pending points (since pairs get combined).
 
-## Data Structures
-
-### AffineElement (64 bytes)
-
-```cpp
-struct AffineElement {
-    Fq x;  // 32 bytes (256-bit field element, 4 × uint64_t limbs)
-    Fq y;  // 32 bytes
-};
-```
-
-Each BN254/Grumpkin point is 64 bytes in affine coordinates.
-
-### Point Schedule Entry (8 bytes)
-
-```
-bits [63:32] = point_index (into points[] array)
-bits [31:0]  = bucket_index
-```
-
-### Memory Layout
-
-For $n = 2^{20}$ points, $c = 10$ bits per slice:
-
-| Structure | Size | Notes |
-|-----------|------|-------|
-| `points[]` | 64 MB | Input points (read-only), $n$ × 64 bytes |
-| `bucket_accumulators[]` | 64 KB | $2^{10}$ buckets × 64 bytes |
-| `point_schedule[]` | 8 MB | $n$ entries × 8 bytes |
-| `scratch_space[]` | 128 KB | 2048 × 64 bytes |
-
-**Cache hierarchy context** (typical modern CPU):
-- L1 cache: 32-64 KB per core → holds ~500-1000 points
-- L2 cache: 256 KB - 1 MB per core → holds batch scratch space
-- L3 cache: 8-32 MB shared → holds point schedule for medium MSMs
-- DRAM: ~100 ns latency → main bottleneck for large MSMs
-
 ## Parallelization
 
 ### Thread-Local Storage
@@ -477,9 +462,10 @@ The implementation uses **per-thread buffers** rather than shared data structure
 
 | Buffer | Size | Purpose |
 |--------|------|---------|
-| `BucketAccumulators` | $2^c × 64$ bytes | Bucket array + existence bitmap |
-| `AffineAdditionData` | ~400 KB | Scratch for batch inversion |
-| `point_schedule` | $n × 8$ bytes | Per-MSM point schedule |
+| `BucketAccumulators` (affine) | $2^c × 64$ bytes | Affine bucket array + bitmap |
+| `JacobianBucketAccumulators` | $2^c × 96$ bytes | Jacobian bucket array + bitmap |
+| `AffineAdditionData` | ~400 KB | Scratch for batch inversion (affine only) |
+| `point_schedule` | $n × 8$ bytes | Per-MSM point schedule (affine only) |
 
 **Why thread-local?**
 - **No locks**: Each thread operates on its own buckets, eliminating contention
@@ -492,29 +478,21 @@ The implementation uses **per-thread buffers** rather than shared data structure
 
 For `batch_multi_scalar_mul()` processing multiple MSMs, work is distributed across threads using `MSMWorkUnit` structures.
 
+**Key design**: A single MSM can be **split across multiple threads** via `MSMWorkUnit`, which specifies:
+- `batch_msm_index`: Which MSM this work unit belongs to
+- `start_index`: Starting offset within that MSM's scalar indices
+- `size`: Number of points in this work unit
+
 **Splitting criterion**: Each thread should receive approximately equal total point count, not equal MSM count.
 
 **Example**: Given 4 MSMs of sizes [1000, 100, 100, 100] and 2 threads:
 - Bad split: Thread 1 gets MSM 0-1 (1100 points), Thread 2 gets MSM 2-3 (200 points)
 - Good split: Thread 1 gets MSM 0 (1000 points), Thread 2 gets MSM 1-3 (300 points)
 
-**Why this works**: Pippenger complexity is $O(n / \log n)$. For balanced point counts, threads finish at similar times. Imbalanced splits cause one thread to become a bottleneck.
+For a single large MSM, multiple threads each compute partial results on different point subsets, which are then accumulated in a final single-threaded reduction phase.
 
-**Implementation**: `get_work_units()` computes cumulative point counts and assigns contiguous MSM ranges to threads such that each thread's total is approximately `total_points / num_threads`.
+**Implementation**: `get_work_units()` computes cumulative point counts and assigns work units to threads such that each thread's total is approximately `total_points / num_threads`.
 
-## Performance Analysis
-
-### Profiling Results
-
-Measured breakdown for single-threaded MSM ($2^{17}$ to $2^{24}$ points):
-
-| Component | Time % | Description |
-|-----------|--------|-------------|
-| `batch_accumulate_points_into_buckets` | **84-85%** | Point copies + batch additions |
-| `accumulate_buckets` | 8-13% | Bucket reduction (prefix sums) |
-| `radix_sort` | 2-4% | Point scheduling |
-| `schedule_fill` | <3% | Building schedule entries |
-| doublings | <0.1% | Round combination |
 
 ## File Structure
 
