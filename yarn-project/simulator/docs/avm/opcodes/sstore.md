@@ -23,7 +23,7 @@ Writes to public storage at the specified slot. Performs a write to the Public D
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | DA Dynamic | 1024 | - |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -33,7 +33,7 @@ Writes to public storage at the specified slot. Performs a write to the Public D
 | `slotOffset` | Memory offset | Memory offset of the storage slot to write to |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SSTORE** (Opcode 0x30):
 
@@ -52,7 +52,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

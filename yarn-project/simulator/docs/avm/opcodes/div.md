@@ -22,7 +22,7 @@ Performs integer division (truncating). Both operands must have the same integra
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -30,10 +30,10 @@ Performs integer division (truncating). Both operands must have the same integra
 |------|------|-------------|
 | `aOffset` | Memory offset | Memory offset of the dividend |
 | `bOffset` | Memory offset | Memory offset of the divisor |
-| `dstOffset` | Memory offset | Memory offset for quotient |
+| `dstOffset` | Memory offset | Memory offset where the quotient will be written |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **DIV_8** (Opcode 0x06):
 
@@ -70,7 +70,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
