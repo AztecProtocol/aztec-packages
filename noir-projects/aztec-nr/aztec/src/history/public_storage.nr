@@ -18,6 +18,7 @@ pub trait PublicStorageHistoricalRead {
 }
 
 impl PublicStorageHistoricalRead for BlockHeader {
+    // TODO: possible duplicate of the impl in with_hash.nr in the protocol circuits.
     fn public_storage_historical_read(
         self,
         storage_slot: Field,
@@ -50,6 +51,7 @@ impl PublicStorageHistoricalRead for BlockHeader {
         // The code below is based on the same checks in `validate_public_data_reads` in `base_rollup_inputs`.
         let preimage = witness.leaf_preimage;
 
+        // TODO: consider using `is_valid_low_leaf` to reduce code duplication and audit surface.
         let is_less_than_slot = full_field_less_than(preimage.slot, public_data_tree_index);
         let is_next_greater_than = full_field_less_than(public_data_tree_index, preimage.next_slot);
         let is_max = ((preimage.next_index == 0) & (preimage.next_slot == 0));

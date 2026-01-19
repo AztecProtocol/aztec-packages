@@ -13,6 +13,9 @@ impl Serialize for Point {
     }
 }
 
+// Q: how do we make sure it's always this Hash trait impl that bites, and not the one defined within
+// EmbeddedCurvePoint? (The `Hash` trait in EmbeddedCurvePoint is confusing for my brain to reason about).
+// We should make sure we're never importing the Hash trait from the EmbeddedCurvePoint lib.
 impl Hash for Point {
     fn hash(self) -> Field {
         poseidon2_hash(self.serialize())

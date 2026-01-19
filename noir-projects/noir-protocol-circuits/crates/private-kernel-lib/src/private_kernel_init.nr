@@ -45,6 +45,7 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     // before the counter is set.
     // It also enables private functions to check whether they're in the revertible or non-revertible phase.
     // This value remains constant throughout the private execution and is verified in the Tail(-to-Public) circuit.
+    // TODO: rename to `min_revertible_side_effect_counter_hint` to align with `min_revertible_side_effect_counter` naming.
     pub revertible_counter_hint: u32,
 }
 

@@ -5,10 +5,12 @@ use crate::{
 };
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
+    // TODO: needs a domain separator
     poseidon2_hash([left, right])
 }
 
 pub fn sha_merkle_hash(left: Field, right: Field) -> Field {
+    // TODO: needs a domain separator
     accumulate_sha256(left, right)
 }
 

@@ -6,7 +6,7 @@ use crate::{
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct PublicDataTreeLeafPreimage {
-    pub slot: Field,
+    pub slot: Field, // confusing that it's sometimes called a `key` and sometimes called a `slot`.
     pub value: Field,
     pub next_slot: Field,
     pub next_index: Field,
@@ -26,7 +26,7 @@ impl Hash for PublicDataTreeLeafPreimage {
             crate::hash::poseidon2_hash([
                 self.slot,
                 self.value,
-                (self.next_index as Field),
+                self.next_index, // notice: for some reason next_index is in a position which differs from the struct's declaration order.
                 self.next_slot,
             ])
         }

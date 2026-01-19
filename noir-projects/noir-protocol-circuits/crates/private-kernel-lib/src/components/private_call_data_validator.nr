@@ -61,7 +61,7 @@ impl PrivateCallDataValidator {
 
         // The first function call in a tx cannot be static. If it were static, every subsequent call would also be
         // static, making the entire tx effectively a no-op. Enforcing this in the circuit prevents users from
-        // unintentionally paying for a tx that performs no work other than emitting the protocol nullifier.
+        // unintentionally paying for a tx that performs no work other than emitting the protocol nullifier. <---- Q: would it even be _able_ to emit a protocol nullifier if it's static?
         assert_eq(
             this_call.call_context.is_static_call,
             false,
@@ -113,6 +113,9 @@ impl PrivateCallDataValidator {
 
     /// For Init only.
     /// Validates that the first private call matches the tx_request (user's intent).
+    /// Note: we technically don't need a distinct `tx_request` private input to this circuit, since
+    /// all of its data is already duplicated in other inputs to this circuit. It was just easier to
+    /// implement in this way.
     fn validate_against_tx_request(self, tx_request: TxRequest) {
         let this_call = self.data.public_inputs;
         assert_eq(
@@ -125,6 +128,10 @@ impl PrivateCallDataValidator {
             this_call.call_context.function_selector,
             "function_selector in call_context does not match the value in tx_request",
         );
+        // Q: isn't this check redundant, since every tx starts in private-land?
+        // Q: is the existence of the `is_private` item redundant?
+        // Having said that, there are rumours that at some point in 2026 people will want to make a change
+        // to have public entrypoints to a tx too.
         assert(
             tx_request.function_data.is_private,
             "tx_request does not indicate the first function is private",
@@ -329,12 +336,35 @@ impl PrivateCallDataValidator {
     ///   non-revertible phase (counter < claimed_revertible_counter, or all counters are non-revertible)
     /// - If `expected_revertible_side_effect_counter` is set, the function expects to be in the
     ///   revertible phase (counter >= claimed_revertible_counter)
+    ///
+    /// It's technically possible for both to be set, since one function in the tx will span phases.
+    /// Of course, that function probably doesn't _need_ to set both, since it _knows_ the counter at which the phases switch.
+    ///
+    /// MIKE: It's a shame that this introduces another thing which must be known before a single function 
+    /// can be processed by a kernel, but is only learned later in the tx. (I still cling on to the idea 
+    /// of state channels or collaborative proving of a single tx being possible. Any time something like 
+    /// this is introduced it makes that harder to achieve). Obviously, there are other examples of this
+    /// pattern (such as the first nullifier hint), but I'd like to avoid more examples if we can.
+    ///
+    /// Tentative idea:
+    /// Can we not more-simply track two items:
+    /// max_end_counter_of_all_functions_which_voiced_an_expectation_that_theyre_non_revertible
+    /// min_start_counter_of_all_functions_which_voiced_an_expectation_that_theyre_revertible
+    /// (not genuine naming suggestions, I'm just trying to explain the idea)
+    ///
+    /// (it doesn't technically _have_ to be the explicit start and end counters, but it helps me explain my point)
+    /// Each time we process a function, we take the max between the function & the kernel's `max_...` value and the min of the `min_...` values.
+    /// Then we can simply check these against the min_revertible_side_effect counter in the tail circuit once known.
+    /// This removes the ugliness that each function needs to propagate its expectation of the `min_revertible_side_effect_counter`.
     fn validate_expected_counters(self, claimed_revertible_counter: u32) {
         let expected_non_revertible_side_effect_counter =
             self.data.public_inputs.expected_non_revertible_side_effect_counter;
         let expected_revertible_side_effect_counter =
             self.data.public_inputs.expected_revertible_side_effect_counter;
 
+        // Note: counter `0` is not a valid side-effect counter, so we use it as a sentinel value here
+        // to mean "the counter has not been set; the function doesn't care and is opting out of 
+        // specifying any expectation for the counter ".
         if expected_non_revertible_side_effect_counter != 0 {
             // If `claimed_revertible_counter` is 0, it means that the `min_revertible_side_effect_counter` was never set by
             // any private function call in the tx, so everything is non revertible.

@@ -23,6 +23,9 @@ where
     (is_valid, is_greater_than_low, is_less_than_next)
 }
 
+// Claude says:
+// Ambiguous points_to_infinity semantics: The function relies on points_to_infinity() to handle the max leaf case. In TestLeafPreimage, this returns true when next_value == 0. This creates ambiguity: is next_value: 0 an uninitialized leaf or the max leaf? The empty_low_leaf test conflates these cases.
+
 mod tests {
     use crate::tests::types::test_leaf_preimage::TestLeafPreimage;
     use super::is_valid_low_leaf;

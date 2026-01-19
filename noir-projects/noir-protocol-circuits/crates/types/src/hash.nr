@@ -113,7 +113,17 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
     // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
+    //
+    // Note to self: possibly accidental sentinel value; giving the contract address `0` special meaning in the protocol?
+    //
+    // TODO: I don't understand this function.
     if nullifier.contract_address.is_zero() {
+        // Either it is a 0 (empty) nullifier, or it has already been siloed.
+        // An already-siloed nullifier's contract_address is 0, hence, we presume this nullifier
+        // has already been siloed and simply return its presumed-to-be-siloed nullifier value.
+        // Q: under what circumstances would we call silo_nullifier on an already-siloed nullifier?
+        // ... in which circuits does this happen in?
+        // This overloading of the meaning of a 0 contract_address makes me nervous.
         value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
     } else {
         compute_siloed_nullifier(nullifier.contract_address, value)
@@ -121,12 +131,19 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
 }
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    // The protocol nullifier is ascribed a special side-effect counter of 1. No other side-effect
+    // can have counter 1 (see `validate_as_first_call` for that assertion).
+    //
+    // MIKE: consider whether it's safe for the NULL contract address to emit nullifiers: all users
+    // can effectively "impersonate" this NULL contract address, so there might be some danger in
+    // creating state owned by an impersonate-able address as this one.
     Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
         NULL_MSG_SENDER_CONTRACT_ADDRESS,
     )
 }
 
 pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {
+    // TODO: needs domain separator.
     poseidon2_hash([contract_address.to_field(), field])
 }
 
@@ -142,6 +159,7 @@ pub fn silo_private_log(private_log: Scoped<Counted<PrivateLogData>>) -> Private
 }
 
 pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
+    // TODO: needs domain separator?
     poseidon2_hash(log)
 }
 
@@ -163,6 +181,7 @@ pub fn compute_l2_to_l1_hash(
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
+    // TODO: needs domain separator?
     let contract_address_bytes: [u8; 32] = contract_address.to_field().to_be_bytes();
     let recipient_bytes: [u8; 20] = recipient.to_be_bytes();
     let content_bytes: [u8; 32] = content.to_be_bytes();

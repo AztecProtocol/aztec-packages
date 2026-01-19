@@ -150,6 +150,8 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
             1
         };
 
+    // Mike: it seems inconsistent that the `min_revertible_side_effect_counter = 0` means "nullish", but other nullish items are represented by a `MAX_U32_VALUE` global_index
+
     // Verify padding: all entries beyond total_side_effects must be null.
     // This prevents a malicious prover from adding extra entries that could allow duplicate or unsorted counters.
     let mut should_be_tailing = false;
@@ -190,7 +192,7 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
         sorted_side_effect_counters,
         GLOBAL_INDEX_NULLIFIER_OFFSET,
     );
-    validate_side_effect_ranges_for_call_request(
+    validate_side_effect_ranges_for_call_requests(
         public_inputs.private_call_requests,
         side_effect_sorting_hints.private_call_requests_indices,
         sorted_side_effect_counters,
@@ -499,6 +501,8 @@ unconstrained fn build_uniqueness_hints(
         if b.is_null() {
             true
         } else {
+            // Note: `sort_via` breaks if using `<`, if equal elements are possible.
+            // Q: wait, can't we use `<` then, because all counters should be distinct?
             a.counter <= b.counter
         }
     });
