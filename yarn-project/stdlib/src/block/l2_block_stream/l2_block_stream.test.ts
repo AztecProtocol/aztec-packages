@@ -121,16 +121,24 @@ describe('L2BlockStream', () => {
     );
 
     // Returns published checkpoints - each checkpoint contains just the one block for simplicity
-    blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, _limit: number) =>
-      Promise.resolve([
-        {
-          checkpoint: {
-            number: checkpointNumber,
-            hash: () => new Fr(checkpointNumber),
-            blocks: [makeBlockWithHash(checkpointNumber)],
-          },
-        } as unknown as PublishedCheckpoint,
-      ]),
+    // Respects the limit parameter and returns up to `limit` checkpoints
+    blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) =>
+      Promise.resolve(
+        compactArray(
+          times(limit, i => {
+            const cpNum = checkpointNumber + i;
+            return cpNum > checkpointed
+              ? undefined
+              : ({
+                  checkpoint: {
+                    number: cpNum,
+                    hash: () => new Fr(cpNum),
+                    blocks: [makeBlockWithHash(cpNum)],
+                  },
+                } as unknown as PublishedCheckpoint);
+          }),
+        ),
+      ),
     );
   });
 
@@ -142,7 +150,10 @@ describe('L2BlockStream', () => {
     beforeEach(() => {
       localData = new TestL2BlockStreamLocalDataProvider();
       handler = new TestL2BlockStreamEventHandler();
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        checkpointPrefetchLimit: 1,
+      });
     });
 
     it('pulls new blocks from start', async () => {
@@ -254,7 +265,7 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([5]),
         expectCheckpointed(),
       ]);
-      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(5);
+      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
       expect(blockSource.getL2BlocksNew).not.toHaveBeenCalled();
     });
 
@@ -274,7 +285,7 @@ describe('L2BlockStream', () => {
         expectCheckpointed(),
         expectBlocksAdded([4, 5]),
       ]);
-      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(3);
+      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
       expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(4), 2, undefined);
     });
 
@@ -437,20 +448,26 @@ describe('L2BlockStream', () => {
         ),
       );
 
-      // Returns published checkpoints with multiple blocks each
-      blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, _limit: number) => {
-        const firstBlock = getFirstBlockInCheckpoint(checkpointNumber);
-        const lastBlock = Math.min(getLastBlockInCheckpoint(checkpointNumber), checkpointed);
-        const blocks = times(lastBlock - firstBlock + 1, i => makeBlockInCheckpointWithHash(firstBlock + i));
-        return Promise.resolve([
-          {
+      // Returns published checkpoints with multiple blocks each, respecting the limit parameter
+      blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) => {
+        const checkpoints: PublishedCheckpoint[] = [];
+        for (let i = 0; i < limit; i++) {
+          const cpNum = CheckpointNumber(checkpointNumber + i);
+          const firstBlock = getFirstBlockInCheckpoint(cpNum);
+          const lastBlock = getLastBlockInCheckpoint(cpNum);
+          // Only include checkpoints that are within the checkpointed range
+          if (lastBlock > checkpointed) {
+            break;
+          }
+          checkpoints.push({
             checkpoint: {
-              number: checkpointNumber,
-              hash: () => new Fr(checkpointNumber),
-              blocks,
+              number: cpNum,
+              hash: () => new Fr(cpNum),
+              blocks: times(blocksPerCheckpoint, j => makeBlockInCheckpointWithHash(firstBlock + j)),
             },
-          } as unknown as PublishedCheckpoint,
-        ]);
+          } as unknown as PublishedCheckpoint);
+        }
+        return Promise.resolve(checkpoints);
       });
     });
 
@@ -734,6 +751,154 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([10, 11, 12]),
         expectCheckpointed(4),
       ]);
+    });
+
+    describe('checkpoint prefetching', () => {
+      it('prefetches multiple checkpoints in a single RPC call', async () => {
+        // Set up: 9 blocks in 3 checkpoints
+        setRemoteTipsMultiBlock(9, 9);
+
+        // Create a stream with prefetch limit of 10 (will fetch all 3 checkpoints in one call)
+        // This also tests that we handle getting fewer checkpoints (3) than requested (10)
+        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          checkpointPrefetchLimit: 10,
+        });
+
+        await prefetchStream.work();
+
+        // Should have fetched all 3 checkpoints in a single call (Loop 2 makes 1 call with limit 10)
+        // Even though we requested 10, only 3 exist - verify we handle this correctly
+        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const loop2Calls = calls.filter(([_, limit]) => limit === 10);
+        expect(loop2Calls.length).toBe(1);
+        expect(loop2Calls[0][0]).toBe(1); // Starting from checkpoint 1
+
+        // All 3 checkpoints should be emitted correctly (not 10)
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(3);
+
+        // Verify correct event order
+        expect(handler.events).toEqual([
+          expectBlocksAdded([1, 2, 3]),
+          expectCheckpointed(1),
+          expectBlocksAdded([4, 5, 6]),
+          expectCheckpointed(2),
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+        ]);
+      });
+
+      it('prefetches checkpoints correctly when starting from an offset', async () => {
+        // Set up: 15 blocks in 5 checkpoints, but we already have blocks 1-6 locally (checkpoints 1-2)
+        setRemoteTipsMultiBlock(15, 15);
+        localData.proposed.number = BlockNumber(6);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(2);
+
+        // Create a stream with prefetch limit of 10
+        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          checkpointPrefetchLimit: 10,
+        });
+
+        await prefetchStream.work();
+
+        // Loop 2 should start fetching from checkpoint 3 (block 7 is in checkpoint 3)
+        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const loop2Calls = calls.filter(([_, limit]) => limit === 10);
+        expect(loop2Calls.length).toBe(1);
+        expect(loop2Calls[0][0]).toBe(3); // Starting from checkpoint 3, not 1
+
+        // Should only emit blocks 7-15 and checkpoints 3-5 (not 1-2, those are already local)
+        expect(handler.events).toEqual([
+          expectBlocksAdded([7, 8, 9]),
+          expectCheckpointed(3),
+          expectBlocksAdded([10, 11, 12]),
+          expectCheckpointed(4),
+          expectBlocksAdded([13, 14, 15]),
+          expectCheckpointed(5),
+        ]);
+
+        // Verify only 3 new checkpoints emitted
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(3);
+      });
+
+      it('prefetches correctly when starting from middle of a checkpoint', async () => {
+        // Local has blocks 1-7: checkpoints 1-2 complete, block 7 is first block of checkpoint 3
+        setRemoteTipsMultiBlock(15, 15);
+        localData.proposed.number = BlockNumber(7);
+        localData.checkpointed.checkpoint.number = CheckpointNumber(2);
+
+        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          checkpointPrefetchLimit: 10,
+        });
+
+        await prefetchStream.work();
+
+        // Should start prefetching from checkpoint 3
+        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const loop2Calls = calls.filter(([_, limit]) => limit === 10);
+        expect(loop2Calls.length).toBe(1);
+        expect(loop2Calls[0][0]).toBe(3); // Starting from checkpoint 3
+
+        // Should emit only blocks 8-9 from checkpoint 3 (block 7 is already local)
+        expect(handler.events).toEqual([
+          expectBlocksAdded([8, 9]), // Rest of checkpoint 3
+          expectCheckpointed(3),
+          expectBlocksAdded([10, 11, 12]),
+          expectCheckpointed(4),
+          expectBlocksAdded([13, 14, 15]),
+          expectCheckpointed(5),
+        ]);
+
+        // Verify only 3 checkpoints emitted
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(3);
+      });
+
+      it('refills prefetch buffer when exhausted', async () => {
+        // Set up: 15 blocks in 5 checkpoints
+        setRemoteTipsMultiBlock(15, 15);
+
+        // Create a stream with prefetch limit of 2 (will need 3 calls to fetch 5 checkpoints)
+        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          checkpointPrefetchLimit: 2,
+        });
+
+        await prefetchStream.work();
+
+        // Should have made 3 calls with limit 2 to fetch 5 checkpoints
+        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const loop2Calls = calls.filter(([_, limit]) => limit === 2);
+        expect(loop2Calls.length).toBe(3); // ceil(5/2) = 3
+        expect(loop2Calls[0][0]).toBe(1); // First batch: checkpoints 1-2
+        expect(loop2Calls[1][0]).toBe(3); // Second batch: checkpoints 3-4
+        expect(loop2Calls[2][0]).toBe(5); // Third batch: checkpoint 5
+
+        // All 5 checkpoints should be emitted
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(5);
+      });
+
+      it('uses default prefetch limit when not specified', async () => {
+        // Set up: 9 blocks in 3 checkpoints
+        setRemoteTipsMultiBlock(9, 9);
+
+        // Create a stream without specifying checkpointPrefetchLimit (should use default of 50)
+        const defaultPrefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+        });
+
+        await defaultPrefetchStream.work();
+
+        // Should have used default limit of 50 for Loop 2 calls
+        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const loop2Calls = calls.filter(([_, limit]) => limit === 50);
+        expect(loop2Calls.length).toBeGreaterThanOrEqual(1);
+      });
     });
 
     describe('prune scenarios', () => {
