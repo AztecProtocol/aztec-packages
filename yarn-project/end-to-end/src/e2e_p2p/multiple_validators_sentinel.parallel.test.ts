@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -151,16 +152,21 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       `Waiting until L2 slot ${targetSlot} and proposer is in first node (${firstNodeValidators.join(', ')})`,
       { initialBlock, initialSlot, timeout, firstNodeValidators },
     );
-    await Promise.all([
-      retryUntil(() => t.monitor.l2SlotNumber >= targetSlot, `reached slot ${targetSlot}`, timeout),
-      retryUntil(
-        () => rollup.getCurrentProposer().then(p => firstNodeValidators.some(v => v.equals(p))),
-        'proposer is first node',
-        timeout,
-      ),
-    ]);
 
-    const slotForSentinel = (await t.monitor.run()).l2SlotNumber;
+    // We want to wait until we see a slot where we query the proposer and find it's one of the first node validators
+    let slotForSentinel!: SlotNumber;
+    await retryUntil(
+      async () => {
+        slotForSentinel = (await t.monitor.run()).l2SlotNumber;
+        const timestamp = await rollup.getTimestampForSlot(slotForSentinel);
+        const proposerAtTime = await rollup.getProposerAt(timestamp);
+        t.logger.info(`At slot ${slotForSentinel}, proposer is ${proposerAtTime}`);
+        return firstNodeValidators.some(v => v.equals(proposerAtTime)) && slotForSentinel >= targetSlot;
+      },
+      'proposer is first node',
+      timeout,
+    );
+
     t.logger.info(`Waiting until sentinel processed until slot ${slotForSentinel}`);
     await retryUntil(
       async () => {
