@@ -478,7 +478,6 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
 inline Acir::Circuit build_acir_circuit(const std::vector<Acir::Opcode>& opcodes)
 {
     return Acir::Circuit{
-        .function_name = "test_circuit",
         .opcodes = opcodes,
         .private_parameters = {},
         .public_parameters = Acir::PublicInputs{ .value = {} },

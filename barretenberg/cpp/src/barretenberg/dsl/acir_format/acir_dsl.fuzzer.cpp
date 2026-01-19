@@ -1120,7 +1120,6 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         // Create ACIR Circuit
         // Note: num_witnesses may have been updated by logic constraint generation
         Acir::Circuit circuit;
-        circuit.function_name = "main";
         circuit.private_parameters = {};
         circuit.public_parameters.value = {};
         circuit.return_values.value = {};
