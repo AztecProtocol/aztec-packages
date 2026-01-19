@@ -17,6 +17,7 @@ From now on, we focus only on the case in which the backend is barretenberg.
 ## `Opcode`
 
 The following is the list of opcodes (see [`Opcode`](serde/acir.hpp#L3905)):
+
 - [`AssertZero`](serde/acir.hpp#L3907)
 - [`MemoryInit`](serde/acir.hpp#L3971)
 - [`MemoryOp`](serde/acir.hpp#L3947)
@@ -65,7 +66,7 @@ The conversion from a buffer of bytes to a `Builder` object happens in two steps
 
 Instances of the [`AcirFormat`](acir_format.hpp#L69) struct contain a record of all the constraints written in Noir. Barretenberg's role is to take this record and construct a builder out of it. The `Builder` object can then be used to generate a Honk proof, a verification key, or accumulated during the generation of a Chonk proof.
 
-The single entrypoint for the conversion from a buffer of bytes into an instance of `AcirFormat` is the function [`circuit_buf_to_acir_format`](acir_to_constraint_buf.cpp#L166). This function deserializes the buffer according to the bincode serialization format. The result of the deserialization is an instance of the [`Acir::Circuit`](serde/acir.hpp#L4502) struct, which the opcodes representing the Noir program.
+The single entrypoint for the conversion from a buffer of bytes into an instance of `AcirFormat` is the function [`circuit_buf_to_acir_format`](acir_to_constraint_buf.cpp#L166). This function deserializes the buffer according to the msgpack serialization format. The result of the deserialization is an instance of the [`Acir::Circuit`](serde/acir.hpp#L4502) struct, which the opcodes representing the Noir program.
 
 The `Acir::Circuit` is passed to [`circuit_serde_to_acir_format`](acir_to_constraint_buf.cpp#L115), which processes all of the opcodes and adds them to an instance of `AcirFormat`. This step is simply converting one representation (`Acir::Circuit`) into another (`AcirFormat`).
 
