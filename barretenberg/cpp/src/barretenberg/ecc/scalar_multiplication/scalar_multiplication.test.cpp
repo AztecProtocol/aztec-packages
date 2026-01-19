@@ -224,71 +224,6 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
     }
 
-    void test_evaluate_pippenger_round()
-    {
-        const size_t num_pts = 2;
-        std::vector<ScalarField> test_scalars(num_pts);
-        std::vector<ScalarField> scalars_montgomery(num_pts);
-        constexpr uint32_t NUM_BITS_IN_FIELD = fr::modulus.get_msb() + 1;
-        constexpr uint32_t normal_slice_size = 7;
-        const size_t num_buckets = size_t{ 1 } << normal_slice_size;
-
-        constexpr uint32_t num_rounds = (NUM_BITS_IN_FIELD + normal_slice_size - 1) / normal_slice_size;
-        typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data;
-        typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
-
-        // Test only the last round (round_index = num_rounds - 1) since it exercises the edge case
-        // where num_bits_in_slice may be smaller than normal_slice_size
-        for (uint32_t round_index = num_rounds - 1; round_index < num_rounds; round_index++) {
-            const uint32_t num_bits_in_slice =
-                (round_index == (num_rounds - 1)) ? (NUM_BITS_IN_FIELD % normal_slice_size) : normal_slice_size;
-            for (size_t i = 0; i < num_pts; ++i) {
-                uint32_t hi_bit = NUM_BITS_IN_FIELD - (round_index * normal_slice_size);
-                uint32_t lo_bit = hi_bit - normal_slice_size;
-                if (hi_bit < normal_slice_size) {
-                    lo_bit = 0;
-                }
-                uint64_t slice = engine.get_random_uint64() & ((1 << num_bits_in_slice) - 1);
-                uint256_t scalar = uint256_t(slice) << lo_bit;
-                ScalarField scalar_nonmontgomery;
-                scalar_nonmontgomery.data[0] = scalar.data[0];
-                scalar_nonmontgomery.data[1] = scalar.data[1];
-                scalar_nonmontgomery.data[2] = scalar.data[2];
-                scalar_nonmontgomery.data[3] = scalar.data[3];
-                test_scalars[i] = scalar_nonmontgomery;
-                test_scalars[i].self_to_montgomery_form();
-                scalars_montgomery[i] = test_scalars[i];
-            }
-
-            std::vector<uint32_t> indices;
-            scalar_multiplication::MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(test_scalars, indices);
-
-            for (auto x : indices) {
-                ASSERT_LT(x, num_pts);
-            }
-            std::vector<uint64_t> point_schedule(test_scalars.size());
-            typename scalar_multiplication::MSM<Curve>::MSMData msm_data(
-                test_scalars, generators, indices, point_schedule);
-            Element result;
-            result.self_set_infinity();
-            scalar_multiplication::MSM<Curve>::evaluate_affine_pippenger_round(
-                msm_data, round_index, affine_data, bucket_data, result, normal_slice_size);
-            Element expected;
-            expected.self_set_infinity();
-            for (size_t i = 0; i < num_pts; ++i) {
-                expected += (generators[i] * scalars_montgomery[i]);
-            }
-            uint32_t num_doublings = NUM_BITS_IN_FIELD - (normal_slice_size * (round_index + 1));
-            if (round_index == num_rounds - 1) {
-                num_doublings = 0;
-            }
-            for (uint32_t i = 0; i < num_doublings; ++i) {
-                result.self_dbl();
-            }
-            EXPECT_EQ(AffineElement(result), AffineElement(expected));
-        }
-    }
-
     void test_pippenger_low_memory()
     {
         std::span<ScalarField> test_scalars(&scalars[0], num_points);
@@ -599,10 +534,6 @@ TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatchAndAccumulate)
 TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntries)
 {
     this->test_radix_sort_count_zero_entries();
-}
-TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
-{
-    this->test_evaluate_pippenger_round();
 }
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
 {

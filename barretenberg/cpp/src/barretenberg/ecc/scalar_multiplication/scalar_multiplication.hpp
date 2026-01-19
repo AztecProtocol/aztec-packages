@@ -196,116 +196,6 @@ template <typename Curve> class MSM {
     // ======================= Public Methods =======================
     // See README.md for algorithm details and mathematical derivations.
 
-    static uint32_t get_num_rounds(size_t num_points) noexcept
-    {
-        const uint32_t bits_per_slice = get_optimal_log_num_buckets(num_points);
-        return (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
-    }
-
-    /**
-     * @brief Batch add n/2 independent point pairs using Montgomery's trick (1 inversion for n additions)
-     * @param points Input pairs [P0,Q0,P1,Q1,...]; results written to [points[n/2], points[n/2+1], ...]
-     * @see README.md "Affine Addition Trick"
-     */
-    static void add_affine_points(AffineElement* points,
-                                  const size_t num_points,
-                                  typename Curve::BaseField* scratch_space) noexcept;
-
-    /**
-     * @brief Convert scalars from Montgomery form and collect indices of nonzero scalars
-     * @note Modifies scalars in-place (converts from Montgomery form)
-     * @see README.md "Zero Scalar Filtering"
-     */
-    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
-                                                                std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
-
-    /**
-     * @brief Distribute multiple MSMs across threads with balanced point counts
-     * @see README.md "Work Unit Splitting"
-     */
-    static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
-                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
-
-    /**
-     * @brief Extract c-bit slice from scalar for bucket index computation
-     * @param scalar Must be in non-Montgomery form
-     * @param round Round index (0 = most significant bits)
-     * @see README.md "Step 1: Scalar Decomposition"
-     */
-    static uint32_t get_scalar_slice(const ScalarField& scalar, uint32_t round, uint32_t slice_size) noexcept;
-
-    /**
-     * @brief Compute optimal bits per slice: c ≈ ceil(log2(sqrt(n)))
-     * @see README.md "Optimal Bucket Count Derivation"
-     */
-    static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
-
-    /**
-     * @brief Decide if batch inversion saves work vs Jacobian additions
-     * @see README.md "Cost Model Constants"
-     */
-    static bool use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept;
-
-    /**
-     * @brief Pippenger using Jacobian buckets (handles edge cases: doubling, infinity)
-     * @see README.md "Jacobian Pippenger"
-     */
-    static Element jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
-
-    /**
-     * @brief Pippenger using affine buckets with batch inversion (faster, no edge case handling)
-     * @see README.md "Affine Pippenger with Batch Inversion"
-     */
-    static Element affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
-
-    /**
-     * @brief Single Pippenger round using Jacobian bucket accumulation
-     * @see README.md "Step 2: Bucket Accumulation"
-     */
-    static void evaluate_jacobian_pippenger_round(MSMData& msm_data,
-                                                  uint32_t round_index,
-                                                  JacobianBucketAccumulators& bucket_data,
-                                                  Element& msm_accumulator,
-                                                  uint32_t bits_per_slice) noexcept;
-
-    /**
-     * @brief Single Pippenger round using affine bucket accumulation with batch inversion
-     * @see README.md "Step 2: Bucket Accumulation"
-     */
-    static void evaluate_affine_pippenger_round(MSMData& msm_data,
-                                                uint32_t round_index,
-                                                AffineAdditionData& affine_data,
-                                                BucketAccumulators& bucket_data,
-                                                Element& msm_accumulator,
-                                                uint32_t bits_per_slice) noexcept;
-
-    /**
-     * @brief Combine round result into running MSM accumulator (Horner's method)
-     * @see README.md "Step 4: Round Combination"
-     */
-    static void accumulate_round_result(Element& msm_accumulator,
-                                        const Element& bucket_result,
-                                        uint32_t round_index,
-                                        uint32_t bits_per_slice) noexcept;
-
-    /**
-     * @brief Process sorted point schedule into bucket accumulators using batched affine additions
-     * @see README.md "batch_accumulate_points_into_buckets Algorithm"
-     */
-    static void batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
-                                                     std::span<const AffineElement> points,
-                                                     AffineAdditionData& affine_data,
-                                                     BucketAccumulators& bucket_data) noexcept;
-
-    /**
-     * @brief Compute multiple MSMs in parallel with work balancing
-     * @note Scalars are modified in-place (Montgomery conversion)
-     * @see README.md "Parallelization"
-     */
-    static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
-                                                             std::span<std::span<ScalarField>> scalars,
-                                                             bool handle_edge_cases = true) noexcept;
-
     /**
      * @brief Main entry point for single MSM computation
      * @param handle_edge_cases false (default): fast affine variant; true: safe Jacobian variant
@@ -316,9 +206,41 @@ template <typename Curve> class MSM {
                              bool handle_edge_cases = false) noexcept;
 
     /**
-     * @brief Reduce buckets to single point using prefix sums: R = sum(k * B_k)
-     * @see README.md "Step 3: Bucket Reduction"
+     * @brief Compute multiple MSMs in parallel with work balancing
+     * @note Scalars are modified in-place (Montgomery conversion)
+     * @see README.md "Parallelization"
      */
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
+                                                             std::span<std::span<ScalarField>> scalars,
+                                                             bool handle_edge_cases = true) noexcept;
+
+    // ======================= Test-Visible Methods =======================
+    // Exposed for unit testing; not part of the public API.
+
+    static uint32_t get_num_rounds(size_t num_points) noexcept
+    {
+        const uint32_t bits_per_slice = get_optimal_log_num_buckets(num_points);
+        return (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+    }
+
+    /** @brief Batch add n/2 independent point pairs using Montgomery's trick */
+    static void add_affine_points(AffineElement* points,
+                                  const size_t num_points,
+                                  typename Curve::BaseField* scratch_space) noexcept;
+
+    /** @brief Extract c-bit slice from scalar for bucket index computation */
+    static uint32_t get_scalar_slice(const ScalarField& scalar, uint32_t round, uint32_t slice_size) noexcept;
+
+    /** @brief Compute optimal bits per slice: c ≈ ceil(log2(sqrt(n))) */
+    static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
+
+    /** @brief Process sorted point schedule into bucket accumulators using batched affine additions */
+    static void batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
+                                                     std::span<const AffineElement> points,
+                                                     AffineAdditionData& affine_data,
+                                                     BucketAccumulators& bucket_data) noexcept;
+
+    /** @brief Reduce buckets to single point using prefix sums: R = sum(k * B_k) */
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
     {
         auto& buckets = bucket_accumulators.buckets;
@@ -354,8 +276,26 @@ template <typename Curve> class MSM {
     }
 
   private:
-    // ======================= Private Helpers =======================
-    // Used by batch_accumulate_points_into_buckets. Inlined for performance.
+    // ======================= Private Implementation =======================
+
+    /** @brief Convert scalars from Montgomery form and collect indices of nonzero scalars */
+    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
+                                                                std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
+
+    /** @brief Distribute multiple MSMs across threads with balanced point counts */
+    static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
+                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
+
+    /** @brief Decide if batch inversion saves work vs Jacobian additions */
+    static bool use_affine_trick(size_t num_points, size_t num_buckets) noexcept;
+
+    /** @brief Pippenger using Jacobian buckets (handles edge cases: doubling, infinity) */
+    static Element jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
+
+    /** @brief Pippenger using affine buckets with batch inversion (faster, no edge case handling) */
+    static Element affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
+
+    // Helpers for batch_accumulate_points_into_buckets. Inlined for performance.
 
     // Process single point: if bucket has accumulator, pair them for addition; else cache in bucket.
     __attribute__((always_inline)) static void process_single_point(size_t bucket,

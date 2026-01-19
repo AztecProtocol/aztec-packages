@@ -254,17 +254,39 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
 template <typename Curve>
 typename Curve::Element MSM<Curve>::jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept
 {
-    std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
-    const size_t size = nonzero_scalar_indices.size();
+    const size_t size = msm_data.scalar_indices.size();
     const uint32_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = size_t{ 1 } << bits_per_slice;
-    JacobianBucketAccumulators bucket_data = JacobianBucketAccumulators(num_buckets);
+    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+    const uint32_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
+
+    JacobianBucketAccumulators bucket_data(num_buckets);
     Element msm_result = Curve::Group::point_at_infinity;
 
-    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+    for (uint32_t round = 0; round < num_rounds; ++round) {
+        // Populate buckets using Jacobian accumulation
+        for (size_t i = 0; i < size; ++i) {
+            uint32_t idx = msm_data.scalar_indices[i];
+            uint32_t bucket = get_scalar_slice(msm_data.scalars[idx], round, bits_per_slice);
+            if (bucket > 0) {
+                if (bucket_data.bucket_exists.get(bucket)) {
+                    bucket_data.buckets[bucket] += msm_data.points[idx];
+                } else {
+                    bucket_data.buckets[bucket] = msm_data.points[idx];
+                    bucket_data.bucket_exists.set(bucket, true);
+                }
+            }
+        }
 
-    for (uint32_t i = 0; i < num_rounds; ++i) {
-        evaluate_jacobian_pippenger_round(msm_data, i, bucket_data, msm_result, bits_per_slice);
+        // Reduce buckets and accumulate into result
+        Element bucket_result = accumulate_buckets(bucket_data);
+        bucket_data.bucket_exists.clear();
+
+        uint32_t num_doublings = (round == num_rounds - 1 && remainder != 0) ? remainder : bits_per_slice;
+        for (uint32_t i = 0; i < num_doublings; ++i) {
+            msm_result.self_dbl();
+        }
+        msm_result += bucket_result;
     }
     return msm_result;
 }
@@ -272,15 +294,18 @@ typename Curve::Element MSM<Curve>::jacobian_pippenger_with_transformed_scalars(
 template <typename Curve>
 typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept
 {
-    const size_t msm_size = msm_data.scalar_indices.size();
-    const uint32_t bits_per_slice = get_optimal_log_num_buckets(msm_size);
+    const size_t size = msm_data.scalar_indices.size();
+    const uint32_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = size_t{ 1 } << bits_per_slice;
 
-    if (!use_affine_trick(msm_size, num_buckets)) {
+    if (!use_affine_trick(size, num_buckets)) {
         return jacobian_pippenger_with_transformed_scalars(msm_data);
     }
 
-    // Use thread-local storage to avoid per-call allocations (resolves issue #1452)
+    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+    const uint32_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
+
+    // Thread-local storage avoids per-call allocations (resolves issue #1452)
     static thread_local AffineAdditionData affine_data;
     static thread_local BucketAccumulators bucket_data(0);
     if (bucket_data.buckets.size() < num_buckets) {
@@ -290,109 +315,36 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
 
     Element msm_result = Curve::Group::point_at_infinity;
 
-    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
-    for (uint32_t i = 0; i < num_rounds; ++i) {
-        evaluate_affine_pippenger_round(msm_data, i, affine_data, bucket_data, msm_result, bits_per_slice);
+    for (uint32_t round = 0; round < num_rounds; ++round) {
+        // Build point schedule for this round
+        for (size_t i = 0; i < size; ++i) {
+            uint32_t idx = msm_data.scalar_indices[i];
+            uint32_t bucket = get_scalar_slice(msm_data.scalars[idx], round, bits_per_slice);
+            msm_data.point_schedule[i] = PointScheduleEntry::create(idx, bucket).data;
+        }
+
+        // Sort by bucket and count zero-bucket entries
+        size_t num_zero = sort_point_schedule_and_count_zero_buckets(&msm_data.point_schedule[0], size, bits_per_slice);
+        size_t round_size = size - num_zero;
+
+        // Accumulate points into buckets
+        Element bucket_result = Curve::Group::point_at_infinity;
+        if (round_size > 0) {
+            std::span<uint64_t> schedule(&msm_data.point_schedule[num_zero], round_size);
+            batch_accumulate_points_into_buckets(schedule, msm_data.points, affine_data, bucket_data);
+            bucket_result = accumulate_buckets(bucket_data);
+            bucket_data.bucket_exists.clear();
+        }
+
+        // Combine into running result
+        uint32_t num_doublings = (round == num_rounds - 1 && remainder != 0) ? remainder : bits_per_slice;
+        for (uint32_t i = 0; i < num_doublings; ++i) {
+            msm_result.self_dbl();
+        }
+        msm_result += bucket_result;
     }
 
     return msm_result;
-}
-
-template <typename Curve>
-void MSM<Curve>::evaluate_jacobian_pippenger_round(MSMData& msm_data,
-                                                   const uint32_t round_index,
-                                                   MSM<Curve>::JacobianBucketAccumulators& bucket_data,
-                                                   typename Curve::Element& msm_accumulator,
-                                                   const uint32_t bits_per_slice) noexcept
-{
-    std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
-    std::span<const ScalarField>& scalars = msm_data.scalars;
-    std::span<const AffineElement>& points = msm_data.points;
-
-    // Populate buckets using simple Jacobian accumulation
-    const size_t size = nonzero_scalar_indices.size();
-    for (size_t i = 0; i < size; ++i) {
-        BB_ASSERT_DEBUG(nonzero_scalar_indices[i] < scalars.size());
-        uint32_t bucket_index = get_scalar_slice(scalars[nonzero_scalar_indices[i]], round_index, bits_per_slice);
-        BB_ASSERT_DEBUG(bucket_index < (1U << bits_per_slice));
-        if (bucket_index > 0) {
-            // Check bucket_exists because buckets aren't reset to infinity between rounds.
-            // Resetting would require O(num_buckets) clears per round; using a bitmap is O(1) amortized.
-            if (bucket_data.bucket_exists.get(bucket_index)) {
-                bucket_data.buckets[bucket_index] += points[nonzero_scalar_indices[i]];
-            } else {
-                bucket_data.buckets[bucket_index] = points[nonzero_scalar_indices[i]];
-                bucket_data.bucket_exists.set(bucket_index, true);
-            }
-        }
-    }
-
-    // Reduce buckets to single point for this round
-    Element bucket_result = accumulate_buckets(bucket_data);
-    bucket_data.bucket_exists.clear();
-
-    // Accumulate into running total
-    accumulate_round_result(msm_accumulator, bucket_result, round_index, bits_per_slice);
-}
-
-template <typename Curve>
-void MSM<Curve>::evaluate_affine_pippenger_round(MSMData& msm_data,
-                                                 const uint32_t round_index,
-                                                 MSM<Curve>::AffineAdditionData& affine_data,
-                                                 MSM<Curve>::BucketAccumulators& bucket_data,
-                                                 typename Curve::Element& msm_accumulator,
-                                                 const uint32_t bits_per_slice) noexcept
-{
-    std::span<const uint32_t>& scalar_indices = msm_data.scalar_indices; // indices of nonzero scalars
-    std::span<const ScalarField>& scalars = msm_data.scalars;
-    std::span<const AffineElement>& points = msm_data.points;
-    std::span<uint64_t>& round_schedule = msm_data.point_schedule;
-    const size_t size = scalar_indices.size();
-
-    // Construct a "round schedule" - each entry packs (point_index, bucket_index) for sorting
-    for (size_t i = 0; i < size; ++i) {
-        BB_ASSERT_DEBUG(scalar_indices[i] < scalars.size());
-        uint32_t bucket_index = get_scalar_slice(scalars[scalar_indices[i]], round_index, bits_per_slice);
-        round_schedule[i] = PointScheduleEntry::create(scalar_indices[i], bucket_index).data;
-    }
-
-    // Sort point schedule by bucket index for cache-efficient processing; also count zero-bucket entries to skip
-    const size_t num_zero_entries =
-        scalar_multiplication::sort_point_schedule_and_count_zero_buckets(&round_schedule[0], size, bits_per_slice);
-    BB_ASSERT_DEBUG(num_zero_entries <= size);
-    const size_t round_size = size - num_zero_entries;
-
-    // Populate buckets using affine addition with batch inversion
-    Element bucket_result = Curve::Group::point_at_infinity;
-    if (round_size > 0) {
-        std::span<uint64_t> point_schedule(&round_schedule[num_zero_entries], round_size);
-        // Iterate through our point schedule and add points into corresponding buckets
-        batch_accumulate_points_into_buckets(point_schedule, points, affine_data, bucket_data);
-        bucket_result = accumulate_buckets(bucket_data);
-        bucket_data.bucket_exists.clear();
-    }
-
-    // Accumulate into running total
-    accumulate_round_result(msm_accumulator, bucket_result, round_index, bits_per_slice);
-}
-
-template <typename Curve>
-void MSM<Curve>::accumulate_round_result(Element& msm_accumulator,
-                                         const Element& bucket_result,
-                                         uint32_t round_index,
-                                         uint32_t bits_per_slice) noexcept
-{
-    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
-    const bool is_last_round = (round_index == num_rounds - 1);
-    const uint32_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
-
-    // Last round may process fewer bits if NUM_BITS_IN_FIELD is not divisible by bits_per_slice
-    uint32_t num_doublings = (is_last_round && remainder != 0) ? remainder : bits_per_slice;
-
-    for (size_t i = 0; i < num_doublings; ++i) {
-        msm_accumulator.self_dbl();
-    }
-    msm_accumulator += bucket_result;
 }
 
 template <typename Curve>
@@ -457,18 +409,22 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
 {
     BB_BENCH_NAME("batch_accumulate_points_into_buckets");
 
+    if (point_schedule.empty()) {
+        return;
+    }
+
     size_t point_it = 0;
     size_t scratch_it = 0;
     const size_t num_points = point_schedule.size();
     const size_t prefetch_max = (num_points >= PREFETCH_LOOKAHEAD) ? (num_points - PREFETCH_LOOKAHEAD) : 0;
-    const size_t end = (num_points > 0) ? (num_points - 1) : 0;
+    const size_t last_index = num_points - 1;
 
     // Iterative loop - continues until all points processed and no work remains in scratch space
     while (point_it < num_points || scratch_it != 0) {
         // Step 1: Fill scratch space with up to BATCH_SIZE/2 independent additions
         {
             BB_BENCH_NAME("fill_scratch_from_schedule");
-            while (((scratch_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < end)) {
+            while (((scratch_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < last_index)) {
                 // Prefetch points we'll need soon (every PREFETCH_INTERVAL iterations)
                 if ((point_it < prefetch_max) && ((point_it & PREFETCH_INTERVAL_MASK) == 0)) {
                     for (size_t i = PREFETCH_LOOKAHEAD / 2; i < PREFETCH_LOOKAHEAD; ++i) {
@@ -492,7 +448,7 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
         }
 
         // Handle the last point (odd count case) - separate to avoid bounds check on point_schedule[point_it + 1]
-        if (point_it == num_points - 1) {
+        if (point_it == last_index) {
             PointScheduleEntry last{ point_schedule[point_it] };
             process_single_point(
                 last.bucket_index(), &points[last.point_index()], affine_data, bucket_data, scratch_it, point_it);
@@ -504,12 +460,12 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
             BB_BENCH_NAME("batch_affine_addition");
             if (num_points_to_add >= 2) {
                 add_affine_points(
-                    &affine_data.points_to_add[0], num_points_to_add, &affine_data.inversion_scratch_space[0]);
+                    affine_data.points_to_add.data(), num_points_to_add, affine_data.inversion_scratch_space.data());
             }
         }
 
         // add_affine_points stores results in the top-half of scratch space
-        AffineElement* affine_output = &affine_data.points_to_add[0] + (num_points_to_add / 2);
+        AffineElement* affine_output = affine_data.points_to_add.data() + (num_points_to_add / 2);
 
         // Recirculate addition outputs back into scratch space or bucket accumulators
         size_t new_scratch_it = 0;
@@ -518,7 +474,7 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
 
         {
             BB_BENCH_NAME("recirculate_affine_outputs");
-            while ((output_it < (num_outputs - 1)) && (num_outputs > 0)) {
+            while ((num_outputs > 1) && (output_it + 1 < num_outputs)) {
                 uint32_t lhs_bucket = affine_data.addition_result_bucket_destinations[output_it];
                 uint32_t rhs_bucket = affine_data.addition_result_bucket_destinations[output_it + 1];
 
@@ -533,7 +489,7 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
             }
 
             // Handle the last output (odd count case)
-            if (output_it == (num_outputs - 1)) {
+            if (num_outputs > 0 && output_it == num_outputs - 1) {
                 uint32_t bucket = affine_data.addition_result_bucket_destinations[output_it];
                 process_single_point(
                     bucket, &affine_output[output_it], affine_data, bucket_data, new_scratch_it, output_it);
@@ -577,12 +533,11 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 
             for (const MSMWorkUnit& msm : msms) {
                 point_schedule.resize(msm.size);
-                MSMData msm_data = MSMData::from_work_unit(
-                    scalars, points, msm_scalar_indices, std::span<uint64_t>(point_schedule), msm);
+                MSMData msm_data = MSMData::from_work_unit(scalars, points, msm_scalar_indices, point_schedule, msm);
                 Element msm_result =
                     (msm.size < PIPPENGER_THRESHOLD) ? small_mul<Curve>(msm_data) : pippenger_impl(msm_data);
 
-                msm_results.push_back(std::make_pair(msm_result, msm.batch_msm_index));
+                msm_results.emplace_back(msm_result, msm.batch_msm_index);
             }
         }
     });
@@ -590,24 +545,15 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     // Accumulate results. This part needs to be single threaded, but amount of work done here should be small
     // TODO(@zac-williamson) check this? E.g. if we are doing a 2^16 MSM with 256 threads this single-threaded part
     // will be painful.
-    std::vector<Element> results(num_msms);
-    for (Element& ele : results) {
-        ele.self_set_infinity();
-    }
+    std::vector<Element> results(num_msms, Curve::Group::point_at_infinity);
     for (const auto& single_thread_msm_results : thread_msm_results) {
-        for (const std::pair<Element, size_t>& result : single_thread_msm_results) {
-            results[result.second] += result.first;
+        for (const auto& [element, index] : single_thread_msm_results) {
+            results[index] += element;
         }
     }
-    Element::batch_normalize(&results[0], num_msms);
+    Element::batch_normalize(results.data(), num_msms);
 
-    std::vector<AffineElement> affine_results;
-    affine_results.reserve(num_msms);
-    for (const auto& ele : results) {
-        affine_results.emplace_back(AffineElement(ele.x, ele.y));
-    }
-
-    return affine_results;
+    return std::vector<AffineElement>(results.begin(), results.end());
 }
 
 template <typename Curve>
@@ -618,17 +564,31 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     if (scalars.size() == 0) {
         return Curve::Group::affine_point_at_infinity;
     }
-    BB_ASSERT_GTE(points.size(), scalars.start_index + scalars.size());
+    const size_t num_scalars = scalars.size();
+    BB_ASSERT_GTE(points.size(), scalars.start_index + num_scalars);
 
-    // const_cast is safe: batch_multi_scalar_mul converts from Montgomery, then we convert back.
+    // const_cast is safe: we convert from Montgomery, compute, then convert back.
     // Scalars are unchanged from the caller's perspective.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     ScalarField* scalar_ptr = const_cast<ScalarField*>(&scalars[scalars.start_index]);
-    const size_t num_scalars = scalars.size();
+    std::span<ScalarField> scalar_span(scalar_ptr, num_scalars);
 
-    std::vector<std::span<const AffineElement>> pp{ points.subspan(scalars.start_index) };
-    std::vector<std::span<ScalarField>> ss{ std::span<ScalarField>(scalar_ptr, num_scalars) };
-    AffineElement result = batch_multi_scalar_mul(pp, ss, handle_edge_cases)[0];
+    // Convert to non-Montgomery form and collect nonzero indices
+    std::vector<uint32_t> nonzero_indices;
+    transform_scalar_and_get_nonzero_scalar_indices(scalar_span, nonzero_indices);
+
+    // Compute MSM directly
+    std::vector<uint64_t> point_schedule(nonzero_indices.size());
+    MSMData msm_data{ scalar_span, points.subspan(scalars.start_index), nonzero_indices, point_schedule };
+
+    Element result;
+    if (nonzero_indices.size() < PIPPENGER_THRESHOLD) {
+        result = small_mul<Curve>(msm_data);
+    } else if (handle_edge_cases) {
+        result = jacobian_pippenger_with_transformed_scalars(msm_data);
+    } else {
+        result = affine_pippenger_with_transformed_scalars(msm_data);
+    }
 
     // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
     parallel_for_range(num_scalars, [&](size_t start, size_t end) {
@@ -637,7 +597,7 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
         }
     });
 
-    return result;
+    return AffineElement(result);
 }
 
 template <typename Curve>

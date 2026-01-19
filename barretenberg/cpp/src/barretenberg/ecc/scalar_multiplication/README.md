@@ -61,7 +61,7 @@ $$c = \left\lceil \log_2(\sqrt{n}) \right\rceil$$
 
 ### Step 2: Bucket Accumulation
 
-**Implementation**: `evaluate_affine_pippenger_round()` or `evaluate_jacobian_pippenger_round()`
+**Implementation**: Inlined in `affine_pippenger_with_transformed_scalars()` and `jacobian_pippenger_with_transformed_scalars()`
 
 For each round $j$, points are added into buckets based on their scalar slice value:
 
@@ -69,7 +69,7 @@ $$B_k^{(j)} = \sum_{\{i : s_i^{(j)} = k\}} P_i$$
 
 Each bucket $B_k$ accumulates the sum of all points whose scalar has slice value $k$ in round $j$.
 
-The round evaluation function builds a point schedule (sorted by bucket), then calls `batch_accumulate_points_into_buckets()` to perform the actual bucket accumulation using batch affine additions.
+The pippenger functions build a point schedule (sorted by bucket), then call `batch_accumulate_points_into_buckets()` to perform the actual bucket accumulation using batch affine additions.
 
 ### Step 3: Bucket Reduction
 
@@ -111,7 +111,7 @@ $$R = \left( \sum_k \text{prefix\_sum}_k + G_{\text{off}} \right) - G_{\text{off
 
 ### Step 4: Round Combination
 
-**Implementation**: `accumulate_round_result(msm_accumulator, bucket_result, round_index, bits_per_slice)`
+**Implementation**: Inlined in the pippenger functions
 
 The final MSM result combines all rounds:
 
