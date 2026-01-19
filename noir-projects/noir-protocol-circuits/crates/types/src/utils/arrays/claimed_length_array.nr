@@ -41,8 +41,6 @@ where
         assert_eq(self.length, 0);
     }
 
-    // TODO: possibly not needed if we change assert_dense_trimmed to call for_i_in_0_ with
-    // assert_max_lte_MAX set as `true`.
     pub fn assert_length_within_bounds<let S: u32>(self, msg: str<S>) {
         assert(self.length <= N, msg);
     }

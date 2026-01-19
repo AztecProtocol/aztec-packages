@@ -39,6 +39,13 @@ where
         self.hash
     }
 
+    /// Reads the value stored in this [WithHash] from public storage.
+    ///
+    /// Note that unlike a full public storage read, this will _not_ read (not return) the stored hash of the
+    /// value, resulting in reduced gas costs.
+    ///
+    /// This is the public counterpart to [WithHash::utility_public_storage_read] and
+    /// [WithHash::historical_public_storage_read].
     pub fn public_storage_read(context: PublicContext, storage_slot: Field) -> T {
         context.storage_read(storage_slot)
     }
@@ -64,6 +71,8 @@ where
             unsafe { oracle::storage::storage_read(header_to_read_from, address, storage_slot) },
         );
 
+        // The actual `value` (of type T, of packed length M fields) is stored in contiguous fields from the `storage_slot`.
+        // The _hash_ of the `value` is stored at the end, at slot: `storage_slot + M`.
         let hash =
             header_to_read_from.public_storage_historical_read(storage_slot + M as Field, address);
 

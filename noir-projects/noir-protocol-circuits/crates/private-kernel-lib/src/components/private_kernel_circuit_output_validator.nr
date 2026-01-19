@@ -136,7 +136,9 @@ impl PrivateKernelCircuitOutputValidator {
         // `validate_propagated_from_initial_private_call`.
 
         // The `public_teardown_call_request` may be set by at most one private function.
-        // Here we simply copy the value from the first private call.
+        // Here we simply copy the value from the first private call:
+        // - if it's empty, that's fine
+        // - if it's nonempty, we know we're not overwriting anything given that this is the first private call.
         assert_eq(
             self.output.public_teardown_call_request,
             private_call.public_inputs.public_teardown_call_request,
@@ -153,12 +155,33 @@ impl PrivateKernelCircuitOutputValidator {
         assert_eq(self.output.fee_payer, initial_fee_payer, "incorrect initial fee_payer");
 
         // `include_by_timestamp` - The timestamp at which the transaction expires.
-        // This value can only decrease with each iteration. Here we take the minimum of:
-        // - The value set by the private call (via `context.set_include_by_timestamp()`)
-        // - The value computed for contract updates
+        // This value can only decrease with each kernel iteration.
+        // Here we take the minimum of:
+        // - The timestamp set by this private call (via `context.set_include_by_timestamp()`)
+        // - The timestamp before which our earlier read of the contract instance registry would
+        //   become stale.
+        //   Recall: for the contract address of the private_call, we read whether the contract's
+        //   class have ever been upgraded, and if so we read the current class_id,
+        //   from a mapping in the ContractInstanceRegistry. Such reads (of DelayedPublicMutable state)
+        //   are only valid for a short period of time, after which the class_id might have been
+        //   overwritten. Hence, the include_by_timestamp of this entire tx must be at most the
+        //   timestamp at which our read becomes stale.
+        //   Note: even if the contract has never upgraded its class_id, we must still read (and
+        //   derive) an inclusion timestamp from its default INITIAL_DELAY in case an upgrade has
+        //   been scheduled since this tx's anchor block. I.e. even reads of empty registry entries
+        //   can go stale.
+        //
+        // Note: by default, at the time of writing, aztecnr sets the private_call.public_inputs.
+        // include_by_timestamp to be 24 hours after the anchor block's timestamp.
+        // Smart contract frameworks are responsible for setting such sensible values. If they were
+        // to set a value of `0`, this `min` would be `0` and the tx would be out of date before it's
+        // been submitted!
+        let timestamp_before_registry_read_goes_stale =
+            get_include_by_timestamp_for_contract_updates(private_call);
+
         let include_by_timestamp = std::cmp::min(
             private_call.public_inputs.include_by_timestamp,
-            get_include_by_timestamp_for_contract_updates(private_call),
+            timestamp_before_registry_read_goes_stale,
         );
         assert_eq(
             self.output.include_by_timestamp,
@@ -217,7 +240,8 @@ impl PrivateKernelCircuitOutputValidator {
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
         // - The value set by the private call (via `context.set_include_by_timestamp()`)
-        // - The value computed for contract updates
+        // - The timestamp before which our earlier read of the contract instance registry would
+        //   become stale.
         let include_by_timestamp = std::cmp::min(
             previous_kernel.include_by_timestamp,
             std::cmp::min(
@@ -390,6 +414,9 @@ impl PrivateKernelCircuitOutputValidator {
         );
     }
 
+    /// We distinguish between the initial private call and subsequent private calls, because it's
+    /// cheaper (constraint-wise) to append to the known index 0 ("empty dest") than to a dynamic
+    /// position in the dest array.
     fn validate_propagated_from_initial_private_call(
         self,
         private_call: PrivateCallData,
