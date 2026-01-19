@@ -12,10 +12,8 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
-#include "./process_buckets.hpp"
-#include "./scalar_multiplication.hpp"
-
 #include "./bitvector.hpp"
+#include "./process_buckets.hpp"
 namespace bb::scalar_multiplication {
 
 template <typename Curve> class MSM {
