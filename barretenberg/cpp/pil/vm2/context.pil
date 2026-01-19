@@ -1,4 +1,6 @@
 include "context_stack.pil";
+include "execution.pil";
+include "opcodes/internal_call.pil";
 
 // This is a virtual gadget, which is part of the execution trace.
 // This subtrace is focused on managing the changes to the context.
@@ -63,6 +65,11 @@ namespace execution;
     pol commit parent_da_gas_limit;
     pol commit parent_l2_gas_used;
     pol commit parent_da_gas_used;
+
+    // ==== Internal Call Stack IDs ====
+    pol commit internal_call_id; // Current internal call id
+    pol commit internal_call_return_id; // internal call id after INTERNAL_RETURN (parent)
+    pol commit next_internal_call_id; // next internal call id after INTERNAL_CALL
 
     // ==== Tree State ===
     pol commit prev_note_hash_tree_root;
@@ -243,7 +250,7 @@ namespace execution;
     // sel_enter_call   = 1 ==> pc' = 0
     // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
     // internal_call    = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
-    // internal_return  = 1 ==> pc' = internal_call_stack.return_pc (#[UNWIND_CALL_STACK] internal_call.pil)
+    // internal_return  = 1 && no error ==> pc' = internal_call_stack.return_pc (#[UNWIND_CALL_STACK] internal_call.pil)
     // jump             = 1 ==> pc' = rop[0] (#[PC_NEXT_ROW_INT_CALL_JUMP] execution.pil)
     // jumpi            = 1 ==> pc' = register[0] ? rop[1] : next_pc (#[PC_NEXT_ROW_JUMPI] execution.pil)
     // otherwise            ==> pc' = next_pc
@@ -542,6 +549,65 @@ namespace execution;
     #[PARENT_DA_GAS_USED_NEXT_ROW_DEFAULT]
     DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
 
+    // =============================
+    //    INTERNAL CALL STACK IDs
+    // =============================
+
+    // For each new context (nested or enqueued), we re-initialize the internal call stack ids.
+    // `internal_call_return_id = 0`, `internal_call_id = 1`, `next_internal_call_id = 2`.
+    // These IDs remain the same within a context except when we encounter:
+    // - `sel_execute_internal_call == 1` or `sel_execute_internal_return == 1`.
+    // These cases are handled in opcodes/internal_call.pil.
+    // When we exit a nested context, we retrieve these internal call IDs from
+    // the context stack.
+
+    // We make use of `sel_first_row_in_context` defined in execution.pil to
+    // select the first row of a context (nested or enqueued).
+
+    // Alias for an INTERNAL_CALL or INTERNAL_RETURN opcode without error.
+    // In internal_call.pil, we defined:
+    // sel_read_unwind_call_stack = sel_execute_internal_return * (1 - sel_opcode_error).
+    // Note that if `sel_execute_internal_call == 1` no error can occur due to
+    // #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil.
+    pol SEL_INTERNAL_OP = sel_execute_internal_call + sel_read_unwind_call_stack;
+
+    // Since `SEL_INTERNAL_OP == 1` excludes an opcode error we have:
+    // `SEL_INTERNAL_OP == 1 ==> DEFAULT_CTX_ROW == 1` and therefore:
+    // `DEFAULT_CTX_ROW - SEL_INTERNAL_OP == DEFAULT_CTX_ROW * (1 - SEL_INTERNAL_OP)`.
+
+    // ==== Internal Call ID ====
+    // Initialization: sel_first_row_in_context = 1 ==> internal_call_id = 1;
+    // Propagation:
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // SEL_INTERNAL_OP  = 1 ==> implemented in opcodes/internal_call.pil.
+    // default row          ==> internal_call_id' = internal_call_id;
+    #[INTERNAL_CALL_ID_INIT]
+    sel_first_row_in_context * (internal_call_id - 1) = 0;
+    #[INTERNAL_CALL_ID_NEXT_ROW_DEFAULT]
+    (DEFAULT_CTX_ROW - SEL_INTERNAL_OP) * (internal_call_id' - internal_call_id) = 0;
+
+    // ==== Internal Call Return ID ====
+    // Initialization: sel_first_row_in_context = 1 ==> internal_call_return_id = 0;
+    // Propagation:
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // SEL_INTERNAL_OP  = 1 ==> implemented in opcodes/internal_call.pil.
+    // default row          ==> internal_call_return_id' = internal_call_return_id;
+    #[INTERNAL_CALL_RETURN_ID_INIT]
+    sel_first_row_in_context * internal_call_return_id = 0;
+    #[INTERNAL_CALL_RETURN_ID_NEXT_ROW_DEFAULT]
+    (DEFAULT_CTX_ROW - SEL_INTERNAL_OP) * (internal_call_return_id' - internal_call_return_id) = 0;
+
+    // ==== Next Internal Call ID ====
+    // Initialization: sel_first_row_in_context = 1 ==> next_internal_call_id = 2;
+    // Propagation:
+    // NESTED_EXIT_CALL = 1 ==> constraints come from lookups (#[CTX_STACK_ROLLBACK] and #[CTX_STACK_RETURN])
+    // SEL_INTERNAL_OP  = 1 ==> implemented in opcodes/internal_call.pil.
+    // default row          ==> next_internal_call_id' = next_internal_call_id;
+    #[NEXT_INTERNAL_CALL_ID_INIT]
+    sel_first_row_in_context * (next_internal_call_id - 2) = 0;
+    #[NEXT_INTERNAL_CALL_ID_NEXT_ROW_DEFAULT]
+    (DEFAULT_CTX_ROW - SEL_INTERNAL_OP) * (next_internal_call_id' - next_internal_call_id) = 0;
+
     // ===================================
     //   PREVIOUS RETRIEVED BYTECODES TREE
     // ===================================
@@ -587,6 +653,9 @@ namespace execution;
         parent_da_gas_limit,
         parent_l2_gas_used,
         parent_da_gas_used,
+        internal_call_id,
+        internal_call_return_id,
+        next_internal_call_id,
         note_hash_tree_root,
         note_hash_tree_size,
         num_note_hashes_emitted,
@@ -616,6 +685,9 @@ namespace execution;
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
         context_stack.parent_da_gas_used,
+        context_stack.internal_call_id,
+        context_stack.internal_call_return_id,
+        context_stack.next_internal_call_id,
         context_stack.note_hash_tree_root,
         context_stack.note_hash_tree_size,
         context_stack.num_note_hashes_emitted,
@@ -650,6 +722,9 @@ namespace execution;
         parent_da_gas_limit',
         parent_l2_gas_used',
         parent_da_gas_used',
+        internal_call_id',
+        internal_call_return_id',
+        next_internal_call_id',
         // Revert trees and side effects
         prev_note_hash_tree_root',
         prev_note_hash_tree_size',
@@ -679,6 +754,9 @@ namespace execution;
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
         context_stack.parent_da_gas_used,
+        context_stack.internal_call_id,
+        context_stack.internal_call_return_id,
+        context_stack.next_internal_call_id,
         context_stack.note_hash_tree_root,
         context_stack.note_hash_tree_size,
         context_stack.num_note_hashes_emitted,
@@ -713,7 +791,10 @@ namespace execution;
         parent_l2_gas_limit',
         parent_da_gas_limit',
         parent_l2_gas_used',
-        parent_da_gas_used'
+        parent_da_gas_used',
+        internal_call_id',
+        internal_call_return_id',
+        next_internal_call_id'
     } in // Lookup is fine during a pop/read operation. (permutation would not work because some context might be rolled back.)
     context_stack.sel {
         context_stack.entered_context_id,
@@ -729,7 +810,10 @@ namespace execution;
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
-        context_stack.parent_da_gas_used
+        context_stack.parent_da_gas_used,
+        context_stack.internal_call_id,
+        context_stack.internal_call_return_id,
+        context_stack.next_internal_call_id
     };
 
     // =============================

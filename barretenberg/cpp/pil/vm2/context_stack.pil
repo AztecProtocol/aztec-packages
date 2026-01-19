@@ -37,6 +37,10 @@ namespace context_stack;
     pol commit parent_l2_gas_used;
     pol commit parent_da_gas_used;
 
+    pol commit internal_call_id;
+    pol commit internal_call_return_id;
+    pol commit next_internal_call_id;
+
     // Tree State
     pol commit note_hash_tree_root;
     pol commit note_hash_tree_size;

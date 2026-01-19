@@ -1885,6 +1885,9 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .parent_cd_size = parent_context.get_parent_cd_size(),
         .parent_gas_used = parent_context.get_parent_gas_used(),
         .parent_gas_limit = parent_context.get_parent_gas_limit(),
+        .internal_call_id = parent_context.get_internal_call_stack_manager().get_call_id(),
+        .internal_call_return_id = parent_context.get_internal_call_stack_manager().get_return_call_id(),
+        .next_internal_call_id = parent_context.get_internal_call_stack_manager().get_next_call_id(),
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
         // Non-tree-tracked side effects
