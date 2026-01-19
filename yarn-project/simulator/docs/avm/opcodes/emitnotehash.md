@@ -22,7 +22,7 @@ Writes a new note hash to the Note Hash Tree. Note hash must have type tag FIELD
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -81,7 +81,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Note hash operand is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted note hash emission in static call context
+- **STATIC_CALL_VIOLATION**: Attempted note hash emission in static call context
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum note hashes per transaction (MAX_NOTE_HASHES_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 

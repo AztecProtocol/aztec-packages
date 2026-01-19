@@ -12,7 +12,7 @@ Public transaction simulation encompasses:
 2. **Side effect integration** - Committing side effects from private execution into world state
 3. **State management** - Handling reverts with proper rollback semantics
 4. **Fee payment** - Deducting the transaction fee from the fee payer
-5. **Tree padding** - 
+5. **Tree padding**
 
 ## Execution Phases
 

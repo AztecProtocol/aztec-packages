@@ -22,7 +22,7 @@ Writes a new nullifier to the Nullifier Tree. This opcode can only emit nullifie
 | DA Base | 512 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -81,7 +81,7 @@ packet-beta
 ## Error Conditions
 
 - **INVALID_TAG**: Nullifier operand is not FIELD
-- **STATIC_CALL_ALTERATION**: Attempted nullifier emission in static call context
+- **STATIC_CALL_VIOLATION**: Attempted nullifier emission in static call context
 - **NULLIFIER_COLLISION**: Nullifier already exists
 - **SIDE_EFFECT_LIMIT_REACHED**: Exceeded maximum nullifiers per transaction (MAX_NULLIFIERS_PER_TX)
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory

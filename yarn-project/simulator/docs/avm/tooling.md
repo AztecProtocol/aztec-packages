@@ -43,4 +43,4 @@ The compilation process produces:
 AVM bytecode format may evolve between protocol versions. Bytecode produced by a compiler version must match the protocol's expected format.
 
 ---
-← Previous: [AVM vs EVM](./avm-vs-evm.md)
+← Previous: [Instruction Set: Quick Reference](./avm-isa-quick-reference.md) | Back to [Introduction](./README.md) →

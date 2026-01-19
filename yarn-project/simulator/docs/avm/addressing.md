@@ -40,7 +40,7 @@ Relative addressing adds the memory offset to the value stored at memory address
 
 When both indirect and relative addressing modes are applied to an offset `x`, **relative addressing is resolved first, then indirect addressing**.
 
-**Notation**: `M[x + M[0]]` (resolved address)
+**Notation**: `M[M[x + M[0]]]`
 
 This means the VM first adds the base pointer `M[0]` to the offset to compute an intermediate address, then reads the pointer from that intermediate address to get the final address.
 
