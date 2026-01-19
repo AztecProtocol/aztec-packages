@@ -312,7 +312,8 @@ describe('L1Publisher integration', () => {
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());
-    ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+    const { currentSlot } = epochCache.getCurrentAndNextSlot();
+    proposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
     logger.warn(`Current epoch committee and proposer`, { committee, proposer });
   };
 
@@ -676,7 +677,8 @@ describe('L1Publisher integration', () => {
       logger.warn(`Published bad block ${badBlock.number} with archive root ${badBlock.archive.root}`);
 
       // Update the current proposer
-      ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+      const { currentSlot } = epochCache.getCurrentAndNextSlot();
+      proposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
 
       // Prepare for invalidating the previous one and publish the same block with proper attestations
       const block = await buildSingleBlock({ blockNumber: BlockNumber(1) });

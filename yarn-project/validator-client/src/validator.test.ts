@@ -323,12 +323,11 @@ describe('ValidatorClient', () => {
       );
 
       epochCache.isInCommittee.mockResolvedValue(true);
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposal.getSender(),
-        nextProposer: proposal.getSender(),
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: proposal.slotNumber,
         nextSlot: SlotNumber(proposal.slotNumber + 1),
       });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
 
@@ -551,14 +550,12 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if the proposer is not the current proposer', async () => {
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockImplementation(() =>
-        Promise.resolve({
-          currentProposer: EthAddress.random(),
-          nextProposer: EthAddress.random(),
-          currentSlot: proposal.slotNumber,
-          nextSlot: SlotNumber(proposal.slotNumber + 1),
-        }),
-      );
+      epochCache.getProposerAttesterAddressInSlot.mockImplementation(_ => Promise.resolve(EthAddress.random()));
+
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
+        currentSlot: proposal.slotNumber,
+        nextSlot: SlotNumber(proposal.slotNumber + 1),
+      });
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
@@ -574,9 +571,8 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if the proposal is not for the current or next slot', async () => {
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposal.getSender(),
-        nextProposer: proposal.getSender(),
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(proposal.slotNumber + 20),
         nextSlot: SlotNumber(proposal.slotNumber + 21),
       });
@@ -633,9 +629,8 @@ describe('ValidatorClient', () => {
         });
 
         // Update epochCache mock for the new proposal
-        epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-          currentProposer: nonFirstBlockProposal.getSender(),
-          nextProposer: nonFirstBlockProposal.getSender(),
+        epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(nonFirstBlockProposal.getSender());
+        epochCache.getCurrentAndNextSlot.mockReturnValue({
           currentSlot: nonFirstBlockProposal.slotNumber,
           nextSlot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
         });
