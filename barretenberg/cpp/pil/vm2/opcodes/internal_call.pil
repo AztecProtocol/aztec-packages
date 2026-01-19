@@ -21,21 +21,6 @@ namespace execution;
     #[skippable_if]
     sel_execute_internal_call + sel_execute_internal_return = 0;
 
-    // ===================================
-    // === Non-Stack Related Mutations ===
-    // ===================================
-
-    // If we encounter a sel_execute_internal_call, the internal_call_id on next row is the current next_internal_call_id.
-    #[NEW_CALL_ID_ON_CALL]
-    sel_execute_internal_call * (internal_call_id' - next_internal_call_id) = 0;
-
-    // If we encounter a sel_execute_internal_call, the next internal_call_return_id is the current internal_call_id
-    #[NEW_RETURN_ID_ON_CALL]
-    sel_execute_internal_call * (internal_call_return_id' - internal_call_id) = 0;
-
-    #[INCR_NEXT_INT_CALL_ID]
-    SEL_INTERNAL_OP * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
-
     // =============================
     // === Error Handling ====
     // =============================
@@ -50,6 +35,21 @@ namespace execution;
     // If we do an internal_return, we raise `sel_opcode_error` = 1 iff `internal_call_return_id = 0`
     #[INTERNAL_RET_ERROR]
     sel_execute_internal_return * (internal_call_return_id * (sel_opcode_error * (1 - internal_call_return_id_inv) + internal_call_return_id_inv) - 1 + sel_opcode_error) = 0;
+
+    // ===================================
+    // === Non-Stack Related Mutations ===
+    // ===================================
+
+    // If we encounter a sel_execute_internal_call, the internal_call_id on next row is the current next_internal_call_id.
+    #[NEW_CALL_ID_ON_CALL]
+    sel_execute_internal_call * (internal_call_id' - next_internal_call_id) = 0;
+
+    // If we encounter a sel_execute_internal_call, the next internal_call_return_id is the current internal_call_id
+    #[NEW_RETURN_ID_ON_CALL]
+    sel_execute_internal_call * (internal_call_return_id' - internal_call_id) = 0;
+
+    #[INCR_NEXT_INT_CALL_ID]
+    SEL_INTERNAL_OP * (next_internal_call_id' - (next_internal_call_id + sel_execute_internal_call)) = 0;
 
     // =============================
     // === Pushing to Call Stack ===
