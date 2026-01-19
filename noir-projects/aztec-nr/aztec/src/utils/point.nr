@@ -1,5 +1,7 @@
 use protocol_types::{point::Point, utils::field::sqrt};
 
+// TODO: consider combining with protocol_types::point::Point to avoid duplicated logic in both places. (And indeed there's some logic in AztecAddress that should probably also live in protocol_types::point::Point).
+
 // I am storing the modulus minus 1 divided by 2 here because full modulus would throw "String literal too large" error
 // Full modulus is 21888242871839275222246405745257275088548364400416034343698204186575808495617
 global BN254_FR_MODULUS_DIV_2: Field =

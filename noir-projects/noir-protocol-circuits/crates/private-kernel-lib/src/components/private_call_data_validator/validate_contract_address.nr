@@ -136,6 +136,10 @@ fn get_updated_contract_class_id(
     leaf_preimage: PublicDataTreeLeafPreimage,
 ) -> ContractClassId {
     // ~900 constraints
+    // We unpack here, and then we pack within `read_current_value_of_delayed_public_mutable_with_hash`. That's a waste of constraints.
+    // It would be more efficient to pass the packed `delayed_public_mutable_values: [Field; 3]` into
+    // `read_current_value_of_delayed_public_mutable_with_hash`, and then call `unpack_value_change` on it within that function
+    // (since we don't care about unpacking the delay_change, which is a lot of constraints).
     let delayed_public_mutable: DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
         Packable::unpack(delayed_public_mutable_values);
 

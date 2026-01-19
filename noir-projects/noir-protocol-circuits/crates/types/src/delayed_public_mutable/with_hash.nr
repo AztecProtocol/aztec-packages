@@ -85,6 +85,9 @@ where
 /// - If it's not in the tree, `leaf_preimage` should be the preimage for the low leaf of the slot.
 ///
 /// TODO: Move this to abis/public_data/storage/read.nr
+/// OR... consider inlining it into the function which called it, because it's not being used anywhere else (unless there are plans to test it in isolation?)
+/// TODO: possible duplicate of aztec-nr/aztec/src/history/public_storage.nr?
+/// TODO: need to come back to this. It's a complicated function to read.
 fn public_storage_historical_read(
     historical_header: BlockHeader,
     storage_slot: Field,

@@ -70,7 +70,7 @@ pub struct PrivateCircuitPublicInputs {
     pub expected_non_revertible_side_effect_counter: u32,
     // A counter that the app circuit expects to be revertible.
     // @dev: The app circuit should set this to the **smallest** revertible counter it has observed during the function
-    //       call. Set it to 0 if the validation is not required.
+    //       call [why?]. Set it to 0 if the validation is not required. (Note: 0 is not a valid counter).
     pub expected_revertible_side_effect_counter: u32,
     // Requests for the kernel circuit to validate the note hashes being read in this function call.
     pub note_hash_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
@@ -81,6 +81,17 @@ pub struct PrivateCircuitPublicInputs {
 
     ///////////////////////////////////
     // Call Requests
+
+    // Q: I wonder if (future enhancement) we should hash every item in every claimed_length_array at the time the item is created.
+    // Some of these structs actually contain a lot of elements, and we're ROM-accessing each element when copying the arrays
+    // in every inner kernel iteration.
+    // PrivateLogData, KeyValidationRequestAndGenerator, PrivateCallRequest, PublicCallRequest are large.
+    // Also, the Scoped<Counted<>> wrappers add overhead too, so we could consider hashing those (unless we need that data in every kernel iteration).
+    // Then we can unpack the hashes as and when we need them in future circuits.
+    // E.g. when we pop a (hashed) private call off the stack, we can unpack the hash at that time.
+    // E.g. when we process key validation requests in the reset kernel, we can unpack the hash at that time.
+    // E.g. private log preimage data and public call request data can be passed to the mempool, much like we do with contract class log preimage data.
+    // This could save several thousand gates per kernel iteration.
 
     // The private calls made in this function call.
     pub private_call_requests: ClaimedLengthArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,

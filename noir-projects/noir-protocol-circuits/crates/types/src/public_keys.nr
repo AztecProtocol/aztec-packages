@@ -15,6 +15,7 @@ pub trait ToPoint {
     fn to_point(self) -> Point;
 }
 
+// Q: why does each public key have its own type, instead of using a PublicKey or Point type?
 #[derive(Deserialize, Eq, Serialize)]
 pub struct NpkM {
     pub inner: Point,

@@ -14,6 +14,7 @@ use dep::types::{
 /// `noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr` for more details
 /// on what is a time horizon.
 pub fn get_include_by_timestamp_for_contract_updates(private_call: PrivateCallData) -> u64 {
+    // TODO: waste of constraints: we've already unpacked this earlier in the circuit in `get_updated_contract_class_id`, so we should feed it through.
     let delayed_public_mutable_values: DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
         private_call.verification_key_hints.updated_class_id_delayed_public_mutable_values,
     );

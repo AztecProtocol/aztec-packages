@@ -3,6 +3,7 @@
 // do not need to generate a proof. But for now, we always validate to make sure we catch
 // errors earlier, as most of our tests run with real proofs disabled, which means validation
 // checks get skipped.
+// Q: given the above says we'll eventually want to change this, it's probably time to change this?
 pub fn should_validate_output() -> bool {
     true
 }

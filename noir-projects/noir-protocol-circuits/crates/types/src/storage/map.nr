@@ -5,6 +5,7 @@ pub fn derive_storage_slot_in_map<K>(storage_slot: Field, key: K) -> Field
 where
     K: ToField,
 {
+    // TODO: probably needs a domain separator for storage sots.
     poseidon2_hash([storage_slot, key.to_field()])
 }
 

@@ -18,6 +18,7 @@ impl LeafPreimage for TestLeafPreimage {
     }
 
     fn as_leaf(self) -> Field {
+        // TODO: change this to _not_ use pedersen. Then we can remove pedersen entirely from the noir-protocol-circuits.
         pedersen_hash([self.value])
     }
 }

@@ -35,5 +35,6 @@ pub struct PrivateKernelCircuitPublicInputs {
     pub claimed_first_nullifier: Field,
     // A hint to what will be the `min_revertible_side_effect_counter` of the transaction. It remains constant
     // throughout the private execution and is checked in the Tail(-to-Public) circuit.
+    // TODO: rename to `claimed_min_revertible_side_effect_counter` to align with `min_revertible_side_effect_counter` naming.
     pub claimed_revertible_counter: u32,
 }
