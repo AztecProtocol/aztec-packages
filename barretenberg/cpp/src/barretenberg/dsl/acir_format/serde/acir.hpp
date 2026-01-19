@@ -3493,8 +3493,8 @@ struct PublicInputs {
 };
 
 struct Circuit {
-    std::string function_name;
-    uint32_t current_witness_index;
+    std::optional<std::string> function_name;
+    std::optional<uint32_t> current_witness_index;
     std::vector<Acir::Opcode> opcodes;
     std::vector<Acir::Witness> private_parameters;
     Acir::PublicInputs public_parameters;
@@ -3508,8 +3508,8 @@ struct Circuit {
         std::string name = "Circuit";
         if (o.type == msgpack::type::MAP) {
             auto kvmap = Helpers::make_kvmap(o, name);
-            Helpers::conv_fld_from_kvmap(kvmap, name, "function_name", function_name, false);
-            Helpers::conv_fld_from_kvmap(kvmap, name, "current_witness_index", current_witness_index, false);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "function_name", function_name, true);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "current_witness_index", current_witness_index, true);
             Helpers::conv_fld_from_kvmap(kvmap, name, "opcodes", opcodes, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "private_parameters", private_parameters, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "public_parameters", public_parameters, false);
