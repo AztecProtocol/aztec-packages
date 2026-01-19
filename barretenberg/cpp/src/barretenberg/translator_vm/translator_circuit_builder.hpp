@@ -82,7 +82,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     /**
      * @brief There are so many wires that naming them has no sense, it is easier to access them with enums
      */
-    enum WireIds : size_t {
+    enum WireIds : uint8_t {
         OP, // The first 4 wires contain the standard values from the EccQueue wire
         X_LOW_Y_HI,
         X_HIGH_Z_1,
@@ -184,7 +184,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t NUM_LIMB_BITS = 68;
 
     // For soundness we need to constrain the highest limb so that the whole value is at most 50 bits
-    static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - 3 * NUM_LIMB_BITS;
+    static constexpr size_t NUM_LAST_LIMB_BITS = Fq::modulus.get_msb() + 1 - (3 * NUM_LIMB_BITS);
 
     // 128-bit z_1 and z_2 are split into 2 limbs each
     static constexpr size_t NUM_Z_LIMBS = 2;
@@ -193,7 +193,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr size_t NUM_QUOTIENT_BITS = 256;
 
     // Number of bits in the quotient highest limb
-    static constexpr size_t NUM_LAST_QUOTIENT_LIMB_BITS = 256 - 3 * NUM_LIMB_BITS;
+    static constexpr size_t NUM_LAST_QUOTIENT_LIMB_BITS = 256 - (3 * NUM_LIMB_BITS);
 
     // Number of bits in Z scalars
     static constexpr size_t NUM_Z_BITS = 128;
@@ -259,10 +259,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // The modulus of the target emulated field as a 512-bit integer
     static constexpr uint512_t MODULUS_U512 = uint512_t(Fq::modulus);
 
-    // The binary modulus used in the CRT computation
+    // The binary modulus used in the CRT computation (2²⁷²)
     static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
 
-    // Negated modulus of the target emulated field in the binary modulus
+    // Negated modulus of the target emulated field in the binary modulus (2²⁷² - q)
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
 
     // Negated modulus of the target emulated field in the binary modulus split into 4 binary limbs + the final limb is
@@ -302,7 +302,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<Fr, NUM_BINARY_LIMBS> quotient_binary_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
         std::array<Fr, NUM_RELATION_WIDE_LIMBS> relation_wide_limbs;
-        std::array<std::array<Fr, NUM_MICRO_LIMBS>, 2> relation_wide_microlimbs;
+        std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_RELATION_WIDE_LIMBS> relation_wide_microlimbs;
     };
 
     static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
@@ -326,8 +326,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @param evaluation_input_x_
      */
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, bool avm_mode_ = false)
-        : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
-        , batching_challenge_v(batching_challenge_v_)
+        : batching_challenge_v(batching_challenge_v_)
         , evaluation_input_x(evaluation_input_x_)
         , avm_mode(avm_mode_)
     {
@@ -372,6 +371,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      *
      * @details We transform Fq into an integer and then split it into 68-bit limbs, then convert them to Fr.
      *
+     * @param base The Fq element to split
      */
     static std::array<Fr, NUM_BINARY_LIMBS> split_fq_into_limbs(const Fq& base)
     {
@@ -384,13 +384,22 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         });
     }
 
+    /**
+     * @brief Ensures the ultra op is well-formed and can be used to create a gate.
+     *
+     * @details There are two main types of checks: that members of the UltraOp are within the appropriate ranges and
+     * that op is one of { 0, 3, 4, 8 }.
+     *
+     * @param ultra_op
+     */
     static void assert_well_formed_ultra_op(const UltraOp& ultra_op);
 
     /**
      * @brief Ensures the accumulation input is well-formed and can be used to create a gate.
+     *
      * @details There are two main types of checks: that members of the AccumulationInput are within the appropriate
      * ranges and that the members containing `*limbs` have been constructed appropriately from the original values,
-     *  present in the AccumulationInput.
+     * present in the AccumulationInput.
      *
      * @param acc_step
      */
