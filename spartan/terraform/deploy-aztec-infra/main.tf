@@ -401,7 +401,7 @@ locals {
       values = [
         "common.yaml",
         "archive.yaml",
-        "archive-resources-dev.yaml"
+        "archive-resources-${var.ARCHIVE_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
@@ -438,7 +438,7 @@ locals {
       values = [
         "common.yaml",
         "blob-sink.yaml",
-        "blob-sink-resources-dev.yaml"
+        "blob-sink-resources-${var.BLOB_SINK_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
