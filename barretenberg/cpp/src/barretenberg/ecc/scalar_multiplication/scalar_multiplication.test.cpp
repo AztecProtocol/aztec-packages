@@ -128,7 +128,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
         typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data;
         typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
-        scalar_multiplication::MSM<Curve>::consume_point_schedule(
+        scalar_multiplication::MSM<Curve>::batch_accumulate_points_into_buckets(
             input_point_schedule, generators, affine_data, bucket_data);
 
         std::vector<Element> expected_buckets(num_buckets);
@@ -163,7 +163,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
         typename scalar_multiplication::MSM<Curve>::AffineAdditionData affine_data;
         typename scalar_multiplication::MSM<Curve>::BucketAccumulators bucket_data(num_buckets);
-        scalar_multiplication::MSM<Curve>::consume_point_schedule(
+        scalar_multiplication::MSM<Curve>::batch_accumulate_points_into_buckets(
             input_point_schedule, generators, affine_data, bucket_data);
 
         Element result = scalar_multiplication::MSM<Curve>::accumulate_buckets(bucket_data);

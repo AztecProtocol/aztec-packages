@@ -229,10 +229,10 @@ template <typename Curve> class MSM {
                                         uint32_t round_index,
                                         uint32_t bits_per_slice) noexcept;
 
-    static void consume_point_schedule(std::span<const uint64_t> point_schedule,
-                                       std::span<const AffineElement> points,
-                                       AffineAdditionData& affine_data,
-                                       BucketAccumulators& bucket_data) noexcept;
+    static void batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
+                                                     std::span<const AffineElement> points,
+                                                     AffineAdditionData& affine_data,
+                                                     BucketAccumulators& bucket_data) noexcept;
 
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
                                                              std::span<std::span<ScalarField>> scalars,

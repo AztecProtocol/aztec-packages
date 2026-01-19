@@ -501,7 +501,7 @@ void MSM<Curve>::evaluate_affine_pippenger_round(MSMData& msm_data,
     if (round_size > 0) {
         std::span<uint64_t> point_schedule(&round_schedule[num_zero_entries], round_size);
         // Iterate through our point schedule and add points into corresponding buckets
-        consume_point_schedule(point_schedule, points, affine_data, bucket_data);
+        batch_accumulate_points_into_buckets(point_schedule, points, affine_data, bucket_data);
         bucket_result = accumulate_buckets(bucket_data);
         bucket_data.bucket_exists.clear();
     }
@@ -625,12 +625,12 @@ template <typename Curve>
  * @param bucket_data Bucket accumulators and existence bitmap
  */
 template <typename Curve>
-void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule,
-                                        std::span<const typename Curve::AffineElement> points,
-                                        MSM<Curve>::AffineAdditionData& affine_data,
-                                        MSM<Curve>::BucketAccumulators& bucket_data) noexcept
+void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
+                                                      std::span<const typename Curve::AffineElement> points,
+                                                      MSM<Curve>::AffineAdditionData& affine_data,
+                                                      MSM<Curve>::BucketAccumulators& bucket_data) noexcept
 {
-    BB_BENCH_NAME("consume_point_schedule");
+    BB_BENCH_NAME("batch_accumulate_points_into_buckets");
 
     size_t point_it = 0;
     size_t affine_input_it = 0;

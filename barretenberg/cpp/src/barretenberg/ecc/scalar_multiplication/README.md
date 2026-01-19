@@ -69,7 +69,7 @@ $$B_k^{(j)} = \sum_{\{i : s_i^{(j)} = k\}} P_i$$
 
 Each bucket $B_k$ accumulates the sum of all points whose scalar has slice value $k$ in round $j$.
 
-The round evaluation function builds a point schedule (sorted by bucket), then calls `consume_point_schedule()` to perform the actual bucket accumulation using batch affine additions.
+The round evaluation function builds a point schedule (sorted by bucket), then calls `batch_accumulate_points_into_buckets()` to perform the actual bucket accumulation using batch affine additions.
 
 ### Step 3: Bucket Reduction
 
@@ -269,6 +269,16 @@ Before the main Pippenger algorithm, the implementation filters out zero scalars
 3. **Consolidation**: Compute total count and resize output array
 4. **Pass 2** (parallel): Each thread copies its indices to the appropriate offset in `nonzero_scalar_indices`
 
+#### Why Scalars Are Modified In-Place
+
+The Montgomery conversion modifies scalars via `const_cast`. This is intentional:
+
+**Problem**: Bucket index extraction requires non-Montgomery form. Creating a copy would double memory usage for scalar arrays (significant for large MSMs).
+
+**Solution**: The function converts in-place and documents that scalars are mutated. Callers who need original values must copy beforehand.
+
+**Why it's safe**: The scalar values after conversion are still mathematically equivalent (same integer, different representation). The MSM result is identical.
+
 **Result**: A compact array `nonzero_scalar_indices` containing indices `i` where `scalars[i] ≠ 0`.
 
 **Impact**:
@@ -276,6 +286,27 @@ Before the main Pippenger algorithm, the implementation filters out zero scalars
 - For sparse inputs (many zero scalars): Significant speedup by reducing points processed in all rounds
 
 All subsequent algorithm steps (point scheduling, bucket accumulation) operate only on the filtered nonzero scalar indices.
+
+### Bucket Existence Tracking
+
+Each `BucketAccumulators` struct maintains a `BitVector bucket_exists` alongside the bucket array.
+
+#### Why Track Existence with a Bitmap?
+
+**Alternative 1: Clear all buckets between rounds**
+- Cost: $O(2^c)$ writes per round to zero out bucket memory
+- For $c = 15$ (32K buckets × 64 bytes = 2 MB): expensive memset each round
+
+**Alternative 2: Sentinel value (e.g., x = 0 for "empty")**
+- Problem: Point at infinity is a valid accumulator state
+- Problem: Extra branch on every bucket access to check sentinel
+
+**Bitmap approach**:
+- Cost: $O(2^c / 64)$ words to clear (512 bytes for 32K buckets)
+- Single bit test in `accumulate_buckets` loop (efficiently predicted)
+- Bitmap fits in L1 cache even for large bucket counts
+
+**Implementation**: `BitVector` in `bitvector.hpp` provides cache-efficient bit operations with word-aligned clearing.
 
 ### Point Schedule
 
@@ -335,7 +366,7 @@ For $n = 2^{20}$ points with 10-bit bucket indices, MSD radix sort performs $\lc
 
 **Why 8 bits per pass (RADIX_BITS=8)?** The counting histogram (256 entries × 4 bytes = 1 KB) fits in L1 cache. Each pass makes two sequential scans over the data: one for counting, one for permutation.
 
-### consume_point_schedule Algorithm
+### batch_accumulate_points_into_buckets Algorithm
 
 This function processes the sorted point schedule into bucket accumulators using an **iterative batching loop**.
 
@@ -367,7 +398,7 @@ The compiler generates `cmov` instructions when both `a` and `b` are cheap to co
 
 #### Prefetching Strategy
 
-Memory access patterns in `consume_point_schedule` are semi-random (point indices after sorting are not sequential). Without prefetching, each point load would stall for ~100+ cycles (DRAM latency).
+Memory access patterns in `batch_accumulate_points_into_buckets` are semi-random (point indices after sorting are not sequential). Without prefetching, each point load would stall for ~100+ cycles (DRAM latency).
 
 **Constants**:
 - `PREFETCH_LOOKAHEAD = 32`: Prefetch points 32 iterations ahead
@@ -438,6 +469,39 @@ For $n = 2^{20}$ points, $c = 10$ bits per slice:
 - L3 cache: 8-32 MB shared → holds point schedule for medium MSMs
 - DRAM: ~100 ns latency → main bottleneck for large MSMs
 
+## Parallelization
+
+### Thread-Local Storage
+
+The implementation uses **per-thread buffers** rather than shared data structures:
+
+| Buffer | Size | Purpose |
+|--------|------|---------|
+| `BucketAccumulators` | $2^c × 64$ bytes | Bucket array + existence bitmap |
+| `AffineAdditionData` | ~400 KB | Scratch for batch inversion |
+| `point_schedule` | $n × 8$ bytes | Per-MSM point schedule |
+
+**Why thread-local?**
+- **No locks**: Each thread operates on its own buckets, eliminating contention
+- **Cache locality**: Thread's working set stays in its L2/L3 cache
+- **Predictable allocation**: Buffers allocated once, reused across rounds
+
+**Tradeoff**: Memory usage scales with thread count. For 64 threads with $c = 15$: $64 × 2$ MB = 128 MB for bucket accumulators alone. This is acceptable for server-class machines but should be considered for memory-constrained environments.
+
+### Work Unit Splitting
+
+For `batch_multi_scalar_mul()` processing multiple MSMs, work is distributed across threads using `MSMWorkUnit` structures.
+
+**Splitting criterion**: Each thread should receive approximately equal total point count, not equal MSM count.
+
+**Example**: Given 4 MSMs of sizes [1000, 100, 100, 100] and 2 threads:
+- Bad split: Thread 1 gets MSM 0-1 (1100 points), Thread 2 gets MSM 2-3 (200 points)
+- Good split: Thread 1 gets MSM 0 (1000 points), Thread 2 gets MSM 1-3 (300 points)
+
+**Why this works**: Pippenger complexity is $O(n / \log n)$. For balanced point counts, threads finish at similar times. Imbalanced splits cause one thread to become a bottleneck.
+
+**Implementation**: `get_work_units()` computes cumulative point counts and assigns contiguous MSM ranges to threads such that each thread's total is approximately `total_points / num_threads`.
+
 ## Performance Analysis
 
 ### Profiling Results
@@ -446,7 +510,7 @@ Measured breakdown for single-threaded MSM ($2^{17}$ to $2^{24}$ points):
 
 | Component | Time % | Description |
 |-----------|--------|-------------|
-| `consume_point_schedule` | **84-85%** | Point copies + batch additions |
+| `batch_accumulate_points_into_buckets` | **84-85%** | Point copies + batch additions |
 | `accumulate_buckets` | 8-13% | Bucket reduction (prefix sums) |
 | `radix_sort` | 2-4% | Point scheduling |
 | `schedule_fill` | <3% | Building schedule entries |
