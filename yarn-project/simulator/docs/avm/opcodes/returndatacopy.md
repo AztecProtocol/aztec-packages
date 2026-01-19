@@ -23,7 +23,7 @@ Copies a section of the returndata from the most recent nested external call (CA
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 | L2 Dynamic | 3 | `M[copySizeOffset]` |
 
-*See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
