@@ -22,14 +22,14 @@ const AMOUNT_PER_NOTE = 1_000_000;
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
 // Set to true to print out the round trip information to the console.
-const DEBUG_ROUND_TRIPS = true;
+const DEBUG_ROUND_TRIPS = false;
 
 // Expected number of node round trips per account contract and payment method.
 const EXPECTED_ROUND_TRIPS: Record<string, number> = {
-  'ecdsar1+private_fpc': 214, // 215, 216
-  'ecdsar1+sponsored_fpc': 165, // 163, 163, 168, 165, 165
-  'schnorr+private_fpc': 214, // 215
-  'schnorr+sponsored_fpc': 143, // 145
+  'ecdsar1+private_fpc': 209,
+  'ecdsar1+sponsored_fpc': 128,
+  'schnorr+private_fpc': 209,
+  'schnorr+sponsored_fpc': 130,
 };
 
 interface RoundTripData {
@@ -37,6 +37,31 @@ interface RoundTripData {
   paymentMethod: BenchmarkingFeePaymentMethod;
   roundTrips: RoundTripStats;
 }
+
+// ============================================================================
+// TODO(A-471): Remove this function once L2 block stream pulls multiple checkpoints at once. This filters out
+// getCheckpointedBlocks and getPublishedCheckpoints calls from round trip stats since the block sync made the results
+// flaky (getting different num roundtrips between runs). My expectation is that once we pull multiple checkpoints at
+// once block sync will also become deterministic when it comes to roundtrips and then we can remove this function.
+//
+// https://linear.app/aztec-labs/issue/A-471/l2-block-stream-should-pull-multiple-checkpoints-at-once
+// ============================================================================
+const METHODS_TO_FILTER = ['getCheckpointedBlocks', 'getPublishedCheckpoints'];
+
+function filterCheckpointMethodsFromRoundTrips(stats: RoundTripStats): RoundTripStats {
+  const filteredRoundTripMethods = stats.roundTripMethods
+    .map(methods => methods.filter(method => !METHODS_TO_FILTER.includes(method)))
+    .filter(methods => methods.length > 0);
+
+  return {
+    roundTrips: filteredRoundTripMethods.length,
+    roundTripMethods: filteredRoundTripMethods,
+    // We don't care about the following 2 values in this test so I just set them to 0.
+    totalBlockingTime: 0,
+    roundTripDurations: [],
+  };
+}
+// ============================================================================
 
 describe('AMM benchmark', () => {
   const roundTripData: RoundTripData[] = [];
@@ -208,15 +233,18 @@ describe('AMM benchmark', () => {
               expect(tx.transactionFee!).toBeGreaterThan(0n);
             }
 
+            // TODO(A-471): Remove filterCheckpointMethodsFromRoundTrips call once L2 block stream optimization is done
+            const filteredRoundTrips = filterCheckpointMethodsFromRoundTrips(nodeStats.roundTrips);
+
             if (DEBUG_ROUND_TRIPS) {
               roundTripData.push({
                 accountType,
                 paymentMethod: benchmarkingPaymentMethod,
-                roundTrips: nodeStats.roundTrips,
+                roundTrips: filteredRoundTrips,
               });
             } else {
               const roundTripsKey = `${accountType}+${benchmarkingPaymentMethod}`;
-              const actualRoundTrips = nodeStats.roundTrips.roundTrips;
+              const actualRoundTrips = filteredRoundTrips.roundTrips;
               const expectedRoundTrips = EXPECTED_ROUND_TRIPS[roundTripsKey];
               if (expectedRoundTrips === undefined) {
                 throw new Error(
