@@ -1,15 +1,18 @@
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
+  cores: "2"
+
+replicaCount: 1
 
 node:
   resources:
     requests:
       cpu: "0.5"
-      memory: "0.5Gi"
+      memory: "2Gi"
     limits:
-      cpu: "1"
-      memory: "1Gi"
+      cpu: "1.5"
+      memory: "6Gi"
 
 persistence:
   enabled: true
@@ -23,4 +26,14 @@ statefulSet:
         accessModes: [ReadWriteOnce]
         resources:
           requests:
-            storage: 4Gi
+            storage: 16Gi
+
+service:
+  type: ClusterIP
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: false
+  headless:
+    enabled: false
