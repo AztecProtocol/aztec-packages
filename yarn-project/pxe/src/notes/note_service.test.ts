@@ -227,7 +227,7 @@ describe('NoteService', () => {
         Promise.resolve(queryTxHash == txHash ? indexedTxEffect : undefined),
       );
 
-      aztecNode.findLeavesIndexes.mockImplementation((_queryBlockNum, _treeId, _leaves) => {
+      aztecNode.findLeavesIndexes.mockImplementation((_queryBlockParam, _treeId, _leaves) => {
         // By default the note is not yet nullified.
         return Promise.resolve([undefined]);
       });

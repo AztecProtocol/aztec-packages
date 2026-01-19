@@ -94,6 +94,50 @@ The `UnsafeContract` class and async helper functions (`getFeeJuice`, `getClassR
 The name of the contract became stale as its use changed from routing public calls through it to public functions to just having public functions on it that can be called by anyone.
 By having these "standard checks" on one contract results in the privacy set of apps that could use this becoming potentially large.
 
+### [Aztec Node] `getBlockByHash` and `getBlockHeaderByHash` removed
+
+The `getBlockByHash` and `getBlockHeaderByHash` methods have been removed. Use `getBlock` and `getBlockHeader` with a block hash instead.
+
+**Migration:**
+
+```diff
+- const block = await node.getBlockByHash(blockHash);
++ const block = await node.getBlock(blockHash);
+
+- const header = await node.getBlockHeaderByHash(blockHash);
++ const header = await node.getBlockHeader(blockHash);
+```
+
+### [Aztec.nr] Oracle functions now take `BlockHeader` instead of block number
+
+The low-level oracle functions for fetching membership witnesses and storage now take a `BlockHeader` instead of a `block_number: u32`. This change improves type safety and ensures the correct block state is queried.
+
+**Affected functions:**
+
+- `get_note_hash_membership_witness(block_header, leaf_value)` - was `(block_number, leaf_value)`
+- `get_archive_membership_witness(block_header, leaf_value)` - was `(block_number, leaf_value)`
+- `get_nullifier_membership_witness(block_header, nullifier)` - was `(block_number, nullifier)`
+- `get_low_nullifier_membership_witness(block_header, nullifier)` - was `(block_number, nullifier)`
+- `get_public_data_witness(block_header, public_data_tree_index)` - was `(block_number, public_data_tree_index)`
+- `storage_read(block_header, address, storage_slot)` - was `(address, storage_slot, block_number)`
+
+**Migration:**
+
+If you were calling these oracle functions directly (which is uncommon), update your code to pass a `BlockHeader` instead of a block number:
+
+```diff
+- let witness = get_note_hash_membership_witness(self.global_variables.block_number, note_hash);
++ let witness = get_note_hash_membership_witness(self, note_hash);
+
+- let witness = get_nullifier_membership_witness(block_number, nullifier);
++ let witness = get_nullifier_membership_witness(block_header, nullifier);
+
+- let value: T = storage_read(address, slot, block_number);
++ let value: T = storage_read(block_header, address, slot);
+```
+
+Note: The high-level history proof functions on `BlockHeader` (such as `prove_note_inclusion`, `prove_nullifier_inclusion`, etc.) are **not affected** by this change. They continue to work the same way.
+
 ### [Toolchain] Node.js upgraded to v24
 
 Node.js minimum version changed from v22 to v24.12.0.
