@@ -17,10 +17,10 @@ import type { NodeStats, RoundTripStats } from '@aztec/stdlib/tx';
  * value in `safe_json_rpc_client.ts` to 1 (the main motivation for batching was to get around parallel http requests
  * limits in web browsers which is not a problem when debugging in node.js).
  */
-export type ProxiedNode = AztecNode & { getStats(): NodeStats };
+export type BenchmarkedNode = AztecNode & { getStats(): NodeStats };
 
-export class ProxiedNodeFactory {
-  static create(node: AztecNode): ProxiedNode {
+export class BenchmarkedNodeFactory {
+  static create(node: AztecNode): BenchmarkedNode {
     // Per-method call stats
     const perMethod: Partial<Record<keyof AztecNode, { times: number[] }>> = {};
 
@@ -36,7 +36,7 @@ export class ProxiedNodeFactory {
     };
 
     return new Proxy(node, {
-      get(target, prop: keyof ProxiedNode) {
+      get(target, prop: keyof BenchmarkedNode) {
         if (prop === 'getStats') {
           return (): NodeStats => {
             return { perMethod, roundTrips };
@@ -98,6 +98,6 @@ export class ProxiedNodeFactory {
           };
         }
       },
-    }) as ProxiedNode;
+    }) as BenchmarkedNode;
   }
 }
