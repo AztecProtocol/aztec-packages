@@ -378,8 +378,7 @@ TYPED_TEST(BigQuadOpcodeGateCountTest, OpcodeGateCount)
     WitnessVector witness_values;
     BigQuadConstraintTest::generate_constraints(big_quad_constraint, witness_values);
 
-    AcirFormat constraint_system =
-        constraint_to_acir_format(big_quad_constraint, static_cast<uint32_t>(witness_values.size() - 1));
+    AcirFormat constraint_system = constraint_to_acir_format(big_quad_constraint);
     AcirProgram program{ constraint_system, witness_values };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
