@@ -564,13 +564,7 @@ namespace execution;
     // We make use of `sel_first_row_in_context` defined in execution.pil to
     // select the first row of a context (nested or enqueued).
 
-    // Alias for an INTERNAL_CALL or INTERNAL_RETURN opcode without error.
-    // In internal_call.pil, we defined:
-    // sel_read_unwind_call_stack = sel_execute_internal_return * (1 - sel_opcode_error).
-    // Note that if `sel_execute_internal_call == 1` no error can occur due to
-    // #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil.
-    pol SEL_INTERNAL_OP = sel_execute_internal_call + sel_read_unwind_call_stack;
-
+    // SEL_INTERNAL_OP = sel_execute_internal_call + sel_read_unwind_call_stack, defined in opcodes/internal_call.pil.
     // Since `SEL_INTERNAL_OP == 1` excludes an opcode error we have:
     // `SEL_INTERNAL_OP == 1 ==> DEFAULT_CTX_ROW == 1` and therefore:
     // `DEFAULT_CTX_ROW - SEL_INTERNAL_OP == DEFAULT_CTX_ROW * (1 - SEL_INTERNAL_OP)`.
