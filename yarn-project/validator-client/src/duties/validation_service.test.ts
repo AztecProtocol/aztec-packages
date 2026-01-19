@@ -2,7 +2,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { makeCheckpointProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 import { DutyType } from '@aztec/validator-ha-signer/types';
 
@@ -26,8 +26,7 @@ describe('ValidationService', () => {
 
   it('creates a block proposal with txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const l2BlockHeader = makeL2BlockHeader(1, 2, 3);
-    const blockHeader = l2BlockHeader.toBlockHeader();
+    const blockHeader = makeBlockHeader(1);
     const indexWithinCheckpoint = 0;
     const inHash = Fr.random();
     const archive = Fr.random();
@@ -48,8 +47,7 @@ describe('ValidationService', () => {
 
   it('creates a block proposal without txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const l2BlockHeader = makeL2BlockHeader(1, 2, 3);
-    const blockHeader = l2BlockHeader.toBlockHeader();
+    const blockHeader = makeBlockHeader(1);
     const indexWithinCheckpoint = 0;
     const inHash = Fr.random();
     const archive = Fr.random();
@@ -82,8 +80,7 @@ describe('ValidationService', () => {
     // Now they should use CHECKPOINT_PROPOSAL and BLOCK_PROPOSAL respectively.
 
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const l2BlockHeader = makeL2BlockHeader(1, 2, 3);
-    const blockHeader = l2BlockHeader.toBlockHeader();
+    const blockHeader = makeBlockHeader(1);
     const indexWithinCheckpoint = 0;
     const archive = Fr.random();
 
@@ -104,7 +101,7 @@ describe('ValidationService', () => {
     const spyService = new ValidationService(spyStore as any);
 
     // Create checkpoint header
-    const checkpointHeader = l2BlockHeader.toCheckpointHeader();
+    const checkpointHeader = makeCheckpointHeader(1);
 
     // Create checkpoint proposal with lastBlock
     const proposal = await spyService.createCheckpointProposal(

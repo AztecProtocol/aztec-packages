@@ -26,17 +26,14 @@ import type { L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import {
-  type L1ToL2MessageSource,
-  accumulateCheckpointOutHashes,
-  computeInHashFromL1ToL2Messages,
-} from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
+  makeBlockHeader,
   makeBlockProposal,
   makeCheckpointAttestation,
+  makeCheckpointHeader,
   makeCheckpointProposal,
-  makeL2BlockHeader,
   mockTx,
 } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -48,7 +45,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import type {
-  BuildBlockInCheckpointResult,
+  BuildBlockInCheckpointResultWithTimer,
   CheckpointBuilder,
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
@@ -159,8 +156,7 @@ describe('ValidatorClient', () => {
 
   describe('createBlockProposal', () => {
     it('should create a valid block proposal without txs', async () => {
-      const header = makeL2BlockHeader();
-      const blockHeader = header.toBlockHeader();
+      const blockHeader = makeBlockHeader();
       const indexWithinCheckpoint = 0;
       const inHash = Fr.random();
       const archive = Fr.random();
@@ -283,7 +279,7 @@ describe('ValidatorClient', () => {
     let proposal: BlockProposal;
     let blockNumber: BlockNumber;
     let sender: PeerId;
-    let blockBuildResult: BuildBlockInCheckpointResult;
+    let blockBuildResult: BuildBlockInCheckpointResultWithTimer;
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
@@ -301,9 +297,8 @@ describe('ValidatorClient', () => {
 
     beforeEach(async () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
-      const epochOutHash = accumulateCheckpointOutHashes([]);
-      const blockHeader = makeL2BlockHeader(1, 100, 100, { inHash: emptyInHash, epochOutHash });
-      blockNumber = BlockNumber(blockHeader.getBlockNumber());
+      const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
+      blockNumber = BlockNumber(blockHeader.globalVariables.blockNumber);
       proposal = await makeBlockProposal({ blockHeader, inHash: emptyInHash });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
@@ -335,12 +330,12 @@ describe('ValidatorClient', () => {
       // Return parent block header when requested
       blockSource.getBlockHeaderByArchive.mockResolvedValue({
         getBlockNumber: () => blockNumber - 1,
-        getSlot: () => SlotNumber(blockHeader.getSlot() - 1),
+        getSlot: () => SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1),
       } as BlockHeader);
 
       // Return parent block when requested (needed for checkpoint number computation)
       // The parent block has slot - 1, which is different from the proposal's slot
-      const parentSlot = SlotNumber(blockHeader.getSlot() - 1);
+      const parentSlot = SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1);
       blockSource.getL2BlockNew.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: 0,
@@ -353,7 +348,7 @@ describe('ValidatorClient', () => {
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
-      const l2BlockHeader = blockHeader.clone();
+      const clonedBlockHeader = blockHeader.clone();
       blockBuildResult = {
         publicProcessorDuration: 0,
         numTxs: proposal.txHashes.length,
@@ -363,7 +358,7 @@ describe('ValidatorClient', () => {
         usedTxs: [],
         usedTxBlobFields: 0,
         block: {
-          header: l2BlockHeader,
+          header: clonedBlockHeader,
           body: { txEffects: times(proposal.txHashes.length, () => TxEffect.empty()) },
           archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),
           checkpointNumber: CheckpointNumber(1),
@@ -394,8 +389,9 @@ describe('ValidatorClient', () => {
 
       const checkpointProposal = await makeCheckpointProposal({
         archiveRoot: proposal.archive,
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
         lastBlock: {
-          blockHeader: makeL2BlockHeader(1, 123, proposal.slotNumber),
+          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
           indexWithinCheckpoint: 0,
           txHashes: proposal.txHashes,
         },
@@ -414,8 +410,9 @@ describe('ValidatorClient', () => {
 
       const checkpointProposal = await makeCheckpointProposal({
         archiveRoot: proposal.archive,
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
         lastBlock: {
-          blockHeader: makeL2BlockHeader(1, 123, proposal.slotNumber),
+          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
           indexWithinCheckpoint: 0,
           txHashes: proposal.txHashes,
         },
@@ -622,7 +619,10 @@ describe('ValidatorClient', () => {
 
         // Use empty messages and compute the matching inHash
         const emptyInHash = computeInHashFromL1ToL2Messages([]);
-        const proposalBlockHeader = makeL2BlockHeader(1, parentBlockNumber + 1, parentSlotNumber);
+        const proposalBlockHeader = makeBlockHeader(1, {
+          blockNumber: BlockNumber(parentBlockNumber + 1),
+          slotNumber: SlotNumber(parentSlotNumber),
+        });
         // Override the global variables on the block header
         (proposalBlockHeader as any).globalVariables = proposalGlobalVariables;
 

@@ -20,8 +20,7 @@ import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
-import { type CheckpointedL2Block, PublishedL2Block } from './checkpointed_l2_block.js';
-import type { L2Block } from './l2_block.js';
+import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
 import type { L2BlockNew } from './l2_block_new.js';
 import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
 
@@ -106,6 +105,20 @@ export interface L2BlockSource {
   getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
   /**
+   * Gets an L2 block by its hash.
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+
+  /**
+   * Gets an L2 block by its archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
@@ -179,11 +192,8 @@ export interface L2BlockSource {
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
-   * @deprecated Use getL2BlockNew instead.
    */
-  getBlock(number: BlockNumber): Promise<L2Block | undefined>;
-
-  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
+  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
   getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
 
@@ -192,7 +202,7 @@ export interface L2BlockSource {
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return blocks for.
    */
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]>;
+  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]>;
 
   /**
    * Returns all blocks for a given slot.
@@ -206,14 +216,14 @@ export interface L2BlockSource {
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+  getPublishedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets a published block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+  getPublishedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -222,10 +232,10 @@ export interface L2BlockSource {
    * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]>;
+  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
 
   /** Equivalent to getBlocks but includes publish data. */
-  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
+  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
 }
 
 /**

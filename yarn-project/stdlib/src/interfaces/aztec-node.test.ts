@@ -21,10 +21,9 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { PublishedL2Block } from '../block/checkpointed_l2_block.js';
+import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { type BlockParameter, CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
-import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -192,12 +191,17 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlock', async () => {
     const response = await context.client.getBlock(BlockNumber(1));
-    expect(response).toBeInstanceOf(L2Block);
+    expect(response).toBeInstanceOf(L2BlockNew);
+  });
+
+  it('getBlockByHash', async () => {
+    const response = await context.client.getBlockByHash(Fr.random());
+    expect(response).toBeInstanceOf(L2BlockNew);
   });
 
   it('getBlockByArchive', async () => {
     const response = await context.client.getBlockByArchive(Fr.random());
-    expect(response).toBeInstanceOf(L2Block);
+    expect(response).toBeInstanceOf(L2BlockNew);
   });
 
   it('getBlockHeader', async () => {
@@ -251,7 +255,7 @@ describe('AztecNodeApiSchema', () => {
   it('getBlocks', async () => {
     const response = await context.client.getBlocks(BlockNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
-    expect(response[0]).toBeInstanceOf(L2Block);
+    expect(response[0]).toBeInstanceOf(L2BlockNew);
 
     await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
@@ -272,7 +276,7 @@ describe('AztecNodeApiSchema', () => {
   it('getPublishedBlocks', async () => {
     const response = await context.client.getPublishedBlocks(BlockNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
-    expect(response[0].block.constructor.name).toEqual('L2Block');
+    expect(response[0].block.constructor.name).toEqual('L2BlockNew');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
@@ -677,17 +681,15 @@ class MockAztecNode implements AztecNode {
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
-  getBlock(block: BlockParameter): Promise<L2Block | undefined> {
-    if (block instanceof L2BlockHash) {
-      // For block hash, we need to get the actual block number first
-      // Since this is a mock, we'll use a default block number
-      return Promise.resolve(L2Block.random(BlockNumber(1)));
-    }
-    const blockNum = block === 'latest' ? BlockNumber(1) : block;
-    return Promise.resolve(L2Block.random(blockNum));
+  getBlock(number: BlockParameter): Promise<L2BlockNew | undefined> {
+    const blockNum = number === 'latest' ? BlockNumber(1) : (number as BlockNumber);
+    return L2BlockNew.random(blockNum);
   }
-  getBlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
-    return Promise.resolve(L2Block.random(BlockNumber(1)));
+  getBlockByHash(_blockHash: Fr): Promise<L2BlockNew | undefined> {
+    return L2BlockNew.random(BlockNumber(1));
+  }
+  getBlockByArchive(_archive: Fr): Promise<L2BlockNew | undefined> {
+    return L2BlockNew.random(BlockNumber(1));
   }
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
@@ -722,17 +724,18 @@ class MockAztecNode implements AztecNode {
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
     };
   }
-  getBlocks(from: number, limit: number): Promise<L2Block[]> {
+  getBlocks(from: number, limit: number): Promise<L2BlockNew[]> {
     return Promise.all(
       Array(limit)
         .fill(0)
-        .map(i => L2Block.random(BlockNumber(from + i))),
+        .map(i => L2BlockNew.random(BlockNumber(from + i))),
     );
   }
-  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(from: number, limit: number): Promise<CheckpointedL2Block[]> {
     return timesAsync(limit, async i =>
-      PublishedL2Block.fromFields({
-        block: await L2Block.random(BlockNumber(from + i)),
+      CheckpointedL2Block.fromFields({
+        checkpointNumber: CheckpointNumber(from + i),
+        block: await L2BlockNew.random(BlockNumber(from + i)),
         attestations: [CommitteeAttestation.random()],
         l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
       }),

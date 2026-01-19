@@ -1,6 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { SentTx } from '@aztec/aztec.js/contracts';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
@@ -357,9 +358,9 @@ describe('e2e_p2p_preferred_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = new ConsensusPayload(block.block.header.toCheckpointHeader(), block.block.archive.root);
-    const attestations = block.attestations
+    const [publishedCheckpoint] = await dataStore.getPublishedCheckpoints(CheckpointNumber(blockNumber), 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));

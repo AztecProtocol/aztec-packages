@@ -43,10 +43,11 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -54,7 +55,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -250,13 +252,13 @@ class TestVariant {
     }
   }
 
-  async writeBlocks(blocks: L2Block[]) {
-    await this.writeJson(`blocks`, { blocks: blocks.map(block => block.toString()) });
+  async writeCheckpoints(checkpoints: Checkpoint[]) {
+    await this.writeJson(`checkpoints`, { checkpoints: checkpoints.map(cp => bufferToHex(cp.toBuffer())) });
   }
 
-  loadBlocks() {
-    const json = this.loadJson(`blocks`);
-    return (json['blocks'] as string[]).map(b => L2Block.fromString(b));
+  loadCheckpoints(): Checkpoint[] {
+    const json = this.loadJson(`checkpoints`);
+    return (json['checkpoints'] as string[]).map(cp => Checkpoint.fromBuffer(hexToBuffer(cp)));
   }
 
   numberOfBlocksStored() {
@@ -359,9 +361,11 @@ describe('e2e_synching', () => {
         await cheatCodes.rollup.markAsProven();
       }
 
-      const blocks = await aztecNode.getBlocks(BlockNumber(1), await aztecNode.getBlockNumber());
+      const blockNumber = await aztecNode.getBlockNumber();
+      const publishedCheckpoints = await aztecNode.getPublishedCheckpoints(CheckpointNumber(1), blockNumber);
+      const checkpoints = publishedCheckpoints.map(pc => pc.checkpoint);
 
-      await variant.writeBlocks(blocks);
+      await variant.writeCheckpoints(checkpoints);
       await teardown();
     },
     240_400_000,
@@ -448,22 +452,19 @@ describe('e2e_synching', () => {
       },
     );
 
-    const blocks = variant.loadBlocks();
+    const checkpoints = variant.loadCheckpoints();
 
-    // For each of the blocks we progress time such that it land at the correct time
+    // For each of the checkpoints we progress time such that it land at the correct time
     // We create blocks for every ethereum slot simply to make sure that the test is "closer" to
     // a real world.
-    for (const block of blocks) {
-      const targetTime = Number(block.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
+    for (const checkpoint of checkpoints) {
+      const lastBlock = checkpoint.blocks.at(-1)!;
+      const targetTime = Number(lastBlock.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeCheckpoint(
-        block.toCheckpoint(),
-        CommitteeAttestationsAndSigners.empty(),
-        Signature.empty(),
-      );
+      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
       await cheatCodes.rollup.markAsProven(provenThrough);
     }
