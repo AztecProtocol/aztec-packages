@@ -31,9 +31,7 @@ impl PublicStorageHistoricalRead for BlockHeader {
 
         // 2) Get the membership witness for the tree index.
         // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
-        let witness = unsafe {
-            get_public_data_witness(self.global_variables.block_number, public_data_tree_index)
-        };
+        let witness = unsafe { get_public_data_witness(self, public_data_tree_index) };
 
         // 3) The witness is made up of two parts: the preimage of the leaf and the proof that it exists in the tree.
         // We first prove that the witness is indeed valid for the public data tree, i.e. that the preimage is of a

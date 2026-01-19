@@ -195,18 +195,13 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(L2Block);
   });
 
-  it('getBlockByHash', async () => {
-    const response = await context.client.getBlockByHash(Fr.random());
-    expect(response).toBeInstanceOf(L2Block);
-  });
-
   it('getBlockByArchive', async () => {
     const response = await context.client.getBlockByArchive(Fr.random());
     expect(response).toBeInstanceOf(L2Block);
   });
 
-  it('getBlockHeaderByHash', async () => {
-    const response = await context.client.getBlockHeaderByHash(Fr.random());
+  it('getBlockHeader', async () => {
+    const response = await context.client.getBlockHeader(L2BlockHash.fromField(Fr.random()));
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
@@ -582,10 +577,11 @@ class MockAztecNode implements AztecNode {
   }
 
   findLeavesIndexes(
-    blockNumber: number | 'latest',
+    block: BlockParameter,
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
@@ -595,37 +591,39 @@ class MockAztecNode implements AztecNode {
     ]);
   }
   getNullifierSiblingPath(
-    blockNumber: number | 'latest',
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(leafIndex).toBe(1n);
     return Promise.resolve(SiblingPath.random(NULLIFIER_TREE_HEIGHT));
   }
-  getNoteHashSiblingPath(
-    blockNumber: number | 'latest',
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
+  getNoteHashSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(leafIndex).toBe(1n);
     return Promise.resolve(SiblingPath.random(NOTE_HASH_TREE_HEIGHT));
   }
   getL1ToL2MessageMembershipWitness(
-    blockNumber: number | 'latest',
+    block: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
   getArchiveMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     archive: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(archive).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(ARCHIVE_HEIGHT));
   }
   getNoteHashMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
   }
@@ -648,50 +646,48 @@ class MockAztecNode implements AztecNode {
       ),
     );
   }
-  getArchiveSiblingPath(
-    blockNumber: number | 'latest',
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
+  getArchiveSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(leafIndex).toBe(1n);
     return Promise.resolve(SiblingPath.random(ARCHIVE_HEIGHT));
   }
   getPublicDataSiblingPath(
-    blockNumber: number | 'latest',
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(leafIndex).toBe(1n);
     return Promise.resolve(SiblingPath.random(PUBLIC_DATA_TREE_HEIGHT));
   }
-  getNullifierMembershipWitness(
-    blockNumber: number | 'latest',
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
+  getNullifierMembershipWitness(block: BlockParameter, nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
   getLowNullifierMembershipWitness(
-    blockNumber: number | 'latest',
+    block: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
-  getPublicDataWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  getPublicDataWitness(block: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
-  getBlock(number: BlockParameter): Promise<L2Block | undefined> {
-    const blockNum = number === 'latest' ? BlockNumber(1) : number;
+  getBlock(block: BlockParameter): Promise<L2Block | undefined> {
+    if (block instanceof L2BlockHash) {
+      // For block hash, we need to get the actual block number first
+      // Since this is a mock, we'll use a default block number
+      return Promise.resolve(L2Block.random(BlockNumber(1)));
+    }
+    const blockNum = block === 'latest' ? BlockNumber(1) : block;
     return Promise.resolve(L2Block.random(blockNum));
-  }
-  getBlockByHash(_blockHash: Fr): Promise<L2Block | undefined> {
-    return Promise.resolve(L2Block.random(BlockNumber(1)));
   }
   getBlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(BlockNumber(1)));
-  }
-  getBlockHeaderByHash(_blockHash: Fr): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
   }
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
@@ -830,12 +826,13 @@ class MockAztecNode implements AztecNode {
     expect(txHashes[0]).toBeInstanceOf(TxHash);
     return Promise.resolve([Tx.random()]);
   }
-  getPublicStorageAt(_blockNumber: number | 'latest', contract: AztecAddress, slot: Fr): Promise<Fr> {
+  getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getBlockHeader(_blockNumber?: number | 'latest'): Promise<BlockHeader> {
+  getBlockHeader(_block?: BlockParameter): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
   }
   getValidatorsStats(): Promise<ValidatorsStats> {

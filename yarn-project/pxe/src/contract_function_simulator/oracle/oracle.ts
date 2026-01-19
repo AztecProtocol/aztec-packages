@@ -12,6 +12,7 @@ import {
 } from '@aztec/simulator/client';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -138,76 +139,77 @@ export class Oracle {
   }
 
   async utilityGetMembershipWitness(
-    [blockNumber]: ACVMField[],
+    [blockHash]: ACVMField[],
     [treeId]: ACVMField[],
     [leafValue]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
+    const parsedBlockHash = L2BlockHash.fromString(blockHash);
     const parsedTreeId = Fr.fromString(treeId).toNumber();
     const parsedLeafValue = Fr.fromString(leafValue);
 
     const witness = await this.handlerAsUtility().utilityGetMembershipWitness(
-      BlockNumber(parsedBlockNumber),
+      parsedBlockHash,
       parsedTreeId,
       parsedLeafValue,
     );
     if (!witness) {
       throw new Error(
-        `Leaf ${leafValue} not found in the tree ${MerkleTreeId[parsedTreeId]} at block ${parsedBlockNumber}.`,
+        `Leaf ${leafValue} not found in the tree ${MerkleTreeId[parsedTreeId]} at block hash ${parsedBlockHash.toString()}.`,
       );
     }
     return [toACVMField(witness[0]), witness.slice(1).map(toACVMField)];
   }
 
   async utilityGetNullifierMembershipWitness(
-    [blockNumber]: ACVMField[],
+    [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
+    const parsedBlockHash = L2BlockHash.fromString(blockHash);
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(
-      BlockNumber(parsedBlockNumber),
+      parsedBlockHash,
       parsedNullifier,
     );
     if (!witness) {
-      throw new Error(`Nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`);
+      throw new Error(
+        `Nullifier witness not found for nullifier ${parsedNullifier} at block hash ${parsedBlockHash.toString()}.`,
+      );
     }
     return witness.toNoirRepresentation();
   }
 
   async utilityGetLowNullifierMembershipWitness(
-    [blockNumber]: ACVMField[],
+    [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
+    const parsedBlockHash = L2BlockHash.fromString(blockHash);
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(
-      BlockNumber(parsedBlockNumber),
+      parsedBlockHash,
       parsedNullifier,
     );
     if (!witness) {
       throw new Error(
-        `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
+        `Low nullifier witness not found for nullifier ${parsedNullifier} at block hash ${parsedBlockHash.toString()}.`,
       );
     }
     return witness.toNoirRepresentation();
   }
 
   async utilityGetPublicDataWitness(
-    [blockNumber]: ACVMField[],
+    [blockHash]: ACVMField[],
     [leafSlot]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
+    const parsedBlockHash = L2BlockHash.fromString(blockHash);
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(
-      BlockNumber(parsedBlockNumber),
-      parsedLeafSlot,
-    );
+    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(parsedBlockHash, parsedLeafSlot);
     if (!witness) {
-      throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
+      throw new Error(
+        `Public data witness not found for slot ${parsedLeafSlot} at block hash ${parsedBlockHash.toString()}.`,
+      );
     }
     return witness.toNoirRepresentation();
   }
@@ -358,15 +360,15 @@ export class Oracle {
   }
 
   async utilityStorageRead(
+    [blockHash]: ACVMField[],
     [contractAddress]: ACVMField[],
     [startStorageSlot]: ACVMField[],
-    [blockNumber]: ACVMField[],
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[][]> {
     const values = await this.handlerAsUtility().utilityStorageRead(
+      L2BlockHash.fromString(blockHash),
       new AztecAddress(Fr.fromString(contractAddress)),
       Fr.fromString(startStorageSlot),
-      BlockNumber(+blockNumber),
       +numberOfElements,
     );
     return [values.map(toACVMField)];

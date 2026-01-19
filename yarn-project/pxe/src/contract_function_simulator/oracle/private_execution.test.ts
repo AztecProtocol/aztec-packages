@@ -460,7 +460,7 @@ describe('Private Execution test suite', () => {
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     aztecNode.getPublicStorageAt.mockImplementation(
-      (_blockNumber: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
+      (_block: BlockParameter, _address: AztecAddress, _storageSlot: Fr) => {
         return Promise.resolve(Fr.ZERO);
       },
     );

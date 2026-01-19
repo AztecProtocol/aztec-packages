@@ -18,7 +18,7 @@ unconstrained fn note_is_nullified_succeeds_on_blocks_after_note_nullification()
     );
 }
 
-#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block")]
 unconstrained fn note_is_nullified_fails_on_blocks_before_note_nullification() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 

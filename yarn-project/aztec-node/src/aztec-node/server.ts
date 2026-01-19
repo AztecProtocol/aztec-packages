@@ -3,7 +3,6 @@ import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@azte
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import {
   ARCHIVE_HEIGHT,
-  INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
@@ -129,7 +128,7 @@ import { NodeMetrics } from './node_metrics.js';
  */
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private metrics: NodeMetrics;
-  private initialHeaderHashPromise: Promise<Fr> | undefined = undefined;
+  private initialHeaderHashPromise: Promise<L2BlockHash> | undefined = undefined;
 
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
@@ -581,31 +580,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return nodeInfo;
   }
 
-  /**
-   * Get a block specified by its number.
-   * @param number - The block number being requested.
-   * @returns The requested block.
-   */
-  public async getBlock(number: BlockParameter): Promise<L2Block | undefined> {
-    const blockNumber = number === 'latest' ? await this.getBlockNumber() : (number as BlockNumber);
-    if (blockNumber === BlockNumber.ZERO) {
-      return this.buildInitialBlock();
+  public async getBlock(block: BlockParameter): Promise<L2Block | undefined> {
+    if (block instanceof L2BlockHash) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (block.equals(initialBlockHash)) {
+        // Block source doesn't handle initial header so we need to handle the case separately.
+        return this.buildInitialBlock();
+      }
+      const blockHashFr = Fr.fromBuffer(block.toBuffer());
+      const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHashFr);
+      return publishedBlock?.block;
+    } else {
+      const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
+      if (blockNumber === BlockNumber.ZERO) {
+        return this.buildInitialBlock();
+      }
+      return await this.blockSource.getBlock(blockNumber);
     }
-    return await this.blockSource.getBlock(blockNumber);
-  }
-
-  /**
-   * Get a block specified by its hash.
-   * @param blockHash - The block hash being requested.
-   * @returns The requested block.
-   */
-  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
-    const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(initialBlockHash)) {
-      return this.buildInitialBlock();
-    }
-    const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
-    return publishedBlock?.block;
   }
 
   private buildInitialBlock(): L2Block {
@@ -851,20 +842,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
-  /**
-   * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
-   * the leaves were inserted.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
-   * @param treeId - The tree to search in.
-   * @param leafValues - The values to search for.
-   * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
-   */
   public async findLeavesIndexes(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
       leafValues.map(x => x.toBuffer()),
@@ -922,39 +905,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     });
   }
 
-  /**
-   * Returns a sibling path for the given index in the nullifier tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
   public async getNullifierSiblingPath(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     return committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
   }
 
-  /**
-   * Returns a sibling path for the given index in the data tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
   public async getNoteHashSiblingPath(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 
   public async getArchiveMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     archive: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [archive]);
     return pathAndIndex === undefined
       ? undefined
@@ -962,10 +933,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getNoteHashMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
       MerkleTreeId.NOTE_HASH_TREE,
       [noteHash],
@@ -975,17 +946,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
   }
 
-  /**
-   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
-   */
   public async getL1ToL2MessageMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const db = await this.#getWorldState(blockNumber);
+    const db = await this.#getWorldState(block);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
     if (!witness) {
       return undefined;
@@ -1037,45 +1002,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
   }
 
-  /**
-   * Returns a sibling path for a leaf in the committed blocks tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
   public async getArchiveSiblingPath(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
   }
 
-  /**
-   * Returns a sibling path for a leaf in the committed public data tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
-   */
   public async getPublicDataSiblingPath(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     return committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
   }
 
-  /**
-   * Returns a nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find witness for.
-   * @returns The nullifier membership witness (if found).
-   */
   public async getNullifierMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const db = await this.#getWorldState(blockNumber);
+    const db = await this.#getWorldState(block);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
     if (!witness) {
       return undefined;
@@ -1092,7 +1039,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the index.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
@@ -1105,10 +1052,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * TODO: This is a confusing behavior and we should eventually address that.
    */
   public async getLowNullifierMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const committedDb = await this.#getWorldState(blockNumber);
+    const committedDb = await this.#getWorldState(block);
     const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!findResult) {
       return undefined;
@@ -1123,8 +1070,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
-  async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = await this.#getWorldState(blockNumber);
+  async getPublicDataWitness(block: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const committedDb = await this.#getWorldState(block);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
@@ -1138,19 +1085,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
   }
 
-  /**
-   * Gets the storage value at the given contract storage slot.
-   *
-   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
-   * Aztec's version of `eth_getStorageAt`.
-   *
-   * @param contract - Address of the contract to query.
-   * @param slot - Slot to query.
-   * @param blockNumber - The block number at which to get the data or 'latest'.
-   * @returns Storage value at the given contract slot.
-   */
-  public async getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState(blockNumber);
+  public async getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const committedDb = await this.#getWorldState(block);
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -1164,28 +1100,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return preimage.leaf.value;
   }
 
-  /**
-   * Returns the currently committed block header, or the initial header if no blocks have been produced.
-   * @returns The current committed block header.
-   */
-  public async getBlockHeader(blockNumber: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
-    return blockNumber === BlockNumber.ZERO ||
-      (blockNumber === 'latest' && (await this.blockSource.getBlockNumber()) === BlockNumber.ZERO)
-      ? this.worldStateSynchronizer.getCommitted().getInitialHeader()
-      : this.blockSource.getBlockHeader(blockNumber === 'latest' ? blockNumber : (blockNumber as BlockNumber));
-  }
-
-  /**
-   * Get a block header specified by its hash.
-   * @param blockHash - The block hash being requested.
-   * @returns The requested block header.
-   */
-  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
-    const initialBlockHash = await this.#getInitialHeaderHash();
-    if (blockHash.equals(initialBlockHash)) {
-      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+  public async getBlockHeader(block: BlockParameter = 'latest'): Promise<BlockHeader | undefined> {
+    if (block instanceof L2BlockHash) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (block.equals(initialBlockHash)) {
+        // Block source doesn't handle initial header so we need to handle the case separately.
+        return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+      }
+      const blockHashFr = Fr.fromBuffer(block.toBuffer());
+      return this.blockSource.getBlockHeaderByHash(blockHashFr);
+    } else {
+      // Block source doesn't handle initial header so we need to handle the case separately.
+      const blockNumber = block === 'latest' ? await this.getBlockNumber() : (block as BlockNumber);
+      if (blockNumber === BlockNumber.ZERO) {
+        return this.worldStateSynchronizer.getCommitted().getInitialHeader();
+      }
+      return this.blockSource.getBlockHeader(block);
     }
-    return await this.blockSource.getBlockHeaderByHash(blockHash);
   }
 
   /**
@@ -1461,23 +1392,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
   }
 
-  #getInitialHeaderHash(): Promise<Fr> {
+  #getInitialHeaderHash(): Promise<L2BlockHash> {
     if (!this.initialHeaderHashPromise) {
-      this.initialHeaderHashPromise = this.worldStateSynchronizer.getCommitted().getInitialHeader().hash();
+      this.initialHeaderHashPromise = this.worldStateSynchronizer
+        .getCommitted()
+        .getInitialHeader()
+        .hash()
+        .then(hash => L2BlockHash.fromField(hash));
     }
     return this.initialHeaderHashPromise;
   }
 
   /**
    * Returns an instance of MerkleTreeOperations having first ensured the world state is fully synched
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
-  async #getWorldState(blockNumber: BlockParameter) {
-    if (typeof blockNumber === 'number' && blockNumber < INITIAL_L2_BLOCK_NUM - 1) {
-      throw new Error('Invalid block number to get world state for: ' + blockNumber);
-    }
-
+  async #getWorldState(block: BlockParameter) {
     let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
     try {
       // Attempt to sync the world state if necessary
@@ -1486,15 +1417,40 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.log.error(`Error getting world state: ${err}`);
     }
 
-    // using a snapshot could be less efficient than using the committed db
-    if (blockNumber === 'latest' /*|| blockNumber === blockSyncedTo*/) {
-      this.log.debug(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+    if (block === 'latest') {
+      this.log.debug(`Using committed db for block 'latest', world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
-    } else if (blockNumber <= blockSyncedTo) {
+    }
+
+    if (block instanceof L2BlockHash) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (block.equals(initialBlockHash)) {
+        // Block source doesn't handle initial header so we need to handle the case separately.
+        return this.worldStateSynchronizer.getSnapshot(BlockNumber.ZERO);
+      }
+
+      const blockHashFr = Fr.fromBuffer(block.toBuffer());
+      const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+      if (!header) {
+        throw new Error(
+          `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+        );
+      }
+      const blockNumber = header.getBlockNumber();
       this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber as BlockNumber);
-    } else {
-      throw new Error(`Block ${blockNumber} not yet synced`);
+      return this.worldStateSynchronizer.getSnapshot(blockNumber);
+    }
+
+    // Block number provided
+    {
+      const blockNumber = block as BlockNumber;
+
+      if (blockNumber > blockSyncedTo) {
+        throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+      }
+
+      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      return this.worldStateSynchronizer.getSnapshot(blockNumber);
     }
   }
 

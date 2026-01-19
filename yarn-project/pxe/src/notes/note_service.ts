@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
@@ -68,7 +69,7 @@ export class NoteService {
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
   public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
-    const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockHash = L2BlockHash.fromField(await (await this.anchorBlockStore.getBlockHeader()).hash());
 
     const contractNotes = await this.noteStore.getNotes({ contractAddress });
 
@@ -91,7 +92,7 @@ export class NoteService {
     const nullifierIndexes = (
       await Promise.all(
         nullifierBatches.map(batch =>
-          this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+          this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch),
         ),
       )
     ).flat();
@@ -138,7 +139,9 @@ export class NoteService {
     // number which *should* be recent enough to be available, even for non-archive nodes.
     // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
     // logs up to the synced block making this only an additional safety check.
-    const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
+    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
@@ -147,14 +150,14 @@ export class NoteService {
 
     const [txEffect, [nullifierIndex]] = await Promise.all([
       this.aztecNode.getTxEffect(txHash),
-      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
+      this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
     ]);
     if (!txEffect) {
       throw new Error(`Could not find tx effect for tx hash ${txHash}`);
     }
 
-    if (txEffect.l2BlockNumber > syncedBlockNumber) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    if (txEffect.l2BlockNumber > anchorBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
     }
 
     // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
