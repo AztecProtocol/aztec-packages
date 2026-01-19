@@ -55,3 +55,17 @@ Internal aztec engineers use the mainframe.
 If the version number changed a mainframe administrator to update the `/usr/local/bin/launch_sysbox` script.
 
 Users will then need to perform a `sudo halt` to reboot with the new image.
+
+## Claudebox
+
+Extends devbox with Claude Code pre-installed. Defaults to a strict network firewall so Claude can be run with skip permissions.
+
+Run via `yarn-project/scripts/claude-in-docker.sh`. The script mounts your repo and Claude credentials.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAUDE_DOCKER_IMAGE` | `aztecprotocol/claudebox:latest` | Docker image to use |
+| `CLAUDE_DOCKER_MODE` | `privileged` | Docker access: `none`, `socket`, `dind`, `privileged` |
+| `CLAUDE_SSH_MODE` | `none` | SSH access: `none`, `agent`, `keys` |
+| `CLAUDE_FIREWALL_MODE` | `on` | Network firewall: `on`, `off` |
+| `CLAUDE_USE_HOST_NETWORK` | `0` | Use host network (disables firewall, dangerous) |

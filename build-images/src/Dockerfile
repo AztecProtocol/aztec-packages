@@ -5,18 +5,18 @@
 FROM ubuntu:noble AS base-build
 RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt update && apt install --no-install-recommends -y \
-      build-essential \
-      ca-certificates \
-      bash \
-      clang \
-      cmake \
-      make \
-      ninja-build \
-      git \
-      curl \
-      gnupg \
-      python3 \
-      wget \
+    build-essential \
+    ca-certificates \
+    bash \
+    clang \
+    cmake \
+    make \
+    ninja-build \
+    git \
+    curl \
+    gnupg \
+    python3 \
+    wget \
     && apt-get -y autoremove \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -44,8 +44,8 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
     && mkdir -p /opt/foundry/bin \
     && for t in forge cast anvil chisel; do \
-        mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
-        strip /opt/foundry/bin/$t; \
+    mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
+    strip /opt/foundry/bin/$t; \
     done \
     && rm -rf $FOUNDRY_BIN_DIR
 
@@ -68,47 +68,47 @@ RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesourc
 
 RUN apt update && \
     apt install -y \
-        # Utils
-        curl \
-        git \
-        wget \
-        time \
-        jq \
-        gawk \
-        unzip \
-        netcat-openbsd \
-        parallel \
-        xz-utils \
-        lsof \
-        xxd \
-        zstd \
-        # C++
-        lsb-release \
-        gnupg \
-        software-properties-common \
-        build-essential \
-        clang \
-        clang-16 \
-        clang-format-16 \
-        cmake \
-        ninja-build \
-        libc++-dev \
-        libomp-dev \
-        doxygen \
-        # C++ stack trace support
-        libdw-dev \
-        libelf-dev \
-        # Rust
-        pkg-config \
-        libssl-dev \
-        # Node
-        # WARNING: Need to downgrade to this version in the basebox below as well.
-        nodejs=24.12.0-1nodesource1 \
-        # Python (clang bindings for wasm bindgen.)
-        python3 \
-        python3-clang \
-        # Unminimize ubuntu installation.
-        unminimize \
+    # Utils
+    curl \
+    git \
+    wget \
+    time \
+    jq \
+    gawk \
+    unzip \
+    netcat-openbsd \
+    parallel \
+    xz-utils \
+    lsof \
+    xxd \
+    zstd \
+    # C++
+    lsb-release \
+    gnupg \
+    software-properties-common \
+    build-essential \
+    clang \
+    clang-16 \
+    clang-format-16 \
+    cmake \
+    ninja-build \
+    libc++-dev \
+    libomp-dev \
+    doxygen \
+    # C++ stack trace support
+    libdw-dev \
+    libelf-dev \
+    # Rust
+    pkg-config \
+    libssl-dev \
+    # Node
+    # WARNING: Need to downgrade to this version in the basebox below as well.
+    nodejs=24.12.0-1nodesource1 \
+    # Python (clang bindings for wasm bindgen.)
+    python3 \
+    python3-clang \
+    # Unminimize ubuntu installation.
+    unminimize \
     && apt-get -y autoremove \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -170,7 +170,7 @@ RUN arch=$(uname -m) && \
 
 # Install yq
 RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
-        -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+    -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 # Install playwright for browser testing. Ensure accessible for other users.
 RUN npx -y playwright@1.49 install --with-deps && mv /root/.cache/ms-playwright /opt/ms-playwright
@@ -186,41 +186,41 @@ RUN yes | unminimize
 # Install stuff devs need.
 RUN apt update && \
     apt install -y --allow-downgrades \
-        cgroup-tools \
-        clangd-16 \
-        clangd-18 \
-        fzf \
-        gnupg \
-        htop \
-        iproute2 \
-        iputils-ping \
-        lcov \
-        less \
-        libfuse2 \
-        lldb \
-        lsb-release \
-        man \
-        neovim \
-        psmisc \
-        python3-blessed \
-        redis-tools \
-        rsync \
-        software-properties-common \
-        ssh \
-        strace \
-        sudo \
-        telnet \
-        tmux \
-        vim \
-        zsh \
-        inotify-tools \
-        # Annoyingly unminimize upgrades nodejs.
-        nodejs=24.12.0-1nodesource1 \
-        # smt_verification dependencies
-        python3-venv \
-        python3-pip \
-        m4 \
-        bison \
+    cgroup-tools \
+    clangd-16 \
+    clangd-18 \
+    fzf \
+    gnupg \
+    htop \
+    iproute2 \
+    iputils-ping \
+    lcov \
+    less \
+    libfuse2 \
+    lldb \
+    lsb-release \
+    man \
+    neovim \
+    psmisc \
+    python3-blessed \
+    redis-tools \
+    rsync \
+    software-properties-common \
+    ssh \
+    strace \
+    sudo \
+    telnet \
+    tmux \
+    vim \
+    zsh \
+    inotify-tools \
+    # Annoyingly unminimize upgrades nodejs.
+    nodejs=24.12.0-1nodesource1 \
+    # smt_verification dependencies
+    python3-venv \
+    python3-pip \
+    m4 \
+    bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install gh (github cli).
@@ -273,11 +273,11 @@ RUN apt install -y gosu
 
 # Detect if the host machine is Mac, if so set an env var, and disable prompts vcs info for performance.
 RUN echo ' \
-  if mount | grep -q /host_mark/Users; then \
-      export HOST_OSTYPE=darwin; \
-      export PROMPT_LEAN_VCS=0; \
-  fi \
-  ' >> /etc/zsh/zshrc
+    if mount | grep -q /host_mark/Users; then \
+    export HOST_OSTYPE=darwin; \
+    export PROMPT_LEAN_VCS=0; \
+    fi \
+    ' >> /etc/zsh/zshrc
 
 # Create the user we'll run as (remove ubuntu first).
 RUN userdel -r ubuntu && useradd --shell /bin/zsh -G sudo -m aztec-dev
@@ -315,43 +315,43 @@ FROM basebox AS sysbox
 #
 RUN apt-get update &&                            \
     apt-get install -y --no-install-recommends   \
-            systemd                              \
-            systemd-sysv                         \
-            libsystemd0                          \
-            ca-certificates                      \
-            dbus                                 \
-            iptables                             \
-            iproute2                             \
-            kmod                                 \
-            locales                              \
-            sudo                                 \
-            udev &&                              \
-                                                \
+    systemd                              \
+    systemd-sysv                         \
+    libsystemd0                          \
+    ca-certificates                      \
+    dbus                                 \
+    iptables                             \
+    iproute2                             \
+    kmod                                 \
+    locales                              \
+    sudo                                 \
+    udev &&                              \
+    \
     # Prevents journald from reading kernel messages from /dev/kmsg
     echo "ReadKMsg=no" >> /etc/systemd/journald.conf &&               \
-                                                                      \
+    \
     # Housekeeping
     apt-get clean -y &&                                               \
     rm -rf                                                            \
-      /var/cache/debconf/*                                           \
-      /var/lib/apt/lists/*                                           \
-      /var/log/*                                                     \
-      /tmp/*                                                         \
-      /var/tmp/*                                                     \
-      /usr/share/local/* &&                                          \
-                                                                      \
+    /var/cache/debconf/*                                           \
+    /var/lib/apt/lists/*                                           \
+    /var/log/*                                                     \
+    /tmp/*                                                         \
+    /var/tmp/*                                                     \
+    /usr/share/local/* &&                                          \
+    \
     # Create default 'ubuntu/ubuntu' user
     echo "ubuntu:ubuntu" | chpasswd && adduser ubuntu sudo
 
 # Disable systemd services/units that are unnecessary within a container.
 RUN systemctl mask systemd-udevd.service \
-                  systemd-udevd-kernel.socket \
-                  systemd-udevd-control.socket \
-                  systemd-modules-load.service \
-                  sys-kernel-config.mount \
-                  sys-kernel-debug.mount \
-                  sys-kernel-tracing.mount \
-                  e2scrub_reap.service
+    systemd-udevd-kernel.socket \
+    systemd-udevd-control.socket \
+    systemd-modules-load.service \
+    sys-kernel-config.mount \
+    sys-kernel-debug.mount \
+    sys-kernel-tracing.mount \
+    e2scrub_reap.service
 
 # Make use of stopsignal (instead of sigterm) to stop systemd containers.
 STOPSIGNAL SIGRTMIN+3
@@ -394,3 +394,37 @@ RUN mkdir -p /etc/systemd/user.conf.d /etc/systemd/user/user.slice.d /etc/system
     printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/system/user-.slice.d/override.conf
 
 EXPOSE 22
+
+
+########################################################################################################################
+# Claude Code development container.
+# Extends devbox with Claude Code CLI, firewall configuration, and security hardening.
+# Use this for AI-assisted development with network isolation.
+FROM devbox AS claudebox
+
+# Install additional packages needed for firewall
+RUN apt update && apt install -y \
+    aggregate \
+    dnsutils \
+    ipset \
+    iptables \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code
+
+# Copy firewall initialization script
+COPY ./init-firewall.sh /usr/local/bin/init-firewall.sh
+RUN chmod +x /usr/local/bin/init-firewall.sh
+
+# Allow aztec-dev to run firewall script without password
+RUN echo 'aztec-dev ALL=(ALL) NOPASSWD: /usr/local/bin/init-firewall.sh' >> /etc/sudoers
+
+# Environment variables for Claude Code
+ENV DEVCONTAINER=true
+ENV EDITOR=vim
+ENV VISUAL=vim
+
+# Pre-create .claude.json to skip onboarding prompts
+RUN echo '{"hasCompletedOnboarding":true}' > /home/aztec-dev/.claude.json \
+    && chown aztec-dev:aztec-dev /home/aztec-dev/.claude.json
