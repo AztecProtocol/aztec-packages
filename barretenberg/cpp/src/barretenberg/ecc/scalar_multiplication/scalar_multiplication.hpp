@@ -209,9 +209,7 @@ template <typename Curve> class MSM {
 
     /**
      * @brief Compute multiple MSMs in parallel with work balancing
-     * @note Scalars are converted from Montgomery form in-place and remain in
-     *       non-Montgomery form on return. Callers must not reuse scalars assuming
-     *       Montgomery form without re-converting.
+     * @note Scalars are temporarily modified but restored before returning
      * @see README.md "Parallelization"
      */
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
@@ -307,7 +305,21 @@ template <typename Curve> class MSM {
                                                                     AffineAdditionData& affine_data,
                                                                     BucketAccumulators& bucket_data,
                                                                     size_t& scratch_it,
-                                                                    size_t& point_it) noexcept;
+                                                                    size_t& point_it) noexcept
+    {
+        bool has_accumulator = bucket_data.bucket_exists.get(bucket);
+        if (has_accumulator) {
+            affine_data.points_to_add[scratch_it] = *point_source;
+            affine_data.points_to_add[scratch_it + 1] = bucket_data.buckets[bucket];
+            bucket_data.bucket_exists.set(bucket, false);
+            affine_data.addition_result_bucket_destinations[scratch_it >> 1] = static_cast<uint32_t>(bucket);
+            scratch_it += 2;
+        } else {
+            bucket_data.buckets[bucket] = *point_source;
+            bucket_data.bucket_exists.set(bucket, true);
+        }
+        point_it += 1;
+    }
 
     // Branchless bucket pair processing. Updates point_it (by 2 if same bucket, else 1) and scratch_it.
     // See README.md "batch_accumulate_points_into_buckets Algorithm" for case analysis.
@@ -318,7 +330,29 @@ template <typename Curve> class MSM {
                                                                    AffineAdditionData& affine_data,
                                                                    BucketAccumulators& bucket_data,
                                                                    size_t& scratch_it,
-                                                                   size_t& point_it) noexcept;
+                                                                   size_t& point_it) noexcept
+    {
+        bool has_bucket_accumulator = bucket_data.bucket_exists.get(lhs_bucket);
+        bool buckets_match = lhs_bucket == rhs_bucket;
+        bool do_affine_add = buckets_match || has_bucket_accumulator;
+
+        const AffineElement* rhs_source = buckets_match ? rhs_source_if_match : &bucket_data.buckets[lhs_bucket];
+
+        AffineElement* lhs_destination =
+            do_affine_add ? &affine_data.points_to_add[scratch_it] : &bucket_data.buckets[lhs_bucket];
+        AffineElement* rhs_destination =
+            do_affine_add ? &affine_data.points_to_add[scratch_it + 1] : &affine_data.null_location;
+
+        uint32_t& dest_bucket = affine_data.addition_result_bucket_destinations[scratch_it >> 1];
+        dest_bucket = do_affine_add ? static_cast<uint32_t>(lhs_bucket) : dest_bucket;
+
+        *lhs_destination = *lhs_source;
+        *rhs_destination = *rhs_source;
+
+        bucket_data.bucket_exists.set(lhs_bucket, (has_bucket_accumulator && buckets_match) || !do_affine_add);
+        scratch_it += do_affine_add ? 2 : 0;
+        point_it += (do_affine_add && buckets_match) ? 2 : 1;
+    }
 };
 
 /** @brief Safe MSM wrapper (defaults to handle_edge_cases=true) */

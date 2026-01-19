@@ -365,6 +365,39 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
     }
 
+    void test_scalars_unchanged_after_batch_multi_scalar_mul()
+    {
+        const size_t num_msms = 3;
+        const size_t num_pts = 100;
+
+        std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<std::vector<ScalarField>> scalars_copies(num_msms);
+        std::vector<std::span<const AffineElement>> batch_points;
+        std::vector<std::span<ScalarField>> batch_scalar_spans;
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            batch_scalars[k].resize(num_pts);
+            scalars_copies[k].resize(num_pts);
+
+            for (size_t i = 0; i < num_pts; ++i) {
+                batch_scalars[k][i] = scalars[k * num_pts + i];
+                scalars_copies[k][i] = batch_scalars[k][i];
+            }
+
+            batch_points.push_back(std::span<const AffineElement>(&generators[k * num_pts], num_pts));
+            batch_scalar_spans.push_back(batch_scalars[k]);
+        }
+
+        scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalar_spans);
+
+        for (size_t k = 0; k < num_msms; ++k) {
+            for (size_t i = 0; i < num_pts; ++i) {
+                EXPECT_EQ(batch_scalars[k][i], scalars_copies[k][i])
+                    << "Scalar at MSM " << k << ", index " << i << " was modified";
+            }
+        }
+    }
+
     void test_scalar_one()
     {
         const size_t num_pts = 5;
@@ -562,6 +595,10 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
 TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterMSM)
 {
     this->test_scalars_unchanged_after_msm();
+}
+TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterBatchMultiScalarMul)
+{
+    this->test_scalars_unchanged_after_batch_multi_scalar_mul();
 }
 TYPED_TEST(ScalarMultiplicationTest, ScalarOne)
 {

@@ -257,7 +257,7 @@ typename Curve::Element MSM<Curve>::jacobian_pippenger_with_transformed_scalars(
     const size_t size = msm_data.scalar_indices.size();
     const uint32_t bits_per_slice = get_optimal_log_num_buckets(size);
     const size_t num_buckets = size_t{ 1 } << bits_per_slice;
-    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+    const uint32_t num_rounds = static_cast<uint32_t>((NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice);
     const uint32_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
 
     JacobianBucketAccumulators bucket_data(num_buckets);
@@ -302,7 +302,7 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
         return jacobian_pippenger_with_transformed_scalars(msm_data);
     }
 
-    const uint32_t num_rounds = (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+    const uint32_t num_rounds = static_cast<uint32_t>((NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice);
     const uint32_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
 
     // Thread-local storage avoids per-call allocations (resolves issue #1452)
@@ -345,60 +345,6 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
     }
 
     return msm_result;
-}
-
-template <typename Curve>
-void MSM<Curve>::process_single_point(size_t bucket,
-                                      const AffineElement* point_source,
-                                      AffineAdditionData& affine_data,
-                                      BucketAccumulators& bucket_data,
-                                      size_t& scratch_it,
-                                      size_t& point_it) noexcept
-{
-    bool has_accumulator = bucket_data.bucket_exists.get(bucket);
-    if (has_accumulator) {
-        affine_data.points_to_add[scratch_it] = *point_source;
-        affine_data.points_to_add[scratch_it + 1] = bucket_data.buckets[bucket];
-        bucket_data.bucket_exists.set(bucket, false);
-        affine_data.addition_result_bucket_destinations[scratch_it >> 1] = static_cast<uint32_t>(bucket);
-        scratch_it += 2;
-    } else {
-        bucket_data.buckets[bucket] = *point_source;
-        bucket_data.bucket_exists.set(bucket, true);
-    }
-    point_it += 1;
-}
-
-template <typename Curve>
-void MSM<Curve>::process_bucket_pair(size_t lhs_bucket,
-                                     size_t rhs_bucket,
-                                     const AffineElement* lhs_source,
-                                     const AffineElement* rhs_source_if_match,
-                                     AffineAdditionData& affine_data,
-                                     BucketAccumulators& bucket_data,
-                                     size_t& scratch_it,
-                                     size_t& point_it) noexcept
-{
-    bool has_bucket_accumulator = bucket_data.bucket_exists.get(lhs_bucket);
-    bool buckets_match = lhs_bucket == rhs_bucket;
-    bool do_affine_add = buckets_match || has_bucket_accumulator;
-
-    const AffineElement* rhs_source = buckets_match ? rhs_source_if_match : &bucket_data.buckets[lhs_bucket];
-
-    AffineElement* lhs_destination =
-        do_affine_add ? &affine_data.points_to_add[scratch_it] : &bucket_data.buckets[lhs_bucket];
-    AffineElement* rhs_destination =
-        do_affine_add ? &affine_data.points_to_add[scratch_it + 1] : &affine_data.null_location;
-
-    uint32_t& dest_bucket = affine_data.addition_result_bucket_destinations[scratch_it >> 1];
-    dest_bucket = do_affine_add ? static_cast<uint32_t>(lhs_bucket) : dest_bucket;
-
-    *lhs_destination = *lhs_source;
-    *rhs_destination = *rhs_source;
-
-    bucket_data.bucket_exists.set(lhs_bucket, (has_bucket_accumulator && buckets_match) || !do_affine_add);
-    scratch_it += do_affine_add ? 2 : 0;
-    point_it += (do_affine_add && buckets_match) ? 2 : 1;
 }
 
 template <typename Curve>
@@ -552,6 +498,15 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         }
     }
     Element::batch_normalize(results.data(), num_msms);
+
+    // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
+    for (auto& scalar_span : scalars) {
+        parallel_for_range(scalar_span.size(), [&](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+                scalar_span[i].self_to_montgomery_form();
+            }
+        });
+    }
 
     return std::vector<AffineElement>(results.begin(), results.end());
 }
