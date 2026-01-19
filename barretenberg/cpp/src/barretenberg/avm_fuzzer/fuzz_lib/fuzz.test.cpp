@@ -44,7 +44,16 @@ class FuzzTest : public ::testing::Test {
 
     SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
     {
+        return simulate_with_default_tx(bytecode, calldata, {});
+    }
+
+    SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode,
+                                             std::vector<FF> calldata,
+                                             const std::vector<FF>& note_hashes)
+    {
         ws_mgr->checkpoint();
+
+        ws_mgr->append_note_hashes(note_hashes);
 
         auto contract_address = context.register_contract_from_bytecode(bytecode);
         FuzzerContractDB contract_db = context.get_contract_db();
@@ -54,8 +63,15 @@ class FuzzTest : public ::testing::Test {
         FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
         ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
         auto cpp_simulator = CppSimulator();
+        auto globals = create_default_globals();
 
-        auto result = cpp_simulator.simulate(*ws_mgr, contract_db, tx);
+        auto result = cpp_simulator.simulate(*ws_mgr,
+                                             contract_db,
+                                             tx,
+                                             globals,
+                                             /*public_data_writes=*/{},
+                                             /*note_hashes=*/{},
+                                             /*protocol_contracts=*/{});
 
         ws_mgr->revert();
 
@@ -1187,28 +1203,29 @@ TEST_F(FuzzTest, EmitNullifierThenNullifierExistsOverwritingPreviousNullifier)
 
 TEST_F(FuzzTest, EmitNoteHashThenNoteHashExists)
 {
-    auto emit_note_hash_instruction =
-        EMITNOTEHASH_Instruction{ .note_hash_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
-                                  .note_hash = 1 };
+    FF note_hash = 42;
+    uint64_t leaf_index = 0;
+    auto set_note_hash_instruction =
+        SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = note_hash };
+    auto set_leaf_index_instruction =
+        SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
+                            .result_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
+                            .value = leaf_index };
     auto note_hash_exists_instruction =
-        NOTEHASHEXISTS_Instruction{ .notehash_index = 0,
-                                    .notehash_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+        NOTEHASHEXISTS_Instruction{ .notehash_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
                                     .leaf_index_address = AddressRef{ .address = 1, .mode = AddressingMode::Direct },
                                     .result_address = AddressRef{ .address = 2, .mode = AddressingMode::Direct } };
     auto instruction_blocks = std::vector<InstructionBlock>{ InstructionBlock{
-        .instructions = { emit_note_hash_instruction, note_hash_exists_instruction } } };
+        .instructions = { set_note_hash_instruction, set_leaf_index_instruction, note_hash_exists_instruction } } };
     auto control_flow = ControlFlow(instruction_blocks);
     control_flow.process_cfg_instruction(InsertSimpleInstructionBlock{ .instruction_block_idx = 0 });
     auto bytecode = control_flow.build_bytecode(
         ReturnOptions{ .return_size = 1, .return_value_tag = bb::avm2::MemoryTag::U1, .return_value_offset_index = 0 });
-    auto result = simulate_with_default_tx(bytecode, {});
+    auto result = simulate_with_default_tx(bytecode, {}, { note_hash });
     EXPECT_FALSE(result.reverted);
-    // TODO(defkit): fix notehashexists
-    // Right now we cannot know the contract address during bytecode construction
-    // because contract address depends on bytecode commitment
-    // So we cannot compute actual unique_note_hash for NOTEHASHEXISTS instruction
-    //
-    // EXPECT_EQ(result.output.at(0), 1);
+    EXPECT_EQ(result.output.at(0), 1);
 }
 } // namespace notes_and_nullifiers
 

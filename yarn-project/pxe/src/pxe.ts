@@ -53,13 +53,13 @@ import { inspect } from 'util';
 
 import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
+import { BenchmarkedNodeFactory } from './contract_function_simulator/benchmarked_node.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from './contract_function_simulator/oracle/private_execution.js';
 import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
-import { ProxiedNodeFactory } from './contract_function_simulator/proxied_node.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
@@ -206,7 +206,7 @@ export class PXE {
       this.noteStore,
       this.keyStore,
       this.addressStore,
-      ProxiedNodeFactory.create(this.node),
+      BenchmarkedNodeFactory.create(this.node),
       this.anchorBlockStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,

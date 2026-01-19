@@ -269,6 +269,10 @@ export abstract class ArchiverDataSourceBase
     return fullCheckpoints;
   }
 
+  public getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+    return this.store.getBlocksForSlot(slotNumber);
+  }
+
   public async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
     if (!this.l1Constants) {
       throw new Error('L1 constants not set');

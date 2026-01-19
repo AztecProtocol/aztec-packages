@@ -66,7 +66,7 @@ async function buildBlock(
   const blockFactory = new LightweightBlockFactory(previousCheckpointOutHashes, worldStateFork, telemetryClient);
   await blockFactory.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
-  const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+  const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs, _, usedTxBlobFields]] = await elapsed(() =>
     processor.process(pendingTxs, opts, validator),
   );
 
@@ -86,6 +86,7 @@ async function buildBlock(
     failedTxs: failedTxs,
     blockBuildingTimer,
     usedTxs,
+    usedTxBlobFields,
   };
   log.trace('Built block', res.block.header);
   return res;

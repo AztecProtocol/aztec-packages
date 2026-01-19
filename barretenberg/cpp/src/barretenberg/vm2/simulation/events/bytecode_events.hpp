@@ -43,14 +43,14 @@ struct BytecodeRetrievalEvent {
 
 struct InstructionFetchingEvent {
     BytecodeId bytecode_id;
-    uint32_t pc;
+    PC pc;
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
     std::optional<InstrDeserializationEventError> error;
 
     // To be used with deduplicating event emitters.
-    using Key = std::tuple<BytecodeId, uint32_t>;
+    using Key = std::tuple<BytecodeId, PC>;
     Key get_key() const { return { bytecode_id, pc }; }
 };
 

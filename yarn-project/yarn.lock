@@ -821,6 +821,7 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
+    "@aztec/validator-ha-signer": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -1266,6 +1267,7 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/test-wallet": "workspace:^"
     "@aztec/validator-client": "workspace:^"
+    "@aztec/validator-ha-signer": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
@@ -2032,7 +2034,9 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
+    "@aztec/validator-ha-signer": "workspace:^"
     "@aztec/world-state": "workspace:^"
+    "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.chunk": "npm:^4.2.7"
@@ -2131,6 +2135,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
+    "@aztec/validator-ha-signer": "workspace:^"
     "@google-cloud/storage": "npm:^7.15.0"
     "@jest/expect": "npm:^30.0.0"
     "@jest/globals": "npm:^30.0.0"
@@ -2272,6 +2277,8 @@ __metadata:
     "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/validator-ha-signer": "workspace:^"
+    "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -2294,7 +2301,6 @@ __metadata:
   resolution: "@aztec/validator-ha-signer@workspace:validator-ha-signer"
   dependencies:
     "@aztec/foundation": "workspace:^"
-    "@aztec/node-keystore": "workspace:^"
     "@electric-sql/pglite": "npm:^0.3.14"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -2309,6 +2315,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 

@@ -4,7 +4,6 @@ import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import type {
   Aliased,
   BatchResults,
-  BatchableMethods,
   BatchedMethod,
   PrivateEvent,
   PrivateEventFilter,
@@ -131,9 +130,7 @@ export abstract class BaseWallet implements Wallet {
     return account.createAuthWit(messageHashOrIntent);
   }
 
-  public async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(
-    methods: T,
-  ): Promise<BatchResults<T>> {
+  public async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;

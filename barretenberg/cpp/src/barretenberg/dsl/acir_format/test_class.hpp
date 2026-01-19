@@ -316,7 +316,7 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
     } else if constexpr (std::is_same_v<ConstraintType, Blake2sConstraint>) {
         std::vector<Acir::FunctionInput> inputs;
         for (const auto& input : constraint.inputs) {
-            inputs.push_back(witness_or_constant_to_function_input(input.blackbox_input));
+            inputs.push_back(witness_or_constant_to_function_input(input));
         }
         auto outputs = std::make_shared<std::array<Acir::Witness, 32>>();
         for (size_t i = 0; i < 32; ++i) {
@@ -330,7 +330,7 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
     } else if constexpr (std::is_same_v<ConstraintType, Blake3Constraint>) {
         std::vector<Acir::FunctionInput> inputs;
         for (const auto& input : constraint.inputs) {
-            inputs.push_back(witness_or_constant_to_function_input(input.blackbox_input));
+            inputs.push_back(witness_or_constant_to_function_input(input));
         }
         auto outputs = std::make_shared<std::array<Acir::Witness, 32>>();
         for (size_t i = 0; i < 32; ++i) {

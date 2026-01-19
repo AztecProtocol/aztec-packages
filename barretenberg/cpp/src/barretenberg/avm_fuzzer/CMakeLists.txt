@@ -34,4 +34,8 @@ if(FUZZING_AVM)
 
     # Add the harness subdirectory which will create the alu_fuzzer target
     add_subdirectory(harness)
+
+    # Corpus analyzer tool (not a fuzzer, a standalone binary)
+    add_executable(avm_tx_corpus_analyzer avm_tx_corpus_analyzer.cpp)
+    target_link_libraries(avm_tx_corpus_analyzer avm_fuzzer)
 endif()

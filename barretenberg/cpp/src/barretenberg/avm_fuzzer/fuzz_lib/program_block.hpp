@@ -106,8 +106,8 @@ class ProgramBlock {
     void process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction);
     void process_emitunencryptedlog_instruction(EMITUNENCRYPTEDLOG_Instruction instruction);
     void process_call_instruction(CALL_Instruction instruction);
-    void process_returndatasize_with_returndatacopy_instruction(
-        RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction);
+    void process_returndatasize_instruction(RETURNDATASIZE_Instruction instruction);
+    void process_returndatacopy_instruction(RETURNDATACOPY_Instruction instruction);
     void process_getcontractinstance_instruction(GETCONTRACTINSTANCE_Instruction instruction);
     void process_successcopy_instruction(SUCCESSCOPY_Instruction instruction);
     void process_ecadd_instruction(ECADD_Instruction instruction);
@@ -173,6 +173,7 @@ class ProgramBlock {
     void insert_internal_call(ProgramBlock* target_block);
 
     std::optional<uint16_t> get_terminating_condition_value();
+    void process_write_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 
     bool is_memory_address_set(uint16_t address);

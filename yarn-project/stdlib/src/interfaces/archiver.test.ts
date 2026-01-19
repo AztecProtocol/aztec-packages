@@ -194,6 +194,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
+  it('getBlocksForSlot', async () => {
+    const result = await context.client.getBlocksForSlot(SlotNumber(1));
+    expect(result).toEqual([expect.any(L2BlockNew)]);
+  });
+
   it('getBlockHeadersForEpoch', async () => {
     const result = await context.client.getBlockHeadersForEpoch(EpochNumber(1));
     expect(result).toEqual([expect.any(BlockHeader)]);
@@ -476,6 +481,10 @@ class MockArchiver implements ArchiverApi {
   async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
     expect(epochNumber).toEqual(EpochNumber(1));
     return [await L2Block.random(BlockNumber(Number(epochNumber)))];
+  }
+  async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+    expect(slotNumber).toEqual(SlotNumber(1));
+    return [await L2BlockNew.random(BlockNumber(Number(slotNumber)))];
   }
   async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
     expect(epochNumber).toEqual(EpochNumber(1));

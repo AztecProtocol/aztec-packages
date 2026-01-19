@@ -2,22 +2,27 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
+import {ZKPassportRootVerifier as ZKPassportVerifier} from "@zkpassport/ZKPassportRootVerifier.sol";
+import {ZKPassportSubVerifier} from "@zkpassport/ZKPassportSubVerifier.sol";
+import {ZKPassportHelper} from "@zkpassport/ZKPassportHelper.sol";
+import {ProofVerificationParams, ProofVerificationData, ServiceConfig, ProofVerifier} from "@zkpassport/Types.sol";
 import {IRootRegistry} from "@zkpassport/IRootRegistry.sol";
 import {HonkVerifier as OuterVerifier8} from "@zkpassport/ultra-honk-verifiers/OuterCount8.sol";
 import {MockRootRegistry} from "./MockRootRegistry.sol";
 import {MockZKPassportVerifier} from "@aztec/mock/staking_asset_handler/MockZKPassportVerifier.sol";
 import {CommittedInputLen} from "@zkpassport/Constants.sol";
-import {ProofVerificationData, Commitments, ServiceConfig} from "@zkpassport/Types.sol";
 
 import {Test} from "forge-std/Test.sol";
 
 contract ZKPassportBase is Test {
   ZKPassportVerifier public zkPassportVerifier;
+  ZKPassportSubVerifier public subVerifier;
   MockZKPassportVerifier public mockZKPassportVerifier;
 
   OuterVerifier8 public verifier;
   IRootRegistry public rootRegistry;
+
+  bytes32 constant VERIFIER_VERSION = bytes32(uint256(1));
 
   ProofVerificationParams internal fakeProof;
   ProofVerificationParams internal realProof;
@@ -39,19 +44,26 @@ contract ZKPassportBase is Test {
     // Root registry for the zk passport verifier
     rootRegistry = new MockRootRegistry();
 
-    // Deploy wrapper verifier
-    zkPassportVerifier = new ZKPassportVerifier(address(rootRegistry));
+    // Deploy root verifier
+    zkPassportVerifier = new ZKPassportVerifier(address(this), address(0), rootRegistry);
+
+    // Deploy sub verifier
+    subVerifier = new ZKPassportSubVerifier(address(this), zkPassportVerifier);
+
+    // Add sub verifier to root verifier
+    zkPassportVerifier.addSubVerifier(VERIFIER_VERSION, subVerifier);
+
     // Deploy actual circuit verifier
     verifier = new OuterVerifier8();
 
-    // Add to the zk passport verifier
-    bytes32[] memory vkeyHashes = new bytes32[](1);
-    vkeyHashes[0] = VKEY_HASH;
+    // Add proof verifier to sub verifier
+    ProofVerifier[] memory proofVerifiers = new ProofVerifier[](1);
+    proofVerifiers[0] = ProofVerifier({vkeyHash: VKEY_HASH, verifier: address(verifier)});
+    subVerifier.addProofVerifiers(proofVerifiers);
 
-    address[] memory verifiers = new address[](1);
-    verifiers[0] = address(verifier);
-
-    zkPassportVerifier.addVerifiers(vkeyHashes, verifiers);
+    // Deploy and add helper
+    ZKPassportHelper helper = new ZKPassportHelper(rootRegistry);
+    zkPassportVerifier.addHelper(VERIFIER_VERSION, address(helper));
 
     // Set the timestamp to PROOF_GENERATION_TIMESTAMP
     vm.warp(PROOF_GENERATION_TIMESTAMP);
@@ -68,8 +80,9 @@ contract ZKPassportBase is Test {
     bytes memory committedInputs = loadBytesFromFile("valid_committed_inputs.hex");
 
     params = ProofVerificationParams({
+      version: VERIFIER_VERSION,
       proofVerificationData: ProofVerificationData({vkeyHash: VKEY_HASH, proof: proof, publicInputs: publicInputs}),
-      commitments: Commitments({committedInputs: committedInputs}),
+      committedInputs: committedInputs,
       serviceConfig: ServiceConfig({
         validityPeriodInSeconds: 7 days, domain: CORRECT_DOMAIN, scope: CORRECT_SCOPE, devMode: false
       })
@@ -82,8 +95,9 @@ contract ZKPassportBase is Test {
     bytes memory committedInputs = bytes(string(""));
 
     params = ProofVerificationParams({
+      version: VERIFIER_VERSION,
       proofVerificationData: ProofVerificationData({vkeyHash: VKEY_HASH, proof: proof, publicInputs: publicInputs}),
-      commitments: Commitments({committedInputs: committedInputs}),
+      committedInputs: committedInputs,
       serviceConfig: ServiceConfig({
         validityPeriodInSeconds: 7 days, domain: "zkpassport.id", scope: "bigproof", devMode: true
       })

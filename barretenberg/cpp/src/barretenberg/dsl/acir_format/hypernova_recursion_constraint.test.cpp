@@ -765,7 +765,7 @@ TEST_F(HypernovaRecursionConstraintTest, FailsOnAcirQueueSizeMismatch)
     ProgramMetadata metadata{ .ivc = ivc };
 
     EXPECT_THROW_WITH_MESSAGE(acir_format::create_circuit<Builder>(program, metadata),
-                              "mismatch between ACIR constraints");
+                              "mismatch in number of recursive verifications");
 }
 
 /**

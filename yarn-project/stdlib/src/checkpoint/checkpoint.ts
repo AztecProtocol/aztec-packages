@@ -1,5 +1,5 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, CheckpointNumberSchema, SlotNumber } from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -14,6 +14,8 @@ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { CheckpointInfo } from './checkpoint_info.js';
 
+type FieldsOfCheckpoint = Omit<FieldsOf<Checkpoint>, 'slot'>;
+
 export class Checkpoint {
   constructor(
     /** Snapshot of archive tree after the checkpoint is added. */
@@ -26,6 +28,10 @@ export class Checkpoint {
     public number: CheckpointNumber,
   ) {}
 
+  get slot(): SlotNumber {
+    return this.header.slotNumber;
+  }
+
   static get schema() {
     return z
       .object({
@@ -37,11 +43,11 @@ export class Checkpoint {
       .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
   }
 
-  static from(fields: FieldsOf<Checkpoint>) {
+  static from(fields: FieldsOfCheckpoint) {
     return new Checkpoint(...Checkpoint.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<Checkpoint>) {
+  static getFields(fields: FieldsOfCheckpoint) {
     return [fields.archive, fields.header, fields.blocks, fields.number] as const;
   }
 

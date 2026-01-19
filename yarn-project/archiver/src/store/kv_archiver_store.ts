@@ -1,5 +1,5 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
-import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -600,5 +600,23 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
     return this.#blockStore.getCheckpointData(checkpointNumber);
+  }
+
+  /**
+   * Gets all blocks that have the given slot number.
+   * @param slotNumber - The slot number to search for.
+   * @returns All blocks with the given slot number.
+   */
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+    return this.#blockStore.getBlocksForSlot(slotNumber);
+  }
+
+  /**
+   * Removes all blocks with block number > blockNumber.
+   * @param blockNumber - The block number to remove after.
+   * @returns The removed blocks (for event emission).
+   */
+  removeBlocksAfter(blockNumber: BlockNumber): Promise<L2BlockNew[]> {
+    return this.#blockStore.unwindBlocksAfter(blockNumber);
   }
 }
