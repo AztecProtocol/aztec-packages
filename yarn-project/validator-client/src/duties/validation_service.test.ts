@@ -1,4 +1,5 @@
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
+import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -27,7 +28,7 @@ describe('ValidationService', () => {
   it('creates a block proposal with txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const blockHeader = makeBlockHeader(1);
-    const indexWithinCheckpoint = 0;
+    const indexWithinCheckpoint = IndexWithinCheckpoint(0);
     const inHash = Fr.random();
     const archive = Fr.random();
 
@@ -48,7 +49,7 @@ describe('ValidationService', () => {
   it('creates a block proposal without txs appended', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const blockHeader = makeBlockHeader(1);
-    const indexWithinCheckpoint = 0;
+    const indexWithinCheckpoint = IndexWithinCheckpoint(0);
     const inHash = Fr.random();
     const archive = Fr.random();
 
@@ -81,7 +82,7 @@ describe('ValidationService', () => {
 
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const blockHeader = makeBlockHeader(1);
-    const indexWithinCheckpoint = 0;
+    const indexWithinCheckpoint = IndexWithinCheckpoint(0);
     const archive = Fr.random();
 
     // Create a spy keystore to capture signing contexts

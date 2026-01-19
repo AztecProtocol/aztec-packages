@@ -1,4 +1,4 @@
-import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 
@@ -90,7 +90,7 @@ export interface BlockProposalDutyIdentifier {
   validatorAddress: EthAddress;
   slot: SlotNumber;
   /** Block index within checkpoint (0, 1, 2...). Required for block proposals. */
-  blockIndexWithinCheckpoint: number;
+  blockIndexWithinCheckpoint: IndexWithinCheckpoint;
   dutyType: DutyType.BLOCK_PROPOSAL;
 }
 
