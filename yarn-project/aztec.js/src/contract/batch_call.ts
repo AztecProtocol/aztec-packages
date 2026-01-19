@@ -76,13 +76,13 @@ export class BatchCall extends BaseContractInteraction {
       { indexedExecutionPayloads: [], utility: [], publicIndex: 0, privateIndex: 0 },
     );
 
-    const batchRequests: Array<BatchedMethod<'simulateUtility'> | BatchedMethod<'simulateTx'>> = [];
+    const batchRequests: BatchedMethod[] = [];
 
     // Add utility calls to batch
     for (const [call] of utility) {
       batchRequests.push({
         name: 'simulateUtility' as const,
-        args: [call, options?.authWitnesses] as const,
+        args: [call, options?.authWitnesses],
       });
     }
 

@@ -9,6 +9,85 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.js] Wallet batching now supports all methods
+
+The `BatchedMethod` type is now a discriminated union that ensures type safety: the `args` must match the specific method `name`. This prevents runtime errors from mismatched arguments.
+
+```diff
+- // Before: Only 5 methods could be batched
+- const results = await wallet.batch([
+-   { name: "registerSender", args: [address, "alias"] },
+-   { name: "sendTx", args: [payload, options] },
+- ]);
++ // After: All methods can be batched
++ const results = await wallet.batch([
++   { name: "getChainInfo", args: [] },
++   { name: "getContractMetadata", args: [contractAddress] },
++   { name: "registerSender", args: [address, "alias"] },
++   { name: "simulateTx", args: [payload, options] },
++   { name: "sendTx", args: [payload, options] },
++ ]);
+```
+
+### [Aztec.js] Refactored `getContractMetadata` and `getContractClassMetadata` in Wallet
+
+The contract metadata methods in the `Wallet` interface have been refactored to provide more granular information and avoid expensive round-trips.
+
+**`ContractMetadata`:**
+
+```diff
+  {
+-   contractInstance?: ContractInstanceWithAddress,
++   instance?: ContractInstanceWithAddress;  // Instance registered in the Wallet, if any
+    isContractInitialized: boolean;          // Is the init nullifier onchain? (already there)
+    isContractPublished: boolean;            // Has the contract been published? (already there)
++   isContractUpdated: boolean;              // Has the contract been updated?
++   updatedContractClassId?: Fr;             // If updated, the new class ID
+  }
+```
+
+**`ContractClassMetadata`:**
+
+This method loses the ability to request the contract artifact via the `includeArtifact` flag
+
+```diff
+  {
+-   contractClass?: ContractClassWithId;
+-   artifact?: ContractArtifact;
+    isContractClassPubliclyRegistered: boolean;  // Is the class registered onchain?
++   isArtifactRegistered: boolean;               // Does the Wallet know about this artifact?
+  }
+```
+
+- Removes expensive artifact/class transfers between wallet and app
+- Separates PXE storage info (`instance`, `isArtifactRegistered`) from public chain info (`isContractPublished`, `isContractClassPubliclyRegistered`)
+- Makes it easier to determine if actions like `registerContract` are needed
+
+### [Aztec.js] Removed `UnsafeContract` and protocol contract helper functions
+
+The `UnsafeContract` class and async helper functions (`getFeeJuice`, `getClassRegistryContract`, `getInstanceRegistryContract`) have been removed. Protocol contracts are now accessed via auto-generated type-safe wrappers with only the ABI (no bytecode). Since PXE always has protocol contract artifacts available, importing and using these contracts from `aztec.js` is very lightweight and follows the same pattern as regular user contracts.
+
+**Migration:**
+
+```diff
+- import { getFeeJuice, getClassRegistryContract, getInstanceRegistryContract } from '@aztec/aztec.js/contracts';
++ import { FeeJuiceContract, ContractClassRegistryContract, ContractInstanceRegistryContract } from '@aztec/aztec.js/protocol';
+
+- const feeJuice = await getFeeJuice(wallet);
++ const feeJuice = FeeJuiceContract.at(wallet);
+  await feeJuice.methods.check_balance(feeLimit).send().wait();
+
+- const classRegistry = await getClassRegistryContract(wallet);
++ const classRegistry = ContractClassRegistryContract.at(wallet);
+  await classRegistry.methods.publish(...).send().wait();
+
+- const instanceRegistry = await getInstanceRegistryContract(wallet);
++ const instanceRegistry = ContractInstanceRegistryContract.at(wallet);
+  await instanceRegistry.methods.publish_for_public_execution(...).send().wait();
+```
+
+**Note:** The higher-level utilities like `publishInstance`, `publishContractClass`, and `broadcastPrivateFunction` from `@aztec/aztec.js/deployment` are still available and unchanged. These utilities use the new wrappers internally.
+
 ### [Aztec.nr] Renamed Router contract
 
 `Router` contract has been renamed as `PublicChecks` contract.
