@@ -58,6 +58,10 @@ global C1: u32 = 28;
 global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
 global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
 
+// @dev: only use this for _huge_ exponents y, when writing a constrained function.
+// If you're only exponentiating by a small value, first consider writing-out the multiplications by hand.
+// Only after you've measured the gates of that approach, consider using the native Field::pow_32 function.
+// Only if your exponent is larger than 32 bits, resort to using this function.
 pub fn pow(x: Field, y: Field) -> Field {
     let mut r = 1 as Field;
     let b: [u1; 254] = y.to_le_bits();

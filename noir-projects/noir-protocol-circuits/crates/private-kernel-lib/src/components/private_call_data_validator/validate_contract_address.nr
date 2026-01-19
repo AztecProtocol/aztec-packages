@@ -38,6 +38,34 @@ use dep::types::{
 ///
 /// See `noir-contracts/contracts/protocol/contract_instance_registry/src/main.nr > update` for more details on how the
 /// contract upgrade is performed.
+///
+/// Decision tree:
+/// - Does the contract address have an updated class_id entry in the ContractInstanceRegistry?
+///     - Yes:
+///         - Is it a magic protocol contract address?
+///             - Yes:
+///                 - This should be unreachable. Ignore the updated class_id.
+///             - No:
+///                 - Then a function (vk & fn selector) from this _updated_ class_id must be executed.
+///     - No:
+///         - Is it a magic protocol contract address?
+///             - Yes:
+///                 - Then a function (vk & fn selector) from the class_id contained within the preimage
+///                   of the protocol contract's _derived_ address must be executed. (The magic address
+///                   has no known preimage).
+///             - No:
+///                 Is it a _derived_ protocol contract address?
+///                     - Yes:
+///                         - It is technically callable in the same way as a "regular" address is callable
+///                           (see next bullet point), but it doesn't share the same state as the
+///                           magic protocol address (because the states will be siloed with different
+///                           addresses: magic vs derived), so it's effectively a useless address to call.
+///                     - No:
+///                         - Then this is a "Regular" contract: the contract is not a protocol contract
+///                           and it's not been updated, so the class_id lives within the preimage of the
+///                           `contract_address`. A function (vk & fn selector) from that class_id must be
+///                           executed.
+///
 pub fn validate_contract_address(
     private_call_data: PrivateCallData,
     protocol_contracts: ProtocolContracts,
@@ -55,7 +83,6 @@ pub fn validate_contract_address(
     let hints = private_call_data.verification_key_hints;
 
     // Prove the function exists in the contract's private functions tree.
-    // ~500 constraints
     let private_functions_root = private_functions_root_from_siblings(
         function_selector,
         vk_hash,
@@ -71,7 +98,9 @@ pub fn validate_contract_address(
     );
 
     // Compute the expected contract address from the class id.
-    // ~1300 constraints
+    // Note: if the `contract_address` belongs to an Upgraded contract, then the `hints`
+    // of `salted_initialization_hash` and `public_keys` provided below can be dummy hints: the resulting
+    // `computed_address` will be inconsequential and will be ignored by this function.
     let computed_address = AztecAddress::compute_from_class_id(
         computed_contract_class_id,
         hints.salted_initialization_hash,
@@ -94,7 +123,7 @@ pub fn validate_contract_address(
         "computed contract address does not match protocol contract derived address",
     );
 
-    // Step 3: Check if it's an updated contract (class id changed via registry).
+    // Step 3: Check if it's an updated contract (class_id changed via the ContractInstanceRegistry).
 
     let updated_contract_class_id = get_updated_contract_class_id(
         contract_address,
@@ -125,9 +154,15 @@ pub fn validate_contract_address(
     );
 }
 
-/// Reads the updated class id from the contract instance registry, if one exists.
-/// Uses a delayed public mutable to ensure updates have taken effect.
-/// Returns Some(class_id) if the contract has been updated, None otherwise.
+/// Reads the updated class id of this contract_address from the appropriate storage slot of the
+/// contract instance registry, if one exists.
+/// Uses a delayed public mutable, which enables a public value to be safely read in private with
+/// guarantees that the value cannot be changed for some time.
+///
+/// Returns the updated class_id if the contract has been updated, or a ContractClassId::empty()
+/// otherwise.
+///
+/// See `noir-projects/noir-contracts/protocol/contract_instance_registry/src/main.nr` for the ContractInstanceRegistry and its storage layout.
 fn get_updated_contract_class_id(
     contract_address: AztecAddress,
     anchor_block_header: BlockHeader,
@@ -148,7 +183,7 @@ fn get_updated_contract_class_id(
         derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address);
 
     // Read the current value, proving it exists (or doesn't) in the public data tree.
-    // A time horizon for this delayed public mutable should be set separately when generating/validating kernel output.
+    // A time horizon for this delayed public mutable should be set separately when generating/validating kernel output: see `private_kernel_circuit_output_validator.nr`.
     read_current_value_of_delayed_public_mutable_with_hash(
         anchor_block_header,
         storage_slot,

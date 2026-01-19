@@ -110,8 +110,8 @@ pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field
 
 pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     let value = nullifier.innermost().value;
-    // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
-    // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
+    // Q: shouldn't we be checking whether the _whole_ scoped, counted, nullifier struct is empty?
+    // A: We don't have to. The init and inner circuits add a contract address only to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
         value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
@@ -121,6 +121,8 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
 }
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    // The protocol nullifier is ascribed a special side-effect counter of 1. No other side-effect
+    // can have counter 1 (see `validate_as_first_call` for that assertion).
     Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
         NULL_MSG_SENDER_CONTRACT_ADDRESS,
     )
@@ -148,11 +150,11 @@ pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_F
 pub fn compute_app_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
-    app_secret_generator: Field,
+    app_secret_key_domain_separator: Field,
 ) -> Field {
     poseidon2_hash_with_separator(
         [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
-        app_secret_generator,
+        app_secret_key_domain_separator,
     )
 }
 

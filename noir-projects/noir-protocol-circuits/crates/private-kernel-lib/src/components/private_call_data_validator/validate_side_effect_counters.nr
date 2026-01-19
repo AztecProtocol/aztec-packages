@@ -114,8 +114,8 @@ pub struct SideEffectUniquenessHints {
 /// 3. **Verify strict ordering**: Walk the sorted array and confirm counters are strictly increasing (no duplicates)
 ///    and all fall within (private_call_start_counter, private_call_end_counter).
 /// 4. **Handle nested calls specially**: Private call requests contribute TWO entries to the sorted array (start and
-///    end counters) which must be adjacent. This ensures no other side effect's counter falls within the nested call's
-///    "reserved" range.
+///    end counters) which must be adjacent in the sorted array. This ensures no other side effect's counter falls
+///    within the nested call's "reserved" range.
 pub fn validate_unique_and_within_bounds_side_effect_counters(
     public_inputs: PrivateCircuitPublicInputs,
 ) {
@@ -145,6 +145,8 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
         + public_inputs.private_logs.length
         + public_inputs.contract_class_logs_hashes.length
         + if public_inputs.min_revertible_side_effect_counter == 0 {
+            // The min_revertible_side_effect_counter only gets added by the function that ends the
+            // setup phase (which might be a later fn in the tx which hasn't been processed by a kernel yet).
             0
         } else {
             1
@@ -152,10 +154,10 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
 
     // Verify padding: all entries beyond total_side_effects must be null.
     // This prevents a malicious prover from adding extra entries that could allow duplicate or unsorted counters.
-    let mut should_be_tailing = false;
+    let mut should_be_null = false;
     for i in 0..sorted_side_effect_counters.len() {
-        should_be_tailing |= i == total_side_effects;
-        if should_be_tailing {
+        should_be_null |= i == total_side_effects;
+        if should_be_null {
             assert_eq(
                 sorted_side_effect_counters[i].global_index,
                 MAX_U32_VALUE,
@@ -164,8 +166,16 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
         }
     }
 
-    // Validate the one-to-one mapping for each side effect type.
-    // Each call verifies that side effects map to correct positions in the sorted array.
+    // Validate that the hinted `sorted_side_effect_counters` array is a permutation of the combined side-effect counters
+    // of the public input arrays.
+    // Each call below verifies that -- for a particular type of side-effect -- each non-null side-effect counter
+    // exists once (at least) in the sorted array.
+    // Combine that with the above assertion -- which ensures that all items after `total_side_effects` length
+    // are null -- and we also have that each non-null side-effect counter exists _at most_ once in the sorted array.
+    // Hence, only one of each item can possibly exist in the sorted_side_effect_counters array.
+    //
+    // (We will ensure that the side-effects are actually sorted in ascending order later in this function).
+    //
     validate_side_effect_counters_for_array(
         public_inputs.note_hash_read_requests,
         side_effect_sorting_hints.note_hash_read_request_indices,
@@ -244,6 +254,10 @@ pub fn validate_unique_and_within_bounds_side_effect_counters_with_hints(
     );
 }
 
+/// Validates that for an array of counters for a particular type of side-effect, each item appears
+/// somewhere in the larger, sorted array.
+/// We ultimately will want that each item appears exactly once, but this function alone doesn't
+/// guarantee that.
 /// Validates that each side effect in an array maps to exactly one position in the sorted array, and that position maps
 /// back to this side effect (establishing a one-to-one correspondence).
 fn validate_side_effect_counters_for_array<T, let N: u32>(
@@ -422,6 +436,9 @@ unconstrained fn build_uniqueness_hints(
         0,
     );
 
+    // Notice: these are dynamic loop bounds: the `length` is a witness (as opposed to `.len()`).
+    // So it stops pushing when it reaches the claimed end of the array (i.e. when it reaches a `0`).
+    // (The claimed length is validated to be the actual length in the tail circuit).
     for i in 0..public_inputs.note_hash_read_requests.length {
         side_effect_counters.push(SideEffectCounter::new(
             public_inputs.note_hash_read_requests.array[i].counter(),
@@ -487,6 +504,9 @@ unconstrained fn build_uniqueness_hints(
         ));
     }
 
+    // Note: point of confusion: min_revertible_side_effect_counter is _not_ set to be equal to some
+    // other side-effect counter. min_revertible_side_effect_counter actually gets assigned its own unique
+    // side-effect counter; allocated in end_setup() within an app circuit.
     if public_inputs.min_revertible_side_effect_counter != 0 {
         side_effect_counters.push(SideEffectCounter::new(
             public_inputs.min_revertible_side_effect_counter,

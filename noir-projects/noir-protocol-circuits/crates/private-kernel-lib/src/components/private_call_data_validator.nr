@@ -99,7 +99,7 @@ impl PrivateCallDataValidator {
             self.data.verify(is_first_function_call);
         }
 
-        // Validate that the function being executed belongs to the contract being called.
+        // Validate that the function being processed belongs to the contract address that was called.
         validate_contract_address(self.data, protocol_contracts);
 
         self.validate_claimed_lengths();
@@ -246,6 +246,10 @@ impl PrivateCallDataValidator {
 
     /// For Init and Inner.
     /// Validates that claimed array lengths don't exceed maximum bounds.
+    /// Without these checks, you could get weird results: when appending the data from a `source` array to the
+    /// larger output `dest` arrays, the `dest` array increments its length by the claimed `source` length.
+    /// A `source` length beyond the `source.len()` would result in the `dest` array's length jumping over some
+    /// unallocated `dest` indices.
     fn validate_claimed_lengths(self) {
         self.data.public_inputs.note_hash_read_requests.assert_length_within_bounds(
             "note_hash_read_requests length out of bounds",
