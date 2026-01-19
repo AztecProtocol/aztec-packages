@@ -22,14 +22,14 @@ const AMOUNT_PER_NOTE = 1_000_000;
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
 // Set to true to print out the round trip information to the console.
-const DEBUG_ROUND_TRIPS = false;
+const DEBUG_ROUND_TRIPS = true;
 
 // Expected number of node round trips per account contract and payment method.
 const EXPECTED_ROUND_TRIPS: Record<string, number> = {
-  'ecdsar1+private_fpc': 165,
-  'ecdsar1+sponsored_fpc': 12,
-  'schnorr+private_fpc': 143,
-  'schnorr+sponsored_fpc': 217,
+  'ecdsar1+private_fpc': 214, // 215, 216
+  'ecdsar1+sponsored_fpc': 165, // 163, 163, 168, 165, 165
+  'schnorr+private_fpc': 214, // 215
+  'schnorr+sponsored_fpc': 143, // 145
 };
 
 interface RoundTripData {
@@ -143,6 +143,9 @@ describe('AMM benchmark', () => {
               bananaCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
             );
+
+            // Reset any stale stats from previous operations before the simulation
+            t.benchmarkedNode.getAndResetStats();
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -180,9 +183,6 @@ describe('AMM benchmark', () => {
               .methods.add_liquidity(amountToSend, amountToSend, amountToSend, amountToSend, nonceForAuthwits)
               .with({ authWitnesses: [token0Authwit, token1Authwit] });
 
-            // Get node stats from the benchmarked node to track RPC calls
-            const nodeStats = t.benchmarkedNode.getAndResetStats();
-
             await captureProfile(
               `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
               addLiquidityInteraction,
@@ -199,8 +199,9 @@ describe('AMM benchmark', () => {
                 1 + // Kernel reset
                 1 + // Kernel tail
                 1, // Kernel hiding
-              nodeStats,
             );
+
+            const nodeStats = t.benchmarkedNode.getAndResetStats();
 
             if (process.env.SANITY_CHECKS) {
               const tx = await addLiquidityInteraction.send({ from: benchysAddress }).wait();

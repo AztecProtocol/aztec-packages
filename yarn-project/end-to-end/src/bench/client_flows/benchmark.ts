@@ -7,14 +7,7 @@ import {
 import type { Logger } from '@aztec/aztec.js/log';
 import { createLogger } from '@aztec/foundation/log';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
-import type {
-  NodeStats,
-  ProvingStats,
-  ProvingTimings,
-  RoundTripStats,
-  SimulationStats,
-  SimulationTimings,
-} from '@aztec/stdlib/tx';
+import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings } from '@aztec/stdlib/tx';
 
 import assert from 'node:assert';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -125,8 +118,6 @@ type ClientFlowBenchmark = {
   name: string;
   timings: Omit<ProvingTimings & SimulationTimings, 'perFunction'> & { witgen: number };
   maxMemory: number;
-  rpc: Record<string, CallRecording>;
-  roundTrips: RoundTripStats;
   proverType: ProverType;
   minimumTrace: StructuredTrace;
   totalGateCount: number;
@@ -181,7 +172,6 @@ export function generateBenchmark(
   privateExecutionSteps: PrivateExecutionStep[],
   proverType: ProverType,
   error: string | undefined,
-  nodeStats?: NodeStats,
 ): ClientFlowBenchmark {
   let maxMemory = 0;
   let minimumTrace: StructuredTrace;
@@ -221,10 +211,6 @@ export function generateBenchmark(
   }, []);
   const timings = stats.timings;
   const totalGateCount = steps[steps.length - 1].accGateCount;
-  const nodeRPCCalls = nodeStats ?? {
-    perMethod: {},
-    roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
-  };
   return {
     name: flow,
     timings: {
@@ -234,22 +220,6 @@ export function generateBenchmark(
       unaccounted: timings.unaccounted,
       witgen: timings.perFunction.reduce((acc, fn) => acc + fn.time, 0),
     },
-    rpc: Object.entries(nodeRPCCalls.perMethod).reduce(
-      (acc, [RPCName, RPCCalls]) => {
-        const total = RPCCalls.times.reduce((sum, time) => sum + time, 0);
-        const calls = RPCCalls.times.length;
-        acc[RPCName] = {
-          calls,
-          max: Math.max(...RPCCalls.times),
-          min: Math.min(...RPCCalls.times),
-          total,
-          avg: total / calls,
-        };
-        return acc;
-      },
-      {} as Record<string, CallRecording>,
-    ),
-    roundTrips: nodeRPCCalls.roundTrips,
     maxMemory,
     proverType,
     minimumTrace: minimumTrace!,
@@ -260,7 +230,6 @@ export function generateBenchmark(
 }
 
 export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): GithubActionBenchmarkResult[] {
-  const totalRPCCalls = Object.values(benchmark.rpc).reduce((acc, call) => acc + call.calls, 0);
   const benches = [
     {
       name: `${benchmark.name}/witgen`,
@@ -289,21 +258,6 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
       value: benchmark.totalGateCount,
       unit: 'gates',
     },
-    {
-      name: `${benchmark.name}/rpc`,
-      value: totalRPCCalls,
-      unit: 'calls',
-    },
-    {
-      name: `${benchmark.name}/round_trips`,
-      value: benchmark.roundTrips.roundTrips,
-      unit: 'round_trips',
-    },
-    {
-      name: `${benchmark.name}/round_trips_blocking_time`,
-      value: benchmark.roundTrips.totalBlockingTime,
-      unit: 'ms',
-    },
   ];
   if (benchmark.timings.proving) {
     benches.push({
@@ -327,7 +281,6 @@ export async function captureProfile(
   interaction: ContractFunctionInteraction | DeployMethod,
   opts: Omit<ProfileInteractionOptions & DeployOptions, 'profileMode'>,
   expectedSteps?: number,
-  nodeStats?: NodeStats,
 ) {
   // Make sure the proxy logger starts from a clean slate
   ProxyLogger.getInstance().flushLogs();
@@ -336,7 +289,7 @@ export async function captureProfile(
   if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
     throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
   }
-  const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined, nodeStats);
+  const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined);
 
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;
   if (ivcFolder) {
