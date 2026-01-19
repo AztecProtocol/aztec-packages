@@ -22,18 +22,18 @@ Stores an immediate value (a constant encoded directly in the bytecode) at the s
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
 | Name | Type | Description |
 |------|------|-------------|
-| `dstOffset` | Memory offset | Memory offset for value will be stored |
+| `dstOffset` | Memory offset | Memory offset where the value will be stored |
 | `inTag` | Type tag | Type tag to assign to the value. Unrelated to the opcode's wire format (`SET_8` vs `SET_16`, etc.) |
 | `value` | Immediate value | Constant from the bytecode to store into memory |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SET_8** (Opcode 0x27):
 
@@ -138,7 +138,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

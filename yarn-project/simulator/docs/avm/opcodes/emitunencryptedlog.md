@@ -24,7 +24,7 @@ Emits a public log from the currently executing contract. Log size must be Uint3
 | L2 Dynamic | 3 | `M[logSizeOffset]` |
 | DA Dynamic | 512 | `M[logSizeOffset]` |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -34,7 +34,7 @@ Emits a public log from the currently executing contract. Log size must be Uint3
 | `logOffset` | Memory offset | Memory offset of the start of the log data |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **EMITUNENCRYPTEDLOG** (Opcode 0x37):
 
@@ -53,7 +53,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

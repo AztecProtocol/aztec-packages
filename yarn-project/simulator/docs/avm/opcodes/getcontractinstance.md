@@ -46,18 +46,18 @@ This separation allows for:
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
 | Name | Type | Description |
 |------|------|-------------|
-| `addressOffset` | Memory offset | Memory offset |
-| `dstOffset` | Memory offset | Memory offset |
+| `addressOffset` | Memory offset | Memory offset of the contract address to look up |
+| `dstOffset` | Memory offset | Memory offset where the result will be written |
 | `memberEnum` | Memory offset | Immediate value specifying which contract instance member to retrieve |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **GETCONTRACTINSTANCE** (Opcode 0x36):
 
@@ -77,7 +77,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

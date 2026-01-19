@@ -22,18 +22,18 @@ Computes the SHA-256 compression function on an 8-word state and 16-word input b
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
 | Name | Type | Description |
 |------|------|-------------|
-| `outputOffset` | Memory offset | Memory offset for 8-word output state will be written |
+| `outputOffset` | Memory offset | Memory offset where the 8-word output state will be written |
 | `stateOffset` | Memory offset | Memory offset of the 8-word SHA-256 state |
 | `inputsOffset` | Memory offset | Memory offset of the 16-word input block |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **SHA256COMPRESSION** (Opcode 0x40):
 
@@ -53,7 +53,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

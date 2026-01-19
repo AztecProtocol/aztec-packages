@@ -30,7 +30,7 @@ Decomposes a field element into limbs in the specified radix (2-256). If outputB
 
 \*Note: The L2 gas cost scales linearly with M[numLimbsOffset], but also includes a per-limb multiplier based on M[radixOffset]
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
@@ -40,10 +40,10 @@ Decomposes a field element into limbs in the specified radix (2-256). If outputB
 | `radixOffset` | Memory offset | Memory offset of the radix (base) for decomposition |
 | `numLimbsOffset` | Memory offset | Memory offset of the number of limbs to generate |
 | `outputBitsOffset` | Memory offset | Memory offset of the output mode flag (1 for bits, 0 for bytes) |
-| `dstOffset` | Memory offset | Memory offset for limb array will be written |
+| `dstOffset` | Memory offset | Memory offset where the limb array will be written |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **TORADIXBE** (Opcode 0x43):
 
@@ -65,7 +65,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 16-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 

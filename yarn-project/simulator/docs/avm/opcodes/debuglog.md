@@ -22,20 +22,20 @@ Prints a debug log to console as a formatted message, and pushes a structured de
 | DA Base | 0 | - |
 | L2 Addressing | 3 | 3 L2 gas per indirect memory offset<br/>3 L2 gas per relative memory offset |
 
-\* See [Gas Metering](gas.md) for details on how gas costs are computed and applied.
+\* See [Gas Metering](../gas.md) for details on how gas costs are computed and applied.
 
 ## Operands
 
 | Name | Type | Description |
 |------|------|-------------|
-| `levelOffset` | Memory offset | Memory offset |
+| `levelOffset` | Memory offset | Memory offset of the log level |
 | `messageOffset` | Memory offset | Memory offset of the message string |
 | `fieldsOffset` | Memory offset | Memory offset of the start of field values to log |
 | `fieldsSizeOffset` | Memory offset | Memory offset of the number of fields to log |
 | `messageSize` | Memory offset | Immediate value specifying message string length |
 
 ## Wire Formats
-See [Wire Format](wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
+See [Wire Format](../wire-format.md) page for an explanation of wire format variants and opcode naming (e.g., why `ADD_8` vs `ADD_16`).
 
 **DEBUGLOG** (Opcode 0x3E):
 
@@ -57,7 +57,7 @@ packet-beta
 ```
 
 ## Addressing Modes
-See [Addressing](addressing.md) page for a detailed explanation.
+See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
