@@ -1,3 +1,5 @@
+//! Miscellaneous utilities.
+
 pub mod array;
 pub mod comparison;
 pub mod conversion;
