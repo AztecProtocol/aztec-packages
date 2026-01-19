@@ -192,11 +192,10 @@ template <typename Curve> class MSM {
         [[nodiscard]] uint32_t bucket_index() const { return static_cast<uint32_t>(data); }
     };
 
-    static size_t get_num_rounds(size_t num_points) noexcept
+    static uint32_t get_num_rounds(size_t num_points) noexcept
     {
-        const size_t bits_per_slice = get_optimal_log_num_buckets(num_points);
-        const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
-        return num_rounds;
+        const uint32_t bits_per_slice = get_optimal_log_num_buckets(num_points);
+        return (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
     }
     static void add_affine_points(AffineElement* points,
                                   const size_t num_points,
@@ -206,29 +205,29 @@ template <typename Curve> class MSM {
 
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
-    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size) noexcept;
-    static size_t get_optimal_log_num_buckets(const size_t num_points) noexcept;
+    static uint32_t get_scalar_slice(const ScalarField& scalar, uint32_t round, uint32_t slice_size) noexcept;
+    static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
     static bool use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept;
 
     static Element jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
     static Element affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
     static void evaluate_jacobian_pippenger_round(MSMData& msm_data,
-                                                  const size_t round_index,
+                                                  uint32_t round_index,
                                                   JacobianBucketAccumulators& bucket_data,
                                                   Element& msm_accumulator,
-                                                  const size_t bits_per_slice) noexcept;
+                                                  uint32_t bits_per_slice) noexcept;
 
     static void evaluate_affine_pippenger_round(MSMData& msm_data,
-                                                const size_t round_index,
+                                                uint32_t round_index,
                                                 AffineAdditionData& affine_data,
                                                 BucketAccumulators& bucket_data,
                                                 Element& msm_accumulator,
-                                                const size_t bits_per_slice) noexcept;
+                                                uint32_t bits_per_slice) noexcept;
 
     static void accumulate_round_result(Element& msm_accumulator,
                                         const Element& bucket_result,
-                                        size_t round_index,
-                                        size_t bits_per_slice) noexcept;
+                                        uint32_t round_index,
+                                        uint32_t bits_per_slice) noexcept;
 
     static void consume_point_schedule(std::span<const uint64_t> point_schedule,
                                        std::span<const AffineElement> points,
