@@ -1,24 +1,33 @@
 // Virtual to execution.pil but specifically to house the constraints for internal call / return
 
-// Internal call and return both interact with the internal call stack (see the pil file for more details)
+// Internal call and return both interact with the internal call stack (see internal_call_stack.pil file for more details)
 // The internal call context information (next id, id and return id) are reset at the start of each new context
+
+// In this subtrace, we enforce constraints on the internal call stack, the "internal call" related IDs, and pc.
+// - internal_call_id: the current internal call id
+// - internal_call_return_id: the internal call id after an internal return (parent)
+// - next_internal_call_id: the next internal call id after an internal call
+// These IDs are defined in context.pil and their mutations are enforced in this subtrace except
+// for the case of a non-erroring internal return/call.
+// These IDs are used to track the internal call stack entries and ultimately serve to correctly
+// enforce the next pc counter after an internal call/return.
+// This subtrace constrains pc (on next row) after an internal return (see #[UNWIND_CALL_STACK] below)
+// while pc (on next row) after an internal call is enforced in execution.pil (see #[PC_NEXT_ROW_INT_CALL_JUMP] below).
 
 namespace execution;
     // sel_execute_internal_call and sel_execute_internal_return selectors defined in execution.pil
+    // and are mutually exclusive.
 
     #[skippable_if]
     sel_execute_internal_call + sel_execute_internal_return = 0;
 
-    // =============================
-    // === Internal Call Pointer ===
-    // =============================
-    // The following is grouped together as the Internal Call Pointer struct in the simulator
+    // ===================================
+    // === Non-Stack Related Mutations ===
+    // ===================================
 
-    // If we encounter a sel_execute_internal_call, the next internal_call_id is the current next_internal_call_id
+    // If we encounter a sel_execute_internal_call, the internal_call_id on next row is the current next_internal_call_id.
     #[NEW_CALL_ID_ON_CALL]
     sel_execute_internal_call * (internal_call_id' - next_internal_call_id) = 0;
-    // If we unwind the call stack (i.e. sel_internal_return_call that does not error), the next internal_call_id is the current internal_call_return_id
-    // This is gated by (1 - sel_opcode_error) so we don't enforce the constraint when the callstack is empty
 
     // If we encounter a sel_execute_internal_call, the next internal_call_return_id is the current internal_call_id
     #[NEW_RETURN_ID_ON_CALL]
@@ -47,6 +56,7 @@ namespace execution;
     // =============================
     // We store the current internal call pointer
     // Crucial to be a permutation to prevent malicious insertions in the internal call stack.
+    // Note that the pair (context_id, entered_call_id) is used to uniquely identify a call stack entry.
     #[PUSH_CALL_STACK]
     sel_execute_internal_call {
         context_id, next_internal_call_id, internal_call_id, internal_call_return_id, next_pc
@@ -58,6 +68,9 @@ namespace execution;
     // === Popping from Call Stack ===
     // =============================
     // Retrieve the previous internal call ptr from the stack
+    // When we unwind the call stack (i.e. sel_internal_return_call that does not error), we retrieve the next row values for
+    // internal_call_id, internal_call_return_id, and pc from the stack based on the current (context_id, internal_call_id) pair.
+    // This is gated by (1 - sel_opcode_error) so we don't enforce the constraint when the callstack is empty.
     // Fine to be a lookup since we are not modifying the stack (cannot be a permutation because an error might occur before the read).
     #[UNWIND_CALL_STACK]
     sel_read_unwind_call_stack {
