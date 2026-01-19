@@ -1,3 +1,5 @@
+//! Authorization.
+
 pub mod account;
 pub mod authorization_interface;
 pub mod authorization_selector;
