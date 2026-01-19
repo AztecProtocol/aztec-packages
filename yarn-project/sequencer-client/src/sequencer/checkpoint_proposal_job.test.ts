@@ -143,6 +143,7 @@ describe('CheckpointProposalJob', () => {
       committee,
       seed: 0n,
       epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
     });
 
     publisher = mockDeep<SequencerPublisher>();
@@ -710,6 +711,7 @@ describe('CheckpointProposalJob', () => {
         committee: [],
         seed: 0n,
         epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
       });
 
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);

@@ -133,7 +133,12 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, now: 3n });
-    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: EpochNumber(1) });
+    epochCache.getCommittee.mockResolvedValue({
+      committee: [],
+      seed: 1n,
+      epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
+    });
 
     publisher = new SequencerPublisher(config, {
       blobClient,

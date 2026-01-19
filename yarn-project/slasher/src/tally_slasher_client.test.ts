@@ -127,7 +127,9 @@ describe('TallySlasherClient', () => {
 
     // Create mock EpochCache
     mockEpochCache = mockDeep<EpochCache>();
-    mockEpochCache.getCommitteeForEpoch.mockImplementation(epoch => Promise.resolve({ committee, seed: 0n, epoch }));
+    mockEpochCache.getCommitteeForEpoch.mockImplementation(epoch =>
+      Promise.resolve({ committee, seed: 0n, epoch, isEscapeHatchOpen: false }),
+    );
     mockEpochCache.getL1Constants.mockReturnValue({
       l1StartBlock: 0n,
       l1GenesisTime: 0n,
@@ -258,6 +260,7 @@ describe('TallySlasherClient', () => {
           committee: undefined,
           seed: 0n,
           epoch: EpochNumber(0),
+          isEscapeHatchOpen: false,
         });
 
         const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));

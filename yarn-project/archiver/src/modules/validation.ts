@@ -61,6 +61,11 @@ export async function validateCheckpointAttestations(
     return { valid: true };
   }
 
+  if (await epochCache.isEscapeHatchOpen(epoch)) {
+    logger?.warn(`Escape hatch open for epoch ${epoch} at slot ${slot}, skipping checkpoint validation`);
+    return { valid: true };
+  }
+
   const requiredAttestationCount = Math.floor((committee.length * 2) / 3) + 1;
 
   const failedValidationResult = <TReason extends ValidateCheckpointNegativeResult['reason']>(reason: TReason) => ({

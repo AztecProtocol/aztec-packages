@@ -142,6 +142,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       committee: validationResult.committee,
       seed: validationResult.seed,
       epoch: validationResult.epoch,
+      isEscapeHatchOpen: false,
     };
     const proposer = this.epochCache.getProposerFromEpochCommittee(epochCommitteeInfo, slot);
 
