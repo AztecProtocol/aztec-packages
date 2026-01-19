@@ -68,7 +68,8 @@ template <typename Curve> class MSM {
     static constexpr size_t INVERSION_TABLE_COST = 14;
     // ===========================================================================
 
-    // Offset generator used in bucket accumulation to avoid incomplete addition edge cases
+    // Offset generator used in bucket reduction to probabilistically avoid incomplete-addition
+    // edge cases in the accumulator. Derived from domain-separated precomputed generators.
     static const AffineElement& get_offset_generator() noexcept
     {
         static const AffineElement offset_generator = []() {
@@ -85,8 +86,9 @@ template <typename Curve> class MSM {
      * @brief MSMWorkUnit describes an MSM that may be part of a larger MSM
      * @details For a multi-MSM where each MSM has a variable size, we want to split the MSMs up
      *          such that every available thread has an equal amount of MSM work to perform.
-     *          The actual MSM algorithm used is single-threaded. This is beneficial because we get better scaling.
-     *
+     *          Each work unit is computed single-threaded; a single MSM may be split across
+     *          threads and reduced. This approach yields better scaling than thread-parallel
+     *          bucket accumulation.
      */
     struct MSMWorkUnit {
         size_t batch_msm_index = 0;
@@ -131,7 +133,7 @@ template <typename Curve> class MSM {
      * @details Used when handle_edge_cases=false. Stores buckets in affine coordinates,
      *          enabling use of Montgomery's batch inversion trick. Does NOT handle
      *          edge cases like point doubling or point at infinity.
-     * @note Thread-local: one instance created per thread
+     * @note In the affine Pippenger path, a thread_local instance is reused across calls.
      */
     struct BucketAccumulators {
         std::vector<AffineElement> buckets;
@@ -148,7 +150,7 @@ template <typename Curve> class MSM {
      * @details Used when handle_edge_cases=true or when affine trick is not beneficial.
      *          Stores buckets in Jacobian coordinates which correctly handle point
      *          doubling and point at infinity edge cases.
-     * @note Thread-local: one instance created per thread
+     * @note Allocated per-call (not thread_local) in the Jacobian Pippenger path.
      */
     struct JacobianBucketAccumulators {
         std::vector<Element> buckets;
@@ -207,7 +209,9 @@ template <typename Curve> class MSM {
 
     /**
      * @brief Compute multiple MSMs in parallel with work balancing
-     * @note Scalars are modified in-place (Montgomery conversion)
+     * @note Scalars are converted from Montgomery form in-place and remain in
+     *       non-Montgomery form on return. Callers must not reuse scalars assuming
+     *       Montgomery form without re-converting.
      * @see README.md "Parallelization"
      */
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
@@ -220,7 +224,7 @@ template <typename Curve> class MSM {
     static uint32_t get_num_rounds(size_t num_points) noexcept
     {
         const uint32_t bits_per_slice = get_optimal_log_num_buckets(num_points);
-        return (NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice;
+        return static_cast<uint32_t>((NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice);
     }
 
     /** @brief Batch add n/2 independent point pairs using Montgomery's trick */
@@ -231,7 +235,7 @@ template <typename Curve> class MSM {
     /** @brief Extract c-bit slice from scalar for bucket index computation */
     static uint32_t get_scalar_slice(const ScalarField& scalar, uint32_t round, uint32_t slice_size) noexcept;
 
-    /** @brief Compute optimal bits per slice: c ≈ ceil(log2(sqrt(n))) */
+    /** @brief Compute optimal bits per slice by minimizing cost over c in [1, MAX_SLICE_BITS) */
     static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
 
     /** @brief Process sorted point schedule into bucket accumulators using batched affine additions */
@@ -240,19 +244,19 @@ template <typename Curve> class MSM {
                                                      AffineAdditionData& affine_data,
                                                      BucketAccumulators& bucket_data) noexcept;
 
-    /** @brief Reduce buckets to single point using prefix sums: R = sum(k * B_k) */
+    /** @brief Reduce buckets to single point using running (suffix) sum from high to low: R = sum(k * B_k) */
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
     {
         auto& buckets = bucket_accumulators.buckets;
         BB_ASSERT_DEBUG(buckets.size() > static_cast<size_t>(0));
         int starting_index = static_cast<int>(buckets.size() - 1);
-        Element prefix_sum;
+        Element running_sum;
         bool found_start = false;
         while (!found_start && starting_index > 0) {
             const size_t idx = static_cast<size_t>(starting_index);
             if (bucket_accumulators.bucket_exists.get(idx)) {
 
-                prefix_sum = buckets[idx];
+                running_sum = buckets[idx];
                 found_start = true;
             } else {
                 starting_index -= 1;
@@ -263,14 +267,14 @@ template <typename Curve> class MSM {
         }
         BB_ASSERT_DEBUG(starting_index > 0);
         const auto& offset_generator = get_offset_generator();
-        Element sum = prefix_sum + offset_generator;
+        Element sum = running_sum + offset_generator;
         for (int i = starting_index - 1; i > 0; --i) {
             size_t idx = static_cast<size_t>(i);
             BB_ASSERT_DEBUG(idx < bucket_accumulators.bucket_exists.size());
             if (bucket_accumulators.bucket_exists.get(idx)) {
-                prefix_sum += buckets[idx];
+                running_sum += buckets[idx];
             }
-            sum += prefix_sum;
+            sum += running_sum;
         }
         return sum - offset_generator;
     }
