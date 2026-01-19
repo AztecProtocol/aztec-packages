@@ -84,7 +84,10 @@ fi
 # Request new instance.
 KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch $state_dir
 ip=$(cat $state_dir/ip)
-sir=$(cat $state_dir/sir)
+sir=""
+if [[ -f "$state_dir/sir" ]]; then
+  sir=$(cat $state_dir/sir)
+fi
 iid=$(cat $state_dir/iid)
 
 # If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
