@@ -45,6 +45,10 @@ where
         storage_slot,
     );
 
+    // We attempt to read the storage slot.
+    // If it's never been written to, the returned value will be `0`.
+    // Otherwise, the returned value will be a hash of the delayed_public_mutable wrapper that contains
+    // the `current_value` that we seek.
     let hash = public_storage_historical_read(
         historical_header,
         storage_slot_of_hash,
@@ -73,6 +77,8 @@ pub fn derive_storage_slot_of_packed_values_hash<T>(start_storage_slot: Field) -
 where
     T: Packable,
 {
+    // The actual item (of type T, of packed length N fields) is stored in contiguous fields from the `storage_slot`.
+    // The _hash_ of the item is stored at the end, at slot: `storage_slot + N`.
     start_storage_slot + <T as Packable>::N as Field
 }
 
@@ -94,7 +100,7 @@ fn public_storage_historical_read(
 ) -> Field {
     let public_data_leaf_slot = compute_public_data_leaf_slot(contract_address, storage_slot);
 
-    // Use the given `leaf_preimage` to determine whether we are reading a slot that's been written to the tree or not.
+    // Use the given `leaf_preimage` hint to determine whether we are reading a slot that's been written to the tree or not.
     let is_slot_in_tree = leaf_preimage.slot == public_data_leaf_slot;
 
     let (_, is_expected_leaf, is_leaf_in_tree) = conditionally_check_membership(
@@ -105,6 +111,9 @@ fn public_storage_historical_read(
         historical_header.state.partial.public_data_tree.root,
     );
 
+    // In the case of the state existing in the tree, `is_leaf_in_tree = true`.
+    // In the case of the state not existing in the tree, the above membership check was done against the _low_ leaf,
+    // so rather confusingly, we still expect `is_leaf_in_tree = true` (because it's a different kind of leaf in this case).
     assert(is_leaf_in_tree, "Proving public value inclusion failed");
     assert(
         is_expected_leaf,

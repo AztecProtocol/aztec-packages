@@ -38,15 +38,17 @@ unconstrained fn generate_output(
 
 /// The Private Kernel Inner circuit processes subsequent private function calls after the initial call is processed by
 /// the Init circuit.
-/// It is invoked iteratively for each private function call in the transaction's call stack.
+/// It is invoked iteratively for each private function call in the transaction's private call stack.
 ///
 /// This circuit:
 /// - Verifies the previous kernel proof (from Init, another Inner, or Reset circuit)
-/// - Pops the next call request from the private call stack and validates it matches the current call
+/// - Pops the next call request from the previous kernel's private call stack and validates that the
+///   input private_call data matches that request.
 /// - Validates the private call data (proof verification, contract address, call context consistency)
-/// - Accumulates side effects (note hashes, nullifiers, logs, etc.) from the current call
-/// - Propagates validation requests (read requests, key validation requests) for later processing
-/// - Ensures the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` remain consistent
+/// - Appends arrays of new nonempty side effects (note hashes, nullifiers, logs, etc.) from the current call to
+///   the larger, cumulative arrays that are propagated by each kernel iteration.
+/// - Similarly appends any new validation requests (read requests, key validation requests) for later processing.
+/// - Ensures the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` remain consistent.
 ///
 /// Each Inner circuit consumes one private call request and may add new ones to the stack.
 /// The output feeds into subsequent Private Kernel Inner circuits if there are more private calls,

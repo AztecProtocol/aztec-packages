@@ -81,6 +81,34 @@ impl AztecAddress {
     }
 
     pub fn compute(public_keys: PublicKeys, partial_address: PartialAddress) -> AztecAddress {
+        //
+        //                          address = address_point.x
+        //                                          |
+        //                                    address_point = pre_address * G + Ivpk_m (always choose "positive" y-coord)
+        //                                                        |               ^
+        //                                                        |               |...................
+        //                                                    pre_address                            .
+        //                                               /                   \                         .
+        //                                             /                       \                       .
+        //                               partial_address                        public_keys_hash       .
+        //                           /                    \                     /   /    \    \        .
+        //                         /                        \              Npk_m Ivpk_m Ovpk_m Tpk_m   .
+        //          contract_class_id                         \                     |...................
+        //             /   |    \                               \
+        // artifact_hash   |    public_bytecode_commitment       salted_initialization_hash
+        //                 |                                         /     /        \
+        //     private_function_tree_root              deployer_address  salt   initialization_hash
+        //             /       \                                                /              \
+        //          ...          ...                              constructor_fn_selector   constructor_args_hash
+        //         /                \
+        //     /     \            /      \
+        //   leaf   leaf        leaf    leaf
+        //           ^
+        //           |
+        //           |---h(function_selector, vk_hash)
+        //               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //               Each of these represents a private function of the contract.
+
         let public_keys_hash = public_keys.hash();
 
         let pre_address = poseidon2_hash_with_separator(
