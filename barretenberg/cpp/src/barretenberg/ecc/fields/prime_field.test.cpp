@@ -53,6 +53,9 @@ using SqrtFieldTypes = ::testing::Types<bb::fq, bb::fr, secp256k1::fq, secp256r1
 // Fields that have cube_root_of_unity() defined
 using CubeRootFieldTypes = ::testing::Types<bb::fq, bb::fr, secp256k1::fq, secp256k1::fr>;
 
+// Fields whose modulus is 256 bits.
+using TwoFiftySixBitFieldTypes = ::testing::Types<secp256k1::fq, secp256k1::fr>;
+
 TYPED_TEST_SUITE(PrimeFieldTest, PrimeFieldTypes);
 
 template <typename> class PrimeFieldSqrtTest : public ::testing::Test {};
@@ -61,6 +64,8 @@ TYPED_TEST_SUITE(PrimeFieldSqrtTest, SqrtFieldTypes);
 template <typename> class PrimeFieldCubeRootTest : public ::testing::Test {};
 TYPED_TEST_SUITE(PrimeFieldCubeRootTest, CubeRootFieldTypes);
 
+template <typename> class PrimeFieldTwoFiftySixTest : public ::testing::Test {};
+TYPED_TEST_SUITE(PrimeFieldTwoFiftySixTest, TwoFiftySixBitFieldTypes);
 // ================================
 // Compile-time Tests (Prime Field Specific)
 // ================================
@@ -386,7 +391,7 @@ TYPED_TEST(PrimeFieldTest, PostfixIncrement)
 // Shows that the raw limbs of an addition can have a result which is not automatically reduced, even when we are in the
 // 256-bit field range. AUDITTODO(https://github.com/AztecProtocol/barretenberg/issues/1608): should we fix this
 // behavior by forcing the extra reduction, or not?
-TYPED_TEST(PrimeFieldTest, AddYieldsLimbsBiggerThanModulus)
+TYPED_TEST(PrimeFieldTwoFiftySixTest, AddYieldsLimbsBiggerThanModulus)
 {
     using F = TypeParam;
 
@@ -416,7 +421,52 @@ TYPED_TEST(PrimeFieldTest, AddYieldsLimbsBiggerThanModulus)
         EXPECT_EQ(is_gte_modulus, true);
     }
 }
+// Test "edge case" for Montgomery Multiplication for 256 bit fields.
+// Explanation: the internal representation of a 256-bit field has no size bounds; the limbs can correspond to any
+// 256-bit number (in particular, greater than p). This test checks that there are no carry issues caused by this.
+TYPED_TEST(PrimeFieldTwoFiftySixTest, BigMultiplication)
+{
+    using F = TypeParam;
 
+    // To perform this test, we must use `add` to construct elements of type `F` whose limbs are larger than p
+    // To do this, we must use the `add` method, as construction from uint256_t automatically reduces. As the internal
+    // representation, through limbs, is in Montgomery form, we call the `from_montgomery_form()` method.
+
+    // Construct (p - 1) and (2^256 - p)
+    uint256_t modulus = F::modulus;
+    F modulus_minus_one(modulus - 1);
+    modulus_minus_one.self_from_montgomery_form();
+
+    // 2^256 - p can be computed as the complement
+    uint256_t two_256_minus_modulus = uint256_t(0) - modulus;
+    F two_256_minus_p(two_256_minus_modulus);
+    two_256_minus_p.self_from_montgomery_form();
+
+    // a is the element whose Montgomery form (and internal representation) is (p - 1) + (2^256 - p) = 2^256 - 1
+    F a = modulus_minus_one + two_256_minus_p;
+
+    // b is the element whose Montgomery form (and internal representation) is (p - 1) + (2^256 - p) = 2^256 - 1
+    F b = modulus_minus_one + two_256_minus_p;
+
+    // Verify that a and b have internal Montgomery representation of 2^256 - 1
+    for (size_t i = 0; i < 4; ++i) {
+        EXPECT_EQ(a.data[i], 0xFFFFFFFFFFFFFFFFULL);
+        EXPECT_EQ(b.data[i], 0xFFFFFFFFFFFFFFFFULL);
+    }
+    F result = a * b;
+
+    // Differential testing: verify a * b ≡ result (mod p) using uint512_t arithmetic
+    uint256_t a_256 = a;
+    uint256_t b_256 = b;
+    uint256_t result_256 = result;
+
+    uint512_t product = uint512_t(a_256) * uint512_t(b_256);
+    uint512_t p_512 = uint512_t(modulus);
+    uint512_t expected_512 = product % p_512;
+    uint256_t expected = uint256_t(expected_512.lo);
+
+    EXPECT_EQ(result_256, expected);
+}
 // ================================
 // Serialization
 // ================================
