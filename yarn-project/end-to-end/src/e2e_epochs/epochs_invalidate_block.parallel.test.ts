@@ -364,7 +364,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       `Checkpoints ${firstCheckpoint} and ${secondCheckpoint} have been mined. Waiting for slot with good proposer.`,
     );
     const goodProposer = await retryUntil(async () => {
-      const { currentProposer } = await test.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+      const { currentSlot } = test.epochCache.getCurrentAndNextSlot();
+      const currentProposer = await test.epochCache.getProposerAttesterAddressInSlot(currentSlot);
       if (badProposers.every(p => !p!.equals(currentProposer!))) {
         return currentProposer;
       }

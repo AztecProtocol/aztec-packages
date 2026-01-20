@@ -16,6 +16,14 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
 
   public async validate(proposal: TProposal): Promise<PeerErrorSeverity | undefined> {
     try {
+      // Slot check
+      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      const slotNumber = proposal.slotNumber;
+      if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
+        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
+        return PeerErrorSeverity.HighToleranceError;
+      }
+
       // Signature validity
       const proposer = proposal.getSender();
       if (!proposer) {
@@ -47,26 +55,11 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
         return PeerErrorSeverity.MidToleranceError;
       }
 
-      // Slot and proposer checks
-      const { currentProposer, nextProposer, currentSlot, nextSlot } =
-        await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
-      const slotNumber = proposal.slotNumber;
-      if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
-        this.logger.debug(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
-        return PeerErrorSeverity.HighToleranceError;
-      }
-      if (slotNumber === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
+      // Proposer check
+      const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
+      if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
         this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
-          currentProposer,
-          nextProposer,
-          proposer: proposer.toString(),
-        });
-        return PeerErrorSeverity.MidToleranceError;
-      }
-      if (slotNumber === nextSlot && nextProposer !== undefined && !proposer.equals(nextProposer)) {
-        this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumber}`, {
-          currentProposer,
-          nextProposer,
+          expectedProposer,
           proposer: proposer.toString(),
         });
         return PeerErrorSeverity.MidToleranceError;

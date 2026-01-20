@@ -41,18 +41,11 @@ export class MockEpochCache implements EpochCacheInterface {
     return 0n;
   }
 
-  getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress | undefined;
-    nextProposer: EthAddress | undefined;
-    currentSlot: SlotNumber;
-    nextSlot: SlotNumber;
-  }> {
-    return Promise.resolve({
-      currentProposer: undefined,
-      nextProposer: undefined,
+  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
+    return {
       currentSlot: SlotNumber(0),
       nextSlot: SlotNumber(0),
-    });
+    };
   }
 
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
