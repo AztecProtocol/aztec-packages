@@ -30,6 +30,7 @@ function print_usage {
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
+  echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
@@ -146,6 +147,15 @@ case "$cmd" in
     export CPUS=4
     export INSTANCE_POSTFIX="n-teardown"
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    ;;
+  deploy-rollup-upgrade)
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address>
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-deploy-rollup-upgrade"
+    export CPUS=8
+    export INSTANCE_POSTFIX="rollup-upgrade"
+    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
   ############

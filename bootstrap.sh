@@ -719,6 +719,15 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+  ##########################################
+  # ROLLUP UPGRADE DEPLOYMENT              #
+  ##########################################
+  "ci-deploy-rollup-upgrade")
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address> [KEY=VALUE...]
+    export CI=1
+    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
+    ;;
 
   ##############################################
   # Default handler, calls our above functions #
