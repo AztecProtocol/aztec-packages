@@ -279,7 +279,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       logger,
       packageVersion,
     } = deps;
-    const { p2pPort, maxPeerCount, listenAddress } = config;
+    const { p2pPort, maxPeerCount, listenAddress, p2pBroadcastPort } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
 
     const datastore = new AztecDatastore(peerStore);
@@ -327,7 +327,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       )
     ).filter(peer => peer !== undefined);
 
-    const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
+    const announceTcpMultiaddr = config.p2pIp
+      ? [convertToMultiaddr(config.p2pIp, p2pBroadcastPort ?? p2pPort, 'tcp')]
+      : [];
 
     const node = await createLibp2p({
       start: false,
@@ -504,11 +506,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Get listen & announce addresses for logging
-    const { p2pIp, p2pPort } = this.config;
+    const { p2pIp, p2pPort, p2pBroadcastPort } = this.config;
     if (!p2pIp) {
       throw new Error('Announce address not provided.');
     }
-    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
+    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pBroadcastPort ?? p2pPort, 'tcp');
 
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
