@@ -142,6 +142,18 @@ locals {
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
+        # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
+        topologySpreadConstraints = [{
+          maxSkew           = 1
+          topologyKey       = "kubernetes.io/hostname"
+          whenUnsatisfiable = "ScheduleAnyway" # soft constraint
+          labelSelector = {
+            matchLabels = {
+              "app.kubernetes.io/component" = "sequencer-node"
+            }
+          }
+          matchLabelKeys = ["apps.kubernetes.io/pod-index"]
+        }]
       }
     })]
     boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
