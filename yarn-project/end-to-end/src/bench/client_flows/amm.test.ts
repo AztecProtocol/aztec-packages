@@ -22,7 +22,7 @@ const AMOUNT_PER_NOTE = 1_000_000;
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
 // Set to true to print out the round trip information to the console.
-const DEBUG_ROUND_TRIPS = false;
+const DEBUG_ROUND_TRIPS = true;
 
 // Expected number of node round trips per account contract and payment method.
 const EXPECTED_ROUND_TRIPS: Record<string, number> = {
