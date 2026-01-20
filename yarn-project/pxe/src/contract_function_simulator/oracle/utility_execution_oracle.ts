@@ -350,10 +350,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.jobId,
     );
 
-    await logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
-
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
-    await noteService.syncNoteNullifiers(this.contractAddress);
+
+    // It is acceptable to run the following operations in parallel for several reasons:
+    // 1. syncTaggedLogs does not write to the note store — it only stores the pending tagged logs in a capsule array,
+    //    which is then processed in Noir after this handler returns.
+    // 2. Even if syncTaggedLogs did write to the note store, it would not cause inconsistent state.
+    await Promise.all([
+      logService.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes),
+      noteService.syncNoteNullifiers(this.contractAddress),
+    ]);
   }
 
   /**
