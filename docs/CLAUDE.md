@@ -302,6 +302,7 @@ Approved external documentation sources:
 - Consider the user's journey through the entire documentation site
 - Flag any content that might need subject matter expert review
 - Suggest improvements even if they go beyond pure editing
+- When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2025-12-24
-Version: 1.2
+Last updated: 2026-01-09
+Version: 1.3

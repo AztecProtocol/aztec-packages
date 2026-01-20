@@ -2,6 +2,7 @@
 title: Deploying a Token Contract
 sidebar_position: 0
 description: A tutorial going through how to deploy a token contract to the local network using typescript.
+references: ["docs/examples/ts/aztecjs_getting_started/index.ts"]
 ---
 
 import Image from "@theme/IdealImage";

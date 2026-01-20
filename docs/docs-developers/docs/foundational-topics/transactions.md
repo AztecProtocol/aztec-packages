@@ -3,6 +3,7 @@ title: Transactions
 sidebar_position: 3
 tags: [protocol]
 description: Comprehensive guide to the Aztec transaction lifecycle, covering private execution, PXE interactions, kernel circuits, and the step-by-step process from user request to L1 settlement.
+references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
 ---
 
 import Image from '@theme/IdealImage';

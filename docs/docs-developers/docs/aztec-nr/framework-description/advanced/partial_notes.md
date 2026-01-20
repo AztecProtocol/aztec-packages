@@ -3,6 +3,7 @@ title: Partial Notes
 sidebar_position: 1
 tags: [Developers, Contracts, Notes]
 description: How partial notes work and how they can be used.
+references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr", "noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";
