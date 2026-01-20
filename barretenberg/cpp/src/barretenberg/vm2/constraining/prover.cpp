@@ -179,7 +179,8 @@ void AvmProver::execute_pcs_rounds()
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
-    // Squash to be shifted polys
+    // Squash to be shifted polys (search for poly with largest end index to avoid allocating a zero polynomial of
+    // circuit size)
     size_t max_idx = 0;
     size_t max_end_idx = shifted_polys[0].end_index();
     for (size_t idx = 0; const auto& poly : shifted_polys) {
@@ -197,11 +198,13 @@ void AvmProver::execute_pcs_rounds()
         idx++;
     }
 
-    // Squash unshifted polys
+    // Squash unshifted polys (use precomputed_clk, which is always of circuit size, to avoid allocating a zero
+    // polynomial of circuit size)
     Polynomial squashed_unshifted = prover_polynomials.get(ColumnAndShifts::precomputed_clk);
     squashed_unshifted *= challenges.get(ColumnAndShifts::precomputed_clk);
     squashed_unshifted += squashed_shifted;
     for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
+        // Only operate in the range of not to be shifted polys, as the contribution for those has already been added
         if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
             if (idx == 0) {
                 squashed_unshifted += poly; // First polynomial has coefficient 1

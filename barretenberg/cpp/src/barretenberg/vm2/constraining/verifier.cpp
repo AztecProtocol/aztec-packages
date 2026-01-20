@@ -140,10 +140,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
-    // Squash to be shifted polys
+    // Batch to be shifted polys
     Commitment squashed_shifted = batch_mul_native<Curve>(shifted_comms, shifted_challenges);
 
-    // Batch commitments: first commitment has coefficient 1, rest are batched with challenges
+    // Batch unshifted commitments: first commitment has coefficient 1, rest are batched with challenges. We reuse the
+    // calculation performed for to be shifted polys.
     Commitment squashed_unshifted =
         unshifted_comms[0] + squashed_shifted +
         batch_mul_native<Curve>(unshifted_comms.subspan(1, WIRES_TO_BE_SHIFTED_START_IDX - 1),

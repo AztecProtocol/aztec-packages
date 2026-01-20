@@ -146,12 +146,14 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
-    // Batch commitments: first commitment has coefficient 1, rest are batched with challenges
+    // Batch to be shifted commitments
     Commitment squashed_shifted =
         Commitment::batch_mul(std::vector<Commitment>(shifted_comms.begin(), shifted_comms.end()),
                               std::vector<FF>(shifted_challenges.begin(), shifted_challenges.end()),
                               128);
 
+    // Batch unshifted commitments: first commitment has coefficient 1, rest are batched with challenges. We reuse the
+    // calculation performed for to be shifted polys.
     Commitment squashed_unshifted =
         unshifted_comms[0] +
         Commitment::batch_mul(std::vector<Commitment>(unshifted_comms.begin() + 1,
