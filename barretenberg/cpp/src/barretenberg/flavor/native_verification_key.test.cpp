@@ -1,4 +1,3 @@
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
@@ -6,7 +5,6 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
-#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
@@ -14,16 +12,9 @@
 using namespace bb;
 
 #ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor,
-                                   UltraKeccakFlavor,
-                                   UltraRollupFlavor,
-                                   UltraStarknetFlavor,
-                                   MegaFlavor,
-                                   ECCVMFlavor,
-                                   TranslatorFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraStarknetFlavor, MegaFlavor>;
 #else
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, MegaFlavor, ECCVMFlavor, TranslatorFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, MegaFlavor>;
 #endif
 
 template <typename Flavor> class NativeVerificationKeyTests : public ::testing::Test {
@@ -68,12 +59,9 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     fr vk_hash_1 = vk.hash();
 
     // Second method of hashing: using hash_with_origin_tagging.
-    // (ECCVM and Translator flavors don't support hash_with_origin_tagging as their VKs are hardcoded)
-    if constexpr (!IsAnyOf<Flavor, ECCVMFlavor, TranslatorFlavor>) {
-        typename Flavor::Transcript transcript;
-        fr vk_hash_2 = vk.hash_with_origin_tagging(transcript);
-        EXPECT_EQ(vk_hash_1, vk_hash_2);
-    }
+    typename Flavor::Transcript transcript;
+    fr vk_hash_2 = vk.hash_with_origin_tagging(transcript);
+    EXPECT_EQ(vk_hash_1, vk_hash_2);
 }
 
 /**

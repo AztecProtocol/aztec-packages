@@ -48,6 +48,8 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
   mkdir .aws
 '
 
+ssh -F build_instance_ssh_config -O exit ubuntu@$ip 2>/dev/null || true
+
 # Download crs onto machine.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/crs/bootstrap.sh
 

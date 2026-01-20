@@ -32,11 +32,12 @@ pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 // TREES RELATED CONSTANTS
 pub global ARCHIVE_HEIGHT: u32 = 30; // 4-second blocks for 100 years.
 pub global VK_TREE_HEIGHT: u32 = 7;
-pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract.
+pub global FUNCTION_TREE_HEIGHT: u32 = 7; // The number of private functions in a contract is therefore 128.
 pub global NOTE_HASH_TREE_HEIGHT: u32 = 42; // 64 notes/tx (static because of base rollup insertion), 15tps, for 100 years.
 pub global PUBLIC_DATA_TREE_HEIGHT: u32 = 40; // Average of 16 updates/tx (guess), 15tps, 100 years.
 pub global NULLIFIER_TREE_HEIGHT: u32 = NOTE_HASH_TREE_HEIGHT;
 pub global L1_TO_L2_MSG_TREE_HEIGHT: u32 = 36; // 1024 messages per checkpoint, with 72 seconds per checkpoint, for 100 years.
+pub global OUT_HASH_TREE_HEIGHT: u32 = 6; // 48 (AZTEC_MAX_EPOCH_DURATION) checkpoints per epoch, each has 1 out hash.
 pub global ARTIFACT_FUNCTION_TREE_MAX_HEIGHT: u32 = FUNCTION_TREE_HEIGHT; // The number of unconstrained functions in a contract. Set to equal the number of private functions in a contract.
 
 pub global NULLIFIER_TREE_ID: Field = 0;
@@ -44,8 +45,10 @@ pub global NOTE_HASH_TREE_ID: Field = 1;
 pub global PUBLIC_DATA_TREE_ID: Field = 2;
 pub global L1_TO_L2_MESSAGE_TREE_ID: Field = 3;
 pub global ARCHIVE_TREE_ID: Field = 4;
+
 pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u64);
 pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u64);
+pub global OUT_HASH_TREE_LEAF_COUNT: u32 = 1 << OUT_HASH_TREE_HEIGHT;
 
 // SUB-TREES RELATED CONSTANTS
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
@@ -58,7 +61,7 @@ pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
 pub global L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
-// Maximum number of subtrees a L2ToL1Msg wonky tree can have. Used when calculating the out hash of a tx.
+// Maximum number of subtrees a L2ToL1Msg unbalanced tree can have. Used when calculating the out hash of a tx.
 pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
 
 // "PER TRANSACTION" CONSTANTS
@@ -75,8 +78,10 @@ pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8; // Leave at 8, because it results in sha256 hashing in the Tx Base Rollup
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
-pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 64;
+// Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
+// hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = MAX_PRIVATE_LOGS_PER_TX;
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 
 // "PER CALL" CONSTANTS
@@ -87,8 +92,8 @@ pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = MAX_ENQUEUED_CALLS_PER_TX;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = MAX_L2_TO_L1_MSGS_PER_TX;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
+pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = MAX_NOTE_HASHES_PER_CALL;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 // docs:end:constants
 
@@ -162,6 +167,8 @@ pub global GENESIS_BLOCK_HEADER_HASH: Field =
     0x0dc66232e4edff2923217f4fdf80ecc23ed4bd047e743df85a6827878bf6c4d6;
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95;
+pub global EMPTY_EPOCH_OUT_HASH: Field =
+    0x00f10d3a401a22634ebb4b0b17410cd138fd388872486b6280d552d6317c255d;
 
 // CONTRACT CLASS CONSTANTS
 pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000; // Arbitrary.
@@ -227,7 +234,7 @@ pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddr
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
-pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
+pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
@@ -386,6 +393,7 @@ pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* block_headers_hash */
     + 1 /* blobs_hash */
     + 1 /* in_hash */
+    + 1 /* out_hash */
     + 1 /* slot_number */
     + 1 /* timestamp */
     + 1 /* coinbase */
@@ -573,7 +581,7 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
 pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
     + AZTEC_MAX_EPOCH_DURATION /* checkpoint_header_hashes */
-    + AZTEC_MAX_EPOCH_DURATION /* out_hashes */
+    + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* start_out_hash and end_out_hash */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
     + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
     + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;
@@ -1232,10 +1240,10 @@ mod test {
     use crate::address::aztec_address::AztecAddress;
     use crate::constants::{
         AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-        GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET, GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET,
-        GLOBAL_INDEX_NOTE_HASH_OFFSET, GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET,
-        GLOBAL_INDEX_NULLIFIER_OFFSET, GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET,
-        GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
+        AZTEC_MAX_EPOCH_DURATION, EMPTY_EPOCH_OUT_HASH, GLOBAL_INDEX_CONTRACT_CLASS_LOG_HASH_OFFSET,
+        GLOBAL_INDEX_L2_TO_L1_MSG_OFFSET, GLOBAL_INDEX_NOTE_HASH_OFFSET,
+        GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET, GLOBAL_INDEX_NULLIFIER_OFFSET,
+        GLOBAL_INDEX_NULLIFIER_READ_REQUEST_OFFSET, GLOBAL_INDEX_PRIVATE_CALL_REQUEST_END_OFFSET,
         GLOBAL_INDEX_PRIVATE_CALL_REQUEST_START_OFFSET, GLOBAL_INDEX_PRIVATE_LOG_OFFSET,
         GLOBAL_INDEX_PUBLIC_CALL_REQUEST_OFFSET, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
         MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -1243,8 +1251,9 @@ mod test {
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_PROTOCOL_CONTRACTS,
         MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        SIDE_EFFECT_MASKING_ADDRESS,
+        OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT, SIDE_EFFECT_MASKING_ADDRESS,
     };
+    use crate::merkle_tree::root::compute_empty_sha_tree_root;
     use crate::traits::FromField;
     use super::{
         GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
@@ -1326,6 +1335,22 @@ mod test {
             last_offset += count;
         }
         assert_eq(last_offset, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL);
+    }
+
+    #[test]
+    fn validate_out_hash_tree_height() {
+        assert_eq(OUT_HASH_TREE_LEAF_COUNT, 1 << OUT_HASH_TREE_HEIGHT);
+        assert(OUT_HASH_TREE_LEAF_COUNT >= AZTEC_MAX_EPOCH_DURATION);
+        assert(
+            AZTEC_MAX_EPOCH_DURATION * 2 > OUT_HASH_TREE_LEAF_COUNT,
+            "We can get away with making the out hash tree smaller",
+        );
+    }
+
+    #[test]
+    fn validate_empty_epoch_out_hash() {
+        let empty_root = compute_empty_sha_tree_root::<OUT_HASH_TREE_HEIGHT>();
+        assert_eq(empty_root, EMPTY_EPOCH_OUT_HASH);
     }
 
 }

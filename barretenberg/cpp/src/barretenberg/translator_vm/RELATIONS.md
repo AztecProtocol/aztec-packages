@@ -691,10 +691,10 @@ Due to interleaving, the full circuit is 16× larger than the mini-circuit:
 
 Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. All the range constraint microlimb wires and transcript wires should be zero outside the mini-circuit. Thus, for each such wire $w$, we enforce:
 
-$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} - 1 \right) \cdot (L_{\text{mini\_mask}} - 1) \cdot w = 0}$$
+$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} + L_{\text{mini\_mask}} - 1 \right) \cdot w = 0}$$
 
-Note that the Lagrange product is $0$ in the mini-circuit and $-1$ outside the mini-circuit, so this forces $w = 0$ there.
+Note that since $L_{\text{even}}$, $L_{\text{odd}}$, and $L_{\text{mini\_mask}}$ are mutually exclusive Lagrange polynomials that sum to 1 in the mini-circuit, the product is zero inside the mini-circuit and non-zero outside.
 
-Degree: 3 (Lagrange product × wire)
+Degree: 2 (Lagrange term × wire)
 
 ---

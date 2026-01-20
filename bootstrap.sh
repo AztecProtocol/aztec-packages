@@ -133,18 +133,10 @@ function check_toolchains {
   local node_min_version="24.12.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-    # Temporary measure: Install Node 24 until AMI includes the updated docker image with Node 24.
-    # This can be removed once the AMI is updated.
-    echo -e "${bold}${yellow}WARN: Node.js $node_min_version not found (got $node_installed_version). Installing temporarily...${reset}"
-    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    node_installed_version=$(node --version | cut -d 'v' -f 2)
-    if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
-      encourage_dev_container
-      echo "Failed to install Node.js $node_min_version."
-      exit 1
-    fi
-    echo -e "${bold}${green}Node.js $(node --version) installed successfully.${reset}"
+    encourage_dev_container
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install $node_min_version"
+    exit 1
   fi
   # Check for required npm globals.
   for util in corepack solhint; do
@@ -158,19 +150,22 @@ function check_toolchains {
 }
 
 function versions {
-  if semver check $REF_NAME; then
-    echo "aztec: ${REF_NAME#v}"
-  else
-    echo "aztec: $(jq -r '."."' .release-please-manifest.json | tr -d v)"
-  fi
-  echo "noir: $(git -C noir/noir-repo describe --tags --exact-match HEAD)"
-  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
-  echo "node: $(node --version | cut -d 'v' -f 2)"
-  echo "cmake: $(cmake --version | head -n1 | cut -d' ' -f3)"
-  echo "clang: $(clang++-20 --version | head -n1 | cut -d' ' -f4)"
-  echo "zig: $(zig version)"
-  echo "rustc: $(rustc --version | cut -d' ' -f2)"
-  echo "wasi-sdk: $(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)"
+  local noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  local anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  local node_version=$(node --version | cut -d 'v' -f 2)
+  local cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  local clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  local zig_version=$(zig version)
+  local rustc_version=$(rustc --version | cut -d' ' -f2)
+  local wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  echo "noir: $noir_version"
+  echo "foundry: $anvil_version"
+  echo "node: $node_version"
+  echo "cmake: $cmake_version"
+  echo "clang: $clang_version"
+  echo "zig: $zig_version"
+  echo "rustc: $rustc_version"
+  echo "wasi-sdk: $wasi_sdk_version"
 }
 
 # Install pre-commit git hooks.
@@ -225,6 +220,9 @@ function test_cmds {
 }
 
 function start_txes {
+  # Until Kev's kzg lib stops using Tokio.
+  export TOKIO_WORKER_THREADS=1
+
   # Starting txe servers with incrementing port numbers.
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
@@ -556,6 +554,7 @@ case "$cmd" in
     install_hooks
     build
   ;;
+
   ######################################
   # VARIANTS ON NORMAL PULL-REQUEST CI #
   ######################################
@@ -589,6 +588,7 @@ case "$cmd" in
     build_and_test
     bench
     ;;
+
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
   ##########################################
@@ -660,6 +660,7 @@ case "$cmd" in
     export NAMESPACE="$namespace"
     denoise "spartan/bootstrap.sh network_teardown ${env_file}"
     ;;
+
   ############
   # RELEASES #
   ############
@@ -694,6 +695,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    pull_submodules
+    noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
     ;;
 
@@ -716,6 +719,7 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+
   ##############################################
   # Default handler, calls our above functions #
   ##############################################

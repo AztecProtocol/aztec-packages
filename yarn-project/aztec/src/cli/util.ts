@@ -36,7 +36,7 @@ export function shutdown(logFn: LogFn, exitCode: ExitCode, cb?: Array<() => Prom
 
   logFn('Shutting down...', { exitCode });
   if (cb) {
-    shutdownPromise = Promise.allSettled(cb).then(() => process.exit(exitCode));
+    shutdownPromise = Promise.allSettled(cb.map(fn => fn())).then(() => process.exit(exitCode));
   } else {
     // synchronously shuts down the process
     // no need to set shutdownPromise on this branch of the if statement because no more code will be executed

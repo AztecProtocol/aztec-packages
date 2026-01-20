@@ -10,7 +10,8 @@
     "./migrations": "./dest/migrations.js",
     "./slashing-protection-service": "./dest/slashing_protection_service.js",
     "./types": "./dest/types.js",
-    "./validator-ha-signer": "./dest/validator_ha_signer.js"
+    "./validator-ha-signer": "./dest/validator_ha_signer.js",
+    "./test": "./dest/test/pglite_pool.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -74,20 +75,19 @@
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
-    "@aztec/node-keystore": "workspace:^",
     "node-pg-migrate": "^8.0.4",
     "pg": "^8.11.3",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.2.17",
+    "@electric-sql/pglite": "^0.3.14",
     "@jest/globals": "^30.0.0",
-    "@middle-management/pglite-pg-adapter": "^0.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/node-pg-migrate": "^2.3.1",
     "@types/pg": "^8.10.9",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",

@@ -349,7 +349,7 @@ async function addPendingShieldNoteToPXE(
 ) {
   const txEffects = await aztecNode.getTxEffect(txHash);
   await contract.methods
-    .deliver_transparent_note(
+    .process_transparent_note(
       contract.address,
       amount,
       secretHash,

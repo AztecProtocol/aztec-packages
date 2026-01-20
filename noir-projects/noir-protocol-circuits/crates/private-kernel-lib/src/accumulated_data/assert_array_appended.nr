@@ -5,6 +5,7 @@ use types::{
     utils::{arrays::ClaimedLengthArray, for_loop::{for_i_in_0_, for_i_only_in_, for_loop_no_op}},
 };
 
+// ****** INIT KERNEL ******
 /// Validates that source items are appended to an initially empty destination array.
 pub fn assert_array_appended_to_empty_dest<T, let N: u32, let M: u32>(
     dest: ClaimedLengthArray<T, N>,
@@ -57,10 +58,21 @@ where
     T: Empty,
 {
     std::static_assert(M <= N, "Source array larger than dest array");
+
+    // We blindly copy all data from the source to the dest, regardless of the dynamic `source.length`.
+    // A malicious app could technically try to sneak-in nonempty data after the source.length and it
+    // would be copied. But... the dest.length is incremented by source.length.
+    // In the next kernel iteration, we will copy the next source items from the starting dest.length position,
+    // so we would overwrite any malicious items beyond the starting dest.length.
+    // If this is the last kernel iteration, the tail circuit will iterate over the `dest` and assert
+    // that everything beyond the dest.length is indeed empty, thereby catching any malicious data beyond
+    // the final dest.length.
     for i in 0..M {
         assert_eq(dest.array[i].inner, source.array[i], "source item does not append to dest");
     }
 
+    // Notice: we don't blindly copy the `contract_address` items from all indices of the source to the
+    // dest.
     for_i_in_0_(
         source.length,
         source.array.len(),
@@ -78,6 +90,8 @@ where
     assert_eq(dest.length, source.length, "Length mismatch");
 }
 
+// ****** INNER KERNEL ******
+
 /// Validates that source items are appended after `num_prepended_items` prepended items in the destination array.
 pub fn assert_array_appended<T, let N: u32, let M: u32>(
     dest: ClaimedLengthArray<T, N>,
@@ -87,6 +101,8 @@ pub fn assert_array_appended<T, let N: u32, let M: u32>(
 where
     T: Empty,
 {
+    std::static_assert(M <= N, "Source array larger than dest array");
+
     for_i_in_0_(
         source.length,
         source.array.len(),
@@ -116,6 +132,8 @@ pub fn assert_array_appended_reversed_up_to_some_length<T, let N: u32, let M: u3
 where
     T: Empty,
 {
+    std::static_assert(M <= N, "Source array larger than dest array");
+
     let items_propagated = num_prepended_items + source.length;
 
     // Interestingly, unlike the other functions in this file,
@@ -151,6 +169,8 @@ pub fn assert_array_appended_and_scoped<T, let N: u32, let M: u32>(
 where
     T: Empty,
 {
+    std::static_assert(M <= N, "Source array larger than dest array");
+
     source.for_each_i(|source_item, i| {
         let dest_item = dest.array[num_prepended_items + i];
         assert_eq(dest_item.inner, source_item, "source item does not append to dest");

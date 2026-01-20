@@ -63,7 +63,7 @@ pub contract StatefulTest {
     #[external("private")]
     fn destroy_and_create(recipient: AztecAddress) {
         assert_is_initialized_private(self.context);
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 
@@ -75,7 +75,7 @@ pub contract StatefulTest {
     #[external("private")]
     #[noinitcheck]
     fn destroy_and_create_no_init_check(recipient: AztecAddress) {
-        let sender = self.msg_sender().unwrap();
+        let sender = self.msg_sender();
 
         let _ = self.storage.notes.at(sender).pop_notes(NoteGetterOptions::new().set_limit(2));
 

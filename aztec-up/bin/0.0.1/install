@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# Per-version installer script
+# This script is called by aztec-up to install a specific version of the Aztec toolchain.
+# It expects VERSION and INSTALL_URI to be set.
+set -euo pipefail
+shopt -s inherit_errexit
+
+# Colors
+g="\033[32m" # Green
+y="\033[33m" # Yellow
+b="\033[34m" # Blue
+r="\033[0m"  # Reset
+
+# Required environment variables
+VERSION="${VERSION:?VERSION must be set}"
+AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
+INSTALL_URI="${INSTALL_URI:-https://install.aztec.network}"
+
+# Version-specific paths
+version_path="$AZTEC_HOME/versions/$VERSION"
+version_bin_path="$version_path/bin"
+
+function echo_green {
+  echo -e "${g}$1${r}"
+}
+
+function echo_yellow {
+  echo -e "${y}$1${r}"
+}
+
+function dump_fail {
+  output=$(mktemp)
+
+  set +e
+  ($@) &>$output
+  status=$?
+  set -e
+
+  # 0 or SIGTERM considered a success.
+  if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
+    {
+      echo
+      echo -e "${y}command failed${r}: $@ (exit: $status)"
+      echo -e "${b}--- output ---${r}"
+      cat $output
+    } >&2
+  fi
+
+  rm $output
+
+  return $status
+}
+
+function retry {
+  local attempts=3
+  # Retries up to 3 times with 5 second intervals
+  for i in $(seq 1 $attempts); do
+    set +e
+    ($@)
+    code=$?
+    set -e
+    [ $code -eq 0 ] || [ $code -eq 143 ] && return 0
+    [ "$i" != "$attempts" ] && sleep 5
+  done
+
+  return 1
+}
+
+function check_toolchains {
+  # Check Node.js version.
+  local node_min_version=$(cat "$version_path/versions" | grep node | cut -d' ' -f2)
+  local node_installed_version=$(node --version 2>/dev/null | cut -d 'v' -f 2 || echo "none")
+  if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
+    echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
+    echo "Installation: nvm install --lts && nvm alias default lts/*"
+    exit 1
+  fi
+}
+
+function install_versions_file {
+  set -euo pipefail
+  # Determine the correct URI for fetching the versions file
+  local versions_uri="$INSTALL_URI"
+  curl -fsSL "$versions_uri/$VERSION/versions" -o "$version_path/versions"
+}
+
+function install_noir {
+  set -euo pipefail
+  local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
+
+  # Create a temp directory for noirup to install to
+  local temp_nargo_home=$(mktemp -d)
+  mkdir -p "$temp_nargo_home/bin"
+
+  # Install noirup if not already present
+  if [ ! -f "$HOME/.nargo/bin/noirup" ]; then
+    curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+  fi
+
+  # Install noir to temp location and move to version directory
+  NARGO_HOME="$temp_nargo_home" "$HOME/.nargo/bin/noirup" -v "$noir_version"
+
+  # Move the nargo binary to our version bin directory
+  mv "$temp_nargo_home/bin/nargo" "$version_bin_path/nargo"
+
+  # Cleanup temp directory
+  rm -rf "$temp_nargo_home"
+}
+
+function install_foundry {
+  set -euo pipefail
+  local foundry_version=$(cat "$version_path/versions" | grep foundry | cut -d' ' -f2)
+
+  # Create a temp directory for foundryup to install to
+  local temp_foundry_dir=$(mktemp -d)
+  mkdir -p "$temp_foundry_dir/bin"
+
+  # Install foundryup if not already present
+  if [ ! -f "$HOME/.foundry/bin/foundryup" ]; then
+    curl -L https://foundry.paradigm.xyz | bash
+  fi
+
+  # Install foundry to temp location and move to version directory
+  FOUNDRY_DIR="$temp_foundry_dir" "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
+
+  # Move the foundry binaries to our version bin directory
+  for binary in forge cast anvil chisel; do
+    if [ -f "$temp_foundry_dir/bin/$binary" ]; then
+      mv "$temp_foundry_dir/bin/$binary" "$version_bin_path/$binary"
+    fi
+  done
+
+  # Cleanup temp directory
+  rm -rf "$temp_foundry_dir"
+}
+
+function install_aztec_packages {
+  set -euo pipefail
+  # Install npm packages to the version directory using --prefix
+  npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
+}
+
+function main {
+  # Create version directory
+  mkdir -p "$version_bin_path"
+
+  # Download versions manifest
+  echo -n "Installing version manifest... "
+  dump_fail retry install_versions_file
+  echo_green "done."
+
+  # Check Node.js version
+  check_toolchains
+
+  # Install noir
+  echo -n "Installing nargo... "
+  dump_fail retry install_noir
+  echo_green "done."
+
+  # Install foundry
+  echo -n "Installing foundry... "
+  dump_fail retry install_foundry
+  echo_green "done."
+
+  # Install aztec npm packages
+  echo -n "Installing aztec packages... "
+  dump_fail retry install_aztec_packages
+  echo_green "done."
+}
+
+main "$@"

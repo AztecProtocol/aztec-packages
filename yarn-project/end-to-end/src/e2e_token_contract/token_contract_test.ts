@@ -7,13 +7,7 @@ import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
-import {
-  type SubsystemsContext,
-  deployAccounts,
-  publicDeployAccounts,
-  setupFromFresh,
-  teardown,
-} from '../fixtures/snapshot_manager.js';
+import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
@@ -23,7 +17,7 @@ export class TokenContractTest {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
-  context!: SubsystemsContext;
+  context!: EndToEndContext;
   logger: Logger;
   metricsPort?: number;
   asset!: TokenContract;
@@ -76,7 +70,7 @@ export class TokenContractTest {
       initialFundedAccounts: this.context.initialFundedAccounts,
     });
 
-    this.node = this.context.aztecNode;
+    this.node = this.context.aztecNodeService!;
     this.wallet = this.context.wallet;
     [this.adminAddress, this.account1Address, this.account2Address] = deployedAccounts.map(acc => acc.address);
 
@@ -111,8 +105,10 @@ export class TokenContractTest {
   }
 
   async setup() {
-    this.context = await setupFromFresh(this.logger, {
+    this.context = await setup(0, {
       metricsPort: this.metricsPort,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
     });
 
     if (this.shouldApplyBaseSetup) {

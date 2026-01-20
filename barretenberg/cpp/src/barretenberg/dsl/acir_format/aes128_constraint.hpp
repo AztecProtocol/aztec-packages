@@ -13,13 +13,6 @@
 
 namespace acir_format {
 
-struct AES128Input {
-    uint32_t witness;
-    uint32_t num_bits;
-
-    friend bool operator==(AES128Input const& lhs, AES128Input const& rhs) = default;
-};
-
 struct AES128Constraint {
     std::vector<WitnessOrConstant<bb::fr>> inputs;
     std::array<WitnessOrConstant<bb::fr>, 16> iv;

@@ -1,3 +1,5 @@
+//! Standard PXE oracles.
+
 // docs:start:oracles-module
 /// Oracles module
 // docs:end:oracles-module

@@ -80,6 +80,7 @@ import type { PrivateEventStore } from '../storage/private_event_store/private_e
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
+import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
@@ -87,7 +88,6 @@ import { Oracle } from './oracle/oracle.js';
 import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
-import type { ProxiedNode } from './proxied_node.js';
 
 /**
  * The contract function simulator.
@@ -218,8 +218,9 @@ export class ContractFunctionSimulator {
         request.functionSelector,
       );
       const simulatorTeardownTimer = new Timer();
-      const { usedProtocolNullifierForNonces } = noteCache.finish();
-      const firstNullifierHint = usedProtocolNullifierForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+
+      noteCache.finish();
+      const firstNullifierHint = noteCache.getNonceGenerator();
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -331,7 +332,12 @@ export class ContractFunctionSimulator {
    */
   getStats() {
     const nodeRPCCalls =
-      typeof (this.aztecNode as ProxiedNode).getStats === 'function' ? (this.aztecNode as ProxiedNode).getStats() : {};
+      typeof (this.aztecNode as BenchmarkedNode).getStats === 'function'
+        ? (this.aztecNode as BenchmarkedNode).getStats()
+        : {
+            perMethod: {},
+            roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
+          };
 
     return { nodeRPCCalls };
   }
@@ -354,15 +360,15 @@ class OrderedSideEffect<T> {
  * (allowing state overrides) and is much faster, while still generating a valid
  * output that can be sent to the node for public simulation
  * @param privateExecutionResult - The result of the private execution.
- * @param nonceGenerator - A nonce generator for note hashes. According to the protocol rules,
- * it can either be the first nullifier in the tx or the hash of the initial tx request if there are none.
  * @param contractStore - A provider for contract data in order to get function names and debug info.
+ * @param minRevertibleSideEffectCounterOverride - Optional override for the min revertible side effect counter.
+ * Used by TXE to simulate account contract behavior (setting the counter before app execution).
  * @returns The simulated proving result.
  */
 export async function generateSimulatedProvingResult(
   privateExecutionResult: PrivateExecutionResult,
-  nonceGenerator: Fr,
   contractStore: ContractStore,
+  minRevertibleSideEffectCounterOverride?: number,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
   const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
   const nullifiers: OrderedSideEffect<Fr>[] = [];
@@ -466,16 +472,18 @@ export async function generateSimulatedProvingResult(
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
   const isPrivateOnlyTx = privateExecutionResult.publicFunctionCalldata.length === 0;
-  const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(privateExecutionResult);
+  const minRevertibleSideEffectCounter =
+    minRevertibleSideEffectCounterOverride ?? getFinalMinRevertibleSideEffectCounter(privateExecutionResult);
 
   const [nonRevertibleNullifiers, revertibleNullifiers] = splitOrderedSideEffects(
     nullifiers.sort(sortByCounter),
     minRevertibleSideEffectCounter,
   );
-  if (nonRevertibleNullifiers.length > 0 && !nonRevertibleNullifiers[0].equals(nonceGenerator)) {
+  const nonceGenerator = privateExecutionResult.firstNullifier;
+  if (nonRevertibleNullifiers.length === 0) {
+    nonRevertibleNullifiers.push(nonceGenerator);
+  } else if (!nonRevertibleNullifiers[0].equals(nonceGenerator)) {
     throw new Error('The first non revertible nullifier should be equal to the nonce generator. This is a bug!');
-  } else {
-    nonRevertibleNullifiers.unshift(nonceGenerator);
   }
 
   if (isPrivateOnlyTx) {
@@ -511,6 +519,12 @@ export async function generateSimulatedProvingResult(
       siloedNoteHashes.sort(sortByCounter),
       minRevertibleSideEffectCounter,
     );
+    const nonRevertibleUniqueNoteHashes = await Promise.all(
+      nonRevertibleNoteHashes.map(async (noteHash, i) => {
+        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+        return await computeUniqueNoteHash(nonce, noteHash);
+      }),
+    );
     const [nonRevertibleL2ToL1Messages, revertibleL2ToL1Messages] = splitOrderedSideEffects(
       l2ToL1Messages.sort(sortByCounter),
       minRevertibleSideEffectCounter,
@@ -529,7 +543,7 @@ export async function generateSimulatedProvingResult(
     );
 
     const nonRevertibleData = new PrivateToPublicAccumulatedData(
-      padArrayEnd(nonRevertibleNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(nonRevertibleUniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(nonRevertibleNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(nonRevertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(nonRevertibleTaggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
@@ -577,7 +591,7 @@ function splitOrderedSideEffects<T>(effects: OrderedSideEffect<T>[], minRevertib
   const revertibleSideEffects: T[] = [];
   const nonRevertibleSideEffects: T[] = [];
   effects.forEach(effect => {
-    if (effect.counter < minRevertibleSideEffectCounter) {
+    if (minRevertibleSideEffectCounter === 0 || effect.counter < minRevertibleSideEffectCounter) {
       nonRevertibleSideEffects.push(effect.sideEffect);
     } else {
       revertibleSideEffects.push(effect.sideEffect);

@@ -30,8 +30,19 @@ except ImportError:
 class CLIScanner:
     """Recursively scans a CLI command tree and extracts help information."""
 
-    def __init__(self, base_command: str = "aztec", max_workers: int = 1, timeout: int = 60):
+    # Supported CLI formats
+    FORMAT_COMMANDER = "commander"  # Commander.js (Node.js) - uses "Commands:" section
+    FORMAT_CLI11 = "cli11"          # CLI11 (C++) - uses "Subcommands:" section
+    FORMAT_CUSTOM = "custom"        # Custom format with uppercase section headers
+    FORMAT_AUTO = "auto"            # Auto-detect format
+
+    # Maximum recursion depth for scanning subcommands (prevents runaway recursion)
+    MAX_DEPTH = 5
+
+    def __init__(self, base_command: str = "aztec", cli_format: str = "auto",
+                 max_workers: int = 1, timeout: int = 60):
         self.base_command = base_command
+        self.cli_format = cli_format
         self.max_workers = max_workers
         self.timeout = timeout
         self.visited = set()  # Track visited commands to avoid loops
@@ -263,6 +274,201 @@ class CLIScanner:
 
         return result
 
+    def parse_cli11_help(self, help_text: str) -> Dict[str, Any]:
+        """Parse CLI11 (C++ library) style help output (like 'bb').
+        CLI11 format:
+        - Description on first lines (before Usage:)
+        - Usage: command [OPTIONS] [SUBCOMMAND]
+        - Options: with format -short,--long [ENV_VAR] followed by indented description
+        - Subcommands: with name followed by description (may wrap to next lines)
+
+        Returns:
+            Parsed help structure, or error dict if parsing fails.
+        """
+        result = {
+            "usage": "",
+            "description": "",
+            "options": [],
+            "commands": []
+        }
+
+        # Validate input
+        if not help_text or not isinstance(help_text, str):
+            return {
+                "error": "invalid_help_text",
+                "error_message": "Help text is empty or not a string",
+                "usage": "",
+                "description": "",
+                "options": [],
+                "commands": []
+            }
+
+        try:
+            lines = help_text.split('\n')
+            current_section = None
+            description_lines = []
+            current_option = None
+            current_command = None
+            # Track indentation levels dynamically for more robust continuation detection
+            option_indent = None  # Indentation level where options start
+
+            for line in lines:
+                # Extract usage
+                if line.strip().startswith('Usage:'):
+                    result["usage"] = line.replace('Usage:', '').strip()
+                    current_section = 'post_usage'
+                    continue
+
+                # Collect description (lines before Usage:)
+                if current_section is None and line.strip():
+                    description_lines.append(line.strip())
+                    continue
+
+                # Section headers
+                if line.strip() == 'Options:':
+                    current_section = 'options'
+                    current_option = None
+                    continue
+                elif line.strip() == 'Subcommands:':
+                    current_section = 'subcommands'
+                    current_command = None
+                    continue
+
+                # Parse options section
+                if current_section == 'options':
+                    # Calculate current line's indentation
+                    line_indent = len(line) - len(line.lstrip()) if line.strip() else 0
+
+                    # First, check for description continuation (more indented than option)
+                    # This must come BEFORE checking for new options, because continuation
+                    # lines may contain "--flag" text that would otherwise be mistakenly
+                    # parsed as a new option (e.g., "requires --slow_low_memory).")
+                    if current_option and line.strip() and option_indent is not None:
+                        # Continuation lines are indented more than the option itself
+                        # Use a threshold of option_indent + 4 to be flexible
+                        if line_indent > option_indent + 4:
+                            desc_text = line.strip()
+                            if current_option["description"]:
+                                current_option["description"] += " " + desc_text
+                            else:
+                                current_option["description"] = desc_text
+                            continue
+
+                    # Option line: starts with dash(es), format: -h,--help or --long [ENV_VAR]
+                    # Regex breakdown:
+                    #   ^\s+                           - Leading whitespace (indentation)
+                    #   (-[^\s,]+                      - Short flag: dash followed by non-space/comma chars (e.g., -h, -v)
+                    #   (?:,\s*--[^\s\[]+)?            - Optional: comma + long flag without brackets (e.g., ,--help)
+                    #   (?:\s*,\s*--[^\s\[]+)?         - Optional: another long flag variant (for multi-flag options)
+                    #   )\s*                           - End of flags group + optional whitespace
+                    #   (\[[^\]]+\])?                  - Optional: environment variable in brackets (e.g., [BB_ENV])
+                    #   \s*$                           - Trailing whitespace + end of line
+                    option_match = re.match(r'^\s+(-[^\s,]+(?:,\s*--[^\s\[]+)?(?:\s*,\s*--[^\s\[]+)?)\s*(\[[^\]]+\])?\s*$', line)
+                    if option_match:
+                        # Track option indentation level on first option seen
+                        if option_indent is None:
+                            option_indent = line_indent
+                        # This is an option with its description on next line(s)
+                        flags = option_match.group(1).strip()
+                        env_var = option_match.group(2).strip('[]') if option_match.group(2) else None
+                        current_option = {
+                            "flags": flags,
+                            "env": env_var,
+                            "description": ""
+                        }
+                        result["options"].append(current_option)
+                        continue
+
+                    # Check for option with inline description: -h,--help  Description here
+                    # Regex breakdown:
+                    #   ^\s+                           - Leading whitespace (indentation)
+                    #   (-[^\s]+                       - Short flag: dash followed by non-space chars
+                    #   (?:,\s*--[^\s]+)?              - Optional: comma + long flag (e.g., ,--help)
+                    #   (?:\s*,\s*--[^\s]+)?           - Optional: another long flag variant
+                    #   )                              - End of flags group
+                    #   \s{2,}                         - Two or more spaces (separator between flags and description)
+                    #   (.+)$                          - Description text to end of line
+                    inline_option_match = re.match(r'^\s+(-[^\s]+(?:,\s*--[^\s]+)?(?:\s*,\s*--[^\s]+)?)\s{2,}(.+)$', line)
+                    if inline_option_match:
+                        # Track option indentation level on first option seen
+                        if option_indent is None:
+                            option_indent = line_indent
+                        flags = inline_option_match.group(1).strip()
+                        desc = inline_option_match.group(2).strip()
+                        current_option = {
+                            "flags": flags,
+                            "env": None,
+                            "description": desc
+                        }
+                        result["options"].append(current_option)
+                        continue
+
+                # Parse subcommands section
+                if current_section == 'subcommands':
+                    # Subcommand line: name followed by description (2+ spaces between)
+                    # Regex breakdown:
+                    #   ^(\S+)      - Command name at start of line (non-whitespace chars)
+                    #   \s{2,}      - Two or more spaces (separator)
+                    #   (.+)$       - Description text to end of line
+                    cmd_match = re.match(r'^(\S+)\s{2,}(.+)$', line)
+                    if cmd_match:
+                        cmd_name = cmd_match.group(1).strip()
+                        cmd_desc = cmd_match.group(2).strip()
+                        current_command = {
+                            "name": cmd_name,
+                            "signature": cmd_name,
+                            "description": cmd_desc
+                        }
+                        result["commands"].append(current_command)
+                        continue
+
+                    # Continuation of subcommand description (indented text)
+                    if current_command and line.strip() and re.match(r'^\s{2,}', line):
+                        desc_text = line.strip()
+                        current_command["description"] += " " + desc_text
+                        continue
+
+            # Set description from collected lines
+            if description_lines:
+                result["description"] = " ".join(description_lines)
+
+            return result
+
+        except Exception as e:
+            # Return error dict if parsing fails unexpectedly
+            return {
+                "error": "parse_error",
+                "error_message": f"Failed to parse CLI11 help output: {str(e)}",
+                "usage": result.get("usage", ""),
+                "description": result.get("description", ""),
+                "options": result.get("options", []),
+                "commands": result.get("commands", [])
+            }
+
+    def _detect_or_use_format(self, help_output: str) -> str:
+        """Return the format to use: explicit if set, otherwise auto-detect."""
+        if self.cli_format != self.FORMAT_AUTO:
+            return self.cli_format
+
+        # Auto-detect by checking for section headers at start of lines
+        has_commands_section = re.search(r'^Commands:', help_output, re.MULTILINE)
+        has_subcommands_section = re.search(r'^Subcommands:', help_output, re.MULTILINE)
+        has_options_section = re.search(r'^Options:', help_output, re.MULTILINE)
+        has_usage_line = re.search(r'^Usage:', help_output, re.MULTILINE)
+
+        if has_usage_line and has_commands_section:
+            return self.FORMAT_COMMANDER
+        elif has_usage_line and has_subcommands_section:
+            return self.FORMAT_CLI11
+        elif has_usage_line and has_options_section:
+            # CLI11 leaf command (has options but no subcommands)
+            return self.FORMAT_CLI11
+        elif re.search(r'^\s{2}[A-Z][A-Z\s]+$', help_output, re.MULTILINE):
+            # Custom format with uppercase section headers
+            return self.FORMAT_CUSTOM
+        else:
+            return "raw"
+
     def scan_command(self, cmd_path: List[str], depth: int = 0, parent_help: Optional[str] = None) -> Dict[str, Any]:
         """Recursively scan a command and its subcommands."""
         cmd_str = ' '.join(cmd_path)
@@ -274,7 +480,7 @@ class CLIScanner:
             self.visited.add(cmd_str)
 
         # Limit depth to prevent runaway recursion
-        if depth > 5:
+        if depth > self.MAX_DEPTH:
             return {"error": "max_depth_exceeded"}
 
         self._print(f"{'  ' * depth}Scanning: {cmd_str}")
@@ -306,13 +512,12 @@ class CLIScanner:
                 "error_preview": help_output[:200]
             }
 
-        # Determine help format and parse
-        if 'Usage:' in help_output and 'Commands:' in help_output:
-            # Commander.js style
-            parsed = self.parse_commander_help(help_output)
-            parsed["format"] = "commander"
+        # Determine format and parse accordingly
+        detected_format = self._detect_or_use_format(help_output)
+        parsed = self._parse_help(detected_format, help_output)
 
-            # Scan subcommands (in parallel if workers > 1)
+        # Recursively scan subcommands for formats that support them
+        if detected_format in (self.FORMAT_COMMANDER, self.FORMAT_CLI11):
             subcommands = {}
             commands_to_scan = [
                 cmd for cmd in parsed.get("commands", [])
@@ -337,19 +542,21 @@ class CLIScanner:
             if subcommands:
                 parsed["subcommands"] = subcommands
 
-        elif re.search(r'^\s{2}[A-Z][A-Z\s]+$', help_output, re.MULTILINE):
-            # Custom format (like 'aztec start') - detected after ANSI stripping
-            # Look for section headers like "  MISC", "  SANDBOX", etc.
+        return parsed
+
+    def _parse_help(self, format_type: str, help_output: str) -> Dict[str, Any]:
+        """Parse help output based on detected format type."""
+        if format_type == self.FORMAT_COMMANDER:
+            parsed = self.parse_commander_help(help_output)
+            parsed["format"] = "commander"
+        elif format_type == self.FORMAT_CLI11:
+            parsed = self.parse_cli11_help(help_output)
+            parsed["format"] = "cli11"
+        elif format_type == self.FORMAT_CUSTOM:
             parsed = self.parse_custom_help(help_output)
             parsed["format"] = "custom"
-
         else:
-            # Unknown format, just store raw
-            parsed = {
-                "format": "raw",
-                "raw_help": help_output
-            }
-
+            parsed = {"format": "raw", "raw_help": help_output}
         return parsed
 
     def _scan_subcommands_parallel(
@@ -410,6 +617,10 @@ def main():
                         help='Output format (default: json)')
     parser.add_argument('--command', '-c', default='aztec',
                         help='Base command to scan (default: aztec)')
+    parser.add_argument('--cli-format', dest='cli_format',
+                        choices=['auto', 'commander', 'cli11', 'custom'],
+                        default='auto',
+                        help='CLI help format: commander (Node.js), cli11 (C++), custom, or auto-detect (default: auto)')
     parser.add_argument('--workers', '-w', type=int, default=1,
                         help='Number of parallel workers for scanning subcommands (default: 1, sequential)')
     parser.add_argument('--timeout', '-t', type=int, default=15,
@@ -432,7 +643,8 @@ def main():
         print(f"Scanning sequentially (timeout: {args.timeout}s per command)")
 
     # Scan the CLI
-    scanner = CLIScanner(base_command=args.command, max_workers=args.workers, timeout=args.timeout)
+    scanner = CLIScanner(base_command=args.command, cli_format=args.cli_format,
+                         max_workers=args.workers, timeout=args.timeout)
     result = scanner.scan()
 
     # Write output

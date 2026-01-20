@@ -1038,7 +1038,8 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowMemoryWrite_RelationsOnly)
 
     // The fix: sel_should_write_mem * (1 - sel) = 0
     // When sel=0 and sel_should_write_mem=1: 1 * (1-0) = 1 != 0 -> FAILS
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL),
+                              "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
 }
 
 // Test that the fix blocks ghost row injection attacks with full traces.

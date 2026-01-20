@@ -11,6 +11,12 @@
 
 using namespace bb::avm2::fuzzer;
 
+// Extra counters to guide libfuzzer towards inputs with more enqueued calls.
+// Index 0 = 1 call, index 1 = 2 calls, etc. When an input has N enqueued calls,
+// we increment counter[N-1], signaling new coverage to libfuzzer.
+constexpr size_t MAX_ENQUEUED_CALLS_COUNTER = 32;
+__attribute__((section("__libfuzzer_extra_counters"))) uint8_t enqueued_calls_counter[MAX_ENQUEUED_CALLS_COUNTER];
+
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
     FuzzerWorldStateManager::initialize();
@@ -43,6 +49,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     } catch (const std::exception& e) {
         fuzz_info("Failed to deserialize input in TestOneInput, using default. Exception: ", e.what());
         tx_data = create_default_tx_data(context);
+    }
+
+    // Signal coverage for number of enqueued calls to guide fuzzer towards more calls
+    size_t num_calls = tx_data.tx.setup_enqueued_calls.size() + tx_data.tx.app_logic_enqueued_calls.size();
+    if (num_calls > 0 && num_calls <= MAX_ENQUEUED_CALLS_COUNTER) {
+        enqueued_calls_counter[num_calls - 1]++;
     }
 
     // Setup contracts and fund fee payer

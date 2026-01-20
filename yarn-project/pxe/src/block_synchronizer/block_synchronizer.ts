@@ -1,9 +1,13 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
+import {
+  L2BlockHash,
+  L2BlockStream,
+  type L2BlockStreamEvent,
+  type L2BlockStreamEventHandler,
+} from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../config/index.js';
@@ -69,7 +73,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
         // forward.
-        const newAnchorBlockHeader = await this.node.getBlockHeaderByHash(Fr.fromString(event.block.hash));
+        const newAnchorBlockHeader = await this.node.getBlockHeader(L2BlockHash.fromString(event.block.hash));
 
         if (!newAnchorBlockHeader) {
           throw new Error(

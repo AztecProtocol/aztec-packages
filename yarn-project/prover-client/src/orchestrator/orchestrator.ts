@@ -147,6 +147,14 @@ export class ProvingOrchestrator implements EpochProver {
     this.provingPromise = promise;
   }
 
+  /**
+   * Starts a new checkpoint.
+   * @param checkpointIndex - The index of the checkpoint in the epoch.
+   * @param constants - The constants for this checkpoint.
+   * @param l1ToL2Messages - The set of L1 to L2 messages to be inserted at the beginning of this checkpoint.
+   * @param totalNumBlocks - The total number of blocks expected in the checkpoint (must be at least one).
+   * @param headerOfLastBlockInPreviousCheckpoint - The header of the last block in the previous checkpoint.
+   */
   public async startNewCheckpoint(
     checkpointIndex: number,
     constants: CheckpointConstantData,
@@ -259,7 +267,8 @@ export class ProvingOrchestrator implements EpochProver {
       await endSpongeBlob.absorb(blockEndBlobFields);
       blockProvingState.setEndSpongeBlob(endSpongeBlob);
 
-      // And also try to accumulate the blobs as far as we can:
+      // Try to accumulate the out hashes and blobs as far as we can:
+      await this.provingState.accumulateCheckpointOutHashes();
       await this.provingState.setBlobAccumulators();
     }
   }
@@ -356,7 +365,8 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.setEndSpongeBlob(spongeBlobState);
 
-    // Txs have been added to the block. Now try to accumulate the blobs as far as we can:
+    // Txs have been added to the block. Now try to accumulate the out hashes and blobs as far as we can:
+    await this.provingState.accumulateCheckpointOutHashes();
     await this.provingState.setBlobAccumulators();
   }
 

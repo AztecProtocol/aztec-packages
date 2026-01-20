@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/gadgets/context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 
 namespace bb::avm2::simulation {

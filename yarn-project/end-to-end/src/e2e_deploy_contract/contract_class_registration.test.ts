@@ -180,7 +180,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           // Contract instance deployed event is emitted via private logs.
           const blockNumber = await aztecNode.getBlockNumber();
 
-          const logs = (await aztecNode.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
+          const logs = (await aztecNode.getBlock(blockNumber))!.getPrivateLogs();
 
           expect(logs.length).toBe(1);
 

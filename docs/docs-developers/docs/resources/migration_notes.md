@@ -9,6 +9,135 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.js] Wallet batching now supports all methods
+
+The `BatchedMethod` type is now a discriminated union that ensures type safety: the `args` must match the specific method `name`. This prevents runtime errors from mismatched arguments.
+
+```diff
+- // Before: Only 5 methods could be batched
+- const results = await wallet.batch([
+-   { name: "registerSender", args: [address, "alias"] },
+-   { name: "sendTx", args: [payload, options] },
+- ]);
++ // After: All methods can be batched
++ const results = await wallet.batch([
++   { name: "getChainInfo", args: [] },
++   { name: "getContractMetadata", args: [contractAddress] },
++   { name: "registerSender", args: [address, "alias"] },
++   { name: "simulateTx", args: [payload, options] },
++   { name: "sendTx", args: [payload, options] },
++ ]);
+```
+
+### [Aztec.js] Refactored `getContractMetadata` and `getContractClassMetadata` in Wallet
+
+The contract metadata methods in the `Wallet` interface have been refactored to provide more granular information and avoid expensive round-trips.
+
+**`ContractMetadata`:**
+
+```diff
+  {
+-   contractInstance?: ContractInstanceWithAddress,
++   instance?: ContractInstanceWithAddress;  // Instance registered in the Wallet, if any
+    isContractInitialized: boolean;          // Is the init nullifier onchain? (already there)
+    isContractPublished: boolean;            // Has the contract been published? (already there)
++   isContractUpdated: boolean;              // Has the contract been updated?
++   updatedContractClassId?: Fr;             // If updated, the new class ID
+  }
+```
+
+**`ContractClassMetadata`:**
+
+This method loses the ability to request the contract artifact via the `includeArtifact` flag
+
+```diff
+  {
+-   contractClass?: ContractClassWithId;
+-   artifact?: ContractArtifact;
+    isContractClassPubliclyRegistered: boolean;  // Is the class registered onchain?
++   isArtifactRegistered: boolean;               // Does the Wallet know about this artifact?
+  }
+```
+
+- Removes expensive artifact/class transfers between wallet and app
+- Separates PXE storage info (`instance`, `isArtifactRegistered`) from public chain info (`isContractPublished`, `isContractClassPubliclyRegistered`)
+- Makes it easier to determine if actions like `registerContract` are needed
+
+### [Aztec.js] Removed `UnsafeContract` and protocol contract helper functions
+
+The `UnsafeContract` class and async helper functions (`getFeeJuice`, `getClassRegistryContract`, `getInstanceRegistryContract`) have been removed. Protocol contracts are now accessed via auto-generated type-safe wrappers with only the ABI (no bytecode). Since PXE always has protocol contract artifacts available, importing and using these contracts from `aztec.js` is very lightweight and follows the same pattern as regular user contracts.
+
+**Migration:**
+
+```diff
+- import { getFeeJuice, getClassRegistryContract, getInstanceRegistryContract } from '@aztec/aztec.js/contracts';
++ import { FeeJuiceContract, ContractClassRegistryContract, ContractInstanceRegistryContract } from '@aztec/aztec.js/protocol';
+
+- const feeJuice = await getFeeJuice(wallet);
++ const feeJuice = FeeJuiceContract.at(wallet);
+  await feeJuice.methods.check_balance(feeLimit).send().wait();
+
+- const classRegistry = await getClassRegistryContract(wallet);
++ const classRegistry = ContractClassRegistryContract.at(wallet);
+  await classRegistry.methods.publish(...).send().wait();
+
+- const instanceRegistry = await getInstanceRegistryContract(wallet);
++ const instanceRegistry = ContractInstanceRegistryContract.at(wallet);
+  await instanceRegistry.methods.publish_for_public_execution(...).send().wait();
+```
+
+**Note:** The higher-level utilities like `publishInstance`, `publishContractClass`, and `broadcastPrivateFunction` from `@aztec/aztec.js/deployment` are still available and unchanged. These utilities use the new wrappers internally.
+
+### [Aztec.nr] Renamed Router contract
+
+`Router` contract has been renamed as `PublicChecks` contract.
+The name of the contract became stale as its use changed from routing public calls through it to public functions to just having public functions on it that can be called by anyone.
+By having these "standard checks" on one contract results in the privacy set of apps that could use this becoming potentially large.
+
+### [Aztec Node] `getBlockByHash` and `getBlockHeaderByHash` removed
+
+The `getBlockByHash` and `getBlockHeaderByHash` methods have been removed. Use `getBlock` and `getBlockHeader` with a block hash instead.
+
+**Migration:**
+
+```diff
+- const block = await node.getBlockByHash(blockHash);
++ const block = await node.getBlock(blockHash);
+
+- const header = await node.getBlockHeaderByHash(blockHash);
++ const header = await node.getBlockHeader(blockHash);
+```
+
+### [Aztec.nr] Oracle functions now take `BlockHeader` instead of block number
+
+The low-level oracle functions for fetching membership witnesses and storage now take a `BlockHeader` instead of a `block_number: u32`. This change improves type safety and ensures the correct block state is queried.
+
+**Affected functions:**
+
+- `get_note_hash_membership_witness(block_header, leaf_value)` - was `(block_number, leaf_value)`
+- `get_archive_membership_witness(block_header, leaf_value)` - was `(block_number, leaf_value)`
+- `get_nullifier_membership_witness(block_header, nullifier)` - was `(block_number, nullifier)`
+- `get_low_nullifier_membership_witness(block_header, nullifier)` - was `(block_number, nullifier)`
+- `get_public_data_witness(block_header, public_data_tree_index)` - was `(block_number, public_data_tree_index)`
+- `storage_read(block_header, address, storage_slot)` - was `(address, storage_slot, block_number)`
+
+**Migration:**
+
+If you were calling these oracle functions directly (which is uncommon), update your code to pass a `BlockHeader` instead of a block number:
+
+```diff
+- let witness = get_note_hash_membership_witness(self.global_variables.block_number, note_hash);
++ let witness = get_note_hash_membership_witness(self, note_hash);
+
+- let witness = get_nullifier_membership_witness(block_number, nullifier);
++ let witness = get_nullifier_membership_witness(block_header, nullifier);
+
+- let value: T = storage_read(address, slot, block_number);
++ let value: T = storage_read(block_header, address, slot);
+```
+
+Note: The high-level history proof functions on `BlockHeader` (such as `prove_note_inclusion`, `prove_nullifier_inclusion`, etc.) are **not affected** by this change. They continue to work the same way.
+
 ### [Toolchain] Node.js upgraded to v24
 
 Node.js minimum version changed from v22 to v24.12.0.
@@ -68,6 +197,29 @@ The context methods for accessing fee information have been renamed:
 + let l2_fee = context.min_fee_per_l2_gas();
 + let da_fee = context.min_fee_per_da_gas();
 ```
+
+### [Aztec.nr] Cleaning up message sender functions
+
+There has been a design decision made to have low-level API exposed on `self.context` and a nicer higher-level API exposed directly on `self`.
+Currently the `msg_sender` function on `self` was a copy of that same function on `self.context`.
+The `msg_sender` function on `self` got modified to return the message sender address directly instead of having it be wrapped in an `Option<...>`.
+In case the underlying message sender is none the function panics.
+
+You need to update your code to no longer trigger the unwrap on the return value:
+
+```diff
+- let message_sender: AztecAddress = self.msg_sender().unwrap();
++ let message_sender: AztecAddress = self.msg_sender();
+```
+
+If you want to handle the `null` case use the lower level API of context:
+
+```diff
+- let maybe_message_sender: Option<AztecAddress> = self.msg_sender();
++ let maybe_message_sender: Option<AztecAddress> = self.context.maybe_msg_sender();
+```
+
+The `self.context.msg_sender_unsafe` method has been dropped as its use can be replaced with the standard `self.context.maybe_msg_sender` function.
 
 ### [Aztec.nr] Renamed message delivery options
 

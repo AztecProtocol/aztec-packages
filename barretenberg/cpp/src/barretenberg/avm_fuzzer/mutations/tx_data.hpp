@@ -15,9 +15,13 @@ enum class TxMutationOptions {
     TearDownEnqueuedCall,
     NonRevertibleData,
     RevertibleData,
+    GasSettings,
+    GasFees,
+    GasUsedByPrivate,
+    FeePayer
 };
 
-using TxMutationConfig = WeightedSelectionConfig<TxMutationOptions, 5>;
+using TxMutationConfig = WeightedSelectionConfig<TxMutationOptions, 9>;
 
 constexpr TxMutationConfig TX_MUTATION_CONFIGURATION = TxMutationConfig({
     { TxMutationOptions::SetupEnqueuedCalls, 30 },
@@ -25,24 +29,28 @@ constexpr TxMutationConfig TX_MUTATION_CONFIGURATION = TxMutationConfig({
     { TxMutationOptions::TearDownEnqueuedCall, 10 },
     { TxMutationOptions::NonRevertibleData, 15 },
     { TxMutationOptions::RevertibleData, 15 },
+    { TxMutationOptions::GasSettings, 5 },
+    { TxMutationOptions::GasFees, 3 },
+    { TxMutationOptions::GasUsedByPrivate, 1 },
+    { TxMutationOptions::FeePayer, 1 },
+});
+
+enum class EnqueuedCallMutation { Add, Mutate, Remove };
+
+using EnqueuedCallMutationConfig = WeightedSelectionConfig<EnqueuedCallMutation, 3>;
+constexpr EnqueuedCallMutationConfig ENQUEUED_CALL_MUTATION_CONFIGURATION = EnqueuedCallMutationConfig({
+    { EnqueuedCallMutation::Add, 30 },
+    { EnqueuedCallMutation::Mutate, 50 },
+    { EnqueuedCallMutation::Remove, 20 },
 });
 
 namespace bb::avm2::fuzzer {
 
 void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt19937_64& rng);
 
-// GasSettings mutation
-void mutate_gas_settings(GasSettings& gas_settings, std::mt19937_64& rng);
-
-// Gas mutation
-void mutate_gas(Gas& gas, std::mt19937_64& rng);
-
-// GasFees mutation
-void mutate_gas_fees(GasFees& fees, std::mt19937_64& rng);
-
 void mutate_fuzzer_data_vec(const FuzzerContext& context,
                             std::vector<FuzzerData>& enqueued_calls,
                             std::mt19937_64& rng,
-                            size_t max_size = 10);
+                            size_t max_size = 64);
 
 } // namespace bb::avm2::fuzzer

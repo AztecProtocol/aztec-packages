@@ -15,7 +15,7 @@ fi
 # Install required node version.
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
 source ~/.nvm/nvm.sh
-node_version=$(grep node aztec-packages/aztec-up/bin/versions | cut -d' ' -f2)
+node_version=$(grep node aztec-packages/aztec-up/bin/0.0.1/versions | cut -d' ' -f2)
 echo $node_version
 nvm install $node_version
 nvm alias default $node_version
@@ -69,7 +69,7 @@ bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 
 echo "Version information:"
 
-bash -i -c '
+bash -i -c -e '
   forge --version
   echo
   nargo --version

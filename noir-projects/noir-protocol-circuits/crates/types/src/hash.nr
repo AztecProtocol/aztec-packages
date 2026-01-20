@@ -27,6 +27,8 @@ pub use poseidon2_chunks::poseidon2_absorb_in_chunks_existing_sponge;
 use poseidon2_chunks::poseidon2_absorb_in_chunks;
 use std::embedded_curve_ops::EmbeddedCurveScalar;
 
+// TODO: refactor these into their own files: sha256, poseidon2, some protocol-specific hash computations, some merkle computations.
+
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
@@ -108,8 +110,8 @@ pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field
 
 pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     let value = nullifier.innermost().value;
-    // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
-    // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
+    // Q: shouldn't we be checking whether the _whole_ scoped, counted, nullifier struct is empty?
+    // A: We don't have to. The init and inner circuits add a contract address only to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
         value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
@@ -119,6 +121,8 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
 }
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    // The protocol nullifier is ascribed a special side-effect counter of 1. No other side-effect
+    // can have counter 1 (see `validate_as_first_call` for that assertion).
     Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
         NULL_MSG_SENDER_CONTRACT_ADDRESS,
     )
@@ -146,16 +150,12 @@ pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_F
 pub fn compute_app_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
-    app_secret_generator: Field,
+    app_secret_key_domain_separator: Field,
 ) -> Field {
     poseidon2_hash_with_separator(
         [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
-        app_secret_generator,
+        app_secret_key_domain_separator,
     )
-}
-
-pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
 }
 
 pub fn compute_l2_to_l1_hash(
@@ -205,6 +205,7 @@ pub fn silo_l2_to_l1_message(
     }
 }
 
+// TODO: consider a variant that enables domain separation with a u32 (we seem to have standardised u32s for domain separators)
 /// Computes sha256 hash of 2 input fields.
 ///
 /// @returns A truncated field (i.e., the first byte is always 0).
@@ -217,6 +218,7 @@ pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
+// TODO: remove this. The protocol doesn't need it.
 #[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)

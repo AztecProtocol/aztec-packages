@@ -90,7 +90,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
 
-    t.ctx.watcher.setIsMarkingAsProven(false);
+    t.ctx.watcher!.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -186,6 +186,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
+        governanceVotingDuration: t.ctx.aztecNodeConfig.governanceVotingDuration,
       },
     );
 
@@ -233,7 +234,7 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -249,7 +250,7 @@ describe('e2e_p2p_add_rollup', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
+      { dateProvider: t.ctx.dateProvider! },
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
@@ -357,7 +358,7 @@ describe('e2e_p2p_add_rollup', () => {
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider!);
         await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
 
@@ -551,7 +552,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     nodes = await createNodes(
       newConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -566,7 +567,7 @@ describe('e2e_p2p_add_rollup', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
+      { dateProvider: t.ctx.dateProvider! },
       prefilledPublicData,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),

@@ -44,7 +44,7 @@ pub contract Claim {
 
         // 2) Check that the note is owned by the msg_sender
         assert(
-            proof_retrieved_note.owner == self.msg_sender().unwrap(),
+            proof_retrieved_note.owner == self.msg_sender(),
             "Note is not owned by the msg_sender",
         );
 

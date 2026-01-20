@@ -5,6 +5,8 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 
 namespace bb {
 
@@ -12,6 +14,10 @@ template <typename Flavor>
 HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>::verify_proof(
     Accumulator& accumulator, const HypernovaDeciderVerifier::Proof& proof)
 {
+    using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
+
     vinfo("HypernovaDeciderVerifier: verifying PCS proof...");
     transcript->load_proof(proof);
 

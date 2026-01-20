@@ -141,8 +141,6 @@ pol commit sel_to_radix_write; // @boolean
 sel_to_radix_write * (1 - sel_to_radix_write) = 0;
 
 // Permutation consistency.
-// TODO(#16759): Enable the following relation ensuring that each memory entry is associated with a valid permutation selector.
-//               DebugLog opcode is generating some memory entries which should not be triggered.
 #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
 sel = // Addressing.
       sel_addressing_base
@@ -176,7 +174,7 @@ sel = // Addressing.
 // Other boolean constraints.
 sel * (1 - sel) = 0; // Ensure mutual exclusivity of the permutation selectors.
 last_access * (1 - last_access) = 0;
-rw * (1 - rw) = 0; // TODO: should already be constrained by each source of interaction lookups.
+rw * (1 - rw) = 0; // Some source sub-trace relies on this constraint (e.g., keccak_memory.pil)
 sel_tag_is_ff * (1 - sel_tag_is_ff) = 0;
 
 // Trace must be contiguous.

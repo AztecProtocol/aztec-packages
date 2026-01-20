@@ -449,11 +449,16 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     case QUEUE_TYPE::HN:
     case QUEUE_TYPE::HN_TAIL:
         vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
-        std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
+        // Move old accumulator into fold, receive new accumulator back
+        std::tie(proof, prover_accumulator) =
+            prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
         break;
     case QUEUE_TYPE::HN_FINAL: {
         vinfo("Accumulating tail kernel");
-        std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
+        // Move old accumulator into fold, receive new accumulator back
+        std::tie(proof, prover_accumulator) =
+            prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
+        // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
         decider_proof = decider.construct_proof(bn254_commitment_key, prover_accumulator);
         break;
@@ -558,7 +563,7 @@ ChonkProof Chonk::prove()
     // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
     // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
     // evaluations of both the previous table and the incoming subtable.
-    return ChonkProof{ mega_proof, goblin.prove(MergeSettings::APPEND) };
+    return ChonkProof{ mega_proof, goblin.prove() };
 };
 
 std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const

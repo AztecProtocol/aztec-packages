@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsgo -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && ../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts"
   },
   "files": ["dest", "src", "artifacts", "!*.test.*"]

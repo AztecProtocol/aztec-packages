@@ -34,6 +34,7 @@ const testConfigSchema = z.object({
   AZTEC_SLOT_DURATION: z.coerce.number().optional().default(24),
   AZTEC_EPOCH_DURATION: z.coerce.number().optional().default(32),
   AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().optional().default(5),
+  AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: z.coerce.number().optional().default(2),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;
@@ -1107,24 +1108,93 @@ export async function getL1DeploymentAddresses(env: TestConfig): Promise<L1Contr
 /**
  * Rolls the Aztec pods in the given namespace.
  * @param namespace - The namespace to roll the Aztec pods in.
- * @dev - IMPORTANT: This function DOES NOT delete the underlying PVCs.
- *        This means that the pods will be restarted with the same persistent storage.
- *        This is useful for testing, but you should be aware of the implications.
+ * @param clearState - If true, also deletes the underlying PVCs to clear persistent storage.
+ *        This is required for rollup upgrades where the old state is incompatible with the new rollup.
+ *        Defaults to false, which preserves the existing storage.
  */
-export async function rollAztecPods(namespace: string) {
-  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=boot-node' });
-  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-node' });
-  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-broker' });
-  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
-  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
-  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
+export async function rollAztecPods(namespace: string, clearState: boolean = false) {
+  // Pod components use 'validator', but StatefulSets and PVCs use 'sequencer-node' for validators
+  const podComponents = ['p2p-bootstrap', 'prover-node', 'prover-broker', 'prover-agent', 'sequencer-node', 'rpc'];
+  const pvcComponents = ['p2p-bootstrap', 'prover-node', 'prover-broker', 'sequencer-node', 'rpc'];
+  // StatefulSet components that need to be scaled down before PVC deletion
+  // Note: validators use 'sequencer-node' as component label, not 'validator'
+  const statefulSetComponents = ['p2p-bootstrap', 'prover-node', 'prover-broker', 'sequencer-node', 'rpc'];
+
+  if (clearState) {
+    // To delete PVCs, we must first scale down StatefulSets so pods release the volumes
+    // Otherwise PVC deletion will hang waiting for pods to terminate
+
+    // First, save original replica counts
+    const originalReplicas: Map<string, number> = new Map();
+    for (const component of statefulSetComponents) {
+      try {
+        const getCmd = `kubectl get statefulset -l app.kubernetes.io/component=${component} -n ${namespace} -o jsonpath='{.items[0].spec.replicas}'`;
+        const { stdout } = await execAsync(getCmd);
+        const replicas = parseInt(stdout.replace(/'/g, '').trim(), 10);
+        if (!isNaN(replicas) && replicas > 0) {
+          originalReplicas.set(component, replicas);
+        }
+      } catch {
+        // Component might not exist, continue
+      }
+    }
+
+    // Scale down to 0
+    for (const component of statefulSetComponents) {
+      try {
+        const scaleCmd = `kubectl scale statefulset -l app.kubernetes.io/component=${component} -n ${namespace} --replicas=0 --timeout=2m`;
+        logger.info(`command: ${scaleCmd}`);
+        await execAsync(scaleCmd);
+      } catch (e) {
+        // Component might not exist or might be a Deployment, continue
+        logger.verbose(`Scale down ${component} skipped: ${e}`);
+      }
+    }
+
+    // Wait for pods to terminate
+    await sleep(15 * 1000);
+
+    // Now delete PVCs (they should no longer be in use)
+    for (const component of pvcComponents) {
+      await deleteResourceByLabel({
+        resource: 'persistentvolumeclaims',
+        namespace: namespace,
+        label: `app.kubernetes.io/component=${component}`,
+      });
+    }
+
+    // Scale StatefulSets back up to original replica counts
+    for (const component of statefulSetComponents) {
+      const replicas = originalReplicas.get(component) ?? 1;
+      try {
+        const scaleCmd = `kubectl scale statefulset -l app.kubernetes.io/component=${component} -n ${namespace} --replicas=${replicas} --timeout=2m`;
+        logger.info(`command: ${scaleCmd}`);
+        await execAsync(scaleCmd);
+      } catch (e) {
+        logger.verbose(`Scale up ${component} skipped: ${e}`);
+      }
+    }
+  } else {
+    // Just delete pods (no state clearing)
+    for (const component of podComponents) {
+      await deleteResourceByLabel({
+        resource: 'pods',
+        namespace: namespace,
+        label: `app.kubernetes.io/component=${component}`,
+      });
+    }
+  }
+
   await sleep(10 * 1000);
-  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=boot-node' });
-  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-node' });
-  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-broker' });
-  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
-  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
-  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
+
+  // Wait for pods to come back
+  for (const component of podComponents) {
+    await waitForResourceByLabel({
+      resource: 'pods',
+      namespace: namespace,
+      label: `app.kubernetes.io/component=${component}`,
+    });
+  }
 }
 
 /**

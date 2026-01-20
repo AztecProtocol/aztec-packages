@@ -1,5 +1,12 @@
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointNumberSchema,
+  IndexWithinCheckpoint,
+  IndexWithinCheckpointSchema,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -30,11 +37,15 @@ export class L2BlockNew {
     /** Number of the checkpoint that the block belongs to. */
     public checkpointNumber: CheckpointNumber,
     /** Index of the block within the checkpoint. */
-    public indexWithinCheckpoint: number,
+    public indexWithinCheckpoint: IndexWithinCheckpoint,
   ) {}
 
   get number(): BlockNumber {
     return this.header.globalVariables.blockNumber;
+  }
+
+  get slot(): SlotNumber {
+    return this.header.globalVariables.slotNumber;
   }
 
   get timestamp(): bigint {
@@ -48,7 +59,7 @@ export class L2BlockNew {
         header: BlockHeader.schema,
         body: Body.schema,
         checkpointNumber: CheckpointNumberSchema,
-        indexWithinCheckpoint: z.number(),
+        indexWithinCheckpoint: IndexWithinCheckpointSchema,
       })
       .transform(
         ({ archive, header, body, checkpointNumber, indexWithinCheckpoint }) =>
@@ -66,7 +77,7 @@ export class L2BlockNew {
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
     const checkpointNumber = CheckpointNumber(reader.readNumber());
-    const indexWithinCheckpoint = reader.readNumber();
+    const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
 
     return new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
@@ -131,8 +142,14 @@ export class L2BlockNew {
     };
   }
 
-  static empty() {
-    return new L2BlockNew(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty(), CheckpointNumber(0), 0);
+  static empty(header?: BlockHeader) {
+    return new L2BlockNew(
+      AppendOnlyTreeSnapshot.empty(),
+      header ?? BlockHeader.empty(),
+      Body.empty(),
+      CheckpointNumber(0),
+      IndexWithinCheckpoint(0),
+    );
   }
 
   /**
@@ -148,14 +165,14 @@ export class L2BlockNew {
     blockNumber: BlockNumber,
     {
       checkpointNumber = CheckpointNumber(Number(blockNumber)),
-      indexWithinCheckpoint = 0,
+      indexWithinCheckpoint = IndexWithinCheckpoint(0),
       txsPerBlock = 1,
       txOptions = {},
       makeTxOptions,
       ...blockHeaderOverrides
     }: {
       checkpointNumber?: CheckpointNumber;
-      indexWithinCheckpoint?: number;
+      indexWithinCheckpoint?: IndexWithinCheckpoint;
       txsPerBlock?: number;
       txOptions?: Partial<Parameters<typeof Body.random>[0]>;
       makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof Body.random>[0]>;

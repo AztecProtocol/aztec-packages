@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
+shopt -s inherit_errexit
 
-script_dir="$(dirname "$(realpath "$0")")"
-
-function aztec {
-  exec node --no-warnings $script_dir/../dest/bin/index.js "$@"
-}
+# Re-execute using correct version if we have an .aztecrc file.
+if [ "${AZTEC_VERSIONED:-0}" -eq 0 ] && [ -f .aztecrc ] && command -v aztec-up &>/dev/null; then
+  env_setup=$(aztec-up env)
+  eval "$env_setup"
+  AZTEC_VERSIONED=1 exec aztec "$@"
+fi
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export AZTEC_SHELL_WRAPPER=1
+script_dir="$(dirname "$(realpath "$0")")"
+
+function aztec {
+  export AZTEC_SHELL_WRAPPER=1
+  exec node --no-warnings $script_dir/../dest/bin/index.js "$@"
+}
 
 case $cmd in
   test)
-    export LOG_LEVEL="${LOG_LEVEL:-info}"
+    export LOG_LEVEL="${LOG_LEVEL:-error}"
     aztec start --txe --port 8081 &
     server_pid=$!
     trap 'kill $server_pid &>/dev/null || true' EXIT

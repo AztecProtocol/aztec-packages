@@ -26,14 +26,15 @@ import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
-  type SubsystemsContext,
+  type EndToEndContext,
+  type SetupOptions,
   deployAccounts,
   publicDeployAccounts,
-  setupFromFresh,
+  setup,
   teardown,
-} from '../fixtures/snapshot_manager.js';
+} from '../fixtures/setup.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
-import { type BalancesFn, type SetupOptions, getBalancesFn, setupSponsoredFPC } from '../fixtures/utils.js';
+import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 /**
@@ -48,7 +49,7 @@ import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from
  */
 export class FeesTest {
   private accounts: AztecAddress[] = [];
-  public context!: SubsystemsContext;
+  public context!: EndToEndContext;
 
   public logger: Logger;
   public aztecNode!: AztecNode;
@@ -103,14 +104,16 @@ export class FeesTest {
 
   async setup() {
     this.logger.verbose('Setting up fresh context...');
-    this.context = await setupFromFresh(
-      this.logger,
-      { startProverNode: true, ...this.setupOptions },
-      { ...this.setupOptions },
-    );
+    this.context = await setup(0, {
+      startProverNode: true,
+      ...this.setupOptions,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      l1ContractsArgs: { ...this.setupOptions },
+    });
 
-    this.rollupContract = RollupContract.getFromConfig(this.context.aztecNodeConfig);
-    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider, this.logger, 200).start();
+    this.rollupContract = RollupContract.getFromConfig(this.context.config);
+    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider!, this.logger, 200).start();
 
     await this.applyBaseSetup();
 
@@ -123,7 +126,7 @@ export class FeesTest {
   }
 
   setIsMarkingAsProven(b: boolean) {
-    this.context.watcher.setIsMarkingAsProven(b);
+    this.context.watcher!.setIsMarkingAsProven(b);
   }
 
   async catchUpProvenChain() {
@@ -188,8 +191,8 @@ export class FeesTest {
     });
 
     this.wallet = this.context.wallet;
-    this.aztecNode = this.context.aztecNode;
-    this.aztecNodeAdmin = this.context.aztecNode;
+    this.aztecNode = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService!;
     this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentMinFees()).mul(2) });
     this.cheatCodes = this.context.cheatCodes;
     this.accounts = deployedAccounts.map(a => a.address);
@@ -221,8 +224,8 @@ export class FeesTest {
     );
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-      aztecNode: this.context.aztecNode,
-      aztecNodeAdmin: this.context.aztecNode,
+      aztecNode: this.context.aztecNodeService!,
+      aztecNodeAdmin: this.context.aztecNodeService!,
       l1Client: this.context.deployL1ContractsValues.l1Client,
       wallet: this.wallet,
       logger: this.logger,
@@ -272,7 +275,7 @@ export class FeesTest {
     const l1FeeJuiceAddress = this.feeJuiceBridgeTestHarness.l1FeeJuiceAddress;
 
     this.getCoinbaseBalance = async () => {
-      const l1Client = createExtendedL1Client(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+      const l1Client = createExtendedL1Client(this.context.config.l1RpcUrls, MNEMONIC);
       const gasL1 = getContract({
         address: l1FeeJuiceAddress.toString(),
         abi: TestERC20Abi,

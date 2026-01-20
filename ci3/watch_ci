@@ -64,7 +64,7 @@ function refresh {
   [ -n "$filter_property" ] && cmd+=" --filter-prop $filter_property"
   [ -n "$filter_string" ] && cmd+=" --filter '$filter_string'"
 
-  parallel -j${#section_array[@]} -k $cmd ::: "${section_array[@]}" | sort -r | head -n $((height - 2))
+  parallel -j${#section_array[@]} -k $cmd ::: "${section_array[@]}" | grep -v "Nothing to see here" | sort -r | head -n $((height - 3))
   echo -e -n "\e[J"
 }
 

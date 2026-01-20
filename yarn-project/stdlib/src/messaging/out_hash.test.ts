@@ -1,6 +1,5 @@
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { AZTEC_MAX_EPOCH_DURATION, EMPTY_EPOCH_OUT_HASH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { computeEpochOutHash } from './out_hash.js';
 
@@ -10,19 +9,12 @@ describe('out hash', () => {
 
     const outHash = computeEpochOutHash(messagesInEpoch).toString();
 
-    expect(outHash).toMatchInlineSnapshot(`"0x00cac4cadfb6b99199909262a27271d0d84c27a8cdc23e45ac77c6ce031ba732"`);
-
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/root/utils/compute_epoch_out_hash.nr',
-      'full_epoch_out_hash_from_ts',
-      outHash,
-    );
+    expect(outHash).toMatchInlineSnapshot(`"0x005d7aadcc96e1b40eff174895314c29d932c57e57e6f5aa2880596664bae4b9"`);
   });
 
-  it('produces a zero out hash for an epoch with no txs/messages', () => {
+  it('returns an empty out hash root for an epoch with no txs/messages', () => {
     const outHash = computeEpochOutHash([[], [[], []], [[[]], []]]);
-    expect(outHash).toEqual(Fr.ZERO);
+    expect(outHash).toEqual(new Fr(EMPTY_EPOCH_OUT_HASH));
   });
 
   it('computes the out hash for an epoch with some checkpoints that have no messages', () => {
@@ -34,17 +26,9 @@ describe('out hash', () => {
       [[], [[]]],
       [[], [[], [new Fr(66)]], [[]]],
     ];
-    // The resulting checkpoint out hashes should match the fixtures in the noir test: [11, 0, 0, 44, 0, 66].
 
     const outHash = computeEpochOutHash(messagesInEpoch).toString();
 
-    expect(outHash).toMatchInlineSnapshot(`"0x00f83de1d6645701e7faa407066fad314e8c42676338856beb5da9d4062fbb28"`);
-
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/root/tests/consecutive_rollups_tests.nr',
-      'out_hash_from_ts',
-      outHash,
-    );
+    expect(outHash).toMatchInlineSnapshot(`"0x002277ea21b0f438ba7f3badd17a588b5fc119d782d371c4808bbb95e2af335e"`);
   });
 });

@@ -1,6 +1,6 @@
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier/flat';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
 import noOnlyTests from 'eslint-plugin-no-only-tests';
 import tsdoc from 'eslint-plugin-tsdoc';
@@ -30,9 +30,8 @@ export default [
       eslintConfigPrettier,
     ],
     settings: {
-      'import/resolver': {
+      'import-x/resolver': {
         typescript: true,
-        node: true,
       },
     },
     languageOptions: {
@@ -75,9 +74,8 @@ export default [
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-constant-condition': 'off',
-      // Warnings
-      'import/no-cycle': 'warn',
       // Errors
+      'import-x/no-cycle': 'error',
       '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
@@ -87,7 +85,7 @@ export default [
       'no-console': 'error',
       curly: ['error', 'all'],
       camelcase: 'error',
-      'import/no-relative-packages': 'error',
+      'import-x/no-relative-packages': 'error',
       'no-restricted-imports': [
         'error',
         {
@@ -99,7 +97,7 @@ export default [
           ],
         },
       ],
-      'import/no-unresolved': [
+      'import-x/no-unresolved': [
         'error',
         {
           ignore: [
@@ -111,7 +109,7 @@ export default [
           ],
         },
       ],
-      'import/no-extraneous-dependencies': 'error',
+      'import-x/no-extraneous-dependencies': 'error',
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],
       'aztec-custom/no-non-primitive-in-collections': 'error',

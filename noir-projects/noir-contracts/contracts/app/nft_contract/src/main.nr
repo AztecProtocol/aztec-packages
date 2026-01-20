@@ -71,14 +71,14 @@ pub contract NFT {
 
     #[external("public")]
     fn set_admin(new_admin: AztecAddress) {
-        assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "caller is not an admin");
+        assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not an admin");
         self.storage.admin.write(new_admin);
     }
 
     // docs:start:set_minter
     #[external("public")]
     fn set_minter(minter: AztecAddress, approve: bool) {
-        assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "caller is not an admin");
+        assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not an admin");
         self.storage.minters.at(minter).write(approve);
     }
     // docs:end:set_minter
@@ -86,10 +86,7 @@ pub contract NFT {
     #[external("public")]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(token_id != 0, "zero token ID not supported");
-        assert(
-            self.storage.minters.at(self.msg_sender().unwrap()).read(),
-            "caller is not a minter",
-        );
+        assert(self.storage.minters.at(self.msg_sender()).read(), "caller is not a minter");
         assert(self.storage.nft_exists.at(token_id).read() == false, "token already exists");
 
         self.storage.nft_exists.at(token_id).write(true);
@@ -150,7 +147,7 @@ pub contract NFT {
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
     #[external("private")]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
-        let from = self.msg_sender().unwrap();
+        let from = self.msg_sender();
 
         // We prepare the private balance increase.
         let partial_note = self.internal._prepare_private_balance_increase(to);
@@ -175,7 +172,7 @@ pub contract NFT {
             self.storage.private_nfts.at(to).storage_slot,
             self.context,
             to,
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
         );
 
         partial_note
@@ -193,7 +190,7 @@ pub contract NFT {
     fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose account the token is being transferred.
-        let from_and_completer = self.msg_sender().unwrap();
+        let from_and_completer = self.msg_sender();
         self.internal._finalize_transfer_to_private(from_and_completer, token_id, partial_note);
     }
 
@@ -234,7 +231,7 @@ pub contract NFT {
      */
     #[external("private")]
     fn cancel_authwit(inner_hash: Field) {
-        let on_behalf_of = self.msg_sender().unwrap();
+        let on_behalf_of = self.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         self.context.push_nullifier(nullifier);
     }

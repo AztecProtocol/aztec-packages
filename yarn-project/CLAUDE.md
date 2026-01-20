@@ -19,29 +19,30 @@ An Aztec **node** syncs L2 state and serves RPC requests. A node may also act as
 
 ### When to Run Bootstrap
 
-**ONLY** run `./bootstrap.sh` from the git root when:
+**ALWAYS** run `./bootstrap.sh` from the git root when:
 
 - Pulling new changes that have modifications outside `yarn-project`
 - Switching branches with changes from outside `yarn-project`
+- Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
+(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
 ```
 
-**DO NOT** run bootstrap in any other circumstance - it takes several minutes.
+Bootstrap takes several minutes to run. Be patient.
 
 ### Compile Before Testing
 
 ```bash
-yarn tsc -b                      # Full project (from yarn-project)
-cd <package-name> && yarn tsc -b  # Specific package
+./scripts/tsc.sh                      # Full project (from yarn-project)
+cd <package-name> && yarn build       # Specific package
 ```
 
 ### Before Committing (Quality Checklist)
 
 Run from `yarn-project`:
 
-1. **Build**: Ensure entire project compiles (`yarn tsgo -b --emitDeclarationOnly`)
+1. **Build**: Ensure entire project compiles (`tsgo -b --emitDeclarationOnly`)
 2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
 3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
 4. **Test**: Run unit tests for modified packages

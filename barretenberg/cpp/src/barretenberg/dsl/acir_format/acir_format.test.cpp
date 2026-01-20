@@ -31,7 +31,6 @@ TYPED_TEST(AcirFormatTests, ExpressionWithOnlyConstantTermFails)
     // In both cases, we should not construct a circuit as either the circuit is not satisfiable, or there is zero gate.
     Acir::Expression expr{ .q_c = bb::fr::one().to_buffer() };
     Acir::Circuit circuit{
-        .current_witness_index = 0,
         .opcodes = { Acir::Opcode{ Acir::Opcode::AssertZero{ .value = expr } } },
         .public_parameters = {},
         .return_values = {},
@@ -49,7 +48,6 @@ TYPED_TEST(AcirFormatTests, ExpressionWithCancellingCoefficientsFails)
                                                     { bb::fr(-1).to_buffer(), Acir::Witness{ 0 } } },
                            .q_c = bb::fr::zero().to_buffer() };
     Acir::Circuit circuit{
-        .current_witness_index = 0,
         .opcodes = { Acir::Opcode{ Acir::Opcode::AssertZero{ .value = expr } } },
         .public_parameters = {},
         .return_values = {},
@@ -70,7 +68,6 @@ TYPED_TEST(AcirFormatTests, PublicInputs)
                            .q_c = bb::fr(-2).to_buffer() };
 
     Acir::Circuit circuit{
-        .current_witness_index = static_cast<uint32_t>(witnesses.size() - 1),
         .opcodes = { Acir::Opcode{ Acir::Opcode::AssertZero{ .value = expr } } },
         .public_parameters =
             Acir::PublicInputs{ .value = { Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 } } },

@@ -1,3 +1,5 @@
+//! Note mocking utilities.
+
 use crate::{
     context::PrivateContext,
     note::{

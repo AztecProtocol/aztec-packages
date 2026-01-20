@@ -20,8 +20,7 @@ import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
-import { type CheckpointedL2Block, PublishedL2Block } from './checkpointed_l2_block.js';
-import type { L2Block } from './l2_block.js';
+import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
 import type { L2BlockNew } from './l2_block_new.js';
 import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
 
@@ -106,6 +105,20 @@ export interface L2BlockSource {
   getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
   /**
+   * Gets an L2 block by its hash.
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+
+  /**
+   * Gets an L2 block by its archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested L2 block (or undefined if not found).
+   */
+  getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
@@ -179,11 +192,8 @@ export interface L2BlockSource {
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
-   * @deprecated Use getL2BlockNew instead.
    */
-  getBlock(number: BlockNumber): Promise<L2Block | undefined>;
-
-  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
+  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
   getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
 
@@ -192,21 +202,28 @@ export interface L2BlockSource {
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return blocks for.
    */
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]>;
+  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]>;
+
+  /**
+   * Returns all blocks for a given slot.
+   * @dev Use this method only with recent slots, since it walks the block list backwards.
+   * @param slotNumber - The slot number to return blocks for.
+   */
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]>;
 
   /**
    * Gets a published block by its block hash.
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+  getPublishedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets a published block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+  getPublishedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -215,10 +232,10 @@ export interface L2BlockSource {
    * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]>;
+  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
 
   /** Equivalent to getBlocks but includes publish data. */
-  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
+  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
 }
 
 /**
@@ -238,12 +255,15 @@ export interface L2BlockSink {
  * see L2BlockSourceEvents for the events emitted.
  */
 export type ArchiverEmitter = TypedEventEmitter<{
-  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
+  [L2BlockSourceEvents.L2PruneUnproven]: (args: L2PruneUnprovenEvent) => void;
+  [L2BlockSourceEvents.L2PruneUncheckpointed]: (args: L2PruneUncheckpointedEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
 }>;
-export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
+export interface L2BlockSourceEventEmitter extends L2BlockSource {
+  events: ArchiverEmitter;
+}
 
 /**
  * Identifier for L2 block tags.
@@ -253,13 +273,6 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitte
  * - finalized: Proven block on a finalized L1 block (not implemented, set to proven for now).
  */
 export type L2BlockTag = 'proposed' | 'checkpointed' | 'proven' | 'finalized';
-
-/**
- * Reason for L2 block prune.
- * - uncheckpointed: L2 blocks were pruned due to a failure to checkpoint.
- * - unproven: L2 blocks were pruned due to a failure to prove.
- */
-export type L2BlockPruneReason = 'uncheckpointed' | 'unproven';
 
 /** Tips of the L2 chain. */
 export type L2Tips = {
@@ -314,7 +327,8 @@ export const L2TipsSchema = z.object({
 });
 
 export enum L2BlockSourceEvents {
-  L2PruneDetected = 'l2PruneDetected',
+  L2PruneUnproven = 'l2PruneUnproven',
+  L2PruneUncheckpointed = 'l2PruneUncheckpointed',
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
@@ -327,9 +341,15 @@ export type L2BlockProvenEvent = {
   epochNumber: EpochNumber;
 };
 
-export type L2BlockPruneEvent = {
-  type: 'l2PruneDetected';
+export type L2PruneUnprovenEvent = {
+  type: 'l2PruneUnproven';
   epochNumber: EpochNumber;
+  blocks: L2BlockNew[];
+};
+
+export type L2PruneUncheckpointedEvent = {
+  type: 'l2PruneUncheckpointed';
+  slotNumber: SlotNumber;
   blocks: L2BlockNew[];
 };
 

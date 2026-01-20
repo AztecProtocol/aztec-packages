@@ -30,7 +30,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {DateGatedRelayer} from "@aztec/periphery/DateGatedRelayer.sol";
 
-import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
+import {ZKPassportRootVerifier as ZKPassportVerifier} from "@zkpassport/ZKPassportRootVerifier.sol";
 
 import {DeployRollupLib, RollupAddressInput, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {
@@ -230,21 +230,21 @@ contract DeployAztecL1Contracts is Script, Test {
           owner: deployer,
           stakingAsset: address(_output.stakingAsset),
           registry: _output.registry,
-          withdrawer: AMIN,
-          validatorsToFlush: 16,
-          mintInterval: 60 * 60 * 24,
-          depositsPerMint: 10,
-          depositMerkleRoot: bytes32(0),
+          faucetAmount: 1_000_000 * 1e18, // 1M STK
           zkPassportVerifier: ZKPassportVerifier(zkPassportVerifier),
           unhinged: unhinged,
           // Scopes
           domain: zkConfig.domain,
           scope: zkConfig.scope,
-          skipBindCheck: !isSepoliaTestChain, // Only skip bind check with mock verifier
-          skipMerkleCheck: true // DO: skip merkle check
+          skipBindCheck: !isSepoliaTestChain // Only skip bind check with mock verifier
         })
       );
-      TestERC20(address(_output.stakingAsset)).addMinter(address(_output.stakingAssetHandler));
+      // Fund the staking asset handler faucet with tokens
+      TestERC20(address(_output.stakingAsset))
+        .mint(
+          address(_output.stakingAssetHandler),
+          100_000_000_000 * 1e18 // 100B STK (enough for 100K claims)
+        );
     }
   }
 

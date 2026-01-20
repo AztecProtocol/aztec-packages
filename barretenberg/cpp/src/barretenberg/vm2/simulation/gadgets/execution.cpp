@@ -1771,7 +1771,7 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
             instruction = context.get_bytecode_manager().read_instruction(pc);
 
             debug("@", pc, " ", instruction.to_string());
-            context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
+            context.set_next_pc(pc + static_cast<PC>(instruction.size_in_bytes()));
             // next_pc is overwritten in dispatch_opcode() for JUMP, JUMPI, INTERNALCALL, and INTERNALRETURN.
 
             // Resolve the operands.
@@ -1896,7 +1896,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
 }
 
 /**
- * @brief Handle the exiting of a call. This is called when a call returns or reverts.
+ * @brief Handle the exiting of a call. This is called when a call returns, reverts or errors.
  */
 void Execution::handle_exit_call()
 {

@@ -17,6 +17,7 @@ from rk_core import (
 )
 
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
+DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
 app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
@@ -63,7 +64,7 @@ def read_breakdown_from_disk(runtime, flow_name, sha):
 
 @auth.verify_password
 def verify_password(username, password):
-    if username == "aztec" and password == "letmeseethoselogs":
+    if username == "aztec" and password == DASHBOARD_PASSWORD:
         return username
     return None
 

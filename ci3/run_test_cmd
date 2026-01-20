@@ -295,16 +295,15 @@ function flake {
   fi
 
   # Send slack message to owners.
-  slack_uids=""
+  local slack_uids=""
   for uid in $owners; do
     slack_uids+="<@$uid> "
   done
-  read -r -d '' data <<EOF
-  {
-    "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
-  }
-EOF
+  data=$(jq -n \
+    --arg channel "#aztec3-ci" \
+    --arg text "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key" \
+    '{channel: $channel, text: $text}'
+  )
   curl -X POST https://slack.com/api/chat.postMessage \
     -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \

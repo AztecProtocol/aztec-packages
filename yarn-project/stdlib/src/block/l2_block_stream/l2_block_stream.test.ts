@@ -215,7 +215,7 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(36), reason: 'unproven', checkpoint: makeCheckpointId(0) },
+        { type: 'chain-pruned', block: makeBlockId(36), checkpoint: makeCheckpointId(0) },
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 37)) },
       ] satisfies L2BlockStreamEvent[]);
     });
@@ -290,11 +290,10 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
 
-      // Prune to block 3 (checkpointed tip), reason should be 'uncheckpointed'
+      // Prune to block 3 (checkpointed tip)
       expect(handler.events[0]).toEqual({
         type: 'chain-pruned',
         block: makeBlockId(3),
-        reason: 'uncheckpointed',
         checkpoint: makeCheckpointId(3),
       });
     });
@@ -335,7 +334,7 @@ describe('L2BlockStream', () => {
       setRemoteTips(25, 25, 25, 10);
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', block: makeBlockId(25), reason: 'unproven', checkpoint: makeCheckpointId(25) },
+        { type: 'chain-pruned', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
       ]);
     });
   });
@@ -771,12 +770,11 @@ describe('L2BlockStream', () => {
 
         await blockStream.work();
 
-        // Should emit chain-pruned back to block 6, reason 'uncheckpointed'
+        // Should emit chain-pruned back to block 6
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            reason: 'uncheckpointed',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
           },
         ]);
@@ -841,12 +839,10 @@ describe('L2BlockStream', () => {
         await blockStream.work();
 
         // Should emit chain-pruned back to block 6
-        // Reason is 'unproven' because we're pruning beyond the local checkpointed tip (12)
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            reason: 'unproven',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
           },
         ]);
@@ -913,7 +909,6 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(3),
-            reason: 'uncheckpointed',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
           },
         ]);
@@ -964,12 +959,11 @@ describe('L2BlockStream', () => {
 
         await blockStream.work();
 
-        // Should emit chain-pruned back to block 0, reason 'uncheckpointed' (pruned to checkpointed tip which is 0)
+        // Should emit chain-pruned back to block 0
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(0),
-            reason: 'uncheckpointed',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
           },
         ]);
@@ -1026,12 +1020,10 @@ describe('L2BlockStream', () => {
         await blockStream.work();
 
         // Should emit chain-pruned back to block 0
-        // Reason is 'unproven' because we're pruning beyond the local checkpointed tip (3)
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(0),
-            reason: 'unproven',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(0) }),
           },
         ]);
@@ -1135,12 +1127,10 @@ describe('L2BlockStream', () => {
         await blockStream.work();
 
         // Should emit chain-pruned event (prune events are always emitted), no checkpoint events
-        // Note: reason is 'unproven' (not 'uncheckpointed') because ignoreCheckpoints is true
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            reason: 'unproven',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
           },
         ]);
@@ -1177,12 +1167,11 @@ describe('L2BlockStream', () => {
 
         await blockStream.work();
 
-        // Should emit chain-pruned event with 'unproven' reason (pruning beyond checkpointed tip)
+        // Should emit chain-pruned event
         expect(handler.events).toEqual([
           {
             type: 'chain-pruned',
             block: makeBlockId(3),
-            reason: 'unproven',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(1) }),
           },
         ]);
@@ -1269,7 +1258,6 @@ describe('L2BlockStream', () => {
           {
             type: 'chain-pruned',
             block: makeBlockId(6),
-            reason: 'unproven',
             checkpoint: expect.objectContaining({ number: CheckpointNumber(2) }),
           },
         ]);

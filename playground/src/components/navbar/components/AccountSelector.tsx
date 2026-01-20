@@ -35,6 +35,9 @@ export function AccountSelector() {
 
     if (wallet) {
       refreshAccounts();
+    } else {
+      // Clear accounts when wallet is disconnected
+      setAccounts([]);
     }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [wallet, currentTx]);
@@ -83,12 +86,15 @@ export function AccountSelector() {
           }}
           disabled={areAccountsLoading}
           renderValue={selected => {
+            if (!selected) {
+              return 'Select Account';
+            }
             const account = accounts.find(account => account.item.toString() === selected);
             if (account) {
               const alias = account.alias.includes(':') ? account.alias.split(':')[1] : account.alias;
               return `${alias} (${formatFrAsString(account?.item.toString())})`;
             }
-            return selected ?? 'Select Account';
+            return 'Select Account';
           }}
           MenuProps={{
             disableScrollLock: true,

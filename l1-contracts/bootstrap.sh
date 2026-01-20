@@ -67,6 +67,9 @@ function build_src {
     # Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
+    # Output storage information for the escape hatch contract.
+    forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > ./out/EscapeHatch.sol/storage.json
+
     cache_upload $artifact out cache
   fi
 }

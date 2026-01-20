@@ -57,8 +57,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private state = SequencerState.STOPPED;
   private metrics: SequencerMetrics;
 
-  /** The last slot for which we attempted to vote when sync failed, to prevent duplicate attempts. */
-  private lastSlotForVoteWhenSyncFailed: SlotNumber | undefined;
+  /** The last slot for which we attempted to perform our voting duties with degraded block production */
+  private lastSlotForFallbackVote: SlotNumber | undefined;
 
   /** The last slot for which we triggered a checkpoint proposal job, to prevent duplicate attempts. */
   private lastSlotForCheckpointProposalJob: SlotNumber | undefined;
@@ -202,7 +202,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot, ts, now, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
-    const checkpointProposalJob = await this.prepareCheckpointProposal(slot, ts, now);
+    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now);
     if (!checkpointProposalJob) {
       return;
     }
@@ -234,6 +234,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   @trackSpan('Sequencer.prepareCheckpointProposal')
   private async prepareCheckpointProposal(
+    epoch: EpochNumber,
     slot: SlotNumber,
     ts: bigint,
     now: bigint,
@@ -260,6 +261,25 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
       await this.tryVoteWhenSyncFails({ slot, ts });
+      return undefined;
+    }
+
+    // If escape hatch is open for this epoch, do not start checkpoint proposal work and do not attempt invalidations.
+    // Still perform governance/slashing voting (as proposer) once per slot.
+    const isEscapeHatchOpen = await this.epochCache.isEscapeHatchOpen(epoch);
+
+    if (isEscapeHatchOpen) {
+      this.setState(SequencerState.PROPOSER_CHECK, slot);
+      const [canPropose, proposer] = await this.checkCanPropose(slot);
+      if (canPropose) {
+        await this.tryVoteWhenEscapeHatchOpen({ slot, proposer });
+      } else {
+        this.log.trace(`Escape hatch open but we are not proposer, skipping vote-only actions`, {
+          slot,
+          epoch,
+          proposer,
+        });
+      }
       return undefined;
     }
 
@@ -357,6 +377,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Create and return the checkpoint proposal job
     return this.createCheckpointProposalJob(
+      epoch,
       slot,
       checkpointNumber,
       syncedTo.blockNumber,
@@ -368,6 +389,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   protected createCheckpointProposalJob(
+    epoch: EpochNumber,
     slot: SlotNumber,
     checkpointNumber: CheckpointNumber,
     syncedToBlockNumber: BlockNumber,
@@ -377,6 +399,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
+      epoch,
       slot,
       checkpointNumber,
       syncedToBlockNumber,
@@ -389,6 +412,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient,
       this.worldState,
       this.l1ToL2MessageSource,
+      this.l2BlockSource,
       this.checkpointsBuilder,
       this.l2BlockSource,
       this.l1Constants,
@@ -569,7 +593,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForVoteWhenSyncFailed === slot) {
+    if (this.lastSlotForFallbackVote === slot) {
       this.log.trace(`Already attempted to vote in slot ${slot} (skipping)`);
       return;
     }
@@ -601,7 +625,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Mark this slot as attempted
-    this.lastSlotForVoteWhenSyncFailed = slot;
+    this.lastSlotForFallbackVote = slot;
 
     // Get a publisher for voting
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
@@ -636,7 +660,55 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Considers invalidating a checkpoint if the pending chain is invalid. Depends on how long the invalid checkpoint
+   * Tries to vote on slashing actions and governance proposals when escape hatch is open.
+   * This allows the sequencer to participate in voting without performing checkpoint proposal work.
+   */
+  @trackSpan('Sequencer.tryVoteWhenEscapeHatchOpen', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
+  protected async tryVoteWhenEscapeHatchOpen(args: {
+    slot: SlotNumber;
+    proposer: EthAddress | undefined;
+  }): Promise<void> {
+    const { slot, proposer } = args;
+
+    // Prevent duplicate attempts in the same slot
+    if (this.lastSlotForFallbackVote === slot) {
+      this.log.trace(`Already attempted to vote in slot ${slot} (escape hatch open, skipping)`);
+      return;
+    }
+
+    // Mark this slot as attempted
+    this.lastSlotForFallbackVote = slot;
+
+    const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
+
+    this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, { slot, attestorAddress });
+
+    const voter = new CheckpointVoter(
+      slot,
+      publisher,
+      attestorAddress,
+      this.validatorClient,
+      this.slasherClient,
+      this.l1Constants,
+      this.config,
+      this.metrics,
+      this.log,
+    );
+
+    const votesPromises = voter.enqueueVotes();
+    const votes = await Promise.all(votesPromises);
+
+    if (votes.every(p => !p)) {
+      this.log.debug(`No votes to enqueue for slot ${slot} (escape hatch open)`);
+      return;
+    }
+
+    this.log.info(`Voting in slot ${slot} (escape hatch open)`, { slot });
+    await publisher.sendRequests();
+  }
+
+  /**
+   * Considers invalidating a block if the pending chain is invalid. Depends on how long the invalid block
    * has been there without being invalidated and whether the sequencer is in the committee or not. We always
    * have the proposer try to invalidate, but if they fail, the sequencers in the committee are expected to try,
    * and if they fail, any sequencer will try as well.

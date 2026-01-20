@@ -9,19 +9,9 @@ use crate::{
 };
 use protocol_types::address::AztecAddress;
 
-/// Specifies how to deliver a message to a recipient.
+/// Placeholder struct until Noir adds `enum` support.
 ///
-/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
-/// read their contents. This enum instead configures which **guarantees** exist regarding delivery.
-///
-/// There are two aspects to delivery guarantees:
-///  - the medium on which the message is sent (off-chain or on-chain)
-///  - whether the contract constrains the message to be constructed correctly
-///
-/// For scenarios where the sender is incentivized to deliver the message correctly, use
-/// [MessageDeliveryEnum::OFFCHAIN] (the cheapest delivery option, but requiring that sender and recipient can
-/// communicate off-chain) or [MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED]. If the sender cannot be trusted to send the
-/// message to the recipient, use [MessageDeliveryEnum::ONCHAIN_CONSTRAINED].
+/// See [MessageDelivery] instead.
 pub struct MessageDeliveryEnum {
     /// Delivers the message fully off-chain, with no guarantees whatsoever.
     ///
@@ -174,6 +164,19 @@ pub struct MessageDeliveryEnum {
     pub ONCHAIN_CONSTRAINED: u8,
 }
 
+/// Specifies how to deliver a message to a recipient.
+///
+/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
+/// read their contents. This enum instead configures which **guarantees** exist regarding delivery.
+///
+/// There are two aspects to delivery guarantees:
+///  - the medium on which the message is sent (off-chain or on-chain)
+///  - whether the contract constrains the message to be constructed correctly
+///
+/// For scenarios where the sender is incentivized to deliver the message correctly, use
+/// [MessageDeliveryEnum::OFFCHAIN] (the cheapest delivery option, but requiring that sender and recipient can
+/// communicate off-chain) or [MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED]. If the sender cannot be trusted to send the
+/// message to the recipient, use [MessageDeliveryEnum::ONCHAIN_CONSTRAINED].
 pub global MessageDelivery: MessageDeliveryEnum =
     MessageDeliveryEnum { OFFCHAIN: 1, ONCHAIN_UNCONSTRAINED: 2, ONCHAIN_CONSTRAINED: 3 };
 

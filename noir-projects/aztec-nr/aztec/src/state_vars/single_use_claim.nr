@@ -35,7 +35,7 @@ mod test;
 ///
 /// #[external("private")]
 /// fn cast_vote(election_id: ElectionId, candidate: Field) {
-///     let voter = self.msg_sender().unwrap();
+///     let voter = self.msg_sender();
 ///
 ///     // `claim` will only succeed if `voter` hasn't already claimed for this `election_id` before.
 ///     self.storage.vote_claims.at(election_id).at(voter).claim();

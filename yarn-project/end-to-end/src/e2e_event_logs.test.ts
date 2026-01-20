@@ -189,10 +189,7 @@ describe('Logs', () => {
           .wait();
 
         // Fetch raw private logs for that block and check tag uniqueness
-        const logs = (await aztecNode.getBlock(tx.blockNumber!))!
-          .toL2Block()
-          .getPrivateLogs()
-          .filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(tx.blockNumber!))!.getPrivateLogs().filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx1NumLogs);
 
@@ -214,10 +211,7 @@ describe('Logs', () => {
         const blockNumber = tx.blockNumber!;
 
         // Fetch raw private logs for that block and check tag uniqueness
-        const logs = (await aztecNode.getBlock(blockNumber))!
-          .toL2Block()
-          .getPrivateLogs()
-          .filter(l => !l.isEmpty());
+        const logs = (await aztecNode.getBlock(blockNumber))!.getPrivateLogs().filter(l => !l.isEmpty());
 
         expect(logs.length).toBe(tx2NumLogs);
 

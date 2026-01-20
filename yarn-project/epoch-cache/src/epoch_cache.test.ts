@@ -48,6 +48,7 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
     rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(0n));
     rollupContract.getAttesters.mockResolvedValue(testCommittee);
+    rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
@@ -81,6 +82,7 @@ describe('EpochCache', () => {
       epoch: EpochNumber(0),
       committee: testCommittee,
       seed: 0n,
+      isEscapeHatchOpen: false,
     });
   });
 

@@ -11,6 +11,7 @@ show_usage() {
     echo "  build <fuzzer_type>                        - Build the fuzzer binary"
     echo "  fuzz <fuzzer_type> [--log] [-- args...]     - Run the fuzzer (--log to tail fuzz-0.log)"
     echo "  coverage <fuzzer_type> [type]              - Generate coverage report (type: html or report, default: html)"
+    echo "  analyze                                    - Analyze corpus and show opcode/call statistics"
     echo "  list-targets                               - List all available fuzzing targets"
     echo ""
     echo "Additional fuzzer arguments can be passed after '--'. For example:"
@@ -41,6 +42,33 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "  emit_unencrypted_log - Emit Unencrypted Log fuzzer (harness_emit_unencrypted_log_fuzzer)"
     echo "  internal_call - Internal Call fuzzer (harness_internal_call_fuzzer)"
     echo "  external_call - External Call fuzzer (harness_external_call_fuzzer)"
+    exit 0
+fi
+
+# Handle analyze command
+if [ "$COMMAND" = "analyze" ]; then
+    # Get the script directory and project root
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    BARRETENBERG_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+    CPP_DIR="$BARRETENBERG_ROOT/cpp"
+    BUILD_DIR="$CPP_DIR/build-fuzzing-avm"
+    BUILD_PRESET="fuzzing-avm"
+
+    cd "$CPP_DIR"
+
+    # Configure if needed
+    if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
+        echo "Configuring cmake..."
+        cmake --preset "$BUILD_PRESET"
+    fi
+
+    # Build the analyzer
+    echo "Building avm_tx_corpus_analyzer..."
+    cmake --build "$BUILD_DIR" --target avm_tx_corpus_analyzer
+
+    echo ""
+    # Run analyzer on tx corpus
+    "$BUILD_DIR/bin/avm_tx_corpus_analyzer" "$SCRIPT_DIR/corpus/tx"
     exit 0
 fi
 

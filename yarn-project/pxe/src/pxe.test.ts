@@ -160,7 +160,6 @@ describe('PXE', () => {
     let l2BlockHash: L2BlockHash;
     let scope: AztecAddress;
     let privateEventStore: PrivateEventStore;
-    let eventIndex = 0;
 
     beforeEach(async () => {
       // Set up basic state
@@ -211,6 +210,8 @@ describe('PXE', () => {
       privateEventStore = new PrivateEventStore(kvStore);
     });
 
+    let eventCounter = 0;
+
     async function storeEvent(blockNumber?: number): Promise<PackedPrivateEvent> {
       const event = {
         packedEvent: [Fr.random(), Fr.random()],
@@ -221,14 +222,24 @@ describe('PXE', () => {
       };
 
       const randomness = Fr.random();
+      const siloedEventCommitment = Fr.random();
 
-      await privateEventStore.storePrivateEventLog(eventSelector, randomness, event.packedEvent, eventIndex++, {
-        contractAddress,
-        scope,
-        txHash: event.txHash,
-        l2BlockNumber: event.l2BlockNumber,
-        l2BlockHash: event.l2BlockHash,
-      });
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        event.packedEvent,
+        siloedEventCommitment,
+        {
+          contractAddress,
+          scope,
+          txHash: event.txHash,
+          l2BlockNumber: event.l2BlockNumber,
+          l2BlockHash: event.l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: eventCounter++,
+        },
+        'test',
+      );
 
       return event;
     }
@@ -237,6 +248,7 @@ describe('PXE', () => {
       // Store a couple of events to exercise `getPrivateEvents`
       const event1 = await storeEvent();
       const event2 = await storeEvent();
+      await privateEventStore.commit('test');
 
       const events = await pxe.getPrivateEvents(eventSelector, {
         contractAddress,
@@ -277,6 +289,8 @@ describe('PXE', () => {
           storeEvent(lastKnownBlockNumber + 1),
           storeEvent(lastKnownBlockNumber + 1),
         ]);
+
+        await privateEventStore.commit('test');
       });
 
       it('filters by txHash', async () => {

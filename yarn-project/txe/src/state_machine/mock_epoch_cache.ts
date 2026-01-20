@@ -12,6 +12,7 @@ export class MockEpochCache implements EpochCacheInterface {
       committee: undefined,
       seed: 0n,
       epoch: EpochNumber.ZERO,
+      isEscapeHatchOpen: false,
     });
   }
 

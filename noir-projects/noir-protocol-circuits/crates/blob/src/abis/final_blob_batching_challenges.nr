@@ -9,7 +9,7 @@ use types::{
 * Final values z and gamma are injected into each block root circuit. We ensure they are correct by:
 * - Checking equality in each block merge circuit and propagating up
 * - Checking final z_acc == z in root circuit
-* - Checking final gamma_acc == gamma in root circuit
+* - Checking final h(gamma_acc, z) == gamma in root circuit
 *
 *  - z = H(...H(H(z_0, z_1) z_2)..z_n)
 *    - where z_i = H(H(fields of blob_i), C_i),

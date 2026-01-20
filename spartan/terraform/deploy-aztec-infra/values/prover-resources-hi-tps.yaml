@@ -58,7 +58,7 @@ broker:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 256Gi
+              storage: 32Gi
   node:
     enableInspector: true
     nodeJsOptions:
@@ -77,8 +77,15 @@ agent:
       HARDWARE_CONCURRENCY: "1"
     resources:
       requests:
-        memory: "2Gi"
-        cpu: "1.0"
+        cpu: "0.125"
+        memory: "0.25Gi"
+      limits:
+        cpu: "0.5"
+        memory: "1Gi"
+
+  nodeSelector:
+    cores: "2"
+    pool: "spot"
 
   affinity:
     nodeAffinity:

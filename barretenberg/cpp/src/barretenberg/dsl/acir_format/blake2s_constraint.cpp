@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 4a956ceb179c2fe855e4f1fd78f2594e7fc3f5ea}
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -21,8 +21,7 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
     // Build input byte array by appending constrained byte_arrays
     byte_array_ct arr = byte_array_ct::constant_padding(&builder, 0); // Start with empty array
 
-    for (const auto& witness_index_num_bits : constraint.inputs) {
-        auto witness_index = witness_index_num_bits.blackbox_input;
+    for (const auto& witness_index : constraint.inputs) {
         field_ct element = to_field_ct(witness_index, builder);
 
         // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte. Note that num_bytes =

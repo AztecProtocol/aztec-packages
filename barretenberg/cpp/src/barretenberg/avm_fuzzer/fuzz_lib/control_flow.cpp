@@ -38,9 +38,7 @@ void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructio
         return;
     }
     auto instruction_block = instruction_blocks->at(instruction.instruction_block_idx % instruction_blocks->size());
-    for (const auto& instr : instruction_block) {
-        current_block->process_instruction(instr);
-    }
+    current_block->process_instruction_block(instruction_block);
 }
 
 void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
@@ -55,9 +53,7 @@ void ControlFlow::process_jump_to_new_block(JumpToNewBlock instruction)
         instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
     ProgramBlock* target_block = new ProgramBlock();
     current_block->finalize_with_jump(target_block);
-    for (const auto& instr : target_instruction_block) {
-        target_block->process_instruction(instr);
-    }
+    target_block->process_instruction_block(target_instruction_block);
     current_block = target_block;
 }
 
@@ -76,12 +72,8 @@ void ControlFlow::process_jump_if_to_new_block(JumpIfToNewBlock instruction)
     ProgramBlock* target_then_block = new ProgramBlock();
     ProgramBlock* target_else_block = new ProgramBlock();
     current_block->finalize_with_jump_if(target_then_block, target_else_block, instruction.condition_offset_index);
-    for (const auto& instr : target_then_instruction_block) {
-        target_then_block->process_instruction(instr);
-    }
-    for (const auto& instr : target_else_instruction_block) {
-        target_else_block->process_instruction(instr);
-    }
+    target_then_block->process_instruction_block(target_then_instruction_block);
+    target_else_block->process_instruction_block(target_else_instruction_block);
     current_block = target_then_block;
 }
 
@@ -178,9 +170,7 @@ void ControlFlow::process_insert_internal_call(InsertInternalCall instruction)
         instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
     ProgramBlock* target_block = new ProgramBlock();
     current_block->insert_internal_call(target_block);
-    for (const auto& instr : target_instruction_block) {
-        target_block->process_instruction(instr);
-    }
+    target_block->process_instruction_block(target_instruction_block);
     target_block->caller = current_block;
     current_block = target_block;
 }
@@ -260,22 +250,10 @@ int predict_block_size(ProgramBlock* block)
     case TerminatorType::JUMP:
         return bytecode_length + JMP_SIZE; // finalized with jump
     case TerminatorType::JUMP_IF: {
-        // if boolean condition is not set adding SET_8 instruction to the bytecode
+        // if boolean condition is not set add SET instruction to the bytecode
         if (!block->get_terminating_condition_value().has_value()) {
-            for (uint16_t address = 0; address < 65535; address++) {
-                // if the memory address is already in use, we skip it
-                if (block->is_memory_address_set(address)) {
-                    continue;
-                }
-                auto set_16_instruction =
-                    SET_16_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
-                                        .result_address =
-                                            AddressRef{ .address = address, .mode = AddressingMode::Direct },
-                                        .value = 0 };
-                block->process_instruction(set_16_instruction);
-                bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
-                break;
-            }
+            block->process_write_terminating_condition_value();
+            bytecode_length = static_cast<int>(create_bytecode(block->get_instructions()).size());
         }
         return bytecode_length + JMP_IF_SIZE + JMP_SIZE; // finalized with jumpi
     }

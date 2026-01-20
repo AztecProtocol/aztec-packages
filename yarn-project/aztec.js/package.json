@@ -38,7 +38,7 @@
   "scripts": {
     "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",
-    "build:ts": "tsgo -b",
+    "build:ts": "../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts ./src/contract/protocol_contracts",
     "generate": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_protocol_contract_types.ts && run -T prettier -w src/contract/protocol_contracts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
@@ -102,7 +102,7 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "jest": "^30.0.0",

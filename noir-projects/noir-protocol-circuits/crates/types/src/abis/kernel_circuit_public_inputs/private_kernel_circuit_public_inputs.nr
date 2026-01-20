@@ -4,7 +4,6 @@ use crate::{
         public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
-    traits::Empty,
 };
 
 /// Public inputs of the private kernel circuits except for the Tail(-to-Public).
@@ -37,36 +36,4 @@ pub struct PrivateKernelCircuitPublicInputs {
     // A hint to what will be the `min_revertible_side_effect_counter` of the transaction. It remains constant
     // throughout the private execution and is checked in the Tail(-to-Public) circuit.
     pub claimed_revertible_counter: u32,
-}
-
-impl Eq for PrivateKernelCircuitPublicInputs {
-    fn eq(self, other: Self) -> bool {
-        (self.constants.eq(other.constants))
-            & (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
-            & (self.validation_requests.eq(other.validation_requests))
-            & (self.end.eq(other.end))
-            & (self.public_teardown_call_request.eq(other.public_teardown_call_request))
-            & (self.fee_payer.eq(other.fee_payer))
-            & (self.include_by_timestamp == other.include_by_timestamp)
-            & (self.is_private_only == other.is_private_only)
-            & (self.claimed_first_nullifier == other.claimed_first_nullifier)
-            & (self.claimed_revertible_counter == other.claimed_revertible_counter)
-    }
-}
-
-impl Empty for PrivateKernelCircuitPublicInputs {
-    fn empty() -> Self {
-        Self {
-            constants: PrivateTxConstantData::empty(),
-            min_revertible_side_effect_counter: 0,
-            validation_requests: PrivateValidationRequests::empty(),
-            end: PrivateAccumulatedData::empty(),
-            public_teardown_call_request: PublicCallRequest::empty(),
-            fee_payer: AztecAddress::empty(),
-            include_by_timestamp: 0,
-            is_private_only: false,
-            claimed_first_nullifier: 0,
-            claimed_revertible_counter: 0,
-        }
-    }
 }

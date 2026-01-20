@@ -36,6 +36,7 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
     static constexpr const std::string_view NAME = "ecc";
 
     // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_OP_CHECK = 3;
     static constexpr size_t SR_DOUBLE_PRED = 11;
     static constexpr size_t SR_INFINITY_RESULT = 12;
     static constexpr size_t SR_COMPUTED_LAMBDA = 14;
@@ -46,6 +47,8 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_OP_CHECK:
+            return "OP_CHECK";
         case SR_DOUBLE_PRED:
             return "DOUBLE_PRED";
         case SR_INFINITY_RESULT:

@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
@@ -41,7 +42,7 @@ export class NoteService {
       scopes,
     });
     return noteDaos.map(
-      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier, index }) => ({
+      ({ contractAddress, owner, storageSlot, randomness, noteNonce, note, noteHash, siloedNullifier }) => ({
         contractAddress,
         owner,
         storageSlot,
@@ -49,9 +50,8 @@ export class NoteService {
         noteNonce,
         note,
         noteHash,
+        isPending: false, // Note service deals only with settled notes
         siloedNullifier,
-        // PXE can use this index to get full MembershipWitness
-        index,
       }),
     );
   }
@@ -69,7 +69,7 @@ export class NoteService {
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
   public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
-    const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockHash = L2BlockHash.fromField(await (await this.anchorBlockStore.getBlockHeader()).hash());
 
     const contractNotes = await this.noteStore.getNotes({ contractAddress });
 
@@ -92,7 +92,7 @@ export class NoteService {
     const nullifierIndexes = (
       await Promise.all(
         nullifierBatches.map(batch =>
-          this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+          this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch),
         ),
       )
     ).flat();
@@ -108,7 +108,7 @@ export class NoteService {
     await this.noteStore.applyNullifiers(foundNullifiers);
   }
 
-  public async deliverNote(
+  public async storeNote(
     contractAddress: AztecAddress,
     owner: AztecAddress,
     storageSlot: Fr,
@@ -139,39 +139,31 @@ export class NoteService {
     // number which *should* be recent enough to be available, even for non-archive nodes.
     // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
     // logs up to the synced block making this only an additional safety check.
-    const syncedBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
+    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
     const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
-    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    const [txEffect, [nullifierIndex]] = await Promise.all([
+      this.aztecNode.getTxEffect(txHash),
+      this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
+    ]);
     if (!txEffect) {
       throw new Error(`Could not find tx effect for tx hash ${txHash}`);
     }
 
-    if (txEffect.l2BlockNumber > syncedBlockNumber) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${syncedBlockNumber}`);
+    if (txEffect.l2BlockNumber > anchorBlockNumber) {
+      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
     }
 
-    const noteInTx = txEffect.data.noteHashes.some(nh => nh.equals(uniqueNoteHash));
-    if (!noteInTx) {
+    // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
+    const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
+    if (noteIndexInTx === -1) {
       throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
-    }
-
-    // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
-    // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
-    // queries in a single round-trip.
-    const [[uniqueNoteHashTreeIndexInBlock], [nullifierIndex]] = await Promise.all([
-      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]),
-      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
-    ]);
-
-    if (uniqueNoteHashTreeIndexInBlock === undefined) {
-      throw new Error(
-        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
-      );
     }
 
     const noteDao = new NoteDao(
@@ -184,15 +176,17 @@ export class NoteService {
       noteHash,
       siloedNullifier,
       txHash,
-      uniqueNoteHashTreeIndexInBlock.l2BlockNumber,
-      uniqueNoteHashTreeIndexInBlock.l2BlockHash.toString(),
-      uniqueNoteHashTreeIndexInBlock.data,
+      txEffect.l2BlockNumber,
+      txEffect.l2BlockHash.toString(),
+      txEffect.txIndexInBlock,
+      noteIndexInTx,
     );
 
     // The note was found by `recipient`, so we use that as the scope when storing the note.
     await this.noteStore.addNotes([noteDao], recipient);
 
     if (nullifierIndex !== undefined) {
+      // We found nullifier index which implies that the note has already been nullified.
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteStore.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }]);
     }

@@ -58,7 +58,7 @@ when using it in storage.</p>
 
 #[external(<span class="string">"private"</span>)]
 <span class="kw">fn</span> cast_vote(election_id: ElectionId, candidate: Field) {
-    <span class="kw">let</span> voter = self.msg_sender().unwrap();
+    <span class="kw">let</span> voter = self.msg_sender();
 
     <span class="comment">// `claim` will only succeed if `voter` hasn't already claimed for this `election_id` before.</span>
     self.storage.vote_claims.at(election_id).at(voter).claim();

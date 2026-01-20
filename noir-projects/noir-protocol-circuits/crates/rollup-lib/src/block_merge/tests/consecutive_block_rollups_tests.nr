@@ -203,6 +203,7 @@ fn non_consecutive_archive_next_available_leaf_indices() {
 
     // Tweak the next_available_leaf_index of the right rollup.
     builder.right_rollup.previous_archive.next_available_leaf_index += 1;
+    builder.right_rollup.new_archive.next_available_leaf_index += 1; // ensures the `num_blocks()` fn still returns the correct value.
 
     builder.execute_and_fail();
 }

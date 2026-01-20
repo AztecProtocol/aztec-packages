@@ -10,7 +10,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
@@ -141,11 +141,14 @@ function cleanupDeployDir() {
  */
 export function prepareL1ContractsForDeployment(): string {
   if (preparedDeployDir && existsSync(preparedDeployDir)) {
+    logger.verbose(`Using cached deployment directory: ${preparedDeployDir}`);
     return preparedDeployDir;
   }
 
   const basePath = getL1ContractsPath();
+  logger.verbose(`Preparing L1 contracts from: ${basePath}`);
   const tempDir = mkdtempSync(join(tmpdir(), '.foundry-deploy-'));
+  logger.verbose(`Created temp directory for deployment: ${tempDir}`);
   preparedDeployDir = tempDir;
   process.on('exit', cleanupDeployDir);
 
@@ -157,13 +160,21 @@ export function prepareL1ContractsForDeployment(): string {
   cpSync(join(basePath, 'src'), join(tempDir, 'src'), copyOpts);
   cpSync(join(basePath, 'script'), join(tempDir, 'script'), copyOpts);
   cpSync(join(basePath, 'generated'), join(tempDir, 'generated'), copyOpts);
-  cpSync(join(basePath, 'foundry.toml'), join(tempDir, 'foundry.toml'));
+  // Kludge: copy test/ to appease forge cache which references test/shouting.t.sol
+  cpSync(join(basePath, 'test'), join(tempDir, 'test'), copyOpts);
   cpSync(join(basePath, 'foundry.lock'), join(tempDir, 'foundry.lock'));
-  for (const file of readdirSync(basePath)) {
-    if (file.startsWith('solc-')) {
-      cpSync(join(basePath, file), join(tempDir, file));
-    }
+
+  // Update foundry.toml to use absolute path to solc binary (avoids copying to noexec tmpfs)
+  const foundryTomlPath = join(basePath, 'foundry.toml');
+  let foundryToml = readFileSync(foundryTomlPath, 'utf-8');
+  const solcPathMatch = foundryToml.match(/solc\s*=\s*"\.\/solc-([^"]+)"/);
+  if (solcPathMatch) {
+    const solcVersion = solcPathMatch[1];
+    const absoluteSolcPath = join(basePath, `solc-${solcVersion}`);
+    foundryToml = foundryToml.replace(/solc\s*=\s*"\.\/solc-[^"]+"/, `solc = "${absoluteSolcPath}"`);
+    logger.verbose(`Updated solc path in foundry.toml to: ${absoluteSolcPath}`);
   }
+  writeFileSync(join(tempDir, 'foundry.toml'), foundryToml);
 
   mkdirSync(join(tempDir, 'broadcast'));
   return tempDir;
@@ -497,6 +508,7 @@ export function getDeployAztecL1ContractsEnvVars(args: DeployAztecL1ContractsArg
     AZTEC_EJECTION_THRESHOLD: args.ejectionThreshold?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: args.governanceProposerRoundSize?.toString(),
     AZTEC_GOVERNANCE_PROPOSER_QUORUM: args.governanceProposerQuorum?.toString(),
+    AZTEC_GOVERNANCE_VOTING_DURATION: args.governanceVotingDuration?.toString(),
     ZKPASSPORT_DOMAIN: args.zkPassportArgs?.zkPassportDomain,
     ZKPASSPORT_SCOPE: args.zkPassportArgs?.zkPassportScope,
   } as const;

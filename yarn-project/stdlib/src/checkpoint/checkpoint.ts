@@ -1,5 +1,11 @@
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
-import { BlockNumber, CheckpointNumber, CheckpointNumberSchema } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointNumberSchema,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -9,9 +15,12 @@ import { z } from 'zod';
 
 import { L2BlockNew } from '../block/l2_block_new.js';
 import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
+import { computeCheckpointOutHash } from '../messaging/out_hash.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { CheckpointInfo } from './checkpoint_info.js';
+
+type FieldsOfCheckpoint = Omit<FieldsOf<Checkpoint>, 'slot'>;
 
 export class Checkpoint {
   constructor(
@@ -25,6 +34,10 @@ export class Checkpoint {
     public number: CheckpointNumber,
   ) {}
 
+  get slot(): SlotNumber {
+    return this.header.slotNumber;
+  }
+
   static get schema() {
     return z
       .object({
@@ -36,11 +49,11 @@ export class Checkpoint {
       .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
   }
 
-  static from(fields: FieldsOf<Checkpoint>) {
+  static from(fields: FieldsOfCheckpoint) {
     return new Checkpoint(...Checkpoint.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<Checkpoint>) {
+  static getFields(fields: FieldsOfCheckpoint) {
     return [fields.archive, fields.header, fields.blocks, fields.number] as const;
   }
 
@@ -65,6 +78,14 @@ export class Checkpoint {
 
   public hash(): Fr {
     return this.header.hash();
+  }
+
+  // Returns the out hash computed from all l2-to-l1 messages in this checkpoint.
+  // Note: This value is different from the out hash in the header, which is the **accumulated** out hash over all
+  // checkpoints up to and including this one in the epoch.
+  public getCheckpointOutHash(): Fr {
+    const msgs = this.blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
+    return computeCheckpointOutHash(msgs);
   }
 
   public getState() {
@@ -124,7 +145,7 @@ export class Checkpoint {
     let lastArchive = previousArchive;
     for (let i = 0; i < numBlocks; i++) {
       const block = await L2BlockNew.random(BlockNumber(startBlockNumber + i), {
-        indexWithinCheckpoint: i,
+        indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),
       });

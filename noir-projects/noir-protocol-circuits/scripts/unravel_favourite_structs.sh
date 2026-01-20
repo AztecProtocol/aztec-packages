@@ -30,6 +30,15 @@ node scripts/unravel_struct.js target/private_kernel_tail.json --all >> "$FILE"
 append_line_break "PRIVATE KERNEL TAIL TO PUBLIC"
 node scripts/unravel_struct.js target/private_kernel_tail_to_public.json --all >> "$FILE"
 
+append_line_break "PRIVATE KERNEL HIDING TO ROLLUP"
+node scripts/unravel_struct.js target/hiding_kernel_to_rollup.json --all >> "$FILE"
+
+append_line_break "PRIVATE KERNEL HIDING TO PUBLIC"
+node scripts/unravel_struct.js target/hiding_kernel_to_public.json --all >> "$FILE"
+
+
+append_line_break "CHONK VERIFIER PUBLIC"
+node scripts/unravel_struct.js target/chonk_verifier_public.json --all >> "$FILE"
 
 append_line_break "PRIVATE TX BASE"
 node scripts/unravel_struct.js target/rollup_tx_base_private.json PrivateTxBaseRollupPrivateInputs >> "$FILE"

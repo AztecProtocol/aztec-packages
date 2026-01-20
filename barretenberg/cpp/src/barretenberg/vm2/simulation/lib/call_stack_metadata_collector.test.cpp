@@ -27,8 +27,8 @@ TEST(CallStackMetadataCollectorTest, SingleCallEnterAndExit)
 {
     CallStackMetadataCollector collector(limits);
     AztecAddress contract_addr(0x1234);
-    uint32_t caller_pc = 100;
-    uint32_t exit_pc = 200;
+    PC caller_pc = 100;
+    PC exit_pc = 200;
     Gas gas_limit{ 1000, 2000 };
     std::vector<FF> calldata = { FF(0xabcd), FF(0xef01) };
     std::vector<FF> return_data = { FF(0x5678), FF(0x9abc) };

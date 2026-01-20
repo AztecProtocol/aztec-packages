@@ -676,5 +676,136 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     check_all_interactions<Sha256TraceBuilder>(trace);
 }
 
+//////////////////////////////////////////
+/// Negative Tests - Constraint Verification
+//////////////////////////////////////////
+
+// This test verifies that input_addr IS properly constrained on non-start rows.
+//
+// The sha256_mem.pil file propagates execution_clk, space_id, output_addr, and input_addr
+// using CONTINUITY_* constraints. The CONTINUITY_INPUT_ADDR constraint ensures that
+// input_addr increments by 1 during input rounds (when sel_is_input_round=1) and stays
+// constant otherwise. This prevents malicious provers from reading arbitrary memory.
+//
+// APPROACH: Generate a valid SHA256 trace, then tamper with input_addr on a non-start row.
+// The CONTINUITY_INPUT_ADDR constraint should catch this tampering and cause relation check to fail.
+TEST(Sha256MemoryConstrainingTest, InputAddrTamperingIsCaughtByConstraint)
+{
+    // Step 1: Generate a valid SHA256 compression trace using the actual simulation
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+
+    // Set up valid memory for state and input
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8; // Legitimate input address
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    // Execute SHA256 compression (this generates valid events)
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    // Build trace from events
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Step 2: Verify the trace is valid BEFORE tampering
+    ASSERT_NO_THROW(check_relation<sha256_mem>(trace)) << "Trace should be valid before tampering";
+
+    // Step 3: Tamper with input_addr on row 1 (a non-start input round)
+    // The constraint should catch this because input_addr[1] must equal input_addr[0] + 1
+    constexpr uint32_t MALICIOUS_ADDR = 9999;
+    trace.set(C::sha256_input_addr, 1, MALICIOUS_ADDR);
+
+    // Step 4: Verify the CONTINUITY_INPUT_ADDR constraint catches the tampering
+    // The constraint enforces: input_addr' = input_addr + sel_is_input_round
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256_mem>(trace, sha256_mem::SR_CONTINUITY_INPUT_ADDR),
+                              "CONTINUITY_INPUT_ADDR");
+}
+
+//////////////////////////////////////////
+/// Negative Test - init_* Propagation Constraint (PROP-001)
+//////////////////////////////////////////
+
+// This test verifies that init_a through init_h are properly propagated across multi-row computation.
+//
+// BACKGROUND: SHA256 compression uses init_a-init_h values loaded from memory on row 0, and these
+// values are used in the final output calculation (OUT_X = x + init_x) on the last row.
+//
+// The PROPAGATE_INIT_* constraints (sha256.pil lines 111-126) ensure that init values remain
+// constant across all rounds. Without these constraints, a malicious prover could:
+// 1. Set correct init_a on row 0 (to pass memory read constraint)
+// 2. Set arbitrary init_a on later rows
+// 3. Corrupt the final SHA256 output
+//
+// This test verifies that tampering with init_a is caught by the PROPAGATE_INIT_A constraint.
+TEST(Sha256ConstrainingTest, InitStateTamperingIsCaughtByPropagationConstraint)
+{
+    // Generate a valid SHA256 compression trace
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+
+    // Set up valid memory for state and input
+    std::array<uint32_t, 8> state = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0x61626380, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x18 };
+    MemoryAddress input_addr = 8;
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Verify the trace is valid before tampering
+    ASSERT_NO_THROW(check_relation<sha256>(trace));
+
+    // Find a row where perform_round=1 (any round row works, but use row 1 for simplicity)
+    // Row 0 is start, rows 1-64 are rounds with perform_round=1
+    constexpr uint32_t TAMPER_ROW = 1;
+    ASSERT_EQ(trace.get(C::sha256_perform_round, TAMPER_ROW), FF(1)) << "Row 1 should have perform_round=1";
+
+    // Tamper with init_a on row 1 (making it different from row 0)
+    FF original_init_a = trace.get(C::sha256_init_a, TAMPER_ROW);
+    FF tampered_init_a = original_init_a + FF(0x12345678);
+    trace.set(C::sha256_init_a, TAMPER_ROW, tampered_init_a);
+
+    // The PROPAGATE_INIT_A constraint should catch this:
+    // perform_round * (init_a' - init_a) = 0
+    // On row 0: perform_round=1, init_a'=tampered, init_a=original -> constraint violated
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_PROPAGATE_INIT_A), "PROPAGATE_INIT_A");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

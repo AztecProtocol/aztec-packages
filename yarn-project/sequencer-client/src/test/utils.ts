@@ -1,5 +1,5 @@
 import { Body } from '@aztec/aztec.js/block';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -41,7 +41,7 @@ export async function makeBlock(txs: Tx[], globalVariables: GlobalVariables): Pr
   const body = new Body(processedTxs.map(tx => tx.txEffect));
   const header = BlockHeader.empty({ globalVariables });
   const archive = makeAppendOnlyTreeSnapshot(globalVariables.blockNumber + 1);
-  return new L2BlockNew(archive, header, body, CheckpointNumber(globalVariables.blockNumber), 0);
+  return new L2BlockNew(archive, header, body, CheckpointNumber(globalVariables.blockNumber), IndexWithinCheckpoint(0));
 }
 
 /**
@@ -80,6 +80,7 @@ function createCheckpointHeaderFromBlock(block: L2BlockNew): CheckpointHeader {
     Fr.random(), // blockHeadersHash - mock value for testing
     Fr.random(), // blobsHash - mock value for testing
     Fr.random(), // inHash - mock value for testing
+    Fr.random(), // outHash - mock value for testing
     gv.slotNumber,
     gv.timestamp,
     gv.coinbase,

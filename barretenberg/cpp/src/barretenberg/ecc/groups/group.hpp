@@ -88,6 +88,18 @@ template <typename Fq_, typename Fr_, typename Params> class group {
                                                                 const size_t num_generators,
                                                                 const size_t starting_index = 0)
     {
+        // Safety: domain_separator_bytes is indexed via &domain_separator_bytes[0] below.
+        // An empty domain separator would be UB and also defeats domain separation.
+        BB_ASSERT(!domain_separator_bytes.empty(), "derive_generators: domain_separator_bytes must be non-empty");
+
+        // We serialize the generator index into 4 bytes (uint32_t). Ensure we never silently truncate.
+        if (num_generators > 0) {
+            BB_ASSERT(starting_index <= static_cast<size_t>(UINT32_MAX),
+                      "derive_generators: starting_index exceeds uint32 range");
+            BB_ASSERT(num_generators - 1 <= static_cast<size_t>(UINT32_MAX) - starting_index,
+                      "derive_generators: starting_index + num_generators exceeds uint32 range");
+        }
+
         std::vector<affine_element> result;
         const auto domain_hash = blake3::blake3s_constexpr(&domain_separator_bytes[0], domain_separator_bytes.size());
         std::vector<uint8_t> generator_preimage;

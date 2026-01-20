@@ -1,3 +1,5 @@
+//! Note traits and utilities.
+
 pub mod constants;
 pub mod lifecycle;
 pub mod note_metadata;

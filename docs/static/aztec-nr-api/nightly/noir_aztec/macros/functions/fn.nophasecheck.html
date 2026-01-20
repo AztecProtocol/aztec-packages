@@ -38,7 +38,11 @@
 <pre><code>pub comptime fn nophasecheck(f: <a href="../../../std/primitive.FunctionDefinition.html" class="primitive">FunctionDefinition</a>)</code></pre>
 
 <div class="comments">
-<p>Functions marked with #<a href="../../../noir_aztec/macros/functions/fn.nophasecheck.html">nophasecheck</a> will handle phase changes internally</p></div>
+<p>A no-phase-check function will allow transitioning from the non-revertible to the revertible phase during its
+execution.</p>
+<p>This is an advanced feature that is typically only required for account contract entrypoints that handle transaction
+fee payment.</p>
+</div>
 </main>
 </span>
 </body>

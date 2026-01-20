@@ -2,9 +2,12 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include <vector>
+
+using InstructionBlock = bb::avm2::fuzzer::InstructionBlock;
 
 struct ReturnOptions {
     uint8_t return_size;
@@ -139,7 +142,7 @@ class ControlFlow {
     ProgramBlock* current_block;
     /// @brief the entry block of the program
     ProgramBlock* start_block;
-    std::vector<std::vector<FuzzInstruction>>* instruction_blocks;
+    std::vector<InstructionBlock>* instruction_blocks;
 
     /// @brief add instructions to the current block from the instruction block at the given index
     /// taken modulo length of the instruction blocks vector
@@ -200,7 +203,7 @@ class ControlFlow {
     std::vector<ProgramBlock*> get_reachable_blocks(ProgramBlock* block);
 
   public:
-    ControlFlow(std::vector<std::vector<FuzzInstruction>>& instruction_blocks)
+    ControlFlow(std::vector<InstructionBlock>& instruction_blocks)
         : current_block(new ProgramBlock())
         , start_block(current_block)
         , instruction_blocks(&instruction_blocks)

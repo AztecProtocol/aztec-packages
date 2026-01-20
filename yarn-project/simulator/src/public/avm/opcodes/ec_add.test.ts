@@ -117,6 +117,147 @@ describe('EC Instructions', () => {
       expect(actual).toEqual(G3);
       expect(context.machineState.memory.get(8).toFr().equals(Fr.ZERO)).toBe(true);
     });
+
+    it('Should add correctly with rhs being infinity', async () => {
+      const zero = new Uint1(0);
+      const one = new Uint1(1);
+
+      const x = new Field(Grumpkin.generator.x);
+      const y = new Field(Grumpkin.generator.y);
+
+      // Point 1 is not infinity
+      context.machineState.memory.set(0, x);
+      context.machineState.memory.set(1, y);
+      context.machineState.memory.set(2, zero);
+      // Point 2 is infinity
+      context.machineState.memory.set(3, x);
+      context.machineState.memory.set(4, y);
+      context.machineState.memory.set(5, one);
+      context.machineState.memory.set(6, new Uint32(6));
+
+      await new EcAdd(
+        /*addressing_mode=*/ 0,
+        /*p1X=*/ 0,
+        /*p1Y=*/ 1,
+        /*p1IsInfinite=*/ 2,
+        /*p2X=*/ 3,
+        /*p2Y=*/ 4,
+        /*p2IsInfinite=*/ 5,
+        /*dstOffset=*/ 6,
+      ).execute(context);
+
+      expect([
+        context.machineState.memory.get(6).toFr(),
+        context.machineState.memory.get(7).toFr(),
+        context.machineState.memory.get(8).toNumber(),
+      ]).toEqual([x.toFr(), y.toFr(), 0]);
+    });
+
+    it('Should add correctly with lhs being infinity', async () => {
+      const zero = new Uint1(0);
+      const one = new Uint1(1);
+
+      const x = new Field(Grumpkin.generator.x);
+      const y = new Field(Grumpkin.generator.y);
+
+      // Point 1 is infinity
+      context.machineState.memory.set(0, x);
+      context.machineState.memory.set(1, y);
+      context.machineState.memory.set(2, one);
+      // Point 2 is not infinity
+      context.machineState.memory.set(3, x);
+      context.machineState.memory.set(4, y);
+      context.machineState.memory.set(5, zero);
+      context.machineState.memory.set(6, new Uint32(6));
+
+      await new EcAdd(
+        /*addressing_mode=*/ 0,
+        /*p1X=*/ 0,
+        /*p1Y=*/ 1,
+        /*p1IsInfinite=*/ 2,
+        /*p2X=*/ 3,
+        /*p2Y=*/ 4,
+        /*p2IsInfinite=*/ 5,
+        /*dstOffset=*/ 6,
+      ).execute(context);
+
+      expect([
+        context.machineState.memory.get(6).toFr(),
+        context.machineState.memory.get(7).toFr(),
+        context.machineState.memory.get(8).toNumber(),
+      ]).toEqual([x.toFr(), y.toFr(), 0]);
+    });
+
+    it('Should add correctly with both being infinity', async () => {
+      const one = new Uint1(1);
+
+      const x = new Field(Grumpkin.generator.x);
+      const y = new Field(Grumpkin.generator.y);
+
+      // Point 1 is infinity
+      context.machineState.memory.set(0, x);
+      context.machineState.memory.set(1, y);
+      context.machineState.memory.set(2, one);
+      // Point 2 is infinity
+      context.machineState.memory.set(3, x);
+      context.machineState.memory.set(4, y);
+      context.machineState.memory.set(5, one);
+      context.machineState.memory.set(6, new Uint32(6));
+
+      await new EcAdd(
+        /*addressing_mode=*/ 0,
+        /*p1X=*/ 0,
+        /*p1Y=*/ 1,
+        /*p1IsInfinite=*/ 2,
+        /*p2X=*/ 3,
+        /*p2Y=*/ 4,
+        /*p2IsInfinite=*/ 5,
+        /*dstOffset=*/ 6,
+      ).execute(context);
+
+      expect([
+        context.machineState.memory.get(6).toFr(),
+        context.machineState.memory.get(7).toFr(),
+        context.machineState.memory.get(8).toNumber(),
+      ]).toEqual([Fr.ZERO, Fr.ZERO, 1]);
+    });
+
+    it('Should add correctly with none infinity adding up to infinity', async () => {
+      const zero = new Uint1(0);
+
+      // Point 1 is a "random" point on the curve
+      const x1 = new Field(2165030248772332382647339664685760681662697934905450801078761197378150920554n);
+      const y1 = new Field(1518479793551399970960577643223827307749147426195887130444945641264602004320n);
+      // Point 2 is negation of point 1
+      const x2 = new Field(2165030248772332382647339664685760681662697934905450801078761197378150920554n);
+      const y2 = new Field(20369763078287875251285828102033447780799216974220147213253258545311206491297n);
+
+      context.machineState.memory.set(0, x1);
+      context.machineState.memory.set(1, y1);
+      context.machineState.memory.set(2, zero);
+
+      context.machineState.memory.set(3, x2);
+      context.machineState.memory.set(4, y2);
+      context.machineState.memory.set(5, zero);
+      context.machineState.memory.set(6, new Uint32(6));
+
+      await new EcAdd(
+        /*addressing_mode=*/ 0,
+        /*p1X=*/ 0,
+        /*p1Y=*/ 1,
+        /*p1IsInfinite=*/ 2,
+        /*p2X=*/ 3,
+        /*p2Y=*/ 4,
+        /*p2IsInfinite=*/ 5,
+        /*dstOffset=*/ 6,
+      ).execute(context);
+
+      expect([
+        context.machineState.memory.get(6).toFr(),
+        context.machineState.memory.get(7).toFr(),
+        context.machineState.memory.get(8).toNumber(),
+      ]).toEqual([Fr.ZERO, Fr.ZERO, 1]);
+    });
   });
 
   describe('EcAdd should throw an error when a point is not on the curve', () => {

@@ -16,7 +16,7 @@ namespace {
 void mutate_contract_address(AztecAddress& address, std::vector<AztecAddress>& contract_addresses, std::mt19937_64& rng)
 {
     if (contract_addresses.empty()) {
-        address = generate_random_field(rng);
+        return;
     }
     // Most of the time we want to pick from the existing contract addresses, since a random address will fail early
     auto contract_address_choice = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1)(rng);
