@@ -35,7 +35,6 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
     await t.setup();
 
     ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);
@@ -113,7 +112,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await expectConsumeMessageToSucceed(epoch, message);
   });
 
-  it('2 txs (balanced), one with 3 messages (wonky), one with 4 messages (balanced)', async () => {
+  it('2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
 
@@ -165,7 +164,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }
   });
 
-  it('3 txs (wonky), one with 3 messages (wonky), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
+  it('3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 3 });
 

@@ -2,6 +2,7 @@
 title: Global Variables
 description: Access chain ID, block number, timestamps, and gas information in your Aztec contracts
 sidebar_position: 9
+references: ["noir-projects/noir-protocol-circuits/crates/types/src/abis/*"]
 ---
 
 # Global Variables
@@ -23,7 +24,7 @@ The following fields are accessible via `context` methods:
 The unique identifier for the Aztec network instance (not the Ethereum chain the rollup settles to).
 
 ```rust
-context.chain_id();
+self.context.chain_id();
 ```
 
 ### Version
@@ -31,7 +32,7 @@ context.chain_id();
 The Aztec protocol version number. The genesis block has version 1.
 
 ```rust
-context.version();
+self.context.version();
 ```
 
 ### Gas Settings
@@ -39,7 +40,7 @@ context.version();
 The gas limits, max fees per gas, and inclusion fee set by the user for the transaction.
 
 ```rust
-context.gas_settings();
+self.context.gas_settings();
 ```
 
 ## Public Global Variables
@@ -59,7 +60,7 @@ Public functions have access to `chain_id()` and `version()` (same syntax as pri
 The unix timestamp when the block is executed. Provided by the block proposer, so it may have slight variance. Always increases monotonically.
 
 ```rust
-context.timestamp();
+self.context.timestamp();
 ```
 
 ### Block Number
@@ -67,7 +68,7 @@ context.timestamp();
 The sequential block identifier. Genesis block is 1, incrementing by 1 for each subsequent block.
 
 ```rust
-context.block_number();
+self.context.block_number();
 ```
 
 ### Gas Fees
@@ -75,11 +76,11 @@ context.block_number();
 The current L2 and DA gas prices for the block. You can access gas-related information via:
 
 ```rust
-context.l2_gas_left();       // Remaining L2 gas
-context.da_gas_left();       // Remaining DA gas
-context.min_fee_per_l2_gas(); // L2 gas price
-context.min_fee_per_da_gas(); // DA gas price
-context.transaction_fee();   // Final tx fee (only available in teardown phase)
+self.context.l2_gas_left();       // Remaining L2 gas
+self.context.da_gas_left();       // Remaining DA gas
+self.context.min_fee_per_l2_gas(); // L2 gas price
+self.context.min_fee_per_da_gas(); // DA gas price
+self.context.transaction_fee();   // Final tx fee (only available in teardown phase)
 ```
 
 :::info Why do available globals differ between environments?

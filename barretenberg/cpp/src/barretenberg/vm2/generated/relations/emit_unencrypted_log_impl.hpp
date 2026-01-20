@@ -256,10 +256,11 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value_shift)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_read_memory)) -
-                    static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)) *
+                    static_cast<View>(in.get(C::emit_unencrypted_log_sel)) *
+                        static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)) *
                         (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_error_out_of_bounds))));
         std::get<32>(evals) += (tmp * scaling_factor);
     }

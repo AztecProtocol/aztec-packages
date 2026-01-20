@@ -3,6 +3,7 @@ title: Retrieving and Filtering Notes
 sidebar_position: 0
 tags: [private-state, smart-contracts, notes]
 description: Step-by-step guide to retrieving, filtering, and sorting notes from private storage in Aztec contracts.
+references: ["noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr", "noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr"]
 ---
 
 This guide shows you how to retrieve and filter notes from private storage using `NoteGetterOptions`.

@@ -53,7 +53,7 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
 
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
-        .indirect = 3,
+        .addressing_mode = 3,
         .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
@@ -80,7 +80,7 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
 
     Instruction ecadd_instruction = {
         .opcode = WireOpCode::ECADD,
-        .indirect = 0x1f1f,
+        .addressing_mode = 0x1f1f,
         .operands = { Operand::from<uint16_t>(0x1279),
                       Operand::from<uint16_t>(0x127a),
                       Operand::from<uint16_t>(0x127b),
@@ -160,15 +160,25 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 
     std::vector<WireOpCode> opcodes = { WireOpCode::REVERT_16, WireOpCode::CAST_8, WireOpCode::TORADIXBE };
     std::vector<size_t> sub_relations = {
-        instr_fetching::SR_INDIRECT_BYTES_DECOMPOSITION, instr_fetching::SR_OP1_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP2_BYTES_DECOMPOSITION,      instr_fetching::SR_OP3_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP4_BYTES_DECOMPOSITION,      instr_fetching::SR_OP5_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP6_BYTES_DECOMPOSITION,      instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
+        instr_fetching::SR_ADDRESSING_MODE_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP1_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP2_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP3_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP4_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP5_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP6_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
     };
 
     constexpr std::array<C, 8> operand_cols = {
-        C::instr_fetching_indirect, C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3,
-        C::instr_fetching_op4,      C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
+        C::instr_fetching_addressing_mode,
+        C::instr_fetching_op1,
+        C::instr_fetching_op2,
+        C::instr_fetching_op3,
+        C::instr_fetching_op4,
+        C::instr_fetching_op5,
+        C::instr_fetching_op6,
+        C::instr_fetching_op7,
     };
 
     for (const auto& opcode : opcodes) {
@@ -364,7 +374,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
 {
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
-        .indirect = 3,
+        .addressing_mode = 3,
         .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
@@ -399,7 +409,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
 {
     Instruction set_ff_instruction = {
         .opcode = WireOpCode::SET_FF,
-        .indirect = 0x01,
+        .addressing_mode = 0x01,
         .operands = { Operand::from<uint16_t>(0x1279),
                       Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::FF)),
                       Operand::from<FF>(FF::modulus_minus_two) },
@@ -433,7 +443,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionPcOutOfRange)
 {
     Instruction add_8_instruction = {
         .opcode = WireOpCode::SUB_8,
-        .indirect = 3,
+        .addressing_mode = 3,
         .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
@@ -473,7 +483,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
 {
     Instruction set_128_instruction = {
         .opcode = WireOpCode::SET_128,
-        .indirect = 0,
+        .addressing_mode = 0,
         .operands = { Operand::from<uint16_t>(0x1234),
                       Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U128)),
                       Operand::from<uint128_t>(static_cast<uint128_t>(0xFF) << 120) },
@@ -514,7 +524,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
 {
     Instruction set_16_instruction = {
         .opcode = WireOpCode::SET_16,
-        .indirect = 0,
+        .addressing_mode = 0,
         .operands = { Operand::from<uint16_t>(0x1234), Operand::from<uint8_t>(12), Operand::from<uint16_t>(0x5678) },
     };
 

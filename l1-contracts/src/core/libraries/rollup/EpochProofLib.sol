@@ -111,7 +111,7 @@ library EpochProofLib {
     // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
-    verifyLastCheckpointAttestations(_args.end, _args.attestations);
+    verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
@@ -122,10 +122,11 @@ library EpochProofLib {
       rollupStore.tips = rollupStore.tips.updateProven(_args.end);
 
       // Handle L2->L1 message processing.
-      // The circuit outputs a zero out hash if the epoch contains no messages. It is also impossible for a partial
-      // epoch to produce a non-zero out hash, then later produce a zero out hash once more checkpoints are included.
-      // Therefore, we can safely skip the insertion for a zero out hash here.
-      if (_args.args.outHash != bytes32(0)) {
+      // The circuit outputs an empty out hash tree root if the epoch contains no messages.
+      // Since the out hash tree is append-only, with the first checkpoint at index 0, the second at index 1, and so on,
+      // a partial epoch cannot produce a non-empty out hash and later revert to an empty one as more checkpoints are
+      // included. Therefore, it is safe to skip insertion when the out hash is empty.
+      if (_args.args.outHash != bytes32(Constants.EMPTY_EPOCH_OUT_HASH)) {
         // Insert L2->L1 messages root into outbox for consumption.
         rollupStore.config.outbox.insert(endEpoch, _args.args.outHash);
       }
@@ -286,9 +287,11 @@ library EpochProofLib {
    * @param _endCheckpointNumber The last checkpoint number in the epoch to verify attestations for
    * @param _attestations The committee attestations containing signatures and validator information
    */
-  function verifyLastCheckpointAttestations(uint256 _endCheckpointNumber, CommitteeAttestations memory _attestations)
-    private
-  {
+  function verifyLastCheckpointAttestationsAndOutHash(
+    uint256 _endCheckpointNumber,
+    CommitteeAttestations memory _attestations,
+    bytes32 _outHash
+  ) private {
     // Get the stored attestation hash and payload digest for the last checkpoint
     CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
 
@@ -314,6 +317,10 @@ library EpochProofLib {
     }
 
     ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, checkpointLog.payloadDigest);
+
+    // Verify that the out hash matches the stored value
+    // The stored out hash is part of the payloadDigest that was attested to.
+    require(checkpointLog.outHash == _outHash, Errors.Rollup__InvalidOutHash(checkpointLog.outHash, _outHash));
   }
 
   /**

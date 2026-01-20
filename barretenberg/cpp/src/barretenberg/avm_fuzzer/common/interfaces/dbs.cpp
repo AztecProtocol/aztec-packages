@@ -68,15 +68,22 @@ void FuzzerContractDB::add_contracts(const ContractDeploymentData& contract_depl
     }
 }
 
-void FuzzerContractDB::add_contract_class(const ContractClassId& class_id, const ContractClass& contract_class)
+void FuzzerContractDB::add_contract_class(const ContractClassId& class_id,
+                                          const ContractClassWithCommitment& contract_class)
 {
     // todo(ilyas): think of a nicer way without both map and vector
     // Only push to vector if not already present, otherwise we get duplicates sent to the TS simulator
     if (contract_classes.contains(class_id)) {
         return;
     }
-    contract_classes_vector.push_back(contract_class);
-    contract_classes[class_id] = contract_class;
+    auto klass = ContractClass{
+        .id = contract_class.id,
+        .artifact_hash = contract_class.artifact_hash,
+        .private_functions_root = contract_class.private_functions_root,
+        .packed_bytecode = contract_class.packed_bytecode,
+    };
+    contract_classes_vector.push_back(klass);
+    contract_classes[class_id] = klass;
 }
 
 void FuzzerContractDB::add_contract_instance(const AztecAddress& address, const ContractInstance& contract_instance)
@@ -235,6 +242,22 @@ void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_pa
     // Write to public data tree using current fork
     auto fork_id = fork_ids.top();
     ws->update_public_data(PublicDataLeafValue(leaf_slot, balance), fork_id);
+}
+
+void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data)
+{
+    auto fork_id = fork_ids.top();
+    ws->update_public_data(public_data, fork_id);
+}
+
+void FuzzerWorldStateManager::append_note_hashes(const std::vector<FF>& note_hashes)
+{
+    auto fork_id = fork_ids.top();
+
+    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
+
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, note_hashes, fork_id);
+    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)), fork_id);
 }
 
 } // namespace bb::avm2::fuzzer

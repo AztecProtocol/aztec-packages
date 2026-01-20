@@ -10,9 +10,14 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import type { CreateHASignerConfig } from './config.js';
+import type { ValidatorHASignerConfig } from './config.js';
+import { type DutyIdentifier, DutyType } from './db/types.js';
 import { SlashingProtectionService } from './slashing_protection_service.js';
-import type { SigningContext, SlashingProtectionDatabase } from './types.js';
+import {
+  type HAProtectedSigningContext,
+  type SlashingProtectionDatabase,
+  getBlockNumberFromSigningContext,
+} from './types.js';
 
 /**
  * Validator High Availability Signer
@@ -35,15 +40,15 @@ import type { SigningContext, SlashingProtectionDatabase } from './types.js';
  */
 export class ValidatorHASigner {
   private readonly log: Logger;
-  private readonly slashingProtection: SlashingProtectionService | undefined;
+  private readonly slashingProtection: SlashingProtectionService;
 
   constructor(
     db: SlashingProtectionDatabase,
-    private readonly config: CreateHASignerConfig,
+    private readonly config: ValidatorHASignerConfig,
   ) {
     this.log = createLogger('validator-ha-signer');
 
-    if (!config.enabled) {
+    if (!config.haSigningEnabled) {
       // this shouldn't happen, the validator should use different signer for non-HA setups
       throw new Error('Validator HA Signer is not enabled in config');
     }
@@ -67,7 +72,7 @@ export class ValidatorHASigner {
    *
    * @param validatorAddress - The validator's Ethereum address
    * @param messageHash - The hash to be signed
-   * @param context - The signing context (slot, block number, duty type)
+   * @param context - The signing context (HA-protected duty types only)
    * @param signFn - Function that performs the actual signing
    * @returns The signature
    *
@@ -77,29 +82,30 @@ export class ValidatorHASigner {
   async signWithProtection(
     validatorAddress: EthAddress,
     messageHash: Buffer32,
-    context: SigningContext,
+    context: HAProtectedSigningContext,
     signFn: (messageHash: Buffer32) => Promise<Signature>,
   ): Promise<Signature> {
-    // If slashing protection is disabled, just sign directly
-    if (!this.slashingProtection) {
-      this.log.info('Signing without slashing protection enabled', {
-        validatorAddress: validatorAddress.toString(),
-        nodeId: this.config.nodeId,
-        dutyType: context.dutyType,
+    let dutyIdentifier: DutyIdentifier;
+    if (context.dutyType === DutyType.BLOCK_PROPOSAL) {
+      dutyIdentifier = {
+        validatorAddress,
         slot: context.slot,
-        blockNumber: context.blockNumber,
-      });
-      return await signFn(messageHash);
+        blockIndexWithinCheckpoint: context.blockIndexWithinCheckpoint,
+        dutyType: context.dutyType,
+      };
+    } else {
+      dutyIdentifier = {
+        validatorAddress,
+        slot: context.slot,
+        dutyType: context.dutyType,
+      };
     }
 
-    const { slot, blockNumber, dutyType } = context;
-
     // Acquire lock and get the token for ownership verification
+    const blockNumber = getBlockNumberFromSigningContext(context);
     const lockToken = await this.slashingProtection.checkAndRecord({
-      validatorAddress,
-      slot,
+      ...dutyIdentifier,
       blockNumber,
-      dutyType,
       messageHash: messageHash.toString(),
       nodeId: this.config.nodeId,
     });
@@ -110,33 +116,19 @@ export class ValidatorHASigner {
       signature = await signFn(messageHash);
     } catch (error: any) {
       // Delete duty to allow retry (only succeeds if we own the lock)
-      await this.slashingProtection.deleteDuty({
-        validatorAddress,
-        slot,
-        dutyType,
-        lockToken,
-      });
+      await this.slashingProtection.deleteDuty({ ...dutyIdentifier, lockToken });
       throw error;
     }
 
     // Record success (only succeeds if we own the lock)
     await this.slashingProtection.recordSuccess({
-      validatorAddress,
-      slot,
-      dutyType,
+      ...dutyIdentifier,
       signature,
       nodeId: this.config.nodeId,
       lockToken,
     });
 
     return signature;
-  }
-
-  /**
-   * Check if slashing protection is enabled
-   */
-  get isEnabled(): boolean {
-    return this.slashingProtection !== undefined;
   }
 
   /**
@@ -151,14 +143,15 @@ export class ValidatorHASigner {
    * Should be called after construction and before signing operations.
    */
   start() {
-    this.slashingProtection?.start();
+    this.slashingProtection.start();
   }
 
   /**
-   * Stop the HA signer background tasks.
+   * Stop the HA signer background tasks and close database connection.
    * Should be called during graceful shutdown.
    */
   async stop() {
-    await this.slashingProtection?.stop();
+    await this.slashingProtection.stop();
+    await this.slashingProtection.close();
   }
 }

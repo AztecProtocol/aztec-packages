@@ -112,9 +112,6 @@ using CyclicPermutation = std::vector<cycle_node>;
 
 namespace {
 
-constexpr size_t PERMUTATION_POLY_START_INDEX =
-    1; // start_index of the Sigma and ID polynomials, which are shiftable. (Note that they are never shifted.)
-
 /**
  * @brief Compute the permutation mapping
  *
@@ -230,10 +227,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             const size_t start = thread_data.start[j];
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
-                const size_t poly_idx =
-                    i +
-                    PERMUTATION_POLY_START_INDEX; // Permutation polynomials (sigma and ID) are shiftable, hence
-                                                  // allocated starting at index `PERMUTATION_POLY_START_INDEX == 1`.
+                const size_t poly_idx = i + current_permutation_poly.start_index();
                 const auto idx = static_cast<ptrdiff_t>(poly_idx);
                 const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                 const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];

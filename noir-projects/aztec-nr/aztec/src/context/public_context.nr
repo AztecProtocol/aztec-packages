@@ -448,40 +448,26 @@ impl PublicContext {
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
-    /// Important Note: If the calling function is a _private_ function, then
-    /// it had the option of hiding its address when enqueuing this public
-    /// function call. In such cases, this `context.msg_sender()` method will
-    /// return `Option<AztecAddress>::none`.
-    /// If the calling function is a _public_ function, it will always return
-    /// an `Option<AztecAddress>::some` (i.e. a non-null value).
+    /// Important Note: If the calling function is a _private_ function, then it had the option of hiding its address
+    /// when enqueuing this public function call. In such cases, this method will return `Option<AztecAddress>::none`.
+    /// If the calling function is a _public_ function, it will always return an `Option<AztecAddress>::some` (i.e.
+    /// a non-null value).
     ///
     /// # Returns
-    /// * `Option<AztecAddress>` - The address of the smart contract that called
-    ///   this function (be it an app contract or a user's account contract).
+    /// * `Option<AztecAddress>` - The address of the smart contract that called this function (be it an app contract
+    ///   or a user's account contract).
     ///
     /// # Advanced
     /// * Value is provided by the AVM sender opcode
-    /// * In nested calls, this is the immediate caller, not the original
-    ///   transaction sender
+    /// * In nested calls, this is the immediate caller, not the original transaction sender
     ///
-    pub fn msg_sender(_self: Self) -> Option<AztecAddress> {
+    pub fn maybe_msg_sender(_self: Self) -> Option<AztecAddress> {
         // Safety: AVM opcodes are constrained by the AVM itself
         let maybe_msg_sender = unsafe { sender() };
         if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
             Option::none()
         } else {
             Option::some(maybe_msg_sender)
-        }
-    }
-
-    /// "Unsafe" versus calling `context.msg_sender()`, because it doesn't
-    /// translate `NULL_MSG_SENDER_CONTRACT_ADDRESS` as
-    /// `Option<AztecAddress>::none`.
-    /// Used by some internal aztecnr functions.
-    pub fn msg_sender_unsafe(_self: Self) -> AztecAddress {
-        // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe {
-            sender()
         }
     }
 

@@ -30,10 +30,13 @@
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
+    "copy-generated": "mkdir -p dest/config/generated/networks && cp src/config/generated/networks/*.json dest/config/generated/networks/",
+    "generate": "./scripts/generate.sh",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
@@ -86,6 +89,8 @@
     "@aztec/node-lib": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/sequencer-client": "workspace:^",
+    "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/test-wallet": "workspace:^",
     "@aztec/world-state": "workspace:^",
@@ -113,7 +118,7 @@
     "@types/node": "^22.15.17",
     "@types/semver": "^7.5.2",
     "@types/source-map-support": "^0.5.10",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-jest": "^29.4.0",

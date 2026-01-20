@@ -6,6 +6,7 @@ import { KeystoreManager, loadKeystoreFile } from '@aztec/node-keystore';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
+import type { SigningContext } from '@aztec/validator-ha-signer/types';
 
 import type { TypedDataDefinition } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -230,9 +231,10 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
   /**
    * Sign typed data with all attester signers across validators.
    * @param typedData EIP-712 typed data
+   * @param _context Signing context (ignored by NodeKeystoreAdapter, used for HA protection)
    * @returns Array of signatures in validator order, flattened
    */
-  async signTypedData(typedData: TypedDataDefinition): Promise<Signature[]> {
+  async signTypedData(typedData: TypedDataDefinition, _context: SigningContext): Promise<Signature[]> {
     const jobs: Promise<Signature>[] = [];
     for (const i of this.validatorIndices()) {
       const v = this.ensureValidator(i);
@@ -246,9 +248,10 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
   /**
    * Sign a message with all attester signers across validators.
    * @param message 32-byte message (already hashed/padded as needed)
+   * @param _context Signing context (ignored by NodeKeystoreAdapter, used for HA protection)
    * @returns Array of signatures in validator order, flattened
    */
-  async signMessage(message: Buffer32): Promise<Signature[]> {
+  async signMessage(message: Buffer32, _context: SigningContext): Promise<Signature[]> {
     const jobs: Promise<Signature>[] = [];
     for (const i of this.validatorIndices()) {
       const v = this.ensureValidator(i);
@@ -264,10 +267,15 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
    * Hydrates caches on-demand when the address is first seen.
    * @param address Address to sign with
    * @param typedData EIP-712 typed data
+   * @param _context Signing context (ignored by NodeKeystoreAdapter, used for HA protection)
    * @returns Signature from the signer matching the address
    * @throws Error when no signer exists for the address
    */
-  async signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature> {
+  async signTypedDataWithAddress(
+    address: EthAddress,
+    typedData: TypedDataDefinition,
+    _context: SigningContext,
+  ): Promise<Signature> {
     const entry = this.addressIndex.get(NodeKeystoreAdapter.key(address));
     if (entry) {
       return await this.keystoreManager.signTypedData(entry.signer, typedData);
@@ -290,10 +298,11 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
    * Hydrates caches on-demand when the address is first seen.
    * @param address Address to sign with
    * @param message 32-byte message
+   * @param _context Signing context (ignored by NodeKeystoreAdapter, used for HA protection)
    * @returns Signature from the signer matching the address
    * @throws Error when no signer exists for the address
    */
-  async signMessageWithAddress(address: EthAddress, message: Buffer32): Promise<Signature> {
+  async signMessageWithAddress(address: EthAddress, message: Buffer32, _context: SigningContext): Promise<Signature> {
     const entry = this.addressIndex.get(NodeKeystoreAdapter.key(address));
     if (entry) {
       return await this.keystoreManager.signMessage(entry.signer, message);
@@ -371,5 +380,19 @@ export class NodeKeystoreAdapter implements ExtendedValidatorKeyStore {
   getRemoteSignerConfig(attesterAddress: EthAddress): EthRemoteSignerConfig | undefined {
     const validatorIndex = this.findValidatorIndexForAttester(attesterAddress);
     return this.keystoreManager.getEffectiveRemoteSignerConfig(validatorIndex, attesterAddress);
+  }
+
+  /**
+   * Start the key store - no-op
+   */
+  start(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /**
+   * Stop the key store - no-op
+   */
+  stop(): Promise<void> {
+    return Promise.resolve();
   }
 }

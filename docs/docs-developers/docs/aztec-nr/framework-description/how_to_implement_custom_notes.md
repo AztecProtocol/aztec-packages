@@ -4,6 +4,7 @@ description: Learn how to create and use custom note types for specialized priva
 sidebar_position: 6
 tags: [smart contracts, notes, privacy]
 keywords: [implementing note, note, custom note]
+references: ["docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/*", "noir-projects/noir-contracts/contracts/app/nft_contract/*"]
 ---
 
 This guide shows you how to create custom note types for storing specialized private data in your Aztec contracts.
@@ -51,7 +52,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 
 Define your custom note with the `#[note]` macro:
 
-#include_code nft_note_struct /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
+#include_code nft_note_struct /docs/examples/contracts/nft/src/nft.nr rust
 
 The `#[note]` macro generates the following for your struct:
 
@@ -98,13 +99,13 @@ struct Storage<Context> {
 
 ### Inserting notes
 
-#include_code mint /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code mint /docs/examples/contracts/nft/src/main.nr rust
 
 ### Reading and removing notes
 
 Use `pop_notes` to read and nullify notes atomically. This is the recommended pattern for most use cases:
 
-#include_code burn /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+#include_code burn /docs/examples/contracts/nft/src/main.nr rust
 
 :::warning
 There's also a `get_notes` function that reads without nullifying, but use it with caution - the returned notes may have already been spent in another transaction.

@@ -1,3 +1,5 @@
+//! Privacy keys (npk, ivsk, etc.).
+
 pub mod constants;
 pub mod ephemeral;
 pub mod getters;

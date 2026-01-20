@@ -11,6 +11,7 @@ services:
     cpus: 4
     cpuset: ${CPU_LIST:-}
     mem_limit: 8G
+    stop_grace_period: 60s
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs

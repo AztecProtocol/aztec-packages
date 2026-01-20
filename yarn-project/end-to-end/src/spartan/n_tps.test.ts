@@ -10,14 +10,17 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
+import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx } from '@aztec/stdlib/tx';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
 import {
   type WalletWrapper,
   createWalletAndAztecNodeClient,
@@ -30,6 +33,7 @@ import {
   getGitProjectRoot,
   installChaosMeshChart,
   setupEnvironment,
+  startPortForwardForPrometeheus,
   uninstallChaosMesh,
 } from './utils.js';
 
@@ -55,6 +59,9 @@ if (lowValueAccounts + highValueAccounts <= 0) {
 
 const CHAOS_MESH_NAME = 'network-shaping';
 
+const p2pLatencyQuery = (perc: string, topicName: TopicType) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_p2p_gossip_message_latency_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}", aztec_gossip_topic_name="${topicName}"}[1m])) by (le))`;
+
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
 
@@ -69,24 +76,42 @@ describe('sustained N TPS test', () => {
   let benchmarkContract: BenchmarkingContract;
 
   let metrics: TxInclusionMetrics;
+  let prometheusClient: PrometheusClient;
+  let childProcesses: ChildProcess[];
 
   afterAll(async () => {
+    if (process.env.BENCH_OUTPUT) {
+      for (const topic of Object.values(TopicType)) {
+        try {
+          const [p50, p95] = await Promise.all([
+            prometheusClient.querySingleValue(p2pLatencyQuery('0.50', topic)),
+            prometheusClient.querySingleValue(p2pLatencyQuery('0.95', topic)),
+          ]);
+
+          metrics.recordP2PGossipLatency(topic, p50, p95);
+        } catch (err) {
+          logger.warn(`Failed to scrape prometheus data: ${err}`, { err });
+        }
+      }
+
+      await mkdir(dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
+    }
+
     for (const { cleanup } of testWallets!) {
       await cleanup();
     }
 
-    if (process.env.BENCH_OUTPUT) {
-      await mkdir(dirname(process.env.BENCH_OUTPUT), { recursive: true });
-      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
+    for (const proc of childProcesses) {
+      proc.kill();
     }
-  });
 
-  afterAll(async () => {
     await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
   });
 
   beforeAll(async () => {
     logger.info(`Starting test setup for sustained TPS tests over ${TEST_DURATION_SECONDS} seconds...`);
+    childProcesses = [];
 
     const spartanDir = `${getGitProjectRoot()}/spartan`;
     const chaosMeshInstallation = installChaosMeshChart({
@@ -100,6 +125,14 @@ describe('sustained N TPS test', () => {
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     const rpcUrl = `http://${rpcIP}:8080`;
     aztecNode = createAztecNodeClient(rpcUrl);
+
+    const promPortForward = await startPortForwardForPrometeheus('metrics');
+    childProcesses.push(promPortForward.process);
+
+    prometheusClient = new PrometheusClient({
+      server: new URL(`http://127.0.0.1:${promPortForward.port}`),
+    });
+
     metrics = new TxInclusionMetrics(aztecNode);
 
     await retryUntil(
@@ -132,7 +165,7 @@ describe('sustained N TPS test', () => {
     logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
     benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet)
-      .send({ from: localTestAccounts[0].accounts[0], fee: { paymentMethod: sponsor } })
+      .send({ from: localTestAccounts[0].recipientAddress, fee: { paymentMethod: sponsor } })
       .deployed();
 
     logger.info(`Awaiting chaos mesh installation`);

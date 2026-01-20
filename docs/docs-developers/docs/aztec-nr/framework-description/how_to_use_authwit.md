@@ -3,6 +3,7 @@ title: Enabling Authentication Witnesses
 description: Enable contracts to execute actions on behalf of user accounts using authentication witnesses.
 tags: [accounts, authwit]
 sidebar_position: 11
+references: ["noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr"]
 ---
 
 Authentication witnesses (authwit) allow other contracts to execute actions on behalf of your account. This guide shows you how to implement and use authwits in your Aztec smart contracts.

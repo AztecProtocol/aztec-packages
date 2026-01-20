@@ -107,9 +107,9 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     bool verification_passed = false;
 
     info("ChonkProve - using Chonk");
-    auto sumcheck_ivc = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
-    auto proof = sumcheck_ivc->prove();
-    auto vk_and_hash = sumcheck_ivc->get_hiding_kernel_vk_and_hash();
+    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
+    auto proof = chonk->prove();
+    auto vk_and_hash = chonk->get_hiding_kernel_vk_and_hash();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.

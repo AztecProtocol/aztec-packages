@@ -192,7 +192,7 @@ export function deriveSharedKey(privateKey: CryptoKey, publicKey: CryptoKey): Pr
       name: 'AES-GCM',
       length: 256,
     },
-    false,
+    true, // extractable - needed for hashing
     ['encrypt', 'decrypt'],
   );
 }
@@ -280,4 +280,96 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes.buffer;
+}
+
+/**
+ * Emoji alphabet for visual verification of shared secrets.
+ * 32 distinct, easily recognizable emojis for anti-spoofing verification.
+ * @internal
+ */
+const EMOJI_ALPHABET = [
+  '🔵',
+  '🟢',
+  '🔴',
+  '🟡',
+  '🟣',
+  '🟠',
+  '⚫',
+  '⚪',
+  '🌟',
+  '🌙',
+  '☀️',
+  '🌈',
+  '🔥',
+  '💧',
+  '🌸',
+  '🍀',
+  '🦋',
+  '🐬',
+  '🦊',
+  '🐼',
+  '🦁',
+  '🐯',
+  '🐸',
+  '🦉',
+  '🎵',
+  '🎨',
+  '🎯',
+  '🎲',
+  '🔔',
+  '💎',
+  '🔑',
+  '🏆',
+];
+
+/**
+ * Hashes a shared AES key to a hex string for verification.
+ *
+ * This extracts the raw key material and hashes it with SHA-256,
+ * returning the first 16 bytes as a hex string.
+ *
+ * @param sharedKey - The AES-GCM shared key (must be extractable)
+ * @returns A hex string representation of the hash
+ *
+ * @example
+ * ```typescript
+ * const hash = await hashSharedSecret(sharedKey);
+ * const emoji = hashToEmoji(hash);
+ * ```
+ */
+export async function hashSharedSecret(sharedKey: CryptoKey): Promise<string> {
+  const rawKey = await crypto.subtle.exportKey('raw', sharedKey);
+  const hash = await crypto.subtle.digest('SHA-256', rawKey);
+  const bytes = new Uint8Array(hash.slice(0, 16));
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Converts a hex hash to an emoji sequence for visual verification.
+ *
+ * This is used for anti-MITM verification - both the dApp and wallet
+ * independently compute the same emoji sequence from the shared secret.
+ * Users can visually compare the sequences to detect interception.
+ *
+ * Similar to SAS (Short Authentication String) in ZRTP/Signal.
+ *
+ * @param hash - Hex string from {@link hashSharedSecret}
+ * @param length - Number of emojis to generate (default: 4)
+ * @returns A string of emojis representing the hash
+ *
+ * @example
+ * ```typescript
+ * const hash = await hashSharedSecret(sharedKey);
+ * const emoji = hashToEmoji(hash); // e.g., "🔵🦋🎯🐼"
+ * // Display to user for verification
+ * ```
+ */
+export function hashToEmoji(hash: string, length: number = 4): string {
+  const bytes: number[] = [];
+  for (let i = 0; i < hash.length && bytes.length < length; i += 2) {
+    bytes.push(parseInt(hash.slice(i, i + 2), 16));
+  }
+  return bytes.map(b => EMOJI_ALPHABET[b % EMOJI_ALPHABET.length]).join('');
 }

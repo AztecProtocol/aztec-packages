@@ -74,8 +74,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
@@ -120,7 +120,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     t.logger.warn('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -165,7 +165,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     t.logger.warn('Re-creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,

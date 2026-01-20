@@ -5,9 +5,8 @@ describe('e2e_nested_contract manual', () => {
   let { parentContract, childContract, defaultAccountAddress } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyManualSnapshots();
     await t.setup();
+    await t.applyManual();
     ({ parentContract, childContract, defaultAccountAddress } = t);
   });
 

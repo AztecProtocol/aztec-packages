@@ -9,7 +9,6 @@
     "./sentinel": "./dest/aztec-node/sentinel.js",
     "./test": "./dest/test/index.js"
   },
-  "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -88,6 +87,7 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/validator-client": "workspace:^",
+    "@aztec/validator-ha-signer": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "koa": "^2.16.1",
     "koa-router": "^13.1.1",
@@ -98,7 +98,7 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",

@@ -76,8 +76,8 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
     rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
   });
 
@@ -98,7 +98,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     t.logger.info('Creating validator nodes for MBPS consensus');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -206,7 +206,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -283,7 +283,7 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,

@@ -5,27 +5,9 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 
 namespace bb {
-
-template <typename Flavor_>
-std::pair<std::vector<typename HypernovaFoldingVerifier<Flavor_>::FF>,
-          std::vector<typename HypernovaFoldingVerifier<Flavor_>::FF>>
-HypernovaFoldingVerifier<Flavor_>::get_batching_challenges()
-{
-    std::vector<std::string> labels_unshifted_entities(NUM_UNSHIFTED_ENTITIES);
-    std::vector<std::string> labels_shifted_witnesses(NUM_SHIFTED_ENTITIES);
-    for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES; idx++) {
-        labels_unshifted_entities[idx] = "unshifted_challenge_" + std::to_string(idx);
-    }
-    for (size_t idx = 0; idx < NUM_SHIFTED_ENTITIES; idx++) {
-        labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
-    }
-    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
-    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
-
-    return { unshifted_challenges, shifted_challenges };
-}
 
 template <typename Flavor_>
 template <size_t N>
@@ -33,15 +15,10 @@ HypernovaFoldingVerifier<Flavor_>::Commitment HypernovaFoldingVerifier<Flavor_>:
     const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
-    for (size_t idx = 0; const auto& point : _points) {
-        points[idx++] = point;
+    for (size_t idx = 0; idx < N; ++idx) {
+        points[idx] = _points[idx];
     }
-
-    if constexpr (IsRecursiveFlavor<Flavor>) {
-        return Curve::Group::batch_mul(points, scalars);
-    } else {
-        return batch_mul_native<Curve>(points, scalars);
-    }
+    return Commitment::batch_mul(points, scalars);
 }
 
 template <typename Flavor>
@@ -52,7 +29,8 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
     BB_BENCH_NAME("HypernovaFoldingVerifier::sumcheck_output_to_accumulator");
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
-    auto [unshifted_challenges, shifted_challenges] = get_batching_challenges();
+    auto [unshifted_challenges, shifted_challenges] =
+        get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
     // Batch evaluations
     FF batched_unshifted_evaluation(0);
@@ -137,7 +115,8 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof);
 
     // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
-    auto [unshifted_challenges, shifted_challenges] = get_batching_challenges();
+    const auto [unshifted_challenges, shifted_challenges] =
+        get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
 
     VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
 

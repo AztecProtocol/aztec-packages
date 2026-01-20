@@ -180,7 +180,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           // Contract instance deployed event is emitted via private logs.
           const blockNumber = await aztecNode.getBlockNumber();
 
-          const logs = (await aztecNode.getBlock(blockNumber))!.toL2Block().getPrivateLogs();
+          const logs = (await aztecNode.getBlock(blockNumber))!.getPrivateLogs();
 
           expect(logs.length).toBe(1);
 
@@ -293,7 +293,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   testDeployingAnInstance('from a wallet', async instance => {
     // Calls the deployer contract directly from a wallet
-    const deployMethod = await publishInstance(wallet, instance);
+    const deployMethod = publishInstance(wallet, instance);
     await deployMethod.send({ from: defaultAccountAddress }).wait();
   });
 

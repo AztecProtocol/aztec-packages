@@ -155,19 +155,42 @@ Time | Proposer                     | Validator
 
 ## Configuration
 
-| Flag | Purpose |
-|------|---------|
-| `validatorReexecute` | Re-execute transactions to verify proposals |
-| `fishermanMode` | Validate proposals but don't broadcast attestations (monitoring only) |
-| `alwaysReexecuteBlockProposals` | Force re-execution even when not in committee |
-| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled) |
-| `validatorReexecuteDeadlineMs` | Time reserved at end of slot for propagation/publishing |
-| `attestationPollingIntervalMs` | How often to poll for attestations when collecting |
-| `disabledValidators` | Validator addresses to exclude from duties |
+| Flag                                  | Purpose                                                               |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| `validatorReexecute`                  | Re-execute transactions to verify proposals                           |
+| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only) |
+| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                         |
+| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                   |
+| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing               |
+| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                    |
+| `disabledValidators`                  | Validator addresses to exclude from duties                            |
+
+### High Availability (HA) Keystore
+
+When running multiple validator nodes with the same validator keys in a high-availability setup, enable HA signing to prevent double-signing:
+
+| Environment Variable                   | Purpose                                                                |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `VALIDATOR_HA_SIGNING_ENABLED`         | Enable HA signing / slashing protection (default: false)               |
+| `VALIDATOR_HA_DATABASE_URL`            | PostgreSQL connection string for coordination (required when enabled)  |
+| `VALIDATOR_HA_NODE_ID`                 | Unique identifier for this validator node (required when enabled)      |
+| `VALIDATOR_HA_POLLING_INTERVAL_MS`     | How often to check duty status (default: 100)                          |
+| `VALIDATOR_HA_SIGNING_TIMEOUT_MS`      | Max wait for in-progress signing (default: 3000)                       |
+| `VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS` | Max age of stuck duties before cleanup (default: 2\*aztecSlotDuration) |
+
+When `VALIDATOR_HA_SIGNING_ENABLED=true`, the validator client automatically:
+
+- Creates an HA signer using the provided configuration
+- Wraps the base keystore with `HAKeyStore` for HA-protected signing
+- Coordinates signing across nodes via PostgreSQL to prevent double-signing
+- Provides slashing protection to block conflicting signatures
+
+See [`@aztec/validator-ha-signer`](../validator-ha-signer/README.md) for more details.
 
 ### Fisherman Mode
 
 When `fishermanMode: true`, the validator:
+
 - Validates all proposals (block and checkpoint)
 - Re-executes transactions
 - Creates attestations internally for validation
@@ -179,6 +202,7 @@ This is useful for monitoring network health without participating in consensus.
 ### Key Methods
 
 **ValidatorClient** (`validator.ts`):
+
 - `validateBlockProposal(proposal, sender)` → `boolean`: Validates block, optionally re-executes, emits slash events
 - `attestToCheckpointProposal(proposal, sender)` → `CheckpointAttestation[]?`: Validates checkpoint and creates attestations
 - `collectAttestations(proposal, required, deadline)` → `CheckpointAttestation[]`: Waits for attestations from other validators
@@ -186,10 +210,12 @@ This is useful for monitoring network health without participating in consensus.
 - `createCheckpointProposal(...)` → `CheckpointProposal`: Creates and signs a checkpoint proposal
 
 **BlockProposalHandler** (`block_proposal_handler.ts`):
+
 - `handleBlockProposal(proposal, sender, shouldReexecute)` → `ValidationResult`: Full block validation pipeline
 - `reexecuteTransactions(proposal, blockNumber, txs, messages)` → `ReexecutionResult`: Re-runs transactions and compares state
 
 **ValidationService** (`duties/validation_service.ts`):
+
 - `createBlockProposal(...)` → `BlockProposal`: Signs block proposal with validator key
 - `createCheckpointProposal(...)` → `CheckpointProposal`: Signs checkpoint proposal
 - `attestToCheckpointProposal(proposal, attestors)` → `CheckpointAttestation[]`: Creates attestations for given addresses
@@ -204,7 +230,7 @@ Tests typically mock these dependencies:
 let epochCache: MockProxy<EpochCache>;
 let blockSource: MockProxy<L2BlockSource>;
 let txProvider: MockProxy<TxProvider>;
-let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
+let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
 let p2pClient: MockProxy<P2P>;
 
 beforeEach(() => {
@@ -219,19 +245,19 @@ beforeEach(() => {
 Use factory functions from `@aztec/stdlib/testing`:
 
 ```typescript
-import { makeBlockProposal, makeCheckpointProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
 
 // These are async - always await
 const blockProposal = await makeBlockProposal({
-  blockHeader: makeL2BlockHeader(1, 100, 100), // epoch, block, slot
+  blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) }),
   indexWithinCheckpoint: 0,
   signer: Secp256k1Signer.random(),
 });
 
 const checkpointProposal = await makeCheckpointProposal({
-  checkpointHeader: makeL2BlockHeader(1, 100, 100).toCheckpointHeader(),
+  checkpointHeader: makeCheckpointHeader(1, { slotNumber: SlotNumber(100) }),
   signer: proposer,
-  lastBlock: { blockHeader, txs },
+  lastBlock: { blockHeader: makeBlockHeader(1), txs },
 });
 ```
 

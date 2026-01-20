@@ -16,9 +16,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraFlavor;
+    using OuterFlavor = UltraRollupFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -88,7 +88,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
 
         // Merge the ecc ops from the newly constructed circuit
-        auto goblin_proof = goblin.prove(MergeSettings::APPEND);
+        auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
@@ -162,9 +162,12 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     // Aggregate merge + translator pairing points
     output.translator_pairing_points.aggregate(output.merge_pairing_points);
 
-    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
+    inputs.ipa_claim = output.ipa_claim;
     inputs.set_public();
+
+    builder.ipa_proof = output.ipa_proof.get_value();
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
 
@@ -208,9 +211,12 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         // Aggregate merge + translator pairing points
         output.translator_pairing_points.aggregate(output.merge_pairing_points);
 
-        stdlib::recursion::honk::DefaultIO<Builder> inputs;
+        stdlib::recursion::honk::RollupIO inputs;
         inputs.pairing_inputs = output.translator_pairing_points;
+        inputs.ipa_claim = output.ipa_claim;
         inputs.set_public();
+
+        builder.ipa_proof = output.ipa_proof.get_value();
 
         info("Recursive Verifier: num gates = ", builder.num_gates());
 

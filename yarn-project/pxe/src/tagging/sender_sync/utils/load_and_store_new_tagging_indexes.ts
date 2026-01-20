@@ -17,6 +17,8 @@ import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_t
  * @param end - The ending index (exclusive) of the window to process.
  * @param aztecNode - The Aztec node instance to query for logs.
  * @param taggingStore - The data provider to store pending indexes.
+ * @param jobId - Job identifier, used to keep writes in-memory until they can be persisted in a data integrity
+ * preserving way.
  */
 export async function loadAndStoreNewTaggingIndexes(
   secret: DirectionalAppTaggingSecret,
@@ -25,6 +27,7 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
+  jobId: string,
 ) {
   // We compute the tags for the current window of indexes
   const preTagsForWindow: PreTag[] = Array(end - start)
@@ -40,7 +43,7 @@ export async function loadAndStoreNewTaggingIndexes(
   // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
   for (const [txHashStr, highestIndex] of highestIndexMap.entries()) {
     const txHash = TxHash.fromString(txHashStr);
-    await taggingStore.storePendingIndexes([{ secret, index: highestIndex }], txHash);
+    await taggingStore.storePendingIndexes([{ secret, index: highestIndex }], txHash, jobId);
   }
 }
 

@@ -96,6 +96,9 @@ namespace sha256;
     #[skippable_if]
     sel = 0;
 
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
     // Inputs
     pol commit execution_clk;
     pol commit space_id;
@@ -125,16 +128,22 @@ namespace sha256;
     sel' * (start' - LATCH_CONDITION) = 0;
     pol NOT_LAST = sel * (1 - LATCH_CONDITION);
 
-    // We match the lookup on start, and start implies sel
-    // we then force sel = 1 on all subsequent rows unless we hit a LATCH_CONDITION
-    #[CONTINUITY_SEL] // Propagate sel
-    (1 - LATCH_CONDITION) * (sel' - sel) = 0;
+    // Since start == 1 and latch == 1 both imply `sel == 1`, the trace continuity
+    // #[TRACE_CONTINUITY] guarantees that `sel = 1` on all rows between the start and latch rows.
+    // Furthermore, it enforces that a non-emtpy subtrace must have `start == 1` just after the first row.
+
     #[CONTINUITY_EXEC_CLK] // Propagate exec clk
     (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
     #[CONTINUITY_SPACE_ID] // Propagate space id down
     (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
     #[CONTINUITY_OUTPUT_ADDR] // Propagate output addr down
     (1 - LATCH_CONDITION) * (output_addr' - output_addr) = 0;
+
+    // Enforce input_addr increments by 1 during input rounds (first 16 rows)
+    // and stays constant otherwise. This prevents malicious provers from
+    // setting arbitrary memory addresses during SHA256 input loading.
+    #[CONTINUITY_INPUT_ADDR]
+    (1 - LATCH_CONDITION) * (input_addr' - (input_addr + sel_is_input_round)) = 0;
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
@@ -172,8 +181,11 @@ namespace sha256;
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
+    // If any of the out of range errors are set, the memory out of range error is set.
+    // We gate by `start` to ensure it can only be set on this row. Any of these out of range
+    // errors are not constrained on non-start rows.
     pol commit mem_out_of_range_err;
-    mem_out_of_range_err = 1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_output_out_of_range_err);
+    mem_out_of_range_err = start * (1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_output_out_of_range_err));
 
     ////////////////////////////////////////////////////////
     // Memory Operations: State and Output
@@ -428,7 +440,7 @@ namespace sha256;
     // We latch on rows that have a memory error, state tag error or the row that has an invalid input tag error
     // We cannot simply latch on error because we do not want to latch on the propagated sel_invalid_input_tag_err
     pol LATCH_ON_ERROR = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_row_tag_err);
-    sel * LATCH_ON_ERROR * (latch - 1) = 0;
+    LATCH_ON_ERROR * (latch - 1) = 0; // No need to gate by `sel`, our tracegen never sets an error on an inactive row.
 
     // Based on the above, if sel_invalid_input_row_tag_err = 1, LATCH_CONDITION = 1.
     // If we latched BECAUSE sel_invalid_input_row_tag_err = 1, we set the propagated sel_invalid_input_tag_err = 1

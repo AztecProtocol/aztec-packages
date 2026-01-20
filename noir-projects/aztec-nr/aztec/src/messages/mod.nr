@@ -1,3 +1,5 @@
+//! Message encoding, encryption, delivery and processing.
+
 pub mod encryption;
 pub mod discovery;
 pub mod logs;

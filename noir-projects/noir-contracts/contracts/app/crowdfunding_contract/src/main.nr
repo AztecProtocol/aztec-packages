@@ -16,7 +16,7 @@ pub contract Crowdfunding {
         constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteStatus,
         retrieved_note::RetrievedNote,
     };
-    use router::utils::privately_check_timestamp;
+    use public_checks::utils::privately_check_timestamp;
     use token::Token;
     use uint_note::uint_note::UintNote;
 
@@ -46,14 +46,14 @@ pub contract Crowdfunding {
     fn donate(amount: u128) {
         let config = self.storage.config.read();
 
-        // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
+        // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which contract
         // is performing the check.
         // docs:start:call-check-deadline
         privately_check_timestamp(Comparator.LT, config.deadline, self.context);
         // docs:end:call-check-deadline
 
         // 2) Transfer the donation tokens from donor to this contract
-        let donor = self.msg_sender().unwrap();
+        let donor = self.msg_sender();
         Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(
             self.context,
         );
@@ -76,7 +76,7 @@ pub contract Crowdfunding {
         let operator_address = config.operator;
 
         // 1) Check that msg_sender() is the operator
-        assert(self.msg_sender().unwrap() == operator_address, "Not an operator");
+        assert(self.msg_sender() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
         self.call(Token::at(config.donation_token).transfer(operator_address, amount));

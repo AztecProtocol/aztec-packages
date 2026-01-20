@@ -51,9 +51,6 @@ mask_secret_value() {
     local secret_value
     secret_value=$(cat "$secret_file")
 
-    # Always mask the full value first as a safety net
-    echo "::add-mask::$secret_value"
-
     # Check if this environment variable contains JSON that should be individually masked
     local is_json_secret=false
     for json_var in "${JSON_SECRETS[@]}"; do
@@ -67,6 +64,8 @@ mask_secret_value() {
         jq -r '.[]' "$secret_file" | while IFS= read -r element; do
             echo "::add-mask::$element"
         done
+    else 
+        echo "::add-mask::$secret_value"
     fi
 }
 
@@ -147,6 +146,15 @@ if [[ -n "${SNAPSHOT_BUCKET_DIRECTORY:-}" ]]; then
     mask_secret_value "STORE_SNAPSHOT_URL" "$secret_file"
     r2_account_id=$(cat "$secret_file")
     export STORE_SNAPSHOT_URL="s3://testnet-bucket/${SNAPSHOT_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com&publicBaseUrl=https://aztec-labs-snapshots.com"
+fi
+
+# Construct BLOB_FILE_STORE_UPLOAD_URL from the r2-account-id secret and BLOB_BUCKET_DIRECTORY
+# Uses the same R2 bucket as snapshots but with a different directory for blobs
+if [[ -n "${BLOB_BUCKET_DIRECTORY:-}" ]]; then
+    secret_file=$(get_secret "r2-account-id")
+    mask_secret_value "BLOB_FILE_STORE_UPLOAD_URL" "$secret_file"
+    r2_account_id=$(cat "$secret_file")
+    export BLOB_FILE_STORE_UPLOAD_URL="s3://testnet-bucket/${BLOB_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com"
 fi
 
 echo "Successfully set up GCP secrets for $NETWORK"

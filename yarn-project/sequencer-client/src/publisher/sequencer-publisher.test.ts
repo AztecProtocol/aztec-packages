@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
   type GovernanceProposerContract,
@@ -16,9 +16,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2BlockNew, Signature } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -63,7 +64,7 @@ describe('SequencerPublisher', () => {
 
   let proposeTxHash: `0x${string}`;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
-  let l2Block: L2Block;
+  let l2Block: L2BlockNew;
 
   let header: CheckpointHeader;
   let archive: Buffer;
@@ -83,9 +84,9 @@ describe('SequencerPublisher', () => {
     blobClient = mock<BlobClientInterface>();
     blobClient.sendBlobsToFilestore.mockResolvedValue(true);
 
-    l2Block = await L2Block.random(BlockNumber(42));
+    l2Block = await L2BlockNew.random(BlockNumber(42));
 
-    header = l2Block.getCheckpointHeader();
+    header = CheckpointHeader.random();
     archive = l2Block.archive.root.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
@@ -112,7 +113,7 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-      ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
+      ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
 
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
@@ -133,7 +134,12 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, now: 3n });
-    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: EpochNumber(1) });
+    epochCache.getCommittee.mockResolvedValue({
+      committee: [],
+      seed: 1n,
+      epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
+    });
 
     publisher = new SequencerPublisher(config, {
       blobClient,
@@ -165,9 +171,9 @@ describe('SequencerPublisher', () => {
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
-    l2Block = await L2Block.random(BlockNumber(42), undefined, undefined, undefined, undefined, Number(currentL2Slot));
+    l2Block = await L2BlockNew.random(BlockNumber(42), { slotNumber: SlotNumber(Number(currentL2Slot)) });
 
-    header = l2Block.getCheckpointHeader();
+    header = CheckpointHeader.random({ slotNumber: SlotNumber(Number(currentL2Slot)) });
     archive = l2Block.archive.root.toBuffer();
   });
 
@@ -196,13 +202,9 @@ describe('SequencerPublisher', () => {
   };
 
   it('bundles propose and vote tx to l1', async () => {
-    const expectedBlobs = getBlobsPerL1Block(l2Block.getCheckpointBlobFields());
-
-    await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
-      CommitteeAttestationsAndSigners.empty(),
-      Signature.empty(),
-    );
+    const checkpoint = new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber);
+    const expectedBlobs = getBlobsPerL1Block(checkpoint.toBlobFields());
+    await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
     const { govPayload, voteSig } = mockGovernancePayload();
 
@@ -285,7 +287,7 @@ describe('SequencerPublisher', () => {
     });
 
     await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
@@ -298,7 +300,7 @@ describe('SequencerPublisher', () => {
 
     await expect(
       publisher.enqueueProposeCheckpoint(
-        l2Block.toCheckpoint(),
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(),
         Signature.empty(),
       ),
@@ -318,7 +320,7 @@ describe('SequencerPublisher', () => {
     });
 
     await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );
@@ -342,7 +344,7 @@ describe('SequencerPublisher', () => {
         }>,
     );
     await publisher.enqueueProposeCheckpoint(
-      l2Block.toCheckpoint(),
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(),
       Signature.empty(),
     );

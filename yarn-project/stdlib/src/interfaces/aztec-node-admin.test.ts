@@ -163,8 +163,12 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,
       validatorReexecute: true,
-      validatorReexecuteDeadlineMs: 1000,
       disableTransactions: false,
+      haSigningEnabled: false,
+      nodeId: 'test-node-id',
+      pollingIntervalMs: 50,
+      signingTimeoutMs: 3000,
+      maxStuckDutiesAgeMs: 72000,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

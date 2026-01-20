@@ -2,7 +2,14 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import { BlobDeserializationError } from '../errors.js';
-import { type BlockBlobData, decodeBlockBlobData, encodeBlockBlobData } from './block_blob_data.js';
+import {
+  type BlockBlobData,
+  NUM_BLOCK_END_BLOB_FIELDS,
+  NUM_CHECKPOINT_END_MARKER_FIELDS,
+  NUM_FIRST_BLOCK_END_BLOB_FIELDS,
+  decodeBlockBlobData,
+  encodeBlockBlobData,
+} from './block_blob_data.js';
 import {
   type CheckpointEndMarker,
   decodeCheckpointEndMarker,
@@ -25,7 +32,7 @@ export function encodeCheckpointBlobData(checkpointBlobData: CheckpointBlobData)
 
 export function encodeCheckpointBlobDataFromBlocks(blocks: BlockBlobData[]): Fr[] {
   const blocksBlobFields = blocks.map(block => encodeBlockBlobData(block)).flat();
-  const numBlobFields = blocksBlobFields.length + 1; // +1 for the checkpoint end marker.
+  const numBlobFields = blocksBlobFields.length + NUM_CHECKPOINT_END_MARKER_FIELDS;
   return blocksBlobFields.concat(encodeCheckpointEndMarker({ numBlobFields }));
 }
 
@@ -87,9 +94,9 @@ export function getTotalNumBlobFieldsFromTxs(txsPerBlock: TxStartMarker[][]): nu
   }
 
   return (
-    (numBlocks ? 1 : 0) + // l1ToL2Messages root in the first block
-    numBlocks * 6 + // 6 fields for each block end blob data.
+    (numBlocks ? NUM_FIRST_BLOCK_END_BLOB_FIELDS - NUM_BLOCK_END_BLOB_FIELDS : 0) + // l1ToL2Messages root in the first block
+    numBlocks * NUM_BLOCK_END_BLOB_FIELDS + // 6 fields for each block end blob data.
     txsPerBlock.reduce((total, txs) => total + txs.reduce((total, tx) => total + tx.numBlobFields, 0), 0) +
-    1 // checkpoint end marker
+    NUM_CHECKPOINT_END_MARKER_FIELDS // checkpoint end marker
   );
 }

@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
@@ -14,7 +15,9 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
 
-jest.setTimeout(1000000);
+const TEST_TIMEOUT = 1_000_000;
+
+jest.setTimeout(TEST_TIMEOUT);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -70,8 +73,8 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
@@ -115,7 +118,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     };
     const invalidProposerNodes = await createNodes(
       invalidProposerConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       1,
       BOOT_NODE_UDP_PORT,
@@ -131,7 +134,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     // Create remaining honest nodes
     const honestNodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
@@ -148,13 +151,43 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
+    const startSlot = await rollup.getSlotNumber();
+    const proposerEarliestSlot = startSlot + 1;
+
+    // Wait until the bad proposer has had a slot
+    await retryUntil(
+      async () => {
+        const currentSlot = await rollup.getSlotNumber();
+        return currentSlot >= proposerEarliestSlot;
+      },
+      'Wait for next slot...',
+      TEST_TIMEOUT / 1000,
+      ETHEREUM_SLOT_DURATION,
+    );
+
+    await retryUntil(
+      async () => {
+        const currentProposer = await rollup.getCurrentProposer();
+        if (!currentProposer.equals(invalidProposerAddress)) {
+          t.logger.info(
+            `Current proposer: ${currentProposer}, waiting for malicious proposer ${invalidProposerAddress} to get a slot...`,
+          );
+          return false;
+        }
+        return true;
+      },
+      'Wait for malicious proposer slot...',
+      TEST_TIMEOUT / 1000,
+      ETHEREUM_SLOT_DURATION,
+    );
+
     const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
       logger: t.logger,
       nodeAdmin: nodes[1], // Use honest node to check for offenses
       slashingRoundSize,
       waitUntilOffenseCount: 1,
-      timeoutSeconds: AZTEC_SLOT_DURATION * 16, // Eventually it should be turn for the invalid proposer to propose
+      timeoutSeconds: AZTEC_SLOT_DURATION * 16,
     });
 
     // Check offense is correct

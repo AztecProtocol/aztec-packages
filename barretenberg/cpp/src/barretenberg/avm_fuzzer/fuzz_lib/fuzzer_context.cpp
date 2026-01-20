@@ -3,6 +3,7 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::fuzzer {
@@ -10,18 +11,19 @@ namespace bb::avm2::fuzzer {
 namespace {
 
 // Helper function to create a default contract class from bytecode
-ContractClass create_default_class(const std::vector<uint8_t>& bytecode)
+ContractClassWithCommitment create_default_class(const std::vector<uint8_t>& bytecode)
 {
     // This isn't strictly needed for pure simulation, but if we want to re-use inputs in proving we need valid
     // commitment
     auto bytecode_commitment = simulation::compute_public_bytecode_commitment(bytecode);
     auto class_id =
         simulation::compute_contract_class_id(/*artifact_hash=*/0, /*private_fn_root=*/0, bytecode_commitment);
-    return ContractClass{
+    return ContractClassWithCommitment{
         .id = class_id,
         .artifact_hash = 0,
         .private_functions_root = 0,
         .packed_bytecode = bytecode,
+        .public_bytecode_commitment = bytecode_commitment,
     };
 }
 
@@ -71,10 +73,29 @@ FF FuzzerContext::register_contract_from_bytecode(const std::vector<uint8_t>& by
     return contract_address;
 }
 
+std::optional<std::pair<FF, uint64_t>> FuzzerContext::get_existing_note_hash(size_t index) const
+{
+    if (existing_note_hashes_.size() == 0) {
+        return std::nullopt;
+    }
+    return existing_note_hashes_[index % existing_note_hashes_.size()];
+}
+
+void FuzzerContext::set_existing_note_hashes(std::span<const std::pair<FF, uint64_t>> note_hashes)
+{
+    existing_note_hashes_.assign(note_hashes.begin(), note_hashes.end());
+}
+
+void FuzzerContext::set_existing_contract_addresses(std::span<const AztecAddress> contract_addresses)
+{
+    contract_addresses_.assign(contract_addresses.begin(), contract_addresses.end());
+}
+
 void FuzzerContext::reset()
 {
     contract_addresses_.clear();
     contract_db_ = std::make_unique<FuzzerContractDB>();
+    existing_note_hashes_.clear();
 }
 
 } // namespace bb::avm2::fuzzer

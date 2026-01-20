@@ -102,11 +102,11 @@ export class P2PInstrumentation {
           continue;
         }
 
-        res.observe(metrics.avg, histogram.mean, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.max, histogram.max, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.min, histogram.min, { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.p50, histogram.percentile(50), { [Attributes.TOPIC_NAME]: topicName });
-        res.observe(metrics.p90, histogram.percentile(90), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.avg, Math.ceil(histogram.mean), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.max, Math.ceil(histogram.max), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.min, Math.ceil(histogram.min), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.p50, Math.ceil(histogram.percentile(50)), { [Attributes.TOPIC_NAME]: topicName });
+        res.observe(metrics.p90, Math.ceil(histogram.percentile(90)), { [Attributes.TOPIC_NAME]: topicName });
       }
     }
   };

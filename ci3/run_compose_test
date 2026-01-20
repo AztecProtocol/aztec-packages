@@ -33,3 +33,5 @@ trap cleanup EXIT
 setsid docker compose $name_arg up --exit-code-from=$exit_container --abort-on-container-exit --force-recreate &
 pid=$!
 wait $pid
+code=$?
+exit $code

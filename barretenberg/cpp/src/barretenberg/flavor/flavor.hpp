@@ -124,6 +124,37 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
 };
 
 /**
+ * @brief Simple verification key class for fixed-size circuits (ECCVM, Translator).
+ * @details Stores only the commitments and a precomputed hash. Circuit size and public inputs
+ * count are known constants for these fixed circuits and don't need to be stored.
+ *
+ * @tparam PrecomputedCommitments The precomputed entities containing VK commitments
+ * @tparam HashType The field type for the precomputed hash (e.g., fr for both ECCVM and Translator)
+ * @tparam HardcodedVKAndHash Class containing static vk_hash() and get_all() methods with hardcoded values
+ */
+template <typename PrecomputedCommitments, typename HashType, typename HardcodedVKAndHash>
+class FixedVKAndHash_ : public PrecomputedCommitments {
+  public:
+    using Commitment = typename PrecomputedCommitments::DataType;
+
+    bool operator==(const FixedVKAndHash_&) const = default;
+
+    // Default construct the fixed VK from hardcoded commitments and precomputed hash
+    FixedVKAndHash_()
+        : hash(HardcodedVKAndHash::vk_hash())
+    {
+        for (auto [vk_commitment, fixed_commitment] : zip_view(this->get_all(), HardcodedVKAndHash::get_all())) {
+            vk_commitment = fixed_commitment;
+        }
+    }
+
+    HashType get_hash() const { return hash; }
+
+  private:
+    HashType hash{};
+};
+
+/**
  * @brief Base Native verification key class.
  * @details We want a separate native and stdlib verification key class because we don't have nice mappings from native
  * to stdlib and back. Examples of mappings that don't exist are from uint64_t to field_t, .get_value() doesn't
@@ -336,6 +367,47 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         const OriginTag tag = bb::extract_transcript_tag(transcript);
         return hash_with_origin_tagging(tag);
     }
+};
+
+/**
+ * @brief Simple stdlib verification key class for fixed-size circuits (ECCVM, Translator).
+ * @details Stores only the commitments and precomputed VK hash as witnesses. Circuit size and public inputs
+ * are known constants for these fixed circuits and don't need to be stored.
+ *
+ * @tparam Builder_ The circuit builder type
+ * @tparam PrecomputedCommitments The precomputed entities type
+ * @tparam NativeVerificationKey The native VK type for construction from native key
+ */
+template <typename Builder_, typename PrecomputedCommitments, typename NativeVerificationKey>
+class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
+  public:
+    using Builder = Builder_;
+    using Commitment = typename PrecomputedCommitments::DataType;
+    using FF = stdlib::field_t<Builder>;
+
+    bool operator==(const FixedStdlibVKAndHash_&) const = default;
+    FixedStdlibVKAndHash_() = default;
+
+    /**
+     * @brief Construct from native verification key and fix all witnesses (VK is constant for fixed circuits)
+     */
+    FixedStdlibVKAndHash_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+        : hash(FF::from_witness(builder, native_key->get_hash()))
+    {
+        for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
+            comm = Commitment::from_witness(builder, native_comm);
+        }
+        // Fix all witnesses since fixed VKs are always constant
+        hash.fix_witness();
+        for (Commitment& commitment : this->get_all()) {
+            commitment.fix_witness();
+        }
+    }
+
+    FF get_hash() const { return hash; }
+
+  private:
+    FF hash;
 };
 
 /**

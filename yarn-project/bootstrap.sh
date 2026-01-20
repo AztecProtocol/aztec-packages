@@ -94,6 +94,10 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    aztec.js \
+    cli \
+    ethereum \
+    slasher \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -186,6 +190,9 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+
+  # Test the tsc.sh build script
+  echo "$hash yarn-project/scripts/tsc.test.sh"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"

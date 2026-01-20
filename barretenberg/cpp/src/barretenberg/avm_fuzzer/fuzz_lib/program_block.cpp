@@ -11,21 +11,11 @@
 
 void ProgramBlock::preprocess_memory_addresses(ResolvedAddress resolved_address)
 {
-    if (resolved_address.base_pointer.has_value()) {
-        auto set_base_offset_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
-                                               .operand(static_cast<uint16_t>(0))
-                                               .operand(bb::avm2::MemoryTag::U32)
-                                               .operand(resolved_address.base_pointer.value())
-                                               .build();
-        instructions.push_back(set_base_offset_instruction);
-        memory_manager.set_memory_address(bb::avm2::ValueTag::U32, 0U);
-    }
     if (resolved_address.pointer_address.has_value()) {
-        if (resolved_address.base_pointer.has_value()) {
+        if (resolved_address.via_relative) {
             // Indirect relative: Write the pointer in a relative manner
             auto set_pointer_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_32)
-                                               .operand(static_cast<uint16_t>(resolved_address.pointer_address.value() -
-                                                                              resolved_address.base_pointer.value()))
+                                               .operand(static_cast<uint16_t>(resolved_address.operand_address))
                                                .relative()
                                                .operand(bb::avm2::MemoryTag::U32)
                                                .operand(resolved_address.absolute_address)
@@ -993,7 +983,6 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
 #ifdef DISABLE_GETENVVAR_INSTRUCTION
     return;
 #endif
-    auto instruction_type = static_cast<uint8_t>(instruction.type % 12);
     auto result_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.result_address);
     if (!result_address_operand.has_value()) {
         return;
@@ -1001,11 +990,11 @@ void ProgramBlock::process_getenvvar_instruction(GETENVVAR_Instruction instructi
     preprocess_memory_addresses(result_address_operand.value().first);
     auto getenvvar_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::GETENVVAR_16)
                                      .operand(result_address_operand.value().second)
-                                     .operand(instruction_type)
+                                     .operand(instruction.type)
                                      .build();
     instructions.push_back(getenvvar_instruction);
     // special case for timestamp, it returns a 64-bit value
-    if (instruction_type == 6) {
+    if (instruction.type == 6) {
         memory_manager.set_memory_address(bb::avm2::MemoryTag::U64,
                                           result_address_operand.value().first.absolute_address);
     } else {
@@ -1081,7 +1070,6 @@ void ProgramBlock::process_emitnotehash_instruction(EMITNOTEHASH_Instruction ins
                                         .operand(note_hash_address_operand.value().second)
                                         .build();
     instructions.push_back(emitnotehash_instruction);
-    memory_manager.append_emitted_note_hash(instruction.note_hash);
 }
 
 void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction instruction)
@@ -1089,29 +1077,6 @@ void ProgramBlock::process_notehashexists_instruction(NOTEHASHEXISTS_Instruction
 #ifdef DISABLE_NOTEHASHEXISTS_INSTRUCTION
     return;
 #endif
-    auto note_hash = memory_manager.get_emitted_note_hash(instruction.notehash_index);
-    if (!note_hash.has_value()) {
-        return;
-    }
-    auto leaf_index = memory_manager.get_leaf_index(instruction.notehash_index);
-    if (!leaf_index.has_value()) {
-        return;
-    }
-    auto contract_address = CONTRACT_ADDRESS;
-    auto note_hash_counter = static_cast<uint64_t>(*leaf_index);
-    auto siloed_note_computed_hash = bb::avm2::simulation::unconstrained_silo_note_hash(contract_address, *note_hash);
-    auto unique_note_computed_hash = bb::avm2::simulation::unconstrained_make_unique_note_hash(
-        siloed_note_computed_hash, FIRST_NULLIFIER, note_hash_counter);
-
-    auto set_note_hash_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                                         .result_address = instruction.notehash_address,
-                                                         .value = unique_note_computed_hash };
-    this->process_set_ff_instruction(set_note_hash_instruction);
-    auto set_leaf_index_instruction = SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
-                                                          .result_address = instruction.leaf_index_address,
-                                                          .value = *leaf_index };
-    this->process_set_ff_instruction(set_leaf_index_instruction);
-
     auto notehash_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.notehash_address);
     auto leaf_index_address_operand =
         memory_manager.get_resolved_address_and_operand_16(instruction.leaf_index_address);
@@ -1138,39 +1103,23 @@ void ProgramBlock::process_calldatacopy_instruction(CALLDATACOPY_Instruction ins
 #ifdef DISABLE_CALLDATACOPY_INSTRUCTION
     return;
 #endif
-    auto copy_size_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                                         .result_address = instruction.copy_size_address,
-                                                         .value = instruction.copy_size };
-    this->process_set_32_instruction(copy_size_set_instruction);
-    auto cd_start_set_instruction = SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                                        .result_address = instruction.cd_start_address,
-                                                        .value = instruction.cd_start };
-    this->process_set_32_instruction(cd_start_set_instruction);
-    // CALLDATACOPY expects UINT16 operands for all three addresses
     auto copy_size_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.copy_size_address);
-    auto cd_start_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.cd_start_address);
+    auto cd_offset_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.cd_offset_address);
     auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
-    if (!copy_size_address_operand.has_value() || !cd_start_address_operand.has_value() ||
+    if (!copy_size_address_operand.has_value() || !cd_offset_address_operand.has_value() ||
         !dst_address_operand.has_value()) {
         return;
     }
 
     preprocess_memory_addresses(copy_size_address_operand.value().first);
-    preprocess_memory_addresses(cd_start_address_operand.value().first);
+    preprocess_memory_addresses(cd_offset_address_operand.value().first);
     preprocess_memory_addresses(dst_address_operand.value().first);
     auto calldatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::CALLDATACOPY)
                                         .operand(copy_size_address_operand.value().second)
-                                        .operand(cd_start_address_operand.value().second)
+                                        .operand(cd_offset_address_operand.value().second)
                                         .operand(dst_address_operand.value().second)
                                         .build();
     instructions.push_back(calldatacopy_instruction);
-
-    // setting calldata_addr to u32 to avoid overflows
-    uint32_t calldata_base_offset = dst_address_operand.value().first.absolute_address;
-    auto loop_upper_bound = static_cast<uint32_t>(std::min((calldata_base_offset) + instruction.copy_size, 65535U));
-    for (uint32_t calldata_addr = calldata_base_offset; calldata_addr < loop_upper_bound; calldata_addr++) {
-        memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, calldata_addr);
-    }
 }
 
 void ProgramBlock::process_sendl2tol1msg_instruction(SENDL2TOL1MSG_Instruction instruction)
@@ -1259,29 +1208,44 @@ void ProgramBlock::process_call_instruction(CALL_Instruction instruction)
     instructions.push_back(call_instruction);
 }
 
-void ProgramBlock::process_returndatasize_with_returndatacopy_instruction(
-    RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction)
+void ProgramBlock::process_returndatasize_instruction(RETURNDATASIZE_Instruction instruction)
 {
-#ifdef DISABLE_RETURNDATASIZE_WITH_RETURNDATACOPY_INSTRUCTION
+#ifdef DISABLE_RETURNDATASIZE_INSTRUCTION
     return;
 #endif
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(dst_address_operand.value().first);
     auto returndatasize_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATASIZE)
-                                          .operand(instruction.copy_size_offset)
+                                          .operand(dst_address_operand.value().second)
                                           .build();
     instructions.push_back(returndatasize_instruction);
-    auto rd_start_set_instruction =
-        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                            .result_address =
-                                AddressRef{ .address = instruction.rd_start_offset, .mode = AddressingMode::Direct },
-                            .value = instruction.rd_start };
-    this->process_set_32_instruction(rd_start_set_instruction);
+    memory_manager.set_memory_address(bb::avm2::MemoryTag::U32, dst_address_operand.value().first.absolute_address);
+}
+
+void ProgramBlock::process_returndatacopy_instruction(RETURNDATACOPY_Instruction instruction)
+{
+#ifdef DISABLE_RETURNDATACOPY_INSTRUCTION
+    return;
+#endif
+    auto copy_size_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.copy_size_address);
+    auto rd_offset_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.rd_offset_address);
+    auto dst_address_operand = memory_manager.get_resolved_address_and_operand_16(instruction.dst_address);
+    if (!copy_size_address_operand.has_value() || !rd_offset_address_operand.has_value() ||
+        !dst_address_operand.has_value()) {
+        return;
+    }
+    preprocess_memory_addresses(copy_size_address_operand.value().first);
+    preprocess_memory_addresses(rd_offset_address_operand.value().first);
+    preprocess_memory_addresses(dst_address_operand.value().first);
+
     auto returndatacopy_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURNDATACOPY)
-                                          .operand(instruction.copy_size_offset)
-                                          .operand(instruction.rd_start_offset)
-                                          .operand(instruction.dst_address)
+                                          .operand(copy_size_address_operand.value().second)
+                                          .operand(rd_offset_address_operand.value().second)
+                                          .operand(dst_address_operand.value().second)
                                           .build();
-    // TODO(defkit): function can return more than one value :D
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, instruction.dst_address);
     instructions.push_back(returndatacopy_instruction);
 }
 
@@ -1511,6 +1475,34 @@ void ProgramBlock::process_toradixbe_instruction(TORADIXBE_Instruction instructi
     memory_manager.set_memory_address(output_tag, dst_operand.value().first.absolute_address);
 }
 
+void ProgramBlock::process_debuglog_instruction(DEBUGLOG_Instruction instruction)
+{
+    auto level_operand = memory_manager.get_resolved_address_and_operand_16(instruction.level_offset);
+    auto message_operand = memory_manager.get_resolved_address_and_operand_16(instruction.message_offset);
+    auto fields_operand = memory_manager.get_resolved_address_and_operand_16(instruction.fields_offset);
+    auto fields_size_operand = memory_manager.get_resolved_address_and_operand_16(instruction.fields_size_offset);
+    auto message_size = instruction.message_size;
+
+    if (!level_operand.has_value() || !message_operand.has_value() || !fields_operand.has_value() ||
+        !fields_size_operand.has_value()) {
+        return;
+    }
+
+    preprocess_memory_addresses(level_operand.value().first);
+    preprocess_memory_addresses(message_operand.value().first);
+    preprocess_memory_addresses(fields_operand.value().first);
+    preprocess_memory_addresses(fields_size_operand.value().first);
+
+    auto debuglog_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::DEBUGLOG)
+                                    .operand(level_operand.value().second)
+                                    .operand(message_operand.value().second)
+                                    .operand(fields_operand.value().second)
+                                    .operand(fields_size_operand.value().second)
+                                    .operand(message_size)
+                                    .build();
+    instructions.push_back(debuglog_instruction);
+}
+
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,
                                         uint16_t return_value_offset_index)
@@ -1640,9 +1632,30 @@ std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
     return condition_addr;
 }
 
+void ProgramBlock::process_write_terminating_condition_value()
+{
+    uint16_t value = condition_offset_index % 2;
+    process_set_16_instruction(SET_16_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U1,
+        .result_address = AddressRef{ .address = condition_offset_index, .mode = AddressingMode::Direct },
+        .value = value });
+}
+
 bool ProgramBlock::is_memory_address_set(uint16_t address)
 {
     return memory_manager.is_memory_address_set(address);
+}
+
+void ProgramBlock::process_instruction_block(InstructionBlock& instruction_block)
+{
+    memory_manager.set_base_offset(instruction_block.base_offset);
+    process_set_32_instruction(
+        SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
+                            .result_address = AddressRef{ .address = 0, .mode = AddressingMode::Direct },
+                            .value = instruction_block.base_offset });
+    for (const auto& instr : instruction_block.instructions) {
+        process_instruction(instr);
+    }
 }
 
 void ProgramBlock::process_instruction(FuzzInstruction instruction)
@@ -1712,8 +1725,11 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 return this->process_emitunencryptedlog_instruction(instruction);
             },
             [this](CALL_Instruction instruction) { return this->process_call_instruction(instruction); },
-            [this](RETURNDATASIZE_WITH_RETURNDATACOPY_Instruction instruction) {
-                return this->process_returndatasize_with_returndatacopy_instruction(instruction);
+            [this](RETURNDATASIZE_Instruction instruction) {
+                return this->process_returndatasize_instruction(instruction);
+            },
+            [this](RETURNDATACOPY_Instruction instruction) {
+                return this->process_returndatacopy_instruction(instruction);
             },
             [this](GETCONTRACTINSTANCE_Instruction instruction) {
                 return this->process_getcontractinstance_instruction(instruction);
@@ -1731,6 +1747,7 @@ void ProgramBlock::process_instruction(FuzzInstruction instruction)
                 return this->process_l1tol2msgexists_instruction(instruction);
             },
             [this](TORADIXBE_Instruction instruction) { return this->process_toradixbe_instruction(instruction); },
+            [this](DEBUGLOG_Instruction instruction) { return this->process_debuglog_instruction(instruction); },
             [](auto) { throw std::runtime_error("Unknown instruction"); },
         },
         instruction);

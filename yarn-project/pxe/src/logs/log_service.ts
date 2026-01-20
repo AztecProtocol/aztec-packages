@@ -123,6 +123,7 @@ export class LogService {
               this.aztecNode,
               this.recipientTaggingStore,
               anchorBlockNumber,
+              this.jobId,
             ),
           ),
         );

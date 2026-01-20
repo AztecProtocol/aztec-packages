@@ -42,7 +42,7 @@ export type ContractFunctionInteractionCallIntent = {
 };
 
 /** Identifies ContractFunctionInteractionCallIntents */
-function isContractFunctionIntractionCallIntent(
+export function isContractFunctionInteractionCallIntent(
   messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
 ): messageHashOrIntent is ContractFunctionInteractionCallIntent {
   return (
@@ -81,7 +81,7 @@ export const computeAuthWitMessageHash = async (
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const call = isContractFunctionIntractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
+    const call = isContractFunctionInteractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
     return computeOuterAuthWitHash(
       call.to,
       chainId,
@@ -154,7 +154,7 @@ export async function lookupValidity(
 }> {
   let innerHash, consumer;
   if ('caller' in intent) {
-    const call = isContractFunctionIntractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
+    const call = isContractFunctionInteractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
     innerHash = await computeInnerAuthWitHashFromAction(intent.caller, call);
     consumer = call.to;
   } else {

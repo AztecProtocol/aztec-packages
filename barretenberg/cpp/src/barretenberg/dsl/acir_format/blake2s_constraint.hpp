@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 4a956ceb179c2fe855e4f1fd78f2594e7fc3f5ea}
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -12,15 +12,8 @@
 
 namespace acir_format {
 
-struct Blake2sInput {
-    WitnessOrConstant<bb::fr> blackbox_input;
-    uint32_t num_bits;
-
-    friend bool operator==(Blake2sInput const& lhs, Blake2sInput const& rhs) = default;
-};
-
 struct Blake2sConstraint {
-    std::vector<Blake2sInput> inputs;
+    std::vector<WitnessOrConstant<bb::fr>> inputs;
     std::array<uint32_t, 32> result;
 
     friend bool operator==(Blake2sConstraint const& lhs, Blake2sConstraint const& rhs) = default;

@@ -41,7 +41,7 @@ void internal_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // RESTORE_INTERNAL_ID_ON_RETURN
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_execute_internal_return)) *
+        auto tmp = static_cast<View>(in.get(C::execution_sel_read_unwind_call_stack)) *
                    (static_cast<View>(in.get(C::execution_internal_call_id_shift)) -
                     static_cast<View>(in.get(C::execution_internal_call_return_id)));
         std::get<2>(evals) += (tmp * scaling_factor);

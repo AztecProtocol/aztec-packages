@@ -155,6 +155,7 @@ describe('sequencer', () => {
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
     epochCache = mockDeep<EpochCache>();
+    epochCache.isEscapeHatchOpen.mockResolvedValue(false);
     epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({
       epoch: EpochNumber(1),
       slot: SlotNumber(1),
@@ -165,6 +166,7 @@ describe('sequencer', () => {
       committee,
       seed: 1n,
       epoch: EpochNumber(1),
+      isEscapeHatchOpen: false,
     });
 
     publisher = mockDeep<SequencerPublisher>();
@@ -187,6 +189,7 @@ describe('sequencer', () => {
     } satisfies AttestorPublisherPair);
 
     rollupContract = mockDeep<RollupContract>();
+    rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -252,6 +255,8 @@ describe('sequencer', () => {
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
+      getBlocksForEpoch: mockFn().mockResolvedValue([]),
+      getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -414,7 +419,12 @@ describe('sequencer', () => {
     it('should proceed with block proposal when there is no proposer yet', async () => {
       // Mock that there is no official proposer yet
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValueOnce(undefined);
-      epochCache.getCommittee.mockResolvedValueOnce({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
+      epochCache.getCommittee.mockResolvedValueOnce({
+        committee: [] as EthAddress[],
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
+      } as EpochCommitteeInfo);
 
       // Mock that we have some pending transactions
       const txs = [await makeTx(1), await makeTx(2)];
@@ -481,6 +491,74 @@ describe('sequencer', () => {
           { txTimeoutAt: expect.any(Date) },
         );
       }
+    });
+  });
+
+  describe('voting when escape hatch is open', () => {
+    const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
+
+    it('should vote but not propose checkpoint when escape hatch is open', async () => {
+      // Escape hatch is open for the epoch/slot
+      epochCache.getCommittee.mockResolvedValue({
+        committee,
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: true,
+      });
+      epochCache.isEscapeHatchOpen.mockResolvedValue(true);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Mock slashing actions and governance payload
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+      const governancePayload = EthAddress.random();
+      sequencer.updateConfig({ governanceProposerPayload: governancePayload });
+
+      // Ensure enqueues succeed
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      // Vote-only path should run
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalled();
+      expect(publisher.sendRequests).toHaveBeenCalled();
+
+      // But checkpoint proposal must not start
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('should not attempt to vote twice in the same slot when escape hatch is open', async () => {
+      epochCache.getCommittee.mockResolvedValue({
+        committee,
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: true,
+      });
+      epochCache.isEscapeHatchOpen.mockResolvedValue(true);
+
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+      await sequencer.work();
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+
+      publisher.enqueueSlashingActions.mockClear();
+      publisher.sendRequests.mockClear();
+      slasherClient.getProposerActions.mockClear();
+
+      await sequencer.work();
+      expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
     });
   });
 
@@ -642,6 +720,7 @@ describe('sequencer', () => {
         committee: [validator2],
         seed: 123n,
         epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
       });
 
       // Setup validator client
@@ -687,6 +766,7 @@ describe('sequencer', () => {
         committee: [EthAddress.random()],
         seed: 123n,
         epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
       });
 
       // Set time past the non-committee member threshold

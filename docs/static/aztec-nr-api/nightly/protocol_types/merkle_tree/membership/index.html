@@ -43,6 +43,9 @@
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.check_membership.html" class="fn">check_membership</a></div><div class="item-description">Check whether a leaf exists in the tree with the given <code>root</code>.
 <code>membership_witness</code> is a hint to prove that the <code>leaf</code> exists in the tree with the given <code>root</code>.</div></li>
+<li><div class="item-name"><a href="fn.check_membership_with_hasher.html" class="fn">check_membership_with_hasher</a></div><div class="item-description">Check whether a leaf exists in the tree with the given <code>root</code>.
+Same as <code>check_membership</code> but uses a custom hasher.
+<code>membership_witness</code> is a hint to prove that the <code>leaf</code> exists in the tree with the given <code>root</code>.</div></li>
 <li><div class="item-name"><a href="fn.check_non_membership.html" class="fn">check_non_membership</a></div><div class="item-description">Check a key's non-existence in the indexed tree with the given <code>tree_root</code>.
 <code>low_leaf_preimage</code> is the preimage for the low leaf of the key. The key should be larger than the low leaf's key,
 and smaller than the low leaf's next key.

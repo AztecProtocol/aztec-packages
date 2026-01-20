@@ -5,6 +5,7 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 
@@ -30,6 +31,7 @@ import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
 import { GSEContract } from './gse.js';
+import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
@@ -69,6 +71,7 @@ export type ViemHeader = {
   blockHeadersHash: `0x${string}`;
   blobsHash: `0x${string}`;
   inHash: `0x${string}`;
+  outHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;
   coinbase: `0x${string}`;
@@ -185,10 +188,28 @@ export type RollupStatusResponse = {
   archiveOfMyCheckpoint: Fr;
 };
 
+/** Arguments for the CheckpointProposed event. */
+export type CheckpointProposedArgs = {
+  checkpointNumber: CheckpointNumber;
+  archive: Fr;
+  versionedBlobHashes: Buffer[];
+  /** Hash of attestations. Undefined for older events (backwards compatibility). */
+  attestationsHash?: Buffer32;
+  /** Digest of the payload. Undefined for older events (backwards compatibility). */
+  payloadDigest?: Buffer32;
+};
+
+/** Log type for CheckpointProposed events. */
+export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
   private static cachedStfStorageSlot: Hex | undefined;
+  private cachedEscapeHatch?: {
+    address: EthAddress;
+    contract: GetContractReturnType<typeof EscapeHatchAbi, ViemClient>;
+  };
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -389,6 +410,58 @@ export class RollupContract {
 
   async getSlasherAddress(): Promise<EthAddress> {
     return EthAddress.fromString(await this.rollup.read.getSlasher());
+  }
+
+  /**
+   * Returns the configured escape hatch contract address, or zero if disabled.
+   */
+  async getEscapeHatchAddress(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.rollup.read.getEscapeHatch());
+  }
+
+  private async getEscapeHatchContract(): Promise<
+    GetContractReturnType<typeof EscapeHatchAbi, ViemClient> | undefined
+  > {
+    const escapeHatchAddress = await this.getEscapeHatchAddress();
+    if (escapeHatchAddress.isZero()) {
+      return undefined;
+    }
+
+    // Cache the viem contract wrapper since it will be used frequently.
+    if (!this.cachedEscapeHatch || !this.cachedEscapeHatch.address.equals(escapeHatchAddress)) {
+      this.cachedEscapeHatch = {
+        address: escapeHatchAddress,
+        contract: getContract({
+          address: escapeHatchAddress.toString(),
+          abi: EscapeHatchAbi,
+          client: this.client,
+        }),
+      };
+    }
+
+    return this.cachedEscapeHatch.contract;
+  }
+
+  /**
+   * Returns whether the escape hatch is open for the given epoch.
+   * If escape hatch is not configured, returns false.
+   *
+   * This function is intentionally defensive: any failure to query the escape hatch
+   * (RPC issues, transient errors, etc.) is treated as "closed" to avoid callers
+   * needing to sprinkle try/catch everywhere.
+   */
+  async isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean> {
+    try {
+      const escapeHatch = await this.getEscapeHatchContract();
+      if (!escapeHatch) {
+        return false;
+      }
+
+      const [isOpen] = await escapeHatch.read.isHatchOpen([BigInt(epoch)]);
+      return isOpen;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -964,5 +1037,24 @@ export class RollupContract {
         },
       },
     );
+  }
+
+  /** Fetches CheckpointProposed events within the given block range. */
+  async getCheckpointProposedEvents(fromBlock: bigint, toBlock: bigint): Promise<CheckpointProposedLog[]> {
+    const logs = await this.rollup.getEvents.CheckpointProposed({}, { fromBlock, toBlock });
+    return logs
+      .filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)
+      .map(log => ({
+        l1BlockNumber: log.blockNumber!,
+        l1BlockHash: Buffer32.fromString(log.blockHash!),
+        l1TransactionHash: log.transactionHash!,
+        args: {
+          checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
+          archive: Fr.fromString(log.args.archive!),
+          versionedBlobHashes: log.args.versionedBlobHashes!.map(h => Buffer.from(h.slice(2), 'hex')),
+          attestationsHash: log.args.attestationsHash ? Buffer32.fromString(log.args.attestationsHash) : undefined,
+          payloadDigest: log.args.payloadDigest ? Buffer32.fromString(log.args.payloadDigest) : undefined,
+        },
+      }));
   }
 }

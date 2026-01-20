@@ -7,6 +7,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import { validatorHASignerConfigMappings } from '@aztec/validator-ha-signer/config';
 
 export type { ValidatorClientConfig };
 
@@ -53,16 +54,10 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
   },
-  validatorReexecuteDeadlineMs: {
-    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
-    description: 'Will re-execute until this many milliseconds are left in the slot',
-    ...numberConfigHelper(6000),
-  },
   alwaysReexecuteBlockProposals: {
-    env: 'ALWAYS_REEXECUTE_BLOCK_PROPOSALS',
     description:
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
-    ...booleanConfigHelper(false),
+    defaultValue: true,
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
@@ -80,6 +75,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Skip pushing re-executed blocks to archiver (default: true)',
     defaultValue: true,
   },
+  ...validatorHASignerConfigMappings,
 };
 
 /**

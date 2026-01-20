@@ -21,12 +21,12 @@ DataCopyEvent create_cd_event(ContextInterface& context,
                               uint32_t copy_size,
                               uint32_t offset,
                               MemoryAddress dst_addr,
-                              const std::vector<MemoryValue>& calldata = {})
+                              std::vector<MemoryValue> calldata = {})
 {
     return DataCopyEvent{
         .execution_clk = clk,
         .operation = DataCopyOperation::CD_COPY,
-        .copying_data = calldata,
+        .copying_data = std::move(calldata),
         .write_context_id = context.get_context_id(),
         .read_context_id = context.get_parent_id(),
         .data_copy_size = copy_size,
@@ -47,12 +47,12 @@ DataCopyEvent create_rd_event(ContextInterface& context,
                               uint32_t copy_size,
                               uint32_t offset,
                               MemoryAddress dst_addr,
-                              const std::vector<MemoryValue>& returndata = {})
+                              std::vector<MemoryValue> returndata = {})
 {
     return DataCopyEvent{
         .execution_clk = clk,
         .operation = DataCopyOperation::RD_COPY,
-        .copying_data = returndata,
+        .copying_data = std::move(returndata),
         .write_context_id = context.get_context_id(),
         // This handles the case where there is no last child (i.e. new enqueued call)
         .read_context_id = context.get_last_child_id(),
@@ -128,11 +128,13 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     }
 
     // If we get to this point, we know we will be error free
-    std::vector<MemoryValue> padded_calldata(copy_size, MemoryValue::from<FF>(0)); // Initialize with zeros
+    std::vector<MemoryValue> padded_calldata;
     // Calldata is retrieved from [offset, data_index_upper_bound)
     // If data_index_upper_bound > offset, we read the data.
     if (gt.gt(data_index_upper_bound, static_cast<uint64_t>(offset))) {
         padded_calldata = context.get_calldata(offset, copy_size);
+    } else {
+        padded_calldata.resize(copy_size, MemoryValue::from<FF>(0)); // Initialize with zeros
     }
 
     // We do not enforce any tag check and upcast to FF transparently.
@@ -141,7 +143,7 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     }
 
     // We need to pass the original tags of the calldata to the circuit.
-    events.emit(create_cd_event(context, clk, copy_size, offset, dst_addr, padded_calldata));
+    events.emit(create_cd_event(context, clk, copy_size, offset, dst_addr, std::move(padded_calldata)));
 }
 
 /**
@@ -184,9 +186,11 @@ void DataCopy::rd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     // so we need to be explicit about it.
     // Returndata is retrieved from [offset, data_index_upper_bound), if data_index_upper_bound > offset, we will read
     // the data.
-    std::vector<MemoryValue> padded_returndata(copy_size, MemoryValue::from<FF>(0)); // Initialize with zeros
+    std::vector<MemoryValue> padded_returndata;
     if (gt.gt(data_index_upper_bound, static_cast<uint64_t>(offset))) {
         padded_returndata = context.get_returndata(offset, copy_size);
+    } else {
+        padded_returndata.resize(copy_size, MemoryValue::from<FF>(0)); // Initialize with zeros
     }
 
     // We do not enforce any tag check and upcast to FF transparently.
@@ -195,7 +199,7 @@ void DataCopy::rd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     }
 
     // We need to pass the original tags of the returndata to the circuit.
-    events.emit(create_rd_event(context, clk, copy_size, offset, dst_addr, padded_returndata));
+    events.emit(create_rd_event(context, clk, copy_size, offset, dst_addr, std::move(padded_returndata)));
 }
 
 } // namespace bb::avm2::simulation

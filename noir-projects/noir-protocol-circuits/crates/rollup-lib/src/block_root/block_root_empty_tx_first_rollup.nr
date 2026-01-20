@@ -47,14 +47,10 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
 pub fn execute(inputs: BlockRootEmptyTxFirstRollupPrivateInputs) -> BlockRollupPublicInputs {
     validate_parity_root(inputs.parity_root, inputs.constants.vk_tree_root);
 
-    // Since it's the first block in a checkpoint, the start sponge blob is empty.
-    let start_sponge_blob = SpongeBlob::init();
-
     BlockRollupPublicInputsComposer::new_from_no_rollups(
         inputs.previous_archive,
         inputs.previous_state,
         inputs.constants,
-        start_sponge_blob,
         inputs.timestamp,
     )
         .with_new_l1_to_l2_messages(

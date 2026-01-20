@@ -16,6 +16,10 @@ set -euo pipefail
 #   pr_number - (Optional) PR number. If not provided, will attempt auto-detection
 #   docs_dir  - (Optional) Documentation directory. Default: docs
 #
+# Reference Format:
+#   - Individual files: "yarn-project/stdlib/src/interfaces/aztec-node.ts"
+#   - Directories (all files within): "noir-projects/aztec-nr/aztec/src/context/*"
+#
 # Environment:
 #   GITHUB_REF - May contain PR number in format refs/pull/123/merge
 #   GITHUB_BASE_REF - Base branch name (set by GitHub Actions)
@@ -153,19 +157,22 @@ find "$DOCS_DIR/docs" -type f -name "*.md" -print0 | while IFS= read -r -d '' do
     }
   ' "$doc_file"
 done > "$MAPPING_FILE"
-# Validate all referenced files exist
-echo "Validating referenced files exist..."
-MISSING_FILES=""
-while IFS='|' read -r ref_file doc_file; do
-  if [[ ! -f "$ref_file" ]]; then
-    MISSING_FILES="${MISSING_FILES}  - ${ref_file} (referenced in ${doc_file})\n"
+# Validate all referenced paths exist (can be files or directories)
+# Directory references use /* suffix (e.g., "src/context/*" means all files in that directory)
+echo "Validating referenced paths exist..."
+MISSING_PATHS=""
+while IFS='|' read -r ref_path doc_file; do
+  # Strip /* suffix for directory references before checking existence
+  check_path="${ref_path%/\*}"
+  if [[ ! -e "$check_path" ]]; then
+    MISSING_PATHS="${MISSING_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
   fi
 done < "$MAPPING_FILE"
 
-if [[ -n "$MISSING_FILES" ]]; then
+if [[ -n "$MISSING_PATHS" ]]; then
   echo ""
-  echo "ERROR: The following referenced files do not exist:"
-  echo -e "$MISSING_FILES"
+  echo "ERROR: The following referenced paths do not exist:"
+  echo -e "$MISSING_PATHS"
   echo "Please update the 'references' frontmatter in the affected documentation files."
   exit 1
 fi
@@ -225,11 +232,14 @@ echo "Found $(echo "$CHANGED_FILES" | wc -l) changed file(s) in PR."
 
 # Check if any referenced files were changed and build mapping
 # Reference paths are absolute from repo root, so we can compare directly
+# Directory references use /* suffix - strip it for matching (e.g., "src/context/*" matches "src/context/file.nr")
 CHANGED_REFERENCES=""
 declare -A FILE_TO_DOCS_MAP
 
 while IFS= read -r ref_file; do
-  if echo "$CHANGED_FILES" | grep -qF "$ref_file"; then
+  # Strip /* suffix for directory references before matching
+  match_pattern="${ref_file%/\*}"
+  if echo "$CHANGED_FILES" | grep -qF "$match_pattern"; then
     CHANGED_REFERENCES="${CHANGED_REFERENCES}${ref_file}\n"
 
     # Find all docs that reference this changed file

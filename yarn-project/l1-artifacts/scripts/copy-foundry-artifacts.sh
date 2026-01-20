@@ -19,6 +19,9 @@ mkdir -p "l1-contracts/script" "l1-contracts/lib" "l1-contracts/broadcast"
 # Copy build artifacts, cache, sources, and config (preserving timestamps for cache validity)
 cp -rp "$src"/{out,cache,src,generated} "l1-contracts/"
 cp -rp "$src/script/deploy" "l1-contracts/script/"  # only deploy/, other scripts depend on test files
+# Kludge: copy one test file to appease forge cache which references test/shouting.t.sol
+mkdir -p "l1-contracts/test"
+cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/{foundry.toml,foundry.lock,solc-*} "l1-contracts/"
 abs_dest=$(pwd)/l1-contracts
 # Keep only the foundry relevant files from lib

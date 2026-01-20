@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix_mem.hpp"
+#include "barretenberg/vm2/generated/relations/perms_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
@@ -20,6 +21,7 @@
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -32,6 +34,7 @@ using ::testing::StrictMock;
 
 using tracegen::ExecutionTraceBuilder;
 using tracegen::GreaterThanTraceBuilder;
+using tracegen::MemoryTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using tracegen::ToRadixTraceBuilder;
@@ -1004,6 +1007,107 @@ TEST(ToRadixMemoryConstrainingTest, ComplexTest)
                       lookup_to_radix_mem_check_radix_lt_2_settings,
                       lookup_to_radix_mem_check_radix_gt_256_settings,
                       lookup_to_radix_mem_input_output_to_radix_settings>(trace);
+}
+
+// =====================================================================
+// Ghost Row Injection Vulnerability Tests
+// =====================================================================
+// These tests verify that ghost rows (sel=0) cannot fire permutations.
+// The fix: sel_should_write_mem * (1 - sel) = 0 ensures sel_should_write_mem
+// is forced to 0 when sel=0, preventing ghost rows from firing permutations.
+
+// Test that ghost rows (sel=0) cannot set sel_should_write_mem=1
+TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowMemoryWrite_RelationsOnly)
+{
+    // Try to create a ghost row (sel=0) with sel_should_write_mem=1
+    // which would fire the #[WRITE_MEM] permutation
+    TestTraceContainer trace({
+        {
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            { C::to_radix_mem_sel, 0 },                  // Ghost row: gadget not active
+            { C::to_radix_mem_sel_should_write_mem, 1 }, // Try to fire memory write anyway
+            { C::to_radix_mem_execution_clk, 1 },
+            { C::to_radix_mem_space_id, 1 },
+            { C::to_radix_mem_dst_addr, 100 },
+            { C::to_radix_mem_limb_value, 999 }, // Arbitrary limb value
+            { C::to_radix_mem_output_tag, 2 },   // U8 tag
+        },
+    });
+
+    // The fix: sel_should_write_mem * (1 - sel) = 0
+    // When sel=0 and sel_should_write_mem=1: 1 * (1-0) = 1 != 0 -> FAILS
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL),
+                              "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+}
+
+// Test that the fix blocks ghost row injection attacks with full traces.
+// Attack pattern:
+// 1. Create legitimate memory WRITE events (destination side)
+// 2. Build memory trace from those events
+// 3. Inject ghost to_radix_mem row with sel=0 but sel_should_write_mem=1
+// 4. The fix should cause the relation check to fail
+TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
+{
+    TestTraceContainer trace;
+    MemoryTraceBuilder memory_trace_builder;
+    PrecomputedTraceBuilder precomputed_trace_builder;
+
+    // Attacker-controlled values
+    uint32_t malicious_clk = 42;
+    uint16_t malicious_space_id = 1;
+    MemoryAddress malicious_addr = 0xDEAD;
+    uint8_t malicious_limb_value = 0x99;
+    MemoryTag malicious_tag = MemoryTag::U8;
+
+    // Create legitimate memory events
+    std::vector<simulation::MemoryEvent> mem_events = {
+        {
+            .execution_clk = malicious_clk,
+            .mode = simulation::MemoryMode::WRITE,
+            .addr = malicious_addr,
+            .value = MemoryValue::from_tag(malicious_tag, malicious_limb_value),
+            .space_id = malicious_space_id,
+        },
+    };
+
+    // Build memory trace (destination side)
+    precomputed_trace_builder.process_sel_range_8(trace);
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+    precomputed_trace_builder.process_tag_parameters(trace);
+    memory_trace_builder.process(mem_events, trace);
+
+    // Find where the memory row was placed
+    uint32_t memory_row = 0;
+    for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
+        if (trace.get(C::memory_sel, row) == 1) {
+            memory_row = row;
+            break;
+        }
+    }
+
+    // Inject ghost to_radix_mem row
+    // Ghost row: sel = 0, but sel_should_write_mem = 1 (attack attempt)
+    uint32_t ghost_row = 0;
+    trace.set(ghost_row,
+              std::vector<std::pair<Column, FF>>{
+                  { C::precomputed_first_row, 1 },
+                  { C::precomputed_clk, ghost_row },
+                  { C::to_radix_mem_sel, 0 },
+                  { C::to_radix_mem_sel_should_write_mem, 1 },
+                  { C::to_radix_mem_execution_clk, malicious_clk },
+                  { C::to_radix_mem_space_id, malicious_space_id },
+                  { C::to_radix_mem_dst_addr, malicious_addr },
+                  { C::to_radix_mem_limb_value, malicious_limb_value },
+                  { C::to_radix_mem_output_tag, static_cast<uint8_t>(malicious_tag) },
+              });
+
+    trace.set(C::memory_sel_to_radix_write, memory_row, 1);
+
+    // The fix: sel_should_write_mem * (1 - sel) = 0 should cause the relation check to fail
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
 }
 
 } // namespace

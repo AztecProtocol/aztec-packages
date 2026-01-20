@@ -3,6 +3,7 @@ title: Attributes and Macros
 sidebar_position: 6
 tags: [functions]
 description: Reference for Aztec contract attributes that control function visibility, execution context, storage, and notes.
+references: ["noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr"]
 ---
 
 This page documents the attributes (macros) available in Aztec.nr for defining contract functions, storage, and notes.

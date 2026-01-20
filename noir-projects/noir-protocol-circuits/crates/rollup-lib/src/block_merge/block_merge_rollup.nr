@@ -14,6 +14,7 @@ use dep::types::{
     proof::proof_data::RollupHonkProofData,
 };
 
+// Note: see `rollup_structure_tests.nr` for valid combinations of left and right vks.
 global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 3] =
     [BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, BLOCK_MERGE_ROLLUP_VK_INDEX];
 

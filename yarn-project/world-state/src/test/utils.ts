@@ -5,7 +5,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber, type CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { L2BlockNew } from '@aztec/stdlib/block';
@@ -77,7 +77,7 @@ export async function mockBlock(
   isFirstBlockInCheckpoint: boolean = true,
 ) {
   const block = await L2BlockNew.random(blockNum, {
-    indexWithinCheckpoint: isFirstBlockInCheckpoint ? 0 : 1,
+    indexWithinCheckpoint: isFirstBlockInCheckpoint ? IndexWithinCheckpoint(0) : IndexWithinCheckpoint(1),
     txsPerBlock: size,
     txOptions: { maxEffects },
   });

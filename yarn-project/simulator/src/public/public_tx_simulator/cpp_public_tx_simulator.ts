@@ -100,7 +100,8 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       contractProvider,
       wsCppHandle,
       logLevel,
-      this.log,
+      // TODO: re-enable logging
+      undefined,
       this.cancellationToken,
     );
 

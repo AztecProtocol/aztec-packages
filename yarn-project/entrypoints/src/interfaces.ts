@@ -33,14 +33,29 @@ export interface EntrypointInterface {
    * Generates an execution request out of set of function calls.
    * @param exec - The execution intents to be run.
    * @param gasSettings - The gas settings for the transaction.
+   * @param chainInfo - Chain information (chainId and version) for replay protection.
    * @param options - Miscellaneous tx options that enable/disable features of the entrypoint
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(
     exec: ExecutionPayload,
     gasSettings: GasSettings,
+    chainInfo: ChainInfo,
     options?: any,
   ): Promise<TxExecutionRequest>;
+
+  /**
+   * Wraps an execution payload such that it is executed *via* this entrypoint.
+   * This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload.
+   * Useful for account self-funding deployments and batching calls beyond the limit
+   * of a single entrypoint call.
+   *
+   * @param exec - The execution payload to wrap
+   * @param options - Implementation-specific options
+   * @returns A new execution payload with a single call to this entrypoint
+   * @throws Error if the payload cannot be wrapped (e.g., exceeds call limit)
+   */
+  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload>;
 }
 
 /** Creates authorization witnesses. */

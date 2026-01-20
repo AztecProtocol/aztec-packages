@@ -103,6 +103,19 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
         const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 
+    /**
+     * @brief Multi-scalar multiplication: compute sum_i(scalars[i] * points[i])
+     * @details Delegates to affine_element::batch_mul. Provided for interface compatibility with stdlib.
+     */
+    static affine_element<Fq, Fr, Params> batch_mul(std::span<const affine_element<Fq, Fr, Params>> points,
+                                                    std::span<const Fr> scalars,
+                                                    size_t max_num_bits = 0,
+                                                    bool with_edgecases = true,
+                                                    const Fr& masking_scalar = Fr(1)) noexcept
+    {
+        return affine_element<Fq, Fr, Params>::batch_mul(points, scalars, max_num_bits, with_edgecases, masking_scalar);
+    }
+
     Fq x;
     Fq y;
     Fq z;

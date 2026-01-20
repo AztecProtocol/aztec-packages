@@ -242,35 +242,22 @@ impl PrivateContext {
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
-    /// Important Note: Since Aztec doesn't have a concept of an EoA (
-    /// Externally-owned Account), the msg_sender is "null" for the first
-    /// function call of every transaction.
-    /// The first function call of a tx is likely to be a call to the user's
-    /// account contract, so this quirk will most often be handled by account
-    /// contract developers.
+    /// Important Note: Since Aztec doesn't have a concept of an EoA (Externally-owned Account), the msg_sender is
+    /// "none" for the first function call of every transaction. The first function call of a tx is likely to be a call
+    /// to the user's account contract, so this quirk will most often be handled by account contract developers.
     ///
     /// # Returns
-    /// * `Option<AztecAddress>` - The address of the smart contract that called
-    ///   this function (be it an app contract or a user's account contract).
-    ///   Returns `Option<AztecAddress>::none` for the first function call of
-    ///   the tx. No other _private_ function calls in the tx will have a `none`
-    ///   msg_sender, but _public_ function calls might (see the PublicContext).
-    ///
-    pub fn msg_sender(self) -> Option<AztecAddress> {
+    /// * `Option<AztecAddress>` - The address of the smart contract that called this function (be it an app contract
+    ///   or a user's account contract). Returns `Option<AztecAddress>::none` for the first function call of the tx. No
+    ///   other _private_ function calls in the tx will have a `none` msg_sender, but _public_ function calls might
+    ///   (see the PublicContext).
+    pub fn maybe_msg_sender(self) -> Option<AztecAddress> {
         let maybe_msg_sender = self.inputs.call_context.msg_sender;
         if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
             Option::none()
         } else {
             Option::some(maybe_msg_sender)
         }
-    }
-
-    /// "Unsafe" versus calling `context.msg_sender()`, because it doesn't
-    /// translate `NULL_MSG_SENDER_CONTRACT_ADDRESS` as
-    /// `Option<AztecAddress>::none`.
-    /// Used by some internal aztecnr functions.
-    pub fn msg_sender_unsafe(self) -> AztecAddress {
-        self.inputs.call_context.msg_sender
     }
 
     /// Returns the contract address of the current function being executed.

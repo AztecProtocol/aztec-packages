@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js/authorization';
+import { computeInnerAuthWitHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
@@ -17,23 +17,17 @@ describe('e2e_authwit_tests', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: TestWallet;
-
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
 
-  let chainId: Fr;
-  let version: Fr;
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {
-    const { wallet: defaultWallet, accounts, aztecNode } = await setup(2);
-    [account1Address, account2Address] = accounts;
-    wallet = defaultWallet as TestWallet;
-    await ensureAccountContractsPublished(wallet, accounts.slice(0, 2));
-
-    const nodeInfo = await aztecNode.getNodeInfo();
-    chainId = new Fr(nodeInfo.l1ChainId);
-    version = new Fr(nodeInfo.rollupVersion);
+    ({
+      wallet,
+      accounts: [account1Address, account2Address],
+    } = await setup(2));
+    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
     auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }).deployed();
   });
@@ -83,55 +77,6 @@ describe('e2e_authwit_tests', () => {
             .send({ from: account2Address, authWitnesses: [witness] })
             .wait(),
         ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-      });
-      describe('failure case', () => {
-        it('invalid chain id', async () => {
-          const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0xbeef')]);
-          const intent = { consumer: auth.address, innerHash };
-
-          const messageHash = await computeAuthWitMessageHash(intent, { chainId: Fr.random(), version });
-          const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
-
-          const witness = await wallet.createAuthWit(account1Address, messageHash);
-
-          // We should NOT see it as valid, even though we have the authwit, since the chain id is wrong
-          expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-
-          // The transaction should be dropped because of the invalid chain id
-          await expect(
-            auth.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
-          ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-        });
-
-        it('invalid version', async () => {
-          const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0xbeef')]);
-          const intent = { consumer: auth.address, innerHash };
-
-          const messageHash = await computeAuthWitMessageHash(intent, { chainId, version: Fr.random() });
-
-          const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
-
-          const witness = await wallet.createAuthWit(account1Address, messageHash);
-
-          // We should NOT see it as valid, even though we have the authwit, since the version is wrong
-          expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-
-          // The transaction should be dropped because of the invalid version
-          await expect(
-            auth.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
-          ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-
-          expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-        });
       });
     });
   });

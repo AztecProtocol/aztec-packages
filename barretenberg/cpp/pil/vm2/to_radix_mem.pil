@@ -91,21 +91,20 @@ namespace to_radix_mem;
     // on the next row.
     #[START_AFTER_LAST]
     sel' * (start' - LATCH_CONDITION) = 0;
-    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
 
     // Continuity checks
-    #[SEL_CONTINUITY]
+    #[TRACE_CONTINUITY]
     (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
     #[EXEC_CLK_CONTINUITY]
-    NOT_LAST * (execution_clk' - execution_clk) = 0;
+    (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
     #[SPACE_ID_CONTINUITY]
-    NOT_LAST * (space_id' - space_id) = 0;
+    (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
     #[VALUE_CONTINUITY]
-    NOT_LAST * (value_to_decompose' - value_to_decompose) = 0;
+    (1 - LATCH_CONDITION) * (value_to_decompose' - value_to_decompose) = 0;
     #[RADIX_CONTINUITY]
-    NOT_LAST * (radix' - radix) = 0;
+    (1 - LATCH_CONDITION) * (radix' - radix) = 0;
     #[IS_OUTPUT_BITS_CONTINUITY]
-    NOT_LAST * (is_output_bits' - is_output_bits) = 0;
+    (1 - LATCH_CONDITION) * (is_output_bits' - is_output_bits) = 0;
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
@@ -196,9 +195,9 @@ namespace to_radix_mem;
     // We can't inline input_validation_error because of the degree.
     start * ((1 - input_validation_error) * (1 - sel_num_limbs_is_zero) - sel_should_decompose) = 0;
 
-    // On following rows, we propagate input_validation_error.
+    // On the following rows, we propagate sel_should_decompose.
     #[SEL_SHOULD_DECOMPOSE_CONTINUITY]
-    NOT_LAST * (sel_should_decompose' - sel_should_decompose) = 0;
+    (1 - LATCH_CONDITION) * (sel_should_decompose' - sel_should_decompose) = 0;
 
     pol commit limb_index_to_lookup; // Need this since we want Big-Endian but the gadget is Little-Endian
     limb_index_to_lookup = sel_should_decompose * (num_limbs - 1);
@@ -228,6 +227,7 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     // Control flow management and terminating trace
     /////////////////////////////////////////////////////
+    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
     // As we process the results from to_radix, we decrement the num of limbs
     // and increment the dst address.
     #[DECR_NUM_LIMBS]
@@ -242,7 +242,7 @@ namespace to_radix_mem;
     // Note: These conditions are not mutually exclusive.
 
     #[LAST_ROW_ERR_COMPUTATION] // last == 1 if err == 1 (can only occur on the start row)
-    start * err * (last - 1) = 0;
+    err * (last - 1) = 0;
     // The implication of the above condition is that LATCH_CONDITION = 1 if there is an error
 
     #[LAST_ROW_NUM_LIMBS_ZERO] // last == 1 if num_limbs == 0 (can only occur on the start row)
@@ -250,7 +250,8 @@ namespace to_radix_mem;
 
     // Introduce a selector covering all active rows except the start row with an error or the start row
     // with num_limbs == 0.
-    pol NO_ERR_NOR_NUM_LIMBS_ZERO = start * (1 - err) * (1 - sel_num_limbs_is_zero) + (1 - start) * sel; // Error can only occur on the start row.
+    // start * (1 - err) = start - start * err = start - err (because err is defined with a factor `start`)
+    pol NO_ERR_NOR_NUM_LIMBS_ZERO = (start - err) * (1 - sel_num_limbs_is_zero) + (1 - start) * sel; // Error can only occur on the start row.
     pol NUM_LIMBS_MINUS_ONE = num_limbs - 1;
     pol commit num_limbs_minus_one_inv;
 
@@ -266,7 +267,10 @@ namespace to_radix_mem;
     start * ((1 - err) * (1 - sel_num_limbs_is_zero) - sel_should_write_mem) = 0;
     // On following rows, we propagate sel_should_write_mem.
     #[SEL_SHOULD_WRITE_MEM_CONTINUITY]
-    NOT_LAST * (sel_should_write_mem' - sel_should_write_mem) = 0;
+    (1 - LATCH_CONDITION) * (sel_should_write_mem' - sel_should_write_mem) = 0;
+    // Force sel_should_write_mem to 0 when sel is 0 (prevents ghost row injection attacks)
+    #[SEL_SHOULD_WRITE_MEM_REQUIRES_SEL]
+    sel_should_write_mem * (1 - sel) = 0;
 
     pol commit output_tag;
     // Conditional Assignment: is_output_bits ? U1 : U8

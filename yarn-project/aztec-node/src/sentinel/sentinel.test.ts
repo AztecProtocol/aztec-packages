@@ -576,6 +576,7 @@ describe('sentinel', () => {
         committee: [validator1, validator2, validator3],
         seed: 0n,
         epoch: epochNumber,
+        isEscapeHatchOpen: false,
       });
 
       const statsResult: ValidatorsStats = {

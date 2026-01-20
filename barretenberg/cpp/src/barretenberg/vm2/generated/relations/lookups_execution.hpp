@@ -90,20 +90,32 @@ struct lookup_execution_instruction_fetching_body_settings_ {
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_body_counts;
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_body_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_pc,        ColumnAndShifts::execution_bytecode_id,
-        ColumnAndShifts::execution_ex_opcode, ColumnAndShifts::execution_instr_length,
-        ColumnAndShifts::execution_indirect,  ColumnAndShifts::execution_op_0_,
-        ColumnAndShifts::execution_op_1_,     ColumnAndShifts::execution_op_2_,
-        ColumnAndShifts::execution_op_3_,     ColumnAndShifts::execution_op_4_,
-        ColumnAndShifts::execution_op_5_,     ColumnAndShifts::execution_op_6_
+        ColumnAndShifts::execution_pc,
+        ColumnAndShifts::execution_bytecode_id,
+        ColumnAndShifts::execution_ex_opcode,
+        ColumnAndShifts::execution_instr_length,
+        ColumnAndShifts::execution_addressing_mode,
+        ColumnAndShifts::execution_op_0_,
+        ColumnAndShifts::execution_op_1_,
+        ColumnAndShifts::execution_op_2_,
+        ColumnAndShifts::execution_op_3_,
+        ColumnAndShifts::execution_op_4_,
+        ColumnAndShifts::execution_op_5_,
+        ColumnAndShifts::execution_op_6_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc,          ColumnAndShifts::instr_fetching_bytecode_id,
-        ColumnAndShifts::instr_fetching_exec_opcode, ColumnAndShifts::instr_fetching_instr_size,
-        ColumnAndShifts::instr_fetching_indirect,    ColumnAndShifts::instr_fetching_op1,
-        ColumnAndShifts::instr_fetching_op2,         ColumnAndShifts::instr_fetching_op3,
-        ColumnAndShifts::instr_fetching_op4,         ColumnAndShifts::instr_fetching_op5,
-        ColumnAndShifts::instr_fetching_op6,         ColumnAndShifts::instr_fetching_op7
+        ColumnAndShifts::instr_fetching_pc,
+        ColumnAndShifts::instr_fetching_bytecode_id,
+        ColumnAndShifts::instr_fetching_exec_opcode,
+        ColumnAndShifts::instr_fetching_instr_size,
+        ColumnAndShifts::instr_fetching_addressing_mode,
+        ColumnAndShifts::instr_fetching_op1,
+        ColumnAndShifts::instr_fetching_op2,
+        ColumnAndShifts::instr_fetching_op3,
+        ColumnAndShifts::instr_fetching_op4,
+        ColumnAndShifts::instr_fetching_op5,
+        ColumnAndShifts::instr_fetching_op6,
+        ColumnAndShifts::instr_fetching_op7
     };
 };
 

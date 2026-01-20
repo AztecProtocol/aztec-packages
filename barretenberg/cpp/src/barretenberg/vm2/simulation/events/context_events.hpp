@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -13,7 +12,7 @@ struct ContextEvent {
     uint32_t last_child_id = 0;
 
     // State
-    uint32_t pc = 0;
+    PC pc = 0;
     AztecAddress msg_sender = 0;
     AztecAddress contract_addr = 0;
     BytecodeId bytecode_id = 0;
@@ -60,7 +59,7 @@ struct ContextStackEvent {
     uint32_t entered_context_id = 0;
 
     // State
-    uint32_t next_pc = 0;
+    PC next_pc = 0;
     AztecAddress msg_sender = 0;
     AztecAddress contract_addr = 0;
     BytecodeId bytecode_id = 0;

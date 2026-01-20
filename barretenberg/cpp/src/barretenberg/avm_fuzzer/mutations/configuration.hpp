@@ -18,7 +18,9 @@ constexpr VecMutationConfig BASIC_VEC_MUTATION_CONFIGURATION = VecMutationConfig
 });
 
 // Generic uint mutation options (used by all uint types)
-enum class UintMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue };
+// BoundarySelection picks from a curated set of edge-case values (0, 1, max, midpoint, etc.)
+// to dramatically improve coverage of boundary conditions in arithmetic operations
+enum class UintMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue, BoundarySelection };
 
 // Type aliases for backward compatibility
 using Uint8MutationOptions = UintMutationOptions;
@@ -38,6 +40,7 @@ constexpr Uint8MutationConfig BASIC_UINT8_T_MUTATION_CONFIGURATION = Uint8Mutati
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint16MutationConfig BASIC_UINT16_T_MUTATION_CONFIGURATION = Uint16MutationConfig({
@@ -45,6 +48,7 @@ constexpr Uint16MutationConfig BASIC_UINT16_T_MUTATION_CONFIGURATION = Uint16Mut
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint32MutationConfig BASIC_UINT32_T_MUTATION_CONFIGURATION = Uint32MutationConfig({
@@ -52,6 +56,7 @@ constexpr Uint32MutationConfig BASIC_UINT32_T_MUTATION_CONFIGURATION = Uint32Mut
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint64MutationConfig BASIC_UINT64_T_MUTATION_CONFIGURATION = Uint64MutationConfig({
@@ -59,6 +64,7 @@ constexpr Uint64MutationConfig BASIC_UINT64_T_MUTATION_CONFIGURATION = Uint64Mut
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
 constexpr Uint128MutationConfig BASIC_UINT128_T_MUTATION_CONFIGURATION = Uint128MutationConfig({
@@ -66,9 +72,12 @@ constexpr Uint128MutationConfig BASIC_UINT128_T_MUTATION_CONFIGURATION = Uint128
     { UintMutationOptions::IncrementBy1, 22 },
     { UintMutationOptions::DecrementBy1, 20 },
     { UintMutationOptions::AddRandomValue, 10 },
+    { UintMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, max, midpoint, etc.)
 });
 
-enum class FieldMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue };
+// BoundarySelection picks from a curated set of edge-case values (0, 1, p-1, limb boundaries, etc.)
+// to dramatically improve coverage of boundary conditions in field arithmetic
+enum class FieldMutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue, BoundarySelection };
 
 using FieldMutationConfig = WeightedSelectionConfig<FieldMutationOptions, 5>;
 
@@ -77,6 +86,7 @@ constexpr FieldMutationConfig BASIC_FIELD_MUTATION_CONFIGURATION = FieldMutation
     { FieldMutationOptions::IncrementBy1, 22 },
     { FieldMutationOptions::DecrementBy1, 20 },
     { FieldMutationOptions::AddRandomValue, 10 },
+    { FieldMutationOptions::BoundarySelection, 25 }, // ~30% - picks boundary values (0, 1, p-1, limb boundaries)
 });
 
 enum class MemoryTagOptions { U1, U8, U16, U32, U64, U128, FF };
@@ -105,22 +115,20 @@ constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = Memo
     { MemoryTagOptions::FF, 1 },
 });
 
-enum class VariableRefMutationOptions { tag, index, pointer_address, base_offset, mode };
-using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 5>;
+enum class VariableRefMutationOptions { tag, index, pointer_address, mode };
+using VariableRefMutationConfig = WeightedSelectionConfig<VariableRefMutationOptions, 4>;
 constexpr VariableRefMutationConfig BASIC_VARIABLE_REF_MUTATION_CONFIGURATION = VariableRefMutationConfig({
     { VariableRefMutationOptions::tag, 3 },
     { VariableRefMutationOptions::index, 4 },
     { VariableRefMutationOptions::pointer_address, 1 },
-    { VariableRefMutationOptions::base_offset, 1 },
     { VariableRefMutationOptions::mode, 2 },
 });
 
-enum class AddressRefMutationOptions { address, pointer_address, base_offset, mode };
-using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 5>;
+enum class AddressRefMutationOptions { address, pointer_address, mode };
+using AddressRefMutationConfig = WeightedSelectionConfig<AddressRefMutationOptions, 3>;
 constexpr AddressRefMutationConfig BASIC_ADDRESS_REF_MUTATION_CONFIGURATION = AddressRefMutationConfig({
     { AddressRefMutationOptions::address, 1 },
     { AddressRefMutationOptions::pointer_address, 1 },
-    { AddressRefMutationOptions::base_offset, 1 },
     { AddressRefMutationOptions::mode, 1 },
 });
 
@@ -267,7 +275,8 @@ enum class InstructionGenerationOptions {
     SENDL2TOL1MSG,
     EMITUNENCRYPTEDLOG,
     CALL,
-    RETURNDATASIZE_WITH_RETURNDATACOPY,
+    RETURNDATASIZE,
+    RETURNDATACOPY,
     GETCONTRACTINSTANCE,
     SUCCESSCOPY,
     ECADD,
@@ -275,9 +284,10 @@ enum class InstructionGenerationOptions {
     KECCAKF1600,
     SHA256COMPRESSION,
     TORADIXBE,
+    DEBUGLOG,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 58>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 60>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
     { InstructionGenerationOptions::ADD_8, 1 },
@@ -330,7 +340,8 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SENDL2TOL1MSG, 1 },
     { InstructionGenerationOptions::EMITUNENCRYPTEDLOG, 1 },
     { InstructionGenerationOptions::CALL, 1 },
-    { InstructionGenerationOptions::RETURNDATASIZE_WITH_RETURNDATACOPY, 1 },
+    { InstructionGenerationOptions::RETURNDATASIZE, 1 },
+    { InstructionGenerationOptions::RETURNDATACOPY, 1 },
     { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
     { InstructionGenerationOptions::SUCCESSCOPY, 1 },
     { InstructionGenerationOptions::ECADD, 1 },
@@ -338,6 +349,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::KECCAKF1600, 1 },
     { InstructionGenerationOptions::SHA256COMPRESSION, 1 },
     { InstructionGenerationOptions::TORADIXBE, 1 },
+    { InstructionGenerationOptions::DEBUGLOG, 1 },
 });
 
 enum class SStoreMutationOptions { src_address, result_address, slot };
@@ -392,25 +404,26 @@ constexpr EmitNoteHashMutationConfig BASIC_EMITNOTEHASH_MUTATION_CONFIGURATION =
     { EmitNoteHashMutationOptions::note_hash, 1 },
 });
 
-enum class NoteHashExistsMutationOptions { notehash_index, notehash_address, leaf_index_address, result_address };
-using NoteHashExistsMutationConfig = WeightedSelectionConfig<NoteHashExistsMutationOptions, 4>;
+enum class NoteHashExistsMutationOptions { notehash_address, leaf_index_address, result_address };
+using NoteHashExistsMutationConfig = WeightedSelectionConfig<NoteHashExistsMutationOptions, 3>;
 
 constexpr NoteHashExistsMutationConfig BASIC_NOTEHASHEXISTS_MUTATION_CONFIGURATION = NoteHashExistsMutationConfig({
-    { NoteHashExistsMutationOptions::notehash_index, 1 },
     { NoteHashExistsMutationOptions::notehash_address, 1 },
     { NoteHashExistsMutationOptions::leaf_index_address, 1 },
     { NoteHashExistsMutationOptions::result_address, 1 },
 });
 
-enum class CalldataCopyMutationOptions { dst_address, copy_size, copy_size_address, cd_start, cd_start_address };
-using CalldataCopyMutationConfig = WeightedSelectionConfig<CalldataCopyMutationOptions, 5>;
+enum class CalldataCopyMutationOptions {
+    copy_size_address,
+    cd_offset_address,
+    dst_address,
+};
+using CalldataCopyMutationConfig = WeightedSelectionConfig<CalldataCopyMutationOptions, 3>;
 
 constexpr CalldataCopyMutationConfig BASIC_CALLDATACOPY_MUTATION_CONFIGURATION = CalldataCopyMutationConfig({
-    { CalldataCopyMutationOptions::dst_address, 1 },
-    { CalldataCopyMutationOptions::copy_size, 1 },
     { CalldataCopyMutationOptions::copy_size_address, 1 },
-    { CalldataCopyMutationOptions::cd_start, 1 },
-    { CalldataCopyMutationOptions::cd_start_address, 1 },
+    { CalldataCopyMutationOptions::cd_offset_address, 1 },
+    { CalldataCopyMutationOptions::dst_address, 1 },
 });
 
 enum class SendL2ToL1MsgMutationOptions { recipient, recipient_address, content, content_address };
@@ -453,16 +466,14 @@ constexpr CallMutationConfig BASIC_CALL_MUTATION_CONFIGURATION = CallMutationCon
     { CallMutationOptions::is_static_call, 1 },
 });
 
-enum class ReturndatasizeWithReturndatacopyMutationOptions { copy_size_offset, dst_address, rd_start_offset };
-using ReturndatasizeWithReturndatacopyMutationConfig =
-    WeightedSelectionConfig<ReturndatasizeWithReturndatacopyMutationOptions, 3>;
+enum class ReturndataCopyMutationOptions { copy_size_address, rd_offset_address, dst_address };
+using ReturndataCopyMutationConfig = WeightedSelectionConfig<ReturndataCopyMutationOptions, 3>;
 
-constexpr ReturndatasizeWithReturndatacopyMutationConfig
-    BASIC_RETURNDATASIZE_WITH_RETURNDATACOPY_MUTATION_CONFIGURATION = ReturndatasizeWithReturndatacopyMutationConfig({
-        { ReturndatasizeWithReturndatacopyMutationOptions::copy_size_offset, 1 },
-        { ReturndatasizeWithReturndatacopyMutationOptions::dst_address, 1 },
-        { ReturndatasizeWithReturndatacopyMutationOptions::rd_start_offset, 1 },
-    });
+constexpr ReturndataCopyMutationConfig BASIC_RETURNDATACOPY_MUTATION_CONFIGURATION = ReturndataCopyMutationConfig({
+    { ReturndataCopyMutationOptions::copy_size_address, 1 },
+    { ReturndataCopyMutationOptions::rd_offset_address, 1 },
+    { ReturndataCopyMutationOptions::dst_address, 1 },
+});
 
 enum class GetContractInstanceMutationOptions { contract_address_address, dst_address, member_enum };
 using GetContractInstanceMutationConfig = WeightedSelectionConfig<GetContractInstanceMutationOptions, 3>;
@@ -498,6 +509,17 @@ constexpr ToRadixBEMutationConfig BASIC_TORADIXBE_MUTATION_CONFIGURATION = ToRad
     { ToRadixBEMutationOptions::output_bits_address, 1 },
     { ToRadixBEMutationOptions::dst_address, 1 },
     { ToRadixBEMutationOptions::is_output_bits, 1 },
+});
+
+enum class DebugLogMutationOptions { level_offset, message_offset, fields_offset, fields_size_offset, message_size };
+using DebugLogMutationConfig = WeightedSelectionConfig<DebugLogMutationOptions, 5>;
+
+constexpr DebugLogMutationConfig BASIC_DEBUGLOG_MUTATION_CONFIGURATION = DebugLogMutationConfig({
+    { DebugLogMutationOptions::level_offset, 1 },
+    { DebugLogMutationOptions::message_offset, 1 },
+    { DebugLogMutationOptions::fields_offset, 1 },
+    { DebugLogMutationOptions::fields_size_offset, 1 },
+    { DebugLogMutationOptions::message_size, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };

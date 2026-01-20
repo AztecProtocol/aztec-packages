@@ -1,3 +1,5 @@
+//! Storage for contract state.
+
 pub mod map;
 pub mod owned_state_variable;
 pub mod owned;

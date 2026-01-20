@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
-import { type L2BlockId, type L2BlockPruneReason, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
+import { type L2BlockId, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
@@ -85,18 +85,9 @@ export class L2BlockStream {
         this.log.verbose(
           `Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.proposed.number}.`,
         );
-        // This check is not 100% accurate
-        // If the local tips are sufficiently behind the source tips, such that we are missing at least one checkpoint
-        // that has now been re-orged due to a proof failure then this will indicate a failure to checkpoint rather than a failure to prove
-        // TODO: (mbps/PhilWindle): Improve re-org detection accuracy when we come to do re-orgs
-        let reason: L2BlockPruneReason = 'unproven';
-        if (latestBlockNumber === localTips.checkpointed.block.number && !this.opts.ignoreCheckpoints) {
-          reason = 'uncheckpointed';
-        }
         await this.emitEvent({
           type: 'chain-pruned',
           block: makeL2BlockId(latestBlockNumber, hash),
-          reason,
           checkpoint: sourceTips.checkpointed.checkpoint,
         });
       }

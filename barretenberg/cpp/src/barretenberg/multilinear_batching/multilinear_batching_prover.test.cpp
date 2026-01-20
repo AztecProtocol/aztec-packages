@@ -1,5 +1,4 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_proving_key.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation_consistency.test.cpp"
@@ -59,10 +58,10 @@ MultilinearBatchingProverClaim create_valid_claim()
 TEST(MultilinearBatchingProver, ConstructProof)
 {
     auto transcript = std::make_shared<Transcript>();
-    auto accumulator_claim = std::make_shared<MultilinearBatchingProverClaim>(create_valid_claim());
-    auto instance_claim = std::make_shared<MultilinearBatchingProverClaim>(create_valid_claim());
-    MultilinearBatchingProver prover{ accumulator_claim, instance_claim, transcript };
+    auto accumulator_claim = create_valid_claim();
+    auto instance_claim = create_valid_claim();
 
+    MultilinearBatchingProver prover(std::move(accumulator_claim), std::move(instance_claim), transcript);
     auto proof = prover.construct_proof();
     EXPECT_FALSE(proof.empty());
 }

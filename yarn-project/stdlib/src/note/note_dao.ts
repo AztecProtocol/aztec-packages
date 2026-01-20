@@ -1,4 +1,3 @@
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -56,8 +55,10 @@ export class NoteDao {
     /** The L2 block hash in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
     public l2BlockHash: string,
-    /** The index of the leaf in the global note hash tree the note is stored at */
-    public index: bigint,
+    /** The index of the tx within the block, used for ordering notes. */
+    public txIndexInBlock: number,
+    /** The index of the note within the tx (based on note hash position), used for ordering notes. */
+    public noteIndexInTx: number,
   ) {}
 
   toBuffer(): Buffer {
@@ -73,7 +74,8 @@ export class NoteDao {
       this.txHash,
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
-      this.index,
+      this.txIndexInBlock,
+      this.noteIndexInTx,
     ]);
   }
 
@@ -91,7 +93,8 @@ export class NoteDao {
     const txHash = reader.readObject(TxHash);
     const l2BlockNumber = BlockNumber(reader.readNumber());
     const l2BlockHash = Fr.fromBuffer(reader).toString();
-    const index = toBigIntBE(reader.readBytes(32));
+    const txIndexInBlock = reader.readNumber();
+    const noteIndexInTx = reader.readNumber();
 
     return new NoteDao(
       note,
@@ -105,7 +108,8 @@ export class NoteDao {
       txHash,
       l2BlockNumber,
       l2BlockHash,
-      index,
+      txIndexInBlock,
+      noteIndexInTx,
     );
   }
 
@@ -134,7 +138,8 @@ export class NoteDao {
       this.txHash.equals(other.txHash) &&
       this.l2BlockNumber === other.l2BlockNumber &&
       this.l2BlockHash === other.l2BlockHash &&
-      this.index === other.index
+      this.txIndexInBlock === other.txIndexInBlock &&
+      this.noteIndexInTx === other.noteIndexInTx
     );
   }
 
@@ -143,11 +148,9 @@ export class NoteDao {
    * @returns - Its size in bytes.
    */
   public getSize() {
-    const indexSize = Math.ceil(Math.log2(Number(this.index)));
     const noteSize = 4 + this.note.items.length * Fr.SIZE_IN_BYTES;
-    return (
-      noteSize + AztecAddress.SIZE_IN_BYTES * 2 + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize
-    );
+    // 2 numbers for txIndexInBlock and noteIndexInTx (4 bytes each)
+    return noteSize + AztecAddress.SIZE_IN_BYTES * 2 + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + 8;
   }
 
   static async random({
@@ -162,7 +165,8 @@ export class NoteDao {
     txHash = TxHash.random(),
     l2BlockNumber = BlockNumber(Math.floor(Math.random() * 1000)),
     l2BlockHash = Fr.random().toString(),
-    index = Fr.random().toBigInt(),
+    txIndexInBlock = Math.floor(Math.random() * 100),
+    noteIndexInTx = Math.floor(Math.random() * 100),
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
       note,
@@ -176,7 +180,8 @@ export class NoteDao {
       txHash,
       l2BlockNumber,
       l2BlockHash,
-      index,
+      txIndexInBlock,
+      noteIndexInTx,
     );
   }
 }

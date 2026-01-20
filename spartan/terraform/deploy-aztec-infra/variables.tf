@@ -57,6 +57,18 @@ variable "BOT_RESOURCE_PROFILE" {
   default     = "prod"
 }
 
+variable "ARCHIVE_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the archive node"
+  type        = string
+  default     = "prod"
+}
+
+variable "BLOB_SINK_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the blob sink"
+  type        = string
+  default     = "prod"
+}
+
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
   description = "Whether to enable debug instrumentation of P2P messages"
   type        = bool
@@ -519,10 +531,10 @@ variable "RPC_INGRESS_ENABLED" {
   default     = false
 }
 
-variable "RPC_INGRESS_HOST" {
-  description = "Hostname for RPC ingress"
-  type        = string
-  default     = ""
+variable "RPC_INGRESS_HOSTS" {
+  description = "Hostnames for RPC ingress"
+  type        = list(string)
+  default     = []
 }
 
 variable "RPC_INGRESS_STATIC_IP_NAME" {
@@ -531,10 +543,10 @@ variable "RPC_INGRESS_STATIC_IP_NAME" {
   default     = ""
 }
 
-variable "RPC_INGRESS_SSL_CERT_NAME" {
-  description = "Name of the GCP managed SSL certificate for the ingress"
-  type        = string
-  default     = ""
+variable "RPC_INGRESS_SSL_CERT_NAMES" {
+  description = "Names of the GCP managed SSL certificates for the ingress"
+  type        = list(string)
+  default     = []
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {
@@ -572,6 +584,13 @@ variable "BLOB_ALLOW_EMPTY_SOURCES" {
   description = "Whether to allow starting without any consensus client URLs"
   type        = bool
   default     = false
+}
+
+variable "BLOB_FILE_STORE_UPLOAD_URL" {
+  description = "URL for uploading blobs (e.g., gs://bucket/path/, s3://bucket/path/)"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "PROVER_AGENT_POLL_INTERVAL_MS" {
@@ -623,9 +642,9 @@ variable "P2P_DROP_TX" {
 }
 
 variable "P2P_DROP_TX_CHANCE" {
-  description = "The chance (0-100) of dropping an incoming transaction in the P2P layer (for testing)"
-  type        = string
-  default     = "0"
+  description = "The chance (0-1) of dropping an incoming transaction in the P2P layer (for testing)"
+  type        = number
+  default     = 0
 }
 
 variable "WS_NUM_HISTORIC_BLOCKS" {

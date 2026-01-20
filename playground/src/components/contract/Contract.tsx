@@ -197,9 +197,9 @@ export function ContractComponent() {
         public: true,
         utility: true,
       });
+      // Temporarily filter out not-yet-published contracts
       if (currentContractAddress) {
         const { isContractPublished } = await wallet.getContractMetadata(currentContractAddress);
-        // Temporarily filter out not-yet-published contracts
         if (isContractPublished) {
           const contractInstance = await node.getContract(currentContractAddress);
 
