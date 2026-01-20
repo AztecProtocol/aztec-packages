@@ -1,0 +1,200 @@
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "scalar_multiplication.hpp"
+#include <gtest/gtest.h>
+
+using namespace bb;
+
+namespace {
+auto& engine = numeric::get_randomness();
+} // namespace
+
+/**
+ * @brief Tests for pippenger safe mode (handle_edge_cases=true) which is used in native batch_mul.
+ * These tests verify that pippenger correctly handles scenarios that would fail with the unsafe affine variant:
+ * - Duplicate points (same point appears multiple times)
+ * - Point and its negation (P + (-P) = infinity)
+ * Tests cover sizes both below and above AFFINE_TRICK_THRESHOLD (128).
+ */
+template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing::Test {
+  public:
+    using Group = typename Curve::Group;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+    using ScalarField = typename Curve::ScalarField;
+
+    static constexpr size_t num_points = 1000;
+    static inline std::vector<AffineElement> generators{};
+    static inline std::vector<ScalarField> scalars{};
+
+    static void SetUpTestSuite()
+    {
+        generators.resize(num_points);
+        scalars.resize(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            generators[i] = Group::one * Curve::ScalarField::random_element(&engine);
+            scalars[i] = Curve::ScalarField::random_element(&engine);
+        }
+    };
+
+    void test_duplicate_points_helper(size_t num_pts)
+    {
+        AffineElement base_point = generators[0];
+
+        std::vector<AffineElement> points(num_pts, base_point);
+        std::vector<ScalarField> test_scalars(num_pts);
+        ScalarField scalar_sum = ScalarField::zero();
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            test_scalars[i] = scalars[i];
+            scalar_sum += test_scalars[i];
+        }
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+        AffineElement expected(base_point * scalar_sum);
+        EXPECT_EQ(AffineElement(result), expected) << "Failed for size " << num_pts;
+    }
+
+    void test_duplicate_points()
+    {
+        // Test below AFFINE_TRICK_THRESHOLD (128)
+        test_duplicate_points_helper(50);
+        // Test above AFFINE_TRICK_THRESHOLD
+        test_duplicate_points_helper(200);
+    }
+
+    void test_point_and_negation_helper(size_t num_pairs)
+    {
+        const size_t num_pts = num_pairs * 2;
+
+        std::vector<AffineElement> points(num_pts);
+        std::vector<ScalarField> test_scalars(num_pts);
+
+        // Create pairs of (P, -P) with same scalar - should cancel to zero
+        for (size_t i = 0; i < num_pairs; ++i) {
+            points[2 * i] = generators[i];
+            points[2 * i + 1] = -generators[i];
+            test_scalars[2 * i] = ScalarField::one();
+            test_scalars[2 * i + 1] = ScalarField::one();
+        }
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+        EXPECT_EQ(AffineElement(result), Group::affine_point_at_infinity) << "Failed for " << num_pairs << " pairs";
+    }
+
+    void test_point_and_negation()
+    {
+        // Test below AFFINE_TRICK_THRESHOLD (128) - 30 pairs = 60 points
+        test_point_and_negation_helper(30);
+        // Test above AFFINE_TRICK_THRESHOLD - 100 pairs = 200 points
+        test_point_and_negation_helper(100);
+    }
+
+    void test_mixed_duplicates_and_unique()
+    {
+        // Test sizes: 60 (below threshold) and 300 (above threshold)
+        for (size_t scale : { size_t{ 1 }, size_t{ 5 } }) {
+            const size_t num_dup = 20 * scale;
+            const size_t num_cancel_pairs = 10 * scale;
+            const size_t num_unique = 20 * scale;
+            const size_t num_pts = num_dup + num_cancel_pairs * 2 + num_unique;
+
+            std::vector<AffineElement> points(num_pts);
+            std::vector<ScalarField> test_scalars(num_pts);
+
+            size_t idx = 0;
+            // First section: all same point
+            for (size_t i = 0; i < num_dup; ++i) {
+                points[idx] = generators[0];
+                test_scalars[idx] = scalars[i];
+                idx++;
+            }
+            // Middle section: pairs of point and negation
+            for (size_t i = 0; i < num_cancel_pairs; ++i) {
+                points[idx] = generators[i + 1];
+                points[idx + 1] = -generators[i + 1];
+                test_scalars[idx] = ScalarField::one();
+                test_scalars[idx + 1] = ScalarField::one();
+                idx += 2;
+            }
+            // Last section: unique points
+            for (size_t i = 0; i < num_unique; ++i) {
+                points[idx] = generators[100 + i];
+                test_scalars[idx] = scalars[100 + i];
+                idx++;
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+            // Compute expected: sum of duplicate scalars * generators[0] + sum of unique
+            Element expected;
+            expected.self_set_infinity();
+
+            ScalarField first_sum = ScalarField::zero();
+            for (size_t i = 0; i < num_dup; ++i) {
+                first_sum += scalars[i];
+            }
+            expected += generators[0] * first_sum;
+
+            for (size_t i = 0; i < num_unique; ++i) {
+                expected += generators[100 + i] * scalars[100 + i];
+            }
+
+            EXPECT_EQ(AffineElement(result), AffineElement(expected)) << "Failed for size " << num_pts;
+        }
+    }
+
+    void test_all_same_point_different_scalars()
+    {
+        // Test both below and above AFFINE_TRICK_THRESHOLD (128)
+        for (size_t num_pts : { size_t{ 50 }, size_t{ 500 } }) {
+            AffineElement base_point = generators[0];
+
+            std::vector<AffineElement> points(num_pts, base_point);
+            std::vector<ScalarField> test_scalars(num_pts);
+
+            ScalarField scalar_sum = ScalarField::zero();
+            for (size_t i = 0; i < num_pts; ++i) {
+                test_scalars[i] = ScalarField::random_element(&engine);
+                scalar_sum += test_scalars[i];
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+            AffineElement expected(base_point * scalar_sum);
+            EXPECT_EQ(AffineElement(result), expected) << "Failed for size " << num_pts;
+        }
+    }
+};
+
+using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
+TYPED_TEST_SUITE(ScalarMultiplicationSafeModeTest, CurveTypes);
+
+TYPED_TEST(ScalarMultiplicationSafeModeTest, DuplicatePoints)
+{
+    TestFixture::test_duplicate_points();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, PointAndNegation)
+{
+    TestFixture::test_point_and_negation();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, MixedDuplicatesAndUnique)
+{
+    TestFixture::test_mixed_duplicates_and_unique();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, AllSamePointDifferentScalars)
+{
+    TestFixture::test_all_same_point_different_scalars();
+}
