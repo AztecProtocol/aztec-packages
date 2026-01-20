@@ -199,7 +199,7 @@ template <class Params_> struct alignas(32) field {
      * @param hi_bit Ending bit position (exclusive)
      * @return uint32_t The extracted bit slice
      */
-    [[nodiscard]] constexpr uint32_t get_bit_slice_raw(size_t lo_bit, size_t hi_bit) const noexcept
+    [[nodiscard]] uint32_t get_bit_slice_raw(size_t lo_bit, size_t hi_bit) const noexcept
     {
         BB_ASSERT_DEBUG(lo_bit < hi_bit);
         BB_ASSERT_DEBUG(hi_bit <= FIELD_BITS);
