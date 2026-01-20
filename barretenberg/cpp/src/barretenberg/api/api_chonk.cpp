@@ -119,17 +119,17 @@ void write_standalone_vk(std::vector<uint8_t> bytecode,
  * @param output_dir Directory to write the VK (or "-" for stdout)
  * @param flags API flags including output_format
  */
-void write_chonk_vk(std::vector<uint8_t> bytecode,
-                    const std::filesystem::path& output_dir,
-                    [[maybe_unused]] const API::Flags& flags)
+void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir, const API::Flags& flags)
 {
     info("Chonk: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
     const bool output_to_stdout = output_dir == "-";
+    if (flags.output_format == "json") {
+        throw_or_abort("JSON output format is not supported for IVC verification keys");
+    }
     if (output_to_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else {
-        // Note: ChonkComputeIvcVk::Response only has bytes, not fields, so JSON output is not supported
         write_file(output_dir / "vk", response.bytes);
     }
 }
