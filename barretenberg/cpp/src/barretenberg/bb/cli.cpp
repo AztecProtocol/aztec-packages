@@ -360,6 +360,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
     };
 
+    const auto add_output_format_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--output_format",
+                         flags.output_format,
+                         "Output format for proofs and verification keys: 'binary' (default) or 'json'.\n"
+                         "JSON format includes metadata like bb_version, scheme, and verifier_target.")
+            ->check(CLI::IsMember({ "binary", "json" }).name("is_member"));
+    };
+
     bool print_bench = false;
     const auto add_print_bench_flag = [&](CLI::App* subcommand) {
         return subcommand
@@ -458,6 +467,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
     add_storage_budget_option(prove);
+    add_output_format_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -484,6 +494,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
+    add_output_format_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify

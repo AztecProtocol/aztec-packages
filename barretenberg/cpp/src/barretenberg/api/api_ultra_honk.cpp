@@ -6,12 +6,14 @@
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/version.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <iomanip>
@@ -22,23 +24,113 @@ namespace bb {
 
 namespace {
 
-void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response, const std::filesystem::path& output_dir)
+/**
+ * @brief Convert a vector of uint256_t to a vector of hex strings
+ */
+inline std::vector<std::string> uint256_vector_to_hex_strings(const std::vector<uint256_t>& fields)
 {
-    write_file(output_dir / "vk", vk_response.bytes);
-    info("VK saved to ", output_dir / "vk");
-    write_file(output_dir / "vk_hash", vk_response.hash);
-    info("VK Hash saved to ", output_dir / "vk_hash");
+    std::vector<std::string> result;
+    result.reserve(fields.size());
+    for (const auto& field : fields) {
+        std::stringstream ss;
+        ss << field; // uint256_t's operator<< outputs "0x" prefix
+        result.push_back(ss.str());
+    }
+    return result;
 }
 
-void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response, const std::filesystem::path& output_dir)
+/**
+ * @brief Convert bytes to a hex string with 0x prefix
+ */
+inline std::string bytes_to_hex_string(const std::vector<uint8_t>& bytes)
 {
-    auto public_inputs_buf = to_buffer(prove_response.public_inputs);
-    auto proof_buf = to_buffer(prove_response.proof);
+    std::stringstream ss;
+    ss << "0x" << std::hex << std::setfill('0');
+    for (const auto& byte : bytes) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
+}
 
-    write_file(output_dir / "public_inputs", public_inputs_buf);
-    write_file(output_dir / "proof", proof_buf);
-    info("Public inputs saved to ", output_dir / "public_inputs");
-    info("Proof saved to ", output_dir / "proof");
+/**
+ * @brief Serializable structure for JSON output (msgpack-compatible)
+ */
+struct JsonOutput {
+    std::vector<std::string> fields;
+    std::string vk_hash;   // Only for VK and proof (hash of VK the proof targets)
+    std::string file_kind; // "vk", "proof", or "public_inputs"
+    std::string bb_version;
+    std::string scheme;
+    std::string verifier_target; // Optional
+
+    MSGPACK_FIELDS(fields, vk_hash, file_kind, bb_version, scheme, verifier_target);
+};
+
+/**
+ * @brief Build JSON output string using msgpack serialization
+ */
+std::string build_json_output(const std::vector<uint256_t>& fields,
+                              const std::string& file_kind,
+                              const API::Flags& flags,
+                              const std::string& hash = "")
+{
+    JsonOutput output{
+        .fields = uint256_vector_to_hex_strings(fields),
+        .vk_hash = hash,
+        .file_kind = file_kind,
+        .bb_version = BB_VERSION,
+        .scheme = flags.scheme,
+        .verifier_target = flags.verifier_target,
+    };
+
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, output);
+    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+
+    std::stringstream ss;
+    ss << oh.get();
+    return ss.str();
+}
+
+void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
+                      const std::filesystem::path& output_dir,
+                      const API::Flags& flags)
+{
+    if (flags.output_format == "json") {
+        std::string json_content =
+            build_json_output(vk_response.fields, "vk", flags, bytes_to_hex_string(vk_response.hash));
+        write_file(output_dir / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+        info("VK (JSON) saved to ", output_dir / "vk.json");
+    } else {
+        write_file(output_dir / "vk", vk_response.bytes);
+        info("VK saved to ", output_dir / "vk");
+        write_file(output_dir / "vk_hash", vk_response.hash);
+        info("VK Hash saved to ", output_dir / "vk_hash");
+    }
+}
+
+void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
+                         const std::filesystem::path& output_dir,
+                         const API::Flags& flags)
+{
+    if (flags.output_format == "json") {
+        std::string vk_hash = bytes_to_hex_string(prove_response.vk.hash);
+        std::string proof_json = build_json_output(prove_response.proof, "proof", flags, vk_hash);
+        write_file(output_dir / "proof.json", std::vector<uint8_t>(proof_json.begin(), proof_json.end()));
+        info("Proof (JSON) saved to ", output_dir / "proof.json");
+
+        std::string pi_json = build_json_output(prove_response.public_inputs, "public_inputs", flags);
+        write_file(output_dir / "public_inputs.json", std::vector<uint8_t>(pi_json.begin(), pi_json.end()));
+        info("Public inputs (JSON) saved to ", output_dir / "public_inputs.json");
+    } else {
+        auto public_inputs_buf = to_buffer(prove_response.public_inputs);
+        auto proof_buf = to_buffer(prove_response.proof);
+
+        write_file(output_dir / "public_inputs", public_inputs_buf);
+        write_file(output_dir / "proof", proof_buf);
+        info("Public inputs saved to ", output_dir / "public_inputs");
+        info("Proof saved to ", output_dir / "proof");
+    }
 }
 
 } // anonymous namespace
@@ -86,9 +178,9 @@ void UltraHonkAPI::prove(const Flags& flags,
                                          .witness = std::move(witness),
                                          .settings = std::move(settings) }
                         .execute();
-    write_proof_outputs(response, output_dir);
+    write_proof_outputs(response, output_dir, flags);
     if (flags.write_vk) {
-        write_vk_outputs(response.vk, output_dir);
+        write_vk_outputs(response.vk, output_dir, flags);
     }
 }
 
@@ -148,7 +240,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                                              .settings = settings }
                         .execute();
 
-    write_vk_outputs(response, output_dir);
+    write_vk_outputs(response, output_dir, flags);
 }
 
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,

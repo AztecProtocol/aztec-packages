@@ -10,16 +10,73 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
+#include "barretenberg/common/version.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
 
 namespace bb {
 namespace { // anonymous namespace
+
+/**
+ * @brief Convert a vector of field elements to a vector of hex strings
+ */
+inline std::vector<std::string> fr_vector_to_hex_strings(const std::vector<fr>& fields)
+{
+    std::vector<std::string> result;
+    result.reserve(fields.size());
+    for (const auto& field : fields) {
+        std::stringstream ss;
+        ss << field; // fr's operator<< outputs "0x" prefix
+        result.push_back(ss.str());
+    }
+    return result;
+}
+
+/**
+ * @brief Serializable structure for JSON output (msgpack-compatible)
+ */
+struct JsonOutput {
+    std::vector<std::string> fields;
+    std::string vk_hash;   // Only for VK and proof (hash of VK the proof targets)
+    std::string file_kind; // "vk" or "proof"
+    std::string bb_version;
+    std::string scheme;
+    std::string verifier_target; // Optional
+
+    MSGPACK_FIELDS(fields, vk_hash, file_kind, bb_version, scheme, verifier_target);
+};
+
+/**
+ * @brief Build JSON output string using msgpack serialization
+ */
+std::string build_json_output(const std::vector<fr>& fields,
+                              const std::string& file_kind,
+                              const API::Flags& flags,
+                              const std::string& vk_hash = "")
+{
+    JsonOutput output{
+        .fields = fr_vector_to_hex_strings(fields),
+        .vk_hash = vk_hash,
+        .file_kind = file_kind,
+        .bb_version = BB_VERSION,
+        .scheme = flags.scheme,
+        .verifier_target = flags.verifier_target,
+    };
+
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, output);
+    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+
+    std::stringstream ss;
+    ss << oh.get();
+    return ss.str();
+}
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
@@ -29,8 +86,11 @@ namespace { // anonymous namespace
  *
  * @param bytecode ACIR bytecode of the circuit
  * @param output_path Directory to write the VK (or "-" for stdout)
+ * @param flags API flags including output_format
  */
-void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
+void write_standalone_vk(std::vector<uint8_t> bytecode,
+                         const std::filesystem::path& output_path,
+                         const API::Flags& flags)
 {
     auto response = bbapi::ChonkComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
@@ -39,6 +99,10 @@ void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::p
     bool is_stdout = output_path == "-";
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
+    } else if (flags.output_format == "json") {
+        std::string json_content = build_json_output(response.fields, "vk", flags);
+        write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+        info("VK (JSON) saved to ", output_path / "vk.json");
     } else {
         write_file(output_path / "vk", response.bytes);
     }
@@ -53,8 +117,11 @@ void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::p
  *
  * @param bytecode ACIR bytecode of the final circuit in the IVC chain
  * @param output_dir Directory to write the VK (or "-" for stdout)
+ * @param flags API flags including output_format
  */
-void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
+void write_chonk_vk(std::vector<uint8_t> bytecode,
+                    const std::filesystem::path& output_dir,
+                    [[maybe_unused]] const API::Flags& flags)
 {
     info("Chonk: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
@@ -62,6 +129,7 @@ void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& 
     if (output_to_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else {
+        // Note: ChonkComputeIvcVk::Response only has bytes, not fields, so JSON output is not supported
         write_file(output_dir / "vk", response.bytes);
     }
 }
@@ -90,18 +158,21 @@ void ChonkAPI::prove(const Flags& flags,
 
     auto proof = bbapi::ChonkProve{}.execute(request).proof;
 
-    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
-    // std::string representations of vks that don't feel worth implementing
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
-        const auto buf = to_buffer(proof.to_field_elements());
+        const auto proof_fields = proof.to_field_elements();
         if (output_to_stdout) {
             vinfo("writing Chonk proof to stdout");
-            write_bytes_to_stdout(buf);
+            write_bytes_to_stdout(to_buffer(proof_fields));
+        } else if (flags.output_format == "json") {
+            vinfo("writing Chonk proof (JSON) in directory ", output_dir);
+            std::string json_content = build_json_output(proof_fields, "proof", flags);
+            write_file(output_dir / "proof.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+            info("Proof (JSON) saved to ", output_dir / "proof.json");
         } else {
             vinfo("writing Chonk proof in directory ", output_dir);
-            write_file(output_dir / "proof", buf);
+            write_file(output_dir / "proof", to_buffer(proof_fields));
         }
     };
 
@@ -110,7 +181,7 @@ void ChonkAPI::prove(const Flags& flags,
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
         // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
+        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, flags);
     }
 }
 
@@ -201,12 +272,12 @@ void ChonkAPI::write_vk(const Flags& flags,
     BB_BENCH_NAME("ChonkAPI::write_vk");
     auto bytecode = get_bytecode(bytecode_path);
     if (flags.verifier_type == "ivc") {
-        write_chonk_vk(bytecode, output_path);
+        write_chonk_vk(bytecode, output_path, flags);
     } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(bytecode, output_path);
+        write_standalone_vk(bytecode, output_path, flags);
     } else if (flags.verifier_type == "standalone_hiding") {
         // write the VK for the hiding kernel which DOES NOT utilize a structured trace
-        write_standalone_vk(bytecode, output_path);
+        write_standalone_vk(bytecode, output_path, flags);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);
