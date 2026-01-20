@@ -2,6 +2,7 @@
 title: Inbox
 description: Learn about the inbox mechanism in Aztec portals for receiving messages from L1.
 tags: [portals, contracts]
+references: ["l1-contracts/src/core/interfaces/messagebridge/IInbox.sol"]
 ---
 
 The `Inbox` is a contract deployed on L1 that handles message passing from L1 to L2.

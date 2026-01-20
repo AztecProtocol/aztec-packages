@@ -3,6 +3,7 @@ title: Developing Smart Contracts
 sidebar_position: 0
 tags: [aztec.nr, smart contracts]
 description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
+references: ["docs/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import DocCardList from "@theme/DocCardList";
