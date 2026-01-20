@@ -146,31 +146,7 @@ inserted, to the outside world.
 <div class="padded-description"></div><div id="structfield.storage_slot" class="struct-field"><code class="code-header">storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.owner" class="struct-field"><code class="code-header">owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="view_notes" class="code-header">pub unconstrained fn <a href="#view_notes"><span class="fn">view_notes</span></a>(
-    self,
-    options: <a href="../../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, &lt;Note as Packable&gt;::N&gt;,
-) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 10&gt;
-<div class="where-clause">where
-    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns a collection of notes which belong to this PrivateSet, according
-to the given selection <code>options</code>.</p>
-<p>Notice that this function is executable only within a UtilityContext, which
-is an unconstrained environment on the user's local device.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>options</code> - See NoteGetterOptions. Enables the caller to specify the
-properties of the notes that must be returned by the oracle
-call to the PXE.</li>
-</ul>
-</div>
-</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="insert" class="code-header">pub fn <a href="#insert"><span class="fn">insert</span></a>(self, note: Note) -> <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
@@ -459,6 +435,30 @@ is referencing.</li>
 note was indeed emitted by some earlier execution frame of this tx.</li>
 </ul>
 </li>
+</ul>
+</div>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../../noir_aztec/state_vars/private_set/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, <a href="../../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="view_notes" class="code-header">pub unconstrained fn <a href="#view_notes"><span class="fn">view_notes</span></a>(
+    self,
+    options: <a href="../../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, &lt;Note as Packable&gt;::N&gt;,
+) -> <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 10&gt;
+<div class="where-clause">where
+    Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns a collection of notes which belong to this PrivateSet, according
+to the given selection <code>options</code>.</p>
+<p>Notice that this function is executable only within a UtilityContext, which
+is an unconstrained environment on the user's local device.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>options</code> - See NoteGetterOptions. Enables the caller to specify the
+properties of the notes that must be returned by the oracle
+call to the PXE.</li>
 </ul>
 </div>
 </div></div><h2>Trait implementations</h2>
