@@ -80,17 +80,51 @@ pub fn validate_contract_address(
 
     // Step 2: Check if it's a protocol contract (has a "magic" canonical address).
 
-    let is_protocol_contract = ProtocolContracts::is_protocol_contract_address(contract_address);
+    let is_protocol_contract =
+        ProtocolContracts::is_magic_protocol_contract_address(contract_address);
+
+    // We explicitly disallow private calls to the private functions of _derived_ protocol contract addresses,
+    // and instead demand that the _magic_ address be used.
+    //
+    // Important note:
+    // Derived addresses have _different state_ from their magic counterparts, since all state
+    // is siloed (in the reset kernel) by the address of the contract which emits that state, and a derived
+    // address is a different value from its corresponding magic address.
+    // So, even if derived protocol contracts were callable (which they are not, due to this assertion),
+    // the act of calling a _derived_ protocol contract and changing its state ought to have been ignored by
+    // all, and should have been universally recognized as meaningless. But it certainly could have been
+    // a potential footgun if users / wallets / apps were to accidentally make calls to derived addresses instead
+    // of magic addresses. It's this fear of footguns which has led to this explicit rejection of derived
+    // contract addresses.
+    //
+    // It's also important to think about whether the _public_ functions of derived addresses are callable,
+    // to avoid accidental inconsistencies between private and public execution.
+    // We have designed derived addresses in such a way that their _public_ functions are _not_ callable:
+    // All addresses contain a `deployer` field in their preimage, which can either be an actual address or 0.
+    // For each _derived_ protocol contract address, we intentionally set its `deployer` to be its
+    // corresponding magic address.
+    // So the _derived_ protocol contract for magic address 2 will have `deployer = 2`, etc.
+    // Only the `deployer` of a contract can make a call to the ContractInstanceRegistry to publish that
+    // contract's public functions for public execution.
+    // This means no one will be able to _publish_ the _derived_ version of any protocol contract, because no one
+    // can impersonate a magic protocol contract address. The inability to _publish_ any derived contract
+    // via the ContractInstanceRegistry means the _public_ functions of _derived_ protocol contracts will be
+    // impossible to execute, because the AVM can only execute a public function if its contract instance has
+    // been registered.
+    // (This slightly convoluted approach to preventing public execution of derived protocol contract functions
+    // was preferred over adding explicit checks within the AVM).
+    protocol_contracts.assert_not_derived_protocol_contract_address(contract_address);
 
     let expected_protocol_contract_derived_address = if is_protocol_contract {
         protocol_contracts.get_derived_address(contract_address)
     } else {
         AztecAddress::zero()
     };
-    let protocol_contract_check_ok = computed_address == expected_protocol_contract_derived_address;
+    let protocol_contract_address_derivation_check_ok =
+        computed_address == expected_protocol_contract_derived_address;
 
     assert(
-        !is_protocol_contract | protocol_contract_check_ok,
+        !is_protocol_contract | protocol_contract_address_derivation_check_ok,
         "computed contract address does not match protocol contract derived address",
     );
 
@@ -104,6 +138,22 @@ pub fn validate_contract_address(
         hints.updated_class_id_leaf,
     );
 
+    // If the ContractInstanceRegistry's mapping from `contract_address` to an updated class_id is
+    // nonempty, then we consider the contract to have been updated and we demand that the function
+    // being processed by this kernel belongs to that _updated_ class_id. (That is, we demand that
+    // the called function_selector -- and the vk_hash that we have used to verify the app circuit's
+    // proof -- belong to the updated class_id).
+    //
+    // Caveat (for protocol contracts): We expect that it's impossible for protocol contracts to be
+    // upgradeable, because there are no functions within any of the protocol contracts which are
+    // capable of making a call to the ContractInstanceRegistry::update function. Nevertheless, in
+    // the (expected-to-be-impossible) event that someone manages to update a protocol contract entry
+    // in the registry (through some bug exploit), we would prefer for that updated class_id to be
+    // ignored.
+    // Thankfully, if the contract_address is a protocol contract, the code above ensures that
+    // the `computed_contract_class_id` represents that of the _derived_ protocol contract's class_id
+    // and not that of any `updated_contract_class_id`. So if someone attempts to somehow execute
+    // an updated protocol contract, the `updated_class_check_ok` assertion below will fail.
     let is_updated_contract = !updated_contract_class_id.is_empty();
 
     let updated_class_check_ok = computed_contract_class_id == updated_contract_class_id;
