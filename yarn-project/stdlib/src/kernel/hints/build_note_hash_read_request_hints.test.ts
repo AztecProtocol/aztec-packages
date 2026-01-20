@@ -31,7 +31,7 @@ describe('buildNoteHashReadRequestHints', () => {
 
   const settledNoteHashes = [111, 222, 333];
   const oracle = {
-    getNoteHashMembershipWitness: async (noteHash: Fr) =>
+    getNoteHashMembershipWitness: (noteHash: Fr) =>
       settledNoteHashes.map(v => BigInt(v)).includes(noteHash.toBigInt()) ? ({} as any) : (undefined as any),
   };
 
