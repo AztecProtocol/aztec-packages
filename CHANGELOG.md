@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3](https://github.com/AztecProtocol/aztec-packages/compare/v3.0.2...v3.0.3) (2026-01-15)
+
+
+### Miscellaneous
+
+* fix bot accumulating many recipients ([#19633](https://github.com/AztecProtocol/aztec-packages/issues/19633)) ([e40a73d](https://github.com/AztecProtocol/aztec-packages/commit/e40a73d8df02ed6ccd283966b62e57de4d032082))
+
 ## [3.0.2](https://github.com/AztecProtocol/aztec-packages/compare/v3.0.1...v3.0.2) (2026-01-12)
 
 
