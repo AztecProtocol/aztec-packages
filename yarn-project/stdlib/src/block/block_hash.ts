@@ -13,6 +13,28 @@ export class L2BlockHash extends Buffer32 {
     super(hash);
   }
 
+  /**
+   * Type guard that checks if a value is an L2BlockHash instance.
+   * Uses duck typing to handle cases where instanceof fails due to module duplication.
+   * Checks for Buffer32-like structure with a 32-byte buffer.
+   */
+  static isL2BlockHash(value: unknown): value is L2BlockHash {
+    if (value instanceof L2BlockHash) {
+      return true;
+    }
+    // Duck typing fallback: check if it looks like a Buffer32 with a 32-byte buffer
+    // This helps when instanceof fails due to module duplication
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'buffer' in value &&
+      Buffer.isBuffer((value as Buffer32).buffer) &&
+      (value as Buffer32).buffer.length === 32 &&
+      'toBuffer' in value &&
+      typeof (value as Buffer32).toBuffer === 'function'
+    );
+  }
+
   static override random() {
     return new L2BlockHash(Fr.random().toBuffer());
   }
