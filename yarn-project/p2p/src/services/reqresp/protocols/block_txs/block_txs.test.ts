@@ -1,7 +1,8 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockProposal } from '@aztec/stdlib/p2p';
-import { makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
@@ -14,7 +15,7 @@ describe('BlockTxRequest', () => {
   const createBlockProposal = async (txHashes: TxHash[]): Promise<BlockProposal> => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
-      blockHeader: makeL2BlockHeader(1, 5),
+      blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(5) }),
       archiveRoot: Fr.random(),
       txHashes,
     });
