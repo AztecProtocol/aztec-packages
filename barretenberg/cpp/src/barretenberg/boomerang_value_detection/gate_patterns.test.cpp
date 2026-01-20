@@ -2,10 +2,10 @@
  * @file gate_patterns.test.cpp
  * @brief Verify gate patterns match actual relation constraints via perturbation testing.
  *
- * The key insight: A wire is constrained by a relation if and only if perturbing that wire
- * changes the relation's output. We test this empirically by:
+ * A wire is constrained by a relation if and only if perturbing that wire changes the relation's output. We test this
+ * empirically by:
  * 1. Evaluating the relation at a base point
- * 2. For each wire position, perturbing it and checking if the output changes
+ * 2. Individually perturbing each wire and checking if the output changes
  * 3. Comparing the set of actually constrained wires with what the pattern claims
  */
 
@@ -62,7 +62,7 @@ FF& get_wire(Entities& entities, Wire wire)
     __builtin_unreachable();
 }
 
-Selectors build_selectors(const Entities& entities, int64_t gate_selector_value)
+Selectors make_selectors(const Entities& entities, int64_t gate_selector_value)
 {
     return Selectors{
         .gate_selector = gate_selector_value,
@@ -128,14 +128,16 @@ std::set<Wire> get_actually_constrained_wires(const Entities& entities, const au
 
 /**
  * @brief Generic test: verify a pattern matches what the relation actually constrains
+ *
+ * @param configure_selectors Lambda that configures entity selectors and returns the gate selector field value
  */
-template <typename Relation>
-void verify_pattern(const GatePattern& pattern, int64_t gate_selector_value, auto configure_selectors)
+template <typename Relation> void verify_pattern(const GatePattern& pattern, auto configure_selectors)
 {
     Entities entities = get_random_entities();
-    configure_selectors(entities);
+    FF gate_selector = configure_selectors(entities);
+    int64_t gate_selector_value = static_cast<int64_t>(uint64_t(gate_selector));
 
-    Selectors selectors = build_selectors(entities, gate_selector_value);
+    Selectors selectors = make_selectors(entities, gate_selector_value);
     auto pattern_claims = get_pattern_wires(pattern, selectors);
 
     auto parameters = RelationParameters<FF>::get_random();
@@ -150,177 +152,177 @@ void verify_pattern(const GatePattern& pattern, int64_t gate_selector_value, aut
 
 TEST(PatternTest, Arithmetic1)
 {
-    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, 1, [](Entities& e) { e.q_arith = FF(1); });
+    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, [](Entities& e) { return e.q_arith = FF(1); });
 }
 
 TEST(PatternTest, Arithmetic2)
 {
-    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, 2, [](Entities& e) { e.q_arith = FF(2); });
+    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, [](Entities& e) { return e.q_arith = FF(2); });
 }
 
 TEST(PatternTest, Arithmetic3)
 {
-    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, 3, [](Entities& e) { e.q_arith = FF(3); });
+    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, [](Entities& e) { return e.q_arith = FF(3); });
 }
 
 TEST(PatternTest, Arithmetic3WithQmZero)
 {
-    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, 3, [](Entities& e) {
-        e.q_arith = FF(3);
+    verify_pattern<ArithmeticRelation<FF>>(ARITHMETIC, [](Entities& e) {
         e.q_m = FF(0);
+        return e.q_arith = FF(3);
     });
 }
 
 TEST(PatternTest, EllipticAdd)
 {
-    verify_pattern<EllipticRelation<FF>>(ELLIPTIC, 1, [](Entities& e) {
-        e.q_elliptic = FF(1);
+    verify_pattern<EllipticRelation<FF>>(ELLIPTIC, [](Entities& e) {
         e.q_m = FF(0);
         e.q_l = FF(-1);
+        return e.q_elliptic = FF(1);
     });
 }
 
 TEST(PatternTest, EllipticDouble)
 {
-    verify_pattern<EllipticRelation<FF>>(ELLIPTIC, 1, [](Entities& e) {
-        e.q_elliptic = FF(1);
+    verify_pattern<EllipticRelation<FF>>(ELLIPTIC, [](Entities& e) {
         e.q_m = FF(1);
         e.q_l = FF(-1);
+        return e.q_elliptic = FF(1);
     });
 }
 
 TEST(PatternTest, DeltaRange)
 {
-    verify_pattern<DeltaRangeConstraintRelation<FF>>(DELTA_RANGE, 1, [](Entities& e) { e.q_delta_range = FF(1); });
+    verify_pattern<DeltaRangeConstraintRelation<FF>>(DELTA_RANGE, [](Entities& e) { return e.q_delta_range = FF(1); });
 }
 
 TEST(PatternTest, NNFLimbAccum1)
 {
-    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, 1, [](Entities& e) {
-        e.q_nnf = FF(1);
+    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, [](Entities& e) {
         e.q_r = FF(0);
         e.q_o = FF(1);
         e.q_4 = FF(1);
         e.q_m = FF(0);
+        return e.q_nnf = FF(1);
     });
 }
 
 TEST(PatternTest, NNFLimbAccum2)
 {
-    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, 1, [](Entities& e) {
-        e.q_nnf = FF(1);
+    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, [](Entities& e) {
         e.q_r = FF(0);
         e.q_o = FF(1);
         e.q_4 = FF(0);
         e.q_m = FF(1);
+        return e.q_nnf = FF(1);
     });
 }
 
 TEST(PatternTest, NNFProduct1)
 {
-    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, 1, [](Entities& e) {
-        e.q_nnf = FF(1);
+    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, [](Entities& e) {
         e.q_r = FF(1);
         e.q_o = FF(1);
         e.q_4 = FF(0);
         e.q_m = FF(0);
+        return e.q_nnf = FF(1);
     });
 }
 
 TEST(PatternTest, NNFProduct2)
 {
-    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, 1, [](Entities& e) {
-        e.q_nnf = FF(1);
+    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, [](Entities& e) {
         e.q_r = FF(1);
         e.q_o = FF(0);
         e.q_4 = FF(1);
         e.q_m = FF(0);
+        return e.q_nnf = FF(1);
     });
 }
 
 TEST(PatternTest, NNFProduct3)
 {
-    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, 1, [](Entities& e) {
-        e.q_nnf = FF(1);
+    verify_pattern<NonNativeFieldRelation<FF>>(NON_NATIVE_FIELD, [](Entities& e) {
         e.q_r = FF(1);
         e.q_o = FF(0);
         e.q_4 = FF(0);
         e.q_m = FF(1);
+        return e.q_nnf = FF(1);
     });
 }
 
 TEST(PatternTest, MemoryRamRomAccess)
 {
-    verify_pattern<MemoryRelation<FF>>(MEMORY, 1, [](Entities& e) {
-        e.q_memory = FF(1);
+    verify_pattern<MemoryRelation<FF>>(MEMORY, [](Entities& e) {
         e.q_l = FF(1);
         e.q_m = FF(1);
+        return e.q_memory = FF(1);
     });
 }
 
 TEST(PatternTest, MemoryRamTimestamp)
 {
-    verify_pattern<MemoryRelation<FF>>(MEMORY, 1, [](Entities& e) {
-        e.q_memory = FF(1);
+    verify_pattern<MemoryRelation<FF>>(MEMORY, [](Entities& e) {
         e.q_l = FF(1);
         e.q_4 = FF(1);
+        return e.q_memory = FF(1);
     });
 }
 
 TEST(PatternTest, MemoryRomConsistency)
 {
-    verify_pattern<MemoryRelation<FF>>(MEMORY, 1, [](Entities& e) {
-        e.q_memory = FF(1);
+    verify_pattern<MemoryRelation<FF>>(MEMORY, [](Entities& e) {
         e.q_l = FF(1);
         e.q_r = FF(1);
+        return e.q_memory = FF(1);
     });
 }
 
 TEST(PatternTest, MemoryRamConsistency)
 {
-    verify_pattern<MemoryRelation<FF>>(MEMORY, 1, [](Entities& e) {
-        e.q_memory = FF(1);
+    verify_pattern<MemoryRelation<FF>>(MEMORY, [](Entities& e) {
         e.q_o = FF(1);
+        return e.q_memory = FF(1);
     });
 }
 
 TEST(PatternTest, Poseidon2Internal)
 {
-    verify_pattern<Poseidon2InternalRelation<FF>>(
-        POSEIDON2_INTERNAL, 1, [](Entities& e) { e.q_poseidon2_internal = FF(1); });
+    verify_pattern<Poseidon2InternalRelation<FF>>(POSEIDON2_INTERNAL,
+                                                  [](Entities& e) { return e.q_poseidon2_internal = FF(1); });
 }
 
 TEST(PatternTest, Poseidon2External)
 {
-    verify_pattern<Poseidon2ExternalRelation<FF>>(
-        POSEIDON2_EXTERNAL, 1, [](Entities& e) { e.q_poseidon2_external = FF(1); });
+    verify_pattern<Poseidon2ExternalRelation<FF>>(POSEIDON2_EXTERNAL,
+                                                  [](Entities& e) { return e.q_poseidon2_external = FF(1); });
 }
 
 TEST(PatternTest, LookupBasic)
 {
-    verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, 1, [](Entities& e) {
-        e.q_lookup = FF(1);
+    verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, [](Entities& e) {
         // No shifted wires (step_size selectors all zero)
         e.q_r = FF(0);
         e.q_m = FF(0);
         e.q_c = FF(0);
+        return e.q_lookup = FF(1);
     });
 }
 
 TEST(PatternTest, LookupWithShiftedWires)
 {
-    verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, 1, [](Entities& e) {
-        e.q_lookup = FF(1);
+    verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, [](Entities& e) {
         // Enable all shifted wires
         e.q_r = FF(1);
         e.q_m = FF(1);
         e.q_c = FF(1);
+        return e.q_lookup = FF(1);
     });
 }
 
 TEST(PatternTest, DatabusRead)
 {
-    verify_pattern<DatabusLookupRelation<FF>>(DATABUS, 1, [](Entities& e) { e.q_busread = FF(1); });
+    verify_pattern<DatabusLookupRelation<FF>>(DATABUS, [](Entities& e) { return e.q_busread = FF(1); });
 }
 
 // =============================================================================
@@ -367,7 +369,7 @@ TEST(PatternTest, DetectOverConstrained)
     entities.q_l = FF(1);
     entities.q_r = FF(0); // q_2 = 0
 
-    Selectors selectors = build_selectors(entities, 3);
+    Selectors selectors = make_selectors(entities, 3);
     auto pattern_claims = get_pattern_wires(OVERCONSTRAINED_PATTERN, selectors);
     auto correct_claims = get_pattern_wires(ARITHMETIC, selectors);
     auto parameters = RelationParameters<FF>::get_random();
@@ -404,7 +406,7 @@ TEST(PatternTest, DetectUnderConstrained)
     entities.q_memory = FF(1);
     entities.q_o = FF(1); // q_3
 
-    Selectors selectors = build_selectors(entities, 1);
+    Selectors selectors = make_selectors(entities, 1);
     auto pattern_claims = get_pattern_wires(UNDERCONSTRAINED_PATTERN, selectors);
     auto correct_claims = get_pattern_wires(MEMORY, selectors);
     auto parameters = RelationParameters<FF>::get_random();

@@ -270,7 +270,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
             try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
-            try_pattern(MEMORY, blk.q_memory()); // access gates handled by ROM/RAM transcripts
+            try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
             try_pattern(DELTA_RANGE, blk.q_delta_range());
 
             if (!cc.empty() && connect_variables) {
