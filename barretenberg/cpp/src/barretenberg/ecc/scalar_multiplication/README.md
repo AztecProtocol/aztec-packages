@@ -19,7 +19,7 @@ Each scalar $s_i$ is decomposed into $r$ slices of $c$ bits each, processed **MS
 $$s_i = \sum_{j=0}^{r-1} s_i^{(j)} \cdot 2^{c(r-1-j)}$$
 
 - $c$ = bits per slice (from `get_optimal_log_num_buckets`, which brute-force searches for minimum cost)
-- $r = \lceil \text{NUM\_BITS\_IN\_FIELD} / c \rceil$ = number of rounds
+- $r = \lceil $ `NUM_BITS_IN_FIELD` $/ c \rceil$ = number of rounds
 - Round 0 extracts the most significant bits
 
 ### Step 2: Bucket Accumulation
