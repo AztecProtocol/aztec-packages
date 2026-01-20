@@ -630,6 +630,11 @@
       "configurePreset": "fuzzing-avm"
     },
     {
+      "name": "fuzzing-avm-tooling",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm-tooling"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang20",
       "configurePreset": "gperftools"
