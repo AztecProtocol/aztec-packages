@@ -1,5 +1,6 @@
 #include "api_chonk.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/json_output.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/chonk/chonk.hpp"
@@ -10,73 +11,15 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "barretenberg/common/version.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <algorithm>
-#include <sstream>
 #include <stdexcept>
 
 namespace bb {
 namespace { // anonymous namespace
-
-/**
- * @brief Convert a vector of field elements to a vector of hex strings
- */
-inline std::vector<std::string> fr_vector_to_hex_strings(const std::vector<fr>& fields)
-{
-    std::vector<std::string> result;
-    result.reserve(fields.size());
-    for (const auto& field : fields) {
-        std::stringstream ss;
-        ss << field; // fr's operator<< outputs "0x" prefix
-        result.push_back(ss.str());
-    }
-    return result;
-}
-
-/**
- * @brief Serializable structure for JSON output (msgpack-compatible)
- */
-struct JsonOutput {
-    std::vector<std::string> fields;
-    std::string vk_hash;   // Only for VK and proof (hash of VK the proof targets)
-    std::string file_kind; // "vk" or "proof"
-    std::string bb_version;
-    std::string scheme;
-    std::string verifier_target; // Optional
-
-    MSGPACK_FIELDS(fields, vk_hash, file_kind, bb_version, scheme, verifier_target);
-};
-
-/**
- * @brief Build JSON output string using msgpack serialization
- */
-std::string build_json_output(const std::vector<fr>& fields,
-                              const std::string& file_kind,
-                              const API::Flags& flags,
-                              const std::string& vk_hash = "")
-{
-    JsonOutput output{
-        .fields = fr_vector_to_hex_strings(fields),
-        .vk_hash = vk_hash,
-        .file_kind = file_kind,
-        .bb_version = BB_VERSION,
-        .scheme = flags.scheme,
-        .verifier_target = flags.verifier_target,
-    };
-
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, output);
-    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-
-    std::stringstream ss;
-    ss << oh.get();
-    return ss.str();
-}
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
