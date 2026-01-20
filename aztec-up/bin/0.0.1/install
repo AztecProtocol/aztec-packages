@@ -16,9 +16,13 @@ VERSION="${VERSION:?VERSION must be set}"
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 INSTALL_URI="${INSTALL_URI:-https://install.aztec.network}"
 
+export FORCE_COLOR=1
+
 # Version-specific paths
 version_path="$AZTEC_HOME/versions/$VERSION"
 version_bin_path="$version_path/bin"
+
+os="$(uname -s)"
 
 function echo_green {
   echo -e "${g}$1${r}"
@@ -75,6 +79,13 @@ function check_toolchains {
     echo "Installation: nvm install --lts && nvm alias default lts/*"
     exit 1
   fi
+
+  # We need python 3.11 for node gyp.
+  if [ "$os" = "Darwin" ] && [ ! -f "$(brew --prefix)/opt/python@3.11/bin/python3.11" ]; then
+    echo "Python 3.11 not found."
+    echo "Installation: brew install python@3.11"
+    exit 1
+  fi
 }
 
 function install_versions_file {
@@ -111,12 +122,12 @@ function install_foundry {
   set -euo pipefail
   local foundry_version=$(cat "$version_path/versions" | grep foundry | cut -d' ' -f2)
 
-  # Create a temp directory for foundryup to install to
+  # Create a temp directory for foundryup to install to.
   local temp_foundry_dir=$(mktemp -d)
   mkdir -p "$temp_foundry_dir/bin"
 
-  # Install foundryup if not already present
-  if [ ! -f "$HOME/.foundry/bin/foundryup" ]; then
+  # Install foundryup if not present or wrong version.
+  if ! "$HOME/.foundry/bin/foundryup" --help 2>&1 | grep -q -- '-i, --install'; then
     curl -L https://foundry.paradigm.xyz | bash
   fi
 
@@ -136,6 +147,12 @@ function install_foundry {
 
 function install_aztec_packages {
   set -euo pipefail
+
+  if [ "$os" = "Darwin" ]; then
+    # Ensure python 3.11 is used for node-gyp on macOS.
+    export npm_config_python="$(brew --prefix)/opt/python@3.11/bin/python3.11"
+  fi
+
   # Install npm packages to the version directory using --prefix
   npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
 }
