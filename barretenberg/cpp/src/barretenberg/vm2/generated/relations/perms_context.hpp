@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct perm_context_ctx_stack_call_settings_ {
     static constexpr std::string_view NAME = "PERM_CONTEXT_CTX_STACK_CALL";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t COLUMNS_PER_SET = 26;
+    static constexpr size_t COLUMNS_PER_SET = 29;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column INVERSES = Column::perm_context_ctx_stack_call_inv;
@@ -35,6 +35,9 @@ struct perm_context_ctx_stack_call_settings_ {
         ColumnAndShifts::execution_parent_da_gas_limit,
         ColumnAndShifts::execution_parent_l2_gas_used,
         ColumnAndShifts::execution_parent_da_gas_used,
+        ColumnAndShifts::execution_internal_call_id,
+        ColumnAndShifts::execution_internal_call_return_id,
+        ColumnAndShifts::execution_next_internal_call_id,
         ColumnAndShifts::execution_note_hash_tree_root,
         ColumnAndShifts::execution_note_hash_tree_size,
         ColumnAndShifts::execution_num_note_hashes_emitted,
@@ -63,6 +66,9 @@ struct perm_context_ctx_stack_call_settings_ {
         ColumnAndShifts::context_stack_parent_da_gas_limit,
         ColumnAndShifts::context_stack_parent_l2_gas_used,
         ColumnAndShifts::context_stack_parent_da_gas_used,
+        ColumnAndShifts::context_stack_internal_call_id,
+        ColumnAndShifts::context_stack_internal_call_return_id,
+        ColumnAndShifts::context_stack_next_internal_call_id,
         ColumnAndShifts::context_stack_note_hash_tree_root,
         ColumnAndShifts::context_stack_note_hash_tree_size,
         ColumnAndShifts::context_stack_num_note_hashes_emitted,

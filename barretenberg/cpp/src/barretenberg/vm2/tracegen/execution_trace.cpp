@@ -422,10 +422,14 @@ void ExecutionTraceBuilder::process(
             } });
 
         // Internal stack
+        // Important: It is crucial to use `before_context_event` to populate the internal call stack columns because
+        //            these values are mutated by the internal call and return opcodes and therefore
+        //            `after_context_event` would populate incorrect values.
+        const auto& internal_call_return_id = ex_event.before_context_event.internal_call_return_id;
         trace.set(row,
                   { {
                       { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
-                      { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
+                      { C::execution_internal_call_return_id, internal_call_return_id },
                       { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
                   } });
 
@@ -589,10 +593,9 @@ void ExecutionTraceBuilder::process(
             } else if (*exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 if (!opcode_execution_failed) {
                     // If we have an opcode error, we don't need to compute the inverse (see internal_call.pil)
-                    trace.set(
-                        C::execution_internal_call_return_id_inv,
-                        row,
-                        ex_event.before_context_event.internal_call_return_id); // Will be inverted in batch later.
+                    trace.set(C::execution_internal_call_return_id_inv,
+                              row,
+                              internal_call_return_id); // Will be inverted in batch later.
                     trace.set(C::execution_sel_read_unwind_call_stack, row, 1);
                 }
             } else if (*exec_opcode == ExecutionOpCode::SSTORE) {
@@ -1136,8 +1139,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>(C::gt_sel)
         // Internal Call Stack
-        .add<perm_internal_call_push_call_stack_settings_, InteractionType::Permutation>()
-        .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
+        .add<perm_internal_call_push_call_stack_settings, InteractionType::Permutation>()
+        .add<lookup_internal_call_unwind_call_stack_settings, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>(C::gt_sel)

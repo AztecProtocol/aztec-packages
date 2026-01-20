@@ -73,6 +73,11 @@ struct ContextStackEvent {
     Gas parent_gas_used;
     Gas parent_gas_limit;
 
+    // Internal Call Stack Info
+    InternalCallId internal_call_id = 0;
+    InternalCallId internal_call_return_id = 0;
+    InternalCallId next_internal_call_id = 0;
+
     // Tree States
     TreeStates tree_states;
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;

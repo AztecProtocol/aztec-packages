@@ -7,3 +7,29 @@ src:*barretenberg/vm2/constraining/*
 
 # Exclude generated code (auto-generated circuit definitions)
 src:*barretenberg/vm2/generated/*
+
+
+# Exclude bb components we don't care about for coverage
+
+src:*barretenberg/commitment_schemes/*
+src:*barretenberg/common/*
+src:*barretenberg/crypto/*
+src:*barretenberg/ecc/*
+src:*barretenberg/eccvm/*
+src:*barretenberg/env/*
+src:*barretenberg/flavor/*
+src:*barretenberg/honk/*
+src:*barretenberg/numeric/*
+src:*barretenberg/polynomials/*
+src:*barretenberg/relations/*
+src:*barretenberg/serialize/*
+src:*barretenberg/srs/*
+src:*barretenberg/stdlib/*
+src:*barretenberg/stdlib_circuit_builders/*
+src:*barretenberg/sumcheck/*
+src:*barretenberg/transcript/*
+src:*barretenberg/world_state/*
+src:*barretenberg/lmdblib/*
+src:*barretenberg/api/*
+src:*barretenberg/op_queue/*
+src:*barretenberg/public_input_component/*

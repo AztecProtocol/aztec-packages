@@ -37,8 +37,8 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                    // Internal Call Stack Cols
                                    { C::internal_call_stack_sel, 1 },
                                    { C::internal_call_stack_entered_call_id, 2 },
-                                   { C::internal_call_stack_id, 1 },
-                                   { C::internal_call_stack_return_id, 0 },
+                                   { C::internal_call_stack_call_id, 1 },
+                                   { C::internal_call_stack_return_call_id, 0 },
                                    { C::internal_call_stack_return_pc, 10 },
                                },
                                // First Row of execution (Internal Call)
