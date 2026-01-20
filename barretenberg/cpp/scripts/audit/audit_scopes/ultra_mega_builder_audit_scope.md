@@ -122,6 +122,10 @@ CircuitBuilderBase<FF>
 
 1. `smt_verification/circuit/ultra_circuit.test.cpp`
 
+### Boomerang Value Detection
+2. `boomerang_value_detection/graph_description.test.cpp`
+3. `boomerang_value_detection/graph_description_megacircuitbuilder.test.cpp`
+
 ## Misc. Tests (NOT part of the audit, but might be helpful to situation)
 
 The full prove-verify testing package is more extensive than the mere `circuit_checker` tests. Therefore, the following tests might be helpful as reference points.
