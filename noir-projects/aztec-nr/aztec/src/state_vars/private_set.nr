@@ -163,7 +163,7 @@ where
     /// - Augment the note with a `note_type_id`, so that it can be correctly filed-
     ///   away when it is eventually discovered, decrypted, and processed by its
     ///   intended recipient.
-    ///   (The note_type_id is usually allocated by the #[note] macro).
+    ///   (The note_type_id is usually allocated by the [note](crate::macros::notes::note) macro).
     /// - Provide the contents of the (augmented) note to the PXE, so that it can
     ///   store all notes created by the user executing this function.
     ///   - The note is also kept in the PXE's memory during execution, in case this
