@@ -349,7 +349,6 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
                                                       MSM<Curve>::AffineAdditionData& affine_data,
                                                       MSM<Curve>::BucketAccumulators& bucket_data) noexcept
 {
-    BB_BENCH_NAME("batch_accumulate_points_into_buckets");
 
     if (point_schedule.empty()) {
         return;
@@ -365,7 +364,6 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
     while (point_it < num_points || scratch_it != 0) {
         // Step 1: Fill scratch space with up to BATCH_SIZE/2 independent additions
         {
-            BB_BENCH_NAME("fill_scratch_from_schedule");
             while (((scratch_it + 1) < AffineAdditionData::BATCH_SIZE) && (point_it < last_index)) {
                 // Prefetch points we'll need soon (every PREFETCH_INTERVAL iterations)
                 if ((point_it < prefetch_max) && ((point_it & PREFETCH_INTERVAL_MASK) == 0)) {
@@ -399,7 +397,6 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
         // Compute independent additions using Montgomery's batch inversion trick
         size_t num_points_to_add = scratch_it;
         {
-            BB_BENCH_NAME("batch_affine_addition");
             if (num_points_to_add >= 2) {
                 add_affine_points(
                     affine_data.points_to_add.data(), num_points_to_add, affine_data.inversion_scratch_space.data());
@@ -415,7 +412,6 @@ void MSM<Curve>::batch_accumulate_points_into_buckets(std::span<const uint64_t> 
         size_t num_outputs = num_points_to_add / 2;
 
         {
-            BB_BENCH_NAME("recirculate_affine_outputs");
             while ((num_outputs > 1) && (output_it + 1 < num_outputs)) {
                 uint32_t lhs_bucket = affine_data.addition_result_bucket_destinations[output_it];
                 uint32_t rhs_bucket = affine_data.addition_result_bucket_destinations[output_it + 1];
