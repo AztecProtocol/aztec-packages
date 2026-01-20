@@ -102,7 +102,7 @@ Let’s create a constructor method to run on deployment that assigns an initial
 
 #include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
-This function accesses the counters from storage. It adds the `headstart` value to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.CONSTRAINED_ONCHAIN)` to ensure the note is delivered onchain.
+This function accesses the counters from storage. It adds the `headstart` value to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.ONCHAIN_CONSTRAINED)` to ensure the note is delivered onchain.
 
 We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 

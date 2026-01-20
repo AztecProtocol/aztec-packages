@@ -226,7 +226,7 @@ The `self.context.msg_sender_unsafe` method has been dropped as its use can be r
 The following terms have been renamed:
 
 - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
-- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_UNCONSTRAINED`
 - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
 
 We believe these names will better convey the meaning of the concepts.
