@@ -3,6 +3,7 @@ title: Calling Other Contracts
 sidebar_position: 5
 tags: [functions, contracts, composability]
 description: Call functions in other contracts from your Aztec smart contracts to enable composability.
+references: ["noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr"]
 ---
 
 This guide shows you how to call functions in other contracts from your Aztec smart contracts.

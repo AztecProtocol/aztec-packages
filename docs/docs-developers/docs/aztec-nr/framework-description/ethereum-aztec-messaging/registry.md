@@ -2,6 +2,7 @@
 title: Registry
 description: Learn about the portal registry and how it manages L1-L2 contract mappings.
 tags: [portals, contracts]
+references: ["l1-contracts/src/governance/interfaces/IRegistry.sol"]
 ---
 
 The registry is a contract deployed on L1, that contains addresses for the `Rollup`. It also keeps track of the different versions that have been deployed and let you query prior deployments easily.

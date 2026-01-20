@@ -1,6 +1,7 @@
 ---
 title: Data Structures
 description: Learn about the data structures used in Aztec portals for L1-L2 communication.
+references: ["l1-contracts/src/core/libraries/DataStructures.sol"]
 ---
 
 This page documents the Solidity structs used for L1-L2 message passing in the Aztec protocol.
