@@ -68,7 +68,8 @@ void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& 
     auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
     const bool output_to_stdout = output_dir == "-";
     if (flags.output_format == "json") {
-        throw_or_abort("JSON output format is not supported for IVC verification keys");
+        // IVC VK doesn't have field elements, only bytes - output as binary with a warning
+        info("Warning: JSON output format is not supported for IVC verification keys, writing binary format");
     }
     if (output_to_stdout) {
         write_bytes_to_stdout(response.bytes);
