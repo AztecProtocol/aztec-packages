@@ -68,16 +68,14 @@ function release {
     done
 
     # We release with our tag, e.g. 1.0.0
-    docker manifest create aztecprotocol/aztec:$tag \
-      --amend aztecprotocol/aztec:$tag-amd64 \
-      --amend aztecprotocol/aztec:$tag-arm64
-    docker manifest push aztecprotocol/aztec:$tag
+    docker buildx imagetools create -t aztecprotocol/aztec:$tag \
+      aztecprotocol/aztec:$tag-amd64 \
+      aztecprotocol/aztec:$tag-arm64
 
     # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
-    docker manifest create aztecprotocol/aztec:$(dist_tag) \
-      --amend aztecprotocol/aztec:$tag-amd64 \
-      --amend aztecprotocol/aztec:$tag-arm64
-    docker manifest push aztecprotocol/aztec:$(dist_tag)
+    docker buildx imagetools create -t aztecprotocol/aztec:$(dist_tag) \
+      aztecprotocol/aztec:$tag-amd64 \
+      aztecprotocol/aztec:$tag-arm64
   fi
 }
 
