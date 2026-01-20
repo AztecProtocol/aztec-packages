@@ -308,8 +308,7 @@ class HonkRecursionConstraintTestingFunctions {
                     RecursionConstraint recursion_constraint = constraints[idx];
                     WitnessVector witnesses = witness_vectors[idx];
 
-                    AcirFormat acir_format = constraint_to_acir_format(
-                        recursion_constraint, /*max_witness_index=*/static_cast<uint32_t>(witnesses.size()) - 1);
+                    AcirFormat acir_format = constraint_to_acir_format(recursion_constraint);
 
                     AcirProgram acir_program{ .constraints = acir_format, .witness = witnesses };
 
@@ -396,8 +395,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GateCountSingleHonkRecursio
         auto [updated_constraint, updated_witness_values] =
             TestFixture::update_witness_based_on_predicate(constraint, witness_values, predicate);
 
-        AcirFormat constraint_system = constraint_to_acir_format(
-            updated_constraint, /*max_witness_index=*/static_cast<uint32_t>(updated_witness_values.size()) - 1);
+        AcirFormat constraint_system = constraint_to_acir_format(updated_constraint);
 
         AcirProgram program{ constraint_system, updated_witness_values };
         ProgramMetadata metadata = TestFixture::Base::generate_metadata();
@@ -487,8 +485,7 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
     WitnessVector witness_values;
     TestFixture::Base::generate_constraints(constraint, witness_values);
 
-    AcirFormat constraint_system =
-        constraint_to_acir_format(constraint, /*max_witness_index=*/static_cast<uint32_t>(witness_values.size()) - 1);
+    AcirFormat constraint_system = constraint_to_acir_format(constraint);
 
     AcirProgram program{ constraint_system, witness_values };
     ProgramMetadata metadata = TestFixture::Base::generate_metadata();

@@ -119,7 +119,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (UltraRollup builder)
-inline constexpr size_t CHONK_RECURSION_GATES = 2368394;
+inline constexpr size_t CHONK_RECURSION_GATES = 2368391;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -159,7 +159,7 @@ inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 214907;
 // Goblin AVM Recursive Verifier Constants
 // ========================================
 
-inline constexpr size_t GOBLIN_AVM_GATE_COUNT = 3316531;
-inline constexpr size_t FINALIZED_GOBLIN_AVM_GATE_COUNT = 3316547;
+inline constexpr size_t GOBLIN_AVM_GATE_COUNT = 3316528;
+inline constexpr size_t FINALIZED_GOBLIN_AVM_GATE_COUNT = 3316544;
 
 } // namespace acir_format
