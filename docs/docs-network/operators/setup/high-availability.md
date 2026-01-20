@@ -143,6 +143,19 @@ Never transmit private keys over unencrypted channels or store them in version c
 
 Generate a base keystore with multiple publishers using the Aztec CLI. This will create one attester identity with multiple publisher keys that can be distributed across your nodes.
 
+#if(testnet)
+```bash
+# Generate base keystore with one attester and 3 publishers
+aztec validator-keys new \
+  --fee-recipient [YOUR_AZTEC_FEE_RECIPIENT_ADDRESS] \
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --l1-rpc-urls $ETH_RPC \
+  --mnemonic "your shared mnemonic phrase for key derivation" \
+  --address-index 0 \
+  --publisher-count 3 \
+  --data-dir ~/ha-keys-temp
+```
+#else
 ```bash
 # Generate base keystore with one attester and 2 publishers
 aztec validator-keys new \
@@ -155,6 +168,7 @@ aztec validator-keys new \
   --publisher-count 2 \
   --data-dir ~/ha-keys-temp
 ```
+#endif
 
 This command generates:
 
@@ -178,6 +192,14 @@ Never commit mnemonics to version control or share them over insecure channels.
 
 Each publisher account needs ETH to pay for L1 gas when submitting proposals. You must maintain at least **0.1 ETH** in each publisher account.
 
+#if(testnet)
+**Get Sepolia ETH from faucets:**
+
+- [Sepolia Faucet](https://sepoliafaucet.com/)
+- [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
+- [Alchemy Sepolia Faucet](https://sepoliafaucet.com/)
+
+#endif
 **Check publisher balances:**
 
 ```bash
@@ -419,7 +441,7 @@ docker compose up -d
 
 Ensure both nodes are configured with:
 
-- The same network (`--network mainnet`)
+- The same network (`--network #release_network`)
 - Proper L1 endpoints
 - Correct P2P configuration
 - **HA signing enabled** with the same database URL

@@ -19,11 +19,7 @@ However, Aztec Nodes will support two optional mechanisms that provers can use t
 
 To send a quote via the P2P, do not set the environment variable `PROVER_COORDINATION_NODE_URL` and make sure that `P2P_ENABLED` is set to `true`.
 
-#if(testnet)
 **For S&P Testnet:** Please make sure that you are gossiping quotes via the P2P. Set `P2P_ENABLED` to `true` and do not use `PROVER_COORDINATION_NODE_URL`.
-#else
-**For Aztec mainnet:** Please make sure that you are gossiping quotes via the P2P. Set `P2P_ENABLED` to `true` and do not use `PROVER_COORDINATION_NODE_URL`.
-#endif
 
 
 ```rust
