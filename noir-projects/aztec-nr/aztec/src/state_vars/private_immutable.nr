@@ -85,8 +85,8 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         self.compute_initialization_nullifier(secret)
     }
 
-    /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a [NoteEmission] that
-    /// allows you to decide what method of note message delivery to use.
+    /// Initializes a PrivateImmutable state variable instance with a permanent `note` and returns a
+    /// [crate::note::note_message::NoteMessage] that allows you to decide what method of note message delivery to use.
     ///
     /// This function inserts the single, permanent note for this state variable. It can only be called once per
     /// PrivateImmutable. Subsequent calls will fail because the initialization nullifier will already exist.
