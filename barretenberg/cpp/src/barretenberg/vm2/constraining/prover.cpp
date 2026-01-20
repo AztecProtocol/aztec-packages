@@ -26,19 +26,19 @@ using Flavor = AvmFlavor;
 using FF = Flavor::FF;
 
 /**
- * Create AvmProver from proving key, witness and manifest.
+ * Create AvmProver from proving key, verification key and commitment key.
  *
  * @param input_key Proving key.
- * @param input_manifest Input manifest
+ * @param vk Verification key.
+ * @param commitment_key PCS commitment key
  *
- * @tparam settings Settings class.
  */
-AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key,
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> proving_key,
                      std::shared_ptr<Flavor::VerificationKey> vk,
                      const PCSCommitmentKey& commitment_key)
-    : key(std::move(input_key))
+    : proving_key(std::move(proving_key))
     , vk(std::move(vk))
-    , prover_polynomials(*key)
+    , prover_polynomials(*proving_key)
     , commitment_key(commitment_key)
 {}
 
@@ -113,7 +113,7 @@ void AvmProver::execute_log_derivative_inverse_round()
 
             AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
                            (compute_logderivative_inverse<FF, Relation>(
-                               prover_polynomials, relation_parameters, key->circuit_size)));
+                               prover_polynomials, relation_parameters, ProvingKey::circuit_size)));
         });
     });
 
@@ -146,16 +146,16 @@ void AvmProver::execute_relation_check_rounds()
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Generate gate challenges
-    std::vector<FF> gate_challenges =
-        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
+    std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
+        "Sumcheck:gate_challenge", ProvingKey::log_circuit_size);
 
-    Sumcheck sumcheck(key->circuit_size,
+    Sumcheck sumcheck(ProvingKey::circuit_size,
                       prover_polynomials,
                       transcript,
                       alpha,
                       gate_challenges,
                       relation_parameters,
-                      key->log_circuit_size);
+                      ProvingKey::log_circuit_size);
 
     sumcheck_output = sumcheck.prove();
 }
@@ -216,12 +216,12 @@ void AvmProver::execute_pcs_rounds()
         idx++;
     }
 
-    PolynomialBatcher polynomial_batcher(key->circuit_size);
+    PolynomialBatcher polynomial_batcher(ProvingKey::circuit_size);
     polynomial_batcher.set_unshifted(RefVector{ squashed_unshifted });
     polynomial_batcher.set_to_be_shifted_by_one(RefVector{ squashed_shifted });
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        key->circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        ProvingKey::circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }

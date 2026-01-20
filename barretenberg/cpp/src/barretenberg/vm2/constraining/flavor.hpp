@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 #pragma once
 
 #include <array>
@@ -119,12 +124,13 @@ class AvmFlavor {
     //               "in constants.nr accordingly.");
 
     // VK is composed of
-    // - circuit size encoded as a fr field element
-    // - num of inputs encoded as a fr field element
+    // - log circuit size (constant, equal to MAX_AVM_TRACE_LOG_SIZE)
+    // - num_public_inputs (constant, equal to AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH)
     // - NUM_PRECOMPUTED_ENTITIES commitments
+    // As log_circuit+size and num_public_inputs are hard-coded, we don't serialize them when writing down the vk as a
+    // buffer.
     // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES *
-    // NUM_FRS_COM,
+    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
     //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
     //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
     //               "in constants.nr accordingly.");
@@ -224,6 +230,12 @@ class AvmFlavor {
         std::vector<FF> public_inputs;
     };
 
+    /**
+     * @brief Verification key of the AVM. It is fixed and reconstructed by precomputed values.
+     *
+     * @note While the base class has a pub_inputs_offset field, this is not used in the AVM verification algorithm, so
+     * we leave it default initialized to zero.
+     */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
                                                           typename Transcript::Codec,
                                                           typename Transcript::HashFunction,
@@ -243,16 +255,18 @@ class AvmFlavor {
         VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
         {
             this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
+            this->num_public_inputs = AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH;
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }
         }
 
         // NOTE: This should not be used in production. You should use the fixed VK instead.
-        static VerificationKey from_proving_key(const ProvingKey& proving_key)
+        static VerificationKey from_proving_key_for_testing(const ProvingKey& proving_key)
         {
             VerificationKey vk;
             vk.log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
+            vk.num_public_inputs = AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH;
             for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
                 commitment = proving_key.commitment_key.commit(polynomial);
             }

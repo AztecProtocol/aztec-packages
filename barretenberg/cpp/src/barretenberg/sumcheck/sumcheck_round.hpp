@@ -231,7 +231,8 @@ template <typename Flavor> class SumcheckProverRound {
         // in range starting at index: chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size
         // up to index (not included): chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size
         //
-        // Pattern over edges is now:
+        // Pattern over edges is now (note that horizontal direction here is edge direction, i.e., vertical direction in
+        // the trace):
         //
         //          chunk_0             |           chunk_1             |         chunk_2 ....
         //  thread_0 | thread_1 ...     | thread_0 | thread_1 ...       | thread_0 | thread_1 ...

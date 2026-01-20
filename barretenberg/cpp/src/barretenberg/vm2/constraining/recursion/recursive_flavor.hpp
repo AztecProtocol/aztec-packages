@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -61,6 +61,14 @@ class AvmRecursiveFlavor {
         using Base::Base;
     };
 
+    /**
+     * @brief In-circuit representation of the verification key of the AVM. It is reconstructed by precomputed values
+     * and fixed as a constant of the circuit when the AVM verifier is constructed. The vk commitments are stored in the
+     * selectors of the circuit that contains an AVM verifier.
+     *
+     * @note While the base class has a pub_inputs_offset field, this is not used in the AVM verification algorithm, so
+     * we leave it default initialized to zero and don't copy this value in the selectors.
+     */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           NativeFlavor::PrecomputedEntities<Commitment>,
                                                           NativeVerificationKey,
@@ -68,6 +76,8 @@ class AvmRecursiveFlavor {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
+            log_circuit_size = FF::from_witness(builder, bb::fr(MAX_AVM_TRACE_LOG_SIZE));
+            num_public_inputs = FF::from_witness(builder, bb::fr(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
@@ -83,13 +93,15 @@ class AvmRecursiveFlavor {
         {
             using Codec = stdlib::StdlibCodec<FF>;
 
+            log_circuit_size = FF(MAX_AVM_TRACE_LOG_SIZE);
+            num_public_inputs = FF(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+
             size_t num_frs_read = 0;
-            const size_t num_frs_comm = Codec::template calc_num_fields<Commitment>();
 
             for (Commitment& comm : this->get_all()) {
-                comm =
-                    Codec::template deserialize_from_fields<Commitment>(elements.subspan(num_frs_read, num_frs_comm));
-                num_frs_read += num_frs_comm;
+                comm = Codec::template deserialize_from_fields<Commitment>(
+                    elements.subspan(num_frs_read, NativeFlavor::NUM_FRS_COM));
+                num_frs_read += NativeFlavor::NUM_FRS_COM;
             }
         }
 
@@ -104,6 +116,9 @@ class AvmRecursiveFlavor {
          */
         void fix_witness()
         {
+            log_circuit_size.fix_witness();
+            num_public_inputs.fix_witness();
+
             for (Commitment& commitment : this->get_all()) {
                 commitment.fix_witness();
             }
@@ -130,7 +145,9 @@ class AvmRecursiveFlavor {
             const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs,
             const bool enable_manifest = false)
         {
-            using Challenges = NativeFlavor::AllEntities<FF>;
+            // Container for challenges used in the PCS. Also used to get correct labels for transcript hashing.
+            using Challenges = AllValues;
+            Challenges challenges;
 
             auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
             auto native_vk_hash = native_vk->hash();
@@ -156,20 +173,17 @@ class AvmRecursiveFlavor {
             size_t proof_idx = 0;
             std::span<const stdlib::field_t<Builder>> proof_span = stdlib_proof;
 
-            constexpr size_t num_frs_comm =
-                Base::Codec::template calc_num_fields<typename Base::Codec::bn254_commitment>();
-            for (size_t idx = WIRE_START_IDX; idx < WIRE_START_IDX + NUM_WIRE_ENTITIES; idx++) {
-                transcript->add_element_frs_to_hash_buffer(COLUMN_NAMES[idx],
-                                                           proof_span.subspan(proof_idx, num_frs_comm));
+            constexpr size_t num_frs_comm = NativeFlavor::NUM_FRS_COM;
+            for (const auto& wire_label : challenges.get_wires_labels()) {
+                transcript->add_element_frs_to_hash_buffer(wire_label, proof_span.subspan(proof_idx, num_frs_comm));
                 proof_idx += num_frs_comm;
             }
 
             [[maybe_unused]] auto [_beta, _gamma] =
                 transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
-            for (size_t idx = DERIVED_START_IDX; idx < DERIVED_START_IDX + NUM_DERIVED_ENTITIES; idx++) {
-                transcript->add_element_frs_to_hash_buffer(COLUMN_NAMES[idx],
-                                                           proof_span.subspan(proof_idx, num_frs_comm));
+            for (const auto& derived_label : challenges.get_derived_labels()) {
+                transcript->add_element_frs_to_hash_buffer(derived_label, proof_span.subspan(proof_idx, num_frs_comm));
                 proof_idx += num_frs_comm;
             }
 
@@ -190,8 +204,6 @@ class AvmRecursiveFlavor {
             transcript->add_element_frs_to_hash_buffer("Sumcheck:evaluations",
                                                        proof_span.subspan(proof_idx, NUM_ALL_ENTITIES));
             proof_idx += NUM_ALL_ENTITIES;
-
-            Challenges challenges;
 
             [[maybe_unused]] auto _unshifted_challenges =
                 transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
