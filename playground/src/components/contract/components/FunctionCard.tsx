@@ -148,14 +148,19 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             return { ...step, subtotal: acc };
           });
 
-          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls?.perMethod ?? {}).reduce(
-            (acc, calls) => acc + (calls?.times.length ?? 0),
-            0,
-          );
+          const totalOracleCalls = profileResult.stats.timings.perFunction.reduce((acc, fnTiming) => {
+            if (!fnTiming.oracles) {
+              return acc;
+            }
+            return (
+              acc +
+              Object.values(fnTiming.oracles).reduce((oracleAcc, oracleTiming) => oracleAcc + oracleTiming.times.length, 0)
+            );
+          }, 0);
 
           setProfileResults({
             ...profileResults,
-            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest, totalRPCCalls } },
+            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest, totalOracleCalls } },
           });
         } catch (e) {
           console.error(e);
@@ -352,7 +357,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                         </Typography>
                       </Typography>
                       <Typography variant="caption">
-                        Total RPC calls: {profileResults[fn.name].totalRPCCalls}
+                        Total oracle calls: {profileResults[fn.name].totalOracleCalls}
                       </Typography>
                     </Box>
                     <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>
