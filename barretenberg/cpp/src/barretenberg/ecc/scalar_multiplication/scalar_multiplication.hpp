@@ -185,12 +185,12 @@ template <typename Curve> class MSM {
     struct PointScheduleEntry {
         uint64_t data;
 
-        static PointScheduleEntry create(uint32_t point_index, uint32_t bucket_index)
+        [[nodiscard]] static constexpr PointScheduleEntry create(uint32_t point_index, uint32_t bucket_index) noexcept
         {
             return { (static_cast<uint64_t>(point_index) << 32) | bucket_index };
         }
-        [[nodiscard]] uint32_t point_index() const { return static_cast<uint32_t>(data >> 32); }
-        [[nodiscard]] uint32_t bucket_index() const { return static_cast<uint32_t>(data); }
+        [[nodiscard]] constexpr uint32_t point_index() const noexcept { return static_cast<uint32_t>(data >> 32); }
+        [[nodiscard]] constexpr uint32_t bucket_index() const noexcept { return static_cast<uint32_t>(data); }
     };
 
     // ======================= Public Methods =======================
@@ -229,7 +229,7 @@ template <typename Curve> class MSM {
                                   typename Curve::BaseField* scratch_space) noexcept;
 
     /** @brief Extract c-bit slice from scalar for bucket index computation */
-    static uint32_t get_scalar_slice(const ScalarField& scalar, uint32_t round, uint32_t slice_size) noexcept;
+    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t slice_size) noexcept;
 
     /** @brief Compute optimal bits per slice by minimizing cost over c in [1, MAX_SLICE_BITS) */
     static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
