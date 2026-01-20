@@ -71,11 +71,7 @@ MultilinearBatchingVerifier<Flavor_>::Commitment MultilinearBatchingVerifier<
     std::vector<FF> scalars(instance_batching_scalars);
     scalars.emplace_back(batching_challenge);
 
-    if constexpr (IsRecursiveFlavor<Flavor>) {
-        return Curve::Group::batch_mul(commitments, scalars);
-    } else {
-        return batch_mul_native<Curve>(commitments, scalars);
-    }
+    return Curve::Element::batch_mul(commitments, scalars);
 }
 
 template <typename Flavor_>
