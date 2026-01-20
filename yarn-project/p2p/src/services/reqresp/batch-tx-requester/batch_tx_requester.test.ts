@@ -174,13 +174,23 @@ describe('BatchTxRequester', () => {
       const peer2Requests = requestLog.get(peer2.toString()) || [];
       const peer3Requests = requestLog.get(peer3.toString()) || [];
 
-      // Verify first round: peer distribution should be [0-7], [8-15], [16-24]
+      // With txCount=25 and TX_BATCH_SIZE=8, we get 4 chunks after wrap-around padding:
+      // Chunk 0: [0-7], Chunk 1: [8-15], Chunk 2: [16-23], Chunk 3: [24, 0-6]
+      // (Chunk 3 wraps around to ensure every batch has exactly TX_BATCH_SIZE items)
+      //
+      // Workers share a round-robin index that advances globally across all workers.
+      //
+      // Round 1: Workers take chunks 0, 1, 2 respectively
       expect(peer1Requests[0].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i));
       expect(peer2Requests[0].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i + TX_BATCH_SIZE));
       expect(peer3Requests[0].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i + 2 * TX_BATCH_SIZE));
 
-      // Second round should be [25, 0-6] - because we wrap around to make sure we always request TX_BATCH_SIZE,
-      // [0-7], [8-15]
+      // Round 2: The shared round-robin index continues from where it left off (index 3).
+      // - Peer1 takes chunk 3: [24, 0-6], then index wraps to 0
+      // - Peer2 takes chunk 0: [0-7], index advances to 1
+      // - Peer3 takes chunk 1: [8-15], index advances to 2
+      // This cycling is intentional. It re-requests batches from different peers to maximize
+      // chances of fetching missing transactions.
       expect(peer1Requests[1].indices).toEqual([
         ...Array.from({ length: TX_BATCH_SIZE - 1 }, (_, i) => i),
         txCount - 1,
