@@ -1,6 +1,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"

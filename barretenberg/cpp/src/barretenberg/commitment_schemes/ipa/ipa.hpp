@@ -189,7 +189,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         // Ensure the polynomial copy is fully-formed
         auto a_vec = polynomial.full();
-        std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
+        std::span<Commitment> srs_elements = ck.get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
         if (poly_length > srs_elements.size()) {

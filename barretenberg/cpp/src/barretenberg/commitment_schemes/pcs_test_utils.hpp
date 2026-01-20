@@ -170,7 +170,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         EXPECT_EQ(y, y_expected) << "OpeningClaim: evaluations mismatch";
         Commitment commitment_expected;
 
-        if (!ck.srs) {
+        if (!ck.initialized()) {
             commitment_expected = commit(witness);
         } else {
             commitment_expected = ck.commit(witness);

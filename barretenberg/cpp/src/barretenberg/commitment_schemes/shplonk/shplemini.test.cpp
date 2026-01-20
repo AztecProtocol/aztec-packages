@@ -1,8 +1,8 @@
 
 #include "shplemini.hpp"
-#include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
 #include "../kzg/kzg.hpp"
+#include "../pcs_test_utils.hpp"
 #include "../shplonk/shplonk.hpp"
 #include "../utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"

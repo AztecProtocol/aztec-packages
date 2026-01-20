@@ -65,7 +65,7 @@ template <typename Transcript> class TranslationData {
     {
         // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
         // polynomials that may exceed the circuit size.
-        if (commitment_key.dyadic_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
+        if (commitment_key.srs_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
             commitment_key = typename Flavor::CommitmentKey(MASKED_CONCATENATED_WITNESS_LENGTH);
         }
         // Create interpolation domain required for Lagrange interpolation

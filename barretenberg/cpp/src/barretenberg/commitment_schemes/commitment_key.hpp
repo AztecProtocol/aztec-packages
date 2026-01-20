@@ -8,20 +8,12 @@
 
 /**
  * @brief Provides interfaces for different 'CommitmentKey' classes.
- *
- * TODO(#218)(Mara): This class should handle any modification to the SRS (e.g compute pippenger point table) to
- * simplify the codebase.
  */
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_span.hpp"
-#include "barretenberg/constants.hpp"
-#include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
@@ -44,33 +36,23 @@ template <class Curve> class CommitmentKey {
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using G1 = typename Curve::AffineElement;
 
-    static size_t get_num_needed_srs_points(size_t num_points)
-    {
-        // NOTE: Currently we must round up internal space for points as our pippenger algorithm (specifically,
-        // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
-        // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
-        // will pad 0s into the runtime state.
-        return numeric::round_up_power_2(num_points);
-    }
+  protected:
+    std::shared_ptr<srs::factories::Crs<Curve>> srs;
 
   public:
-    std::shared_ptr<srs::factories::Crs<Curve>> srs;
-    size_t dyadic_size;
+    size_t srs_size;
 
     CommitmentKey() = default;
 
     /**
      * @brief Construct a new Kate Commitment Key object from existing SRS
      *
-     * @param n
-     * @param path
-     *
+     * @param num_points Number of points needed for commitments
      */
     CommitmentKey(const size_t num_points)
-        : srs(srs::get_crs_factory<Curve>()->get_crs(get_num_needed_srs_points(num_points)))
-        , dyadic_size(get_num_needed_srs_points(num_points))
+        : srs(srs::get_crs_factory<Curve>()->get_crs(num_points))
+        , srs_size(num_points)
     {}
     /**
      * @brief Checks the commitment key is properly initialized.
@@ -78,6 +60,9 @@ template <class Curve> class CommitmentKey {
      * @return bool
      */
     bool initialized() const { return srs != nullptr; }
+
+    std::span<Commitment> get_monomial_points() const { return srs->get_monomial_points(); }
+    size_t get_monomial_size() const { return srs->get_monomial_size(); }
 
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
@@ -87,22 +72,16 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial) const
     {
-        // Note: this fn used to expand polynomials to the dyadic size,
-        // due to a quirk in how our pippenger algo used to function.
-        // The pippenger algo has been refactored and this is no longer an issue
         BB_BENCH_NAME("CommitmentKey::commit");
-        std::span<const G1> point_table = srs->get_monomial_points();
+        std::span<const Commitment> point_table = get_monomial_points();
         size_t consumed_srs = polynomial.start_index + polynomial.size();
-        if (consumed_srs > srs->get_monomial_size()) {
+        if (consumed_srs > get_monomial_size()) {
             throw_or_abort(format("Attempting to commit to a polynomial that needs ",
                                   consumed_srs,
                                   " points with an SRS of size ",
-                                  srs->get_monomial_size()));
+                                  get_monomial_size()));
         }
-
-        G1 r = scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table);
-        Commitment point(r);
-        return point;
+        return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table);
     };
     /**
      * @brief Batch commitment to multiple polynomials
@@ -128,17 +107,17 @@ template <class Curve> class CommitmentKey {
             size_t batch_end = i + batch_size;
 
             // Prepare spans for batch MSM
-            std::vector<std::span<const G1>> points_spans;
+            std::vector<std::span<const Commitment>> points_spans;
             std::vector<std::span<Fr>> scalar_spans;
 
             for (auto& polynomial : polynomials.subspan(i, batch_end - i)) {
-                std::span<const G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index());
+                std::span<const Commitment> point_table = get_monomial_points().subspan(polynomial.start_index());
                 size_t consumed_srs = polynomial.start_index() + polynomial.size();
-                if (consumed_srs > srs->get_monomial_size()) {
+                if (consumed_srs > get_monomial_size()) {
                     throw_or_abort(format("Attempting to commit to a polynomial that needs ",
                                           consumed_srs,
                                           " points with an SRS of size ",
-                                          srs->get_monomial_size()));
+                                          get_monomial_size()));
                 }
                 scalar_spans.emplace_back(polynomial.coeffs());
                 points_spans.emplace_back(point_table);
