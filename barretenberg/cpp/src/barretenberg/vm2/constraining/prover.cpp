@@ -180,19 +180,32 @@ void AvmProver::execute_pcs_rounds()
     auto shifted_challenges = challenges.get_to_be_shifted();
 
     // Squash to be shifted polys
-    Polynomial squashed_shifted(Polynomial::shiftable(key->circuit_size));
-    for (const auto [poly, challenge] : zip_view(shifted_polys, shifted_challenges)) {
-        squashed_shifted.add_scaled(poly, challenge);
+    size_t max_idx = 0;
+    size_t max_end_idx = shifted_polys[0].end_index();
+    for (size_t idx = 0; const auto& poly : shifted_polys) {
+        max_idx = (poly.end_index() > max_end_idx) ? idx : max_idx;
+        max_end_idx = (poly.end_index() > max_end_idx) ? poly.end_index() : max_end_idx;
+        idx++;
+    }
+
+    Polynomial squashed_shifted = shifted_polys[max_idx];
+    squashed_shifted *= shifted_challenges[max_idx];
+    for (size_t idx = 0; const auto [poly, challenge] : zip_view(shifted_polys, shifted_challenges)) {
+        if (idx != max_idx) {
+            squashed_shifted.add_scaled(poly, challenge);
+        }
+        idx++;
     }
 
     // Squash unshifted polys
-    Polynomial squashed_unshifted(key->circuit_size);
+    Polynomial squashed_unshifted = prover_polynomials.get(ColumnAndShifts::precomputed_clk);
+    squashed_unshifted *= challenges.get(ColumnAndShifts::precomputed_clk);
     squashed_unshifted += squashed_shifted;
     for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
         if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
             if (idx == 0) {
                 squashed_unshifted += poly; // First polynomial has coefficient 1
-            } else {
+            } else if (idx != static_cast<size_t>(ColumnAndShifts::precomputed_clk)) {
                 squashed_unshifted.add_scaled(poly, challenge);
             }
         }
