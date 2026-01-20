@@ -16,7 +16,8 @@ auto& engine = numeric::get_randomness();
  * These tests verify that pippenger correctly handles scenarios that would fail with the unsafe affine variant:
  * - Duplicate points (same point appears multiple times)
  * - Point and its negation (P + (-P) = infinity)
- * Tests cover sizes both below and above AFFINE_TRICK_THRESHOLD (128).
+ * Tests cover sizes both below and above SINGLE_MUL_THRESHOLD (16), which is where the switch from
+ * naive small_mul to jacobian pippenger occurs.
  */
 template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing::Test {
   public:
@@ -62,10 +63,10 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
 
     void test_duplicate_points()
     {
-        // Test below AFFINE_TRICK_THRESHOLD (128)
+        // Test below SINGLE_MUL_THRESHOLD (16) - uses small_mul
+        test_duplicate_points_helper(10);
+        // Test above SINGLE_MUL_THRESHOLD - uses jacobian pippenger
         test_duplicate_points_helper(50);
-        // Test above AFFINE_TRICK_THRESHOLD
-        test_duplicate_points_helper(200);
     }
 
     void test_point_and_negation_helper(size_t num_pairs)
@@ -92,20 +93,20 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
 
     void test_point_and_negation()
     {
-        // Test below AFFINE_TRICK_THRESHOLD (128) - 30 pairs = 60 points
+        // Test below SINGLE_MUL_THRESHOLD (16) - 5 pairs = 10 points
+        test_point_and_negation_helper(5);
+        // Test above SINGLE_MUL_THRESHOLD - 30 pairs = 60 points
         test_point_and_negation_helper(30);
-        // Test above AFFINE_TRICK_THRESHOLD - 100 pairs = 200 points
-        test_point_and_negation_helper(100);
     }
 
     void test_mixed_duplicates_and_unique()
     {
-        // Test sizes: 60 (below threshold) and 300 (above threshold)
+        // Test sizes: 10 (below SINGLE_MUL_THRESHOLD) and 50 (above threshold)
         for (size_t scale : { size_t{ 1 }, size_t{ 5 } }) {
-            const size_t num_dup = 20 * scale;
-            const size_t num_cancel_pairs = 10 * scale;
-            const size_t num_unique = 20 * scale;
-            const size_t num_pts = num_dup + num_cancel_pairs * 2 + num_unique;
+            const size_t num_dup = 4 * scale;
+            const size_t num_cancel_pairs = 2 * scale;
+            const size_t num_unique = 4 * scale;
+            const size_t num_pts = num_dup + num_cancel_pairs * 2 + num_unique; // 12 or 60
 
             std::vector<AffineElement> points(num_pts);
             std::vector<ScalarField> test_scalars(num_pts);
@@ -156,8 +157,8 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
 
     void test_all_same_point_different_scalars()
     {
-        // Test both below and above AFFINE_TRICK_THRESHOLD (128)
-        for (size_t num_pts : { size_t{ 50 }, size_t{ 500 } }) {
+        // Test both below and above SINGLE_MUL_THRESHOLD (16)
+        for (size_t num_pts : { size_t{ 10 }, size_t{ 50 } }) {
             AffineElement base_point = generators[0];
 
             std::vector<AffineElement> points(num_pts, base_point);
@@ -193,7 +194,7 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
     void test_zero_scalars()
     {
         // Test that zero scalars contribute nothing to the result
-        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+        for (size_t num_pts : { size_t{ 10 }, size_t{ 50 } }) {
             std::vector<AffineElement> points(num_pts);
             std::vector<ScalarField> test_scalars(num_pts);
 
@@ -223,7 +224,7 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
     void test_all_zero_scalars()
     {
         // All zero scalars should produce infinity
-        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+        for (size_t num_pts : { size_t{ 10 }, size_t{ 50 } }) {
             std::vector<AffineElement> points(num_pts);
             std::vector<ScalarField> test_scalars(num_pts, ScalarField::zero());
 
@@ -242,7 +243,7 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
     void test_points_at_infinity_in_input()
     {
         // Points at infinity in the input should be handled correctly
-        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+        for (size_t num_pts : { size_t{ 12 }, size_t{ 51 } }) {
             std::vector<AffineElement> points(num_pts);
             std::vector<ScalarField> test_scalars(num_pts);
 
@@ -272,7 +273,7 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
     void test_all_points_at_infinity()
     {
         // All points at infinity should produce infinity regardless of scalars
-        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+        for (size_t num_pts : { size_t{ 10 }, size_t{ 50 } }) {
             std::vector<AffineElement> points(num_pts, Group::affine_point_at_infinity);
             std::vector<ScalarField> test_scalars(num_pts);
 
