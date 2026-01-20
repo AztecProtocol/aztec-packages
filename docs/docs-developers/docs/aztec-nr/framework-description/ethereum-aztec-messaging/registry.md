@@ -4,9 +4,9 @@ description: Learn about the portal registry and how it manages L1-L2 contract m
 tags: [portals, contracts]
 ---
 
-The registry is a contract deployed on L1, that contains addresses for the `Rollup`. It also keeps track of the different versions that have been deployed and let you query prior deployments easily.
+The Registry is a contract deployed on L1 that tracks canonical and historical rollup instances. It allows you to query the current rollup contract and look up prior deployments by version.
 
-**Links**: [Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/interfaces/IRegistry.sol), [Implementation (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol).
+**Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/governance/interfaces/IRegistry.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/governance/Registry.sol).
 
 ## `numberOfVersions()`
 
@@ -36,4 +36,19 @@ Retrieves the rollup contract for a specific version.
 
 | Name        | Description                          |
 | ----------- | ------------------------------------ |
+| `_version`  | The version identifier of the rollup |
 | ReturnValue | The rollup for the specified version |
+
+## Other view functions
+
+| Function                 | Returns              | Description                                      |
+| ------------------------ | -------------------- | ------------------------------------------------ |
+| `getVersion(uint256)`    | `uint256`            | Returns the version number stored at the given index in the historical versions list |
+| `getGovernance()`        | `address`            | Returns the governance contract address (owner)  |
+| `getRewardDistributor()` | `IRewardDistributor` | Returns the reward distributor contract          |
+
+## Related pages
+
+- [Inbox](./inbox.md) - L1 to L2 message passing
+- [Outbox](./outbox.md) - L2 to L1 message passing
+- [L1-L2 Communication (Portals)](./index.md) - Overview of cross-chain messaging
