@@ -16,7 +16,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      const { currentSlot, nextSlot } = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
 
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         this.logger.warn(
