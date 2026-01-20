@@ -30,39 +30,15 @@ namespace { // anonymous namespace
  * @param bytecode ACIR bytecode of the circuit
  * @param output_path Directory to write the VK (or "-" for stdout)
  */
-void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
+void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
 {
-    auto response = bbapi::ChonkComputeStandaloneVk{
-        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
 
-    bool is_stdout = output_path == "-";
+    const bool is_stdout = output_path == "-";
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else {
         write_file(output_path / "vk", response.bytes);
-    }
-}
-
-/**
- * @brief Compute and write the Chonk verification key.
- *
- * @details Computes the VK for the hiding kernel circuit. The bytecode parameter should be
- * the last circuit in the IVC chain (e.g., private-tail in Aztec), as this determines
- * the public inputs structure of the hiding kernel.
- *
- * @param bytecode ACIR bytecode of the final circuit in the IVC chain
- * @param output_dir Directory to write the VK (or "-" for stdout)
- */
-void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
-{
-    info("Chonk: computing IVC vk for hiding kernel circuit");
-    auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
-    const bool output_to_stdout = output_dir == "-";
-    if (output_to_stdout) {
-        write_bytes_to_stdout(response.bytes);
-    } else {
-        write_file(output_dir / "vk", response.bytes);
     }
 }
 } // anonymous namespace
@@ -194,23 +170,12 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
     return true;
 }
 
-void ChonkAPI::write_vk(const Flags& flags,
+void ChonkAPI::write_vk([[maybe_unused]] const Flags& flags,
                         const std::filesystem::path& bytecode_path,
                         const std::filesystem::path& output_path)
 {
     BB_BENCH_NAME("ChonkAPI::write_vk");
-    auto bytecode = get_bytecode(bytecode_path);
-    if (flags.verifier_type == "ivc") {
-        write_chonk_vk(bytecode, output_path);
-    } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(bytecode, output_path);
-    } else if (flags.verifier_type == "standalone_hiding") {
-        // write the VK for the hiding kernel which DOES NOT utilize a structured trace
-        write_standalone_vk(bytecode, output_path);
-    } else {
-        const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
-        throw_or_abort(msg);
-    }
+    write_chonk_vk(get_bytecode(bytecode_path), output_path);
 }
 
 bool ChonkAPI::check([[maybe_unused]] const Flags& flags,

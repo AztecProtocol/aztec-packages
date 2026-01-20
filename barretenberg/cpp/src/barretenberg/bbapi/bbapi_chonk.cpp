@@ -151,10 +151,10 @@ static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(a
     return std::make_shared<Chonk::ProverInstance>(builder);
 }
 
-ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unused]] const BBApiRequest& request) &&
+ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
+    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
@@ -162,26 +162,9 @@ ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unu
     std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
     auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
 
+    info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
+
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
-}
-
-ChonkComputeIvcVk::Response ChonkComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
-
-    auto standalone_vk_response = bbapi::ChonkComputeStandaloneVk{
-        .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
-    }.execute();
-
-    // The hiding kernel VK is just the MegaZK verification key
-    auto hiding_kernel_vk = from_buffer<Chonk::MegaVerificationKey>(standalone_vk_response.bytes);
-    Response response;
-    response.bytes = to_buffer(hiding_kernel_vk);
-
-    info("ChonkComputeIvcVk - hiding kernel VK derived, size: ", response.bytes.size(), " bytes");
-
-    return response;
 }
 
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&

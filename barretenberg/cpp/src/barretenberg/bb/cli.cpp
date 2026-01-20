@@ -298,22 +298,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) */;
     };
 
-    const auto add_verifier_type_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option("--verifier_type",
-                         flags.verifier_type,
-                         "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
-                         "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
-                         "is sufficient for verifying proofs about a single circuit (including the non-encapsulated "
-                         "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
-                         "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
-                         "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
-                         "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "Chonk class)")
-            ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"))
-            ->group(advanced_group);
-    };
-
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.")
             ->group(advanced_group);
@@ -484,7 +468,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verifier_target_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
-    add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
 
     /***************************************************************************************************************

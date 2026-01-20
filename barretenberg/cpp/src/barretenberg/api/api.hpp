@@ -18,9 +18,7 @@ class API {
         std::string scheme;                   // the proving system or IVC scheme
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
         std::string verifier_target;          // target verification environment (evm, noir-recursive, starknet, etc.)
-        std::string verifier_type; // is a verification key for use a single circuit verifier (e.g. a SNARK or folding
-                                   // recursive verifier) or is it for an ivc verifier?
-        bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
+        bool write_vk{ false }; // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
@@ -39,7 +37,6 @@ class API {
                << "  scheme: " << flags.scheme << "\n"
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
                << "  verifier_target: " << flags.verifier_target << "\n"
-               << "  verifier_type: " << flags.verifier_type << "\n"
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
