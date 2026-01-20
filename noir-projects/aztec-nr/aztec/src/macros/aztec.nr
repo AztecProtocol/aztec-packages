@@ -324,8 +324,10 @@ comptime fn generate_process_message() -> Quoted {
     }
 }
 
-/// Checks if each function in the module is marked with either #[external(...)], #[contract_library_method], or #[test].
-/// Non-macroified functions are not allowed in contracts.
+/// Checks that all functions in the module have a context macro applied.
+///
+/// Non-macroified functions are not allowed in contracts. They must all be one of
+/// [external](crate::macros::functions::external), [internal](crate::macros::functions::internal) or `test`.
 comptime fn check_each_fn_macroified(m: Module) {
     for f in m.functions() {
         let name = f.name();
