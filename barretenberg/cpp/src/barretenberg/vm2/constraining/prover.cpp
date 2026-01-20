@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/constraining/prover.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 
 #include "barretenberg/commitment_schemes/claim.hpp"
@@ -165,37 +166,37 @@ void AvmProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
+    using Challenges = Flavor::AllEntities<FF>;
 
     // Batch polynomials using short scalars to reduce ECCVM circuit size
     auto unshifted_polys = prover_polynomials.get_unshifted();
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
-    // Generate the same batching challenge labels as on the verifier side
-    std::vector<std::string> unshifted_batching_challenge_labels;
-    unshifted_batching_challenge_labels.reserve(unshifted_polys.size() - 1);
-    for (size_t idx = 0; idx < unshifted_polys.size() - 1; idx++) {
-        unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
-    }
-    std::vector<std::string> shifted_batching_challenge_labels;
-    shifted_batching_challenge_labels.reserve(shifted_polys.size());
-    for (size_t idx = 0; idx < shifted_polys.size(); idx++) {
-        shifted_batching_challenge_labels.push_back("rho_" + std::to_string(unshifted_polys.size() - 1 + idx));
-    }
-
     // Get short batching challenges from transcript
-    auto unshifted_challenges = transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
-    auto shifted_challenges = transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
+    Challenges challenges;
+    auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+    std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
+    auto unshifted_challenges = challenges.get_unshifted();
+    auto shifted_challenges = challenges.get_to_be_shifted();
 
-    // Batch the polynomials
-    Polynomial squashed_unshifted(key->circuit_size);
-    squashed_unshifted += unshifted_polys[0]; // First polynomial has coefficient 1
-    for (size_t i = 0; i < unshifted_challenges.size(); ++i) {
-        squashed_unshifted.add_scaled(unshifted_polys[i + 1], unshifted_challenges[i]);
+    // Squash to be shifted polys
+    Polynomial squashed_shifted(Polynomial::shiftable(key->circuit_size));
+    for (const auto [poly, challenge] : zip_view(shifted_polys, shifted_challenges)) {
+        squashed_shifted.add_scaled(poly, challenge);
     }
 
-    Polynomial squashed_shifted(Polynomial::shiftable(key->circuit_size));
-    for (size_t i = 0; i < shifted_challenges.size(); ++i) {
-        squashed_shifted.add_scaled(shifted_polys[i], shifted_challenges[i]);
+    // Squash unshifted polys
+    Polynomial squashed_unshifted(key->circuit_size);
+    squashed_unshifted += squashed_shifted;
+    for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
+        if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
+            if (idx == 0) {
+                squashed_unshifted += poly; // First polynomial has coefficient 1
+            } else {
+                squashed_unshifted.add_scaled(poly, challenge);
+            }
+        }
+        idx++;
     }
 
     PolynomialBatcher polynomial_batcher(key->circuit_size);

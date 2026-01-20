@@ -130,6 +130,8 @@ class AvmRecursiveFlavor {
             const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs,
             const bool enable_manifest = false)
         {
+            using Challenges = NativeFlavor::AllEntities<FF>;
+
             auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
             auto native_vk_hash = native_vk->hash();
             FF vk_hash = FF::from_witness(&builder, native_vk_hash);
@@ -189,21 +191,10 @@ class AvmRecursiveFlavor {
                                                        proof_span.subspan(proof_idx, NUM_ALL_ENTITIES));
             proof_idx += NUM_ALL_ENTITIES;
 
-            std::vector<std::string> unshifted_batching_challenge_labels;
-            unshifted_batching_challenge_labels.reserve(NUM_UNSHIFTED_ENTITIES - 1);
-            for (size_t idx = 0; idx < NUM_UNSHIFTED_ENTITIES - 1; idx++) {
-                unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
-            }
-            std::vector<std::string> shifted_batching_challenge_labels;
-            shifted_batching_challenge_labels.reserve(NUM_WIRES_TO_BE_SHIFTED);
-            for (size_t idx = 0; idx < NUM_WIRES_TO_BE_SHIFTED; idx++) {
-                shifted_batching_challenge_labels.push_back("rho_" + std::to_string(NUM_UNSHIFTED_ENTITIES - 1 + idx));
-            }
+            Challenges challenges;
 
             [[maybe_unused]] auto _unshifted_challenges =
-                transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
-            [[maybe_unused]] auto _shifted_challenges =
-                transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
+                transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
 
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
