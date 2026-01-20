@@ -297,7 +297,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
 void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::lte");
-    constexpr auto opcode = ExecutionOpCode::LT;
+    constexpr auto opcode = ExecutionOpCode::LTE;
     auto& memory = context.get_memory();
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
