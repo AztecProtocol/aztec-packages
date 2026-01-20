@@ -364,6 +364,7 @@ function build {
   )
   # These projects can be built in parallel.
   parallel_cmds=(
+    yarn-project/end-to-end/bootstrap.sh
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh

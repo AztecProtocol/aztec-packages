@@ -141,6 +141,7 @@ locals {
         "nodeType"                    = "p2p-bootstrap"
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_p2p_bootstrap
+        "service.p2p.port"            = local.p2p_port_p2p_bootstrap
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -166,6 +167,7 @@ locals {
       custom_settings = merge({
         "validator.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
         "validator.service.p2p.announcePort"                       = local.p2p_port_validator
+        "validator.service.p2p.port"                               = local.p2p_port_validator
         "validator.web3signerUrl"                                  = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
@@ -276,6 +278,7 @@ locals {
           "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
+          "node.service.p2p.port"                               = local.p2p_port_prover
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
@@ -333,6 +336,7 @@ locals {
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
+        "service.p2p.port"            = local.p2p_port_rpc
 
         # Ensure the JSON-RPC server binds the same port the probe checks
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
@@ -388,6 +392,7 @@ locals {
         "replicaCount"                                = var.FULL_NODE_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_full_node
+        "service.p2p.port"                            = local.p2p_port_full_node
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
@@ -428,6 +433,7 @@ locals {
         "nodeType"                                    = "archive"
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_archive
+        "service.p2p.port"                            = local.p2p_port_archive
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
@@ -463,21 +469,21 @@ locals {
         }
       })]
       custom_settings = {
-        "nodeType"                                    = "blob-sink"
-        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.env.BLOB_FILE_STORE_UPLOAD_URL"         = var.BLOB_FILE_STORE_UPLOAD_URL
-        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
-        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "nodeType"                                   = "blob-sink"
+        "service.p2p.nodePortEnabled"                = var.P2P_NODEPORT_ENABLED
+        "node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
+        "node.env.BLOB_FILE_STORE_UPLOAD_URL"        = var.BLOB_FILE_STORE_UPLOAD_URL
+        "node.env.AWS_ACCESS_KEY_ID"                 = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY"             = var.R2_SECRET_ACCESS_KEY
+        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION" = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
+        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"     = var.DEBUG_P2P_INSTRUMENT_MESSAGES
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"          = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.P2P_GOSSIPSUB_D"                   = var.P2P_GOSSIPSUB_D
+        "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
+        "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
+        "node.env.P2P_DROP_TX"                       = var.P2P_DROP_TX
+        "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
+        "node.env.WS_NUM_HISTORIC_BLOCKS"            = var.WS_NUM_HISTORIC_BLOCKS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
