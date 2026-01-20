@@ -213,7 +213,10 @@ describe('WalletSchema', () => {
   });
 
   it('createAuthWit', async () => {
-    const result = await context.client.createAuthWit(await AztecAddress.random(), Fr.random());
+    const result = await context.client.createAuthWit(await AztecAddress.random(), {
+      innerHash: Fr.random(),
+      consumer: await AztecAddress.random(),
+    });
     expect(result).toBeInstanceOf(AuthWitness);
   });
 
@@ -293,7 +296,7 @@ describe('WalletSchema', () => {
       { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
-      { name: 'createAuthWit', args: [address1, Fr.random()] },
+      { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
     ];
 
     const results = await context.client.batch(methods);

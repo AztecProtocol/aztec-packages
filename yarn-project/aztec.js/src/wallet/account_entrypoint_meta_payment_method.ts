@@ -1,20 +1,11 @@
 import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
-import { EncodedAppEntrypointCalls } from '@aztec/entrypoints/encoding';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionCall,
-  FunctionSelector,
-  encodeArguments,
-  getFunctionArtifactByName,
-} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
-import type { Wallet } from './index.js';
 
 /**
  * Fee payment method that allows an account contract to pay for its own deployment
@@ -33,11 +24,9 @@ import type { Wallet } from './index.js';
  */
 export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   constructor(
-    private wallet: Wallet,
-    private artifact: ContractArtifact,
-    private feePaymentNameOrArtifact: string | FunctionArtifact,
-    private accountAddress: AztecAddress,
+    private account: Account,
     private paymentMethod?: FeePaymentMethod,
+    private feeEntrypointOptions?: any,
   ) {}
 
   getAsset(): Promise<AztecAddress> {
@@ -45,59 +34,38 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   }
 
   async getExecutionPayload(): Promise<ExecutionPayload> {
-    // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
-    // It can be empty because the account might attempt to pay for the tx fee using its own
-    // FeeJuice balance
-    const { calls: feeCalls, authWitnesses: feeAuthwitnesses } =
-      (await this.paymentMethod?.getExecutionPayload()) ?? ExecutionPayload.empty();
-    // Encode the calls for the fee
-    const feePayer = (await this.paymentMethod?.getFeePayer()) ?? this.accountAddress;
-    const isFeePayer = feePayer.equals(this.accountAddress);
-    let accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
-    if (isFeePayer) {
-      // If the account is the fee payer, and the incoming fee payload has calls
-      // it can only be FeeJuicePaymentMethodWithClaim
-      // If the payload has no calls, it's paying using
-      // its own fee juice balance
-      accountFeePaymentMethodOptions =
-        feeCalls.length === 0
-          ? AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE
-          : AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM;
+    // Get the execution payload for the fee
+    const innerPayload = (await this.paymentMethod?.getExecutionPayload()) ?? ExecutionPayload.empty();
+
+    // If no fee entrypoint options were provided, compute them based on the wrapped payment method
+    // This mimics how the actual account contract works when invoked directly:
+    // - If we are the fee payer, are there calls in the inner payload? In that case, those calls can
+    //   only be claiming fee juice, so we use FEE_JUICE_WITH_CLAIM
+    // - If we are the fee payer, but there are no calls, then we assume the account already has
+    //   fee juice and can pay directly with PREEXISTING_FEE_JUICE
+    // - If we are not the fee payer, then EXTERNAL is used
+    let options = this.feeEntrypointOptions;
+    if (!options) {
+      const feePayer = (await this.paymentMethod?.getFeePayer()) ?? this.account.getAddress();
+      const isFeePayer = feePayer.equals(this.account.getAddress());
+
+      let accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
+      if (isFeePayer) {
+        accountFeePaymentMethodOptions =
+          innerPayload.calls.length === 0
+            ? AccountFeePaymentMethodOptions.PREEXISTING_FEE_JUICE
+            : AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM;
+      }
+
+      options = { feePaymentMethodOptions: accountFeePaymentMethodOptions };
     }
-    const feeEncodedCalls = await EncodedAppEntrypointCalls.create(feeCalls);
 
-    // Get the entrypoint args
-    const args = [feeEncodedCalls, accountFeePaymentMethodOptions, false];
-    const feePaymentArtifact =
-      typeof this.feePaymentNameOrArtifact === 'string'
-        ? getFunctionArtifactByName(this.artifact, this.feePaymentNameOrArtifact)
-        : this.feePaymentNameOrArtifact;
-
-    const entrypointCall = new FunctionCall(
-      feePaymentArtifact.name,
-      this.accountAddress,
-      await FunctionSelector.fromNameAndParameters(feePaymentArtifact.name, feePaymentArtifact.parameters),
-      feePaymentArtifact.functionType,
-      false /** hideMsgSender -- set to `false`, because it's not applicable for an entrypoint function (only for enqueued public calls) */,
-      feePaymentArtifact.isStatic,
-      encodeArguments(feePaymentArtifact, args),
-      feePaymentArtifact.returnTypes,
-    );
-
-    // Compute the authwitness required to verify the combined payload
-    const payloadAuthWitness = await this.wallet.createAuthWit(this.accountAddress, await feeEncodedCalls.hash());
-
-    return new ExecutionPayload(
-      [entrypointCall],
-      [payloadAuthWitness, ...feeAuthwitnesses],
-      [],
-      feeEncodedCalls.hashedArguments,
-      feePayer,
-    );
+    // Use the generic wrapping mechanism from the account interface
+    return this.account.wrapExecutionPayload(innerPayload, options);
   }
 
   getFeePayer(): Promise<AztecAddress> {
-    return this.paymentMethod?.getFeePayer() ?? Promise.resolve(this.accountAddress);
+    return this.paymentMethod?.getFeePayer() ?? Promise.resolve(this.account.getAddress());
   }
 
   getGasSettings(): GasSettings | undefined {

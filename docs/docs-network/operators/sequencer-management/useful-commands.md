@@ -33,7 +33,11 @@ All examples below use `--rpc-url $RPC_URL`. In production, always include this 
 
 ### Understanding Deployments
 
+#if(testnet)
 Assume there are multiple deployments of Aztec, such as `testnet` and `ignition-testnet`. Each deployment has a unique Registry contract address that remains constant across upgrades. If a governance upgrade deploys a new rollup contract, the Registry contract address stays the same.
+#else
+Assume there are multiple deployments of Aztec, such as `mainnet` and `ignition-mainnet`. Each deployment has a unique Registry contract address that remains constant across upgrades. If a governance upgrade deploys a new rollup contract, the Registry contract address stays the same.
+#endif
 
 <!-- The Registry contract for a particular deployment can be retrieved from the [Chain Info](../..link) page. -->
 
@@ -41,7 +45,11 @@ Assume there are multiple deployments of Aztec, such as `testnet` and `ignition-
 
 The Registry contract is your entrypoint to all other contracts for a specific deployment. You'll need this address to discover other contract addresses.
 
+#if(testnet)
 Contact the Aztec team or check the documentation for the Registry contract address for your target network (testnet, ignition-testnet, etc.).
+#else
+Contact the Aztec team or check the documentation for the Registry contract address for your target network (mainnet, ignition-mainnet, etc.).
+#endif
 
 ### Get the Rollup Contract Address
 
@@ -308,7 +316,11 @@ cast --to-address 0x000000000000000000000000742d35Cc6634C0532925a3b844Bc9e7595f0
 
 **Solutions**:
 - Verify your RPC endpoint is accessible and correct
+#if(testnet)
 - Check that you're connected to the right network (Sepolia for testnet)
+#else
+- Check that you're connected to the right network (Ethereum mainnet)
+#endif
 - Ensure your RPC provider supports the `eth_call` method
 - Try a different RPC endpoint
 

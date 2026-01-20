@@ -28,7 +28,7 @@ Before creating keystores, ensure you have:
 First, install the Aztec CLI using the official installer:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network/2.1.9/)
+bash -i <(curl -s https://install.aztec.network/#release_version/)
 ```
 
 Verify your CLI installation:
@@ -43,7 +43,11 @@ This approach creates multiple sequencer identities (validators) that share a si
 
 ### Step 1: Create Publisher Address and Set RPC Endpoint
 
+#if(testnet)
+First, set your Ethereum Sepolia L1 RPC endpoint:
+#else
 First, set your Ethereum mainnet L1 RPC endpoint:
+#endif
 
 ```bash
 export ETH_RPC=https://ethereum-rpc.publicnode.com
@@ -87,7 +91,11 @@ Generate 5 validators with the publisher private key from Step 1:
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
+#if(testnet)
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+#else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+#endif
   --l1-rpc-urls $ETH_RPC \
   --count 5 \
   --publishers 0x7988a4a779f058a0
@@ -255,7 +263,11 @@ For testing or simpler setups, you can create a single validator that uses its a
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
+#if(testnet)
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+#else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+#endif
   --l1-rpc-urls $ETH_RPC
 ```
 
@@ -341,7 +353,11 @@ For deterministic key generation or to recreate keys from an existing mnemonic:
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
+#if(testnet)
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+#else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+#endif
   --l1-rpc-urls $ETH_RPC \
   --mnemonic "your existing twelve word mnemonic phrase here" \
   --count 5 \
@@ -358,7 +374,11 @@ Specify custom directory and filename:
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
   --staker-output \
+#if(testnet)
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+#else
   --gse-address 0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f \
+#endif
   --l1-rpc-urls $ETH_RPC \
   --count 5 \
   --publishers 0x7988a4a779f058a0 \

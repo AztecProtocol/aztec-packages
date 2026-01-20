@@ -27,6 +27,21 @@ Before proceeding, you should:
 To connect your node to a bootnode for peer discovery:
 
 1. Obtain the bootnode's ENR (Ethereum Node Record)
+#if(testnet)
+2. Pass the ENR to your node at startup using the `--p2p.bootstrapNodes` flag
+
+The flag accepts a comma-separated list of bootstrap node ENRs:
+
+```bash
+aztec start --node --p2p.bootstrapNodes [ENR]
+```
+
+For multiple bootnodes:
+
+```bash
+aztec start --node --p2p.bootstrapNodes [ENR1],[ENR2],[ENR3]
+```
+#else
 2. Add the ENR to your node's `.env` file using the `BOOTSTRAP_NODES` environment variable
 
 The variable accepts a comma-separated list of bootstrap node ENRs:
@@ -48,9 +63,39 @@ environment:
   # ... other environment variables
   BOOTSTRAP_NODES: ${BOOTSTRAP_NODES}
 ```
+#endif
 
 ## Running a bootnode
 
+#if(testnet)
+To run your own bootnode, use the `--p2p-bootstrap` flag:
+
+```bash
+aztec start --p2p-bootstrap
+```
+
+### Configuring the bootnode port
+
+By default, the bootnode uses the `P2P_PORT` value. To customize the port:
+
+```bash
+aztec start --p2p-bootstrap --p2pBootstrap.p2pBroadcastPort [PORT]
+```
+
+### Persisting bootnode identity
+
+To maintain a consistent bootnode identity across restarts, use the `--p2pBootstrap.peerIdPrivateKeyPath` flag to specify a private key location:
+
+```bash
+aztec start --p2p-bootstrap --p2pBootstrap.peerIdPrivateKeyPath [path]
+```
+
+**How it works:**
+
+- If a private key exists at `[path]`, the bootnode will use it for its identity
+- If no private key exists, a new one will be generated and saved to `[path]`
+- This ensures your bootnode maintains the same ENR across restarts
+#else
 To run your own bootnode, create a dedicated Docker Compose configuration.
 
 Create a `docker-compose.yml` file for your bootnode:
@@ -103,9 +148,11 @@ PEER_ID_PRIVATE_KEY_PATH=/var/lib/data/bootnode-peer-id
 ```
 
 **How it works:**
+
 - If a private key exists at the path, the bootnode will use it for its identity
 - If no private key exists, a new one will be generated and saved to that location
 - This ensures your bootnode maintains the same ENR across restarts
+#endif
 
 ### Obtaining your bootnode's ENR
 
@@ -154,20 +201,35 @@ To verify your bootnode setup:
 **Issue**: Your bootnode isn't discovering or storing peers.
 
 **Solutions**:
+#if(testnet)
+- Verify the bootnode process is running with the correct flags
+#else
 - Verify the bootnode container is running with the correct configuration
+#endif
 - Check that the P2P port is properly configured and accessible
 - Review logs for error messages or connection issues
 - Ensure sufficient system resources are available
 
 ### Private key path errors
 
+#if(testnet)
+**Issue**: Errors occur when specifying `--p2pBootstrap.peerIdPrivateKeyPath`.
+
+**Solutions**:
+- Verify the path exists and is writable
+- Check file permissions for the directory and file
+- Ensure the path doesn't contain invalid characters
+- Confirm the private key file format is correct (if reusing an existing key)
+#else
 **Issue**: Errors occur when specifying the peer ID private key path.
 
 **Solutions**:
+
 - Verify the path exists and is writable within the container
 - Check file permissions for the directory and file
 - Ensure the volume mount is correctly configured in docker-compose.yml
 - Confirm the private key file format is correct (if reusing an existing key)
+#endif
 
 ## Next Steps
 
