@@ -9,7 +9,6 @@ import { deriveKeys } from '@aztec/stdlib/keys';
 import type { AccountContract } from '../account/account_contract.js';
 import { AccountWithSecretKey } from '../account/account_with_secret_key.js';
 import type { Salt } from '../account/index.js';
-import type { AccountInterface } from '../account/interface.js';
 import { Contract } from '../contract/contract.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import type { Wallet } from './wallet.js';
@@ -59,16 +58,6 @@ export class AccountManager {
   }
 
   /**
-   * Returns the entrypoint for this account as defined by its account contract.
-   * @returns An entrypoint.
-   */
-  public async getAccountInterface(): Promise<AccountInterface> {
-    const chainInfo = await this.wallet.getChainInfo();
-    const completeAddress = await this.getCompleteAddress();
-    return this.accountContract.getInterface(completeAddress, chainInfo);
-  }
-
-  /**
    * Gets the calculated complete address associated with this account.
    * Does not require the account to have been published for public execution.
    * @returns The address, partial address, and encryption public key.
@@ -103,8 +92,9 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async getAccount(): Promise<AccountWithSecretKey> {
-    const accountInterface = await this.getAccountInterface();
-    return new AccountWithSecretKey(accountInterface, this.secretKey, this.salt);
+    const completeAddress = await this.getCompleteAddress();
+    const account = this.accountContract.getAccount(completeAddress);
+    return new AccountWithSecretKey(account, this.secretKey, this.salt);
   }
 
   /**
@@ -134,12 +124,14 @@ export class AccountManager {
       constructorArgs: undefined,
     };
 
+    const account = await this.getAccount();
     return new DeployAccountMethod(
       this.getPublicKeys(),
       this.wallet,
       artifact,
       instance => Contract.at(instance.address, artifact, this.wallet),
       new Fr(this.salt),
+      account,
       constructorArgs,
       constructorName,
     );
