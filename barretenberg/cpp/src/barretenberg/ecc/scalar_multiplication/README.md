@@ -148,7 +148,7 @@ Uses **per-thread buffers** (bucket accumulators, scratch space) to eliminate co
 For `batch_multi_scalar_mul()`, work is distributed via `MSMWorkUnit` structures that can split a single MSM across multiple threads. Each thread computes partial results on point subsets, combined in a final reduction.
 
 <details>
-<summary>Thread-local buffer sizes</summary>
+<summary>Per-call buffer sizes</summary>
 
 | Buffer | Size | Purpose |
 |--------|------|---------|
@@ -157,7 +157,7 @@ For `batch_multi_scalar_mul()`, work is distributed via `MSMWorkUnit` structures
 | `AffineAdditionData` | ~400 KB | Scratch for batch inversion |
 | `point_schedule` | $n × 8$ bytes | Per-MSM point schedule |
 
-Memory scales with thread count. For 64 threads with $c = 15$: ~128 MB for bucket accumulators.
+Buffers are allocated per-call for WASM compatibility. Memory scales with thread count during parallel execution.
 
 </details>
 

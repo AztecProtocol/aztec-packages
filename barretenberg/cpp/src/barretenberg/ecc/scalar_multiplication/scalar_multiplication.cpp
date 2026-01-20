@@ -305,13 +305,9 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
     const uint32_t num_rounds = static_cast<uint32_t>((NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice);
     const uint32_t remainder = NUM_BITS_IN_FIELD % bits_per_slice;
 
-    // Thread-local storage avoids per-call allocations (resolves issue #1452)
-    static thread_local AffineAdditionData affine_data;
-    static thread_local BucketAccumulators bucket_data(0);
-    if (bucket_data.buckets.size() < num_buckets) {
-        bucket_data.buckets.resize(num_buckets);
-        bucket_data.bucket_exists.resize(num_buckets);
-    }
+    // Per-call allocation for WASM compatibility (thread_local causes issues in WASM)
+    AffineAdditionData affine_data;
+    BucketAccumulators bucket_data(num_buckets);
 
     Element msm_result = Curve::Group::point_at_infinity;
 

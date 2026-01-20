@@ -2,6 +2,14 @@ succint aztec-packages cheat sheet.
 
 THE PROJECT ROOT IS AT TWO LEVELS ABOVE THIS FOLDER. Typically, the repository is at ~/aztec-packages. all advice is from the root.
 
+# Git workflow for barretenberg
+
+**IMPORTANT**: When comparing branches or looking at diffs for barretenberg work, use `merge-train/barretenberg` as the base branch, NOT `master`. The master branch is often outdated for barretenberg development.
+
+Examples:
+- `git diff merge-train/barretenberg...HEAD` (not `git diff master...HEAD`)
+- `git log merge-train/barretenberg..HEAD` (not `git log master..HEAD`)
+
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
 Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
 

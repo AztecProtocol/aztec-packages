@@ -25,7 +25,7 @@ static typename Curve::AffineElement batch_mul_native(std::span<const typename C
     using FF = typename Curve::ScalarField;
     // Copy scalars since MSM mutates them (converts from Montgomery form)
     std::vector<FF> scalars(_scalars.begin(), _scalars.end());
-    PolynomialSpan<FF> scalar_span(0, scalars);
+    PolynomialSpan<const FF> scalar_span(0, scalars);
     return scalar_multiplication::MSM<Curve>::msm(_points, scalar_span, /*handle_edge_cases=*/true);
 }
 

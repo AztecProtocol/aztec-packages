@@ -131,7 +131,7 @@ template <typename Curve> class MSM {
      * @details Used when handle_edge_cases=false. Stores buckets in affine coordinates,
      *          enabling use of Montgomery's batch inversion trick. Does NOT handle
      *          edge cases like point doubling or point at infinity.
-     * @note In the affine Pippenger path, a thread_local instance is reused across calls.
+     * @note Allocated per-call for WASM compatibility.
      */
     struct BucketAccumulators {
         std::vector<AffineElement> buckets;
