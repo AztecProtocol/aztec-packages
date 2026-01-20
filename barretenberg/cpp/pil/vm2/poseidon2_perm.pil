@@ -1,6 +1,11 @@
 // Implementation based on https://eprint.iacr.org/2023/323.pdf
 include "poseidon2_params.pil";
 
+// WARNING: Any change in this file must be reflected in
+//          optimized/relations/poseidon2_perm_impl.hpp because this is the only pil file
+//          which does not generate hpp/cpp files when we run `bb_pil`. We manually optimized
+//          the generated code to speed-up build time.
+
 namespace poseidon2_perm;
 
     // Selector for poseidon2 operation
@@ -50,7 +55,7 @@ namespace poseidon2_perm;
     sel * (EXT_LAYER_5 - (4 * EXT_LAYER_0 + EXT_LAYER_2)) = 0;
     sel * (EXT_LAYER_6 - (EXT_LAYER_3 + EXT_LAYER_5)) = 0;
     sel * (EXT_LAYER_7 - (EXT_LAYER_2 + EXT_LAYER_4)) = 0;
-    
+
 
     /////////////////////////////////////////////////////
     // START FULL ROUNDS (4 ROUNDS)
@@ -110,7 +115,7 @@ namespace poseidon2_perm;
     sel * (T_1_5 - (4 * T_1_0 + T_1_2)) = 0;
     sel * (T_1_6 - (T_1_3 + T_1_5)) = 0;
     sel * (T_1_7 - (T_1_2 + T_1_4)) = 0;
-    
+
     // Round 3 (Full Round)
     // ARK (Add Round Constant)
     pol ARK_2_0 = T_1_6 + poseidon2_params.C_2_0;
@@ -138,7 +143,7 @@ namespace poseidon2_perm;
     sel * (T_2_5 - (4 * T_2_0 + T_2_2)) = 0;
     sel * (T_2_6 - (T_2_3 + T_2_5)) = 0;
     sel * (T_2_7 - (T_2_2 + T_2_4)) = 0;
-    
+
     // Round 4 (Full Round)
     // ARK (Add Round Constant)
     pol ARK_3_0 = T_2_6 + poseidon2_params.C_3_0;
@@ -166,7 +171,7 @@ namespace poseidon2_perm;
     sel * (T_3_5 - (4 * T_3_0 + T_3_2)) = 0;
     sel * (T_3_6 - (T_3_3 + T_3_5)) = 0;
     sel * (T_3_7 - (T_3_2 + T_3_4)) = 0;
-    
+
     /////////////////////////////////////////////////////
     // PARTIAL ROUNDS (56 ROUNDS)
     /////////////////////////////////////////////////////
