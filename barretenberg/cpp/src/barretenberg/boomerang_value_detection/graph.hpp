@@ -108,8 +108,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::vector<uint32_t> extract_gate_variables(size_t index,
                                                  Block& blk,
                                                  const bb::gate_patterns::GatePattern& pattern,
-                                                 const GateSelectorColumn& gate_selector_column,
-                                                 bool filter_zero_idx = false);
+                                                 const GateSelectorColumn& gate_selector_column);
 
     void process_execution_trace();
 

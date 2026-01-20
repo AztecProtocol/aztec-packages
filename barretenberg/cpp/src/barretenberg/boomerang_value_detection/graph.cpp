@@ -57,7 +57,6 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
  * @param blk The block containing the gate
  * @param pattern The GatePattern describing which wires are constrained
  * @param gate_selector_column The selector column for this gate type (e.g., q_arith, q_elliptic)
- * @param filter_zero_idx If true, filter out zero_idx variables (used for gates with padding)
  * @return Vector of real variable indices constrained by this gate
  */
 template <typename FF, typename CircuitBuilder>
@@ -66,8 +65,7 @@ std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variable
     size_t index,
     Block& blk,
     const bb::gate_patterns::GatePattern& pattern,
-    const GateSelectorColumn& gate_selector_column,
-    bool filter_zero_idx)
+    const GateSelectorColumn& gate_selector_column)
 {
     using namespace bb::gate_patterns;
 
@@ -79,11 +77,6 @@ std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variable
     // Read selectors and extract wire indices using the pattern
     Selectors selectors = read_selectors(blk, index, gate_selector_column);
     std::vector<uint32_t> gate_variables = extract_wires(blk, index, pattern, selectors);
-
-    // Optionally filter out zero_idx (used for gates that pad with zero_idx)
-    if (filter_zero_idx) {
-        std::erase(gate_variables, circuit_builder.zero_idx());
-    }
 
     // Convert to real indices and process
     gate_variables = to_real(gate_variables);
@@ -264,9 +257,9 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
         for (size_t gate_idx = 0; gate_idx < blk.size(); gate_idx++) {
             // Try each pattern until one matches (returns non-empty)
             std::vector<uint32_t> cc;
-            auto try_pattern = [&](const GatePattern& pattern, const auto& selector, bool filter_zero = false) {
+            auto try_pattern = [&](const GatePattern& pattern, const auto& selector) {
                 if (cc.empty()) {
-                    cc = extract_gate_variables(gate_idx, blk, pattern, selector, filter_zero);
+                    cc = extract_gate_variables(gate_idx, blk, pattern, selector);
                 }
             };
 
@@ -277,8 +270,8 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
             try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
-            try_pattern(MEMORY, blk.q_memory());                 // access gates handled by ROM/RAM transcripts
-            try_pattern(DELTA_RANGE, blk.q_delta_range(), true); // filter zero_idx for range lists
+            try_pattern(MEMORY, blk.q_memory()); // access gates handled by ROM/RAM transcripts
+            try_pattern(DELTA_RANGE, blk.q_delta_range());
 
             if (!cc.empty() && connect_variables) {
                 connect_all_variables_in_vector(cc);
@@ -286,7 +279,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
 
             // MegaBuilder-specific patterns
             if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                auto databus_cc = extract_gate_variables(gate_idx, blk, DATABUS, blk.q_busread(), false);
+                auto databus_cc = extract_gate_variables(gate_idx, blk, DATABUS, blk.q_busread());
                 if (!databus_cc.empty() && connect_variables) {
                     connect_all_variables_in_vector(databus_cc);
                 }
