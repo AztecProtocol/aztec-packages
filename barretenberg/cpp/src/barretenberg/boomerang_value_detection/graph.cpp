@@ -208,8 +208,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part
 {
     std::vector<uint32_t> gate_variables;
 
-    // Only process gates in the ecc_op block. The condition w1 != zero_idx is too broad and would
-    // match almost any gate in other blocks, causing false connections.
+    // Only process gates in the ecc_op block, otherwise return early
     if constexpr (IsMegaBuilder<CircuitBuilder>) {
         if (&blk != &circuit_builder.blocks.ecc_op) {
             return gate_variables;
