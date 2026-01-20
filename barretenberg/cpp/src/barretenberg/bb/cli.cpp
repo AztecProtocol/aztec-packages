@@ -233,14 +233,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->add_option("--verifier_target, -t",
                          flags.verifier_target,
                          "Target verification environment. Determines hash function and ZK settings.\n"
-                         "  evm:                    Ethereum/Solidity verification (keccak, ZK)\n"
-                         "  evm-no-zk:              Ethereum/Solidity without zero-knowledge\n"
-                         "  noir-recursive:         Recursive verification in Noir circuits (poseidon2, ZK)\n"
-                         "  noir-recursive-no-zk:   Recursive verification without ZK\n"
-                         "  noir-rollup:            Rollup circuits with IPA accumulation (poseidon2, ZK)\n"
-                         "  noir-rollup-no-zk:      Rollup circuits without ZK\n"
-                         "  starknet:               Starknet verification via Garaga (ZK)\n"
-                         "  starknet-no-zk:         Starknet without zero-knowledge")
+                         "\n"
+                         "Options:\n"
+                         "  evm                  Ethereum/Solidity (keccak, ZK)\n"
+                         "  evm-no-zk            Ethereum/Solidity without ZK\n"
+                         "  noir-recursive       Noir circuits (poseidon2, ZK)\n"
+                         "  noir-recursive-no-zk Noir circuits without ZK\n"
+                         "  noir-rollup          Rollup with IPA (poseidon2, ZK)\n"
+                         "  noir-rollup-no-zk    Rollup without ZK\n"
+                         "  starknet             Starknet via Garaga (ZK)\n"
+                         "  starknet-no-zk       Starknet without ZK")
             ->envname("BB_VERIFIER_TARGET")
             ->check(CLI::IsMember({ "evm",
                                     "evm-no-zk",
