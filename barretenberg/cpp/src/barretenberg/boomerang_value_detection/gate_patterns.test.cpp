@@ -322,3 +322,108 @@ TEST(PatternTest, DatabusRead)
 {
     verify_pattern<DatabusLookupRelation<FF>>(DATABUS, 1, [](Entities& e) { e.q_busread = FF(1); });
 }
+
+// =============================================================================
+// Failure Detection Tests
+//
+// These tests verify the perturbation testing mechanism catches pattern errors.
+// They use intentionally wrong patterns to demonstrate both over-constrained
+// and under-constrained specifications are detected.
+// =============================================================================
+
+/**
+ * @brief Verify detection of OVER-constrained pattern (claims more wires than relation uses)
+ *
+ * When q_arith==3, the multiplication term q_m * w_l * w_r is disabled by the factor
+ * (-1/2) * (q_arith - 3) = 0. A pattern that unconditionally includes w_r when q_m != 0
+ * would be over-constrained. The perturbation test detects this.
+ */
+TEST(PatternTest, DetectOverConstrained)
+{
+    // Recreate the OLD buggy pattern that unconditionally includes w_r when q_m != 0
+    // Bug: didn't check (q_arith != 3) before including multiplication term wires
+    const GatePattern
+        BUGGY_ARITHMETIC_PATTERN = { .name = "buggy_arith_pattern",
+                                     .wires = {
+                                         { Wire::W_L, [](const Selectors& sel) { return sel.q_1_nz || sel.q_m_nz; } },
+                                         { Wire::W_R,
+                                           [](const Selectors& sel) {
+                                               return sel.q_2_nz || sel.q_m_nz;
+                                           } }, // BUG: missing && q_arith!=3
+                                         { Wire::W_O, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                         { Wire::W_4,
+                                           [](const Selectors& sel) { return sel.q_4_nz || sel.gate_selector >= 2; } },
+                                         { Wire::W_4_SHIFT,
+                                           [](const Selectors& sel) { return sel.gate_selector >= 2; } },
+                                         { Wire::W_L_SHIFT,
+                                           [](const Selectors& sel) { return sel.gate_selector == 3; } },
+                                     } };
+
+    // Configure: q_arith=3, q_m!=0 (multiplication term DISABLED by q_arith=3)
+    Entities entities = get_random_entities();
+    entities.q_arith = FF(3);
+    entities.q_m = FF::random_element();
+    while (entities.q_m.is_zero()) {
+        entities.q_m = FF::random_element();
+    }
+    entities.q_l = FF(1); // q_1 for the mini-gate
+    entities.q_r = FF(0); // q_2 zero - so w_r only from mul term (which is disabled)
+
+    Selectors selectors = build_selectors(entities, 3);
+    auto buggy_pattern_claims = get_pattern_wires(BUGGY_ARITHMETIC_PATTERN, selectors);
+    auto correct_pattern_claims = get_pattern_wires(ARITHMETIC, selectors);
+    auto parameters = RelationParameters<FF>::get_random();
+    auto actually_constrained = get_actually_constrained_wires<ArithmeticRelation<FF>>(entities, parameters);
+
+    // Buggy pattern claims W_R (via q_m_nz), but relation doesn't constrain it when q_arith=3
+    EXPECT_TRUE(buggy_pattern_claims.contains(Wire::W_R)) << "Buggy pattern should (incorrectly) claim W_R";
+    EXPECT_FALSE(actually_constrained.contains(Wire::W_R))
+        << "Relation should NOT constrain W_R when q_arith=3 (mul term disabled)";
+    EXPECT_NE(buggy_pattern_claims, actually_constrained) << "Buggy pattern should not match relation";
+
+    // Verify the CORRECT pattern matches the relation
+    EXPECT_EQ(correct_pattern_claims, actually_constrained) << "Correct ARITHMETIC pattern should match relation";
+}
+
+/**
+ * @brief Verify detection of UNDER-constrained pattern (misses wires that relation uses)
+ *
+ * The RAM consistency relation (q_3 != 0) constrains all 8 wires. A pattern that only
+ * extracts 6 wires (omitting w_l and w_r) would be under-constrained. The perturbation
+ * test detects this.
+ */
+TEST(PatternTest, DetectUnderConstrained)
+{
+    // Recreate the OLD buggy pattern that omitted w_l and w_r for RAM consistency
+    const GatePattern BUGGY_MEMORY_PATTERN = { .name = "buggy_memory_pattern",
+                                               .wires = {
+                                                   // BUG: Missing W_L and W_R for RAM consistency (q_3 != 0)
+                                                   { Wire::W_O, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                                   { Wire::W_4, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                                   { Wire::W_L_SHIFT, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                                   { Wire::W_R_SHIFT, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                                   { Wire::W_O_SHIFT, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                                   { Wire::W_4_SHIFT, [](const Selectors& sel) { return sel.q_3_nz; } },
+                                               } };
+
+    // Configure: RAM consistency check (q_3 != 0)
+    Entities entities = get_random_entities();
+    entities.q_memory = FF(1);
+    entities.q_o = FF(1); // q_3 non-zero triggers RAM consistency
+
+    Selectors selectors = build_selectors(entities, 1);
+    auto buggy_pattern_claims = get_pattern_wires(BUGGY_MEMORY_PATTERN, selectors);
+    auto correct_pattern_claims = get_pattern_wires(MEMORY, selectors);
+    auto parameters = RelationParameters<FF>::get_random();
+    auto actually_constrained = get_actually_constrained_wires<MemoryRelation<FF>>(entities, parameters);
+
+    // Buggy pattern is missing W_L and W_R
+    EXPECT_FALSE(buggy_pattern_claims.contains(Wire::W_L)) << "Buggy pattern should be missing W_L";
+    EXPECT_FALSE(buggy_pattern_claims.contains(Wire::W_R)) << "Buggy pattern should be missing W_R";
+    EXPECT_TRUE(actually_constrained.contains(Wire::W_L)) << "Relation SHOULD constrain W_L";
+    EXPECT_TRUE(actually_constrained.contains(Wire::W_R)) << "Relation SHOULD constrain W_R";
+    EXPECT_NE(buggy_pattern_claims, actually_constrained) << "Buggy pattern should not match relation";
+
+    // Verify the CORRECT pattern matches the relation
+    EXPECT_EQ(correct_pattern_claims, actually_constrained) << "Correct MEMORY pattern should match relation";
+}
