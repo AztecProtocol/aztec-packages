@@ -1,4 +1,4 @@
-// Values taken from barretenberg/crypto/poseidon2/poseidon2_params.hpp 
+// Values taken from barretenberg/crypto/poseidon2/poseidon2_params.hpp
 
 // Parameters for Poseidon for bn254.
 // 64 total rounds (8 full rounds and 56 partial rounds)
@@ -6,6 +6,7 @@
 // Alpha (exponentiation): 5
 namespace poseidon2_params;
     // Internal Matrix Diagonal (for partial rounds)
+    // These values are specified in `internal_matrix_diagonal` array in poseidon2_params.hpp.
     pol MU_0 = 7626475329478847982857743246276194948757851985510858890691733676098590062311;
     pol MU_1 = 5498568565063849786384470689962419967523752476452646391422913716315471115275;
     pol MU_2 = 148936322117705719734052984176402258788283488576388928671173547788498414613;
@@ -14,6 +15,7 @@ namespace poseidon2_params;
     // Round constants
     // Naming scheme is c_{round_count}_{input_count} where the counts are zero-indexed
     // So the round constant applied in the 5th round to the 3rd input is c_4_2
+    // These values are specified in `round_constants` array in poseidon2_params.hpp.
     // Round 1 constants
     pol C_0_0 = 11633431549750490989983886834189948010834808234699737327785600195936805266405;
     pol C_0_1 = 17353750182810071758476407404624088842693631054828301270920107619055744005334;
