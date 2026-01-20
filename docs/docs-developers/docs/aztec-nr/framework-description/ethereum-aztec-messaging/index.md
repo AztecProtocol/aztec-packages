@@ -1,10 +1,9 @@
 ---
 id: portals
 title: L1 <--> L2 communication (Portals)
-description: "This page is a conceptual introduction to Portals, how Aztec communicates with L1 (Ethereum)"
+description: A conceptual introduction to Portals and how Aztec communicates with L1 (Ethereum)
 keywords: [portals]
 tags: [portals, protocol, ethereum]
-importance: 1
 sidebar_position: 12
 ---
 
@@ -12,18 +11,7 @@ sidebar_position: 12
 
 import Image from "@theme/IdealImage";
 
-In Aztec, what we call _portals_ are the key element in facilitating communication between L1 and L2. While typical L2 solutions rely on synchronous communication with L1, Aztec's privacy-first nature means this is not possible. You can learn more about why in the previous section.
-
-Traditional L1 \<-\> L2 communication might involve direct calls between L2 and L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 would not be possible if we want to maintain privacy.
-
-Portals are the solution to this problem, acting as bridges for communication between the two layers. These portals can transmit messages from public functions in L1 to private functions in L2 and vice versa, thus enabling messaging while maintaining privacy.
-
-This page covers:
-
-- How portals enable privacy communication between L1 and L2
-- How messages are sent, received, and processed
-- Message Boxes and how they work
-- How and why linking of contracts between L1 and L2 occurs
+In Aztec, _portals_ facilitate communication between L1 and L2. Unlike typical L2 solutions that rely on synchronous communication, Aztec's privacy-first design and the way transactions are processed (kernel proofs built on historical data) make direct calls between L1 and L2 impossible while maintaining privacy. Portals solve this by acting as bridges for asynchronous message passing, transmitting messages from public functions in L1 to private functions in L2 and vice versa.
 
 ## Objective
 
@@ -31,7 +19,7 @@ The goal is to set up a minimal-complexity mechanism, that will allow a base-lay
 
 - L2 functions can `call` L1 functions.
 - L1 functions can `call` L2 functions.
-- The rollup-block size have a limited impact by the messages and their size.
+- Messages have minimal impact on rollup block size.
 
 ## High Level Overview
 
@@ -39,10 +27,10 @@ This document will contain communication abstractions that we use to support int
 
 Fundamental restrictions for Aztec:
 
-- L1 and L2 have very different execution environments, stuff that is cheap on L1 is most often expensive on L2 and vice versa. As an example, `keccak256` is cheap on L1, but very expensive on L2.
+- L1 and L2 have very different execution environments. Operations that are cheap on L1 are often expensive on L2 and vice versa. For example, `keccak256` is cheap on L1 but very expensive on L2.
 - _Private_ function calls are fully "prepared" and proven by the user, which provides the kernel proof along with commitments and nullifiers to the sequencer.
 - _Public_ functions altering public state (updatable storage) must be executed at the current "head" of the chain, which only the sequencer can ensure, so these must be executed separately to the _private_ functions.
-- _Private_ and _public_ functions within Aztec are therefore ordered such that first _private_ functions are executed, and then _public_. For a more detailed description of why, see above.
+- _Private_ and _public_ functions within Aztec are therefore ordered such that _private_ functions are executed first, then _public_ functions.
 - Messages are consumables, and can only be consumed by the recipient. See [Message Boxes](#message-boxes) for more information.
 
 With the aforementioned restrictions taken into account, cross-chain messages can be operated in a similar manner to when _public_ functions must transmit information to _private_ functions. In such a scenario, a "message" is created and conveyed to the recipient for future use. It is worth noting that any call made between different domains (_private, public, cross-chain_) is unilateral in nature. In other words, the caller is unaware of the outcome of the initiated call until told when some later rollup is executed (if at all). This can be regarded as message passing, providing us with a consistent mental model across all domains, which is convenient.
@@ -52,7 +40,7 @@ As an illustration, suppose a private function adds a cross-chain call. In such 
 Similarly to the ordering of private and public functions, we can also reap the benefits of intentionally ordering messages between L1 and L2. When a message is sent from L1 to L2, it has been "emitted" by an action in the past (an L1 interaction), allowing us to add it to the list of consumables at the "beginning" of the block execution. This practical approach means that a message could be consumed in the same block it is included. In a sophisticated setup, rollup $n$ could send an L2 to L1 message that is then consumed on L1, and the response is added already in $n+1$. However, messages going from L2 to L1 will be added as they are emitted.
 
 :::info
-Because everything is unilateral and async, the application developer have to explicitly handle failure cases such that user can gracefully recover. Example where recovering is of utmost importance is token bridges, where it is very inconvenient if the locking of funds on one domain occur, but never the minting or unlocking on the other.
+Because everything is unilateral and async, application developers must explicitly handle failure cases so users can gracefully recover. Token bridges are a prime example: it would be very inconvenient if funds are locked on one domain but never minted or unlocked on the other.
 :::
 
 ## Components
@@ -68,12 +56,12 @@ In a logical sense, a Message Box functions as a one-way message passing mechani
 <Image img={require("@site/static/img/com-abs-5.png")} />
 
 - Here, a `sender` will insert a message into the `pending` set, the specific constraints of the actions depend on the implementation domain, but for now, say that anyone can insert into the pending set.
-- At some point, a rollup will be executed, in this step messages are "moved" from pending on Domain A, to ready on Domain B. Note that consuming the message is "pulling & deleting" (or nullifying). The action is atomic, so a message that is consumed from the pending set MUST be added to the ready set, or the state transition should fail. A further constraint on moving messages along the way, is that only messages where the `sender` and `recipient` pair exists in a leaf in the contracts tree are allowed!
+- At some point, a rollup will be executed, in this step messages are "moved" from pending on Domain A, to ready on Domain B. Note that consuming the message is "pulling & deleting" (or nullifying). The action is atomic, so a message that is consumed from the pending set MUST be added to the ready set, or the state transition should fail. A further constraint is that the `sender` and `recipient` version fields must match the version of their respective inbox/outbox contracts.
 - When the message has been added to the ready set, the `recipient` can consume the message as part of a function call.
 
 A difference when compared to other cross-chain setups, is that Aztec is "pulling" messages, and that the message doesn't need to be calldata for a function call. For other rollups, execution is happening FROM the "message bridge", which then calls the L1 contract. For Aztec, you call the L1 contract, and it should then consume messages from the message box.
 
-Why? _Privacy_! When pushing, we would be needing full `calldata`. Which for functions with private inputs is not really something we want as that calldata for L1 -> L2 transactions are committed to on L1, e.g., publicly sharing the inputs to a private function.
+Why pull instead of push? Privacy. Pushing would require full calldata, which would publicly expose inputs to private functions since L1 → L2 transaction calldata is committed on L1.
 
 By instead pulling, we can have the "message" be something that is derived from the arguments instead. This way, a private function to perform second half of a deposit, leaks the "value" deposited and "who" made the deposit (as this is done on L1), but the new owner can be hidden on L2.
 
@@ -95,14 +83,15 @@ As part of _state transitions_ where cross-chain messages are included, the cont
 
 ### Kernel Circuit
 
-For L2 to L1 messages, the public inputs of a user-proof will contain a dynamic array of messages to be added, of size at most `MAX_MESSAGESTACK_DEPTH`, limited to ensure it is not impossible to include the transaction. The circuit must ensure, that all messages have a `sender/recipient` pair, and that those pairs exist in the contracts tree and that the `sender` is the L2 contract that actually emitted the message.
-For consuming L1 to L2 messages the circuit must create proper nullifiers.
+For L2 to L1 messages, the kernel circuit's public inputs contain a dynamic array of messages, limited to `MAX_L2_TO_L1_MSGS_PER_TX` to ensure transactions can always be included. The circuit scopes each message to the contract address that emitted it, ensuring the sender cannot be spoofed.
+
+When consuming L1 to L2 messages, user contracts call `process_l1_to_l2_message()` which verifies the message exists in the L1 to L2 message tree and creates a nullifier to prevent double-consumption. The kernel circuit accumulates these nullifiers in its public inputs.
 
 ### Rollup Circuit
 
 The rollup circuit must ensure that, provided two states $S$ and $S'$ and the rollup block $B$, applying $B$ to $S$ using the transition function must give us $S'$, e.g., $T(S, B) \mapsto S'$. If this is not the case, the constraints are not satisfied.
 
-For the sake of cross-chain messages, this means inserting and nullifying L1 $\rightarrow$ L2 in the trees, and publish L2 $\rightarrow$ L1 messages on chain. These messages should only be inserted if the `sender` and `recipient` match an entry in the contracts leaf (as checked by the kernel).
+For cross-chain messages, this means inserting and nullifying L1 → L2 messages in the trees and publishing L2 → L1 messages on chain.
 
 ### Messages
 
@@ -128,3 +117,10 @@ To make it possible to hide when a specific message is consumed, the `L1ToL2Msg`
 The following diagram shows the overall architecture, combining the earlier sections.
 
 <Image img={require("@site/static/img/com-abs-7.png")} />
+
+## See also
+
+- [Communicating Cross-Chain](../how_to_communicate_cross_chain.md) - Practical guide with code examples for L1-L2 messaging
+- [Data Structures](./data_structures.md) - Message and actor type definitions
+- [Inbox](./inbox.md) - L1 contract for sending messages to L2
+- [Outbox](./outbox.md) - L1 contract for consuming messages from L2
