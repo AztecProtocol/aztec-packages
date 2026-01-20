@@ -73,6 +73,8 @@ l1-contracts: &l1-contracts-defaults
   AZTEC_MANA_TARGET: 100000000
   # Cost per unit of mana for proving.
   AZTEC_PROVING_COST_PER_MANA: 100
+  # Initial ETH per fee asset price (with 1e12 precision). 1e7 = 0.00001 ETH/AZTEC.
+  AZTEC_INITIAL_ETH_PER_FEE_ASSET: 10000000
 
   #---------------------------------------------------------------------------
   # Slashing Protocol Configuration

@@ -20,6 +20,31 @@ Lots of unnecessary modules have been removed from the API, making imports short
 
 Affected structs include all state variables, notes, contexts, messages, etc.
 
+### [L1 Contracts] Fee asset pricing direction inverted
+
+The fee model now uses `ethPerFeeAsset` instead of the previous `feeAssetPerEth`. This change inverts how the exchange rate is represented: values now express how much ETH one fee asset (AZTEC) is worth, with 1e12 precision.
+
+**Key changes:**
+
+- `FeeHeader.feeAssetPerEth` → `FeeHeader.ethPerFeeAsset`
+- `RollupConfigInput` now requires `initialEthPerFeeAsset` parameter at deployment
+- Default value: `1e7` (0.00001 ETH per AZTEC)
+- Valid range: `100` (1e-10 ETH/AZTEC) to `1e11` (0.1 ETH/AZTEC)
+
+**New environment variable for node operators:**
+
+- `AZTEC_INITIAL_ETH_PER_FEE_ASSET` - Sets the initial ETH per fee asset price with 1e12 precision
+
+### [L1 Contracts] Fee asset price modifier now in basis points
+
+The `OracleInput.feeAssetPriceModifier` field now expects values in basis points (BPS) instead of the previous representation. The modifier is applied as a percentage change to the ETH/AZTEC price each checkpoint.
+
+**Key changes:**
+
+- Valid range: `-100` to `+100` BPS (±1% max change per checkpoint)
+- A value of `+100` increases the price by 1%, `-100` decreases by 1%
+- Validated by `MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100`
+
 ### [Aztec.js] Wallet batching now supports all methods
 
 The `BatchedMethod` type is now a discriminated union that ensures type safety: the `args` must match the specific method `name`. This prevents runtime errors from mismatched arguments.
