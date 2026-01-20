@@ -121,6 +121,7 @@ case "$cmd" in
     # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-deploy"
+    export CPUS=32
     export INSTANCE_POSTFIX="n-deploy"
     bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
