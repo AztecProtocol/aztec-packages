@@ -51,8 +51,8 @@ if [ "$COMMAND" = "analyze" ]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     BARRETENBERG_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
     CPP_DIR="$BARRETENBERG_ROOT/cpp"
-    BUILD_DIR="$CPP_DIR/build-fuzzing-avm"
-    BUILD_PRESET="fuzzing-avm"
+    BUILD_DIR="$CPP_DIR/build-fuzzing-avm-tooling"
+    BUILD_PRESET="fuzzing-avm-tooling"
 
     cd "$CPP_DIR"
 
