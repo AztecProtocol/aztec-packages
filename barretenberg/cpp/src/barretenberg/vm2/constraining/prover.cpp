@@ -173,6 +173,7 @@ void AvmProver::execute_pcs_rounds()
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
     // Get short batching challenges from transcript
+    // Note: the first challenge is not used for batching, but to maintain the code cleaner, we generate it nonetheless
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
