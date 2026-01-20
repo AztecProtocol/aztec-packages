@@ -36,6 +36,9 @@ if(FUZZING_AVM)
     add_subdirectory(harness)
 
     # Corpus analyzer tool (not a fuzzer, a standalone binary)
-    add_executable(avm_tx_corpus_analyzer avm_tx_corpus_analyzer.cpp)
-    target_link_libraries(avm_tx_corpus_analyzer avm_fuzzer)
+    # Only build when FUZZING=OFF to avoid linking against instrumented libraries
+    if(NOT FUZZING)
+        add_executable(avm_tx_corpus_analyzer avm_tx_corpus_analyzer.cpp)
+        target_link_libraries(avm_tx_corpus_analyzer avm_fuzzer)
+    endif()
 endif()
