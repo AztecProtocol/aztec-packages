@@ -138,7 +138,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
   }
 
-  async build(oracle: PrivateKernelOracle, noteHashLeafIndexMap: Map<bigint, bigint>) {
+  async build(oracle: PrivateKernelOracle) {
     if (privateKernelResetDimensionNames.every(name => !this.requestedDimensions[name])) {
       throw new Error('Reset is not required.');
     }
@@ -157,16 +157,6 @@ export class PrivateKernelResetPrivateInputsBuilder {
       allowRemainder,
     );
 
-    const previousVkMembershipWitness = await oracle.getVkMembershipWitness(
-      this.previousKernelOutput.verificationKey.keyAsFields,
-    );
-    const vkData = new VkData(
-      this.previousKernelOutput.verificationKey,
-      Number(previousVkMembershipWitness.leafIndex),
-      previousVkMembershipWitness.siblingPath,
-    );
-    const previousKernelData = new PrivateKernelData(this.previousKernelOutput.publicInputs, vkData);
-
     this.reduceReadRequestActions(
       this.noteHashResetActions,
       dimensions.NOTE_HASH_PENDING_READ,
@@ -178,6 +168,41 @@ export class PrivateKernelResetPrivateInputsBuilder {
       dimensions.NULLIFIER_SETTLED_READ,
     );
 
+    // Execute all the expensive node querying operations in parallel.
+    const [previousVkMembershipWitness, noteHashReadRequestHints, nullifierReadRequestHints, keyValidationHints] =
+      await Promise.all([
+        oracle.getVkMembershipWitness(this.previousKernelOutput.verificationKey.keyAsFields),
+        buildNoteHashReadRequestHintsFromResetActions<
+          typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+          typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX
+        >(
+          oracle,
+          this.previousKernel.validationRequests.noteHashReadRequests,
+          this.previousKernel.end.noteHashes,
+          this.noteHashResetActions,
+        ),
+        buildNullifierReadRequestHintsFromResetActions<
+          typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+          typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        >(
+          { getNullifierMembershipWitness: getNullifierMembershipWitnessResolver(oracle) },
+          this.previousKernel.validationRequests.nullifierReadRequests,
+          this.nullifierResetActions,
+        ),
+        getMasterSecretKeysAndAppKeyGenerators(
+          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
+          dimensions.KEY_VALIDATION,
+          oracle,
+        ),
+      ]);
+
+    const vkData = new VkData(
+      this.previousKernelOutput.verificationKey,
+      Number(previousVkMembershipWitness.leafIndex),
+      previousVkMembershipWitness.siblingPath,
+    );
+    const previousKernelData = new PrivateKernelData(this.previousKernelOutput.publicInputs, vkData);
+
     // TODO: Enable padding when we have a better idea what are the final amounts we should pad to.
     const paddedSideEffects = PaddedSideEffects.empty();
 
@@ -185,23 +210,9 @@ export class PrivateKernelResetPrivateInputsBuilder {
       previousKernelData,
       paddedSideEffects,
       new PrivateKernelResetHints(
-        await buildNoteHashReadRequestHintsFromResetActions(
-          oracle,
-          this.previousKernel.validationRequests.noteHashReadRequests,
-          this.previousKernel.end.noteHashes,
-          this.noteHashResetActions,
-          noteHashLeafIndexMap,
-        ),
-        await buildNullifierReadRequestHintsFromResetActions(
-          { getNullifierMembershipWitness: getNullifierMembershipWitnessResolver(oracle) },
-          this.previousKernel.validationRequests.nullifierReadRequests,
-          this.nullifierResetActions,
-        ),
-        await getMasterSecretKeysAndAppKeyGenerators(
-          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
-          dimensions.KEY_VALIDATION,
-          oracle,
-        ),
+        noteHashReadRequestHints,
+        nullifierReadRequestHints,
+        keyValidationHints,
         this.transientDataSquashingHints,
       ),
       dimensions,
