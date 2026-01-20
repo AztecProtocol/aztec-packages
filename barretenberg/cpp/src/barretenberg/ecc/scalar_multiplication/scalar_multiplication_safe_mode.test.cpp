@@ -177,6 +177,116 @@ template <class Curve> class ScalarMultiplicationSafeModeTest : public ::testing
             EXPECT_EQ(AffineElement(result), expected) << "Failed for size " << num_pts;
         }
     }
+
+    void test_empty_input()
+    {
+        std::vector<AffineElement> points;
+        std::vector<ScalarField> test_scalars;
+
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+        auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+        EXPECT_EQ(AffineElement(result), Group::affine_point_at_infinity);
+    }
+
+    void test_zero_scalars()
+    {
+        // Test that zero scalars contribute nothing to the result
+        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+            std::vector<AffineElement> points(num_pts);
+            std::vector<ScalarField> test_scalars(num_pts);
+
+            // Half zero scalars, half random
+            Element expected;
+            expected.self_set_infinity();
+
+            for (size_t i = 0; i < num_pts; ++i) {
+                points[i] = generators[i];
+                if (i % 2 == 0) {
+                    test_scalars[i] = ScalarField::zero();
+                    // Zero scalar contributes nothing
+                } else {
+                    test_scalars[i] = scalars[i];
+                    expected += generators[i] * scalars[i];
+                }
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+            EXPECT_EQ(AffineElement(result), AffineElement(expected)) << "Failed for size " << num_pts;
+        }
+    }
+
+    void test_all_zero_scalars()
+    {
+        // All zero scalars should produce infinity
+        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+            std::vector<AffineElement> points(num_pts);
+            std::vector<ScalarField> test_scalars(num_pts, ScalarField::zero());
+
+            for (size_t i = 0; i < num_pts; ++i) {
+                points[i] = generators[i];
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+            EXPECT_EQ(AffineElement(result), Group::affine_point_at_infinity) << "Failed for size " << num_pts;
+        }
+    }
+
+    void test_points_at_infinity_in_input()
+    {
+        // Points at infinity in the input should be handled correctly
+        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+            std::vector<AffineElement> points(num_pts);
+            std::vector<ScalarField> test_scalars(num_pts);
+
+            Element expected;
+            expected.self_set_infinity();
+
+            for (size_t i = 0; i < num_pts; ++i) {
+                if (i % 3 == 0) {
+                    // Every third point is infinity
+                    points[i] = Group::affine_point_at_infinity;
+                    test_scalars[i] = scalars[i]; // Non-zero scalar, but infinity * s = infinity
+                } else {
+                    points[i] = generators[i];
+                    test_scalars[i] = scalars[i];
+                    expected += generators[i] * scalars[i];
+                }
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+            EXPECT_EQ(AffineElement(result), AffineElement(expected)) << "Failed for size " << num_pts;
+        }
+    }
+
+    void test_all_points_at_infinity()
+    {
+        // All points at infinity should produce infinity regardless of scalars
+        for (size_t num_pts : { size_t{ 50 }, size_t{ 200 } }) {
+            std::vector<AffineElement> points(num_pts, Group::affine_point_at_infinity);
+            std::vector<ScalarField> test_scalars(num_pts);
+
+            for (size_t i = 0; i < num_pts; ++i) {
+                test_scalars[i] = scalars[i]; // Random non-zero scalars
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+
+            auto result = scalar_multiplication::pippenger<Curve>(scalar_span, points, /*handle_edge_cases=*/true);
+
+            EXPECT_EQ(AffineElement(result), Group::affine_point_at_infinity) << "Failed for size " << num_pts;
+        }
+    }
 };
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
@@ -197,4 +307,24 @@ TYPED_TEST(ScalarMultiplicationSafeModeTest, MixedDuplicatesAndUnique)
 TYPED_TEST(ScalarMultiplicationSafeModeTest, AllSamePointDifferentScalars)
 {
     TestFixture::test_all_same_point_different_scalars();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, EmptyInput)
+{
+    TestFixture::test_empty_input();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, ZeroScalars)
+{
+    TestFixture::test_zero_scalars();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, AllZeroScalars)
+{
+    TestFixture::test_all_zero_scalars();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, PointsAtInfinityInInput)
+{
+    TestFixture::test_points_at_infinity_in_input();
+}
+TYPED_TEST(ScalarMultiplicationSafeModeTest, AllPointsAtInfinity)
+{
+    TestFixture::test_all_points_at_infinity();
 }
