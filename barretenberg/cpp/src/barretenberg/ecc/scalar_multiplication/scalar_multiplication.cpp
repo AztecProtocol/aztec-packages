@@ -524,31 +524,12 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     ScalarField* scalar_ptr = const_cast<ScalarField*>(&scalars[scalars.start_index]);
     std::span<ScalarField> scalar_span(scalar_ptr, num_scalars);
 
-    // Convert to non-Montgomery form and collect nonzero indices
-    std::vector<uint32_t> nonzero_indices;
-    transform_scalar_and_get_nonzero_scalar_indices(scalar_span, nonzero_indices);
+    // Wrap into a size-1 batch and delegate to the general method that properly handles mullti-threading
+    std::array<std::span<const AffineElement>, 1> points_batch{ points.subspan(scalars.start_index) };
+    std::array<std::span<ScalarField>, 1> scalars_batch{ scalar_span };
 
-    // Compute MSM directly
-    std::vector<uint64_t> point_schedule(nonzero_indices.size());
-    MSMData msm_data{ scalar_span, points.subspan(scalars.start_index), nonzero_indices, point_schedule };
-
-    Element result;
-    if (nonzero_indices.size() < PIPPENGER_THRESHOLD) {
-        result = small_mul<Curve>(msm_data);
-    } else if (handle_edge_cases) {
-        result = jacobian_pippenger_with_transformed_scalars(msm_data);
-    } else {
-        result = affine_pippenger_with_transformed_scalars(msm_data);
-    }
-
-    // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
-    parallel_for_range(num_scalars, [&](size_t start, size_t end) {
-        for (size_t i = start; i < end; ++i) {
-            scalar_ptr[i].self_to_montgomery_form();
-        }
-    });
-
-    return AffineElement(result);
+    auto results = batch_multi_scalar_mul(std::span(points_batch), std::span(scalars_batch), handle_edge_cases);
+    return results[0];
 }
 
 template <typename Curve>
