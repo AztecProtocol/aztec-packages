@@ -43,9 +43,7 @@ describe('FishermanAttestationValidator', () => {
       });
 
       // Mock epoch cache to return different slot numbers
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(98),
         nextSlot: SlotNumber(99),
       });
@@ -56,6 +54,8 @@ describe('FishermanAttestationValidator', () => {
 
       // Should not check attestation pool if base validation fails
       expect(attestationPool.getCheckpointProposal).not.toHaveBeenCalled();
+      // Should not try to resolve proposers if base validation fails
+      expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
     });
 
     it('returns high tolerance error if attester is not in committee', async () => {
@@ -65,12 +65,11 @@ describe('FishermanAttestationValidator', () => {
         proposerSigner: proposer,
       });
 
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
       epochCache.isInCommittee.mockResolvedValue(false);
 
       const result = await validator.validate(mockAttestation);
@@ -88,12 +87,11 @@ describe('FishermanAttestationValidator', () => {
         proposerSigner: wrongProposer,
       });
 
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
       epochCache.isInCommittee.mockResolvedValue(true);
 
       const result = await validator.validate(mockAttestation);
@@ -107,9 +105,7 @@ describe('FishermanAttestationValidator', () => {
   describe('fisherman payload validation', () => {
     beforeEach(() => {
       // Setup valid base validation for all fisherman tests
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
@@ -242,9 +238,7 @@ describe('FishermanAttestationValidator', () => {
   describe('edge cases', () => {
     beforeEach(() => {
       // Setup valid base validation
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
