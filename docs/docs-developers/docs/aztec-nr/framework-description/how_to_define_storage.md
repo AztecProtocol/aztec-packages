@@ -98,7 +98,7 @@ fn initialize_value(value: Field) {
     let note = FieldNote { value };
 
     self.storage.private_value.at(owner).initialize(note).deliver(
-        MessageDelivery.CONSTRAINED_ONCHAIN,
+        MessageDelivery.ONCHAIN_CONSTRAINED,
     );
 }
 ```
@@ -107,9 +107,9 @@ fn initialize_value(value: Field) {
 
 Private state operations return a `NoteMessage` that must be delivered. Choose based on your needs:
 
-- **`CONSTRAINED_ONCHAIN`** - Cryptographic guarantees that recipients can decrypt. Use when contracts need to verify message contents.
-- **`UNCONSTRAINED_ONCHAIN`** - Faster proving, stored onchain. Use when recipients can verify validity through other means.
-- **`UNCONSTRAINED_OFFCHAIN`** - Lowest cost, requires custom delivery infrastructure. Use for high-volume applications.
+- **`ONCHAIN_CONSTRAINED`** - Cryptographic guarantees that recipients can decrypt. Use when contracts need to verify message contents.
+- **`ONCHAIN_UNCONSTRAINED`** - Faster proving, stored onchain. Use when recipients can verify validity through other means.
+- **`OFFCHAIN`** - Lowest cost, requires custom delivery infrastructure. Use for high-volume applications.
 
 :::
 
@@ -122,7 +122,7 @@ Updates the value by nullifying the current note and inserting a new one. Takes 
 fn update_value(new_value: Field) {
     let owner = self.msg_sender().unwrap();
     self.storage.private_value.at(owner).replace(|_old_note| FieldNote { value: new_value }).deliver(
-        MessageDelivery.CONSTRAINED_ONCHAIN,
+        MessageDelivery.ONCHAIN_CONSTRAINED,
     );
 }
 
@@ -131,7 +131,7 @@ fn increment_value() {
     let owner = self.msg_sender().unwrap();
     self.storage.private_value.at(owner).replace(|old_note| {
         FieldNote { value: old_note.value + 1 }
-    }).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+    }).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 }
 ```
 
@@ -146,7 +146,7 @@ fn set_value(new_value: Field) {
     self.storage.private_value.at(owner).initialize_or_replace(|maybe_note| {
         // maybe_note is None if uninitialized, Some(note) if exists
         FieldNote { value: new_value }
-    }).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+    }).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 }
 ```
 
@@ -160,7 +160,7 @@ fn read_value() {
     let owner = self.msg_sender().unwrap();
     let note_message = self.storage.private_value.at(owner).get_note();
     // Access the note content via note_message.get_new_note()
-    note_message.deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+    note_message.deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 }
 ```
 
@@ -211,7 +211,7 @@ fn set_config(value: Field) {
     let note = ConfigNote { value };
 
     self.storage.private_config.at(owner).initialize(note).deliver(
-        MessageDelivery.CONSTRAINED_ONCHAIN,
+        MessageDelivery.ONCHAIN_CONSTRAINED,
     );
 }
 ```
@@ -243,7 +243,7 @@ Adds a new note to the set:
 ```rust
 let note = UintNote { value: amount };
 self.storage.balances.at(owner).insert(note).deliver(
-    MessageDelivery.CONSTRAINED_ONCHAIN,
+    MessageDelivery.ONCHAIN_CONSTRAINED,
 );
 ```
 
@@ -327,7 +327,7 @@ When initializing, you still pass an owner address - but this specifies who can 
 
 ```rust
 // owner_address determines who can see the note, not where it's stored
-self.storage.admin.initialize(note, owner_address).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
+self.storage.admin.initialize(note, owner_address).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 ```
 
 ## Public storage types
