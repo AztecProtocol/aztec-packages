@@ -8,24 +8,26 @@
 
 #include <cstdint>
 
+#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
-#include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"
 
 namespace bb::avm2 {
 
 class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = AvmRecursiveFlavorSettings::CircuitBuilder;
-    using Curve = AvmRecursiveFlavorSettings::Curve;
-    using PCS = AvmRecursiveFlavorSettings::PCS;
-    using GroupElement = AvmRecursiveFlavorSettings::GroupElement;
-    using Commitment = AvmRecursiveFlavorSettings::Commitment;
-    using FF = AvmRecursiveFlavorSettings::FF;
-    using BF = AvmRecursiveFlavorSettings::BF;
+    using CircuitBuilder = MegaCircuitBuilder;
+    using Curve = stdlib::bn254<CircuitBuilder>;
+    using PCS = KZG<Curve>;
+    using GroupElement = Curve::Element;
+    using Commitment = Curve::AffineElement;
+    using FF = Curve::ScalarField;
+    using BF = Curve::BaseField;
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -45,7 +47,7 @@ class AvmRecursiveFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // To achieve fixed proof size so that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
 
@@ -82,12 +84,12 @@ class AvmRecursiveFlavor {
             using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
-            size_t num_frs_Comm = Codec::template calc_num_fields<Commitment>();
+            const size_t num_frs_comm = Codec::template calc_num_fields<Commitment>();
 
             for (Commitment& comm : this->get_all()) {
                 comm =
-                    Codec::template deserialize_from_fields<Commitment>(elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
+                    Codec::template deserialize_from_fields<Commitment>(elements.subspan(num_frs_read, num_frs_comm));
+                num_frs_read += num_frs_comm;
             }
         }
 

@@ -56,32 +56,8 @@ AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(cons
 }
 
 AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
-{
-    StdlibProof stdlib_proof(builder, proof);
-
-    std::vector<std::vector<FF>> public_inputs_ct;
-    public_inputs_ct.reserve(public_inputs_vec_nt.size());
-
-    for (const auto& vec : public_inputs_vec_nt) {
-        std::vector<FF> vec_ct;
-        vec_ct.reserve(vec.size());
-        for (const auto& el : vec) {
-            vec_ct.push_back(stdlib::witness_t<Builder>(&builder, el));
-        }
-        public_inputs_ct.push_back(vec_ct);
-    }
-
-    return verify_proof(stdlib_proof, public_inputs_ct);
-}
-
-// TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
-AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     const stdlib::Proof<Builder>& stdlib_proof, const std::vector<std::vector<FF>>& public_inputs)
 {
-    using Curve = typename Flavor::Curve;
-    using PCS = typename Flavor::PCS;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -122,7 +98,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     relation_parameters.gamma = gamma;
 
     // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
+    for (auto [commitment, label] : zip_view(commitments.get_derived(), commitments.get_derived_labels())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 

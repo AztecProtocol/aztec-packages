@@ -247,35 +247,36 @@ template <typename Flavor> class SumcheckProverRound {
         // not at least 2, we fallback to using a single chunk. Note that chunk_size and num_of_chunks are not constant
         // but are derived by round_size, num_threads and the chunk_thread_portion_size which needs to satisfy: 1) 2 <=
         // chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE 2) chunk_thread_portion_size * num_threads <=
-        // round_size For the non-AVM flavors, we use a single chunk.
+        // round_size.
 
-        // Non AVM flavors
         size_t num_of_chunks = 1;
-        size_t chunk_thread_portion_size = round_size / num_threads;
+        size_t chunk_size = round_size / num_of_chunks;
+        size_t chunk_thread_portion_size = chunk_size / num_threads;
 
         // This constant is assumed to be a power of 2 greater or equal to 2.
         static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
         static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
 
-        // When the number of edges is so small that the chunk portion size per thread is lower than 2,
-        // we fall back to a single chunk, i.e., we keep the "non-AVM" values.
-        if (round_size / num_threads >= 2) {
-            chunk_thread_portion_size = std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
+        // If chunk_thread_portion_size is at least 2, we update its value based on
+        // Flavor::MAX_CHUNK_THREAD_PORTION_SIZE
+        if (chunk_thread_portion_size >= 2) {
+            chunk_thread_portion_size = std::min(chunk_thread_portion_size, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
             num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
+            chunk_size = round_size / num_of_chunks;
             // We show that chunk_thread_portion_size satisfies 1) and 2) defined above.
-            // From "std::min()": chunk_thread_portion_size <= round_size/num_threads implying 2)
-            // From static_assert above, and "if condition", we know that both values in "std::min()"
-            // are >= 2 and therefore: chunk_thread_portion_size >= 2
-            // Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
-            // which completes 1).
+            // - From "std::min()": chunk_thread_portion_size <= round_size/num_threads (where we used that the initial
+            //   value of chunk_thread_portion_size is round_size/num_threads) implying 2)
+            // - From static_assert above, and the "if condition", we know that both values in "std::min()" are >= 2 and
+            //   therefore: chunk_thread_portion_size >= 2
+            // - Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE which
+            //   completes 1).
         }
 
-        size_t chunk_size = round_size / num_of_chunks;
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
-        // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
+        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
             // Construct extended univariates containers; one per thread
             ExtendedEdges lazy_extended_edges(polynomials);

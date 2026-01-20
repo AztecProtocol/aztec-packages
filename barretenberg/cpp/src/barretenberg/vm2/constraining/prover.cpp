@@ -124,9 +124,8 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
     BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_commitments_round");
     auto batch = commitment_key.start_batch();
     // Commit to all logderivative inverse polynomials and send to verifier
-    for (auto [derived_poly, commitment, label] : zip_view(prover_polynomials.get_derived(),
-                                                           witness_commitments.get_derived(),
-                                                           prover_polynomials.get_derived_labels())) {
+    for (auto [derived_poly, label] :
+         zip_view(prover_polynomials.get_derived(), prover_polynomials.get_derived_labels())) {
 
         batch.add_to_batch(derived_poly, label, /*mask for zk?*/ false);
     }

@@ -34,8 +34,6 @@ class AvmRecursiveVerifier {
                                   const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const StdlibProof& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
     /**
