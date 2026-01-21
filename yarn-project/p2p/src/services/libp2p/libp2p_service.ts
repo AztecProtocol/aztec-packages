@@ -66,6 +66,7 @@ import {
   CheckpointAttestationValidator,
   CheckpointProposalValidator,
   FishermanAttestationValidator,
+  SizeTxValidator,
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
@@ -1370,6 +1371,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private createRequestedTxValidator(): TxValidator {
     return new AggregateTxValidator(
       new DataTxValidator(),
+      new SizeTxValidator(),
       new MetadataTxValidator({
         l1ChainId: new Fr(this.config.l1ChainId),
         rollupVersion: new Fr(this.config.rollupVersion),

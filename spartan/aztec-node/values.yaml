@@ -68,6 +68,7 @@ statefulSet:
 nodeSelector: null
 affinity: null
 tolerations: []
+topologySpreadConstraints: []
 
 # -- Aztec node configuration
 node:

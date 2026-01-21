@@ -29,6 +29,7 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
+import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import { ContractClassLog, LogId } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -2251,6 +2252,48 @@ describe('KVArchiverDataStore', () => {
         ],
       ]);
     });
+
+    describe('pagination', () => {
+      const paginationTag = makePrivateLogTag(1, 2, 1);
+
+      beforeEach(async () => {
+        // Add more blocks with the same tag to exceed MAX_LOGS_PER_TAG
+        for (let i = numBlocksForLogs; i < numBlocksForLogs + MAX_LOGS_PER_TAG + 5; i++) {
+          const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+          const newCheckpoint = await makeCheckpointWithLogs(i + 1, {
+            previousArchive,
+            numTxsPerBlock,
+            privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+          });
+          const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1];
+          newLog.fields[0] = paginationTag.value;
+          newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1] = newLog;
+          await store.addCheckpoints([newCheckpoint]);
+          await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+          logsCheckpoints.push(newCheckpoint);
+        }
+      });
+
+      it('returns first page of logs when page=0', async () => {
+        const logsByTags = await store.getPrivateLogsByTags([paginationTag], 0);
+
+        expect(logsByTags[0]).toHaveLength(MAX_LOGS_PER_TAG);
+        expect(logsByTags[0][0].blockNumber).toBe(1); // First log from block 1
+      });
+
+      it('returns second page of logs when page=1', async () => {
+        const logsByTags = await store.getPrivateLogsByTags([paginationTag], 1);
+
+        // Should have the remaining logs (total was MAX_LOGS_PER_TAG + 6, so page 1 has 6)
+        expect(logsByTags[0]).toHaveLength(6);
+      });
+
+      it('returns empty array when page is beyond available logs', async () => {
+        const logsByTags = await store.getPrivateLogsByTags([paginationTag], 100);
+
+        expect(logsByTags).toEqual([[]]);
+      });
+    });
   });
 
   describe('getPublicLogsByTagsFromContract', () => {
@@ -2350,6 +2393,48 @@ describe('KVArchiverDataStore', () => {
           }),
         ],
       ]);
+    });
+
+    describe('pagination', () => {
+      const paginationTag = makePublicLogTag(1, 2, 1);
+
+      beforeEach(async () => {
+        // Add more blocks with the same tag to exceed MAX_LOGS_PER_TAG
+        for (let i = numBlocksForLogs; i < numBlocksForLogs + MAX_LOGS_PER_TAG + 5; i++) {
+          const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+          const newCheckpoint = await makeCheckpointWithLogs(i + 1, {
+            previousArchive,
+            numTxsPerBlock,
+            publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+          });
+          const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1];
+          newLog.fields[0] = paginationTag.value;
+          newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1] = newLog;
+          await store.addCheckpoints([newCheckpoint]);
+          await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+          logsCheckpoints.push(newCheckpoint);
+        }
+      });
+
+      it('returns first page of logs when page=0', async () => {
+        const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 0);
+
+        expect(logsByTags[0]).toHaveLength(MAX_LOGS_PER_TAG);
+        expect(logsByTags[0][0].blockNumber).toBe(1); // First log from block 1
+      });
+
+      it('returns second page of logs when page=1', async () => {
+        const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 1);
+
+        // Should have the remaining logs (total was MAX_LOGS_PER_TAG + 6, so page 1 has 6)
+        expect(logsByTags[0]).toHaveLength(6);
+      });
+
+      it('returns empty array when page is beyond available logs', async () => {
+        const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 100);
+
+        expect(logsByTags).toEqual([[]]);
+      });
     });
   });
 
