@@ -731,9 +731,9 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
 
     // Forward pass: prepare batch inversion
     for (size_t i = 0; i < num_pairs; ++i) {
-        const AffineElement& lhs = Policy::get_lhs_point(lhs_base, i);
-        AffineElement& rhs = Policy::get_rhs_point(rhs_base, i);
-        Fq& scratch = Policy::get_scratch(scratch_space, i);
+        const AffineElement& lhs = lhs_base[Policy::template lhs_index<AffineElement>(i)];
+        AffineElement& rhs = rhs_base[Policy::template rhs_index<AffineElement>(i)];
+        Fq& scratch = scratch_space[i];
 
         scratch = lhs.x + rhs.x;
         rhs.x -= lhs.x;
@@ -751,10 +751,10 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
     for (size_t i_plus_1 = num_pairs; i_plus_1 > 0; --i_plus_1) {
         size_t i = i_plus_1 - 1;
 
-        const AffineElement& lhs = Policy::get_lhs_point(lhs_base, i);
-        AffineElement& rhs = Policy::get_rhs_point(rhs_base, i);
-        AffineElement& output = Policy::get_output_point(rhs_base, i, num_pairs);
-        Fq& scratch = Policy::get_scratch(scratch_space, i);
+        const AffineElement& lhs = lhs_base[Policy::template lhs_index<AffineElement>(i)];
+        AffineElement& rhs = rhs_base[Policy::template rhs_index<AffineElement>(i)];
+        AffineElement& output = rhs_base[Policy::template output_index<AffineElement>(i, num_pairs)];
+        Fq& scratch = scratch_space[i];
 
         if constexpr (Policy::ENABLE_PREFETCH) {
             Policy::prefetch_iteration(rhs_base, scratch_space, i, num_pairs);
