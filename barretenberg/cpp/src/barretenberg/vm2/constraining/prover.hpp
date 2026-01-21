@@ -26,24 +26,22 @@ class AvmProver {
     using Transcript = Flavor::Transcript;
     using Proof = HonkProof;
 
-    explicit AvmProver(std::shared_ptr<ProvingKey> proving_key,
+    explicit AvmProver(std::shared_ptr<ProvingKey> input_proving_key,
                        std::shared_ptr<VerificationKey> vk,
                        const PCSCommitmentKey& commitment_key);
     AvmProver(AvmProver&& prover) = default;
     virtual ~AvmProver() = default;
 
-    // Note: all the following methods are virtual to allow Avm2 to tweak the behaviour.
-    // We can remove this once the transition is done.
-    virtual void execute_preamble_round();
-    virtual void execute_public_inputs_round();
-    virtual void execute_wire_commitments_round();
-    virtual void execute_log_derivative_inverse_round();
-    virtual void execute_log_derivative_inverse_commitments_round();
-    virtual void execute_relation_check_rounds();
-    virtual void execute_pcs_rounds();
+    void execute_preamble_round();
+    void execute_public_inputs_round();
+    void execute_wire_commitments_round();
+    void execute_log_derivative_inverse_round();
+    void execute_log_derivative_inverse_commitments_round();
+    void execute_relation_check_rounds();
+    void execute_pcs_rounds();
 
-    virtual HonkProof export_proof();
-    virtual HonkProof construct_proof();
+    HonkProof export_proof();
+    HonkProof construct_proof();
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 

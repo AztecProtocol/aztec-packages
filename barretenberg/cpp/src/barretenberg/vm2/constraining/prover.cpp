@@ -38,10 +38,10 @@ using FF = Flavor::FF;
  * @param commitment_key PCS commitment key
  *
  */
-AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> proving_key,
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_proving_key,
                      std::shared_ptr<Flavor::VerificationKey> vk,
                      const PCSCommitmentKey& commitment_key)
-    : proving_key(std::move(proving_key))
+    : proving_key(std::move(input_proving_key))
     , vk(std::move(vk))
     , prover_polynomials(*proving_key)
     , commitment_key(commitment_key)
@@ -195,7 +195,8 @@ void AvmProver::execute_pcs_rounds()
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the first challenge is not used for batching, but to maintain the code cleaner, we generate it nonetheless
+    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
+    // cleaner, we generate it nonetheless
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
@@ -225,15 +226,13 @@ void AvmProver::execute_pcs_rounds()
 
     // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
     // polynomial with precomputed_clk, which is always of circuit size)
-    Polynomial batched_unshifted = prover_polynomials.get(ColumnAndShifts::precomputed_clk);
-    batched_unshifted *= challenges.get(ColumnAndShifts::precomputed_clk);
+    Polynomial batched_unshifted =
+        prover_polynomials.get(ColumnAndShifts::precomputed_clk); // Initial poly has coefficient 1
     batched_unshifted += batched_shifted;
     for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
         // Only operate in the range of not to be shifted polys, as the contribution for those has already been added
         if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
-            if (idx == 0) {
-                batched_unshifted += poly; // First polynomial has coefficient 1
-            } else if (idx != static_cast<size_t>(ColumnAndShifts::precomputed_clk)) {
+            if (idx != static_cast<size_t>(ColumnAndShifts::precomputed_clk)) {
                 batched_unshifted.add_scaled(poly, challenge);
             }
         }
