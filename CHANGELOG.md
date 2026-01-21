@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.11](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.10...v2.1.11) (2026-01-21)
+
+
+### Miscellaneous
+
+* bump msgpack (backport) ([#19794](https://github.com/AztecProtocol/aztec-packages/issues/19794)) ([4d6b86f](https://github.com/AztecProtocol/aztec-packages/commit/4d6b86f9c3ff93e1224e91c5be1ebd0d439b3083))
+
 ## [2.1.10](https://github.com/AztecProtocol/aztec-packages/compare/v2.1.9...v2.1.10) (2026-01-08)
 
 
