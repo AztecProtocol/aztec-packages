@@ -562,12 +562,12 @@ class MockAztecNode implements AztecNode {
     });
   }
 
-  async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
+  async getL2BlocksNew(from: BlockNumber, _1: number): Promise<L2BlockNew[]> {
     const block = await L2BlockNew.random(from);
     return [block];
   }
 
-  getCheckpointedBlocks(_from: BlockNumber, _limit: number, _proven?: boolean) {
+  getCheckpointedBlocks(_from: BlockNumber, _limit: number) {
     return Promise.resolve([]);
   }
 

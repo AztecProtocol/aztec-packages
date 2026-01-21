@@ -77,11 +77,8 @@ describe('ServerWorldStateSynchronizer', () => {
 
     l2BlockStream = mock<L2BlockStream>();
 
-    // Note that worldStateProvenBlocksOnly is the only config value that is used by the synchronizer itself
-    // Others are relayed to the blockstream, which is mocked in this test suite
     const config: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 100,
-      worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateBlockHistory: 0,
     };

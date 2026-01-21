@@ -410,7 +410,7 @@ class MockArchiver implements ArchiverApi {
       }),
     );
   }
-  async getCheckpointedBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<CheckpointedL2Block[]> {
+  async getCheckpointedBlocks(from: BlockNumber, _limit: number): Promise<CheckpointedL2Block[]> {
     return [
       CheckpointedL2Block.fromFields({
         checkpointNumber: CheckpointNumber(1),
@@ -420,7 +420,7 @@ class MockArchiver implements ArchiverApi {
       }),
     ];
   }
-  async getBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<L2BlockNew[]> {
+  async getBlocks(from: BlockNumber, _limit: number): Promise<L2BlockNew[]> {
     return [await L2BlockNew.random(from)];
   }
   async getCheckpoints(from: CheckpointNumber, _limit: number): Promise<PublishedCheckpoint[]> {

@@ -592,7 +592,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getCheckpointedBlocks: z
     .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(z.boolean()))
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(CheckpointedL2Block.schema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),

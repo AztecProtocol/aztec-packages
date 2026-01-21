@@ -186,11 +186,11 @@ describe('L1Publisher integration', () => {
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
     blockSource = mock<ArchiverDataSource>({
-      getBlocks(from, limit, _proven) {
+      getBlocks(from, limit) {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
       // Methods needed by L2BlockStream for world state sync
-      getCheckpointedBlocks(from, limit, _proven) {
+      getCheckpointedBlocks(from, limit) {
         const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
         return Promise.all(
           slicedBlocks.map(
@@ -245,7 +245,6 @@ describe('L1Publisher integration', () => {
 
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
-      worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
