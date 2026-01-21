@@ -132,8 +132,8 @@ void Poseidon2TraceBuilder::process_hash(
                 row,
                 { {
                     { C::poseidon2_hash_sel, 1 },
-                    { C::poseidon2_hash_start, i == 0 },
-                    { C::poseidon2_hash_end, i == (num_perm_events - 1) },
+                    { C::poseidon2_hash_start, i == 0 ? 1 : 0 },
+                    { C::poseidon2_hash_end, i == (num_perm_events - 1) ? 1 : 0 },
                     { C::poseidon2_hash_input_len, event.inputs.size() }, // Cannot use input_size as mutated.
                     { C::poseidon2_hash_padding, padding_size },
                     { C::poseidon2_hash_input_0, perm_input[0] },
