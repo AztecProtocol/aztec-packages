@@ -230,7 +230,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getProvenCheckpointNumber()).toBe(CheckpointNumber(1));
 
       // Get published checkpoints
-      expect((await archiver.getPublishedCheckpoints(CheckpointNumber(1), 100)).map(b => b.checkpoint.number)).toEqual([
+      expect((await archiver.getCheckpoints(CheckpointNumber(1), 100)).map(b => b.checkpoint.number)).toEqual([
         1, 2, 3,
       ]);
     }, 30_000);
@@ -415,7 +415,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify the checkpoint was synced successfully
-      const syncedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 1);
       expect(syncedCheckpoints).toBeDefined();
       expect(syncedCheckpoints.length).toBeGreaterThan(0);
       expect(syncedCheckpoints[0]).toBeDefined();
@@ -787,7 +787,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
 
       // And checkpoint 2 should return the proper one
-      const [checkpoint2] = await archiver.getPublishedCheckpoints(CheckpointNumber(2), 1);
+      const [checkpoint2] = await archiver.getCheckpoints(CheckpointNumber(2), 1);
       expect(checkpoint2.checkpoint.number).toEqual(2);
       expect(checkpoint2.checkpoint.archive.root.toString()).toEqual(goodCp2.archive.root.toString());
       expect(checkpoint2.attestations.length).toEqual(3);
@@ -856,7 +856,7 @@ describe('Archiver Sync', () => {
       // Verify data from checkpoint 2 is removed
       const txHash = cp2.blocks[0].body.txEffects[0].txHash;
       expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
-      expect(await archiver.getPublishedCheckpoints(CheckpointNumber(2), 1)).toEqual([]);
+      expect(await archiver.getCheckpoints(CheckpointNumber(2), 1)).toEqual([]);
 
       expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
       expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
@@ -1123,7 +1123,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
 
       // Verify we can retrieve both blocks
-      const syncedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(2), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(2), 1);
       expect(syncedCheckpoints[0].checkpoint.blocks.length).toEqual(2);
     }, 15_000);
 
@@ -1220,7 +1220,7 @@ describe('Archiver Sync', () => {
       );
 
       // Verify blocks were replaced with L1 checkpoint's blocks
-      const syncedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(2), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(2), 1);
       expect(syncedCheckpoints[0].checkpoint.archive.root.toString()).toEqual(differentCp2.archive.root.toString());
     }, 15_000);
 
@@ -1273,7 +1273,7 @@ describe('Archiver Sync', () => {
       );
 
       // Verify only the L1 checkpoint's single block is now present
-      const syncedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(2), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(2), 1);
       expect(syncedCheckpoints[0].checkpoint.blocks.length).toEqual(1);
       expect(syncedCheckpoints[0].checkpoint.archive.root.toString()).toEqual(differentCp2.archive.root.toString());
     }, 15_000);

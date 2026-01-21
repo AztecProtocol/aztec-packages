@@ -84,12 +84,12 @@ export interface L2BlockSource {
   getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
 
   /**
-   * Retrieves a collection of published checkpoints
-   * @param checkpointNumber The first checkpoint to be retrieved
-   * @param limit The number of checkpoints to be retrieved
-   * @returns The collection of complete checkpoints
+   * Retrieves a collection of checkpoints.
+   * @param checkpointNumber The first checkpoint to be retrieved.
+   * @param limit The number of checkpoints to be retrieved.
+   * @returns The collection of complete checkpoints.
    */
-  getPublishedCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
+  getCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
 
   /**
    * Gets the checkpoints for a given epoch
@@ -226,18 +226,18 @@ export interface L2BlockSource {
   getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]>;
 
   /**
-   * Gets a published block by its block hash.
+   * Gets a checkpointed block by its block hash.
    * @param blockHash - The block hash to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
+  getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
-   * Gets a published block by its archive root.
+   * Gets a checkpointed block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested block (or undefined if not found).
    */
-  getPublishedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
+  getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -247,9 +247,6 @@ export interface L2BlockSource {
    * @returns The requested L2 blocks.
    */
   getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
-
-  /** Equivalent to getBlocks but includes publish data. */
-  getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
 }
 
 /**

@@ -78,13 +78,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 export interface AztecNode
   extends Pick<
     L2BlockSource,
-    | 'getBlocks'
-    | 'getL2BlocksNew'
-    | 'getPublishedBlocks'
-    | 'getPublishedCheckpoints'
-    | 'getBlockHeader'
-    | 'getL2Tips'
-    | 'getCheckpointedBlocks'
+    'getBlocks' | 'getL2BlocksNew' | 'getCheckpoints' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpointedBlocks'
   > {
   /**
    * Returns the tips of the L2 chain.
@@ -596,12 +590,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(L2BlockNew.schema)),
 
-  getPublishedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
-
-  getPublishedCheckpoints: z
+  getCheckpoints: z
     .function()
     .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
     .returns(z.array(PublishedCheckpoint.schema)),

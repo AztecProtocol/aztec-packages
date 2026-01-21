@@ -174,7 +174,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  public getPublishedCheckpoints(from: CheckpointNumber, limit: number) {
+  public getCheckpoints(from: CheckpointNumber, limit: number) {
     // TODO(mbps): Implement this properly. This only works when we have one block per checkpoint.
     const blocks = this.l2Blocks.slice(from - 1, from - 1 + limit);
     return Promise.all(
@@ -203,28 +203,12 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return checkpoint;
   }
 
-  public getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]> {
-    const blocks = this.l2Blocks
-      .slice(from - 1, from - 1 + limit)
-      .filter(b => !proven || this.provenBlockNumber === undefined || b.number <= this.provenBlockNumber);
-    return Promise.resolve(
-      blocks.map(block =>
-        CheckpointedL2Block.fromFields({
-          checkpointNumber: CheckpointNumber(block.number),
-          block,
-          l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
-          attestations: [],
-        }),
-      ),
-    );
-  }
-
   getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
     // getBlocks already returns L2BlockNew[], so just return directly
     return this.getBlocks(from, limit, proven);
   }
 
-  public async getPublishedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  public async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -239,7 +223,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return undefined;
   }
 
-  public getPublishedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
+  public getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
     const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
     if (!block) {
       return Promise.resolve(undefined);

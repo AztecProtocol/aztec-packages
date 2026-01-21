@@ -119,7 +119,7 @@ describe('epoch-proving-job', () => {
     l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(
       checkpoints.map(c => c.blocks.map(b => b.header)).flat(),
     );
-    l2BlockSource.getPublishedCheckpoints.mockResolvedValue([
+    l2BlockSource.getCheckpoints.mockResolvedValue([
       { checkpoint: checkpoints.at(-1)!, attestations } as PublishedCheckpoint,
     ]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);

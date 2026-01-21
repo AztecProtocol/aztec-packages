@@ -21,7 +21,6 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { type BlockParameter, CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
@@ -273,16 +272,8 @@ describe('AztecNodeApiSchema', () => {
     await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
-  it('getPublishedBlocks', async () => {
-    const response = await context.client.getPublishedBlocks(BlockNumber(1), BlockNumber(1));
-    expect(response).toHaveLength(1);
-    expect(response[0].block.constructor.name).toEqual('L2BlockNew');
-    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
-    expect(response[0].l1).toBeDefined();
-  });
-
-  it('getPublishedCheckpoints', async () => {
-    const response = await context.client.getPublishedCheckpoints(CheckpointNumber(1), 1);
+  it('getCheckpoints', async () => {
+    const response = await context.client.getCheckpoints(CheckpointNumber(1), 1);
     expect(response).toHaveLength(1);
     expect(response[0]).toBeInstanceOf(PublishedCheckpoint);
   });
@@ -731,17 +722,7 @@ class MockAztecNode implements AztecNode {
         .map(i => L2BlockNew.random(BlockNumber(from + i))),
     );
   }
-  getPublishedBlocks(from: number, limit: number): Promise<CheckpointedL2Block[]> {
-    return timesAsync(limit, async i =>
-      CheckpointedL2Block.fromFields({
-        checkpointNumber: CheckpointNumber(from + i),
-        block: await L2BlockNew.random(BlockNumber(from + i)),
-        attestations: [CommitteeAttestation.random()],
-        l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
-      }),
-    );
-  }
-  getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+  getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
     return timesAsync(limit, async i =>
       PublishedCheckpoint.from({
         checkpoint: await Checkpoint.random(CheckpointNumber(from + i)),
