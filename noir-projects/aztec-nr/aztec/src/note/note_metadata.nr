@@ -12,22 +12,27 @@ use protocol_types::traits::{Deserialize, Packable, Serialize};
 // For now, we have `NoteMetadata` acting as a sort of tagged union.
 
 struct NoteStageEnum {
-    /// A note that was created in the transaction that is currently being executed, during the current execution phase,
-    /// i.e. non-revertible or revertible.
+    /// A note created in the current transaction during the current execution phase.
+    ///
+    /// Notes from the non-revertible phase will be in this stage if the transaction is still in the non-revertible
+    /// phase, notes from the revertible phase will be in this stage until the transaction ends.
     ///
     /// These notes are not yet in the note hash tree, though they will be inserted unless nullified in this transaction
     /// (becoming a transient note).
     PENDING_SAME_PHASE: u8,
-    /// A note that was created in the transaction that is currently being executed, during the previous execution
-    /// phase. Because there are only two phases and their order is always the same (first non-revertible and then
-    /// revertible) this implies that the note was created in the non-revertible phase, and that the current phase is
-    /// the revertible phase.
+    /// A note created in the current transaction during the previous execution phase.
+    ///
+    /// Because there are only two phases and their order is always the same (first non-revertible and then revertible)
+    /// this implies that the note was created in the non-revertible phase, and that the current phase is the revertible
+    /// phase.
     ///
     /// These notes are not yet in the note hash tree, though they will be inserted **even if nullified in this
     /// transaction**. This means that they must be nullified as if they were settled (i.e. using the unique note hash)
     /// in order to avoid double spends once they become settled.
     PENDING_PREVIOUS_PHASE: u8,
-    /// A note that was created in a prior transaction and is therefore already in the note hash tree.
+    /// A note created in a prior transaction.
+    ///
+    /// Settled notes have alrady been inserted into the note hash tree.
     SETTLED: u8,
 }
 
