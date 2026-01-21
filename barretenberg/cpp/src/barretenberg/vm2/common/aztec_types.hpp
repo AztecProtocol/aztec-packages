@@ -261,7 +261,7 @@ struct PublicLogs {
         for (size_t i = 0; i < log.fields.size(); ++i) {
             payload[length + PUBLIC_LOG_HEADER_LENGTH + i] = log.fields[i];
         }
-        length += log.fields.size() + PUBLIC_LOG_HEADER_LENGTH;
+        length += static_cast<uint32_t>(log.fields.size()) + PUBLIC_LOG_HEADER_LENGTH;
     }
 
     static PublicLogs from_logs(const std::vector<PublicLog>& logs)
@@ -570,6 +570,8 @@ inline std::string debug_log_level_to_string(DebugLogLevel lvl)
     case DebugLogLevel::TRACE:
         return "trace";
     }
+
+    throw_or_abort("Unreachable");
 }
 
 struct DebugLog {
