@@ -18,8 +18,9 @@ if(FUZZING_AVM)
     list(FILTER BENCH_SOURCE_FILES EXCLUDE REGEX ".*/harness/.*")
     list(FILTER FUZZERS_SOURCE_FILES EXCLUDE REGEX ".*/harness/.*")
 
-    # Filter out test, bench, and fuzzer files from regular sources
+    # Filter out test, bench, fuzzer files, and standalone executables from regular sources
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
+    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*/avm_tx_corpus_analyzer\\.cpp$")
 
     # Create the avm_fuzzer module with explicit file lists
     barretenberg_module_with_sources(
@@ -36,6 +37,9 @@ if(FUZZING_AVM)
     add_subdirectory(harness)
 
     # Corpus analyzer tool (not a fuzzer, a standalone binary)
-    add_executable(avm_tx_corpus_analyzer avm_tx_corpus_analyzer.cpp)
-    target_link_libraries(avm_tx_corpus_analyzer avm_fuzzer)
+    # Only build when FUZZING=OFF to avoid linking against instrumented libraries
+    if(NOT FUZZING)
+        add_executable(avm_tx_corpus_analyzer avm_tx_corpus_analyzer.cpp)
+        target_link_libraries(avm_tx_corpus_analyzer avm_fuzzer)
+    endif()
 endif()
