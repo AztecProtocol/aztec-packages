@@ -1,6 +1,7 @@
 import { createArchiverStore } from '@aztec/archiver';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
@@ -53,6 +54,7 @@ export async function rerunEpochProvingJob(
     metrics,
     deadline,
     { skipEpochCheck: true },
+    new DateProvider(),
   );
 
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);

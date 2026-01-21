@@ -4,7 +4,7 @@ import {
   NUM_FIRST_BLOCK_END_BLOB_FIELDS,
 } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, SlotTimingContext } from '@aztec/epoch-cache';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -79,6 +79,7 @@ describe('CheckpointProposalJob', () => {
   let blockSink: MockProxy<L2BlockSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: TestDateProvider;
+  let slotTimingContext: SlotTimingContext;
   let metrics: MockProxy<SequencerMetrics>;
   let job: TestCheckpointProposalJob;
 
@@ -151,6 +152,14 @@ describe('CheckpointProposalJob', () => {
     // Set time to be at the start of the slot (slot 1 starts at l1GenesisTime + slotDuration - ethereumSlotDuration)
     const slotStartTime = Number(l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
+
+    // Create slotTimingContext anchored to the current time
+    slotTimingContext = new SlotTimingContext(
+      SlotNumber(newSlotNumber),
+      slotStartTime,
+      dateProvider.now(),
+      dateProvider.monotonic(),
+    );
 
     epochCache = mockDeep<EpochCache>();
     epochCache.getCommittee.mockResolvedValue({
@@ -521,6 +530,7 @@ describe('CheckpointProposalJob', () => {
       publisher,
       attestorAddress,
       undefined, // invalidateBlock
+      slotTimingContext,
       validatorClient,
       globalVariableBuilder,
       p2p,

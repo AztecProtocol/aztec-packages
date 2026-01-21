@@ -1,5 +1,6 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Deadline } from '@aztec/foundation/timer';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
@@ -39,7 +40,7 @@ export interface PublicProcessorLimits {
   maxBlockSize?: number;
   maxBlockGas?: Gas;
   maxBlobFields?: number;
-  deadline?: Date;
+  deadline?: Deadline;
 }
 
 export interface PublicProcessorValidator {

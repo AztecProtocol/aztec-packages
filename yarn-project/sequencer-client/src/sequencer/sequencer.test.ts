@@ -1,5 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import { type EpochCache, type EpochCommitteeInfo, SlotTimingContext } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { omit, times, timesParallel } from '@aztec/foundation/collection';
@@ -21,7 +21,7 @@ import {
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
   type SequencerConfig,
@@ -112,6 +112,21 @@ describe('sequencer', () => {
     return TestUtils.makeTx(seed, chainId);
   };
 
+  /**
+   * Creates a SlotTimingContext using the actual dateProvider and l1Constants values.
+   * This ensures the monotonic slotStartBuildTimestamp is properly anchored to the current time,
+   * so tests that manipulate time with dateProvider.setTime() work correctly.
+   */
+  const createSlotTimingContext = (slot: SlotNumber) => {
+    const slotBuildStartTimestampSeconds = getSlotStartBuildTimestamp(
+      slot,
+      l1Constants as Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
+    );
+    const wallClockNowMs = dateProvider.now();
+    const monotonicNow = dateProvider.monotonic();
+    return new SlotTimingContext(slot, slotBuildStartTimestampSeconds, wallClockNowMs, monotonicNow);
+  };
+
   /** Creates a single tx, makes a block from it, and mocks it as pending */
   const setupSingleTxBlock = async (seed?: number) => {
     const tx = await makeTx(seed);
@@ -128,7 +143,7 @@ describe('sequencer', () => {
       attestationsAndSigners,
       getSignatures()[0].signature,
       {
-        txTimeoutAt: expect.any(Date),
+        txDeadline: expect.any(Number),
       },
     );
   };
@@ -161,6 +176,8 @@ describe('sequencer', () => {
       slot: SlotNumber(1),
       ts: 1000n,
       now: 1000n,
+      // Create SlotTimingContext at call time so it uses current dateProvider values
+      slotTimingContext: createSlotTimingContext(SlotNumber(1)),
     }));
     epochCache.getCommittee.mockResolvedValue({
       committee,
@@ -468,10 +485,23 @@ describe('sequencer', () => {
         .mockResolvedValueOnce({ attestorAddress: publishers[1].getSenderAddress(), publisher: publishers[1] });
 
       // Configure epoch cache to return different slots
+      // Use mockImplementationOnce so SlotTimingContext is created at call time with current dateProvider values
       epochCache.getEpochAndSlotInNextL1Slot
         .mockReset()
-        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(1), ts: 1000n, now: 1000n })
-        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 1000n, now: 1000n });
+        .mockImplementationOnce(() => ({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(1),
+          ts: 1000n,
+          now: 1000n,
+          slotTimingContext: createSlotTimingContext(SlotNumber(1)),
+        }))
+        .mockImplementationOnce(() => ({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(2),
+          ts: 1000n,
+          now: 1000n,
+          slotTimingContext: createSlotTimingContext(SlotNumber(2)),
+        }));
 
       sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
 
@@ -488,7 +518,7 @@ describe('sequencer', () => {
           expect.any(Checkpoint),
           attestationsAndSigners,
           getSignatures()[0].signature,
-          { txTimeoutAt: expect.any(Date) },
+          { txDeadline: expect.any(Number) },
         );
       }
     });

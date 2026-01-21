@@ -32,7 +32,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { DateProvider, Deadline, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
@@ -104,6 +104,7 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
+  private dateProvider: DateProvider;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected slashingLog = createLogger('sequencer:publisher:slashing');
@@ -163,6 +164,7 @@ export class SequencerPublisher {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.dateProvider = deps.dateProvider;
     this.lastActions = deps.lastActions;
 
     this.blobClient = deps.blobClient;
@@ -903,7 +905,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { txDeadline?: Deadline; forcePendingCheckpointNumber?: CheckpointNumber } = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1208,17 +1210,15 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { txDeadline?: Deadline; forcePendingCheckpointNumber?: CheckpointNumber } = {},
     timestamp: bigint,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
-      encodedData,
-      timestamp,
-      opts,
-    );
+    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp, {
+      forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+    });
     const startBlock = await this.l1TxUtils.getBlockNumber();
     const gasLimit = this.l1TxUtils.bumpGasLimit(
       BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
@@ -1234,6 +1234,9 @@ export class SequencerPublisher {
       }),
     );
 
+    // Convert monotonic Deadline to wall-clock Date for L1 utilities
+    const txTimeoutAt = opts.txDeadline ? Deadline.toDate(opts.txDeadline, this.dateProvider) : undefined;
+
     return this.addRequest({
       action: 'propose',
       request: {
@@ -1241,7 +1244,7 @@ export class SequencerPublisher {
         data: rollupData,
       },
       lastValidL2Slot: checkpoint.header.slotNumber,
-      gasConfig: { ...opts, gasLimit },
+      gasConfig: { txTimeoutAt, gasLimit },
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,

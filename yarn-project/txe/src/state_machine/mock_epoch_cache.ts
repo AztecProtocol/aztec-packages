@@ -1,4 +1,10 @@
-import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
+import {
+  type EpochAndSlot,
+  type EpochCacheInterface,
+  type EpochCommitteeInfo,
+  type SlotTag,
+  SlotTimingContext,
+} from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -24,12 +30,13 @@ export class MockEpochCache implements EpochCacheInterface {
     };
   }
 
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint; slotTimingContext: SlotTimingContext } {
     return {
       epoch: EpochNumber.ZERO,
       slot: SlotNumber(0),
       ts: 0n,
       now: 0n,
+      slotTimingContext: new SlotTimingContext(SlotNumber.ZERO, 0, 0, 0 as any),
     };
   }
 

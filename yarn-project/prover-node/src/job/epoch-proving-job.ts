@@ -5,7 +5,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { Timer } from '@aztec/foundation/timer';
+import { DateProvider, Deadline, Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
@@ -62,6 +62,7 @@ export class EpochProvingJob implements Traceable {
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: EpochProvingJobOptions,
+    private dateProvider: DateProvider,
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
@@ -400,7 +401,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
-    const { deadline } = this;
+    const deadline = this.deadline ? Deadline.fromDate(this.deadline, this.dateProvider) : undefined;
     const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline });
 
     if (failedTxs.length) {

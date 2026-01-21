@@ -10,6 +10,7 @@ import {
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
+  getSlotStartBuildTimestamp,
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
@@ -17,6 +18,7 @@ import {
 import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
+import { SlotTimingContext } from './slot_timing_context.js';
 
 export type EpochAndSlot = {
   epoch: EpochNumber;
@@ -37,7 +39,7 @@ export type SlotTag = 'now' | 'next' | SlotNumber;
 export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint; slotTimingContext: SlotTimingContext };
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
   getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
@@ -149,10 +151,24 @@ export class EpochCache implements EpochCacheInterface {
     return { epoch, ts, slot };
   }
 
-  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = this.nowInSeconds();
+  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint; slotTimingContext: SlotTimingContext } {
+    const wallClockNowMs = this.dateProvider.now();
+    const now = BigInt(Math.floor(wallClockNowMs / 1000));
+    const monotonicNow = this.dateProvider.monotonic();
+
     const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
-    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
+    const epochAndSlot = this.getEpochAndSlotAtTimestamp(nextSlotTs);
+
+    // Create SlotTimingContext with proper timing anchoring
+    const slotBuildTimestampSeconds = getSlotStartBuildTimestamp(epochAndSlot.slot, this.l1constants);
+    const slotTimingContext = new SlotTimingContext(
+      epochAndSlot.slot,
+      slotBuildTimestampSeconds,
+      wallClockNowMs,
+      monotonicNow,
+    );
+
+    return { ...epochAndSlot, now, slotTimingContext };
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {

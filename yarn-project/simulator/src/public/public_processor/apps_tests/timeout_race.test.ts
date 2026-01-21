@@ -14,7 +14,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { Deadline, type MonotonicTimestampMs, TestDateProvider } from '@aztec/foundation/timer';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
@@ -296,7 +296,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
 
       // Calculate deadline RIGHT BEFORE process() to ensure we get the full timeout.
       // Use a 20ms deadline - enough for C++ to start but short enough to timeout mid-simulation.
-      const deadline = new Date(dateProvider.now() + 20);
+      const deadline = Deadline.at((dateProvider.monotonic() + 20) as MonotonicTimestampMs);
 
       // Process the transaction with the short deadline
       // PublicProcessor flow on timeout:

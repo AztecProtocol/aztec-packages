@@ -3,7 +3,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Deadline, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -168,7 +168,7 @@ export class PublicProcessor implements Traceable {
       }
 
       // Bail if we've hit the deadline
-      if (deadline && this.dateProvider.now() > +deadline) {
+      if (deadline && Deadline.hasExpired(deadline, this.dateProvider)) {
         this.log.warn(`Stopping tx processing due to timeout.`);
         break;
       }
@@ -370,7 +370,7 @@ export class PublicProcessor implements Traceable {
   }
 
   @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))
-  private async processTx(tx: Tx, deadline: Date | undefined): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+  private async processTx(tx: Tx, deadline: Deadline | undefined): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 
     this.log.verbose(
@@ -427,7 +427,7 @@ export class PublicProcessor implements Traceable {
   /** Processes the given tx within deadline. Returns timeout if deadline is hit. */
   private async processTxWithinDeadline(
     tx: Tx,
-    deadline: Date | undefined,
+    deadline: Deadline | undefined,
   ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> {
     const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> = tx.hasPublicCalls()
       ? () => this.processTxWithPublicCalls(tx)
@@ -450,13 +450,13 @@ export class PublicProcessor implements Traceable {
     }
 
     const txHash = tx.getTxHash();
-    const timeout = +deadline - this.dateProvider.now();
+    const timeout = Deadline.remainingMs(deadline, this.dateProvider);
     if (timeout <= 0) {
       throw new PublicProcessorTimeoutError();
     }
 
     this.log.debug(`Processing tx ${txHash.toString()} within ${timeout}ms`, {
-      deadline: deadline.toISOString(),
+      deadlineMs: Deadline.toMs(deadline),
       now: new Date(this.dateProvider.now()).toISOString(),
       txHash,
     });

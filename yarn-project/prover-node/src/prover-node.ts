@@ -384,6 +384,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.jobMetrics,
       deadline,
       { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
+      this.dateProvider,
     );
   }
 

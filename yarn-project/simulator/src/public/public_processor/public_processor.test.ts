@@ -2,7 +2,7 @@ import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { Deadline, type MonotonicTimestampMs, TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { PublicDataWrite, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
@@ -28,6 +28,7 @@ describe('public_processor', () => {
   let merkleTree: MockProxy<MerkleTreeWriteOperations>;
   let contractsDB: PublicContractsDB;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
+  let dateProvider: TestDateProvider;
 
   let mockedEnqueuedCallsResult: PublicTxResult;
 
@@ -95,12 +96,13 @@ describe('public_processor', () => {
       return Promise.resolve(mockedEnqueuedCallsResult);
     });
 
+    dateProvider = new TestDateProvider();
     processor = new PublicProcessor(
       globalVariables,
       new GuardedMerkleTreeOperations(merkleTree),
       contractsDB,
       publicTxSimulator,
-      new TestDateProvider(),
+      dateProvider,
       getTelemetryClient(),
     );
   });
@@ -234,7 +236,7 @@ describe('public_processor', () => {
       });
 
       // We allocate a deadline of 2s, so only 2 txs should fit
-      const deadline = new Date(Date.now() + 2000);
+      const deadline = Deadline.at((dateProvider.monotonic() + 2000) as MonotonicTimestampMs);
       const [processed, failed] = await processor.process(txs, { deadline });
 
       expect(processed.length).toBe(2);

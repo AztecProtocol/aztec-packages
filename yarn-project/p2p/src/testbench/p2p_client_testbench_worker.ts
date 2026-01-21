@@ -4,7 +4,7 @@
  * Used when running testbench commands
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { type EpochCacheInterface, SlotTimingContext } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
@@ -96,7 +96,13 @@ function mockEpochCache(): EpochCacheInterface {
       nextSlot: SlotNumber.ZERO,
     }),
     getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
-    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
+    getEpochAndSlotInNextL1Slot: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      now: 0n,
+      slotTimingContext: new SlotTimingContext(SlotNumber.ZERO, 0, 0, 0 as any),
+    }),
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),

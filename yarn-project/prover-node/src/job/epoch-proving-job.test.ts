@@ -4,6 +4,7 @@ import { fromEntries, times, timesParallel } from '@aztec/foundation/collection'
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
@@ -75,6 +76,7 @@ describe('epoch-proving-job', () => {
       metrics,
       opts.deadline,
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32, skipSubmitProof: opts.skipSubmitProof },
+      new DateProvider(),
     );
   };
 

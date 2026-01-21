@@ -1,6 +1,6 @@
 import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, SlotTimingContext } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -8,8 +8,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { filter } from '@aztec/foundation/iterator';
 import type { Logger } from '@aztec/foundation/log';
-import { sleep, sleepUntil } from '@aztec/foundation/sleep';
-import { type DateProvider, Timer } from '@aztec/foundation/timer';
+import { sleep } from '@aztec/foundation/sleep';
+import { type DateProvider, Deadline, Timer } from '@aztec/foundation/timer';
 import { type TypedEventEmitter, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -22,7 +22,6 @@ import {
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
   PublicProcessorLimits,
@@ -69,6 +68,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly publisher: SequencerPublisher,
     private readonly attestorAddress: EthAddress,
     private readonly invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
+    private readonly slotTimingContext: SlotTimingContext,
     private readonly validatorClient: ValidatorClient,
     private readonly globalsBuilder: GlobalVariableBuilder,
     private readonly p2pClient: P2P,
@@ -85,7 +85,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly dateProvider: DateProvider,
     private readonly metrics: SequencerMetrics,
     private readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
-    private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
+    private readonly setStateFn: (state: SequencerState, slotTimingContext?: SlotTimingContext) => void,
     protected readonly log: Logger,
     public readonly tracer: Tracer,
   ) {}
@@ -155,7 +155,7 @@ export class CheckpointProposalJob implements Traceable {
       const feeRecipient = this.validatorClient.getFeeRecipientForAttestor(this.attestorAddress);
 
       // Start the checkpoint
-      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.slot);
+      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.slotTimingContext);
       this.metrics.incOpenSlot(this.slot, this.proposer?.toString() ?? 'unknown');
 
       // Enqueues checkpoint invalidation (constant for the whole slot)
@@ -246,7 +246,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
-      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
+      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slotTimingContext);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
       // Do not collect attestations nor publish to L1 in fisherman mode
@@ -283,7 +283,7 @@ export class CheckpointProposalJob implements Traceable {
       const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastCheckpointProposal(proposal);
 
-      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.slot);
+      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.slotTimingContext);
       const attestations = await this.waitForAttestations(proposal);
       const blockAttestedAt = this.dateProvider.now();
 
@@ -321,12 +321,10 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Enqueue publishing the checkpoint to L1
-      this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slot);
-      const aztecSlotDuration = this.l1Constants.slotDuration;
-      const slotStartBuildTimestamp = this.getSlotStartBuildTimestamp();
-      const txTimeoutAt = new Date((slotStartBuildTimestamp + aztecSlotDuration) * 1000);
+      this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slotTimingContext);
+      const txDeadline = this.slotTimingContext.createDeadline(this.l1Constants.slotDuration);
       await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
-        txTimeoutAt,
+        txDeadline,
         forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
       });
 
@@ -370,7 +368,7 @@ export class CheckpointProposalJob implements Traceable {
       const indexWithinCheckpoint = blocksBuilt;
       const blockNumber = BlockNumber(initialBlockNumber + blocksBuilt);
 
-      const secondsIntoSlot = this.getSecondsIntoSlot();
+      const secondsIntoSlot = this.slotTimingContext.getSecondsIntoSlot(this.dateProvider);
       const timingInfo = this.timetable.canStartNextBlock(secondsIntoSlot);
 
       if (!timingInfo.canStart) {
@@ -387,10 +385,8 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
-        // Build deadline is only set if we are enforcing the timetable
-        buildDeadline: timingInfo.deadline
-          ? new Date((this.getSlotStartBuildTimestamp() + timingInfo.deadline) * 1000)
-          : undefined,
+        // Build deadline is only set if we are enforcing the timetable (monotonic time based)
+        buildDeadline: timingInfo.deadline ? this.slotTimingContext.createDeadline(timingInfo.deadline) : undefined,
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
@@ -471,7 +467,7 @@ export class CheckpointProposalJob implements Traceable {
   /** Sleeps until it is time to produce the next block in the slot */
   @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
   private async waitUntilNextSubslot(nextSubslotStart: number) {
-    this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
+    this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slotTimingContext);
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, { slot: this.slot });
     await this.waitUntilTimeInSlot(nextSubslotStart);
   }
@@ -485,7 +481,7 @@ export class CheckpointProposalJob implements Traceable {
       blockTimestamp: bigint;
       blockNumber: BlockNumber;
       indexWithinCheckpoint: number;
-      buildDeadline: Date | undefined;
+      buildDeadline: Deadline | undefined;
       txHashesAlreadyIncluded: Set<string>;
       remainingBlobFields: number;
     },
@@ -530,7 +526,7 @@ export class CheckpointProposalJob implements Traceable {
         `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.slot} with ${availableTxs} available txs`,
         { slot: this.slot, blockNumber, indexWithinCheckpoint },
       );
-      this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
+      this.setStateFn(SequencerState.CREATING_BLOCK, this.slotTimingContext);
 
       // Calculate blob fields limit for txs (remaining capacity - this block's end overhead)
       const blockEndOverhead = getNumBlockEndBlobFields(indexWithinCheckpoint === 0);
@@ -615,27 +611,27 @@ export class CheckpointProposalJob implements Traceable {
     forceCreate?: boolean;
     blockNumber: BlockNumber;
     indexWithinCheckpoint: number;
-    buildDeadline: Date | undefined;
+    buildDeadline: Deadline | undefined;
   }): Promise<{ canStartBuilding: boolean; availableTxs: number }> {
     const minTxs = this.config.minTxsPerBlock;
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
-    // Deadline is undefined if we are not enforcing the timetable, meaning we'll exit immediately when out of time
+    // Create a deadline for when we must start building (minExecutionTime before build deadline).
+    // Deadline is undefined if we are not enforcing the timetable, meaning we'll exit immediately when out of time.
     const startBuildingDeadline = buildDeadline
-      ? new Date(buildDeadline.getTime() - this.timetable.minExecutionTime * 1000)
+      ? Deadline.subtract(buildDeadline, this.timetable.minExecutionTime * 1000)
       : undefined;
 
     let availableTxs = await this.p2pClient.getPendingTxCount();
 
     while (!forceCreate && availableTxs < minTxs) {
       // If we're past deadline, or we have no deadline, give up
-      const now = this.dateProvider.nowAsDate();
-      if (startBuildingDeadline === undefined || now >= startBuildingDeadline) {
+      if (startBuildingDeadline === undefined || Deadline.hasExpired(startBuildingDeadline, this.dateProvider)) {
         return { canStartBuilding: false, availableTxs: availableTxs };
       }
 
       // Wait a bit before checking again
-      this.setStateFn(SequencerState.WAITING_FOR_TXS, this.slot);
+      this.setStateFn(SequencerState.WAITING_FOR_TXS, this.slotTimingContext);
       this.log.verbose(
         `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.slot} (have ${availableTxs} but need ${minTxs})`,
         { blockNumber, slot: this.slot, indexWithinCheckpoint },
@@ -820,18 +816,8 @@ export class CheckpointProposalJob implements Traceable {
   /** Waits until a specific time within the current slot */
   @trackSpan('CheckpointProposalJob.waitUntilTimeInSlot')
   protected async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
-    const slotStartTimestamp = this.getSlotStartBuildTimestamp();
-    const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
-    await sleepUntil(new Date(targetTimestamp * 1000), this.dateProvider.nowAsDate());
-  }
-
-  private getSlotStartBuildTimestamp(): number {
-    return getSlotStartBuildTimestamp(this.slot, this.l1Constants);
-  }
-
-  private getSecondsIntoSlot(): number {
-    const slotStartTimestamp = this.getSlotStartBuildTimestamp();
-    return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
+    const deadline = this.slotTimingContext.createDeadline(targetSecondsIntoSlot);
+    await Deadline.waitUntilExpired(deadline, this.dateProvider);
   }
 
   public getPublisher() {

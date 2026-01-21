@@ -1,6 +1,6 @@
 import { getKzg } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, SlotTimingContext } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
@@ -14,7 +14,7 @@ import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2Block, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -199,10 +199,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, now, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const { slot, ts, now, epoch, slotTimingContext } = this.epochCache.getEpochAndSlotInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
-    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now);
+    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now, slotTimingContext);
     if (!checkpointProposalJob) {
       return;
     }
@@ -238,6 +238,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     slot: SlotNumber,
     ts: bigint,
     now: bigint,
+    slotTimingContext: SlotTimingContext,
   ): Promise<CheckpointProposalJob | undefined> {
     // Check we have not already processed this slot (cheapest check)
     // We only check this if enforce timetable is set, since we want to keep processing the same slot if we are not
@@ -260,7 +261,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Check all components are synced to latest as seen by the archiver (queries all subsystems)
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
-      await this.tryVoteWhenSyncFails({ slot, ts });
+      await this.tryVoteWhenSyncFails({ slot, ts, slotTimingContext });
       return undefined;
     }
 
@@ -269,7 +270,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const isEscapeHatchOpen = await this.epochCache.isEscapeHatchOpen(epoch);
 
     if (isEscapeHatchOpen) {
-      this.setState(SequencerState.PROPOSER_CHECK, slot);
+      this.setState(SequencerState.PROPOSER_CHECK, slotTimingContext);
       const [canPropose, proposer] = await this.checkCanPropose(slot);
       if (canPropose) {
         await this.tryVoteWhenEscapeHatchOpen({ slot, proposer });
@@ -297,7 +298,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     };
 
     // Check that we are a proposer for the next slot
-    this.setState(SequencerState.PROPOSER_CHECK, slot);
+    this.setState(SequencerState.PROPOSER_CHECK, slotTimingContext);
     const [canPropose, proposer] = await this.checkCanPropose(slot);
 
     // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
@@ -385,6 +386,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher,
       attestorAddress,
       invalidateCheckpoint,
+      slotTimingContext,
     );
   }
 
@@ -397,6 +399,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
+    slotTimingContext: SlotTimingContext,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       epoch,
@@ -407,6 +410,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       publisher,
       attestorAddress,
       invalidateCheckpoint,
+      slotTimingContext,
       this.validatorClient,
       this.globalsBuilder,
       this.p2pClient,
@@ -432,12 +436,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Internal helper for setting the sequencer state and checks if we have enough time left in the slot to transition to the new state.
    * @param proposedState - The new state to transition to.
-   * @param slotNumber - The current slot number.
+   * @param slotTimingContext - The slot timing context for monotonic time calculations.
    * @param force - Whether to force the transition even if the sequencer is stopped.
    */
   protected setState(
     proposedState: SequencerState,
-    slotNumber: SlotNumber | undefined,
+    slotTimingContext: SlotTimingContext | undefined,
     opts: { force?: boolean } = {},
   ): void {
     if (this.state === SequencerState.STOPPING && proposedState !== SequencerState.STOPPED && !opts.force) {
@@ -449,8 +453,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
     let secondsIntoSlot = undefined;
-    if (slotNumber !== undefined) {
-      secondsIntoSlot = this.getSecondsIntoSlot(slotNumber);
+    const slotNumber = slotTimingContext?.slot;
+    if (slotTimingContext !== undefined) {
+      secondsIntoSlot = slotTimingContext.getSecondsIntoSlot(this.dateProvider);
       this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     }
 
@@ -589,8 +594,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
    */
   @trackSpan('Seqeuencer.tryVoteWhenSyncFails', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
-  protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; ts: bigint }): Promise<void> {
-    const { slot } = args;
+  protected async tryVoteWhenSyncFails(args: {
+    slot: SlotNumber;
+    ts: bigint;
+    slotTimingContext: SlotTimingContext;
+  }): Promise<void> {
+    const { slot, slotTimingContext } = args;
 
     // Prevent duplicate attempts in the same slot
     if (this.lastSlotForFallbackVote === slot) {
@@ -599,7 +608,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Check if we're past the max time for initializing a proposal
-    const secondsIntoSlot = this.getSecondsIntoSlot(slot);
+    const secondsIntoSlot = slotTimingContext.getSecondsIntoSlot(this.dateProvider);
     const maxAllowedTime = this.timetable.getMaxAllowedTime(SequencerState.INITIALIZING_CHECKPOINT);
 
     // If we haven't exceeded the time limit for initializing a proposal, don't proceed with voting
@@ -829,15 +838,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         avgPriorityFeeDeltaGwei: s.avgPriorityFeeDeltaGwei.toFixed(2),
       })),
     });
-  }
-
-  private getSlotStartBuildTimestamp(slotNumber: SlotNumber): number {
-    return getSlotStartBuildTimestamp(slotNumber, this.l1Constants);
-  }
-
-  private getSecondsIntoSlot(slotNumber: SlotNumber): number {
-    const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
-    return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
   }
 
   public get aztecSlotDuration() {

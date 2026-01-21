@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { DateProvider, Deadline, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
@@ -437,6 +437,14 @@ export class BlockProposalHandler {
     return new Date(nextSlotTimestampSeconds * 1000);
   }
 
+  /** Creates a monotonic deadline for re-execution (immune to NTP clock adjustments). */
+  private createReexecutionDeadline(
+    slot: SlotNumber,
+    config: { l1GenesisTime: bigint; slotDuration: number },
+  ): Deadline {
+    return Deadline.fromDate(this.getReexecutionDeadline(slot, config), this.dateProvider);
+  }
+
   private getReexecuteFailureReason(err: any) {
     if (err instanceof ReExStateMismatchError) {
       return 'state_mismatch';
@@ -499,7 +507,7 @@ export class BlockProposalHandler {
     );
 
     // Build the new block
-    const deadline = this.getReexecutionDeadline(slot, config);
+    const deadline = this.createReexecutionDeadline(slot, config);
     const result = await checkpointBuilder.buildBlock(txs, blockNumber, blockHeader.globalVariables.timestamp, {
       deadline,
       expectedEndState: blockHeader.state,

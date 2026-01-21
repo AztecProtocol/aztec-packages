@@ -39,7 +39,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { hexToBuffer } from '@aztec/foundation/string';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { Deadline, TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
@@ -826,13 +826,13 @@ describe('L1Publisher integration', () => {
       initialL2Slot = BigInt(await rollup.getSlotNumber());
     });
 
-    const getProposeTxTimeoutAt = (checkpoint: Checkpoint) => {
+    const getProposeTxDeadline = (checkpoint: Checkpoint): Deadline => {
       const { slotDuration: aztecSlotDuration } = l1Constants;
       const txTimeoutAt = new Date(
         (Number(getSlotStartBuildTimestamp(checkpoint.slot, l1Constants)) + Number(aztecSlotDuration)) * 1000,
       );
       logger.warn(`Setting tx timeout at ${txTimeoutAt.toISOString()} (${txTimeoutAt.getTime()})`);
-      return txTimeoutAt;
+      return Deadline.fromDate(txTimeoutAt, dateProvider);
     };
 
     const sendRequests = async () => {
@@ -850,7 +850,7 @@ describe('L1Publisher integration', () => {
 
     const enqueueProposeL2Checkpoint = async (checkpoint: Checkpoint) => {
       await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty(), {
-        txTimeoutAt: getProposeTxTimeoutAt(checkpoint),
+        txDeadline: getProposeTxDeadline(checkpoint),
       });
     };
 
