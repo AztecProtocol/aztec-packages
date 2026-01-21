@@ -22,7 +22,7 @@ namespace internal_call_stack;
     // Therefore, the "pop/read" lookup can only read from legitimate rows.
 
     pol commit context_id;
-    pol commit id;
+    pol commit call_id;
     pol commit entered_call_id;
-    pol commit return_id;
+    pol commit return_call_id;
     pol commit return_pc;

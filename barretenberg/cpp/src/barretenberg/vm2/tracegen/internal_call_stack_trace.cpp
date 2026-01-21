@@ -1,7 +1,17 @@
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 
+#include <cstdint>
+
+#include "barretenberg/vm2/generated/columns.hpp"
+
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the internal call stack events and populate columns for the internal call stack sub-trace.
+ *
+ * @param events The internal call stack events.
+ * @param trace The trace container.
+ */
 void InternalCallStackBuilder::process(
     const simulation::EventEmitterInterface<simulation::InternalCallStackEvent>::Container& events,
     TraceContainer& trace)
@@ -15,8 +25,8 @@ void InternalCallStackBuilder::process(
                       { C::internal_call_stack_sel, 1 },
                       { C::internal_call_stack_context_id, event.context_id },
                       { C::internal_call_stack_entered_call_id, event.entered_call_id },
-                      { C::internal_call_stack_id, event.id },
-                      { C::internal_call_stack_return_id, event.return_id },
+                      { C::internal_call_stack_call_id, event.call_id },
+                      { C::internal_call_stack_return_call_id, event.return_call_id },
                       { C::internal_call_stack_return_pc, event.return_pc },
                   } });
         row++;

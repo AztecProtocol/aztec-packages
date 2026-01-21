@@ -30,8 +30,8 @@ struct perm_internal_call_push_call_stack_settings_ {
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
         ColumnAndShifts::internal_call_stack_context_id,
         ColumnAndShifts::internal_call_stack_entered_call_id,
-        ColumnAndShifts::internal_call_stack_id,
-        ColumnAndShifts::internal_call_stack_return_id,
+        ColumnAndShifts::internal_call_stack_call_id,
+        ColumnAndShifts::internal_call_stack_return_call_id,
         ColumnAndShifts::internal_call_stack_return_pc
     };
 };
