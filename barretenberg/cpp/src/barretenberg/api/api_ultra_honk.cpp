@@ -119,10 +119,35 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("UltraHonkAPI::verify");
-    // Read input files
-    auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
-    auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
-    auto vk_bytes = read_vk_file(vk_path);
+
+    // Read input files, supporting both binary and JSON formats (auto-detected by content)
+    std::vector<uint256_t> public_inputs;
+    std::vector<uint256_t> proof;
+    std::vector<uint8_t> vk_bytes;
+
+    auto public_inputs_content = read_file(public_inputs_path);
+    if (is_json_content(public_inputs_content)) {
+        std::string json_str(public_inputs_content.begin(), public_inputs_content.end());
+        public_inputs = parse_json_fields(json_str);
+    } else {
+        public_inputs = many_from_buffer<uint256_t>(public_inputs_content);
+    }
+
+    auto proof_content = read_file(proof_path);
+    if (is_json_content(proof_content)) {
+        std::string json_str(proof_content.begin(), proof_content.end());
+        proof = parse_json_fields(json_str);
+    } else {
+        proof = many_from_buffer<uint256_t>(proof_content);
+    }
+
+    auto vk_content = read_file(vk_path);
+    if (is_json_content(vk_content)) {
+        std::string json_str(vk_content.begin(), vk_content.end());
+        vk_bytes = parse_json_fields_to_bytes(json_str);
+    } else {
+        vk_bytes = std::move(vk_content);
+    }
 
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
