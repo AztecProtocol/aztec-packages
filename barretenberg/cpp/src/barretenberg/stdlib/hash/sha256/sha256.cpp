@@ -191,6 +191,15 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
 
+    /**
+     * Explicitly constrain w[62] and w[63] to 32 bits. All other computed w_out values
+     * (w[16..61]) are implicitly constrained via lookups in convert_witness().
+     *
+     * While not strictly necessary for soundness, this simplifies security analysis at minimal cost.
+     */
+    w_sparse[62].normal.create_range_constraint(32);
+    w_sparse[63].normal.create_range_constraint(32);
+
     std::array<field_pt, 64> w_extended;
     for (size_t i = 0; i < 64; ++i) {
         w_extended[i] = w_sparse[i].normal;
@@ -370,8 +379,9 @@ field_t<Builder> SHA256<Builder>::add_normalize_unsafe(const field_t<Builder>& a
  * This is the only public entry point for the stdlib SHA-256 implementation. We implement only the compression function
  * (rather than a full hash) because this is all that is required in DSL.
  *
- * @note It is assumed that all 24 inputs (8 hash state + 16 message words) are 32-bit constrained externally so that
- * the input has a unique representation.
+ * @note All 24 inputs (8 hash state + 16 message words) are 32-bit range constrained to ensure unique representation.
+ * Most are implicitly constrained via lookup tables; only h_init[3], h_init[7], and input[0] require explicit
+ * constraints as they are used purely in arithmetic operations.
  *
  * @param h_init The 8-word (256-bit) initial hash state. For the first block of a message,
  *               this should be the standard SHA-256 IV. For subsequent blocks, this is the
@@ -384,6 +394,12 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
                                                               const std::array<field_t<Builder>, 16>& input)
 {
     using field_pt = field_t<Builder>;
+
+    // Constrain inputs not implicitly constrained via lookups (h_init[3], h_init[7], input[0]).
+    // Other inputs are lookup-constrained in sparse form conversions or message extension.
+    h_init[3].create_range_constraint(32);
+    h_init[7].create_range_constraint(32);
+    input[0].create_range_constraint(32);
 
     /**
      * Initialize round variables with previous block output.
