@@ -95,6 +95,13 @@ constexpr std::array<StateCols, Poseidon2Perm::NUM_ROUNDS> intermediate_round_co
 
 } // namespace
 
+/**
+ * @brief Processes the hash events for the Poseidon2 hash function. It populates the columns for the poseidon2_hash
+ *        sub-trace.
+ *
+ * @param hash_events The container of hash events to process.
+ * @param trace The trace container.
+ */
 void Poseidon2TraceBuilder::process_hash(
     const simulation::EventEmitterInterface<simulation::Poseidon2HashEvent>::Container& hash_events,
     TraceContainer& trace)
@@ -155,6 +162,14 @@ void Poseidon2TraceBuilder::process_hash(
     trace.invert_columns({ { C::poseidon2_hash_num_perm_rounds_rem_inv } });
 }
 
+/**
+ * @brief Processes the permutation events for the Poseidon2 permutation function. It populates the columns for the
+ *        poseidon2_perm sub-trace.
+ *
+ * @param perm_events The container of permutation events to process.
+ * @param trace The trace container.
+ *
+ */
 void Poseidon2TraceBuilder::process_permutation(
     const simulation::EventEmitterInterface<simulation::Poseidon2PermutationEvent>::Container& perm_events,
     TraceContainer& trace)
@@ -243,6 +258,14 @@ void Poseidon2TraceBuilder::process_permutation(
         row++;
     }
 }
+
+/**
+ * @brief Processes the events for the Poseidon2 memory-aware permutation function. It populates the columns
+ *        for the poseidon2_perm_mem sub-trace.
+ *
+ * @param perm_mem_events The container of the memory-aware permutation events to process.
+ * @param trace The trace container.
+ */
 
 void Poseidon2TraceBuilder::process_permutation_with_memory(
     const simulation::EventEmitterInterface<simulation::Poseidon2PermutationMemoryEvent>::Container& perm_mem_events,
