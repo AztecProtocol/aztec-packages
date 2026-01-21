@@ -53,6 +53,20 @@ export interface L2BlockSource {
   getProvenBlockNumber(): Promise<BlockNumber>;
 
   /**
+   * Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+   * @returns The number of the latest L2 block checkpointed seen by the block source implementation.
+   */
+  getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
+
+  /**
+   * Computes the finalized block number based on the proven block number.
+   * A block is considered finalized when it's 2 epochs behind the proven block.
+   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * @returns The finalized block number.
+   */
+  getFinalizedL2BlockNumber(): Promise<BlockNumber>;
+
+  /**
    * Gets an l2 block header.
    * @param number - The block number to return or 'latest' for the most recent one.
    * @returns The requested L2 block header.

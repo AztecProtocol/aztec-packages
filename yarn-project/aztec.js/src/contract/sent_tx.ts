@@ -1,9 +1,14 @@
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { SortedTxStatuses, TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
+
+/** Returns true if the receipt status is at least the desired status level. */
+function hasReachedStatus(receipt: TxReceipt, desiredStatus: TxStatus): boolean {
+  return SortedTxStatuses.indexOf(receipt.status) >= SortedTxStatuses.indexOf(desiredStatus);
+}
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -15,6 +20,8 @@ export type WaitOpts = {
   interval?: number;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
   dontThrowOnRevert?: boolean;
+  /** The minimum inclusion status to wait for. If set, waits until the receipt reaches this status or higher. Defaults to CHECKPOINTED. */
+  waitForStatus?: TxStatus;
 };
 
 export const DefaultWaitOpts: WaitOpts = {
@@ -89,9 +96,14 @@ export class SentTx {
    */
   public async wait(opts?: WaitOpts): Promise<TxReceipt> {
     const receipt = await this.waitForReceipt(opts);
-    if (receipt.status !== TxStatus.SUCCESS && !opts?.dontThrowOnRevert) {
+    if (!receipt.isMined()) {
       throw new Error(
         `Transaction ${(await this.getTxHash()).toString()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
+      );
+    }
+    if (!receipt.hasExecutionSucceeded() && !opts?.dontThrowOnRevert) {
+      throw new Error(
+        `Transaction ${(await this.getTxHash()).toString()} reverted: ${receipt.executionResult}. Reason: ${receipt.error ?? 'unknown'}`,
       );
     }
     return receipt;
@@ -101,22 +113,27 @@ export class SentTx {
     const txHash = await this.getTxHash();
     const startTime = Date.now();
     const ignoreDroppedReceiptsFor = opts?.ignoreDroppedReceiptsFor ?? DefaultWaitOpts.ignoreDroppedReceiptsFor;
+    const waitForStatus = opts?.waitForStatus ?? TxStatus.CHECKPOINTED;
 
     return await retryUntil(
       async () => {
         const txReceipt = await this.walletOrNode.getTxReceipt(txHash);
         // If receipt is not yet available, try again
-        if (txReceipt.status === TxStatus.PENDING) {
+        if (txReceipt.isPending()) {
           return undefined;
         }
         // If the tx was "dropped", either return it or ignore based on timing.
         // We can ignore it at first because the transaction may have been sent to node 1, and now we're asking node 2 for the receipt.
         // If we don't allow a short grace period, we could incorrectly return a TxReceipt with status DROPPED.
-        if (txReceipt.status === TxStatus.DROPPED) {
+        if (txReceipt.isDropped()) {
           const elapsedSeconds = (Date.now() - startTime) / 1000;
           if (!ignoreDroppedReceiptsFor || elapsedSeconds > ignoreDroppedReceiptsFor) {
             return txReceipt;
           }
+          return undefined;
+        }
+        // Check if the receipt has reached the desired status level
+        if (!hasReachedStatus(txReceipt, waitForStatus)) {
           return undefined;
         }
         return txReceipt;

@@ -756,13 +756,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
+    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node.');
 
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
     if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
+      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
     }
 
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
