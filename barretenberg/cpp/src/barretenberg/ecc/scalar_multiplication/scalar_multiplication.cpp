@@ -208,47 +208,14 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
                                    const size_t num_points,
                                    typename Curve::BaseField* scratch_space) noexcept
 {
-    using Fq = typename Curve::BaseField;
-    Fq batch_inversion_accumulator = Fq::one();
+    using AffineElement = typename Curve::AffineElement;
+    using BaseField = typename Curve::BaseField;
 
-    // Forward pass: prepare batch inversion inputs.
-    // We reuse points[i+1] storage: .x stores (x2-x1), .y stores (y2-y1)*accumulator
-    for (size_t i = 0; i < num_points; i += 2) {
-        scratch_space[i >> 1] = points[i].x + points[i + 1].x; // x2 + x1 (needed later for x3)
-        points[i + 1].x -= points[i].x;                        // x2 - x1 (denominator for lambda)
-        points[i + 1].y -= points[i].y;                        // y2 - y1 (numerator for lambda)
-        points[i + 1].y *= batch_inversion_accumulator;        // (y2 - y1)*accumulator_old
-        batch_inversion_accumulator *= (points[i + 1].x);      // accumulate denominators
-    }
-    if (batch_inversion_accumulator == 0) {
-        // prefer abort to throw for code that might emit from multiple threads
-        throw_or_abort("attempted to invert zero in add_affine_points");
-    } else {
-        batch_inversion_accumulator = batch_inversion_accumulator.invert();
-    }
-
-    // Backward pass: compute additions using batch inversion results.
-    // Reusing points[i+1] storage: .y becomes lambda, .x becomes lambda^2.
-    // Results are written to the top half of points array: points[(i+num_points)/2].
-    // Loop terminates when i underflows (becomes > num_points for unsigned).
-    for (size_t i = (num_points)-2; i < num_points; i -= 2) {
-        points[i + 1].y *= batch_inversion_accumulator; // .y now holds lambda = (y2-y1)/(x2-x1)
-        batch_inversion_accumulator *= points[i + 1].x; // restore accumulator for next iteration
-        points[i + 1].x = points[i + 1].y.sqr();        // .x now holds lambda^2
-        points[(i + num_points) >> 1].x = points[i + 1].x - (scratch_space[i >> 1]); // x3 = lambda^2 - x2 - x1
-        // Output addresses jump non-sequentially: points[(i+n)>>1] defeats hardware prefetcher.
-        // Fetching 2 iterations ahead ensures data arrives before needed.
-        if (i >= 2) {
-            __builtin_prefetch(points + i - 2);
-            __builtin_prefetch(points + i - 1);
-            __builtin_prefetch(points + ((i + num_points - 2) >> 1));
-            __builtin_prefetch(scratch_space + ((i - 2) >> 1));
-        }
-        // Compute y3 = lambda * (x1 - x3) - y1, reusing points[i].x as temp storage
-        points[i].x -= points[(i + num_points) >> 1].x;              // x1 - x3
-        points[i].x *= points[i + 1].y;                              // lambda * (x1 - x3)
-        points[(i + num_points) >> 1].y = points[i].x - points[i].y; // y3 = lambda*(x1-x3) - y1
-    }
+    // Use interleaved array policy: pairs are (points[2i], points[2i+1]), output in points[num_pairs:]
+    // This includes prefetching for non-sequential output access
+    const size_t num_pairs = num_points / 2;
+    bb::group_elements::batch_affine_add_impl<bb::group_elements::InterleavedArrayPolicy, AffineElement, BaseField>(
+        points, points, num_pairs, scratch_space);
 }
 
 template <typename Curve>

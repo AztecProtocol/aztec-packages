@@ -169,6 +169,88 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 // constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
 // constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
 // constexpr element<Fq, Fr, Params>::curve_b = Params::b;
+
+/**
+ * @brief Memory layout policy for batch affine operations with parallel arrays
+ * @details Layout: (lhs[i], rhs[i]) -> rhs[i] with sequential output (no prefetch needed)
+ */
+struct ParallelArrayPolicy {
+    static constexpr size_t INPUT_STRIDE = 1;
+    static constexpr bool ENABLE_PREFETCH = false;
+
+    template <typename AffineElement>
+    static const AffineElement& get_lhs_point(const AffineElement* base, size_t logical_index) noexcept
+    {
+        return base[logical_index];
+    }
+
+    template <typename AffineElement>
+    static AffineElement& get_rhs_point(AffineElement* base, size_t logical_index) noexcept
+    {
+        return base[logical_index];
+    }
+
+    template <typename AffineElement>
+    static AffineElement& get_output_point(AffineElement* rhs_base,
+                                           size_t logical_index,
+                                           [[maybe_unused]] size_t num_pairs) noexcept
+    {
+        return rhs_base[logical_index];
+    }
+
+    template <typename Fq> static Fq& get_scratch(Fq* scratch_space, size_t logical_index) noexcept
+    {
+        return scratch_space[logical_index];
+    }
+};
+
+/**
+ * @brief Memory layout policy for batch affine operations with interleaved arrays
+ * @details Layout: (points[2i], points[2i+1]) -> points[num_pairs+i] (non-sequential, needs prefetch)
+ */
+struct InterleavedArrayPolicy {
+    static constexpr size_t INPUT_STRIDE = 2;
+    static constexpr bool ENABLE_PREFETCH = true;
+
+    template <typename AffineElement>
+    static const AffineElement& get_lhs_point(const AffineElement* base, size_t logical_index) noexcept
+    {
+        return base[logical_index * 2];
+    }
+
+    template <typename AffineElement>
+    static AffineElement& get_rhs_point(AffineElement* base, size_t logical_index) noexcept
+    {
+        return base[(logical_index * 2) + 1];
+    }
+
+    template <typename AffineElement>
+    static AffineElement& get_output_point(AffineElement* base, size_t logical_index, size_t num_pairs) noexcept
+    {
+        return base[num_pairs + logical_index];
+    }
+
+    template <typename Fq> static Fq& get_scratch(Fq* scratch_space, size_t logical_index) noexcept
+    {
+        return scratch_space[logical_index];
+    }
+
+    template <typename AffineElement, typename Fq>
+    static void prefetch_iteration(const AffineElement* base_points,
+                                   const Fq* scratch,
+                                   size_t logical_index,
+                                   size_t num_pairs) noexcept
+    {
+        if (logical_index >= 1) {
+            size_t phys_idx = logical_index - 1;
+            __builtin_prefetch(&base_points[phys_idx * 2]);
+            __builtin_prefetch(&base_points[(phys_idx * 2) + 1]);
+            __builtin_prefetch(&base_points[num_pairs + phys_idx]);
+            __builtin_prefetch(&scratch[phys_idx]);
+        }
+    }
+};
+
 } // namespace bb::group_elements
 
 #include "./element_impl.hpp"

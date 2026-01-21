@@ -711,6 +711,104 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& scalar) c
     return accumulator;
 }
 
+// =====================================================================================
+// Batch Affine Operations - Helper Functions
+// =====================================================================================
+
+/**
+ * @brief Core batch affine addition using Montgomery's batch inversion trick
+ * @tparam Policy Memory layout policy (ParallelArrayPolicy or InterleavedArrayPolicy)
+ * @tparam AffineElement Affine point type
+ * @tparam Fq Base field type
+ */
+template <typename Policy, typename AffineElement, typename Fq>
+__attribute__((always_inline)) inline void batch_affine_add_impl(const AffineElement* lhs_base,
+                                                                 AffineElement* rhs_base,
+                                                                 const size_t num_pairs,
+                                                                 Fq* scratch_space) noexcept
+{
+    Fq batch_inversion_accumulator = Fq::one();
+
+    // Forward pass: prepare batch inversion
+    for (size_t i = 0; i < num_pairs; ++i) {
+        const AffineElement& lhs = Policy::get_lhs_point(lhs_base, i);
+        AffineElement& rhs = Policy::get_rhs_point(rhs_base, i);
+        Fq& scratch = Policy::get_scratch(scratch_space, i);
+
+        scratch = lhs.x + rhs.x;
+        rhs.x -= lhs.x;
+        rhs.y -= lhs.y;
+        rhs.y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= (rhs.x);
+    }
+
+    if (batch_inversion_accumulator == Fq::zero()) {
+        throw_or_abort("attempted to invert zero in batch_affine_add_impl");
+    }
+    batch_inversion_accumulator = batch_inversion_accumulator.invert();
+
+    // Backward pass: compute additions
+    for (size_t i_plus_1 = num_pairs; i_plus_1 > 0; --i_plus_1) {
+        size_t i = i_plus_1 - 1;
+
+        const AffineElement& lhs = Policy::get_lhs_point(lhs_base, i);
+        AffineElement& rhs = Policy::get_rhs_point(rhs_base, i);
+        AffineElement& output = Policy::get_output_point(rhs_base, i, num_pairs);
+        Fq& scratch = Policy::get_scratch(scratch_space, i);
+
+        if constexpr (Policy::ENABLE_PREFETCH) {
+            Policy::prefetch_iteration(rhs_base, scratch_space, i, num_pairs);
+        }
+
+        rhs.y *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= rhs.x;
+        rhs.x = rhs.y.sqr();
+        output.x = rhs.x - scratch;
+        scratch = lhs.x - output.x;
+        scratch *= rhs.y;
+        output.y = scratch - lhs.y;
+    }
+}
+
+/**
+ * @brief Batch affine point doubling using Montgomery's trick
+ * @tparam AffineElement Affine point type
+ * @tparam Fq Base field type
+ */
+template <typename AffineElement, typename Fq>
+__attribute__((always_inline)) inline void batch_affine_double_impl(AffineElement* points,
+                                                                    const size_t num_points,
+                                                                    Fq* scratch_space) noexcept
+{
+    Fq batch_inversion_accumulator = Fq::one();
+
+    // Forward pass: prepare batch inversion
+    for (size_t i = 0; i < num_points; ++i) {
+        scratch_space[i] = points[i].x.sqr();
+        scratch_space[i] = scratch_space[i] + scratch_space[i] + scratch_space[i];
+        scratch_space[i] *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= (points[i].y + points[i].y);
+    }
+
+    if (batch_inversion_accumulator == Fq::zero()) {
+        throw_or_abort("attempted to invert zero in batch_affine_double_impl");
+    }
+    batch_inversion_accumulator = batch_inversion_accumulator.invert();
+
+    // Backward pass: compute doublings
+    Fq temp_x;
+    for (size_t i_plus_1 = num_points; i_plus_1 > 0; --i_plus_1) {
+        size_t i = i_plus_1 - 1;
+
+        scratch_space[i] *= batch_inversion_accumulator;
+        batch_inversion_accumulator *= (points[i].y + points[i].y);
+
+        temp_x = points[i].x;
+        points[i].x = scratch_space[i].sqr() - (points[i].x + points[i].x);
+        points[i].y = scratch_space[i] * (temp_x - points[i].x) - points[i].y;
+    }
+}
+
 /**
  * @brief Pairwise affine add points in first and second group
  *
@@ -733,51 +831,15 @@ void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr,
     parallel_for_heuristic(
         num_points, [&](size_t i) { results[i] = first_group[i]; }, thread_heuristics::FF_COPY_COST * 2);
 
-    // TODO(#826): Same code as in batch mul
-    //  we can mutate rhs but NOT lhs!
-    //  output is stored in rhs
-    /**
-     * @brief Perform point addition rhs[i]=rhs[i]+lhs[i] with batch inversion
-     *
-     */
-    const auto batch_affine_add_chunked =
-        [](const affine_element* lhs, affine_element* rhs, const size_t point_count, Fq* personal_scratch_space) {
-            Fq batch_inversion_accumulator = Fq::one();
-
-            for (size_t i = 0; i < point_count; i += 1) {
-                personal_scratch_space[i] = lhs[i].x + rhs[i].x; // x2 + x1
-                rhs[i].x -= lhs[i].x;                            // x2 - x1
-                rhs[i].y -= lhs[i].y;                            // y2 - y1
-                rhs[i].y *= batch_inversion_accumulator;         // (y2 - y1)*accumulator_old
-                batch_inversion_accumulator *= (rhs[i].x);
-            }
-            batch_inversion_accumulator = batch_inversion_accumulator.invert();
-
-            for (size_t i = (point_count)-1; i < point_count; i -= 1) {
-                rhs[i].y *= batch_inversion_accumulator; // update accumulator
-                batch_inversion_accumulator *= rhs[i].x;
-                rhs[i].x = rhs[i].y.sqr();
-                rhs[i].x = rhs[i].x - (personal_scratch_space[i]); // x3 = lambda_squared - x2
-                                                                   // - x1
-                personal_scratch_space[i] = lhs[i].x - rhs[i].x;
-                personal_scratch_space[i] *= rhs[i].y;
-                rhs[i].y = personal_scratch_space[i] - lhs[i].y;
-            }
-        };
-
-    /**
-     * @brief Perform batch affine addition in parallel
-     *
-     */
-    const auto batch_affine_add_internal = [&](const affine_element* lhs, affine_element* rhs) {
-        parallel_for_heuristic(
-            num_points,
-            [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
-                batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
-            },
-            thread_heuristics::FF_ADDITION_COST * 6 + thread_heuristics::FF_MULTIPLICATION_COST * 6);
-    };
-    batch_affine_add_internal(&second_group[0], &results[0]);
+    // Perform batch affine addition. Uses ParallelArrayPolicy: (lhs[i], rhs[i]) -> rhs[i] with sequential output (no
+    // prefetch)
+    parallel_for_heuristic(
+        num_points,
+        [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+            batch_affine_add_impl<ParallelArrayPolicy, affine_element, Fq>(
+                &second_group[start], &results[start], end - start, &scratch_space[start]);
+        },
+        thread_heuristics::FF_ADDITION_COST * 6 + thread_heuristics::FF_MULTIPLICATION_COST * 6);
 }
 
 /**
@@ -800,70 +862,6 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
     // Space for temporary values
     std::vector<Fq> scratch_space(num_points);
-
-    // TODO(#826): Same code as in batch add
-    //  we can mutate rhs but NOT lhs!
-    //  output is stored in rhs
-    /**
-     * @brief Perform point addition rhs[i]=rhs[i]+lhs[i] with batch inversion
-     *
-     */
-    const auto batch_affine_add_chunked =
-        [](const affine_element* lhs, affine_element* rhs, const size_t point_count, Fq* personal_scratch_space) {
-            Fq batch_inversion_accumulator = Fq::one();
-
-            for (size_t i = 0; i < point_count; i += 1) {
-                personal_scratch_space[i] = lhs[i].x + rhs[i].x; // x2 + x1
-                rhs[i].x -= lhs[i].x;                            // x2 - x1
-                rhs[i].y -= lhs[i].y;                            // y2 - y1
-                rhs[i].y *= batch_inversion_accumulator;         // (y2 - y1)*accumulator_old
-                batch_inversion_accumulator *= (rhs[i].x);
-            }
-            batch_inversion_accumulator = batch_inversion_accumulator.invert();
-
-            for (size_t i = (point_count)-1; i < point_count; i -= 1) {
-                rhs[i].y *= batch_inversion_accumulator; // update accumulator
-                batch_inversion_accumulator *= rhs[i].x;
-                rhs[i].x = rhs[i].y.sqr();
-                rhs[i].x = rhs[i].x - (personal_scratch_space[i]); // x3 = lambda_squared - x2
-                                                                   // - x1
-                personal_scratch_space[i] = lhs[i].x - rhs[i].x;
-                personal_scratch_space[i] *= rhs[i].y;
-                rhs[i].y = personal_scratch_space[i] - lhs[i].y;
-            }
-        };
-
-    /**
-     * @brief Perform point doubling lhs[i]=lhs[i]+lhs[i] with batch inversion
-     *
-     */
-    const auto batch_affine_double_chunked =
-        [](affine_element* lhs, const size_t point_count, Fq* personal_scratch_space) {
-            Fq batch_inversion_accumulator = Fq::one();
-
-            for (size_t i = 0; i < point_count; i += 1) {
-
-                personal_scratch_space[i] = lhs[i].x.sqr();
-                personal_scratch_space[i] =
-                    personal_scratch_space[i] + personal_scratch_space[i] + personal_scratch_space[i];
-
-                personal_scratch_space[i] *= batch_inversion_accumulator;
-
-                batch_inversion_accumulator *= (lhs[i].y + lhs[i].y);
-            }
-            batch_inversion_accumulator = batch_inversion_accumulator.invert();
-
-            Fq temp;
-            for (size_t i = (point_count)-1; i < point_count; i -= 1) {
-
-                personal_scratch_space[i] *= batch_inversion_accumulator;
-                batch_inversion_accumulator *= (lhs[i].y + lhs[i].y);
-
-                temp = lhs[i].x;
-                lhs[i].x = personal_scratch_space[i].sqr() - (lhs[i].x + lhs[i].x);
-                lhs[i].y = personal_scratch_space[i] * (temp - lhs[i].x) - lhs[i].y;
-            }
-        };
 
     // We compute the resulting point through WNAF by evaluating (the (\sum_i (16ⁱ⋅
     // (a_i ∈ {-15,-13,-11,-9,-7,-5,-3,-1,1,3,5,7,9,11,13,15}))) - skew), where skew is 0 or 1. The result of the sum is
@@ -904,12 +902,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     auto execute_range = [&](size_t start, size_t end) {
         // Perform batch affine addition in parallel
         const auto add_chunked = [&](const affine_element* lhs, affine_element* rhs) {
-            batch_affine_add_chunked(&lhs[start], &rhs[start], end - start, &scratch_space[start]);
+            batch_affine_add_impl<ParallelArrayPolicy, affine_element, Fq>(
+                &lhs[start], &rhs[start], end - start, &scratch_space[start]);
         };
 
         // Perform point doubling in parallel
         const auto double_chunked = [&](affine_element* lhs) {
-            batch_affine_double_chunked(&lhs[start], end - start, &scratch_space[start]);
+            batch_affine_double_impl<affine_element, Fq>(&lhs[start], end - start, &scratch_space[start]);
         };
 
         // Initialize first entries in lookup table
