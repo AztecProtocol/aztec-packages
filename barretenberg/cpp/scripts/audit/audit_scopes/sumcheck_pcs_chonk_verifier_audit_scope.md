@@ -68,10 +68,9 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 45. `stdlib/eccvm_verifier/verifier_commitment_key.hpp`
 46. `stdlib/translator_vm_verifier/translator_recursive_flavor.hpp`
 47. `stdlib/honk_verifier/ipa_accumulator.hpp`
-48. `stdlib/honk_verifier/ultra_verification_keys_comparator.hpp`
 
 ### Supporting Types
-49. `goblin/types.hpp`
+48. `goblin/types.hpp`
 
 ---
 
