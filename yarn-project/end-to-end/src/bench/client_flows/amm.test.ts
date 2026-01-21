@@ -22,7 +22,12 @@ const AMOUNT_PER_NOTE = 1_000_000;
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
 // Set to true to print out the round trip information to the console.
-const DEBUG_ROUND_TRIPS = true;
+const DEBUG_ROUND_TRIPS = false;
+
+// This is currently set to false because unfortunately the round trip stats are not deterministic between runs.
+// Optimizing the BlockSynchronizer might help in making it deterministic since that is the big source of
+// non-determinism but not super sure if this is feasible.
+const ASSERT_NUM_ROUND_TRIPS = false;
 
 // Expected number of node round trips per account contract and payment method.
 const EXPECTED_ROUND_TRIPS: Record<string, number> = {
@@ -242,7 +247,9 @@ describe('AMM benchmark', () => {
                 paymentMethod: benchmarkingPaymentMethod,
                 roundTrips: filteredRoundTrips,
               });
-            } else {
+            }
+
+            if (ASSERT_NUM_ROUND_TRIPS) {
               const roundTripsKey = `${accountType}+${benchmarkingPaymentMethod}`;
               const actualRoundTrips = filteredRoundTrips.roundTrips;
               const expectedRoundTrips = EXPECTED_ROUND_TRIPS[roundTripsKey];
