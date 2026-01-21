@@ -1,8 +1,10 @@
 #include "c_bind.hpp"
+
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "poseidon2.hpp"
+#include <algorithm>
 
 using namespace bb;
 
@@ -27,7 +29,7 @@ WASM_EXPORT void poseidon2_permutation(fr::vec_in_buf inputs_buffer, fr::vec_out
 
     // Copy input vector into Permutation::State (which is an std::array).
     Permutation::State input_state;
-    std::copy(to_permute.begin(), to_permute.end(), input_state.data());
+    std::ranges::copy(to_permute, input_state.data());
 
     Permutation::State results_array = Permutation::permutation(input_state);
 
@@ -39,6 +41,8 @@ WASM_EXPORT void poseidon2_hash_accumulate(fr::vec_in_buf inputs_buffer, fr::out
 {
     std::vector<fr> to_hash;
     read(inputs_buffer, to_hash);
+    BB_ASSERT(!to_hash.empty(), "poseidon2_hash_accumulate requires at least one input element");
+
     const size_t numHashes = to_hash.size();
     fr result = to_hash[0];
     size_t count = 1;
