@@ -23,7 +23,7 @@ using StateCols = std::array<C, 4>;
 
 // This absolute monstrosity is a mapping of the intermediate round columns (round & state) to the "flattened" columns
 // in the trace.
-constexpr std::array<StateCols, 64> intermediate_round_cols = { {
+constexpr std::array<StateCols, Poseidon2Perm::NUM_ROUNDS> intermediate_round_cols = { {
     // Full rounds
     { C::poseidon2_perm_T_0_6, C::poseidon2_perm_T_0_5, C::poseidon2_perm_T_0_7, C::poseidon2_perm_T_0_4 },
     { C::poseidon2_perm_T_1_6, C::poseidon2_perm_T_1_5, C::poseidon2_perm_T_1_7, C::poseidon2_perm_T_1_4 },
