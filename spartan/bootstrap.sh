@@ -63,9 +63,7 @@ function gke {
 }
 
 function test_cmds {
-  # the existing test flow is deprecated.
-  # we are moving things to use the same deployment flow as the scenario/staging networks.
-  :
+  echo "TIMEOUT=60 $root/spartan/scripts/network_bisect.ts test"
 }
 
 function network_test_cmds {

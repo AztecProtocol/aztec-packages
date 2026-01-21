@@ -1,0 +1,63 @@
+# Network Bisect Workflow
+# Finds the commit that broke network tests using binary search.
+name: Network Bisect
+
+on:
+  workflow_dispatch:
+    inputs:
+      good_commit:
+        description: "Known good commit (tests pass)"
+        required: true
+        type: string
+      bad_commit:
+        description: "Known bad commit (tests fail)"
+        required: true
+        type: string
+      env_file:
+        description: "Network configuration (e.g., next-scenario)"
+        required: false
+        type: string
+        default: next-scenario
+
+jobs:
+  bisect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Run bisect
+        id: bisect
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NO_SPOT: 1
+        run: |
+          ./spartan/scripts/network_bisect.ts "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" \
+            --env-file="${{ inputs.env_file }}"
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then exit 0; fi
+
+          if [ "${{ job.status }}" = "success" ]; then
+            text="Network bisect completed. Check logs for culprit."
+          else
+            text="Network bisect failed or was cancelled."
+          fi
+
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            --data "{\"channel\":\"#alerts-next-scenario\",\"text\":\"$text\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"

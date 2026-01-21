@@ -30,6 +30,7 @@ function print_usage {
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
+  echo_cmd "network-bisect"        "Trigger a network bisect workflow to find a failing commit."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -147,6 +148,22 @@ case "$cmd" in
     export CPUS=4
     export INSTANCE_POSTFIX="n-teardown"
     bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    ;;
+  network-bisect)
+    # Args: <good_commit> <bad_commit> [env_file]
+    # Triggers the network-bisect GitHub workflow to find the commit that broke network tests.
+    good_commit="${1:?good_commit is required (e.g., v0.85.0-nightly.1)}"
+    bad_commit="${2:?bad_commit is required (e.g., v0.85.0-nightly.2)}"
+    env_file="${3:-next-scenario}"
+
+    echo "Triggering network bisect workflow..."
+    gh workflow run network-bisect.yml \
+      --ref "next" \
+      -f good_commit="$good_commit" \
+      -f bad_commit="$bad_commit" \
+      -f env_file="$env_file"
+
+    echo "Monitor: https://github.com/AztecProtocol/aztec-packages/actions/workflows/network-bisect.yml"
     ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
