@@ -1,8 +1,8 @@
 #include "c_bind.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "poseidon2.hpp"
-#include "poseidon2_permutation.hpp"
 
 using namespace bb;
 
@@ -14,22 +14,6 @@ WASM_EXPORT void poseidon2_hash(fr::vec_in_buf inputs_buffer, fr::out_buf output
     fr::serialize_to_buffer(r, output);
 }
 
-WASM_EXPORT void poseidon2_hashes(fr::vec_in_buf inputs_buffer, fr::out_buf output)
-{
-    std::vector<fr> to_hash;
-    read(inputs_buffer, to_hash);
-    const size_t numHashes = to_hash.size() / 2;
-    std::vector<fr> results;
-    size_t count = 0;
-    while (count < numHashes) {
-        auto r = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
-            { to_hash[count * 2], to_hash[count * 2 + 1] });
-        results.push_back(r);
-        ++count;
-    }
-    write(output, results);
-}
-
 WASM_EXPORT void poseidon2_permutation(fr::vec_in_buf inputs_buffer, fr::vec_out_buf output)
 {
     using Permutation = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -37,6 +21,9 @@ WASM_EXPORT void poseidon2_permutation(fr::vec_in_buf inputs_buffer, fr::vec_out
     // Serialise input vector.
     std::vector<fr> to_permute;
     read(inputs_buffer, to_permute);
+
+    // Permutation requires exactly t=4 input elements
+    BB_ASSERT(to_permute.size() == Permutation::t, "poseidon2_permutation input must have exactly 4 elements");
 
     // Copy input vector into Permutation::State (which is an std::array).
     Permutation::State input_state;
