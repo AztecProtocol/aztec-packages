@@ -141,8 +141,6 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         return true;
     };
 
-    // TODO(https: // github.com/AztecProtocol/barretenberg/issues/1367): Report all failures more explicitly and
-    // consider making use of relations.
     auto in_random_range = [&](size_t i) {
         return (i >= 2 * Builder::NUM_NO_OPS_START && i < RESULT_ROW) ||
                (i >= circuit.num_gates() - (circuit.avm_mode ? 0 : 2 * Builder::NUM_RANDOM_OPS_END) &&
@@ -301,9 +299,12 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
 
             BB_ASSERT_EQ(binary_limbs.size(), micro_limbs.size());
             // First check that all the microlimbs are properly range constrained
-            for (auto& micro_limb_series : micro_limbs) {
-                for (auto& micro_limb : micro_limb_series) {
-                    if (uint256_t(micro_limb) > Builder::MAX_MICRO_LIMB_SIZE) {
+            for (size_t limb_idx = 0; limb_idx < micro_limbs.size(); limb_idx++) {
+                for (size_t micro_idx = 0; micro_idx < micro_limbs[limb_idx].size(); micro_idx++) {
+                    if (uint256_t(micro_limbs[limb_idx][micro_idx]) > Builder::MAX_MICRO_LIMB_SIZE) {
+                        info("Micro limb range constraint failed: limb_idx = ", limb_idx, ", micro_idx = ", micro_idx,
+                             ", value = ", micro_limbs[limb_idx][micro_idx],
+                             ", max = ", Builder::MAX_MICRO_LIMB_SIZE);
                         return false;
                     }
                 }
@@ -312,11 +313,17 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             // the limb
             const size_t SKIPPED_FOR_LOW_LIMBS = 1;
             for (size_t i = 0; i < binary_limbs.size() - 1; i++) {
-                if (binary_limbs[i] != accumulate_limb_from_micro_chunks(micro_limbs[i], SKIPPED_FOR_LOW_LIMBS)) {
+                Fr reconstructed = accumulate_limb_from_micro_chunks(micro_limbs[i], SKIPPED_FOR_LOW_LIMBS);
+                if (binary_limbs[i] != reconstructed) {
+                    info("Low limb reconstruction failed at limb index = ", i,
+                         ": expected = ", binary_limbs[i], ", got = ", reconstructed);
                     return false;
                 }
                 // Check last additional constraint (68->70)
-                if (micro_limbs[i][NUM_MICRO_LIMBS - 1] != (SHIFT_12_TO_14 * micro_limbs[i][NUM_MICRO_LIMBS - 2])) {
+                Fr expected_shifted = SHIFT_12_TO_14 * micro_limbs[i][NUM_MICRO_LIMBS - 2];
+                if (micro_limbs[i][NUM_MICRO_LIMBS - 1] != expected_shifted) {
+                    info("Low limb 68->70 bit shift constraint failed at limb index = ", i,
+                         ": expected = ", expected_shifted, ", got = ", micro_limbs[i][NUM_MICRO_LIMBS - 1]);
                     return false;
                 }
             }
@@ -327,42 +334,56 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             switch (limb_series_type) {
             case STANDARD_COORDINATE:
                 // For standard Fq value the highest limb is 50 bits, so we skip the top 2 microlimbs
-                if (binary_limbs[binary_limbs.size() - 1] !=
-                    accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1], SKIPPED_FOR_STANDARD)) {
-                    return false;
-                }
-                // Check last additional constraint (50->56)
-                if (micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_STANDARD] !=
-                    (SHIFT_8_TO_14 *
-                     micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_STANDARD - 1])) {
-
-                    return false;
+                {
+                    Fr reconstructed = accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1], SKIPPED_FOR_STANDARD);
+                    if (binary_limbs[binary_limbs.size() - 1] != reconstructed) {
+                        info("Standard coordinate high limb reconstruction failed: expected = ",
+                             binary_limbs[binary_limbs.size() - 1], ", got = ", reconstructed);
+                        return false;
+                    }
+                    // Check last additional constraint (50->56)
+                    Fr expected_shifted = SHIFT_8_TO_14 * micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_STANDARD - 1];
+                    if (micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_STANDARD] != expected_shifted) {
+                        info("Standard coordinate 50->56 bit shift constraint failed: expected = ",
+                             expected_shifted, ", got = ", micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_STANDARD]);
+                        return false;
+                    }
                 }
                 break;
             // For z top limbs we need as many microlimbs as for the low limbs
             case Z_SCALAR:
-                if (binary_limbs[binary_limbs.size() - 1] !=
-                    accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1], SKIPPED_FOR_Z_SCALARS)) {
-                    return false;
-                }
-                // Check last additional constraint (60->70)
-                if (micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_Z_SCALARS] !=
-                    (SHIFT_4_TO_14 *
-                     micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_Z_SCALARS - 1])) {
-                    return false;
+                {
+                    Fr reconstructed = accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1], SKIPPED_FOR_Z_SCALARS);
+                    if (binary_limbs[binary_limbs.size() - 1] != reconstructed) {
+                        info("Z scalar high limb reconstruction failed: expected = ",
+                             binary_limbs[binary_limbs.size() - 1], ", got = ", reconstructed);
+                        return false;
+                    }
+                    // Check last additional constraint (60->70)
+                    Fr expected_shifted = SHIFT_4_TO_14 * micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_Z_SCALARS - 1];
+                    if (micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_Z_SCALARS] != expected_shifted) {
+                        info("Z scalar 60->70 bit shift constraint failed: expected = ",
+                             expected_shifted, ", got = ", micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_Z_SCALARS]);
+                        return false;
+                    }
                 }
                 break;
             // Quotient also doesn't need the top 2
             case QUOTIENT:
-                if (binary_limbs[binary_limbs.size() - 1] !=
-                    accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1], SKIPPED_FOR_QUOTIENT)) {
-                    return false;
-                }
-                // Check last additional constraint (52->56)
-                if (micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_QUOTIENT] !=
-                    (SHIFT_10_TO_14 *
-                     micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_QUOTIENT - 1])) {
-                    return false;
+                {
+                    Fr reconstructed = accumulate_limb_from_micro_chunks(micro_limbs[binary_limbs.size() - 1], SKIPPED_FOR_QUOTIENT);
+                    if (binary_limbs[binary_limbs.size() - 1] != reconstructed) {
+                        info("Quotient high limb reconstruction failed: expected = ",
+                             binary_limbs[binary_limbs.size() - 1], ", got = ", reconstructed);
+                        return false;
+                    }
+                    // Check last additional constraint (52->56)
+                    Fr expected_shifted = SHIFT_10_TO_14 * micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_QUOTIENT - 1];
+                    if (micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_QUOTIENT] != expected_shifted) {
+                        info("Quotient 52->56 bit shift constraint failed: expected = ",
+                             expected_shifted, ", got = ", micro_limbs[binary_limbs.size() - 1][NUM_MICRO_LIMBS - SKIPPED_FOR_QUOTIENT]);
+                        return false;
+                    }
                 }
                 break;
             default:
@@ -373,23 +394,23 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         };
         // Check all micro limb decompositions
         if (!check_micro_limb_decomposition_correctness(p_x_binary_limbs, p_x_micro_chunks, STANDARD_COORDINATE)) {
-            return false;
+            return report_fail("P.x micro limb decomposition check failed at row = ", i);
         }
         if (!check_micro_limb_decomposition_correctness(p_y_binary_limbs, p_y_micro_chunks, STANDARD_COORDINATE)) {
-            return false;
+            return report_fail("P.y micro limb decomposition check failed at row = ", i);
         }
         if (!check_micro_limb_decomposition_correctness(z_1_binary_limbs, z_1_micro_chunks, Z_SCALAR)) {
-            return false;
+            return report_fail("z_1 micro limb decomposition check failed at row = ", i);
         }
         if (!check_micro_limb_decomposition_correctness(z_2_binary_limbs, z_2_micro_chunks, Z_SCALAR)) {
-            return false;
+            return report_fail("z_2 micro limb decomposition check failed at row = ", i);
         }
         if (!check_micro_limb_decomposition_correctness(
                 current_accumulator_binary_limbs, current_accumulator_micro_chunks, STANDARD_COORDINATE)) {
-            return false;
+            return report_fail("Current accumulator micro limb decomposition check failed at row = ", i);
         }
         if (!check_micro_limb_decomposition_correctness(quotient_binary_limbs, quotient_micro_chunks, QUOTIENT)) {
-            return false;
+            return report_fail("Quotient micro limb decomposition check failed at row = ", i);
         }
 
         // The logic we are trying to enforce is:
@@ -447,8 +468,9 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
              relation_inputs.v_quarted_limbs[0] * z_2_hi + quotient_binary_limbs[0] * NEGATIVE_MODULUS_LIMBS[1] -
              current_accumulator_binary_limbs[1]) *
                 Fr(SHIFT_1);
-        if (low_wide_limb_relation_check != (low_wide_relation_limb * SHIFT_2)) {
-            return false;
+        Fr expected_low_wide = low_wide_relation_limb * SHIFT_2;
+        if (low_wide_limb_relation_check != expected_low_wide) {
+            return report_fail("Low wide limb relation check failed at row = ", i);
         }
         Fr high_wide_relation_limb_check =
             low_wide_relation_limb + previous_accumulator_binary_limbs[2] * relation_inputs.x_limbs[0] +
@@ -475,8 +497,9 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
              quotient_binary_limbs[1] * NEGATIVE_MODULUS_LIMBS[2] +
              quotient_binary_limbs[0] * NEGATIVE_MODULUS_LIMBS[3] - current_accumulator_binary_limbs[3]) *
                 SHIFT_1;
-        if (high_wide_relation_limb_check != (high_wide_relation_limb * SHIFT_2)) {
-            return false;
+        Fr expected_high_wide = high_wide_relation_limb * SHIFT_2;
+        if (high_wide_relation_limb_check != expected_high_wide) {
+            return report_fail("High wide limb relation check failed at row = ", i);
         }
         // Apart from checking the correctness of the evaluation modulo 2²⁷² we also need to ensure that the
         // logic works in our scalar field. For this we reconstruct the scalar field values from individual
@@ -496,14 +519,14 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
                                        quotient_binary_limbs[2] * SHIFT_2 + quotient_binary_limbs[3] * SHIFT_3);
 
         // Check the relation
-        if (!(reconstructed_previous_accumulator * reconstructed_evaluation_input_x + op_code +
-              reconstructed_p_x * reconstructed_batching_evaluation_v +
-              reconstructed_p_y * reconstructed_batching_evaluation_v2 +
-              reconstructed_z1 * reconstructed_batching_evaluation_v3 +
-              reconstructed_z2 * reconstructed_batching_evaluation_v4 +
-              reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator)
-                 .is_zero()) {
-            return false;
+        Fr scalar_field_relation = reconstructed_previous_accumulator * reconstructed_evaluation_input_x + op_code +
+                                    reconstructed_p_x * reconstructed_batching_evaluation_v +
+                                    reconstructed_p_y * reconstructed_batching_evaluation_v2 +
+                                    reconstructed_z1 * reconstructed_batching_evaluation_v3 +
+                                    reconstructed_z2 * reconstructed_batching_evaluation_v4 +
+                                    reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator;
+        if (!scalar_field_relation.is_zero()) {
+            return report_fail("Scalar field relation check failed at row = ", i);
         };
 
         if (!check_accumulator_transfer(previous_accumulator_binary_limbs, i + 1)) {
