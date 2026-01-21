@@ -90,6 +90,8 @@ describe('ValidatorClient', () => {
     >[1] as any);
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getBlocksForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
+    blockSource.getBlocksForSlot.mockResolvedValue([]);
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();

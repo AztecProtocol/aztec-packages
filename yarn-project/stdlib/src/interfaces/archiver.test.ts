@@ -208,9 +208,10 @@ describe('ArchiverApiSchema', () => {
     expect(result[0].l1).toBeDefined();
   });
 
-  it('getBlocksForEpoch', async () => {
-    const result = await context.client.getBlocksForEpoch(EpochNumber(1));
-    expect(result).toEqual([expect.any(L2BlockNew)]);
+  it('getCheckpointedBlocksForEpoch', async () => {
+    const result = await context.client.getCheckpointedBlocksForEpoch(EpochNumber(1));
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBeInstanceOf(CheckpointedL2Block);
   });
 
   it('getBlocksForSlot', async () => {
@@ -218,8 +219,8 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2BlockNew)]);
   });
 
-  it('getBlockHeadersForEpoch', async () => {
-    const result = await context.client.getBlockHeadersForEpoch(EpochNumber(1));
+  it('getCheckpointedBlockHeadersForEpoch', async () => {
+    const result = await context.client.getCheckpointedBlockHeadersForEpoch(EpochNumber(1));
     expect(result).toEqual([expect.any(BlockHeader)]);
   });
 
@@ -512,15 +513,23 @@ class MockArchiver implements ArchiverApi {
     expect(epochNumber).toEqual(EpochNumber(1));
     return [await Checkpoint.random(CheckpointNumber(BlockNumber(1)))];
   }
-  async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]> {
+  async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     expect(epochNumber).toEqual(EpochNumber(1));
-    return [await L2BlockNew.random(BlockNumber(Number(epochNumber)))];
+    const block = await L2BlockNew.random(BlockNumber(Number(epochNumber)));
+    return [
+      CheckpointedL2Block.fromFields({
+        checkpointNumber: CheckpointNumber(1),
+        block,
+        l1: new L1PublishedData(1n, 1n, `0x01`),
+        attestations: [CommitteeAttestation.random()],
+      }),
+    ];
   }
   async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
     expect(slotNumber).toEqual(SlotNumber(1));
     return [await L2BlockNew.random(BlockNumber(Number(slotNumber)))];
   }
-  async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
+  async getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
     expect(epochNumber).toEqual(EpochNumber(1));
     const block = await L2BlockNew.random(BlockNumber(Number(epochNumber)));
     return [block.header];

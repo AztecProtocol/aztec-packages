@@ -255,7 +255,7 @@ describe('sequencer', () => {
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
-      getBlocksForEpoch: mockFn().mockResolvedValue([]),
+      getCheckpointedBlocksForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
     });
 

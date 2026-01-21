@@ -157,11 +157,11 @@ export interface L2BlockSource {
   getL2EpochNumber(): Promise<EpochNumber | undefined>;
 
   /**
-   * Returns all block headers for a given epoch.
+   * Returns all checkpointed block headers for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return headers for.
    */
-  getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
+  getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]>;
 
   /**
    * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
@@ -212,11 +212,11 @@ export interface L2BlockSource {
   getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
 
   /**
-   * Returns all blocks for a given epoch.
+   * Returns all checkpointed blocks for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.
    * @param epochNumber - The epoch number to return blocks for.
    */
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]>;
+  getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]>;
 
   /**
    * Returns all blocks for a given slot.

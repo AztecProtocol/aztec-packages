@@ -274,13 +274,13 @@ export abstract class ArchiverDataSourceBase
     return this.store.getBlocksForSlot(slotNumber);
   }
 
-  public async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]> {
+  public async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     if (!this.l1Constants) {
       throw new Error('L1 constants not set');
     }
 
     const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
-    const blocks: L2BlockNew[] = [];
+    const blocks: CheckpointedL2Block[] = [];
 
     // Walk the list of checkpoints backwards and filter by slots matching the requested epoch.
     // We'll typically ask for checkpoints for a very recent epoch, so we shouldn't need an index here.
@@ -291,9 +291,9 @@ export abstract class ArchiverDataSourceBase
         // push the blocks on backwards
         const endBlock = checkpoint.startBlock + checkpoint.numBlocks - 1;
         for (let i = endBlock; i >= checkpoint.startBlock; i--) {
-          const block = await this.getBlock(BlockNumber(i));
-          if (block) {
-            blocks.push(block);
+          const checkpointedBlock = await this.getCheckpointedBlock(BlockNumber(i));
+          if (checkpointedBlock) {
+            blocks.push(checkpointedBlock);
           }
         }
       }
@@ -303,7 +303,7 @@ export abstract class ArchiverDataSourceBase
     return blocks.reverse();
   }
 
-  public async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
+  public async getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
     if (!this.l1Constants) {
       throw new Error('L1 constants not set');
     }
