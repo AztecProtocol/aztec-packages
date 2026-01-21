@@ -9,7 +9,7 @@ import times from 'lodash.times';
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHeader } from '../../tx/block_header.js';
 import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
-import type { L2BlockNew } from '../l2_block_new.js';
+import type { L2Block } from '../l2_block.js';
 import { GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
@@ -28,7 +28,7 @@ describe('L2BlockStream', () => {
       number: BlockNumber(number),
       checkpointNumber: CheckpointNumber(number),
       indexWithinCheckpoint: 0,
-    }) as L2BlockNew;
+    }) as L2Block;
 
   /** Makes a block with hash method (for use in mocks that need hash) */
   const makeBlockWithHash = (number: number) =>
@@ -37,7 +37,7 @@ describe('L2BlockStream', () => {
       checkpointNumber: CheckpointNumber(number),
       indexWithinCheckpoint: 0,
       hash: () => Promise.resolve(new Fr(number)),
-    }) as L2BlockNew;
+    }) as L2Block;
 
   const makeCheckpointedBlock = (number: number, checkpointNum: number): CheckpointedL2Block =>
     ({
@@ -375,7 +375,7 @@ describe('L2BlockStream', () => {
         number: BlockNumber(blockNum),
         checkpointNumber: CheckpointNumber(checkpointNum),
         indexWithinCheckpoint: blockNum - firstBlockInCheckpoint,
-      } as L2BlockNew;
+      } as L2Block;
     };
 
     /** Makes a block with hash method (for use in mocks that need hash) */
@@ -387,7 +387,7 @@ describe('L2BlockStream', () => {
         checkpointNumber: CheckpointNumber(checkpointNum),
         indexWithinCheckpoint: blockNum - firstBlockInCheckpoint,
         hash: () => Promise.resolve(new Fr(blockNum)),
-      } as L2BlockNew;
+      } as L2Block;
     };
 
     /** Makes a checkpointed block */
@@ -1681,7 +1681,7 @@ class TestL2BlockStream extends L2BlockStream {
 }
 
 class TestL2TipsMemoryStore extends L2TipsMemoryStore {
-  protected override computeBlockHash(block: L2BlockNew): Promise<`0x${string}`> {
+  protected override computeBlockHash(block: L2Block): Promise<`0x${string}`> {
     return Promise.resolve(new Fr(block.number).toString());
   }
 }

@@ -1023,7 +1023,7 @@ describe('Archiver Sync', () => {
       const lastBlockInCheckpoint2 = cp2.blocks[cp2.blocks.length - 1].number;
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
-      expect((await archiver.getL2BlockNew(cp2.blocks[0].number))!.equals(cp2.blocks[0])).toBe(true);
+      expect((await archiver.getL2Block(cp2.blocks[0].number))!.equals(cp2.blocks[0])).toBe(true);
 
       // Verify L2Tips after adding blocks: proposed advances but checkpointed stays at checkpoint 1
       const tipsAfterAddBlock = await archiver.getL2Tips();
@@ -1036,8 +1036,8 @@ describe('Archiver Sync', () => {
       const uncheckpointedBlock = await archiver.getCheckpointedBlock(firstNewBlockNumber);
       expect(uncheckpointedBlock).toBeUndefined();
 
-      // But getL2BlockNew should work (it retrieves both checkpointed and uncheckpointed blocks)
-      const block = await archiver.getL2BlockNew(firstNewBlockNumber);
+      // But getL2Block should work (it retrieves both checkpointed and uncheckpointed blocks)
+      const block = await archiver.getL2Block(firstNewBlockNumber);
       expect(block).toBeDefined();
 
       // Now advance L1 so checkpoint 2 becomes visible

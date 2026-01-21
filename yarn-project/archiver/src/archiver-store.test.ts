@@ -14,7 +14,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { makeStateReference } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -218,7 +218,7 @@ describe('Archiver Store', () => {
       indexIntoCheckpoint = IndexWithinCheckpoint(0),
       previousArchive?: AppendOnlyTreeSnapshot,
     ) =>
-      L2BlockNew.random(blockNumber, {
+      L2Block.random(blockNumber, {
         checkpointNumber: CheckpointNumber(1),
         state: makeStateReference(0x100),
         indexWithinCheckpoint: indexIntoCheckpoint,
@@ -232,7 +232,7 @@ describe('Archiver Store', () => {
       const block = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       await archiver.addBlock(block);
 
-      const retrievedBlock = await archiver.getL2BlockNew(BlockNumber(1));
+      const retrievedBlock = await archiver.getL2Block(BlockNumber(1));
       expect(retrievedBlock).toBeDefined();
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
       expect((await retrievedBlock!.header.hash()).toString()).toEqual((await block.header.hash()).toString());
@@ -247,9 +247,9 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
       await archiver.addBlock(block3);
 
-      const retrievedBlock1 = await archiver.getL2BlockNew(BlockNumber(1));
-      const retrievedBlock2 = await archiver.getL2BlockNew(BlockNumber(2));
-      const retrievedBlock3 = await archiver.getL2BlockNew(BlockNumber(3));
+      const retrievedBlock1 = await archiver.getL2Block(BlockNumber(1));
+      const retrievedBlock2 = await archiver.getL2Block(BlockNumber(2));
+      const retrievedBlock3 = await archiver.getL2Block(BlockNumber(3));
 
       expect(retrievedBlock1!.number).toEqual(BlockNumber(1));
       expect(retrievedBlock2!.number).toEqual(BlockNumber(2));
@@ -289,7 +289,7 @@ describe('Archiver Store', () => {
 
       await archiver.addBlock(block1);
 
-      const retrievedBlock = await archiver.getL2BlockNew(BlockNumber(1));
+      const retrievedBlock = await archiver.getL2Block(BlockNumber(1));
       expect(retrievedBlock).toBeDefined();
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
     });

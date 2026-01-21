@@ -9,8 +9,8 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CheckpointedL2Block,
+  L2Block,
   L2BlockHash,
-  L2BlockNew,
   type L2BlockSource,
   type L2Tips,
   type ValidateCheckpointResult,
@@ -25,7 +25,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
  * A mocked implementation of L2BlockSource to be used in tests.
  */
 export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
-  protected l2Blocks: L2BlockNew[] = [];
+  protected l2Blocks: L2Block[] = [];
 
   private provenBlockNumber: number = 0;
   private finalizedBlockNumber: number = 0;
@@ -36,14 +36,14 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
-      const block = await L2BlockNew.random(BlockNumber(blockNum), { slotNumber: SlotNumber(blockNum) });
+      const block = await L2Block.random(BlockNumber(blockNum), { slotNumber: SlotNumber(blockNum) });
       this.l2Blocks.push(block);
     }
 
     this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
   }
 
-  public addBlocks(blocks: L2BlockNew[]) {
+  public addBlocks(blocks: L2Block[]) {
     this.l2Blocks.push(...blocks);
     this.log.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
   }
@@ -141,7 +141,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public getBlock(number: number): Promise<L2BlockNew | undefined> {
+  public getBlock(number: number): Promise<L2Block | undefined> {
     const block = this.l2Blocks[number - 1];
     return Promise.resolve(block);
   }
@@ -151,7 +151,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @param number - The block number to return.
    * @returns The requested L2 block.
    */
-  public getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+  public getL2Block(number: BlockNumber): Promise<L2Block | undefined> {
     const block = this.l2Blocks[number - 1];
     return Promise.resolve(block);
   }
@@ -162,7 +162,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @param limit - The maximum number of blocks to return.
    * @returns The requested mocked L2 blocks.
    */
-  public getBlocks(from: number, limit: number): Promise<L2BlockNew[]> {
+  public getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return Promise.resolve(this.l2Blocks.slice(from - 1, from - 1 + limit));
   }
 
@@ -171,7 +171,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const blocks = this.l2Blocks.slice(from - 1, from - 1 + limit);
     return Promise.all(
       blocks.map(async block => {
-        // Create a checkpoint from the block - manually construct since L2BlockNew doesn't have toCheckpoint()
+        // Create a checkpoint from the block - manually construct since L2Block doesn't have toCheckpoint()
         const checkpoint = await Checkpoint.random(block.checkpointNumber, { numBlocks: 1 });
         checkpoint.blocks = [block];
         return new PublishedCheckpoint(
@@ -189,7 +189,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     if (!block) {
       return undefined;
     }
-    // Create a checkpoint from the block - manually construct since L2BlockNew doesn't have toCheckpoint()
+    // Create a checkpoint from the block - manually construct since L2Block doesn't have toCheckpoint()
     const checkpoint = await Checkpoint.random(block.checkpointNumber, { numBlocks: 1 });
     checkpoint.blocks = [block];
     return checkpoint;
@@ -225,7 +225,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  public async getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
+  public async getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
@@ -235,7 +235,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return undefined;
   }
 
-  public getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
+  public getL2BlockByArchive(archive: Fr): Promise<L2Block | undefined> {
     const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
     return Promise.resolve(block);
   }
@@ -267,7 +267,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       const slot = b.header.globalVariables.slotNumber;
       return slot >= start && slot <= end;
     });
-    // Create checkpoints from blocks - manually construct since L2BlockNew doesn't have toCheckpoint()
+    // Create checkpoints from blocks - manually construct since L2Block doesn't have toCheckpoint()
     return Promise.all(
       blocks.map(async block => {
         const checkpoint = await Checkpoint.random(block.checkpointNumber, { numBlocks: 1 });
@@ -296,7 +296,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
     const blocks = this.l2Blocks.filter(b => b.header.globalVariables.slotNumber === slotNumber);
     return Promise.resolve(blocks);
   }

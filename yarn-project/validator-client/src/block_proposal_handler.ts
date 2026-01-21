@@ -9,7 +9,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
@@ -44,7 +44,7 @@ export type BlockProposalValidationFailureReason =
   | 'unknown_error';
 
 type ReexecuteTransactionsResult = {
-  block: L2BlockNew;
+  block: L2Block;
   failedTxs: FailedTx[];
   reexecutionTimeMs: number;
   totalManaUsed: number;
@@ -315,7 +315,7 @@ export class BlockProposalHandler {
     // TODO(palla/mbps): The block header should include the checkpoint number to avoid this lookup,
     // or at least the L2BlockSource should return a different struct that includes it.
     const parentBlockNumber = parentBlockHeader.getBlockNumber();
-    const parentBlock = await this.blockSource.getL2BlockNew(parentBlockNumber);
+    const parentBlock = await this.blockSource.getL2Block(parentBlockNumber);
     if (!parentBlock) {
       this.log.warn(`Parent block ${parentBlockNumber} not found in archiver`, proposalInfo);
       return { reason: 'invalid_proposal' };
@@ -356,7 +356,7 @@ export class BlockProposalHandler {
    */
   private validateNonFirstBlockInCheckpoint(
     proposal: BlockProposal,
-    parentBlock: L2BlockNew,
+    parentBlock: L2Block,
     proposalInfo: object,
   ): CheckpointComputationResult | undefined {
     const proposalGlobals = proposal.blockHeader.globalVariables;

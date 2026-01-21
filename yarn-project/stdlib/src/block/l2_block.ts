@@ -18,15 +18,10 @@ import { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
 import type { L2BlockInfo } from './l2_block_info.js';
 
-// TODO(palla/mbps): Delete the existing `L2Block` class and rename this to `L2Block`.
-// TODO(palla/mbps): Consider moving the checkpointNumber and indexWithinCheckpoint to the header:
-// if the blockNumber is there, why not these as well? Consider whether they should be part of the
-// circuits structs though.
-
 /**
  * An L2 block with a header and a body.
  */
-export class L2BlockNew {
+export class L2Block {
   constructor(
     /** Snapshot of archive tree after the block is applied. */
     public archive: AppendOnlyTreeSnapshot,
@@ -63,7 +58,7 @@ export class L2BlockNew {
       })
       .transform(
         ({ archive, header, body, checkpointNumber, indexWithinCheckpoint }) =>
-          new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint),
+          new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint),
       );
   }
 
@@ -79,7 +74,7 @@ export class L2BlockNew {
     const checkpointNumber = CheckpointNumber(reader.readNumber());
     const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
 
-    return new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint);
+    return new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
 
   /**
@@ -143,7 +138,7 @@ export class L2BlockNew {
   }
 
   static empty(header?: BlockHeader) {
-    return new L2BlockNew(
+    return new L2Block(
       AppendOnlyTreeSnapshot.empty(),
       header ?? BlockHeader.empty(),
       Body.empty(),
@@ -177,11 +172,11 @@ export class L2BlockNew {
       txOptions?: Partial<Parameters<typeof Body.random>[0]>;
       makeTxOptions?: (txIndex: number) => Partial<Parameters<typeof Body.random>[0]>;
     } & Partial<Parameters<typeof BlockHeader.random>[0]> = {},
-  ): Promise<L2BlockNew> {
+  ): Promise<L2Block> {
     const archive = new AppendOnlyTreeSnapshot(Fr.random(), blockNumber + 1);
     const header = BlockHeader.random({ blockNumber, ...blockHeaderOverrides });
     const body = await Body.random({ txsPerBlock, makeTxOptions, ...txOptions });
-    return new L2BlockNew(archive, header, body, checkpointNumber, indexWithinCheckpoint);
+    return new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
 
   /**

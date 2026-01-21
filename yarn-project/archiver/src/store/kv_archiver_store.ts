@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CheckpointedL2Block, L2BlockHash, L2BlockNew, type ValidateCheckpointResult } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, L2Block, L2BlockHash, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
@@ -239,7 +239,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L2BlockNew[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
+  addBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
     return this.#blockStore.addBlocks(blocks, opts);
   }
 
@@ -305,21 +305,21 @@ export class KVArchiverDataStore implements ContractDataSource {
    * Returns the block for the given number, or undefined if not exists.
    * @param number - The block number to return.
    */
-  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
+  getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     return this.#blockStore.getBlock(number);
   }
   /**
    * Returns the block for the given hash, or undefined if not exists.
    * @param blockHash - The block hash to return.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
     return this.#blockStore.getBlockByHash(L2BlockHash.fromField(blockHash));
   }
   /**
    * Returns the block for the given archive root, or undefined if not exists.
    * @param archive - The archive root to return.
    */
-  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
+  getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
     return this.#blockStore.getBlockByArchive(archive);
   }
 
@@ -329,7 +329,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
     return toArray(this.#blockStore.getBlocks(from, limit));
   }
 
@@ -392,11 +392,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.addLogs(blocks);
   }
 
-  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
   }
 
@@ -605,7 +605,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param checkpointNumber Retrieves all blocks for the given checkpoint
    * @returns The collection of blocks for the requested checkpoint if available (undefined otherwise)
    */
-  getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2BlockNew[] | undefined> {
+  getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2Block[] | undefined> {
     return this.#blockStore.getBlocksForCheckpoint(checkpointNumber);
   }
 
@@ -623,7 +623,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param slotNumber - The slot number to search for.
    * @returns All blocks with the given slot number.
    */
-  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
     return this.#blockStore.getBlocksForSlot(slotNumber);
   }
 
@@ -632,7 +632,7 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param blockNumber - The block number to remove after.
    * @returns The removed blocks (for event emission).
    */
-  removeBlocksAfter(blockNumber: BlockNumber): Promise<L2BlockNew[]> {
+  removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
     return this.#blockStore.unwindBlocksAfter(blockNumber);
   }
 }

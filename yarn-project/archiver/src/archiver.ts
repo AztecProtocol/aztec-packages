@@ -17,7 +17,7 @@ import {
   type ArchiverEmitter,
   type CheckpointId,
   GENESIS_CHECKPOINT_HEADER_HASH,
-  L2BlockNew,
+  L2Block,
   type L2BlockSink,
   type L2Tips,
   type ValidateCheckpointResult,
@@ -46,7 +46,7 @@ export type { ArchiverEmitter };
 
 /** Request to add a block to the archiver, queued for processing by the sync loop. */
 type AddBlockRequest = {
-  block: L2BlockNew;
+  block: L2Block;
   resolve: () => void;
   reject: (err: Error) => void;
 };
@@ -187,7 +187,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param block - The L2 block to add.
    * @returns A promise that resolves when the block has been added to the store, or rejects on error.
    */
-  public addBlock(block: L2BlockNew): Promise<void> {
+  public addBlock(block: L2Block): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.blockQueue.push({ block, resolve, reject });
       this.log.debug(`Queued block ${block.number} for processing`);

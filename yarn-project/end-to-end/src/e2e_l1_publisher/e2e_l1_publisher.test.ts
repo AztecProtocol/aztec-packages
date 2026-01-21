@@ -49,7 +49,7 @@ import {
   CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
-  L2BlockNew,
+  L2Block,
   type L2Tips,
   Signature,
 } from '@aztec/stdlib/block';
@@ -122,7 +122,7 @@ describe('L1Publisher integration', () => {
   let minFee: GasFees;
 
   let blockSource: MockProxy<ArchiverDataSource>;
-  let blocks: L2BlockNew[] = [];
+  let blocks: L2Block[] = [];
 
   const chainId = createEthereumChain(config.l1RpcUrls, config.l1ChainId).chainInfo.id;
 

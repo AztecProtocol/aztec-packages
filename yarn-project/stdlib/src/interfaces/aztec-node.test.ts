@@ -22,7 +22,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { type BlockParameter, CommitteeAttestation, L2BlockHash, L2BlockNew } from '../block/index.js';
+import { type BlockParameter, CommitteeAttestation, L2Block, L2BlockHash } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -190,17 +190,17 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlock', async () => {
     const response = await context.client.getBlock(BlockNumber(1));
-    expect(response).toBeInstanceOf(L2BlockNew);
+    expect(response).toBeInstanceOf(L2Block);
   });
 
   it('getBlockByHash', async () => {
     const response = await context.client.getBlockByHash(Fr.random());
-    expect(response).toBeInstanceOf(L2BlockNew);
+    expect(response).toBeInstanceOf(L2Block);
   });
 
   it('getBlockByArchive', async () => {
     const response = await context.client.getBlockByArchive(Fr.random());
-    expect(response).toBeInstanceOf(L2BlockNew);
+    expect(response).toBeInstanceOf(L2Block);
   });
 
   it('getBlockHeader', async () => {
@@ -254,7 +254,7 @@ describe('AztecNodeApiSchema', () => {
   it('getBlocks', async () => {
     const response = await context.client.getBlocks(BlockNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
-    expect(response[0]).toBeInstanceOf(L2BlockNew);
+    expect(response[0]).toBeInstanceOf(L2Block);
 
     await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
@@ -657,15 +657,15 @@ class MockAztecNode implements AztecNode {
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
-  getBlock(number: BlockParameter): Promise<L2BlockNew | undefined> {
+  getBlock(number: BlockParameter): Promise<L2Block | undefined> {
     const blockNum = number === 'latest' ? BlockNumber(1) : (number as BlockNumber);
-    return L2BlockNew.random(blockNum);
+    return L2Block.random(blockNum);
   }
-  getBlockByHash(_blockHash: Fr): Promise<L2BlockNew | undefined> {
-    return L2BlockNew.random(BlockNumber(1));
+  getBlockByHash(_blockHash: Fr): Promise<L2Block | undefined> {
+    return L2Block.random(BlockNumber(1));
   }
-  getBlockByArchive(_archive: Fr): Promise<L2BlockNew | undefined> {
-    return L2BlockNew.random(BlockNumber(1));
+  getBlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
+    return L2Block.random(BlockNumber(1));
   }
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
@@ -700,11 +700,11 @@ class MockAztecNode implements AztecNode {
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
     };
   }
-  getBlocks(from: number, limit: number): Promise<L2BlockNew[]> {
+  getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return Promise.all(
       Array(limit)
         .fill(0)
-        .map(i => L2BlockNew.random(BlockNumber(from + i))),
+        .map(i => L2Block.random(BlockNumber(from + i))),
     );
   }
   getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {

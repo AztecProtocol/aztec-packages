@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2BlockNew } from '@aztec/stdlib/block';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -51,7 +51,7 @@ type AddCheckpointOptions = {
   /** Number of L2 blocks in the checkpoint. Default: 1 */
   numBlocks?: number;
   /** Or the actual blocks for the checkpoint */
-  blocks?: L2BlockNew[];
+  blocks?: L2Block[];
   /** Number of transactions per block. Default: 4 */
   txsPerBlock?: number;
   /** Max number of effects per tx (for generating large blobs). Default: undefined */

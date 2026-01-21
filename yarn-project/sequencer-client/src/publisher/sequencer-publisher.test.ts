@@ -16,7 +16,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestationsAndSigners, L2BlockNew, Signature } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -64,7 +64,7 @@ describe('SequencerPublisher', () => {
 
   let proposeTxHash: `0x${string}`;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
-  let l2Block: L2BlockNew;
+  let l2Block: L2Block;
 
   let header: CheckpointHeader;
   let archive: Buffer;
@@ -84,7 +84,7 @@ describe('SequencerPublisher', () => {
     blobClient = mock<BlobClientInterface>();
     blobClient.sendBlobsToFilestore.mockResolvedValue(true);
 
-    l2Block = await L2BlockNew.random(BlockNumber(42));
+    l2Block = await L2Block.random(BlockNumber(42));
 
     header = CheckpointHeader.random();
     archive = l2Block.archive.root.toBuffer();
@@ -171,7 +171,7 @@ describe('SequencerPublisher', () => {
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
-    l2Block = await L2BlockNew.random(BlockNumber(42), { slotNumber: SlotNumber(Number(currentL2Slot)) });
+    l2Block = await L2Block.random(BlockNumber(42), { slotNumber: SlotNumber(Number(currentL2Slot)) });
 
     header = CheckpointHeader.random({ slotNumber: SlotNumber(Number(currentL2Slot)) });
     archive = l2Block.archive.root.toBuffer();

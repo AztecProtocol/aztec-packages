@@ -16,7 +16,7 @@ import type { SlasherClientInterface } from '@aztec/slasher';
 import {
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
-  L2BlockNew,
+  L2Block,
   type L2BlockSink,
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
@@ -203,8 +203,8 @@ export class CheckpointProposalJob implements Traceable {
         broadcastInvalidCheckpointProposal: this.config.broadcastInvalidBlockProposal,
       };
 
-      let blocksInCheckpoint: L2BlockNew[] = [];
-      let blockPendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined = undefined;
+      let blocksInCheckpoint: L2Block[] = [];
+      let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
 
       try {
         // Main loop: build blocks for the checkpoint
@@ -352,10 +352,10 @@ export class CheckpointProposalJob implements Traceable {
     inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
   ): Promise<{
-    blocksInCheckpoint: L2BlockNew[];
-    blockPendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined;
+    blocksInCheckpoint: L2Block[];
+    blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined;
   }> {
-    const blocksInCheckpoint: L2BlockNew[] = [];
+    const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
 
@@ -363,7 +363,7 @@ export class CheckpointProposalJob implements Traceable {
     let remainingBlobFields = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
-    let blockPendingBroadcast: { block: L2BlockNew; txs: Tx[] } | undefined = undefined;
+    let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
 
     while (true) {
       const blocksBuilt = blocksInCheckpoint.length;
@@ -489,7 +489,7 @@ export class CheckpointProposalJob implements Traceable {
       txHashesAlreadyIncluded: Set<string>;
       remainingBlobFields: number;
     },
-  ): Promise<{ block: L2BlockNew; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
+  ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
     const {
       blockTimestamp,
       forceCreate,
@@ -777,8 +777,7 @@ export class CheckpointProposalJob implements Traceable {
    * Gossip doesn't echo messages back to the sender, so the proposer's archiver/world-state
    * would never receive its own block without this explicit sync.
    */
-  private async syncProposedBlockToArchiver(block: L2BlockNew): Promise<void> {
-    // TODO(palla/mbps): Change default to false once block sync is stable.
+  private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
     if (this.config.skipPushProposedBlocksToArchiver !== false) {
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,

@@ -21,7 +21,7 @@ import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
-import type { L2BlockNew } from './l2_block_new.js';
+import type { L2Block } from './l2_block.js';
 import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
 
 /**
@@ -116,21 +116,21 @@ export interface L2BlockSource {
    * @param number - The block number to return.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined>;
+  getL2Block(number: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Gets an L2 block by its hash.
    * @param blockHash - The block hash to retrieve.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
+  getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
 
   /**
    * Gets an L2 block by its archive root.
    * @param archive - The archive root to retrieve.
    * @returns The requested L2 block (or undefined if not found).
    */
-  getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
+  getL2BlockByArchive(archive: Fr): Promise<L2Block | undefined>;
 
   /**
    * Gets a tx effect.
@@ -207,7 +207,7 @@ export interface L2BlockSource {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  getBlock(number: BlockNumber): Promise<L2BlockNew | undefined>;
+  getBlock(number: BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Returns all checkpointed blocks for a given epoch.
@@ -221,7 +221,7 @@ export interface L2BlockSource {
    * @dev Use this method only with recent slots, since it walks the block list backwards.
    * @param slotNumber - The slot number to return blocks for.
    */
-  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]>;
+  getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]>;
 
   /**
    * Gets a checkpointed block by its block hash.
@@ -243,7 +243,7 @@ export interface L2BlockSource {
    * @param limit - The maximum number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
+  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 }
 
 /**
@@ -255,7 +255,7 @@ export interface L2BlockSink {
    * @param block - The L2 block to add.
    * @throws If block number is not incremental (i.e., not exactly one more than the last stored block).
    */
-  addBlock(block: L2BlockNew): Promise<void>;
+  addBlock(block: L2Block): Promise<void>;
 }
 
 /**
@@ -352,13 +352,13 @@ export type L2BlockProvenEvent = {
 export type L2PruneUnprovenEvent = {
   type: 'l2PruneUnproven';
   epochNumber: EpochNumber;
-  blocks: L2BlockNew[];
+  blocks: L2Block[];
 };
 
 export type L2PruneUncheckpointedEvent = {
   type: 'l2PruneUncheckpointed';
   slotNumber: SlotNumber;
-  blocks: L2BlockNew[];
+  blocks: L2Block[];
 };
 
 export type L2CheckpointEvent = {

@@ -4,7 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { isDefined } from '@aztec/foundation/types';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CheckpointedL2Block, CommitteeAttestation, L2BlockNew, type L2Tips } from '@aztec/stdlib/block';
+import { CheckpointedL2Block, CommitteeAttestation, L2Block, type L2Tips } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -129,7 +129,7 @@ export abstract class ArchiverDataSourceBase
     return this.store.getBlockHeaderByArchive(archive);
   }
 
-  public async getL2BlockNew(number: BlockNumber): Promise<L2BlockNew | undefined> {
+  public async getL2Block(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getLatestBlockNumber();
@@ -247,7 +247,7 @@ export abstract class ArchiverDataSourceBase
     return fullCheckpoints;
   }
 
-  public getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
+  public getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
     return this.store.getBlocksForSlot(slotNumber);
   }
 
@@ -332,7 +332,7 @@ export abstract class ArchiverDataSourceBase
     return checkpoints.reverse();
   }
 
-  public async getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
+  public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getLatestBlockNumber();
@@ -343,7 +343,7 @@ export abstract class ArchiverDataSourceBase
     return this.store.getBlock(number);
   }
 
-  public getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+  public getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
     return this.store.getBlocks(from, limit);
   }
 
@@ -355,12 +355,12 @@ export abstract class ArchiverDataSourceBase
     return this.store.getCheckpointedBlockByArchive(archive);
   }
 
-  public async getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
+  public async getL2BlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
     const checkpointedBlock = await this.store.getCheckpointedBlockByHash(blockHash);
     return checkpointedBlock?.block;
   }
 
-  public async getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
+  public async getL2BlockByArchive(archive: Fr): Promise<L2Block | undefined> {
     const checkpointedBlock = await this.store.getCheckpointedBlockByArchive(archive);
     return checkpointedBlock?.block;
   }

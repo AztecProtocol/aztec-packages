@@ -22,7 +22,7 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CheckpointedL2Block, CommitteeAttestation, L2BlockNew } from '../block/index.js';
+import { CheckpointedL2Block, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
@@ -410,11 +410,11 @@ export async function mockCheckpointAndMessages(
     numBlocks?: number;
     numTxsPerBlock?: number;
     numL1ToL2Messages?: number;
-    makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2BlockNew.random>[1]>;
+    makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2Block.random>[1]>;
     previousArchive?: AppendOnlyTreeSnapshot;
-    blocks?: L2BlockNew[];
+    blocks?: L2Block[];
   } & Partial<Parameters<typeof Checkpoint.random>[1]> &
-    Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
+    Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
   const slotNumber = options.slotNumber ?? SlotNumber(checkpointNumber * 10);
   const blocksAndMessages = [];
@@ -426,7 +426,7 @@ export async function mockCheckpointAndMessages(
     const { block, messages } = {
       block:
         blocks?.[i] ??
-        (await L2BlockNew.random(blockNumber, {
+        (await L2Block.random(blockNumber, {
           checkpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
@@ -670,15 +670,15 @@ export const makeCheckpointAttestationFromCheckpoint = (
 };
 
 /**
- * Create a checkpoint attestation from an L2BlockNew
- * Note: This is a compatibility function for tests. L2BlockNew doesn't have a checkpoint header directly.
+ * Create a checkpoint attestation from an L2Block
+ * Note: This is a compatibility function for tests. L2Block doesn't have a checkpoint header directly.
  */
 export const makeCheckpointAttestationFromBlock = (
-  block: L2BlockNew,
+  block: L2Block,
   attesterSigner?: Secp256k1Signer,
   proposerSigner?: Secp256k1Signer,
 ): CheckpointAttestation => {
-  // For L2BlockNew, we create a minimal checkpoint header for testing purposes
+  // For L2Block, we create a minimal checkpoint header for testing purposes
   const header = CheckpointHeader.empty({
     lastArchiveRoot: block.header.lastArchive.root,
     slotNumber: block.slot,
@@ -694,7 +694,7 @@ export async function randomPublishedL2Block(
   l2BlockNumber: number,
   opts: { signers?: Secp256k1Signer[] } = {},
 ): Promise<CheckpointedL2Block> {
-  const block = await L2BlockNew.random(BlockNumber(l2BlockNumber));
+  const block = await L2Block.random(BlockNumber(l2BlockNumber));
   const l1 = L1PublishedData.fromFields({
     blockNumber: BigInt(block.number),
     timestamp: block.header.globalVariables.timestamp,
