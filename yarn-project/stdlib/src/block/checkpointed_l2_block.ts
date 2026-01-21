@@ -5,9 +5,8 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import { MAX_BLOCK_HASH_STRING_LENGTH, MAX_COMMITTEE_SIZE } from '../deserialization/index.js';
-import { L2Block } from './l2_block.js';
 import { L2BlockNew } from './l2_block_new.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
@@ -59,6 +58,7 @@ export class CheckpointedL2Block {
 
   public toBuffer(): Buffer {
     return serializeToBuffer(
+      this.checkpointNumber,
       this.block,
       this.l1.blockNumber,
       this.l1.blockHash,
@@ -66,56 +66,5 @@ export class CheckpointedL2Block {
       this.attestations.length,
       this.attestations,
     );
-  }
-}
-
-export class PublishedL2Block {
-  constructor(
-    public block: L2Block,
-    public l1: L1PublishedData,
-    public attestations: CommitteeAttestation[],
-  ) {}
-
-  static get schema() {
-    return z
-      .object({
-        block: L2Block.schema,
-        l1: L1PublishedData.schema,
-        attestations: z.array(CommitteeAttestation.schema),
-      })
-      .transform(obj => PublishedL2Block.fromFields(obj));
-  }
-
-  static fromBuffer(bufferOrReader: Buffer | BufferReader): PublishedL2Block {
-    const reader = BufferReader.asReader(bufferOrReader);
-    const block = reader.readObject(L2Block);
-    const l1BlockNumber = reader.readBigInt();
-    const l1BlockHash = reader.readString(MAX_BLOCK_HASH_STRING_LENGTH);
-    const l1Timestamp = reader.readBigInt();
-    const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
-    return new PublishedL2Block(block, new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash), attestations);
-  }
-
-  static fromFields(fields: FieldsOf<PublishedL2Block>) {
-    return new PublishedL2Block(fields.block, fields.l1, fields.attestations);
-  }
-
-  public toBuffer(): Buffer {
-    return serializeToBuffer(
-      this.block,
-      this.l1.blockNumber,
-      this.l1.blockHash,
-      this.l1.timestamp,
-      this.attestations.length,
-      this.attestations,
-    );
-  }
-
-  public toPublishedCheckpoint() {
-    return new PublishedCheckpoint(this.block.toCheckpoint(), this.l1, this.attestations);
-  }
-
-  static fromPublishedCheckpoint(checkpoint: PublishedCheckpoint) {
-    return new PublishedL2Block(L2Block.fromCheckpoint(checkpoint.checkpoint), checkpoint.l1, checkpoint.attestations);
   }
 }

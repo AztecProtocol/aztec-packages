@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
@@ -16,7 +16,7 @@ import { type CheckAndRecordParams, DutyStatus, DutyType, type ValidatorHASigner
 const VALIDATOR_ADDRESS = EthAddress.random();
 const SLOT = SlotNumber(100);
 const BLOCK_NUMBER = BlockNumber(50);
-const BLOCK_INDEX_WITHIN_CHECKPOINT = 0;
+const BLOCK_INDEX_WITHIN_CHECKPOINT = IndexWithinCheckpoint(0);
 const DUTY_TYPE: DutyType = DutyType.BLOCK_PROPOSAL;
 const MESSAGE_HASH = Buffer32.random().toString();
 const MESSAGE_HASH_2 = Buffer32.random().toString();
@@ -466,7 +466,7 @@ describe('SlashingProtectionService', () => {
           dutyType: DUTY_TYPE,
           messageHash: MESSAGE_HASH,
           nodeId: NODE_ID,
-          blockIndexWithinCheckpoint: i,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(i),
         };
         promises.push(service.checkAndRecord(params));
       }
@@ -482,7 +482,7 @@ describe('SlashingProtectionService', () => {
           dutyType: DUTY_TYPE,
           messageHash: MESSAGE_HASH,
           nodeId: NODE_ID,
-          blockIndexWithinCheckpoint: i,
+          blockIndexWithinCheckpoint: IndexWithinCheckpoint(i),
         });
         expect(result.isNew).toBe(false);
         expect(result.record.status).toBe(DutyStatus.SIGNING);

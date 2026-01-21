@@ -1,4 +1,4 @@
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
@@ -63,7 +63,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Create block with contract class and instance logs
       const block = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       block.body.txEffects[0].contractClassLogs = [contractClassLog];
       block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
@@ -86,7 +86,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // First, add a local provisional block with contract data
       const localBlock = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       localBlock.body.txEffects[0].contractClassLogs = [contractClassLog];
@@ -104,7 +104,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Now create a checkpoint with a conflicting block (same slot but different archive root)
       const conflictingBlock = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100), // Same slot as local block
       });
       // Make sure it has a different archive root (which it will by default from random)
@@ -130,7 +130,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Create block with contract data and add it as a checkpoint
       const block = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       block.body.txEffects[0].contractClassLogs = [contractClassLog];
       block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
@@ -159,7 +159,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Add provisional block with some logs
       const block = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
 
@@ -181,7 +181,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Add local provisional block
       const localBlock = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       await updater.addBlocks([localBlock]);
@@ -191,7 +191,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Create checkpoint with DIFFERENT block (different archive root)
       const checkpointBlock = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       expect(checkpointBlock.archive.root.equals(localBlock.archive.root)).toBe(false);
@@ -215,7 +215,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Add local provisional block
       const localBlock = await L2BlockNew.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
-        indexWithinCheckpoint: 0,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       await updater.addBlocks([localBlock]);

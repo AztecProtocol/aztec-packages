@@ -3,6 +3,7 @@ title: Private Token Contract
 sidebar_position: 1
 tags: [privacy, tokens, intermediate]
 description: Build a privacy-preserving token for employee mental health benefits that keeps spending habits confidential.
+references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/ts/bob_token_contract/index.ts"]
 ---
 
 ## The Privacy Challenge: Mental Health Benefits at Giggle

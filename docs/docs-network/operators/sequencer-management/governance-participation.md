@@ -88,12 +88,19 @@ The governance process follows these stages:
 
 1. **Signaling**: Sequencers signal support for a payload when proposing blocks. A payload needs a quorum of support to be promoted to a proposal. Signaling can start any time from the moment a payload is deployed.
 2. **Proposal Creation**: After reaching quorum, anyone can submit the payload as an official proposal.
+#if(testnet)
 3. **Voting Delay** (12 hours): A mandatory waiting period before voting opens (allows time for community review).
 4. **Voting Period** (24 hours): Users who hold stake in the network vote on the proposal using their staked tokens.
 5. **Execution Delay** (12 hours): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
 6. **Execution**: Anyone can execute the proposal, which applies the changes.
 
 **Note:** These timeline values are specific to testnet and are subject to change for future network phases.
+#else
+3. **Voting Delay** (3 days): A mandatory waiting period before voting opens (allows time for community review).
+4. **Voting Period** (7 days): Users who hold stake in the network vote on the proposal using their staked tokens. A proposal passes if it receives at least 20% quorum, 2/3 of votes are "yea", and a minimum of 500 validators' worth of voting power is cast.
+5. **Execution Delay** (7 days): After passing the vote, another mandatory delay before execution (allows time for node upgrades).
+6. **Execution**: Anyone can execute the proposal, which applies the changes. There is a 7-day grace period after the execution delay during which the proposal can still be executed.
+#endif
 
 ## Signaling Support for a Payload
 
@@ -103,15 +110,21 @@ As a sequencer, you initiate proposals through signaling. When you propose a blo
 
 - Only you can signal during slots when you're the block proposer
 - Your sequencer node automatically calls `signal` on the `GovernanceProposer` contract when proposing a block (if you've configured a payload address)
+#if(testnet)
 - Rounds consist of 300 slots each (180 minutes at 36 seconds per slot). At every 300-block boundary, the system checks if any payload has received 151 or more signals (the quorum threshold, which is >50% of the round size)
 - Payloads that reach quorum can be submitted as official proposals by anyone
 
 **Note:** Round size and quorum threshold will change between testnet and ignition. These values and any further references to these values are relevant for testnet only.
+#else
+- Rounds consist of 1000 slots each (20 hours at 72 seconds per slot). At every 1000-slot boundary, the system checks if any payload has received 600 or more signals (the quorum threshold, which is 60% of the round size)
+- Payloads that reach quorum can be submitted as official proposals by anyone
+#endif
 
 ### Configure Your Signaling Preference
 
 Use the `setConfig` method on your node's admin interface to specify which payload address you want to signal support for.
 
+#if(testnet)
 **CLI Method**:
 
 ```bash
@@ -126,6 +139,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Docker Method**:
+#endif
 
 ```bash
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
@@ -149,6 +163,7 @@ Expected response:
 
 Use the `getConfig` method to verify the payload address:
 
+#if(testnet)
 **CLI Method**:
 
 ```bash
@@ -162,6 +177,7 @@ curl -X POST http://localhost:8880 \
 ```
 
 **Docker Method**:
+#endif
 
 ```bash
 docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
@@ -179,7 +195,11 @@ Once configured, your sequencer automatically signals support for this payload e
 
 ## Creating a Proposal
 
+#if(testnet)
 Once a payload receives the required quorum (151 signals in a 300-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
+#else
+Once a payload receives the required quorum (600 signals in a 1000-slot round), you or any user can call `submitRoundWinner` on the `GovernanceProposer` contract to officially create the proposal.
+#endif
 
 ### Submit the Payload
 

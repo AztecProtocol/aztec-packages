@@ -16,15 +16,17 @@ use protocol_types::address::AztecAddress;
 /// indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 /// standardized length.
 pub trait MessageEncryption {
-    /// Encrypts a plaintext message (a field array) such that only `recipient` can decrypt it.
+    /// Encrypts a plaintext message to `recipient`.
     ///
-    /// The returned message ciphertext can be passed to [MessageEncryption::decrypt] in order to obtain the original
-    /// `plaintext`.
+    /// The returned message ciphertext can be passed to [decrypt](MessageEncryption::decrypt) in order to obtain the
+    /// original `plaintext`.
     ///
-    /// # Privacy
-    /// Knowledge of the returned ciphertext provides no information to third parties - `recipients` encryption keys
-    /// (specifically their ivsk and pre-address) are required in order to decrypt. Additionally, [encrypt] adds random
-    /// padding in order to always produce equal length message ciphertexts regardless of the input, hiding its length.
+    /// ## Privacy
+    ///
+    /// Knowledge of the returned ciphertext provides no information to third parties - `recipient`'s encryption keys
+    /// (specifically their ivsk and pre-address) are required in order to decrypt. Additionally, this function adds
+    /// random padding in order to always produce equal length message ciphertexts regardless of the input, hiding its
+    /// length.
     ///
     /// These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
     /// encryption function is itself secure).
@@ -33,8 +35,9 @@ pub trait MessageEncryption {
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN];
 
-    /// Decrypts a message ciphertext obtained via [MessageEncryption::encrypt] to `recipient` back into its original
-    /// plaintext.
+    /// Decrypts a message ciphertext into its original plaintext.
+    ///
+    /// Typically invoked with ciphertext obtained from calling [encrypt](MessageEncryption::encrypt) with `recipient`.
     ///
     /// Note that this function is unconstrained: decryption typically happens when processing messages in utility
     /// functions.

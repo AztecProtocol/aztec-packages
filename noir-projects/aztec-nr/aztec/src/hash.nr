@@ -1,3 +1,5 @@
+//! Aztec hash functions.
+
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{

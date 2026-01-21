@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -8,8 +8,8 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
-import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
+import type { L2BlockNew } from '../block/l2_block_new.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
@@ -52,7 +52,7 @@ export class BlockProposal extends Gossipable {
     // TODO(palla/mbps): Is this really needed? Can we just derive it from the indexWithinCheckpoint of the parent block and the slot number?
     // See the block-proposal-handler, we have a lot of extra validations to check this is correct, so maybe we can avoid storing it here.
     /** Index of this block within the checkpoint (0-indexed) */
-    public readonly indexWithinCheckpoint: number,
+    public readonly indexWithinCheckpoint: IndexWithinCheckpoint,
 
     /** Hash of L1 to L2 messages for this checkpoint (constant across all blocks in checkpoint) */
     public readonly inHash: Fr,
@@ -121,7 +121,7 @@ export class BlockProposal extends Gossipable {
 
   static async createProposalFromSigner(
     blockHeader: BlockHeader,
-    indexWithinCheckpoint: number,
+    indexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archiveRoot: Fr,
     txHashes: TxHash[],
@@ -212,7 +212,7 @@ export class BlockProposal extends Gossipable {
     const reader = BufferReader.asReader(buf);
 
     const blockHeader = reader.readObject(BlockHeader);
-    const indexWithinCheckpoint = reader.readNumber();
+    const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
     const inHash = reader.readObject(Fr);
     const archiveRoot = reader.readObject(Fr);
     const signature = reader.readObject(Signature);
@@ -256,13 +256,13 @@ export class BlockProposal extends Gossipable {
   }
 
   static empty(): BlockProposal {
-    return new BlockProposal(BlockHeader.empty(), 0, Fr.ZERO, Fr.ZERO, [], Signature.empty());
+    return new BlockProposal(BlockHeader.empty(), IndexWithinCheckpoint(0), Fr.ZERO, Fr.ZERO, [], Signature.empty());
   }
 
   static random(): BlockProposal {
     return new BlockProposal(
       BlockHeader.random(),
-      Math.floor(Math.random() * 5),
+      IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
       Fr.random(),
       Fr.random(),
       [TxHash.random(), TxHash.random()],
@@ -284,11 +284,11 @@ export class BlockProposal extends Gossipable {
   /**
    * Check if this proposal matches the given block.
    * Compares the archive root and block header.
-   * @param block - The L2Block to compare against
+   * @param block - The L2BlockNew to compare against
    * @returns True if the proposal matches the block
    */
-  matchesBlock(block: L2Block): boolean {
-    return this.archiveRoot.equals(block.archive.root) && this.blockHeader.equals(block.getBlockHeader());
+  matchesBlock(block: L2BlockNew): boolean {
+    return this.archiveRoot.equals(block.archive.root) && this.blockHeader.equals(block.header);
   }
 
   /**

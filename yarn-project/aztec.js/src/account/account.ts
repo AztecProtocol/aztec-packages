@@ -1,96 +1,72 @@
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import type { AuthWitnessProvider, ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { type CallIntent, type IntentInnerHash, computeAuthWitMessageHash } from '../utils/authwit.js';
-import type { AccountInterface } from './interface.js';
 
 /**
- * An authwit provider that can create both private and public authwits
- * with an intent as input, as opposed to just a precomputed inner hash
+ * Provides authorization for actions via the AuthWitness mechanism.
  */
-interface AuthwitnessIntentProvider {
+export interface AuthorizationProvider {
   /**
-   * Creates a private authwit from an intent or inner hash, to be provided
-   * during function execution
+   * Creates an authentication witness from an inner hash with consumer, or a call intent
    * @param intent - The action (or inner hash) to authorize
+   * @param chainInfo - Chain information needed for message hash computation
    */
-  createAuthWit(intent: IntentInnerHash | CallIntent | Buffer | Fr): Promise<AuthWitness>;
+  createAuthWit(intent: IntentInnerHash | CallIntent, chainInfo: ChainInfo): Promise<AuthWitness>;
 }
 
+// docs:start:account-interface
 /**
- * A type defining an account, capable of both creating authwits and using them
- * to authenticate transaction execution requests.
+ * Minimal interface for transaction execution and authorization.
  */
-export type Account = AccountInterface & AuthwitnessIntentProvider;
+export type Account = EntrypointInterface &
+  AuthorizationProvider & {
+    /** Returns the complete address for this account. */
+    getCompleteAddress(): CompleteAddress;
+    /** Returns the address for this account. */
+    getAddress(): AztecAddress;
+  };
+// docs:end:account-interface
 
 /**
  * An account implementation that uses authwits as an authentication mechanism
  * and can assemble transaction execution requests for an entrypoint.
  */
 export class BaseAccount implements Account {
-  constructor(protected account: AccountInterface) {}
+  constructor(
+    private entrypoint: EntrypointInterface,
+    private authWitnessProvider: AuthWitnessProvider,
+    private completeAddress: CompleteAddress,
+  ) {}
 
   createTxExecutionRequest(
     exec: ExecutionPayload,
     gasSettings: GasSettings,
+    chainInfo: ChainInfo,
     options: DefaultAccountEntrypointOptions,
   ): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(exec, gasSettings, options);
+    return this.entrypoint.createTxExecutionRequest(exec, gasSettings, chainInfo, options);
   }
 
-  getChainId(): Fr {
-    return this.account.getChainId();
+  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload> {
+    return this.entrypoint.wrapExecutionPayload(exec, options);
   }
 
-  getVersion(): Fr {
-    return this.account.getVersion();
+  async createAuthWit(messageHashOrIntent: CallIntent | IntentInnerHash, chainInfo: ChainInfo): Promise<AuthWitness> {
+    const messageHash = await computeAuthWitMessageHash(messageHashOrIntent, chainInfo);
+    return this.authWitnessProvider.createAuthWit(messageHash);
   }
 
-  /** Returns the complete address of the account that implements this wallet. */
-  public getCompleteAddress() {
-    return this.account.getCompleteAddress();
+  getCompleteAddress(): CompleteAddress {
+    return this.completeAddress;
   }
 
-  /** Returns the address of the account that implements this wallet. */
-  public getAddress() {
-    return this.getCompleteAddress().address;
-  }
-
-  /**
-   * Computes an authentication witness from either a message hash or an intent.
-   *
-   * If a message hash is provided, it will create a witness for the hash directly.
-   * Otherwise, it will compute the message hash using the intent, along with the
-   * chain id and the version values provided by the wallet.
-   *
-   * @param messageHashOrIntent - The message hash of the intent to approve
-   * @returns The authentication witness
-   */
-  async createAuthWit(messageHashOrIntent: Fr | Buffer | CallIntent | IntentInnerHash): Promise<AuthWitness> {
-    let messageHash: Fr;
-    if (Buffer.isBuffer(messageHashOrIntent)) {
-      messageHash = Fr.fromBuffer(messageHashOrIntent);
-    } else if (messageHashOrIntent instanceof Fr) {
-      messageHash = messageHashOrIntent;
-    } else {
-      messageHash = await this.getMessageHash(messageHashOrIntent);
-    }
-
-    return this.account.createAuthWit(messageHash);
-  }
-
-  /**
-   * Returns the message hash for the given intent
-   *
-   * @param intent - A tuple of (consumer and inner hash) or (caller and action)
-   * @returns The message hash
-   */
-  private getMessageHash(intent: IntentInnerHash | CallIntent): Promise<Fr> {
-    const chainId = this.getChainId();
-    const version = this.getVersion();
-    return computeAuthWitMessageHash(intent, { chainId, version });
+  getAddress(): AztecAddress {
+    return this.completeAddress.address;
   }
 }

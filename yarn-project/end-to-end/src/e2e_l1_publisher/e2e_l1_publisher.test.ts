@@ -1,7 +1,6 @@
 import type { ArchiverDataSource } from '@aztec/archiver';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
@@ -44,29 +43,30 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
-import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
+import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import {
   CheckpointedL2Block,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
+  L2BlockNew,
   type L2Tips,
-  PublishedL2Block,
   Signature,
 } from '@aztec/stdlib/block';
-import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   fr,
   makeAndSignCommitteeAttestationsAndSigners,
-  makeCheckpointAttestationFromBlock,
+  makeCheckpointAttestationFromCheckpoint,
   mockProcessedTx,
 } from '@aztec/stdlib/testing';
-import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
+import type { BlockHeader, CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,
@@ -122,7 +122,7 @@ describe('L1Publisher integration', () => {
   let minFee: GasFees;
 
   let blockSource: MockProxy<ArchiverDataSource>;
-  let blocks: L2Block[] = [];
+  let blocks: L2BlockNew[] = [];
 
   const chainId = createEthereumChain(config.l1RpcUrls, config.l1ChainId).chainInfo.id;
 
@@ -190,57 +190,64 @@ describe('L1Publisher integration', () => {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
       getPublishedBlocks(from, limit, _proven) {
-        return Promise.resolve(
-          blocks.slice(from - 1, from - 1 + limit).map(block =>
-            PublishedL2Block.fromFields({
+        const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
+        return Promise.all(
+          slicedBlocks.map(async block =>
+            CheckpointedL2Block.fromFields({
+              checkpointNumber: CheckpointNumber(block.number),
               attestations: [],
               block,
               // Use L2 block number and hash for faking the L1 info
-              l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), block.hash.toString()),
+              l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
             }),
           ),
         );
       },
       // Methods needed by L2BlockStream for world state sync
       getCheckpointedBlocks(from, limit, _proven) {
-        return Promise.resolve(
-          blocks
-            .slice(from - 1, from - 1 + limit)
-            .map(
-              block =>
-                new CheckpointedL2Block(
-                  CheckpointNumber(block.number),
-                  block.toL2Block(),
-                  new L1PublishedData(BigInt(block.number), BigInt(block.number), block.hash.toString()),
-                  [],
-                ),
-            ),
+        const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
+        return Promise.all(
+          slicedBlocks.map(
+            async block =>
+              new CheckpointedL2Block(
+                CheckpointNumber(block.number),
+                block,
+                new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
+                [],
+              ),
+          ),
         );
       },
-      getPublishedCheckpoints(checkpointNumber, _limit) {
+      async getPublishedCheckpoints(checkpointNumber, _limit) {
         const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
         if (!block) {
           return Promise.resolve([]);
         }
-        return Promise.resolve([
+        const checkpoint = new Checkpoint(
+          block.archive,
+          CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
+          [block],
+          CheckpointNumber(block.number),
+        );
+        return [
           new PublishedCheckpoint(
-            block.toCheckpoint(),
-            new L1PublishedData(BigInt(block.number), BigInt(block.number), block.hash.toString()),
+            checkpoint,
+            new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
             [],
           ),
-        ]);
+        ];
       },
-      getL2Tips(): Promise<L2Tips> {
+      async getL2Tips(): Promise<L2Tips> {
         const latestBlock = blocks.at(-1);
         const blockId = latestBlock
-          ? { number: latestBlock.number, hash: latestBlock.hash.toString() }
+          ? { number: latestBlock.number, hash: (await latestBlock.hash()).toString() }
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
         const tipId = {
           block: blockId,
           checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
         };
 
-        return Promise.resolve({ proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId });
+        return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };
       },
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
@@ -312,7 +319,8 @@ describe('L1Publisher integration', () => {
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());
-    ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+    const { currentSlot } = epochCache.getCurrentAndNextSlot();
+    proposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
     logger.warn(`Current epoch committee and proposer`, { committee, proposer });
   };
 
@@ -337,15 +345,45 @@ describe('L1Publisher integration', () => {
       ({ msgHash }) => msgHash,
     );
 
-  const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
+  /**
+   * Build a checkpoint with a single block using the LightweightCheckpointBuilder.
+   * This properly computes all checkpoint header fields (blobsHash, blockHeadersHash, inHash, epochOutHash, etc.)
+   */
+  const buildCheckpoint = async (
+    globalVariables: GlobalVariables,
+    txs: ProcessedTx[],
+    l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[] = [],
+  ): Promise<Checkpoint> => {
     await worldStateSynchronizer.syncImmediate();
     const tempFork = await worldStateSynchronizer.fork(BlockNumber(globalVariables.blockNumber - 1));
-    const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, tempFork);
+
+    const checkpointConstants: CheckpointGlobalVariables = {
+      chainId: globalVariables.chainId,
+      version: globalVariables.version,
+      slotNumber: globalVariables.slotNumber,
+      coinbase: globalVariables.coinbase,
+      feeRecipient: globalVariables.feeRecipient,
+      gasFees: globalVariables.gasFees,
+    };
+
+    const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
+    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+      checkpointNumber,
+      checkpointConstants,
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      tempFork,
+    );
+
+    await builder.addBlock(globalVariables, txs, { insertTxsEffects: true });
+    const checkpoint = await builder.completeCheckpoint();
+
     await tempFork.close();
-    return block;
+    return checkpoint;
   };
 
-  const buildSingleBlock = async (opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {}) => {
+  const buildSingleCheckpoint = async (opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {}) => {
     const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
 
     const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
@@ -362,9 +400,9 @@ describe('L1Publisher integration', () => {
       feeRecipient,
       new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
     );
-    const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
+    const checkpoint = await buildCheckpoint(globalVariables, txs, l1ToL2Messages);
     blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
-    return block;
+    return { checkpoint, l1ToL2Messages };
   };
 
   describe('block building', () => {
@@ -420,17 +458,17 @@ describe('L1Publisher integration', () => {
           new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
         );
 
-        const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
+        const checkpoint = await buildCheckpoint(globalVariables, txs, currentL1ToL2Messages);
+        const block = checkpoint.blocks[0];
 
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
-        prevHeader = block.getBlockHeader();
+        prevHeader = block.header;
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
 
-        const checkpointBlobFields = block.getCheckpointBlobFields();
+        const checkpointBlobFields = checkpoint.toBlobFields();
         const blockBlobs = getBlobsPerL1Block(checkpointBlobFields);
-        expect(block.header.blobsHash).toEqual(sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())));
 
         let prevBlobAccumulatorHash = (await rollup.getCurrentBlobCommitmentsHash()).toBuffer();
 
@@ -451,7 +489,7 @@ describe('L1Publisher integration', () => {
         );
 
         await publisher.enqueueProposeCheckpoint(
-          block.toCheckpoint(),
+          checkpoint,
           CommitteeAttestationsAndSigners.empty(),
           Signature.empty(),
         );
@@ -492,7 +530,7 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: block.getCheckpointHeader().toViem(),
+              header: checkpoint.header.toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               oracleInput: {
                 feeAssetPriceModifier: 0n,
@@ -556,9 +594,13 @@ describe('L1Publisher integration', () => {
       });
     });
 
-    const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[], signature: Signature) => {
+    const expectPublishCheckpoint = async (
+      checkpoint: Checkpoint,
+      attestations: CommitteeAttestation[],
+      signature: Signature,
+    ) => {
       await publisher.enqueueProposeCheckpoint(
-        block.toCheckpoint(),
+        checkpoint,
         new CommitteeAttestationsAndSigners(attestations),
         signature,
       );
@@ -568,14 +610,15 @@ describe('L1Publisher integration', () => {
     };
 
     it('publishes a block with attestations', async () => {
-      const block = await buildSingleBlock();
+      const { checkpoint } = await buildSingleCheckpoint();
+      const block = checkpoint.blocks[0];
 
-      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
-      const attestations = orderAttestations(blockAttestations, committee!);
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.getCheckpointHeader());
+      await publisher.validateBlockHeader(checkpoint.header);
 
       const proposerSigner = validators.find(v => v.address.equals(proposer!));
 
@@ -585,34 +628,36 @@ describe('L1Publisher integration', () => {
         proposerSigner!,
       );
 
-      await expectPublishBlock(block, attestations, attestationsAndSignersSignature);
+      await expectPublishCheckpoint(checkpoint, attestations, attestationsAndSignersSignature);
     });
 
     it('fails to publish a block without the proposer attestation', async () => {
-      const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
+      const { checkpoint } = await buildSingleCheckpoint();
+      const block = checkpoint.blocks[0];
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
 
       // Reverse attestations to break proposer attestation
-      const attestations = orderAttestations(blockAttestations, committee!).reverse();
+      const attestations = orderAttestations(checkpointAttestations, committee!).reverse();
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.getCheckpointHeader());
+      await publisher.validateBlockHeader(checkpoint.header);
 
       await expect(
-        publisher.enqueueProposeCheckpoint(block.toCheckpoint(), attestationsAndSigners, Signature.empty()),
+        publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty()),
       ).rejects.toThrow(/ValidatorSelection__InvalidCommitteeCommitment/);
     });
 
     it('rejects flipped proposer signature', async () => {
-      const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
-      const attestations = orderAttestations(blockAttestations, committee!);
+      const { checkpoint } = await buildSingleCheckpoint();
+      const block = checkpoint.blocks[0];
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.getCheckpointHeader());
+      await publisher.validateBlockHeader(checkpoint.header);
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
       const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
@@ -622,7 +667,7 @@ describe('L1Publisher integration', () => {
 
       await expect(
         publisher.enqueueProposeCheckpoint(
-          block.toCheckpoint(),
+          checkpoint,
           attestationsAndSigners,
           flipSignature(attestationsAndSignersSignature),
         ),
@@ -630,13 +675,14 @@ describe('L1Publisher integration', () => {
     });
 
     it('rejects signature with invalid recovery value', async () => {
-      const block = await buildSingleBlock();
-      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
-      const attestations = orderAttestations(blockAttestations, committee!);
+      const { checkpoint } = await buildSingleCheckpoint();
+      const block = checkpoint.blocks[0];
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.getCheckpointHeader());
+      await publisher.validateBlockHeader(checkpoint.header);
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
       const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
@@ -650,19 +696,20 @@ describe('L1Publisher integration', () => {
       const wrongV = attestationsAndSignersSignature.v - 27;
       const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
 
-      await expect(
-        publisher.enqueueProposeCheckpoint(block.toCheckpoint(), attestationsAndSigners, wrongSig),
-      ).rejects.toThrow(/ECDSAInvalidSignature/);
+      await expect(publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig)).rejects.toThrow(
+        /ECDSAInvalidSignature/,
+      );
     });
 
     it('publishes a block invalidating the previous one', async () => {
-      const badBlock = await buildSingleBlock();
+      const { checkpoint: badCheckpoint } = await buildSingleCheckpoint();
+      const badBlock = badCheckpoint.blocks[0];
 
       // Publish the first invalid block
-      const badBlockAttestations = validators
+      const badCheckpointAttestations = validators
         .filter(v => v.address.equals(proposer!))
-        .map(v => makeCheckpointAttestationFromBlock(badBlock, v));
-      const badAttestations = orderAttestations(badBlockAttestations, committee!);
+        .map(v => makeCheckpointAttestationFromCheckpoint(badCheckpoint, v));
+      const badAttestations = orderAttestations(badCheckpointAttestations, committee!);
 
       const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations);
       const badAttestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
@@ -670,26 +717,28 @@ describe('L1Publisher integration', () => {
         validators.find(v => v.address.equals(proposer!))!,
       );
 
-      await expectPublishBlock(badBlock, badAttestations, badAttestationsAndSignersSignature);
+      await expectPublishCheckpoint(badCheckpoint, badAttestations, badAttestationsAndSignersSignature);
       await progressTimeBySlot();
 
       logger.warn(`Published bad block ${badBlock.number} with archive root ${badBlock.archive.root}`);
 
       // Update the current proposer
-      ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+      const { currentSlot } = epochCache.getCurrentAndNextSlot();
+      proposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
 
       // Prepare for invalidating the previous one and publish the same block with proper attestations
-      const block = await buildSingleBlock({ blockNumber: BlockNumber(1) });
+      const { checkpoint } = await buildSingleCheckpoint({ blockNumber: BlockNumber(1) });
+      const block = checkpoint.blocks[0];
       expect(block.number).toEqual(badBlock.number);
-      const blockAttestations = validators.map(v => makeCheckpointAttestationFromBlock(block, v));
-      const attestations = orderAttestations(blockAttestations, committee!);
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const attestations = orderAttestations(checkpointAttestations, committee!);
 
       // Check we can invalidate the checkpoint
       logger.warn('Checking simulate invalidate checkpoint');
       const invalidateRequest = await publisher.simulateInvalidateCheckpoint({
         valid: false,
         committee: committee!,
-        checkpoint: block.toCheckpoint().toCheckpointInfo(),
+        checkpoint: checkpoint.toCheckpointInfo(),
         attestors: [],
         attestations: badAttestations,
         epoch: EpochNumber(1),
@@ -709,10 +758,8 @@ describe('L1Publisher integration', () => {
 
       // Same for validation
       logger.warn('Checking validate block header');
-      await expect(publisher.validateBlockHeader(block.getCheckpointHeader())).rejects.toThrow(
-        /Rollup__InvalidArchive/,
-      );
-      await publisher.validateBlockHeader(block.getCheckpointHeader(), {
+      await expect(publisher.validateBlockHeader(checkpoint.header)).rejects.toThrow(/Rollup__InvalidArchive/);
+      await publisher.validateBlockHeader(checkpoint.header, {
         forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
       });
 
@@ -726,14 +773,9 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
-      await publisher.enqueueProposeCheckpoint(
-        block.toCheckpoint(),
-        attestationsAndSigners,
-        attestationsAndSignersSignature,
-        {
-          forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
-        },
-      );
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, {
+        forcePendingCheckpointNumber: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO,
+      });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -746,13 +788,10 @@ describe('L1Publisher integration', () => {
     });
 
     it(`succeeds proposing new block when vote fails`, async () => {
-      const block = await buildSingleBlock();
+      const { checkpoint } = await buildSingleCheckpoint();
+      const block = checkpoint.blocks[0];
 
-      await publisher.enqueueProposeCheckpoint(
-        block.toCheckpoint(),
-        CommitteeAttestationsAndSigners.empty(),
-        Signature.empty(),
-      );
+      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
@@ -772,16 +811,12 @@ describe('L1Publisher integration', () => {
       // INBOX.consume does not match the header.inHash and we get a Rollup__BlobHash that is not caught by
       // validateHeader before.
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
-      const block = await buildSingleBlock({ l1ToL2Messages });
+      const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
       await expect(
-        publisher.enqueueProposeCheckpoint(
-          block.toCheckpoint(),
-          CommitteeAttestationsAndSigners.empty(),
-          Signature.empty(),
-        ),
+        publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
       ).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
@@ -806,10 +841,10 @@ describe('L1Publisher integration', () => {
       initialL2Slot = BigInt(await rollup.getSlotNumber());
     });
 
-    const getProposeTxTimeoutAt = (block: L2Block) => {
+    const getProposeTxTimeoutAt = (checkpoint: Checkpoint) => {
       const { slotDuration: aztecSlotDuration } = l1Constants;
       const txTimeoutAt = new Date(
-        (Number(getSlotStartBuildTimestamp(block.slot, l1Constants)) + Number(aztecSlotDuration)) * 1000,
+        (Number(getSlotStartBuildTimestamp(checkpoint.slot, l1Constants)) + Number(aztecSlotDuration)) * 1000,
       );
       logger.warn(`Setting tx timeout at ${txTimeoutAt.toISOString()} (${txTimeoutAt.getTime()})`);
       return txTimeoutAt;
@@ -828,20 +863,15 @@ describe('L1Publisher integration', () => {
       await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.pending > 0), 'tx sent', 20, 0.1);
     };
 
-    const enqueueProposeL2Block = async (block: L2Block) => {
-      await publisher.enqueueProposeCheckpoint(
-        block.toCheckpoint(),
-        CommitteeAttestationsAndSigners.empty(),
-        Signature.empty(),
-        {
-          txTimeoutAt: getProposeTxTimeoutAt(block),
-        },
-      );
+    const enqueueProposeL2Checkpoint = async (checkpoint: Checkpoint) => {
+      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty(), {
+        txTimeoutAt: getProposeTxTimeoutAt(checkpoint),
+      });
     };
 
     it(`cancels block proposal when the L2 slot ends`, async () => {
-      const block = await buildSingleBlock();
-      await enqueueProposeL2Block(block);
+      const { checkpoint } = await buildSingleCheckpoint();
+      await enqueueProposeL2Checkpoint(checkpoint);
       await sendRequests();
 
       // Advance one L1 block at a time without mining the publish tx.
@@ -878,8 +908,9 @@ describe('L1Publisher integration', () => {
     });
 
     it(`speeds up block proposal if not mined`, async () => {
-      const block = await buildSingleBlock();
-      await enqueueProposeL2Block(block);
+      const { checkpoint } = await buildSingleCheckpoint();
+      const block = checkpoint.blocks[0];
+      await enqueueProposeL2Checkpoint(checkpoint);
       await sendRequests();
 
       const [initialTx] = await ethCheatCodes.getTxPoolContents();
@@ -912,8 +943,8 @@ describe('L1Publisher integration', () => {
     });
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
-      const block1 = await buildSingleBlock();
-      await enqueueProposeL2Block(block1);
+      const { checkpoint: checkpoint1 } = await buildSingleCheckpoint();
+      await enqueueProposeL2Checkpoint(checkpoint1);
       await sendRequests();
 
       const [initialTx] = await ethCheatCodes.getTxPoolContents();
@@ -940,10 +971,11 @@ describe('L1Publisher integration', () => {
       expect(await ethCheatCodes.getTxPoolStatus()).toEqual({ pending: 1, queued: 0 });
 
       // Now we should be able to send a second proposal
-      const block2 = await buildSingleBlock({ blockNumber: BlockNumber(1) });
+      const { checkpoint: checkpoint2 } = await buildSingleCheckpoint({ blockNumber: BlockNumber(1) });
+      const block2 = checkpoint2.blocks[0];
       expect(BigInt(block2.slot)).toEqual(initialL2Slot + 1n);
       sendRequestsResult = undefined;
-      await enqueueProposeL2Block(block2);
+      await enqueueProposeL2Checkpoint(checkpoint2);
       await sendRequests();
 
       // Wait for the new proposal to be sent to the pool

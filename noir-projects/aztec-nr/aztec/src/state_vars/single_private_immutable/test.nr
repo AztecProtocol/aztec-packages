@@ -93,9 +93,9 @@ unconstrained fn initialize_and_get_pending() {
 
         let note_hash_read_requests_pre_get = context.note_hash_read_requests.len();
 
-        let retrieved_note = state_var.get_note();
+        let hinted_note = state_var.get_note();
 
-        assert_eq(retrieved_note, note);
+        assert_eq(hinted_note, note);
 
         // Reading a SinglePrivateImmutable results in:
         // - a read request for the read value
@@ -123,9 +123,9 @@ unconstrained fn initialize_and_get_settled() {
     env.private_context_at(contract_address, |context| {
         let state_var = in_private(context);
 
-        let retrieved_note = state_var.get_note();
+        let hinted_note = state_var.get_note();
 
-        assert_eq(retrieved_note, note);
+        assert_eq(hinted_note, note);
 
         // Reading a SinglePrivateImmutable results in:
         // - a read request for the read value

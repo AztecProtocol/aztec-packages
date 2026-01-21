@@ -39,7 +39,7 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 2. Remove the archiver data directory:
 
    ```bash
-   rm -rf ~/.aztec/v2.1.9/data/archiver
+   rm -rf ~/.aztec/v#release_version/data/archiver
    ```
 
 3. Restart your node:
@@ -181,6 +181,7 @@ Error: Insufficient L1 funds
 Error: insufficient funds for gas * price + value
 ```
 
+#if(testnet)
 **Cause**: Your publisher address doesn't have enough Sepolia ETH to pay for L1 gas fees.
 
 **Solutions**:
@@ -192,6 +193,13 @@ Error: insufficient funds for gas * price + value
    - [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
 
 2. **Maintain sufficient balance**:
+#else
+**Cause**: Your publisher address doesn't have enough ETH to pay for L1 gas fees.
+
+**Solutions**:
+
+1. **Maintain sufficient balance**:
+#endif
 
    - Keep at least **0.1 ETH** in your publisher account at all times
    - Monitor your balance regularly to avoid running out
@@ -222,7 +230,7 @@ To update to a specific version:
 # Change the image tag from:
 image: "aztecprotocol/aztec:latest"
 # To:
-image: "aztecprotocol/aztec:2.1.9"
+image: "aztecprotocol/aztec:#release_version"
 ```
 
 Then run:

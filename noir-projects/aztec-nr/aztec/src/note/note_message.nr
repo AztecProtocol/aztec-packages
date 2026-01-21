@@ -38,9 +38,10 @@ where
     /// costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
     /// constant.
     ///
-    /// To deliver the message to a recipient that is not the note's owner, use [NoteMessage::deliver_to] instead.
+    /// To deliver the message to a recipient that is not the note's owner, use [deliver_to](NoteMessage::deliver_to)
+    /// instead.
     ///
-    /// # Invalid Recipients
+    /// ## Invalid Recipients
     ///
     /// If the note's owner is an invalid address, then a random public key is selected and message delivery continues
     /// as normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
@@ -50,14 +51,14 @@ where
         self.deliver_to(self.new_note.owner, delivery_mode);
     }
 
-    /// Same as [NoteMessage::deliver], except the message gets delivered to an arbitrary `recipient` instead of the
-    /// note owner.
+    /// Same as [deliver](NoteMessage::deliver), except the message gets delivered to an arbitrary `recipient` instead
+    /// of the note owner.
     ///
     /// Note that `recipient` getting the message does not let them **use** the note, it only means that thy will know
     /// about it, including the transaction in which it was created, and prove it exists. They will also not be able to
     /// know when or if the note is used (i.e. nullified), assuming the standard note nullifier function.
     ///
-    /// # Use Cases
+    /// ## Use Cases
     ///
     /// This feature enables many design patterns that diverge in how notes are traditionally handled. For example,
     /// an institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
@@ -100,7 +101,8 @@ where
 
 /// Same as [NoteMessage], except this type also handles the possibility where the note may not have been actually
 /// created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).
-/// Other than that, it and [MaybeNoteMessage::delivery] behave the exact same way as [NoteMessage].
+///
+/// Other than that, it and [MaybeNoteMessage::deliver] behave the exact same way as [NoteMessage].
 #[must_use = "Unused NoteMessage result - use the `deliver` function to prevent the note information from being lost forever"]
 pub struct MaybeNoteMessage<Note> {
     // We can't simply create an `Option` of `NoteMessage` because that type includes a mutable reference to the

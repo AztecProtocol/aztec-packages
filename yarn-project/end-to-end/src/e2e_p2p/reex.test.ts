@@ -6,7 +6,6 @@ import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
 import type { LibP2PService, P2PClient } from '@aztec/p2p';
-import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { CppPublicTxSimulator, PublicTxResult } from '@aztec/simulator/server';
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
@@ -170,30 +169,28 @@ describe('e2e_p2p_reex', () => {
       node: AztecNodeService,
       stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
     ) => {
-      const blockBuilder: BlockBuilder = (node as any).sequencer.sequencer.blockBuilder;
+      const blockBuilder: any = (node as any).sequencer.sequencer.blockBuilder;
       const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
-      jest
-        .spyOn(blockBuilder, 'makeBlockBuilderDeps')
-        .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
-          const deps = await originalCreateDeps(...args);
-          t.logger.warn('Creating mocked processor factory');
-          const simulator: CppPublicTxSimulator = (deps.processor as any).publicTxSimulator;
-          const originalSimulate = simulator.simulate.bind(simulator);
-          // We only stub the simulate method if it's NOT the first time we see the tx
-          // so the proposer works fine, but we cause the failure in the validators.
-          jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
-            const txHash = tx.getTxHash().toString();
-            if (seenTxs.has(txHash)) {
-              t.logger.warn('Calling stubbed simulate for tx', { txHash });
-              return stub(tx, originalSimulate);
-            } else {
-              seenTxs.add(txHash);
-              t.logger.warn('Calling original simulate for tx', { txHash });
-              return originalSimulate(tx);
-            }
-          });
-          return deps;
+      jest.spyOn(blockBuilder, 'makeBlockBuilderDeps').mockImplementation(async (...args: any[]) => {
+        const deps = await originalCreateDeps(...args);
+        t.logger.warn('Creating mocked processor factory');
+        const simulator: CppPublicTxSimulator = (deps.processor as any).publicTxSimulator;
+        const originalSimulate = simulator.simulate.bind(simulator);
+        // We only stub the simulate method if it's NOT the first time we see the tx
+        // so the proposer works fine, but we cause the failure in the validators.
+        jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
+          const txHash = tx.getTxHash().toString();
+          if (seenTxs.has(txHash)) {
+            t.logger.warn('Calling stubbed simulate for tx', { txHash });
+            return stub(tx, originalSimulate);
+          } else {
+            seenTxs.add(txHash);
+            t.logger.warn('Calling original simulate for tx', { txHash });
+            return originalSimulate(tx);
+          }
         });
+        return deps;
+      });
     };
 
     // Have the public tx processor take an extra long time to process the tx, so the validator times out

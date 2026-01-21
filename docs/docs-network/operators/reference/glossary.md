@@ -131,7 +131,11 @@ A configuration file or encrypted store containing private keys for sequencer op
 
 ### L1 (Layer 1)
 
+#if(testnet)
 Ethereum mainnet or testnet, serving as the base layer for Aztec's rollup. L1 provides data availability, settlement, and consensus for the L2.
+#else
+Ethereum mainnet, serving as the base layer for Aztec's rollup. L1 provides data availability, settlement, and consensus for the L2.
+#endif
 
 ### L2 (Layer 2)
 

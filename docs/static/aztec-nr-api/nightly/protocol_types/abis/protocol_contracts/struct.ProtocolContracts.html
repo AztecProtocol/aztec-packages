@@ -20,9 +20,10 @@
 <h2><a href="#struct">Struct ProtocolContracts</a></h2>
 <h3>Methods</h3>
 <ul class="sidebar-list">
+<li><a href="#assert_not_derived_protocol_contract_address">assert_not_derived_protocol_contract_address</a></li>
 <li><a href="#get_derived_address">get_derived_address</a></li>
 <li><a href="#hash">hash</a></li>
-<li><a href="#is_protocol_contract_address">is_protocol_contract_address</a></li>
+<li><a href="#is_magic_protocol_contract_address">is_magic_protocol_contract_address</a></li>
 <li><a href="#new">new</a></li>
 </ul>
 <h3>Trait implementations</h3>
@@ -48,17 +49,23 @@
 
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(derived_addresses: [<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; 11]) -> Self</code>
 
-<code id="is_protocol_contract_address" class="code-header">pub fn <a href="#is_protocol_contract_address"><span class="fn">is_protocol_contract_address</span></a>(contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code id="is_magic_protocol_contract_address" class="code-header">pub fn <a href="#is_magic_protocol_contract_address"><span class="fn">is_magic_protocol_contract_address</span></a>(contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Checks if the given address is a protocol contract address.</p>
 </div>
-</div><code id="get_derived_address" class="code-header">pub fn <a href="#get_derived_address"><span class="fn">get_derived_address</span></a>(self, protocol_contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+</div><code id="assert_not_derived_protocol_contract_address" class="code-header">pub fn <a href="#assert_not_derived_protocol_contract_address"><span class="fn">assert_not_derived_protocol_contract_address</span></a>(self, contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>)</code>
+
+<code id="get_derived_address" class="code-header">pub fn <a href="#get_derived_address"><span class="fn">get_derived_address</span></a>(
+    self,
+    magic_protocol_contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Obtains the derived address for the given protocol contract address.
-Important! This assumes that the caller has already validated that the address is indeed a protocol contract
-address by calling <code>is_protocol_contract_address</code> first.</p>
+<p>Obtains the derived address for the given magic protocol contract address.</p>
+<p>Important! This assumes that the caller has already validated that the address is indeed a magic protocol contract
+address by calling <code>is_magic_protocol_contract_address</code> first, because this function fails if the input
+address is not a valid magic protocol contract address.</p>
 </div>
 </div><code id="hash" class="code-header">pub fn <a href="#hash"><span class="fn">hash</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
 

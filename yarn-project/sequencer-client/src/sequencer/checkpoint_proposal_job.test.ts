@@ -5,7 +5,13 @@ import {
 } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -218,7 +224,14 @@ describe('CheckpointProposalJob', () => {
     validatorClient.createBlockProposal.mockImplementation(
       async (blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txs) => {
         const txHashes = await Promise.all((txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, mockedSig);
+        return new BlockProposal(
+          blockHeader,
+          IndexWithinCheckpoint(indexWithinCheckpoint),
+          inHash,
+          archiveRoot,
+          txHashes,
+          mockedSig,
+        );
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(

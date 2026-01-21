@@ -1,4 +1,4 @@
-use crate::note::{note_interface::NoteType, retrieved_note::RetrievedNote};
+use crate::note::{hinted_note::HintedNote, note_interface::NoteType};
 
 use dep::protocol_types::{address::AztecAddress, traits::Packable};
 
@@ -112,13 +112,13 @@ unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
     _status: u8,
     // This is always set to MAX_NOTES. We need to pass it to TS in order to correctly construct the BoundedVec
     _max_notes: u32,
-    // This is always set to <RetrievedNote<Note> as Packable>::N. We need to pass it to TS in order to be able to
+    // This is always set to <HintedNote<Note> as Packable>::N. We need to pass it to TS in order to be able to
     // correctly construct the BoundedVec there.
-    _packed_retrieved_note_length: u32,
-) -> BoundedVec<[Field; <RetrievedNote<Note> as Packable>::N], MaxNotes>
+    _packed_hinted_note_length: u32,
+) -> BoundedVec<[Field; <HintedNote<Note> as Packable>::N], MaxNotes>
 where
     // TODO(https://github.com/noir-lang/noir/issues/9399): `Note: Packable` should work here.
-    RetrievedNote<Note>: Packable,
+    HintedNote<Note>: Packable,
 {}
 
 pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
@@ -137,35 +137,34 @@ pub unconstrained fn get_notes<Note, let M: u32, let MaxNotes: u32>(
     limit: u32,
     offset: u32,
     status: u8,
-) -> [Option<RetrievedNote<Note>>; MaxNotes]
+) -> [Option<HintedNote<Note>>; MaxNotes]
 where
     Note: NoteType + Packable,
 {
-    let packed_retrieved_notes: BoundedVec<[Field; <RetrievedNote<Note> as Packable>::N], MaxNotes>
-         = get_notes_oracle::<Note, M, MaxNotes>(
-            owner,
-            storage_slot,
-            num_selects,
-            select_by_indexes,
-            select_by_offsets,
-            select_by_lengths,
-            select_values,
-            select_comparators,
-            sort_by_indexes,
-            sort_by_offsets,
-            sort_by_lengths,
-            sort_order,
-            limit,
-            offset,
-            status,
-            MaxNotes,
-            <RetrievedNote<Note> as Packable>::N,
-        );
+    let packed_hinted_notes: BoundedVec<[Field; <HintedNote<Note> as Packable>::N], MaxNotes> = get_notes_oracle::<Note, M, MaxNotes>(
+        owner,
+        storage_slot,
+        num_selects,
+        select_by_indexes,
+        select_by_offsets,
+        select_by_lengths,
+        select_values,
+        select_comparators,
+        sort_by_indexes,
+        sort_by_offsets,
+        sort_by_lengths,
+        sort_order,
+        limit,
+        offset,
+        status,
+        MaxNotes,
+        <HintedNote<Note> as Packable>::N,
+    );
 
     let mut notes = BoundedVec::<_, MaxNotes>::new();
-    for i in 0..packed_retrieved_notes.len() {
-        let retrieved_note = RetrievedNote::unpack(packed_retrieved_notes.get(i));
-        notes.push(retrieved_note);
+    for i in 0..packed_hinted_notes.len() {
+        let hinted_note = HintedNote::unpack(packed_hinted_notes.get(i));
+        notes.push(hinted_note);
     }
 
     // At last we convert the bounded vector to an array of options. We do this because that is what the filter

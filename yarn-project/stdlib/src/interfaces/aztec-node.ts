@@ -24,9 +24,8 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
-import { CheckpointedL2Block, PublishedL2Block } from '../block/checkpointed_l2_block.js';
+import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { L2Block } from '../block/l2_block.js';
 import { L2BlockNew } from '../block/l2_block_new.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -99,72 +98,63 @@ export interface AztecNode
   /**
    * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
    * the leaves were inserted.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param treeId - The tree to search in.
    * @param leafValues - The values to search for.
    * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
    */
   findLeavesIndexes(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getNullifierSiblingPath(
-    blockNumber: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
+  getNullifierSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
 
   /**
    * Returns a sibling path for the given index in the note hash tree.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  getNoteHashSiblingPath(
-    blockNumber: BlockParameter,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
+  getNoteHashSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  getArchiveSiblingPath(blockNumber: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
+  getArchiveSiblingPath(block: BlockParameter, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
 
   /**
    * Returns a sibling path for a leaf in the committed public data tree.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
   getPublicDataSiblingPath(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  getNullifierMembershipWitness(
-    blockNumber: BlockParameter,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined>;
+  getNullifierMembershipWitness(block: BlockParameter, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
@@ -172,49 +162,49 @@ export interface AztecNode
    * we are trying to prove non-inclusion for.
    */
   getLowNullifierMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a public data tree witness for a given leaf slot at a given block.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param leafSlot - The leaf slot we try to find the witness for.
    * @returns The public data witness (if found).
    * @remarks The witness can be used to compute the current value of the public data tree leaf. If the low leaf preimage corresponds to an
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(block: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Returns a membership witness for a given archive leaf at a given block.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param archive - The archive leaf we try to find the witness for.
    */
   getArchiveMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     archive: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
 
   /**
    * Returns a membership witness for a given note hash at a given block.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param noteHash - The note hash we try to find the witness for.
    */
   getNoteHashMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
 
   /**
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
-   * @param blockNumber - The block number at which to get the data.
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   getL1ToL2MessageMembershipWitness(
-    blockNumber: BlockParameter,
+    block: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
@@ -238,25 +228,25 @@ export interface AztecNode
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
-   * Get a block specified by its number.
-   * @param number - The block number being requested.
+   * Get a block specified by its block number or 'latest'.
+   * @param number - The block number or 'latest'.
    * @returns The requested block.
    */
-  getBlock(number: BlockParameter): Promise<L2Block | undefined>;
+  getBlock(number: BlockParameter): Promise<L2BlockNew | undefined>;
 
   /**
    * Get a block specified by its hash.
    * @param blockHash - The block hash being requested.
    * @returns The requested block.
    */
-  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+  getBlockByHash(blockHash: Fr): Promise<L2BlockNew | undefined>;
 
   /**
    * Get a block specified by its archive root.
    * @param archive - The archive root being requested.
    * @returns The requested block.
    */
-  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
+  getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined>;
 
   /**
    * Method to fetch the latest block number synchronized by the node.
@@ -289,7 +279,7 @@ export interface AztecNode
    * @param limit - The maximum number of blocks to return.
    * @returns The blocks requested.
    */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
+  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
 
   /**
    * Method to fetch the current min fees.
@@ -420,25 +410,19 @@ export interface AztecNode
    * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
    * Aztec's version of `eth_getStorageAt`.
    *
+   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
-   * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(blockNumber: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
+  getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
-   * Returns the currently committed block header.
-   * @returns The current committed block header.
-   */
-  getBlockHeader(blockNumber?: BlockParameter): Promise<BlockHeader | undefined>;
-
-  /**
-   * Get a block header specified by its hash.
-   * @param blockHash - The block hash being requested.
+   * Returns the block header for a given block number, block hash, or 'latest'.
+   * @param block - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
    * @returns The requested block header.
    */
-  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+  getBlockHeader(block?: BlockParameter): Promise<BlockHeader | undefined>;
 
   /**
    * Get a block header specified by its archive root.
@@ -570,11 +554,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(EpochNumberSchema)
     .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
 
-  getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
+  getBlock: z.function().args(BlockParameterSchema).returns(L2BlockNew.schema.optional()),
 
-  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getBlockByHash: z.function().args(schemas.Fr).returns(L2BlockNew.schema.optional()),
 
-  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getBlockByArchive: z.function().args(schemas.Fr).returns(L2BlockNew.schema.optional()),
 
   getBlockNumber: z.function().returns(BlockNumberSchema),
 
@@ -587,12 +571,12 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlocks: z
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2Block.schema)),
+    .returns(z.array(L2BlockNew.schema)),
 
   getPublishedBlocks: z
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(PublishedL2Block.schema)),
+    .returns(z.array(CheckpointedL2Block.schema)),
 
   getPublishedCheckpoints: z
     .function()
@@ -662,8 +646,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getPublicStorageAt: z.function().args(BlockParameterSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
 
   getBlockHeader: z.function().args(optional(BlockParameterSchema)).returns(BlockHeader.schema.optional()),
-
-  getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
 
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
 

@@ -15,7 +15,7 @@ import type {
 } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -119,7 +119,7 @@ export async function retrievedToPublishedCheckpoint({
 
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
 
-    l2Blocks.push(new L2BlockNew(newArchive, header, body, checkpointNumber, i));
+    l2Blocks.push(new L2BlockNew(newArchive, header, body, checkpointNumber, IndexWithinCheckpoint(i)));
   }
 
   const lastBlock = l2Blocks.at(-1)!;

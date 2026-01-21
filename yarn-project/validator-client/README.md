@@ -230,7 +230,7 @@ Tests typically mock these dependencies:
 let epochCache: MockProxy<EpochCache>;
 let blockSource: MockProxy<L2BlockSource>;
 let txProvider: MockProxy<TxProvider>;
-let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
+let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
 let p2pClient: MockProxy<P2P>;
 
 beforeEach(() => {
@@ -245,19 +245,19 @@ beforeEach(() => {
 Use factory functions from `@aztec/stdlib/testing`:
 
 ```typescript
-import { makeBlockProposal, makeCheckpointProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
 
 // These are async - always await
 const blockProposal = await makeBlockProposal({
-  blockHeader: makeL2BlockHeader(1, 100, 100), // epoch, block, slot
+  blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) }),
   indexWithinCheckpoint: 0,
   signer: Secp256k1Signer.random(),
 });
 
 const checkpointProposal = await makeCheckpointProposal({
-  checkpointHeader: makeL2BlockHeader(1, 100, 100).toCheckpointHeader(),
+  checkpointHeader: makeCheckpointHeader(1, { slotNumber: SlotNumber(100) }),
   signer: proposer,
-  lastBlock: { blockHeader, txs },
+  lastBlock: { blockHeader: makeBlockHeader(1), txs },
 });
 ```
 

@@ -2,73 +2,67 @@ import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockParameter } from '@aztec/stdlib/block';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
-import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
-
+// TODO: REmove this class as it no longer seems valuable. The only somewhat real functionality in this class is in
+// the `getMembershipWitness` method that is used by `utilityGetMembershipWitness` oracle by then in Aztec.nr we
+// have helper functions around that oracle for archive and note hash tree and the generic method itself is not used
+// anywhere else - make sense to just have simple specific handlers for the archive and note hash trees and drop this.
 export class TreeMembershipService {
-  constructor(
-    private readonly aztecNode: AztecNode,
-    private readonly anchorBlockStore: AnchorBlockStore,
-  ) {}
+  constructor(private readonly aztecNode: AztecNode) {}
 
   /**
    * Gets the index of a nullifier in the nullifier tree.
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
    */
-  public getNullifierIndex(nullifier: Fr) {
-    return this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [nullifier]);
+    return leafIndex?.data;
   }
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
-   * @param blockNumber - The block number at which to get the membership witness.
+   * @param blockHash - The block hash at which to get the membership witness.
    * @param treeId - Id of the tree to get the sibling path from.
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public async getMembershipWitness(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const witness = await this.#tryGetMembershipWitness(blockNumber, treeId, leafValue);
+  public async getMembershipWitness(blockHash: L2BlockHash, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const witness = await this.#tryGetMembershipWitness(blockHash, treeId, leafValue);
     if (!witness) {
-      throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
+      throw new Error(
+        `Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block hash ${blockHash.toString()}`,
+      );
     }
     return witness;
   }
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
-   * @param blockNumber - The block number at which to get the index.
+   * @param blockHash - The block hash at which to get the index.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public async getLowNullifierMembershipWitness(
-    blockNumber: BlockParameter,
+  public getLowNullifierMembershipWitness(
+    blockHash: L2BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
+    return this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier);
   }
 
   /**
    * Returns a witness for a given slot of the public data tree at a given block.
-   * @param blockNumber - The block number at which to get the witness.
+   * @param blockHash - The block hash at which to get the witness.
    * @param leafSlot - The slot of the public data in the public data tree.
    */
-  public async getPublicDataWitness(blockNumber: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
-    if (blockNumber !== 'latest' && blockNumber > anchorBlockNumber) {
-      throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
-    }
-    return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
+  public getPublicDataWitness(blockHash: L2BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return this.aztecNode.getPublicDataWitness(blockHash, leafSlot);
   }
 
   /**
@@ -86,27 +80,18 @@ export class TreeMembershipService {
     return getNonNullifiedL1ToL2MessageWitness(this.aztecNode, contractAddress, messageHash, secret);
   }
 
-  async #tryGetMembershipWitness(
-    blockNumber: BlockParameter,
-    treeId: MerkleTreeId,
-    value: Fr,
-  ): Promise<Fr[] | undefined> {
+  async #tryGetMembershipWitness(blockHash: L2BlockHash, treeId: MerkleTreeId, value: Fr): Promise<Fr[] | undefined> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
+        return (await this.aztecNode.getNullifierMembershipWitness(blockHash, value))?.withoutPreimage().toFields();
       case MerkleTreeId.NOTE_HASH_TREE:
-        return (await this.aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
+        return (await this.aztecNode.getNoteHashMembershipWitness(blockHash, value))?.toFields();
       case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
+        return (await this.aztecNode.getPublicDataWitness(blockHash, value))?.withoutPreimage().toFields();
       case MerkleTreeId.ARCHIVE:
-        return (await this.aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
+        return (await this.aztecNode.getArchiveMembershipWitness(blockHash, value))?.toFields();
       default:
         throw new Error('Not implemented');
     }
-  }
-
-  async #findLeafIndex(blockNumber: BlockParameter, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-    return leafIndex?.data;
   }
 }

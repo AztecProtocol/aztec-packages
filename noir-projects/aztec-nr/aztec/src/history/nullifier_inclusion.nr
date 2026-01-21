@@ -1,8 +1,8 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::NoteHash, retrieved_note::RetrievedNote,
-        utils::compute_siloed_note_nullifier,
+        hinted_note::HintedNote, note_interface::NoteHash,
+        utils::compute_settled_note_siloed_nullifier,
     },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
@@ -21,9 +21,7 @@ impl ProveNullifierInclusion for BlockHeader {
     fn prove_nullifier_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of the nullifier
         // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
-        let witness = unsafe {
-            get_nullifier_membership_witness(self.global_variables.block_number, nullifier)
-        };
+        let witness = unsafe { get_nullifier_membership_witness(self, nullifier) };
 
         // 2) First we prove that the tree leaf in the witness is present in the nullifier tree. This is expected to be
         // the leaf that contains the nullifier we're proving inclusion for.
@@ -47,7 +45,7 @@ impl ProveNullifierInclusion for BlockHeader {
 pub trait ProveNoteIsNullified {
     fn prove_note_is_nullified<Note>(
         header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
+        hinted_note: HintedNote<Note>,
         context: &mut PrivateContext,
     )
     where
@@ -57,13 +55,13 @@ pub trait ProveNoteIsNullified {
 impl ProveNoteIsNullified for BlockHeader {
     fn prove_note_is_nullified<Note>(
         self,
-        retrieved_note: RetrievedNote<Note>,
+        hinted_note: HintedNote<Note>,
         context: &mut PrivateContext,
     )
     where
         Note: NoteHash,
     {
-        let nullifier = compute_siloed_note_nullifier(retrieved_note, context);
+        let nullifier = compute_settled_note_siloed_nullifier(hinted_note, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }

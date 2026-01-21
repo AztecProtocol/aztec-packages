@@ -31,3 +31,8 @@ Please refer to the [biggroup README](https://github.com/AztecProtocol/aztec-pac
 
 1. `stdlib/primitives/biggroup/biggroup.test.cpp`
 2. `stdlib/primitives/biggroup/biggroup_secp256k1.test.cpp`
+
+## Security Mechanisms
+
+1. `boomerang_value_detection/graph_description_bigfield.test.cpp`
+   - Boomerang value detection: detects under-constrained variables in bigfield operations

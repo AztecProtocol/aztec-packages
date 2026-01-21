@@ -3,6 +3,7 @@ title: Wallets
 sidebar_position: 2
 tags: [accounts]
 description: Overview of wallet responsibilities in Aztec including account management, private state tracking, transaction execution, key management, and authorization handling.
+references: ["yarn-project/aztec.js/src/account/interface.ts"]
 ---
 
 This page covers the main responsibilities of a wallet in the Aztec network.
@@ -71,4 +72,4 @@ Dapps may require access to the user's private state, in order to show informati
 
 The account interface is used for creating an _execution request_ out of one or more _function calls_ requested by a dapp, as well as creating an _auth witness_ for a given message hash. Account contracts are expected to handle multiple function calls per transaction, since dapps may choose to batch multiple actions into a single request to the wallet.
 
-#include_code account-interface yarn-project/aztec.js/src/account/interface.ts typescript
+#include_code account-interface yarn-project/aztec.js/src/account/account.ts typescript

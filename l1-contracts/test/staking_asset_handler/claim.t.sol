@@ -53,6 +53,7 @@ contract ClaimTest is StakingAssetHandlerBase {
   }
 
   modifier whenCallerIsNotUnhinged(address _caller) {
+    vm.assume(_caller != address(stakingAssetHandler));
     vm.assume(!stakingAssetHandler.isUnhinged(_caller));
     _;
   }

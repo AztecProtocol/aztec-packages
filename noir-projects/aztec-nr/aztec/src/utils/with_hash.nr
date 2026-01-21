@@ -39,6 +39,13 @@ where
         self.hash
     }
 
+    /// Reads the value stored in this [WithHash] from public storage.
+    ///
+    /// Note that unlike a full public storage read, this will _not_ read (not return) the stored hash of the
+    /// value, resulting in reduced gas costs.
+    ///
+    /// This is the public counterpart to [WithHash::utility_public_storage_read] and
+    /// [WithHash::historical_public_storage_read].
     pub fn public_storage_read(context: PublicContext, storage_slot: Field) -> T {
         context.storage_read(storage_slot)
     }
@@ -51,24 +58,23 @@ where
     }
 
     pub fn historical_public_storage_read(
-        header: BlockHeader,
+        header_to_read_from: BlockHeader,
         address: AztecAddress,
         storage_slot: Field,
     ) -> T {
-        let historical_block_number = header.global_variables.block_number;
-
         // We could simply produce historical inclusion proofs for each field in `packed`, but that would require one
         // full sibling path per storage slot (since due to kernel siloing the storage is not contiguous). Instead, we
         // get an oracle to provide us the values, and instead we prove inclusion of their hash, which is both a much
         // smaller proof (a single slot), and also independent of the size of T (except in that we need to pack and hash T).
         let hint = WithHash::new(
             // Safety: We verify that a hash of the hint/packed data matches the stored hash.
-            unsafe {
-                oracle::storage::storage_read(address, storage_slot, historical_block_number)
-            },
+            unsafe { oracle::storage::storage_read(header_to_read_from, address, storage_slot) },
         );
 
-        let hash = header.public_storage_historical_read(storage_slot + M as Field, address);
+        // The actual `value` (of type T, of packed length M fields) is stored in contiguous fields from the `storage_slot`.
+        // The _hash_ of the `value` is stored at the end, at slot: `storage_slot + M`.
+        let hash =
+            header_to_read_from.public_storage_historical_read(storage_slot + M as Field, address);
 
         if hash != 0 {
             assert_eq(hash, hint.get_hash(), "Hint values do not match hash");
@@ -123,9 +129,9 @@ mod test {
         test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
         utils::with_hash::WithHash,
     };
-    use dep::protocol_types::hash::poseidon2_hash;
-    use dep::protocol_types::traits::{Packable, ToField};
-    use dep::std::test::OracleMock;
+    use protocol_types::{hash::poseidon2_hash, traits::{Hash, Packable, ToField}};
+
+    use std::test::OracleMock;
 
     global STORAGE_SLOT: Field = 47;
 
@@ -186,8 +192,7 @@ mod test {
             let value_packed = MockStruct { a: 1, b: 1 }.pack();
             let _ = OracleMock::mock("utilityStorageRead")
                 .with_params((
-                    address.to_field(), STORAGE_SLOT, block_header.global_variables.block_number,
-                    value_packed.len(),
+                    block_header.hash(), address.to_field(), STORAGE_SLOT, value_packed.len(),
                 ))
                 .returns(value_packed)
                 .times(1);

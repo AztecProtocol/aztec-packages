@@ -127,6 +127,7 @@ where
         result
     }
 
+    // Note: inefficient if all you want to unpack is the svc; use unpack_value_change instead.
     fn unpack(fields: [Field; Self::N]) -> Self {
         let svc = unpack_value_change::<T, _>(fields);
         let sdc = unpack_delay_change::<INITIAL_DELAY>(fields[0]);

@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from typing import List, Tuple, Optional
 import argparse
+from fnmatch import fnmatch
 
 # ANSI color codes
 RESET = '\033[0m'
@@ -147,6 +148,82 @@ def visible_length(text: str) -> int:
     text = re.sub(r'\033\]8[^\\]*\\', '', text)
     return len(text)
 
+def path_matches(file_path: str, pattern: str) -> bool:
+    """Check if a file path matches a pattern (with glob and directory support)."""
+    # If the pattern contains glob characters, use fnmatch
+    if '*' in pattern or '?' in pattern or '[' in pattern:
+        return fnmatch(file_path, pattern)
+
+    # Otherwise, treat it as a directory/file prefix
+    # Match exact file or anything under that directory
+    if file_path == pattern:
+        return True
+    if file_path.startswith(pattern + '/'):
+        return True
+
+    return False
+
+def commit_affects_paths(commit: str, paths: List[str], debug: bool = False) -> bool:
+    """Check if a commit affects any of the specified paths (with glob support)."""
+    if not paths:
+        return True
+
+    # Get list of files affected by this commit
+    # Use -m to show files for merge commits, --first-parent to compare against first parent
+    files_cmd = ['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', '-m', '--first-parent', commit]
+    files_output = run_command(files_cmd)
+
+    if not files_output:
+        return False
+
+    affected_files = files_output.split('\n')
+
+    # Check if any affected file matches any of the path patterns
+    for affected_file in affected_files:
+        if not affected_file:
+            continue
+        for path_pattern in paths:
+            if path_matches(affected_file, path_pattern):
+                if debug:
+                    print(f"DEBUG:   -> INCLUDED: file '{affected_file}' matches include pattern '{path_pattern}'", file=sys.stderr)
+                return True
+
+    if debug:
+        print(f"DEBUG:   -> NOT INCLUDED: no files match include patterns", file=sys.stderr)
+    return False
+
+def commit_touches_excluded_paths(commit: str, exclude_paths: List[str], debug: bool = False) -> bool:
+    """Check if a commit touches any of the excluded paths (with glob support)."""
+    if not exclude_paths:
+        return False
+
+    # Get list of files affected by this commit
+    # Use -m to show files for merge commits, --first-parent to compare against first parent
+    files_cmd = ['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', '-m', '--first-parent', commit]
+    files_output = run_command(files_cmd)
+
+    if not files_output:
+        return False
+
+    affected_files = files_output.split('\n')
+
+    if debug and affected_files:
+        non_empty_files = [f for f in affected_files if f]
+        if non_empty_files:
+            print(f"DEBUG:   Commit {commit[:7]} touches files: {non_empty_files[:5]}{'...' if len(non_empty_files) > 5 else ''}", file=sys.stderr)
+
+    # Check if any affected file matches any of the excluded path patterns
+    for affected_file in affected_files:
+        if not affected_file:
+            continue
+        for path_pattern in exclude_paths:
+            if path_matches(affected_file, path_pattern):
+                if debug:
+                    print(f"DEBUG:   -> EXCLUDED: file '{affected_file}' matches pattern '{path_pattern}'", file=sys.stderr)
+                return True
+
+    return False
+
 def get_merge_train_commits(merge_commit: str) -> List[str]:
     """Get commits in a merge train."""
     # Get the first parent (the commit this was merged into)
@@ -256,6 +333,9 @@ def echo_header(text: str) -> None:
     print(f"{PURPLE}---{RESET} {BLUE}{BOLD}{text}{RESET} {PURPLE}---{RESET}")
 
 def main():
+    # Check for debug mode
+    debug_mode = os.environ.get('DEBUG_COMMITS', '').lower() in ('1', 'true', 'yes')
+
     # Parse arguments with argparse to support ranges and grep filtering
     parser = argparse.ArgumentParser(
         description=(
@@ -274,6 +354,13 @@ Examples:
   {parser.prog} --grep '^feat' -m         Markdown output of only feats on HEAD
   {parser.prog} --no-first-parent main    Do not restrict to first-parent history
   {parser.prog} v2.0.0..HEAD --grep 'bb|barretenberg'   Filter to barretenberg-related changes
+  {parser.prog} --paths 'src/main.rs'     Show commits affecting specific file
+  {parser.prog} --paths 'src/*.rs' --paths 'Cargo.toml'  Multiple paths with globs
+  {parser.prog} --grep 'feat' --paths 'backend/**'       Combine grep and path filters
+  {parser.prog} v1.0..v2.0 --paths 'docs/**'             Commits in range affecting docs
+  {parser.prog} --exclude-paths 'docs/**'  Exclude commits that touch docs
+  {parser.prog} --exclude-paths '*.md' --exclude-paths 'test/**'  Exclude multiple paths
+  {parser.prog} --paths 'src/**' --exclude-paths 'src/test/**'    Include src/ but exclude tests
   {parser.prog} -g                        Group commits by type on HEAD
   {parser.prog} -g -m v1.2.0..v2.0.0      Group by type in Markdown for a range
   {parser.prog} -g --grep 'feat|fix' main Group by type but only features/fixes
@@ -282,6 +369,8 @@ Examples:
     parser.add_argument('ref', nargs='?', default='HEAD', help='Branch, commit, or range (e.g., v1.2.1..v2.0.1)')
     parser.add_argument('limit', nargs='?', type=int, default=50, help='Max commits to inspect (applies to top-level history)')
     parser.add_argument('--grep', dest='grep_patterns', action='append', default=[], help='Regex to match commit subjects. Can be repeated.')
+    parser.add_argument('--paths', dest='file_paths', action='append', default=[], help='File paths or glob patterns to filter commits. Can be repeated.')
+    parser.add_argument('--exclude-paths', dest='exclude_paths', action='append', default=[], help='File paths or glob patterns to exclude commits. Can be repeated.')
     parser.add_argument('--no-first-parent', action='store_true', help='Do not restrict to first-parent history')
     parser.add_argument('--markdown', '-m', action='store_true', help='Print output formatted as Markdown')
     parser.add_argument('--group-by-type', '-g', action='store_true', help='Group commits by conventional type (feat, fix, refactor, chore, etc.)')
@@ -290,6 +379,8 @@ Examples:
     ref = args.ref
     limit = args.limit
     grep_patterns: List[str] = args.grep_patterns or []
+    file_paths: List[str] = args.file_paths or []
+    exclude_paths: List[str] = args.exclude_paths or []
     use_first_parent = not args.no_first_parent
 
     def matches_grep(subject: str) -> bool:
@@ -322,6 +413,10 @@ Examples:
     log_cmd = ['git', 'log', f'--format=%H|%s|%an|%ar', ref, '-n', str(limit)]
     if use_first_parent:
         log_cmd.insert(2, '--first-parent')
+    # Add path filtering if specified
+    if file_paths:
+        log_cmd.append('--')
+        log_cmd.extend(file_paths)
     log_output = run_command(log_cmd)
 
     if not log_output:
@@ -362,7 +457,21 @@ Examples:
                 if len(train_parts) != 3:
                     continue
                 train_message, train_author, train_date = train_parts
-                if matches_grep(train_message):
+                # Apply grep, path include filters, and path exclude filters (AND logic)
+                matches_grep_filter = matches_grep(train_message)
+
+                if debug_mode:
+                    print(f"DEBUG: Checking merge-train child {train_commit[:7]}: '{train_message[:60]}'", file=sys.stderr)
+
+                affects_include_paths = commit_affects_paths(train_commit, file_paths, debug_mode)
+                touches_exclude_paths = commit_touches_excluded_paths(train_commit, exclude_paths, debug_mode)
+
+                if debug_mode:
+                    result = "INCLUDED" if (matches_grep_filter and affects_include_paths and not touches_exclude_paths) else "FILTERED"
+                    print(f"DEBUG: -> Result: {result} (grep={matches_grep_filter}, includes={affects_include_paths}, excludes={touches_exclude_paths})", file=sys.stderr)
+                    print(file=sys.stderr)
+
+                if matches_grep_filter and affects_include_paths and not touches_exclude_paths:
                     filtered_children.append((train_commit, train_message, train_author, train_date))
 
             # Only print the merge-train header if there are matching children
@@ -401,6 +510,12 @@ Examples:
                 continue
             # Apply grep filter to regular commits
             if not matches_grep(message):
+                continue
+            # Apply exclude paths filter
+            touches_exclude = commit_touches_excluded_paths(commit, exclude_paths, debug_mode)
+            if debug_mode:
+                print(f"DEBUG: Regular commit {commit[:7]}: excludes={touches_exclude}, message='{message[:60]}'", file=sys.stderr)
+            if touches_exclude:
                 continue
             if args.group_by_type:
                 is_break, break_summary = detect_breaking(message, commit)

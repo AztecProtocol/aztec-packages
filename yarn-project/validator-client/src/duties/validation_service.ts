@@ -1,4 +1,9 @@
-import { BlockNumber, type CheckpointNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  type CheckpointNumber,
+  IndexWithinCheckpoint,
+  type SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -47,7 +52,7 @@ export class ValidationService {
    */
   public createBlockProposal(
     blockHeader: BlockHeader,
-    blockIndexWithinCheckpoint: number,
+    blockIndexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archive: Fr,
     txs: Tx[],

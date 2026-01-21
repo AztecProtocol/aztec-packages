@@ -4,14 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { isDefined } from '@aztec/foundation/types';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type CheckpointedL2Block,
-  CommitteeAttestation,
-  L2Block,
-  type L2BlockNew,
-  type L2Tips,
-  PublishedL2Block,
-} from '@aztec/stdlib/block';
+import { CheckpointedL2Block, CommitteeAttestation, L2BlockNew, type L2Tips } from '@aztec/stdlib/block';
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -273,13 +266,13 @@ export abstract class ArchiverDataSourceBase
     return this.store.getBlocksForSlot(slotNumber);
   }
 
-  public async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2Block[]> {
+  public async getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]> {
     if (!this.l1Constants) {
       throw new Error('L1 constants not set');
     }
 
     const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
-    const blocks: L2Block[] = [];
+    const blocks: L2BlockNew[] = [];
 
     // Walk the list of checkpoints backwards and filter by slots matching the requested epoch.
     // We'll typically ask for checkpoints for a very recent epoch, so we shouldn't need an index here.
@@ -354,39 +347,33 @@ export abstract class ArchiverDataSourceBase
     return checkpoints.reverse();
   }
 
-  public async getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
+  public async getPublishedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]> {
     const checkpoints = await this.store.getRangeOfCheckpoints(CheckpointNumber(from), limit);
     const provenCheckpointNumber = await this.store.getProvenCheckpointNumber();
     const blocks = (
       await Promise.all(checkpoints.map(ch => this.store.getBlocksForCheckpoint(ch.checkpointNumber)))
     ).filter(isDefined);
 
-    const olbBlocks: PublishedL2Block[] = [];
+    const publishedBlocks: CheckpointedL2Block[] = [];
     for (let i = 0; i < checkpoints.length; i++) {
       const blockForCheckpoint = blocks[i][0];
       const checkpoint = checkpoints[i];
       if (checkpoint.checkpointNumber > provenCheckpointNumber && proven === true) {
-        // this checkpointisn't proven and we only want proven
+        // this checkpoint isn't proven and we only want proven
         continue;
       }
-      const oldCheckpoint = new Checkpoint(
-        blockForCheckpoint.archive,
-        checkpoint.header,
-        [blockForCheckpoint],
+      const publishedBlock = new CheckpointedL2Block(
         checkpoint.checkpointNumber,
-      );
-      const oldBlock = L2Block.fromCheckpoint(oldCheckpoint);
-      const publishedBlock = new PublishedL2Block(
-        oldBlock,
+        blockForCheckpoint,
         checkpoint.l1,
         checkpoint.attestations.map(x => CommitteeAttestation.fromBuffer(x)),
       );
-      olbBlocks.push(publishedBlock);
+      publishedBlocks.push(publishedBlock);
     }
-    return olbBlocks;
+    return publishedBlocks;
   }
 
-  public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
+  public async getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getLatestBlockNumber();
@@ -394,50 +381,34 @@ export abstract class ArchiverDataSourceBase
     if (number === 0) {
       return undefined;
     }
-    const publishedBlocks = await this.getPublishedBlocks(number, 1);
-    if (publishedBlocks.length === 0) {
-      return undefined;
+    return this.store.getBlock(number);
+  }
+
+  public async getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+    const blocks = await this.store.getBlocks(from, limit);
+
+    if (proven === true) {
+      const provenBlockNumber = await this.store.getProvenBlockNumber();
+      return blocks.filter(b => b.number <= provenBlockNumber);
     }
-    return publishedBlocks[0].block;
+    return blocks;
   }
 
-  public async getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2Block[]> {
-    const publishedBlocks = await this.getPublishedBlocks(from, limit, proven);
-    return publishedBlocks.map(x => x.block);
+  public getPublishedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+    return this.store.getCheckpointedBlockByHash(blockHash);
   }
 
-  public async getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+  public getPublishedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
+    return this.store.getCheckpointedBlockByArchive(archive);
+  }
+
+  public async getL2BlockNewByHash(blockHash: Fr): Promise<L2BlockNew | undefined> {
     const checkpointedBlock = await this.store.getCheckpointedBlockByHash(blockHash);
-    return this.buildOldBlockFromCheckpointedBlock(checkpointedBlock);
+    return checkpointedBlock?.block;
   }
 
-  public async getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+  public async getL2BlockNewByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
     const checkpointedBlock = await this.store.getCheckpointedBlockByArchive(archive);
-    return this.buildOldBlockFromCheckpointedBlock(checkpointedBlock);
-  }
-
-  private async buildOldBlockFromCheckpointedBlock(
-    checkpointedBlock: CheckpointedL2Block | undefined,
-  ): Promise<PublishedL2Block | undefined> {
-    if (!checkpointedBlock) {
-      return undefined;
-    }
-    const checkpoint = await this.store.getCheckpointData(checkpointedBlock.checkpointNumber);
-    if (!checkpoint) {
-      return checkpoint;
-    }
-    const fullCheckpoint = new Checkpoint(
-      checkpointedBlock?.block.archive,
-      checkpoint?.header,
-      [checkpointedBlock.block],
-      checkpoint.checkpointNumber,
-    );
-    const oldBlock = L2Block.fromCheckpoint(fullCheckpoint);
-    const published = new PublishedL2Block(
-      oldBlock,
-      checkpoint.l1,
-      checkpoint.attestations.map(x => CommitteeAttestation.fromBuffer(x)),
-    );
-    return published;
+    return checkpointedBlock?.block;
   }
 }

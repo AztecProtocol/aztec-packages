@@ -2,6 +2,7 @@
 title: Keys
 tags: [accounts, keys]
 description: Understand the specialized key pairs used in Aztec accounts - nullifier keys, incoming viewing keys, and signing keys - and how they enable privacy, security, and flexible authentication.
+references: ["noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";

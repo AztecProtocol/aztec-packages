@@ -133,12 +133,12 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     {
         // The note owner is set to none rather than msg_sender(), which means that anyone with access to this note in
         // the PXE can read it.
-        let retrieved_note = get_note(self.context, Option::none(), self.storage_slot).0;
+        let confirmed_note = get_note(self.context, Option::none(), self.storage_slot);
 
         // Because the notes obtained from SinglePrivateImmutable are not meant to be nullified and get_note(...)
         // function has already constrained the note (by pushing a read request to the context), we can return just
-        // the note and skip the additional data in RetrievedNote.
-        retrieved_note.note
+        // the note and skip the additional data in ConfirmedNote.
+        confirmed_note.note
     }
 }
 

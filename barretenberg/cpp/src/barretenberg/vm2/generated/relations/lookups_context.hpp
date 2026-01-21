@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_context_ctx_stack_rollback_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_ROLLBACK";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 26;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 29;
     static constexpr Column SRC_SELECTOR = Column::execution_nested_failure;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_rollback_counts;
@@ -36,6 +36,9 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::execution_parent_da_gas_limit_shift,
         ColumnAndShifts::execution_parent_l2_gas_used_shift,
         ColumnAndShifts::execution_parent_da_gas_used_shift,
+        ColumnAndShifts::execution_internal_call_id_shift,
+        ColumnAndShifts::execution_internal_call_return_id_shift,
+        ColumnAndShifts::execution_next_internal_call_id_shift,
         ColumnAndShifts::execution_prev_note_hash_tree_root_shift,
         ColumnAndShifts::execution_prev_note_hash_tree_size_shift,
         ColumnAndShifts::execution_prev_num_note_hashes_emitted_shift,
@@ -64,6 +67,9 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::context_stack_parent_da_gas_limit,
         ColumnAndShifts::context_stack_parent_l2_gas_used,
         ColumnAndShifts::context_stack_parent_da_gas_used,
+        ColumnAndShifts::context_stack_internal_call_id,
+        ColumnAndShifts::context_stack_internal_call_return_id,
+        ColumnAndShifts::context_stack_next_internal_call_id,
         ColumnAndShifts::context_stack_note_hash_tree_root,
         ColumnAndShifts::context_stack_note_hash_tree_size,
         ColumnAndShifts::context_stack_num_note_hashes_emitted,
@@ -89,7 +95,7 @@ using lookup_context_ctx_stack_rollback_relation =
 struct lookup_context_ctx_stack_return_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_RETURN";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 14;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 17;
     static constexpr Column SRC_SELECTOR = Column::execution_nested_return;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_return_counts;
@@ -108,7 +114,10 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_parent_l2_gas_limit_shift,
         ColumnAndShifts::execution_parent_da_gas_limit_shift,
         ColumnAndShifts::execution_parent_l2_gas_used_shift,
-        ColumnAndShifts::execution_parent_da_gas_used_shift
+        ColumnAndShifts::execution_parent_da_gas_used_shift,
+        ColumnAndShifts::execution_internal_call_id_shift,
+        ColumnAndShifts::execution_internal_call_return_id_shift,
+        ColumnAndShifts::execution_next_internal_call_id_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_entered_context_id,
@@ -124,7 +133,10 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::context_stack_parent_l2_gas_limit,
         ColumnAndShifts::context_stack_parent_da_gas_limit,
         ColumnAndShifts::context_stack_parent_l2_gas_used,
-        ColumnAndShifts::context_stack_parent_da_gas_used
+        ColumnAndShifts::context_stack_parent_da_gas_used,
+        ColumnAndShifts::context_stack_internal_call_id,
+        ColumnAndShifts::context_stack_internal_call_return_id,
+        ColumnAndShifts::context_stack_next_internal_call_id
     };
 };
 
