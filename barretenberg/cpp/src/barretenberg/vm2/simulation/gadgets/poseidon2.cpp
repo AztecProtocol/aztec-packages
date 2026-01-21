@@ -27,7 +27,7 @@ class InternalPoseidon2Exception : public std::runtime_error {
 
 FF Poseidon2::hash(const std::vector<FF>& input)
 {
-    size_t input_size = input.size();
+    size_t input_size = input.size(); // Will be mutated in the loop below.
     // The number of permutation events required to process the input
     auto num_perm_events = (input_size / 3) + static_cast<size_t>(input_size % 3 != 0);
     std::vector<std::array<FF, 4>> intermediate_states;
@@ -39,9 +39,6 @@ FF Poseidon2::hash(const std::vector<FF>& input)
     const uint256_t iv = static_cast<uint256_t>(input_size) << 64;
     std::array<FF, 4> perm_state = { 0, 0, 0, iv };
     intermediate_states.push_back(perm_state);
-
-    // Also referred to as cache but is the inputs that will be passed to the permutation function
-    std::vector<std::array<FF, 4>> perm_inputs;
 
     for (size_t i = 0; i < num_perm_events; i++) {
         // We can at most absorb a chunk of 3 elements
@@ -70,10 +67,10 @@ std::array<FF, 4> Poseidon2::permutation(const std::array<FF, 4>& input)
 
 void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, MemoryAddress dst_address)
 {
-    uint32_t execution_clk = execution_id_manager.get_execution_id();
-    uint16_t space_id = memory.get_space_id();
+    const auto execution_clk = execution_id_manager.get_execution_id();
+    const auto space_id = memory.get_space_id();
 
-    auto zero = MemoryValue::from<FF>(0);
+    const auto zero = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0);
     std::array<MemoryValue, 4> input = { zero, zero, zero, zero };
 
     // Poseidon2Perm reads and writes 4 sequential elements each. We need to ensure that these memory addresses are
