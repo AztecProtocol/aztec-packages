@@ -1,13 +1,16 @@
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 
 #include <algorithm>
-#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 
 using bb::crypto::Poseidon2Bn254ScalarFieldParams;
 using bb::crypto::Poseidon2Permutation;
