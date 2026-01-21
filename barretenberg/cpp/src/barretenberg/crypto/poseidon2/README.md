@@ -28,8 +28,12 @@ Client-side hashing in Node.js and browser via WASM. The TypeScript wrapper (`po
 ```cpp
 poseidon2_hash(inputs) → hash              // Variable-length hash
 poseidon2_permutation(state[4]) → state[4] // Requires exactly 4 elements
-poseidon2_hash_accumulate(inputs) → hash   // Requires at least 1 element
 ```
+
+The raw permutation is exposed because:
+- AVM simulator needs it for the `POSEIDON2PERM` opcode
+- Blob library uses it for custom sponge constructions
+- Matches Noir's `std::hash::poseidon2_permutation` builtin
 
 ## Validation
 
