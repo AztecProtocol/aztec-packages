@@ -291,14 +291,6 @@ describe.each([
   });
 
   describe('Consumer API', () => {
-    beforeEach(async () => {
-      await broker.start();
-    });
-
-    afterEach(async () => {
-      await broker.stop();
-    });
-
     it('returns undefined if no jobs are available', async () => {
       const provingJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
       expect(provingJob).toBeUndefined();
@@ -546,6 +538,7 @@ describe.each([
     });
 
     it('returns a new job if job is already in progress elsewhere', async () => {
+      await broker.start();
       // this test simulates the broker crashing and when it comes back online it has two agents working the same job
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
@@ -614,6 +607,7 @@ describe.each([
     });
 
     it('avoids sending the same job to a new agent after a restart', async () => {
+      await broker.start();
       // this test simulates the broker crashing and when it comes back online it has two agents working the same job
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
@@ -669,6 +663,7 @@ describe.each([
     });
 
     it('avoids sending a completed job to a new agent after a restart', async () => {
+      await broker.start();
       // this test simulates the broker crashing and when it comes back online it has two agents working the same job
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
