@@ -262,7 +262,7 @@ pub contract Test {
         };
 
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(hinted_note);
+        let _ = header.prove_note_inclusion(hinted_note);
     }
 
     #[external("private")]
