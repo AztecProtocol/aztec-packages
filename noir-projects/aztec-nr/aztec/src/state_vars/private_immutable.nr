@@ -118,12 +118,12 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         Note: NoteType + NoteHash + Packable,
     {
         let storage_slot = self.storage_slot;
-        let retrieved_note = get_note(self.context, Option::some(self.owner), storage_slot).0;
+        let confirmed_note = get_note(self.context, Option::some(self.owner), storage_slot);
 
         // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
         // has already constrained the note (by pushing a read request to the context), we can return just the note
-        // and skip the additional data in RetrievedNote.
-        retrieved_note.note
+        // and skip the additional data in HintedNote.
+        confirmed_note.note
     }
 }
 

@@ -87,19 +87,27 @@ impl NoteMetadata {
 
     /// Asserts that the metadata is that of a pending note from the same phase and converts it accordingly.
     pub fn to_pending_same_phase(self) -> PendingSamePhaseNoteMetadata {
-        assert_eq(self.stage, NoteStage.PENDING_SAME_PHASE);
+        assert_eq(
+            self.stage,
+            NoteStage.PENDING_SAME_PHASE,
+            "Note is not in stage PENDING_SAME_PHASE",
+        );
         PendingSamePhaseNoteMetadata::new()
     }
 
     /// Asserts that the metadata is that of a pending note from a previous phase and converts it accordingly.
     pub fn to_pending_previous_phase(self) -> PendingPreviousPhaseNoteMetadata {
-        assert_eq(self.stage, NoteStage.PENDING_PREVIOUS_PHASE);
+        assert_eq(
+            self.stage,
+            NoteStage.PENDING_PREVIOUS_PHASE,
+            "Note is not in stage PENDING_PREVIOUS_PHASE",
+        );
         PendingPreviousPhaseNoteMetadata::new(self.maybe_note_nonce)
     }
 
     /// Asserts that the metadata is that of a settled note and converts it accordingly.
     pub fn to_settled(self) -> SettledNoteMetadata {
-        assert_eq(self.stage, NoteStage.SETTLED);
+        assert_eq(self.stage, NoteStage.SETTLED, "Note is not in stage SETTLED");
         SettledNoteMetadata::new(self.maybe_note_nonce)
     }
 }

@@ -2,7 +2,7 @@ use crate::{
     context::{PrivateContext, UtilityContext},
     keys::getters::{get_nsk_app, get_public_keys},
     note::{
-        lifecycle::{create_note, destroy_note_unsafe},
+        lifecycle::{create_note, destroy_note},
         note_getter::{get_note, view_note},
         note_interface::{NoteHash, NoteType},
         note_message::NoteMessage,
@@ -195,13 +195,13 @@ where
     where
         Note: Packable,
     {
-        let (prev_retrieved_note, note_hash_read) =
+        let prev_confirmed_note =
             get_note(self.context, Option::some(self.owner), self.storage_slot);
 
         // Nullify previous note.
-        destroy_note_unsafe(self.context, prev_retrieved_note, note_hash_read);
+        destroy_note(self.context, prev_confirmed_note);
 
-        let new_note = f(prev_retrieved_note.note);
+        let new_note = f(prev_confirmed_note.note);
 
         // Add replacement note.
         create_note(self.context, self.owner, self.storage_slot, new_note)
@@ -308,11 +308,10 @@ where
     where
         Note: Packable,
     {
-        let mut (retrieved_note, note_hash_read) =
-            get_note(self.context, Option::some(self.owner), self.storage_slot);
+        let confirmed_note = get_note(self.context, Option::some(self.owner), self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
+        destroy_note(self.context, confirmed_note);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
@@ -320,7 +319,7 @@ where
             self.context,
             self.owner,
             self.storage_slot,
-            retrieved_note.note,
+            confirmed_note.note,
         )
     }
 }

@@ -3,9 +3,9 @@
 use crate::{
     context::PrivateContext,
     note::{
+        hinted_note::HintedNote,
         note_interface::{NoteHash, NoteType},
         note_metadata::NoteMetadata,
-        retrieved_note::RetrievedNote,
     },
 };
 
@@ -117,8 +117,8 @@ impl MockNoteBuilder {
         MockNote { value: self.value }
     }
 
-    pub(crate) fn build_retrieved_note(self) -> RetrievedNote<MockNote> {
-        RetrievedNote {
+    pub(crate) fn build_hinted_note(self) -> HintedNote<MockNote> {
+        HintedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
             owner: self.owner.unwrap_or(AztecAddress::zero()),

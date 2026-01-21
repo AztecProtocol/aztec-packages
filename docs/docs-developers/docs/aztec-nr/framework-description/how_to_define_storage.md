@@ -279,7 +279,7 @@ let notes = self.storage.balances.at(owner).get_notes(options);
 Removes a previously retrieved note:
 
 ```rust
-self.storage.balances.at(owner).remove(retrieved_note);
+self.storage.balances.at(owner).remove(hinted_note);
 ```
 
 :::tip

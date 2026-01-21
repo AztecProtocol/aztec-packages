@@ -1,8 +1,8 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::NoteHash, retrieved_note::RetrievedNote,
-        utils::compute_siloed_note_nullifier,
+        hinted_note::HintedNote, note_interface::NoteHash,
+        utils::compute_settled_note_siloed_nullifier,
     },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
@@ -45,7 +45,7 @@ impl ProveNullifierInclusion for BlockHeader {
 pub trait ProveNoteIsNullified {
     fn prove_note_is_nullified<Note>(
         header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
+        hinted_note: HintedNote<Note>,
         context: &mut PrivateContext,
     )
     where
@@ -55,13 +55,13 @@ pub trait ProveNoteIsNullified {
 impl ProveNoteIsNullified for BlockHeader {
     fn prove_note_is_nullified<Note>(
         self,
-        retrieved_note: RetrievedNote<Note>,
+        hinted_note: HintedNote<Note>,
         context: &mut PrivateContext,
     )
     where
         Note: NoteHash,
     {
-        let nullifier = compute_siloed_note_nullifier(retrieved_note, context);
+        let nullifier = compute_settled_note_siloed_nullifier(hinted_note, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }

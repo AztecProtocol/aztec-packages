@@ -18,10 +18,10 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
 }
 
 /**
- * Packs a note in a format that is compatible with the default Packable implementation of the retrieved note.
+ * Packs a note in a format that is compatible with the default Packable implementation of the hinted note.
  *
  * @dev Unlike the default Packable implementation, this function first constructs the note metadata from the inputs
- * and only after that it packs the retrieved note. Hence it doesn't map one to one with `RetrievedNote::pack()`.
+ * and only after that it packs the hinted note. Hence it doesn't map one to one with `HintedNote::pack()`.
  *
  * @param contractAddress - The address of the contract that owns the note
  * @param owner - The owner of the note
@@ -32,7 +32,7 @@ function fromRawData(nonzeroNoteHashCounter: boolean, maybeNoteNonce: Fr): { sta
  * @param note - The note content containing the actual note data
  * @returns The packed note as an array of field elements
  */
-export function packAsRetrievedNote({
+export function packAsHintedNote({
   contractAddress,
   owner,
   randomness,
@@ -52,7 +52,7 @@ export function packAsRetrievedNote({
   // If the note is pending it means it has a non-zero note hash counter associated with it.
   const nonZeroNoteHashCounter = isPending;
 
-  // To pack the note as retrieved note we first need to reconstruct the note metadata.
+  // To pack the note as hinted note we first need to reconstruct the note metadata.
   const noteMetadata = fromRawData(nonZeroNoteHashCounter, noteNonce);
 
   // Pack in order: note, contract_address, owner, randomness, storage_slot, metadata (stage, maybe_note_nonce)
