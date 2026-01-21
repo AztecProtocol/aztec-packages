@@ -127,11 +127,11 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema))
+    .args(z.array(SiloedTag.schema), optional(z.number().gte(0)))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
   getPublicLogsByTagsFromContract: z
     .function()
-    .args(schemas.AztecAddress, z.array(Tag.schema))
+    .args(schemas.AztecAddress, z.array(Tag.schema), optional(z.number().gte(0)))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
