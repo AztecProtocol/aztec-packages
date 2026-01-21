@@ -101,14 +101,18 @@ void Poseidon2TraceBuilder::process_hash(
 {
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : hash_events) {
-        auto input_size = event.inputs.size();
-        auto num_perm_events = (input_size / 3) + static_cast<size_t>(input_size % 3 != 0);
-        auto padded_size = 3 * ((event.inputs.size() + 2) / 3);
+        auto input_size = event.inputs.size(); // Will be mutated in the loop below.
+        // Simulation guarantees that the number of intermediate states is 1 more than the number of permutation events.
+        const auto num_perm_events = event.intermediate_states.size() - 1;
+        // The padding size is the number of elements to add to the input to make it a multiple of 3.
+        // We have to map the modulo 3 values of input_size: 0 -> 0, 1 -> 2, 2 -> 1 to the padding size
+        // which corresponds to a multiplication by 2 modulo 3.
+        const auto padding_size = (2 * input_size) % 3;
 
         for (size_t i = 0; i < num_perm_events; i++) {
             std::array<FF, 3> perm_input = { 0, 0, 0 };
             auto perm_state = event.intermediate_states[i];
-            auto perm_output = event.intermediate_states[i + 1];
+            const auto& perm_output = event.intermediate_states[i + 1]; // In range by definition of num_perm_events.
             size_t chunk_size = std::min(input_size, static_cast<size_t>(3));
             // Mix the input chunk into the previous permutation output state
             for (size_t j = 0; j < chunk_size; j++) {
@@ -121,9 +125,9 @@ void Poseidon2TraceBuilder::process_hash(
                       { {
                           { C::poseidon2_hash_sel, 1 },
                           { C::poseidon2_hash_start, i == 0 },
-                          { C::poseidon2_hash_end, (num_perm_events - 1) == i },
-                          { C::poseidon2_hash_input_len, event.inputs.size() },
-                          { C::poseidon2_hash_padding, padded_size - event.inputs.size() },
+                          { C::poseidon2_hash_end, i == (num_perm_events - 1) },
+                          { C::poseidon2_hash_input_len, event.inputs.size() }, // Cannot use input_size as mutated.
+                          { C::poseidon2_hash_padding, padding_size },
                           { C::poseidon2_hash_input_0, perm_input[0] },
                           { C::poseidon2_hash_input_1, perm_input[1] },
                           { C::poseidon2_hash_input_2, perm_input[2] },
