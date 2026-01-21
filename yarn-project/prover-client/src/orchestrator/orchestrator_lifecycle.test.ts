@@ -28,7 +28,8 @@ describe('prover/orchestrator/lifecycle', () => {
   describe('lifecycle', () => {
     it('cancels proving requests', async () => {
       const prover: ServerCircuitProver = new TestCircuitProver();
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO);
+      // Pass cancelJobsOnStop=true to test that cancellation actually aborts jobs
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, true);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -67,6 +68,44 @@ describe('prover/orchestrator/lifecycle', () => {
 
       orchestrator.cancel();
       expect(spy.mock.calls.every(([_, signal]) => signal?.aborted)).toBeTruthy();
+    });
+
+    it('does not abort proving requests when cancelJobsOnStop is false (default)', async () => {
+      const prover: ServerCircuitProver = new TestCircuitProver();
+      // Default behavior: cancelJobsOnStop=false, jobs remain in queue for reuse
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, false);
+
+      const spy = jest.spyOn(prover, 'getBaseParityProof');
+      const deferredPromises: PromiseWithResolvers<any>[] = [];
+      spy.mockImplementation(() => {
+        const deferred = promiseWithResolvers<any>();
+        deferredPromises.push(deferred);
+        return deferred.promise;
+      });
+
+      const {
+        constants,
+        blocks: [block],
+        previousBlockHeader,
+      } = await context.makeCheckpoint(1, {
+        numTxsPerBlock: 0,
+      });
+
+      const finalBlobChallenges = await context.getFinalBlobChallenges();
+      orchestrator.startNewEpoch(EpochNumber(1), 1, finalBlobChallenges);
+
+      await orchestrator.startNewCheckpoint(0, constants, [], 1, previousBlockHeader);
+
+      const { blockNumber, timestamp } = block.header.globalVariables;
+      await orchestrator.startNewBlock(blockNumber, timestamp, 0);
+
+      await sleep(1);
+
+      expect(spy).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
+      expect(spy.mock.calls.every(([_, signal]) => !signal?.aborted)).toBeTruthy();
+
+      orchestrator.cancel();
+      expect(spy.mock.calls.every(([_, signal]) => !signal?.aborted)).toBeTruthy();
     });
   });
 });
