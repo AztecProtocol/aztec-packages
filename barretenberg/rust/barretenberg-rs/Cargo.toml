@@ -3,6 +3,14 @@ name = "barretenberg-rs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "Rust bindings for Barretenberg, a C++ cryptographic library for zero-knowledge proofs"
+license = "Apache-2.0"
+repository = "https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg/rust/barretenberg-rs"
+homepage = "https://aztec.network"
+documentation = "https://docs.rs/barretenberg-rs"
+readme = "README.md"
+keywords = ["cryptography", "zero-knowledge", "zkp", "barretenberg", "aztec"]
+categories = ["cryptography", "api-bindings"]
 
 [dependencies]
 # Serialization
