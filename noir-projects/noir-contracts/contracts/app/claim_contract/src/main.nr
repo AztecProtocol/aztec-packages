@@ -51,7 +51,7 @@ pub contract Claim {
         // 3) Prove that the note hash exists in the note hash tree
         // docs:start:prove_note_inclusion
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(hinted_note);
+        let _ = header.prove_note_inclusion(hinted_note);
         // docs:end:prove_note_inclusion
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be

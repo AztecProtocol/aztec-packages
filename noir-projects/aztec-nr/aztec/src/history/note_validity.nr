@@ -23,7 +23,7 @@ impl ProveNoteValidity for BlockHeader {
     where
         Note: NoteHash,
     {
-        self.prove_note_inclusion(hinted_note);
-        self.prove_note_not_nullified(hinted_note, context);
+        let confirmed_note = self.prove_note_inclusion(hinted_note);
+        self.prove_note_not_nullified(confirmed_note, context);
     }
 }
