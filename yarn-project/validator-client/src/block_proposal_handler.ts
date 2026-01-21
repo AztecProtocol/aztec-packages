@@ -219,9 +219,8 @@ export class BlockProposalHandler {
     let reexecutionResult;
     if (shouldReexecute) {
       // Compute the previous checkpoint out hashes for the epoch.
-      // TODO(mbps): This assumes one block per checkpoint, which is only true for now.
-      // TODO: There can be a more efficient way to get the previous checkpoint out hashes without having to fetch all
-      // the blocks.
+      // TODO(leila/mbps): There can be a more efficient way to get the previous checkpoint out
+      // hashes without having to fetch all the blocks.
       const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
       const previousCheckpointedBlocks = (await this.blockSource.getCheckpointedBlocksForEpoch(epoch))
         .filter(b => b.block.number < blockNumber)
@@ -436,29 +435,6 @@ export class BlockProposalHandler {
     return new Date(nextSlotTimestampSeconds * 1000);
   }
 
-  /**
-   * Gets all prior blocks in the same checkpoint (same slot and checkpoint number) up to but not including upToBlockNumber.
-   */
-  private async getBlocksInCheckpoint(
-    slot: SlotNumber,
-    upToBlockNumber: BlockNumber,
-    checkpointNumber: CheckpointNumber,
-  ): Promise<L2BlockNew[]> {
-    const blocks: L2BlockNew[] = [];
-    let currentBlockNumber = BlockNumber(upToBlockNumber - 1);
-
-    while (currentBlockNumber >= INITIAL_L2_BLOCK_NUM) {
-      const block = await this.blockSource.getL2BlockNew(currentBlockNumber);
-      if (!block || block.header.getSlot() !== slot || block.checkpointNumber !== checkpointNumber) {
-        break;
-      }
-      blocks.unshift(block);
-      currentBlockNumber = BlockNumber(currentBlockNumber - 1);
-    }
-
-    return blocks;
-  }
-
   private getReexecuteFailureReason(err: any) {
     if (err instanceof ReExStateMismatchError) {
       return 'state_mismatch';
@@ -492,8 +468,9 @@ export class BlockProposalHandler {
     const slot = proposal.slotNumber;
     const config = this.checkpointsBuilder.getConfig();
 
-    // Get prior blocks in this checkpoint (same slot and checkpoint number)
-    const priorBlocks = await this.getBlocksInCheckpoint(slot, blockNumber, checkpointNumber);
+    // Get prior blocks in this checkpoint (same slot before current block)
+    const allBlocksInSlot = await this.blockSource.getBlocksForSlot(slot);
+    const priorBlocks = allBlocksInSlot.filter(b => b.number < blockNumber && b.header.getSlot() === slot);
 
     // Fork before the block to be built
     const parentBlockNumber = BlockNumber(blockNumber - 1);

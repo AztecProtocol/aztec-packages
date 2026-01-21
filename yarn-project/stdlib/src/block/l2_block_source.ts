@@ -81,7 +81,7 @@ export interface L2BlockSource {
    */
   getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined>;
 
-  getCheckpointedBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<CheckpointedL2Block[]>;
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]>;
 
   /**
    * Retrieves a collection of checkpoints.
@@ -209,7 +209,7 @@ export interface L2BlockSource {
    */
   getBlock(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
-  getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
+  getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
 
   /**
    * Returns all checkpointed blocks for a given epoch.
@@ -243,10 +243,9 @@ export interface L2BlockSource {
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The maximum number of blocks to return.
-   * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]>;
+  getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
 }
 
 /**

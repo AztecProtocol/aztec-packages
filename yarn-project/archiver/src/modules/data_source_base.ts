@@ -117,18 +117,8 @@ export abstract class ArchiverDataSourceBase
     return BlockNumber(checkpointData.startBlock + checkpointData.numBlocks - 1);
   }
 
-  public async getCheckpointedBlocks(
-    from: BlockNumber,
-    limit: number,
-    proven?: boolean,
-  ): Promise<CheckpointedL2Block[]> {
-    const blocks = await this.store.getCheckpointedBlocks(from, limit);
-
-    if (proven === true) {
-      const provenBlockNumber = await this.store.getProvenBlockNumber();
-      return blocks.filter(b => b.block.number <= provenBlockNumber);
-    }
-    return blocks;
+  public getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
+    return this.store.getCheckpointedBlocks(from, limit);
   }
 
   public getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
@@ -167,14 +157,8 @@ export abstract class ArchiverDataSourceBase
     return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
-  public async getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
-    const blocks = await this.store.getBlocks(from, limit);
-
-    if (proven === true) {
-      const provenBlockNumber = await this.store.getProvenBlockNumber();
-      return blocks.filter(b => b.number <= provenBlockNumber);
-    }
-    return blocks;
+  public getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+    return this.store.getBlocks(from, limit);
   }
 
   public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
@@ -363,14 +347,8 @@ export abstract class ArchiverDataSourceBase
     return this.store.getBlock(number);
   }
 
-  public async getBlocks(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
-    const blocks = await this.store.getBlocks(from, limit);
-
-    if (proven === true) {
-      const provenBlockNumber = await this.store.getProvenBlockNumber();
-      return blocks.filter(b => b.number <= provenBlockNumber);
-    }
-    return blocks;
+  public getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
+    return this.store.getBlocks(from, limit);
   }
 
   public getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {

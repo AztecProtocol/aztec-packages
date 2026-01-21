@@ -101,11 +101,7 @@ export class ServerWorldStateSynchronizer
     }
 
     // Get the current latest block number
-    this.latestBlockNumberAtStart = BlockNumber(
-      await (this.config.worldStateProvenBlocksOnly
-        ? this.l2BlockSource.getProvenBlockNumber()
-        : this.l2BlockSource.getBlockNumber()),
-    );
+    this.latestBlockNumberAtStart = BlockNumber(await this.l2BlockSource.getBlockNumber());
 
     const blockToDownloadFrom = (await this.getLatestBlockNumber()) + 1;
 
@@ -129,7 +125,6 @@ export class ServerWorldStateSynchronizer
   protected createBlockStream(): L2BlockStream {
     const logger = createLogger('world-state:block_stream');
     return new L2BlockStream(this.l2BlockSource, this, this, logger, {
-      proven: this.config.worldStateProvenBlocksOnly,
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,
       ignoreCheckpoints: true,

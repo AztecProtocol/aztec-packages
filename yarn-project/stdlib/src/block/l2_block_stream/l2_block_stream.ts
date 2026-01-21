@@ -25,7 +25,6 @@ export class L2BlockStream {
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
     private opts: {
-      proven?: boolean;
       pollIntervalMS?: number;
       batchSize?: number;
       startingBlock?: number;
@@ -213,8 +212,8 @@ export class L2BlockStream {
       // Loop 3: Fetch any remaining uncheckpointed (proposed) blocks.
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
-        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit, this.opts.proven);
+        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
+        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit);
         if (blocks.length === 0) {
           break;
         }

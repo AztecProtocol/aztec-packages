@@ -92,20 +92,14 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointedBlock: z.function().args(BlockNumberSchema).returns(CheckpointedL2Block.schema.optional()),
   getCheckpointedBlocks: z
     .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
+    .args(BlockNumberSchema, schemas.Integer)
     .returns(z.array(CheckpointedL2Block.schema)),
-  getBlocks: z
-    .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
-    .returns(z.array(L2BlockNew.schema)),
+  getBlocks: z.function().args(BlockNumberSchema, schemas.Integer).returns(z.array(L2BlockNew.schema)),
   getCheckpoints: z
     .function()
     .args(CheckpointNumberSchema, schemas.Integer)
     .returns(z.array(PublishedCheckpoint.schema)),
-  getL2BlocksNew: z
-    .function()
-    .args(BlockNumberSchema, schemas.Integer, optional(z.boolean()))
-    .returns(z.array(L2BlockNew.schema)),
+  getL2BlocksNew: z.function().args(BlockNumberSchema, schemas.Integer).returns(z.array(L2BlockNew.schema)),
   getCheckpointedBlockByHash: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
   getCheckpointedBlockByArchive: z.function().args(schemas.Fr).returns(CheckpointedL2Block.schema.optional()),
   getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),

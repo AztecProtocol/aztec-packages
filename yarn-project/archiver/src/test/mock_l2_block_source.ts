@@ -121,11 +121,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(checkpointedBlock);
   }
 
-  public async getCheckpointedBlocks(
-    from: BlockNumber,
-    limit: number,
-    _proven?: boolean,
-  ): Promise<CheckpointedL2Block[]> {
+  public async getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
     const result: CheckpointedL2Block[] = [];
     for (let i = 0; i < limit; i++) {
       const blockNum = from + i;
@@ -166,12 +162,8 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @param limit - The maximum number of blocks to return.
    * @returns The requested mocked L2 blocks.
    */
-  public getBlocks(from: number, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
-    return Promise.resolve(
-      this.l2Blocks
-        .slice(from - 1, from - 1 + limit)
-        .filter(b => !proven || this.provenBlockNumber === undefined || b.number <= this.provenBlockNumber),
-    );
+  public getBlocks(from: number, limit: number): Promise<L2BlockNew[]> {
+    return Promise.resolve(this.l2Blocks.slice(from - 1, from - 1 + limit));
   }
 
   public getCheckpoints(from: CheckpointNumber, limit: number) {
@@ -203,9 +195,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return checkpoint;
   }
 
-  getL2BlocksNew(from: BlockNumber, limit: number, proven?: boolean): Promise<L2BlockNew[]> {
+  getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
     // getBlocks already returns L2BlockNew[], so just return directly
-    return this.getBlocks(from, limit, proven);
+    return this.getBlocks(from, limit);
   }
 
   public async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
