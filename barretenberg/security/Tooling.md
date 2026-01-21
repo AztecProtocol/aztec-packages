@@ -4,7 +4,9 @@ There are various mechanisms that are used to ensure the security of the protoco
 
 ## Boomerang value detection
 
-Taking the value out of the circuit and then returning it without creating an appropriate constraint is a common bug. To detect such issues in our codebase we've created boomerand detection static analysis tool. It automatically detects variables in one gate and filters out false positives. It can also detect if a circuit has several subgraphs that are not connected with any constraints, which can also be a marker of a bug. You can find more in ../cpp/src/barretenberg/boomerang_value_detection.
+Taking the value out of the circuit and then returning it without creating an appropriate constraint is a common bug. To detect such issues in our codebase we've created boomerang detection static analysis tool. It automatically detects variables in one gate and filters out false positives. It can also detect if a circuit has several subgraphs that are not connected with any constraints, which can also be a marker of a bug.
+
+For detailed documentation, see the [Boomerang Value Detection README](../cpp/src/barretenberg/boomerang_value_detection/README.md).
 
 ## Origin Tags
 

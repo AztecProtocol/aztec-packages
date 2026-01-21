@@ -21,10 +21,10 @@ use crate::{
         processing::{message_context::MessageContext, validate_enqueued_notes_and_events},
     },
     note::{
+        hinted_note::HintedNote,
         note_interface::{NoteHash, NoteType},
         note_message::NoteMessage,
         note_metadata::SettledNoteMetadata,
-        retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullification,
     },
     oracle::version::assert_compatible_oracle_version,
@@ -701,7 +701,7 @@ impl TestEnvironment {
     ///
     /// env.discover_note(note_message);
     ///
-    /// env.private_context(|context| { let (retrieved_note, _) = get_note::<MockNote>(context, storage_slot); });
+    /// env.private_context(|context| { let (hinted_note, _) = get_note::<MockNote>(context, storage_slot); });
     /// ```
     pub unconstrained fn discover_note<Note>(self: Self, note_message: NoteMessage<Note>)
     where
@@ -725,7 +725,7 @@ impl TestEnvironment {
     /// env.discover_note_at(contract_address, note_message);
     ///
     /// env.private_context_at(contract_address, |context| {
-    ///     let (retrieved_note, _) = get_note::<MockNote>(context, storage_slot);
+    ///     let (hinted_note, _) = get_note::<MockNote>(context, storage_slot);
     /// });
     /// ```
     pub unconstrained fn discover_note_at<Note>(
@@ -775,7 +775,7 @@ impl TestEnvironment {
 
             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
             let note_hash_for_nullification = compute_note_hash_for_nullification(
-                RetrievedNote {
+                HintedNote {
                     note,
                     contract_address,
                     owner,

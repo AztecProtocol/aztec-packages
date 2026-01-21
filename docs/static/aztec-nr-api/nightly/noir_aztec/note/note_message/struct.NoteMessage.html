@@ -62,7 +62,8 @@ recipients.</p></div>
 <p>The <code>delivery_mode</code> must be one of <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html">crate::messages::message_delivery::MessageDeliveryEnum</a>, and will inform
 costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
 constant.</p>
-<p>To deliver the message to a recipient that is not the note's owner, use <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html#deliver_to">NoteMessage::deliver_to</a> instead.</p>
+<p>To deliver the message to a recipient that is not the note's owner, use <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html#deliver_to">deliver_to</a>
+instead.</p>
 <h4>Invalid Recipients</h4>
 <p>If the note's owner is an invalid address, then a random public key is selected and message delivery continues
 as normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
@@ -74,8 +75,8 @@ fingerprint, e.g. one lacking the private logs that would correspond to message 
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
-<p>Same as <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html#deliver">NoteMessage::deliver</a>, except the message gets delivered to an arbitrary <code>recipient</code> instead of the
-note owner.</p>
+<p>Same as <a href="../../../noir_aztec/note/note_message/struct.NoteMessage.html#deliver">deliver</a>, except the message gets delivered to an arbitrary <code>recipient</code> instead
+of the note owner.</p>
 <p>Note that <code>recipient</code> getting the message does not let them <strong>use</strong> the note, it only means that thy will know
 about it, including the transaction in which it was created, and prove it exists. They will also not be able to
 know when or if the note is used (i.e. nullified), assuming the standard note nullifier function.</p>

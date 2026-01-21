@@ -7,7 +7,6 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -92,13 +91,10 @@ function mockEpochCache(): EpochCacheInterface {
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n }),
     computeProposerIndex: () => 0n,
-    getProposerAttesterAddressInCurrentOrNextSlot: () =>
-      Promise.resolve({
-        currentProposer: EthAddress.ZERO,
-        nextProposer: EthAddress.ZERO,
-        currentSlot: SlotNumber.ZERO,
-        nextSlot: SlotNumber.ZERO,
-      }),
+    getCurrentAndNextSlot: () => ({
+      currentSlot: SlotNumber.ZERO,
+      nextSlot: SlotNumber.ZERO,
+    }),
     getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
     getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),

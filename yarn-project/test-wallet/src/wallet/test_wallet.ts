@@ -6,7 +6,8 @@ import {
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
   SetPublicAuthwitContractInteraction,
-  getMessageHashFromIntent,
+  computeInnerAuthWitHashFromAction,
+  isContractFunctionInteractionCallIntent,
   lookupValidity,
 } from '@aztec/aztec.js/authorization';
 import { AccountManager, type SendOptions, type SimulateOptions } from '@aztec/aztec.js/wallet';
@@ -80,11 +81,10 @@ export abstract class BaseTestWallet extends BaseWallet {
     this.minFeePadding = value ?? 0.5;
   }
 
-  protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
+  protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
@@ -93,7 +93,7 @@ export abstract class BaseTestWallet extends BaseWallet {
       throw new Error(`Account not found in wallet for address: ${address}`);
     }
 
-    return account;
+    return Promise.resolve(account);
   }
 
   getAccounts() {
@@ -174,18 +174,33 @@ export abstract class BaseTestWallet extends BaseWallet {
    * of the provided account. This authwit can be verified
    * by the account contract
    * @param from - The address authorizing the action
-   * @param messageHashOrIntent - The action to authorize
+   * @param intent - The action to authorize
    */
   public override async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    intent: IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
-    const messageHash = await getMessageHashFromIntent(messageHashOrIntent, chainInfo);
-    return account.createAuthWit(messageHash);
+    let intentInnerHash: IntentInnerHash;
+    if ('caller' in intent) {
+      const call = isContractFunctionInteractionCallIntent(intent)
+        ? await intent.action.getFunctionCall()
+        : intent.call;
+      const innerHash = await computeInnerAuthWitHashFromAction(intent.caller, call);
+      intentInnerHash = { innerHash, consumer: call.to };
+    } else {
+      intentInnerHash = intent;
+    }
+    return account.createAuthWit(intentInnerHash, chainInfo);
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   abstract getFakeAccountDataFor(
     address: AztecAddress, // eslint-disable-next-line jsdoc/require-jsdoc
   ): Promise<{ account: Account; instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
@@ -207,9 +222,11 @@ export abstract class BaseTestWallet extends BaseWallet {
         ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
         : executionPayload;
       const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
+      const chainInfo = await this.getChainInfo();
       const txRequest = await fromAccount.createTxExecutionRequest(
         finalExecutionPayload,
         feeOptions.gasSettings,
+        chainInfo,
         executionOptions,
       );
       const contractOverrides = {

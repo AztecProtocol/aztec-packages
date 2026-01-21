@@ -5,6 +5,10 @@ hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 
+function build {
+  cache_load_image consensys/web3signer:25.11.0
+}
+
 # Helper function to extract test names from a test file
 function extract_test_names {
   local test_file="$1"
@@ -227,6 +231,9 @@ function avm_check_circuit {
 }
 
 case "$cmd" in
+  "")
+    build
+    ;;
   *)
     default_cmd_handler "$@"
     ;;

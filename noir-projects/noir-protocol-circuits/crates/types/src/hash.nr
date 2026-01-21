@@ -251,12 +251,6 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
     let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
-    // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-    // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-    // fixed-length and variable-length hashes do not collide)
-    if in_len != N {
-        sponge.absorb(1);
-    }
     sponge.squeeze()
 }
 

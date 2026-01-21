@@ -305,6 +305,10 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_parent_cd_size);
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
+    EXPECT_CALL(context, get_internal_call_stack_manager).WillRepeatedly(ReturnRef(internal_call_stack_manager));
+    EXPECT_CALL(internal_call_stack_manager, get_call_id);
+    EXPECT_CALL(internal_call_stack_manager, get_return_call_id);
+    EXPECT_CALL(internal_call_stack_manager, get_next_call_id);
     EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
         .WillOnce(Return(written_public_data_slots_tree_snapshot));
     EXPECT_CALL(context, get_side_effect_tracker);
@@ -391,6 +395,10 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(context, get_parent_cd_size);
         EXPECT_CALL(context, get_parent_gas_used);
         EXPECT_CALL(context, get_parent_gas_limit);
+        EXPECT_CALL(context, get_internal_call_stack_manager).WillRepeatedly(ReturnRef(internal_call_stack_manager));
+        EXPECT_CALL(internal_call_stack_manager, get_call_id);
+        EXPECT_CALL(internal_call_stack_manager, get_return_call_id);
+        EXPECT_CALL(internal_call_stack_manager, get_next_call_id);
         EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
             .WillOnce(Return(written_public_data_slots_tree_snapshot));
         EXPECT_CALL(context, get_side_effect_tracker);

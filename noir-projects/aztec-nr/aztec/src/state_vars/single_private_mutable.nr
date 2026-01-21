@@ -2,7 +2,7 @@ use crate::{
     context::{PrivateContext, UtilityContext},
     keys::getters::{get_nsk_app, get_public_keys},
     note::{
-        lifecycle::{create_note, destroy_note_unsafe},
+        lifecycle::{create_note, destroy_note},
         note_getter::{get_note, view_note},
         note_interface::{NoteHash, NoteType},
         note_message::NoteMessage,
@@ -166,13 +166,12 @@ where
     where
         Note: Packable,
     {
-        let (prev_retrieved_note, note_hash_read) =
-            get_note(self.context, Option::none(), self.storage_slot);
+        let prev_confirmed_note = get_note(self.context, Option::none(), self.storage_slot);
 
         // Nullify previous note.
-        destroy_note_unsafe(self.context, prev_retrieved_note, note_hash_read);
+        destroy_note(self.context, prev_confirmed_note);
 
-        let new_note = f(prev_retrieved_note.note);
+        let new_note = f(prev_confirmed_note.note);
 
         // Add replacement note.
         create_note(self.context, new_owner, self.storage_slot, new_note)
@@ -224,16 +223,15 @@ where
     where
         Note: Packable,
     {
-        let mut (retrieved_note, note_hash_read) =
-            get_note(self.context, Option::none(), self.storage_slot);
+        let confirmed_note = get_note(self.context, Option::none(), self.storage_slot);
 
-        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
+        destroy_note(self.context, confirmed_note);
 
         create_note(
             self.context,
-            retrieved_note.owner,
+            confirmed_note.owner,
             self.storage_slot,
-            retrieved_note.note,
+            confirmed_note.note,
         )
     }
 }

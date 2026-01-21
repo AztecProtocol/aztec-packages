@@ -2,8 +2,7 @@ use protocol_types::{abis::block_header::BlockHeader, merkle_tree::root::root_fr
 
 use crate::{
     note::{
-        note_interface::NoteHash, retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_nullification,
+        hinted_note::HintedNote, note_interface::NoteHash, utils::compute_settled_note_unique_hash,
     },
     oracle::get_membership_witness::get_note_hash_membership_witness,
 };
@@ -11,17 +10,17 @@ use crate::{
 mod test;
 
 pub trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note>(header: BlockHeader, retrieved_note: RetrievedNote<Note>)
+    fn prove_note_inclusion<Note>(header: BlockHeader, hinted_note: HintedNote<Note>)
     where
         Note: NoteHash;
 }
 
 impl ProveNoteInclusion for BlockHeader {
-    fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>)
+    fn prove_note_inclusion<Note>(self, hinted_note: HintedNote<Note>)
     where
         Note: NoteHash,
     {
-        let note_hash = compute_note_hash_for_nullification(retrieved_note);
+        let note_hash = compute_settled_note_unique_hash(hinted_note);
 
         // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
         let witness = unsafe { get_note_hash_membership_witness(self, note_hash) };

@@ -364,6 +364,7 @@ function build {
   )
   # These projects can be built in parallel.
   parallel_cmds=(
+    yarn-project/end-to-end/bootstrap.sh
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
@@ -718,6 +719,15 @@ case "$cmd" in
     export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
+    ;;
+  ##########################################
+  # ROLLUP UPGRADE DEPLOYMENT              #
+  ##########################################
+  "ci-deploy-rollup-upgrade")
+    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
+    # Args: <registry_address> [KEY=VALUE...]
+    export CI=1
+    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
   ##############################################

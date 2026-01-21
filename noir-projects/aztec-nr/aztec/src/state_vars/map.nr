@@ -12,7 +12,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 /// retrieve values by their associated keys.
 ///
 /// You can declare a state variable contained within a Map in your contract's
-/// #[storage] struct.
+/// [storage](crate::macros::storage::storage) struct.
 ///
 /// For example, you might use
 /// `Map<AztecAddress, PublicMutable<FieldNote, Context>, Context>` to track
@@ -40,7 +40,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 ///   contexts)
 ///
 /// ## Usage
-/// Maps are typically declared in your contract's #[storage] struct and
+/// Maps are typically declared in your contract's [storage](crate::macros::storage::storage) struct and
 /// accessed
 /// using the `at(key)` method to get the state variable for a specific key.
 /// The resulting state variable can then be read from or written to using its

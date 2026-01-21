@@ -3,6 +3,7 @@ title: State Management
 description: How public and private state work in Aztec, including storage slots, notes, and the UTXO model
 sidebar_position: 0
 tags: [protocol, storage]
+references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr"]
 ---
 
 import Image from "@theme/IdealImage";

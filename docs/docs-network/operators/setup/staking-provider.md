@@ -19,10 +19,11 @@ Before proceeding, ensure you have:
 - An Ethereum wallet with sufficient ETH for gas fees
 - Understanding of basic Aztec staking mechanics
 - Foundry installed for `cast` commands
-- Aztec CLI v2.1.9 or later installed:
+- Aztec CLI v#release_version or later installed:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network/2.1.9/)
+bash -i <(curl -s https://install.aztec.network)
+aztec-up #release_version
 ```
 
 ### Contract Addresses
@@ -174,6 +175,16 @@ The Staking Registry **DOES NOT** check for duplicate keys. Please take **EXTREM
 
 Use the `aztec validator-keys` command with the `--staker-output` flag to automatically generate properly formatted registration data:
 
+#if(testnet)
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --l1-rpc-urls $ETH_RPC \
+  --l1-chain-id 11155111
+```
+#else
 ```bash
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
@@ -182,8 +193,7 @@ aztec validator-keys new \
   --l1-rpc-urls $ETH_RPC \
   --l1-chain-id 1
 ```
-
-**For testnet (Sepolia):** Use `--gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614` and `--l1-chain-id 11155111`
+#endif
 
 This command automatically:
 1. Generates the private keystore with ETH and BLS keys

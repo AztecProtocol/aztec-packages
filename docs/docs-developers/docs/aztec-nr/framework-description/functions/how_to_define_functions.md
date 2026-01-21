@@ -3,6 +3,7 @@ title: How to Define Functions
 sidebar_position: 1
 tags: [functions, smart-contracts]
 description: Define different types of functions in your Aztec contracts for private, public, and utility execution.
+references: ["docs/examples/contracts/bob_token_contract/src/main.nr", "docs/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 ## Overview

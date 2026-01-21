@@ -226,7 +226,7 @@ The `self.context.msg_sender_unsafe` method has been dropped as its use can be r
 The following terms have been renamed:
 
 - `MessageDelivery::UNCONSTRAINED_OFFCHAIN` -> `MessageDelivery::OFFCHAIN`
-- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::OFFCHAIN_UNCONSTRAINED`
+- `MessageDelivery::UNCONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_UNCONSTRAINED`
 - `MessageDelivery::CONSTRAINED_ONCHAIN` -> `MessageDelivery::ONCHAIN_CONSTRAINED`
 
 We believe these names will better convey the meaning of the concepts.
@@ -294,7 +294,7 @@ Private events are still emitted via the `emit` function, but this now returns a
 
 ### [Aztec.nr] History proof functions no longer require `storage_slot` parameter
 
-The `RetrievedNote` struct now includes a `storage_slot` field, making it self-contained for proving note inclusion and validity. As a result, the history proof functions in the `aztec::history` module no longer require a separate `storage_slot` parameter.
+The `HintedNote` struct now includes a `storage_slot` field, making it self-contained for proving note inclusion and validity. As a result, the history proof functions in the `aztec::history` module no longer require a separate `storage_slot` parameter.
 
 **Affected functions:**
 
@@ -305,24 +305,24 @@ The `RetrievedNote` struct now includes a `storage_slot` field, making it self-c
 
 **Migration:**
 
-The `storage_slot` is now read from `retrieved_note.storage_slot` internally. Simply remove the `storage_slot` argument from all calls to these functions:
+The `storage_slot` is now read from `hinted_note.storage_slot` internally. Simply remove the `storage_slot` argument from all calls to these functions:
 
 ```diff
   let header = context.get_anchor_block_header();
-- header.prove_note_inclusion(retrieved_note, storage_slot);
-+ header.prove_note_inclusion(retrieved_note);
+- header.prove_note_inclusion(hinted_note, storage_slot);
++ header.prove_note_inclusion(hinted_note);
 
   let header = context.get_anchor_block_header();
-- header.prove_note_validity(retrieved_note, storage_slot, context);
-+ header.prove_note_validity(retrieved_note, context);
+- header.prove_note_validity(hinted_note, storage_slot, context);
++ header.prove_note_validity(hinted_note, context);
 
   let header = context.get_anchor_block_header();
-- header.prove_note_is_nullified(retrieved_note, storage_slot, context);
-+ header.prove_note_is_nullified(retrieved_note, context);
+- header.prove_note_is_nullified(hinted_note, storage_slot, context);
++ header.prove_note_is_nullified(hinted_note, context);
 
   let header = context.get_anchor_block_header();
-- header.prove_note_not_nullified(retrieved_note, storage_slot, context);
-+ header.prove_note_not_nullified(retrieved_note, context);
+- header.prove_note_not_nullified(hinted_note, storage_slot, context);
++ header.prove_note_not_nullified(hinted_note, context);
 ```
 
 ### [Aztec.nr] Note fields are now public
@@ -508,7 +508,7 @@ Signature of some functions like `destroy_note_unsafe` is unchanged:
 ```diff
 pub fn destroy_note_unsafe<Note>(
     context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
+    hinted_note: HintedNote<Note>,
     note_hash_read: NoteHashRead,
 )
 where
@@ -518,7 +518,7 @@ where
 }
 ```
 
-because `RetrievedNote` now contains owner.
+because `HintedNote` now contains owner.
 
 `PrivateImmutable`, `PrivateMutable` and `PrivateSet` got modified to directly contain the owner instead of implicitly "containing it" by including it in the storage slot via a `Map`.
 These state variables now implement a newly introduced `OwnedStateVariable` trait (see docs of `OwnedStateVariable` for explanation of what it is).
@@ -702,10 +702,10 @@ struct UintPartialNotePrivateLogContent {
 
 As a result of this change, the maximum packed length of the content of a note is 11 fields, down from 12. This is a direct consequence of moving the randomness field from the note content structure to the note's metadata.
 
-#### RetrievedNote now includes randomness field
+#### HintedNote now includes randomness field
 
 ```diff
-pub struct RetrievedNote<Note> {
+pub struct HintedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,
 +   pub randomness: Field,
@@ -1945,7 +1945,7 @@ use dep::aztec::{
         note_getter_options::NoteGetterOptions,
         note_interface::{NoteHash, NoteType},
         note_viewer_options::NoteViewerOptions,
-        retrieved_note::RetrievedNote,
+        hinted_note::HintedNote,
     },
     state_vars::{
         map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
@@ -2443,7 +2443,7 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 
 In this releases we decided to do a large refactor of notes which resulted in the following changes:
 
-1. We removed `NoteHeader` and we've introduced a `RetrievedNote` struct that contains a note and the information originally stored in the `NoteHeader`.
+1. We removed `NoteHeader` and we've introduced a `HintedNote` struct that contains a note and the information originally stored in the `NoteHeader`.
 2. We removed the `pack_content` and `unpack_content` functions from the `NoteInterface`and made notes implement the standard `Packable` trait.
 3. We renamed the `NullifiableNote` trait to `NoteHash` and we've moved the `compute_note_hash` function to this trait from the `NoteInterface` trait.
 4. We renamed `NoteInterface` trait as `NoteType` and `get_note_type_id` function as `get_id`.
@@ -2532,9 +2532,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
 For `PrivateSet` the changes are a bit more involved than the changes in `PrivateImmutable`.
 Instead of passing in a mutable reference `&mut note` to the `insert` function just pass in `note`.
-The `remove` function now takes in a `RetrievedNote<Note>` instead of a `Note` and the `get_notes` function
-now returns a vector `RetrievedNote`s instead of a vector `Note`s.
-Note getters now generally return `RetrievedNote`s so getting a hold of the `RetrievedNote` for removal should be straightforward.
+The `remove` function now takes in a `HintedNote<Note>` instead of a `Note` and the `get_notes` function
+now returns a vector `HintedNote`s instead of a vector `Note`s.
+Note getters now generally return `HintedNote`s so getting a hold of the `HintedNote` for removal should be straightforward.
 
 ```diff
 impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
@@ -2547,7 +2547,7 @@ where
     }
 
 -    pub fn remove(self, note: Note) {
-+    pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
++    pub fn remove(self, hinted_note: HintedNote<Note>) {
         ...
     }
 
@@ -2555,7 +2555,7 @@ where
         self,
         options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
 -    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
-+    ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
++    ) -> BoundedVec<HintedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
         ...
     }
 }

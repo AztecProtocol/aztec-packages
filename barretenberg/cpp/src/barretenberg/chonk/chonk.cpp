@@ -410,7 +410,7 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     // If the current circuit exceeds the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (prover_instance->dyadic_size() > bn254_commitment_key.dyadic_size) {
+    if (prover_instance->dyadic_size() > bn254_commitment_key.srs_size) {
         bn254_commitment_key = CommitmentKey<curve::BN254>(prover_instance->dyadic_size());
         goblin.commitment_key = bn254_commitment_key;
     }

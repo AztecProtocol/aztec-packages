@@ -366,3 +366,8 @@ tests:
     error_regex: "tried to kill container, but did not receive an exit event"
     owners:
       - *adam
+
+  - regex: "cd l1-contracts && forge test"
+    error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
+    owners:
+      - *lasse

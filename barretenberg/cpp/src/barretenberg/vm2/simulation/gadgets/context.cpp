@@ -89,7 +89,7 @@ std::vector<MemoryValue> EnqueuedCallContext::get_calldata(uint32_t cd_offset, u
  */
 ContextEvent EnqueuedCallContext::serialize_context_event()
 {
-    const auto& call_stack = get_internal_call_stack_manager();
+    const auto& internal_call_stack = get_internal_call_stack_manager();
     const auto& side_effects = get_side_effect_tracker().get_side_effects();
 
     return {
@@ -112,9 +112,9 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
         // Internal call stack
-        .internal_call_id = call_stack.get_call_id(),
-        .internal_call_return_id = call_stack.get_return_call_id(),
-        .next_internal_call_id = call_stack.get_next_call_id(),
+        .internal_call_id = internal_call_stack.get_call_id(),
+        .internal_call_return_id = internal_call_stack.get_return_call_id(),
+        .next_internal_call_id = internal_call_stack.get_next_call_id(),
         // Tree States
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
@@ -169,7 +169,7 @@ std::vector<MemoryValue> NestedContext::get_calldata(uint32_t cd_offset, uint32_
  */
 ContextEvent NestedContext::serialize_context_event()
 {
-    const auto& call_stack = get_internal_call_stack_manager();
+    const auto& internal_call_stack = get_internal_call_stack_manager();
     const auto& side_effects = get_side_effect_tracker().get_side_effects();
 
     return {
@@ -192,9 +192,9 @@ ContextEvent NestedContext::serialize_context_event()
         .parent_gas_used = get_parent_gas_used(),
         .parent_gas_limit = get_parent_gas_limit(),
         // Internal call stack
-        .internal_call_id = call_stack.get_call_id(),
-        .internal_call_return_id = call_stack.get_return_call_id(),
-        .next_internal_call_id = call_stack.get_next_call_id(),
+        .internal_call_id = internal_call_stack.get_call_id(),
+        .internal_call_return_id = internal_call_stack.get_return_call_id(),
+        .next_internal_call_id = internal_call_stack.get_next_call_id(),
         // Tree states
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),

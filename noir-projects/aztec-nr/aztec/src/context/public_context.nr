@@ -170,7 +170,7 @@ impl PublicContext {
     /// In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
     /// possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
     /// block. Private functions instead prove existence via
-    /// [crate::context::private_context::PrivateContext::push_nullifier_read_request] and 'prove' non-existence by
+    /// [crate::context::private_context::PrivateContext::assert_nullifier_exists] and 'prove' non-existence by
     /// _emitting_ the nullifer, which would cause the transaction to fail if the nullifier existed.
     ///
     /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably

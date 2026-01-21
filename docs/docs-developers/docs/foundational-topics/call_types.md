@@ -3,6 +3,7 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
+references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr", "yarn-project/end-to-end/src/composed/docs_examples.test.ts", "yarn-project/end-to-end/src/e2e_card_game.test.ts", "yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts"]
 ---
 
 ## What is a Call
