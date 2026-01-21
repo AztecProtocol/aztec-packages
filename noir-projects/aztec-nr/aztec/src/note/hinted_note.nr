@@ -4,7 +4,7 @@ use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Seri
 /// A container for a note and the corresponding metadata that can be used to prove the note's existence, regardless of
 /// whether the note is pending (created in the current transaction) or settled (created in a previous transaction).
 #[derive(Deserialize, Eq, Serialize, Packable)]
-pub struct RetrievedNote<Note> {
+pub struct HintedNote<Note> {
     pub note: Note,
     pub contract_address: AztecAddress,
     pub owner: AztecAddress,
@@ -14,7 +14,7 @@ pub struct RetrievedNote<Note> {
 }
 
 mod test {
-    use crate::note::{note_metadata::NoteMetadata, retrieved_note::RetrievedNote};
+    use crate::note::{hinted_note::HintedNote, note_metadata::NoteMetadata};
     use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     #[derive(Packable)]
@@ -23,15 +23,15 @@ mod test {
         value2: Field,
     }
 
-    /// This test is a bit strange because in TS we don't have on the input the actual packed retrieved note but
-    /// instead we run `fromRawData` function to get the NoteMetadata and then we construct and pack the retrieved
+    /// This test is a bit strange because in TS we don't have on the input the actual packed hinted note but
+    /// instead we run `fromRawData` function to get the NoteMetadata and then we construct and pack the hinted
     /// note. To ensure that the `fromRawData` function matches the Noir one, we also run it here and compare the
-    /// final packed retrieved note. It would be more correct to have a separate unit test for the `fromRawData`
+    /// final packed hinted note. It would be more correct to have a separate unit test for the `fromRawData`
     /// function but I felt like it's not worth the effort. The code here is not that complex and it all should be
     /// straightforward to fix if the format, for whatever reason, changes.
     #[test]
-    unconstrained fn packing_retrieved_note_matches_typescript() {
-        // The following 5 values are an input to the typescript function `packAsRetrievedNote`
+    unconstrained fn packing_hinted_note_matches_typescript() {
+        // The following 5 values are an input to the typescript function `packAsHintedNote`
         let contract_address = AztecAddress::from_field(1);
         let randomness = 42;
         let storage_slot = 100;
@@ -39,15 +39,15 @@ mod test {
         let index = Option::<Field>::none(); // Transient note
         let packed_note = [3, 4];
 
-        // Below we reproduce what the typescript function `packAsRetrievedNote` does. This is a bit strange but we
+        // Below we reproduce what the typescript function `packAsHintedNote` does. This is a bit strange but we
         // also want to test that the `fromRawData` function matches the Noir one.
         let note_is_transient = index.is_none();
         let nonzero_note_hash_counter = note_is_transient;
         let note_metadata = NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce);
 
-        // Now we reconstruct the retrieved note from the values above and pack it.
+        // Now we reconstruct the hinted note from the values above and pack it.
         let owner = AztecAddress::from_field(5);
-        let retrieved_note = RetrievedNote {
+        let hinted_note = HintedNote {
             note: TestNote::unpack(packed_note),
             contract_address,
             owner,
@@ -56,9 +56,9 @@ mod test {
             metadata: note_metadata,
         };
 
-        let packed_retrieved_note = retrieved_note.pack();
+        let packed_hinted_note = hinted_note.pack();
 
-        let packed_retrieved_note_from_typescript = [
+        let packed_hinted_note_from_typescript = [
             0x0000000000000000000000000000000000000000000000000000000000000003,
             0x0000000000000000000000000000000000000000000000000000000000000004,
             0x0000000000000000000000000000000000000000000000000000000000000001,
@@ -70,9 +70,9 @@ mod test {
         ];
 
         assert_eq(
-            packed_retrieved_note,
-            packed_retrieved_note_from_typescript,
-            "packed retrieved note does not match value from typescript",
+            packed_hinted_note,
+            packed_hinted_note_from_typescript,
+            "packed hinted note does not match value from typescript",
         );
     }
 }

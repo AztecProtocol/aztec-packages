@@ -104,7 +104,7 @@ pub contract ContractInstanceRegistry {
         universal_deploy: bool,
     ) {
         // contract class must be published in order to publish an instance
-        self.context.push_nullifier_read_request(
+        self.context.assert_nullifier_exists(
             contract_class_id.to_field(),
             CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
         );
