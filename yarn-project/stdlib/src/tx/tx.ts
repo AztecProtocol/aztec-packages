@@ -1,5 +1,4 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -247,7 +246,7 @@ export class Tx extends Gossipable {
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.chonkProof.fields.length,
-      size: this.toBuffer().length,
+      size: this.getSize(),
 
       feePaymentMethod:
         // needsSetup? then we pay through a fee payment contract
@@ -255,13 +254,13 @@ export class Tx extends Gossipable {
     };
   }
 
-  getSize() {
-    return (
-      this.data.getSize() +
-      this.chonkProof.fields.length * Fr.SIZE_IN_BYTES +
-      arraySerializedSizeOfNonEmpty(this.contractClassLogFields) +
-      this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
-    );
+  private sizeCache: number | undefined;
+
+  getSize(): number {
+    if (this.sizeCache == undefined) {
+      this.sizeCache = this.toBuffer().length;
+    }
+    return this.sizeCache;
   }
 
   /**
