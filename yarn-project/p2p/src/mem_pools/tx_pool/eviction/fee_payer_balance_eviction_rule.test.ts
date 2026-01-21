@@ -1,6 +1,7 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { BlockHeader, type Tx, type TxHash } from '@aztec/stdlib/tx';
@@ -18,6 +19,7 @@ import { FeePayerBalanceEvictionRule } from './fee_payer_balance_eviction_rule.j
 describe('FeePayerBalanceEvictionRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
   let worldState: MockProxy<MerkleTreeReadOperations>;
+  let worldStateSynchronizer: MockProxy<WorldStateSynchronizer>;
   let rule: FeePayerBalanceEvictionRule;
 
   const setFeePayerBalance = (balance: bigint) => {
@@ -71,17 +73,19 @@ describe('FeePayerBalanceEvictionRule', () => {
       new PublicDataTreeLeafPreimage(PublicDataTreeLeaf.empty(), Fr.ONE, 1n),
     );
 
-    rule = new FeePayerBalanceEvictionRule({
-      getCommitted: () => worldState,
-      getSnapshot: () => worldState,
-    } as any);
+    worldStateSynchronizer = mock<WorldStateSynchronizer>();
+    worldStateSynchronizer.getCommitted.mockReturnValue(worldState);
+    worldStateSynchronizer.getSnapshot.mockReturnValue(worldState);
+    worldStateSynchronizer.syncImmediate.mockResolvedValue(BlockNumber(1));
+
+    rule = new FeePayerBalanceEvictionRule(worldStateSynchronizer);
   });
 
   describe('evict method', () => {
     it('returns empty result for CHAIN_PRUNED event', async () => {
       const context: EvictionContext = {
         event: EvictionEvent.CHAIN_PRUNED,
-        blockNumber: 1,
+        blockNumber: BlockNumber(1),
       };
 
       const result = await rule.evict(context, txPool);
@@ -92,6 +96,8 @@ describe('FeePayerBalanceEvictionRule', () => {
         txsEvicted: [],
       });
       expect(txPool.getPendingFeePayers).toHaveBeenCalledTimes(1);
+      // Ensure syncImmediate is called before accessing the world state snapshot
+      expect(worldStateSynchronizer.syncImmediate).toHaveBeenCalledWith(BlockNumber(1));
     });
 
     it('returns empty result for TXS_ADDED when no fee payers are provided', async () => {
@@ -122,7 +128,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
       const context: EvictionContext = {
         event: EvictionEvent.CHAIN_PRUNED,
-        blockNumber: 1,
+        blockNumber: BlockNumber(1),
       };
 
       const result = await rule.evict(context, txPool);
@@ -156,6 +162,8 @@ describe('FeePayerBalanceEvictionRule', () => {
       expect(result.txsEvicted).toEqual(expect.arrayContaining(txHashes(tx2)));
       expect(result.txsEvicted.map(txHash => txHash.toString())).not.toContain(tx1.getTxHash().toString());
       expect(txPool.deleteTxs).toHaveBeenCalledWith(expect.arrayContaining(txHashes(tx2)));
+      // Ensure syncImmediate is called before accessing the world state snapshot
+      expect(worldStateSynchronizer.syncImmediate).toHaveBeenCalledWith(blockHeader.getBlockNumber());
     });
 
     it('handles empty fee payer entries after BLOCK_MINED', async () => {
