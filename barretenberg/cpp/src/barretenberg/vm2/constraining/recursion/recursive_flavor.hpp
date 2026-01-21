@@ -68,6 +68,10 @@ class AvmRecursiveFlavor {
      *
      * @note While the base class has a pub_inputs_offset field, this is not used in the AVM verification algorithm, so
      * we leave it default initialized to zero and don't copy this value in the selectors.
+     *
+     * @note As the serialization mode is set to NO_METADATA, the hash of the vk is computed by hashing only the
+     * commitments. This is ok because `log_circuit_size` and `num_public_inputs` are implicitly hard-coded in the
+     * verification algorithm.
      */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           NativeFlavor::PrecomputedEntities<Commitment>,
@@ -76,8 +80,8 @@ class AvmRecursiveFlavor {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            log_circuit_size = FF::from_witness(builder, bb::fr(MAX_AVM_TRACE_LOG_SIZE));
-            num_public_inputs = FF::from_witness(builder, bb::fr(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
+            log_circuit_size = FF(MAX_AVM_TRACE_LOG_SIZE);
+            num_public_inputs = FF(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
@@ -113,12 +117,14 @@ class AvmRecursiveFlavor {
         /**
          * @brief Fixes witnesses of VK to be constants.
          *
+         * @note There is no need to fix log circuit size and number of public inputs, as they are hard-coded in the
+         * verification algorithm:
+         *  - The verifier adds `AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH` to the transcript at the beginning of
+         *    the interaction, thus fixing the number of public inputs
+         *  - The verifier runs sumcheck for `MAX_AVM_TRACE_LOG_SIZE` rounds, thus fixing the log circuit size
          */
         void fix_witness()
         {
-            log_circuit_size.fix_witness();
-            num_public_inputs.fix_witness();
-
             for (Commitment& commitment : this->get_all()) {
                 commitment.fix_witness();
             }

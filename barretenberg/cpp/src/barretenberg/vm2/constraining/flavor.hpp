@@ -235,6 +235,10 @@ class AvmFlavor {
      *
      * @note While the base class has a pub_inputs_offset field, this is not used in the AVM verification algorithm, so
      * we leave it default initialized to zero.
+     *
+     * @note As the serialization mode is set to NO_METADATA, the hash of the vk is computed by hashing only the
+     * commitments. This is ok because `log_circuit_size` and `num_public_inputs` are implicitly hard-coded in the
+     * verification algorithm.
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
                                                           typename Transcript::Codec,
