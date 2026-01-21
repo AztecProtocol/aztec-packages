@@ -80,7 +80,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
             microlimbs[i] = uint256_t(limb).slice(i * MICRO_LIMB_BITS, (i + 1) * MICRO_LIMB_BITS);
         }
 
-        // If there's a partial microlimb at the end, store both actual microlimb and its shifted version
+        // If there's a partial microlimb at the end, store both actual microlimb and its tail
         if (last_limb_bits > 0) {
             // Extract up to the next 14-bit boundary (actual)
             microlimbs[num_full_micro_limbs] = uint256_t(limb).slice(num_full_micro_limbs * MICRO_LIMB_BITS,
@@ -172,12 +172,12 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
     // the high part (0*1, 1*0) multiplied by a single limb shift
     // clang-format off
     Fr low_wide_relation_limb_part_1 =
-        previous_accumulator_limbs[0] * x_witnesses[0]          +
-        op_code                                                 +
-        p_x_limbs[0]                  * v_witnesses[0]          +
-        p_y_limbs[0]                  * v_squared_witnesses[0]  +
-        z_1_limbs[0]                  * v_cubed_witnesses[0]    +
-        z_2_limbs[0]                  * v_quarted_witnesses[0]  +
+        previous_accumulator_limbs[0] * x_witnesses[0]            +
+        op_code                                                   +
+        p_x_limbs[0]                  * v_witnesses[0]            +
+        p_y_limbs[0]                  * v_squared_witnesses[0]    +
+        z_1_limbs[0]                  * v_cubed_witnesses[0]      +
+        z_2_limbs[0]                  * v_quarted_witnesses[0]    +
         quotient_limbs[0]             * NEGATIVE_MODULUS_LIMBS[0] -
         remainder_limbs[0];
 
@@ -331,11 +331,11 @@ void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_
 
     // Check and insert x_hi and z_1 into wire 2
     BB_ASSERT_LTE(uint256_t(ultra_op.x_hi), MAX_HIGH_WIDE_LIMB_SIZE);
-    BB_ASSERT_LTE(uint256_t(ultra_op.z_1), MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.z_1), MAX_Z_LIMB_SIZE);
 
     // Check and insert y_lo and z_2 into wire 3
     BB_ASSERT_LTE(uint256_t(ultra_op.y_lo), MAX_LOW_WIDE_LIMB_SIZE);
-    BB_ASSERT_LTE(uint256_t(ultra_op.z_2), MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.z_2), MAX_Z_LIMB_SIZE);
 }
 
 void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const AccumulationInput& acc_step)
@@ -350,6 +350,7 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     BB_ASSERT_EQ(acc_step.ultra_op.y_hi, acc_step.P_y_limbs[2] + acc_step.P_y_limbs[3] * SHIFT_1);
     BB_ASSERT_EQ(acc_step.ultra_op.z_1, acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1);
     BB_ASSERT_EQ(acc_step.ultra_op.z_2, acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1);
+
     /**
      * @brief Check correctness of limbs values
      *
@@ -535,7 +536,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
         populate_wires_from_ultra_op(ultra_op);
         // Populate the other wires with zeros
-        for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
+        for (size_t i = WireIds::P_X_LOW_LIMBS; i < wires.size(); i++) {
             wires[i].push_back(zero_idx());
             wires[i].push_back(zero_idx());
         }
@@ -550,6 +551,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
+
     const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
@@ -568,13 +570,13 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             continue;
         }
         current_accumulator *= evaluation_input_x;
-        const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
+        const auto [x_fq, y_fq] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
             Fq(ultra_op.op_code.value()) +
             batching_challenge_v *
-                (x_256 + batching_challenge_v *
-                             (y_256 + batching_challenge_v *
-                                          (uint256_t(ultra_op.z_1) + batching_challenge_v * uint256_t(ultra_op.z_2))));
+                (x_fq + batching_challenge_v *
+                            (y_fq + batching_challenge_v *
+                                        (uint256_t(ultra_op.z_1) + batching_challenge_v * uint256_t(ultra_op.z_2))));
         accumulator_trace.push_back(current_accumulator);
     }
 
@@ -596,7 +598,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 wires[j].push_back(zero_idx());
             }
             size_t idx = 0;
-            for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
+            for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j <= ACCUMULATORS_BINARY_LIMBS_3; j++) {
                 wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
                 wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
                 idx++;
@@ -608,6 +610,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             increment_num_gates(2);
             continue;
         }
+
         Fq previous_accumulator{ 0 };
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
@@ -623,6 +626,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
+
     // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
     // whose ops are added to the op queue
     for (size_t i = ops_end; i < ultra_ops.size(); ++i) {

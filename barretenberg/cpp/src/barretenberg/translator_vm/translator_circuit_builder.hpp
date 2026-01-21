@@ -230,6 +230,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
+    // Maximum size of z limbs
+    static constexpr auto MAX_Z_LIMB_SIZE = (uint256_t(1) << NUM_Z_BITS) - 1;
+
     // Index at which the accumulation result is stored in the circuit, preceeded by one no-op that ensures translator
     // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not leak
     // information about the op queue content linked to the circuits being proven
