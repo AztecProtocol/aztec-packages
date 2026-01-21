@@ -126,25 +126,22 @@ bool UltraHonkAPI::verify(const Flags& flags,
     std::vector<uint8_t> vk_bytes;
 
     auto public_inputs_content = read_file(public_inputs_path);
-    if (is_json_content(public_inputs_content)) {
-        std::string json_str(public_inputs_content.begin(), public_inputs_content.end());
-        public_inputs = parse_json_fields(json_str);
+    if (auto json = try_parse_json(public_inputs_content)) {
+        public_inputs = parse_json_fields(*json);
     } else {
         public_inputs = many_from_buffer<uint256_t>(public_inputs_content);
     }
 
     auto proof_content = read_file(proof_path);
-    if (is_json_content(proof_content)) {
-        std::string json_str(proof_content.begin(), proof_content.end());
-        proof = parse_json_fields(json_str);
+    if (auto json = try_parse_json(proof_content)) {
+        proof = parse_json_fields(*json);
     } else {
         proof = many_from_buffer<uint256_t>(proof_content);
     }
 
     auto vk_content = read_file(vk_path);
-    if (is_json_content(vk_content)) {
-        std::string json_str(vk_content.begin(), vk_content.end());
-        vk_bytes = parse_json_fields_to_bytes(json_str);
+    if (auto json = try_parse_json(vk_content)) {
+        vk_bytes = parse_json_fields_to_bytes(*json);
     } else {
         vk_bytes = std::move(vk_content);
     }

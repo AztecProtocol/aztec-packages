@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iomanip>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -85,20 +86,31 @@ std::string build_json_output(const std::vector<T>& fields,
 }
 
 /**
- * @brief Check if file content appears to be JSON
+ * @brief Try to parse file content as JSON
  *
- * @details Detects JSON by checking if content starts with '{' (after skipping whitespace).
- * This is more robust than relying on file extension.
+ * @details Attempts to parse the content as JSON.
+ * Returns nullopt if parsing fails, allowing fallback to binary format.
  */
-inline bool is_json_content(const std::vector<uint8_t>& content)
+inline std::optional<nlohmann::json> try_parse_json(const std::vector<uint8_t>& content)
 {
+    // Quick check: JSON objects must start with '{' (after whitespace)
     for (const auto& byte : content) {
         if (std::isspace(byte)) {
             continue;
         }
-        return byte == '{';
+        if (byte != '{') {
+            return std::nullopt;
+        }
+        break;
     }
-    return false;
+
+    // Try to parse as JSON
+    try {
+        std::string str(content.begin(), content.end());
+        return nlohmann::json::parse(str);
+    } catch (...) {
+        return std::nullopt;
+    }
 }
 
 /**
@@ -119,15 +131,13 @@ inline uint256_t hex_string_to_uint256(const std::string& hex_str)
 }
 
 /**
- * @brief Parse JSON file content and extract fields as uint256_t vector
+ * @brief Extract fields from parsed JSON as uint256_t vector
  *
- * @param json_content Raw JSON string content
+ * @param json Parsed JSON object
  * @return Vector of field elements
  */
-inline std::vector<uint256_t> parse_json_fields(const std::string& json_content)
+inline std::vector<uint256_t> parse_json_fields(const nlohmann::json& json)
 {
-    auto json = nlohmann::json::parse(json_content);
-
     if (!json.contains("fields") || !json["fields"].is_array()) {
         throw_or_abort("JSON missing 'fields' array");
     }
@@ -141,14 +151,13 @@ inline std::vector<uint256_t> parse_json_fields(const std::string& json_content)
 }
 
 /**
- * @brief Parse JSON file and extract the vk_hash field
+ * @brief Extract vk_hash from parsed JSON
  *
- * @param json_content Raw JSON string content
+ * @param json Parsed JSON object
  * @return vk_hash as a hex string, or empty string if not present
  */
-inline std::string parse_json_vk_hash(const std::string& json_content)
+inline std::string parse_json_vk_hash(const nlohmann::json& json)
 {
-    auto json = nlohmann::json::parse(json_content);
     if (json.contains("vk_hash") && json["vk_hash"].is_string()) {
         return json["vk_hash"].get<std::string>();
     }
@@ -156,17 +165,17 @@ inline std::string parse_json_vk_hash(const std::string& json_content)
 }
 
 /**
- * @brief Parse JSON file and extract fields as raw bytes
+ * @brief Extract fields from parsed JSON as raw bytes
  *
  * @details Converts field elements back to their 32-byte big-endian representation.
  * This is the inverse of the serialization used for VK output.
  *
- * @param json_content Raw JSON string content
+ * @param json Parsed JSON object
  * @return Vector of bytes (each field element is 32 bytes)
  */
-inline std::vector<uint8_t> parse_json_fields_to_bytes(const std::string& json_content)
+inline std::vector<uint8_t> parse_json_fields_to_bytes(const nlohmann::json& json)
 {
-    auto fields = parse_json_fields(json_content);
+    auto fields = parse_json_fields(json);
     std::vector<uint8_t> result;
     result.reserve(fields.size() * 32);
 
