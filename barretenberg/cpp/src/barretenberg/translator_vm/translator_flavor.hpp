@@ -1005,7 +1005,6 @@ class TranslatorFlavor {
     static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                 [[maybe_unused]] const EdgeType edge_idx)
     {
-        // TODO(@Rumata888) do you know of a more efficient way of determining if we can skip a row?
         auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
         auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
         auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
