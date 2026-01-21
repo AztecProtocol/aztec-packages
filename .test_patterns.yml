@@ -348,11 +348,6 @@ tests:
     owners:
       - *spyros
 
-  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
-    error_regex: "1:PARITY_BASE"
-    owners:
-      - *alex
-
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
   - regex: "playground/scripts/run_test.sh"
