@@ -982,12 +982,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The L2 to L1 messages (empty array if the epoch is not found).
    */
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
-    // Assumes `getBlocksForEpoch` returns blocks in ascending order of block number.
-    const blocks = await this.blockSource.getBlocksForEpoch(epoch);
+    // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
+    const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
     const blocksInCheckpoints: L2BlockNew[][] = [];
     let previousSlotNumber = SlotNumber.ZERO;
     let checkpointIndex = -1;
-    for (const block of blocks) {
+    for (const checkpointedBlock of checkpointedBlocks) {
+      const block = checkpointedBlock.block;
       const slotNumber = block.header.globalVariables.slotNumber;
       if (slotNumber !== previousSlotNumber) {
         checkpointIndex++;

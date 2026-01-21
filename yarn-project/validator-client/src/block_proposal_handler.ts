@@ -223,11 +223,11 @@ export class BlockProposalHandler {
       // TODO: There can be a more efficient way to get the previous checkpoint out hashes without having to fetch all
       // the blocks.
       const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-      const previousBlocks = (await this.blockSource.getBlocksForEpoch(epoch))
-        .filter(b => b.number < blockNumber)
-        .sort((a, b) => a.number - b.number);
-      const previousCheckpointOutHashes = previousBlocks.map(b =>
-        computeCheckpointOutHash([b.body.txEffects.map(tx => tx.l2ToL1Msgs)]),
+      const previousCheckpointedBlocks = (await this.blockSource.getCheckpointedBlocksForEpoch(epoch))
+        .filter(b => b.block.number < blockNumber)
+        .sort((a, b) => a.block.number - b.block.number);
+      const previousCheckpointOutHashes = previousCheckpointedBlocks.map(b =>
+        computeCheckpointOutHash([b.block.body.txEffects.map(tx => tx.l2ToL1Msgs)]),
       );
 
       try {

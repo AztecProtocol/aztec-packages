@@ -306,14 +306,23 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
-  getBlocksForEpoch(epochNumber: EpochNumber): Promise<L2BlockNew[]> {
+  getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
     const [start, end] = getSlotRangeForEpoch(epochNumber, { epochDuration });
     const blocks = this.l2Blocks.filter(b => {
       const slot = b.header.globalVariables.slotNumber;
       return slot >= start && slot <= end;
     });
-    return Promise.resolve(blocks);
+    return Promise.resolve(
+      blocks.map(block =>
+        CheckpointedL2Block.fromFields({
+          checkpointNumber: CheckpointNumber(block.number),
+          block,
+          l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
+          attestations: [],
+        }),
+      ),
+    );
   }
 
   getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
@@ -321,9 +330,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(blocks);
   }
 
-  async getBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
-    const blocks = await this.getBlocksForEpoch(epochNumber);
-    return blocks.map(b => b.header);
+  async getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
+    const checkpointedBlocks = await this.getCheckpointedBlocksForEpoch(epochNumber);
+    return checkpointedBlocks.map(b => b.block.header);
   }
 
   /**

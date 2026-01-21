@@ -122,9 +122,9 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
   getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
-  getBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(L2BlockNew.schema)),
+  getCheckpointedBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointedL2Block.schema)),
   getBlocksForSlot: z.function().args(schemas.SlotNumber).returns(z.array(L2BlockNew.schema)),
-  getBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
+  getCheckpointedBlockHeadersForEpoch: z.function().args(EpochNumberSchema).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
   getPrivateLogsByTags: z
