@@ -30,7 +30,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     shared_secret: Point,
     encryption_nonce: Field,
 ) -> [Field; ((L + 2) / 3) * 3 + 1] {
-    // TODO: assert(encryption_nonce < 2^128), assert(L < 2^120);
+    assert(encryption_nonce < TWO_POW_128);
     let mut s =
         [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
 
@@ -82,6 +82,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     shared_secret: Point,
     encryption_nonce: Field,
 ) -> Option<[Field; L]> {
+    assert(encryption_nonce < TWO_POW_128);
     let mut s =
         [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
 
