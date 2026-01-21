@@ -22,7 +22,7 @@ import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { CommitteeAttestationsAndSigners, L2BlockNew, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
@@ -664,7 +664,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /**
    * Extract checkpoint global variables from a block.
    */
-  private extractCheckpointConstants(block: L2BlockNew): CheckpointGlobalVariables {
+  private extractCheckpointConstants(block: L2Block): CheckpointGlobalVariables {
     const gv = block.header.globalVariables;
     return {
       chainId: gv.chainId,

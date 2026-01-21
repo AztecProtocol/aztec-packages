@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -107,7 +107,7 @@ describe('LibP2PService', () => {
 
   describe('validateRequestedBlock', () => {
     let service: any;
-    type GetBlockFn = (n: number) => Promise<L2BlockNew | undefined>;
+    type GetBlockFn = (n: number) => Promise<L2Block | undefined>;
     let archiver: { getBlock: jest.MockedFunction<GetBlockFn> };
     let peerManager: MockProxy<PeerManagerInterface>;
     let peerId: PeerId;
@@ -128,7 +128,7 @@ describe('LibP2PService', () => {
 
     it('should return false and penalize on number mismatch', async () => {
       const requested = new Fr(10);
-      const resp = await L2BlockNew.random(BlockNumber(9));
+      const resp = await L2Block.random(BlockNumber(9));
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
 
@@ -139,7 +139,7 @@ describe('LibP2PService', () => {
     it('should return false (no penalty) when numbers match and no local block', async () => {
       archiver.getBlock.mockResolvedValue(undefined);
       const requested = new Fr(10);
-      const resp = await L2BlockNew.random(BlockNumber(10));
+      const resp = await L2Block.random(BlockNumber(10));
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
 
@@ -149,9 +149,9 @@ describe('LibP2PService', () => {
 
     it('should return true when numbers match and hashes match', async () => {
       const requested = new Fr(10);
-      const local = await L2BlockNew.random(BlockNumber(10));
+      const local = await L2Block.random(BlockNumber(10));
 
-      const resp = L2BlockNew.fromBuffer(local.toBuffer());
+      const resp = L2Block.fromBuffer(local.toBuffer());
       archiver.getBlock.mockResolvedValue(local);
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
@@ -162,9 +162,9 @@ describe('LibP2PService', () => {
 
     it('should return false and penalize when hashes mismatch', async () => {
       const requested = new Fr(10);
-      const local = await L2BlockNew.random(BlockNumber(10));
+      const local = await L2Block.random(BlockNumber(10));
 
-      const resp = L2BlockNew.fromBuffer(local.toBuffer());
+      const resp = L2Block.fromBuffer(local.toBuffer());
       resp.header.globalVariables.coinbase = EthAddress.random();
       archiver.getBlock.mockResolvedValue(local);
 
@@ -177,7 +177,7 @@ describe('LibP2PService', () => {
     it('should return false on archiver error', async () => {
       archiver.getBlock.mockRejectedValue(new Error('boom'));
       const requested = new Fr(10);
-      const resp = await L2BlockNew.random(BlockNumber(10));
+      const resp = await L2Block.random(BlockNumber(10));
 
       const ok = await service.validateRequestedBlock(requested, resp, peerId);
 

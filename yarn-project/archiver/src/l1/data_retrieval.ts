@@ -20,7 +20,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -69,7 +69,7 @@ export async function retrievedToPublishedCheckpoint({
   const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
 
   const spongeBlob = SpongeBlob.init();
-  const l2Blocks: L2BlockNew[] = [];
+  const l2Blocks: L2Block[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];
     const { blockEndMarker, blockEndStateField, lastArchiveRoot, noteHashRoot, nullifierRoot, publicDataRoot } =
@@ -119,7 +119,7 @@ export async function retrievedToPublishedCheckpoint({
 
     const newArchive = new AppendOnlyTreeSnapshot(newArchiveRoots[i], l2BlockNumber + 1);
 
-    l2Blocks.push(new L2BlockNew(newArchive, header, body, checkpointNumber, IndexWithinCheckpoint(i)));
+    l2Blocks.push(new L2Block(newArchive, header, body, checkpointNumber, IndexWithinCheckpoint(i)));
   }
 
   const lastBlock = l2Blocks.at(-1)!;

@@ -10,7 +10,7 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { L2BlockNew, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type ExecutablePrivateFunctionWithMembershipProof,
@@ -35,7 +35,7 @@ enum Operation {
 /** Result of adding checkpoints with information about any pruned blocks. */
 type ReconcileCheckpointsResult = {
   /** Blocks that were pruned due to conflict with L1 checkpoints. */
-  prunedBlocks: L2BlockNew[] | undefined;
+  prunedBlocks: L2Block[] | undefined;
   /** Last block number that was already inserted locally, or undefined if none. */
   lastAlreadyInsertedBlockNumber: BlockNumber | undefined;
 };
@@ -55,7 +55,7 @@ export class ArchiverDataStoreUpdater {
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
-  public addBlocks(blocks: L2BlockNew[], pendingChainValidationStatus?: ValidateCheckpointResult): Promise<boolean> {
+  public addBlocks(blocks: L2Block[], pendingChainValidationStatus?: ValidateCheckpointResult): Promise<boolean> {
     return this.store.transactionAsync(async () => {
       await this.store.addBlocks(blocks);
 
@@ -191,7 +191,7 @@ export class ArchiverDataStoreUpdater {
    * @param blockNumber - Remove all blocks with number greater than this.
    * @returns The removed blocks.
    */
-  public removeBlocksAfter(blockNumber: BlockNumber): Promise<L2BlockNew[]> {
+  public removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
     return this.store.transactionAsync(async () => {
       // First get the blocks to be removed so we can clean up contract data
       const removedBlocks = await this.store.removeBlocksAfter(blockNumber);
@@ -248,17 +248,17 @@ export class ArchiverDataStoreUpdater {
   }
 
   /** Extracts and stores contract data from a single block. */
-  private addBlockDataToDB(block: L2BlockNew): Promise<boolean> {
+  private addBlockDataToDB(block: L2Block): Promise<boolean> {
     return this.editContractBlockData(block, Operation.Store);
   }
 
   /** Removes contract data associated with a block. */
-  private removeBlockDataFromDB(block: L2BlockNew): Promise<boolean> {
+  private removeBlockDataFromDB(block: L2Block): Promise<boolean> {
     return this.editContractBlockData(block, Operation.Delete);
   }
 
   /** Adds or remove contract data associated with a block. */
-  private async editContractBlockData(block: L2BlockNew, operation: Operation): Promise<boolean> {
+  private async editContractBlockData(block: L2Block, operation: Operation): Promise<boolean> {
     const contractClassLogs = block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
     const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
     const publicLogs = block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);

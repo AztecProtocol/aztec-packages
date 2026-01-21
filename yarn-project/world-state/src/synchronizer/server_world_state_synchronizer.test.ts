@@ -3,7 +3,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { L2BlockNew, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -62,7 +62,7 @@ describe('ServerWorldStateSynchronizer', () => {
 
     merkleTreeDb = mock<MerkleTreeAdminDatabase>();
     merkleTreeDb.getCommitted.mockReturnValue(merkleTreeRead);
-    merkleTreeDb.handleL2BlockAndMessages.mockImplementation((l2Block: L2BlockNew) => {
+    merkleTreeDb.handleL2BlockAndMessages.mockImplementation((l2Block: L2Block) => {
       latestHandledBlockNumber = l2Block.number;
       return Promise.resolve(buildEmptyWorldStateStatusFull());
     });

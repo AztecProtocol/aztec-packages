@@ -4,7 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -61,7 +61,7 @@ describe('ArchiverDataStoreUpdater', () => {
   describe('contract data', () => {
     it('stores contract class and instance data when blocks are added via addBlocks', async () => {
       // Create block with contract class and instance logs
-      const block = await L2BlockNew.random(BlockNumber(1), {
+      const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
@@ -84,7 +84,7 @@ describe('ArchiverDataStoreUpdater', () => {
 
     it('removes contract class and instance data when blocks are pruned via setCheckpointData', async () => {
       // First, add a local provisional block with contract data
-      const localBlock = await L2BlockNew.random(BlockNumber(1), {
+      const localBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
@@ -102,7 +102,7 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(await store.getContractInstance(instanceAddress, timestamp)).toBeDefined();
 
       // Now create a checkpoint with a conflicting block (same slot but different archive root)
-      const conflictingBlock = await L2BlockNew.random(BlockNumber(1), {
+      const conflictingBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100), // Same slot as local block
@@ -128,7 +128,7 @@ describe('ArchiverDataStoreUpdater', () => {
 
     it('removes contract data when checkpoints are unwound', async () => {
       // Create block with contract data and add it as a checkpoint
-      const block = await L2BlockNew.random(BlockNumber(1), {
+      const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
@@ -157,7 +157,7 @@ describe('ArchiverDataStoreUpdater', () => {
   describe('logs handling', () => {
     it('does not duplicate logs when checkpoint contains same block as provisional', async () => {
       // Add provisional block with some logs
-      const block = await L2BlockNew.random(BlockNumber(1), {
+      const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
@@ -179,7 +179,7 @@ describe('ArchiverDataStoreUpdater', () => {
 
     it('replaces logs when checkpoint conflicts with provisional block', async () => {
       // Add local provisional block
-      const localBlock = await L2BlockNew.random(BlockNumber(1), {
+      const localBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
@@ -189,7 +189,7 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
 
       // Create checkpoint with DIFFERENT block (different archive root)
-      const checkpointBlock = await L2BlockNew.random(BlockNumber(1), {
+      const checkpointBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
@@ -213,7 +213,7 @@ describe('ArchiverDataStoreUpdater', () => {
 
     it('removes logs when unwinding blocks', async () => {
       // Add local provisional block
-      const localBlock = await L2BlockNew.random(BlockNumber(1), {
+      const localBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
