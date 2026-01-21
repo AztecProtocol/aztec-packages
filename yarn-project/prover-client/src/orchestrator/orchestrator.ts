@@ -73,6 +73,11 @@ import { TxProvingState } from './tx-proving-state.js';
 
 const logger = createLogger('prover-client:orchestrator');
 
+type WorldStateFork = {
+  fork: MerkleTreeWriteOperations;
+  cleanupPromise: Promise<void> | undefined;
+};
+
 /**
  * Implements an event driven proving scheduler to build the recursive proof tree. The idea being:
  * 1. Transactions are provided to the scheduler post simulation.
@@ -94,7 +99,7 @@ export class ProvingOrchestrator implements EpochProver {
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
+  private dbs: Map<BlockNumber, WorldStateFork> = new Map();
 
   constructor(
     private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
@@ -175,7 +180,7 @@ export class ProvingOrchestrator implements EpochProver {
     const db = await this.dbProvider.fork(lastBlockNumber);
 
     const firstBlockNumber = BlockNumber(lastBlockNumber + 1);
-    this.dbs.set(firstBlockNumber, db);
+    this.dbs.set(firstBlockNumber, { fork: db, cleanupPromise: undefined });
 
     // Get archive sibling path before any block in this checkpoint lands.
     const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
@@ -233,9 +238,9 @@ export class ProvingOrchestrator implements EpochProver {
     if (!this.dbs.has(blockNumber)) {
       // Fork world state at the end of the immediately previous block
       const db = await this.dbProvider.fork(BlockNumber(blockNumber - 1));
-      this.dbs.set(blockNumber, db);
+      this.dbs.set(blockNumber, { fork: db, cleanupPromise: undefined });
     }
-    const db = this.dbs.get(blockNumber)!;
+    const db = this.dbs.get(blockNumber)!.fork;
 
     // Get archive snapshot and sibling path before any txs in this block lands.
     const lastArchiveTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
@@ -310,7 +315,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.info(`Adding ${txs.length} transactions to block ${blockNumber}`);
 
-    const db = this.dbs.get(blockNumber)!;
+    const db = this.dbs.get(blockNumber)!.fork;
     const lastArchive = provingState.lastArchiveTreeSnapshot;
     const newL1ToL2MessageTreeSnapshot = provingState.newL1ToL2MessageTreeSnapshot;
     const spongeBlobState = provingState.getStartSpongeBlob().clone();
@@ -439,7 +444,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // Get db for this block
-    const db = this.dbs.get(provingState.blockNumber)!;
+    const db = this.dbs.get(provingState.blockNumber)!.fork;
 
     // Update the archive tree, so we're ready to start processing the next block:
     logger.verbose(
@@ -475,7 +480,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Get db for this block
     const blockNumber = provingState.blockNumber;
-    const db = this.dbs.get(blockNumber)!;
+    const db = this.dbs.get(blockNumber)!.fork;
 
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const syncedArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.dbProvider.getSnapshot(blockNumber));
@@ -551,7 +556,10 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     try {
-      await fork.close();
+      if (!fork.cleanupPromise) {
+        fork.cleanupPromise = fork.fork.close();
+      }
+      await fork.cleanupPromise;
       this.dbs.delete(blockNumber);
     } catch (err) {
       logger.error(`Error closing db for block ${blockNumber}`, err);
