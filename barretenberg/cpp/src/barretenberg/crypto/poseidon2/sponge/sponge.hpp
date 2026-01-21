@@ -48,7 +48,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
         }
 
         // Apply permutation
-        state = Permutation::permutation(state);
+        Permutation::permutation_inplace(state);
 
         // Reset the cache
         cache = {};
