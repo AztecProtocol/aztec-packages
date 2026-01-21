@@ -174,7 +174,7 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
+    $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
     $TRANSPILER $json_path $json_path
     $STRIP_AZTEC_NR_PREFIX $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
