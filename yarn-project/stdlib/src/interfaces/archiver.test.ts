@@ -354,11 +354,6 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getL2BlockNew(BlockNumber(1));
     expect(result).toEqual(expect.any(L2BlockNew));
   });
-
-  it('getL2BlocksNew', async () => {
-    const result = await context.client.getL2BlocksNew(BlockNumber(1), 1);
-    expect(result).toEqual([expect.any(L2BlockNew)]);
-  });
 });
 
 class MockArchiver implements ArchiverApi {
@@ -434,11 +429,6 @@ class MockArchiver implements ArchiverApi {
   }
   getCheckpointByArchive(_archive: Fr): Promise<Checkpoint | undefined> {
     return Promise.resolve(Checkpoint.random());
-  }
-
-  async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
-    const block = await L2BlockNew.random(from);
-    return [block];
   }
 
   async getCheckpointedBlockByHash(_blockHash: Fr): Promise<CheckpointedL2Block | undefined> {

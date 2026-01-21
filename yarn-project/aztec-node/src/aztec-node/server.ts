@@ -620,15 +620,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The blocks requested.
    */
   public async getBlocks(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
+    return (await this.blockSource.getBlocks(from, BlockNumber(limit))) ?? [];
   }
 
   public async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
     return (await this.blockSource.getCheckpoints(from, limit)) ?? [];
-  }
-
-  public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
   }
 
   public async getCheckpointedBlocks(from: BlockNumber, limit: number) {

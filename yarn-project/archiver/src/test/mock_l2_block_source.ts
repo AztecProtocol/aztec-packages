@@ -195,11 +195,6 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return checkpoint;
   }
 
-  getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    // getBlocks already returns L2BlockNew[], so just return directly
-    return this.getBlocks(from, limit);
-  }
-
   public async getCheckpointedBlockByHash(blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
     for (const block of this.l2Blocks) {
       const hash = await block.hash();

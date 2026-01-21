@@ -157,10 +157,6 @@ export abstract class ArchiverDataSourceBase
     return (await this.store.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
-  public getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {
-    return this.store.getBlocks(from, limit);
-  }
-
   public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
     return this.store.getPrivateLogsByTags(tags, page);
   }

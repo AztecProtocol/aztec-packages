@@ -262,16 +262,6 @@ describe('AztecNodeApiSchema', () => {
     await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
-  it('getL2BlocksNew', async () => {
-    const response = await context.client.getL2BlocksNew(BlockNumber(1), BlockNumber(1));
-    expect(response).toHaveLength(1);
-    expect(response[0]).toBeInstanceOf(L2BlockNew);
-
-    await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
-    await expect(context.client.getBlocks(BlockNumber(1), BlockNumber.ZERO)).rejects.toThrow();
-    await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
-  });
-
   it('getCheckpoints', async () => {
     const response = await context.client.getCheckpoints(CheckpointNumber(1), 1);
     expect(response).toHaveLength(1);
@@ -560,11 +550,6 @@ class MockAztecNode implements AztecNode {
       proven: tipId,
       finalized: tipId,
     });
-  }
-
-  async getL2BlocksNew(from: BlockNumber, _1: number): Promise<L2BlockNew[]> {
-    const block = await L2BlockNew.random(from);
-    return [block];
   }
 
   getCheckpointedBlocks(_from: BlockNumber, _limit: number) {
