@@ -103,10 +103,10 @@ SimulatorResult fuzz_tx(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                         FuzzerTxData& tx_data);
 
 // Run the prover fuzzer: fast simulation, hint collection, comparison, and check_circuit
-// Returns 0 on success, -1 if the input should be rejected
-int fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
-                bb::avm2::fuzzer::FuzzerContractDB& contract_db,
-                FuzzerTxData& tx_data);
+// Returns simulation result on success, throws if the input should be rejected
+TxSimulationResult fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
+                               bb::avm2::fuzzer::FuzzerContractDB& contract_db,
+                               FuzzerTxData& tx_data);
 
 // Common custom mutator logic shared between fuzzers
 // Returns the new size of the mutated data, or 0 if mutation failed
