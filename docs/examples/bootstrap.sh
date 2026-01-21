@@ -6,15 +6,13 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
 export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
-export TRANSPILER=${TRANSPILER:-"$REPO_ROOT/avm-transpiler/target/release/avm-transpiler"}
 export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-"$REPO_ROOT/noir-projects/noir-contracts/scripts/strip_aztec_nr_prefix.sh"}
 export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
 
 function compile {
   echo_header "Compiling example contracts"
-  # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/)
-  DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "$@"
+  # Use noir-contracts bootstrap with WORKING_DIR pointing to examples.
+  WORKING_DIR="docs/examples" $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "$@"
 }
 
 function compile-solidity {
