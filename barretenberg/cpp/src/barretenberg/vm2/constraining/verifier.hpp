@@ -33,7 +33,7 @@ class AvmVerifier {
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
-    FF evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges);
+    FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 
 } // namespace bb::avm2

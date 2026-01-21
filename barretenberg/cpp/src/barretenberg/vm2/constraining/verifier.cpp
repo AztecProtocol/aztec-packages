@@ -43,7 +43,7 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
  * @return FF
  */
 inline AvmVerifier::FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points,
-                                                                 std::vector<FF> challenges)
+                                                                 const std::vector<FF>& challenges)
 {
     Polynomial<FF> polynomial(points, (1 << key->log_circuit_size));
     return polynomial.evaluate_mle(challenges);
@@ -178,8 +178,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Batch shifted commitments
     Commitment batched_shifted = batch_mul_native<Curve>(shifted_comms, shifted_challenges);
 
-    // Batch unshifted commitments: first commitment has coefficient 1, rest are batched with challenges. We reuse the
-    // calculation performed for shifted commitments.
+    // Batch unshifted commitments: ColumnAndShifts::precomputed_clk has coefficient 1, rest are batched with
+    // challenges. We reuse the calculation performed for shifted commitments.
     Commitment batched_unshifted =
         batched_shifted +
         batch_mul_native<Curve>(unshifted_comms.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),

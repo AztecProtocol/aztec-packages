@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -51,7 +51,7 @@ class AvmRecursiveVerifier {
 
     bool is_verification_complete = false;
 
-    FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
+    static FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 
 } // namespace bb::avm2
