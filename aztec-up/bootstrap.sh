@@ -82,7 +82,7 @@ EOF
     # This fetches all transitive dependencies from npmjs and caches them locally.
     # Use --prefix to avoid modifying the host system's global npm packages.
     echo "Priming verdaccio cache with all dependencies..."
-    npm i -g --prefix /tmp/npm-prime @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version
+    retry "npm i -g --prefix /tmp/npm-prime @aztec/aztec@$version @aztec/cli-wallet@$version @aztec/bb.js@$version"
     rm -rf /tmp/npm-prime
 
     docker build -t aztecprotocol/aztec-up-test .
