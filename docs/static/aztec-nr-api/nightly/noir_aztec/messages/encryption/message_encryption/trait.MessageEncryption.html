@@ -68,13 +68,14 @@ standardized length.</p></div>
 ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 17]</code>
 
 <div class="padded-description"><div class="comments">
-<p>Encrypts a plaintext message (a field array) such that only <code>recipient</code> can decrypt it.</p>
-<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt">MessageEncryption::decrypt</a> in order to obtain the original
-<code>plaintext</code>.</p>
+<p>Encrypts a plaintext message to <code>recipient</code>.</p>
+<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt">decrypt</a> in order to obtain the
+original <code>plaintext</code>.</p>
 <h3>Privacy</h3>
-<p>Knowledge of the returned ciphertext provides no information to third parties - <code>recipients</code> encryption keys
-(specifically their ivsk and pre-address) are required in order to decrypt. Additionally, [encrypt] adds random
-padding in order to always produce equal length message ciphertexts regardless of the input, hiding its length.</p>
+<p>Knowledge of the returned ciphertext provides no information to third parties - <code>recipient</code>'s encryption keys
+(specifically their ivsk and pre-address) are required in order to decrypt. Additionally, this function adds
+random padding in order to always produce equal length message ciphertexts regardless of the input, hiding its
+length.</p>
 <p>These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
 encryption function is itself secure).</p></div>
 </div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
@@ -83,8 +84,8 @@ encryption function is itself secure).</p></div>
 ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 14&gt;&gt;</code>
 
 <div class="padded-description"><div class="comments">
-<p>Decrypts a message ciphertext obtained via <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt">MessageEncryption::encrypt</a> to <code>recipient</code> back into its original
-plaintext.</p>
+<p>Decrypts a message ciphertext into its original plaintext.</p>
+<p>Typically invoked with ciphertext obtained from calling <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt">encrypt</a> with <code>recipient</code>.</p>
 <p>Note that this function is unconstrained: decryption typically happens when processing messages in utility
 functions.</p>
 <p>Not all ciphertexts are valid - among other things, the ephemeral public key included in it may not correspond
