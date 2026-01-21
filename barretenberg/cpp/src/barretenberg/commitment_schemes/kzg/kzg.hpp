@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
-#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -151,15 +150,11 @@ template <typename Curve_> class KZG {
         }
 
         // Compute C + [W]₁ ⋅ z
-        if constexpr (Curve::is_stdlib_type) {
-            P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
-                                          batch_opening_claim.scalars,
-                                          /*max_num_bits=*/0,
-                                          /*with_edgecases=*/true,
-                                          /*masking_scalar=*/masking_challenge);
-        } else {
-            P_0 = batch_mul_native<Curve>(batch_opening_claim.commitments, batch_opening_claim.scalars);
-        }
+        P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
+                                      batch_opening_claim.scalars,
+                                      /*max_num_bits=*/0,
+                                      /*with_edgecases=*/true,
+                                      /*masking_scalar=*/masking_challenge);
         auto P_1 = -quotient_commitment;
 
         return PairingPointsType(P_0, P_1);

@@ -34,3 +34,8 @@ Key features:
 ### Documentation
 
 Poseidon2 paper: https://eprint.iacr.org/2023/323
+
+### Security Mechanisms
+
+1. `boomerang_value_detection/graph_description_poseidon2s_permutation.test.cpp`
+   - Boomerang value detection: verifies no under-constrained variables

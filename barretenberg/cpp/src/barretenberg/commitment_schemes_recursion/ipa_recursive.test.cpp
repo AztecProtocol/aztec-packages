@@ -1,7 +1,7 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"

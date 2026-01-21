@@ -16,11 +16,10 @@ HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefAr
                                                                      const std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
-    for (size_t idx = 0; auto point : _points) {
-        points[idx++] = point;
+    for (size_t idx = 0; idx < N; ++idx) {
+        points[idx] = _points[idx];
     }
-
-    return batch_mul_native<MegaFlavor::Curve>(points, scalars);
+    return Commitment::batch_mul(points, scalars);
 }
 
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_accumulator(

@@ -1,5 +1,5 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "../commitment_key.test.hpp"
+#include "../pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 

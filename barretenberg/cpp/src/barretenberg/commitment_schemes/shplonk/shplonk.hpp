@@ -404,12 +404,7 @@ template <typename Curve> class ShplonkVerifier_ {
     {
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(identity_scalar_coefficient);
-        GroupElement result;
-        if constexpr (Curve::is_stdlib_type) {
-            result = GroupElement::batch_mul(commitments, scalars);
-        } else {
-            result = batch_mul_native<Curve>(commitments, scalars);
-        }
+        GroupElement result = GroupElement::batch_mul(commitments, scalars);
 
         return { { z_challenge, evaluation }, result };
     }

@@ -65,3 +65,6 @@ https://csrc.nist.gov/publications/detail/fips/180/4/final
 
 1. `stdlib/hash/sha256/sha256.fuzzer.cpp`
    - Differential fuzzer: circuit vs native
+
+2. `boomerang_value_detection/graph_description_sha256.test.cpp`
+   - Boomerang value detection: verifies no under-constrained variables

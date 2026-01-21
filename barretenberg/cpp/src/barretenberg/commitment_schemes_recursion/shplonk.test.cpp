@@ -1,6 +1,6 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"

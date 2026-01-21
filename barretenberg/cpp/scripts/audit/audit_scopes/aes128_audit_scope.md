@@ -32,4 +32,6 @@ The `aes128` module provides both native and circuit-friendly implementations of
 2. `stdlib/encryption/aes128/aes128.test.cpp`
 
 ## Security Mechanisms
-None identified.
+
+1. `boomerang_value_detection/graph_description_aes128.test.cpp`
+   - Boomerang value detection: verifies no under-constrained variables
