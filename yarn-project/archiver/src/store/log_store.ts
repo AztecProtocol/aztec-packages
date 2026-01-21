@@ -7,6 +7,7 @@ import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash, L2BlockNew } from '@aztec/stdlib/block';
+import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
   ContractClassLog,
@@ -314,27 +315,49 @@ export class LogStore {
   }
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most MAX_LOGS_PER_TAG logs per tag per page. If
+   * MAX_LOGS_PER_TAG logs are returned for a tag, the caller should fetch the next page to check for more logs.
    */
-  async getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+  async getPrivateLogsByTags(tags: SiloedTag[], page: number = 0): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(tags.map(tag => this.#privateLogsByTag.getAsync(tag.toString())));
+    const start = page * MAX_LOGS_PER_TAG;
+    const end = start + MAX_LOGS_PER_TAG;
 
-    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
+    return logs.map(
+      logBuffers => logBuffers?.slice(start, end).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
+    );
   }
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most MAX_LOGS_PER_TAG logs per tag per page. If
+   * MAX_LOGS_PER_TAG logs are returned for a tag, the caller should fetch the next page to check for more logs.
    */
-  async getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+  async getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page: number = 0,
+  ): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(
       tags.map(tag => {
         const key = `${contractAddress.toString()}_${tag.value.toString()}`;
         return this.#publicLogsByContractAndTag.getAsync(key);
       }),
     );
-    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
+    const start = page * MAX_LOGS_PER_TAG;
+    const end = start + MAX_LOGS_PER_TAG;
+
+    return logs.map(
+      logBuffers => logBuffers?.slice(start, end).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
+    );
   }
 
   /**

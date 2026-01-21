@@ -434,24 +434,33 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
    */
-  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPrivateLogsByTags(tags);
+      return this.#logStore.getPrivateLogsByTags(tags, page);
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
    */
-  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags);
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page);
     } catch (err) {
       return Promise.reject(err);
     }

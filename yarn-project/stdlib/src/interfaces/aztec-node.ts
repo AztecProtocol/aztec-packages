@@ -343,16 +343,29 @@ export interface AztecNode
   getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
+   * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
+   * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -618,12 +631,12 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN))
+    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   getPublicLogsByTagsFromContract: z
     .function()
-    .args(schemas.AztecAddress, z.array(Tag.schema).max(MAX_RPC_LEN))
+    .args(schemas.AztecAddress, z.array(Tag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),
