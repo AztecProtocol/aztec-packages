@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -24,7 +25,7 @@ export type EvictionContext =
     }
   | {
       event: typeof EvictionEvent.CHAIN_PRUNED;
-      blockNumber: number;
+      blockNumber: BlockNumber;
     }
   | {
       event: typeof EvictionEvent.BLOCK_MINED;
