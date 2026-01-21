@@ -104,7 +104,7 @@ class TranslatorFlavor {
 
     // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
     // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
-    static constexpr size_t SORTED_STEPS_COUNT = (1 << MICRO_LIMB_BITS) / SORT_STEP + 1;
+    static constexpr size_t SORTED_STEPS_COUNT = ((1 << MICRO_LIMB_BITS) / SORT_STEP) + 1;
     static_assert(SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1) < MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE,
                   "Translator circuit is too small for defined number of steps "
                   "(TranslatorDeltaRangeConstraintRelation). ");
@@ -223,15 +223,13 @@ class TranslatorFlavor {
                               ordered_extra_range_constraints_numerator, // column 0
                               lagrange_first,                            // column 1
                               lagrange_last,                             // column 2
-                              // TODO(https://github.com/AztecProtocol/barretenberg/issues/758): Check if one of these
-                              // can be replaced by shifts
-                              lagrange_odd_in_minicircuit,  // column 3
-                              lagrange_even_in_minicircuit, // column 4
-                              lagrange_result_row,          // column 5
-                              lagrange_last_in_minicircuit, // column 6
-                              lagrange_masking,             // column 7
-                              lagrange_mini_masking,        // column 8
-                              lagrange_real_last);          // column 9
+                              lagrange_odd_in_minicircuit,               // column 3
+                              lagrange_even_in_minicircuit,              // column 4
+                              lagrange_result_row,                       // column 5
+                              lagrange_last_in_minicircuit,              // column 6
+                              lagrange_masking,                          // column 7
+                              lagrange_mini_masking,                     // column 8
+                              lagrange_real_last);                       // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -348,7 +346,6 @@ class TranslatorFlavor {
         DEFINE_COMPOUND_GET_ALL(OpQueueWiresToBeShiftedEntities<DataType>, NonOpQueueWiresToBeShiftedEntities<DataType>)
     };
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
     // Note: These are technically derived from wires but do not depend on challenges (like z_perm). They are committed
     // to in the wires commitment round.
     template <typename DataType> class OrderedRangeConstraints {
