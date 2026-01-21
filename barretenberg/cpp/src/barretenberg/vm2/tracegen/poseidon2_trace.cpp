@@ -121,36 +121,38 @@ void Poseidon2TraceBuilder::process_hash(
                 // Mix the input chunk into the previous permutation output state
                 perm_state[j] += perm_input[j];
             }
-            trace.set(row,
-                      { {
-                          { C::poseidon2_hash_sel, 1 },
-                          { C::poseidon2_hash_start, i == 0 },
-                          { C::poseidon2_hash_end, i == (num_perm_events - 1) },
-                          { C::poseidon2_hash_input_len, event.inputs.size() }, // Cannot use input_size as mutated.
-                          { C::poseidon2_hash_padding, padding_size },
-                          { C::poseidon2_hash_input_0, perm_input[0] },
-                          { C::poseidon2_hash_input_1, perm_input[1] },
-                          { C::poseidon2_hash_input_2, perm_input[2] },
+            trace.set(
+                row,
+                { {
+                    { C::poseidon2_hash_sel, 1 },
+                    { C::poseidon2_hash_start, i == 0 },
+                    { C::poseidon2_hash_end, i == (num_perm_events - 1) },
+                    { C::poseidon2_hash_input_len, event.inputs.size() }, // Cannot use input_size as mutated.
+                    { C::poseidon2_hash_padding, padding_size },
+                    { C::poseidon2_hash_input_0, perm_input[0] },
+                    { C::poseidon2_hash_input_1, perm_input[1] },
+                    { C::poseidon2_hash_input_2, perm_input[2] },
 
-                          { C::poseidon2_hash_num_perm_rounds_rem, num_perm_events - i },
-                          { C::poseidon2_hash_num_perm_rounds_rem_inv,
-                            num_perm_events - i - 1 == 0 ? 0 : FF(num_perm_events - i - 1).invert() },
+                    { C::poseidon2_hash_num_perm_rounds_rem, num_perm_events - i },
+                    { C::poseidon2_hash_num_perm_rounds_rem_inv, num_perm_events - i - 1 }, // Will be batch inverted.
 
-                          { C::poseidon2_hash_a_0, perm_state[0] },
-                          { C::poseidon2_hash_a_1, perm_state[1] },
-                          { C::poseidon2_hash_a_2, perm_state[2] },
-                          { C::poseidon2_hash_a_3, perm_state[3] },
+                    { C::poseidon2_hash_a_0, perm_state[0] },
+                    { C::poseidon2_hash_a_1, perm_state[1] },
+                    { C::poseidon2_hash_a_2, perm_state[2] },
+                    { C::poseidon2_hash_a_3, perm_state[3] },
 
-                          { C::poseidon2_hash_b_0, perm_output[0] },
-                          { C::poseidon2_hash_b_1, perm_output[1] },
-                          { C::poseidon2_hash_b_2, perm_output[2] },
-                          { C::poseidon2_hash_b_3, perm_output[3] },
-                          { C::poseidon2_hash_output, event.output },
-                      } });
+                    { C::poseidon2_hash_b_0, perm_output[0] },
+                    { C::poseidon2_hash_b_1, perm_output[1] },
+                    { C::poseidon2_hash_b_2, perm_output[2] },
+                    { C::poseidon2_hash_b_3, perm_output[3] },
+                    { C::poseidon2_hash_output, event.output },
+                } });
             input_size -= chunk_size;
             row++;
         }
     }
+
+    trace.invert_columns({ { C::poseidon2_hash_num_perm_rounds_rem_inv } });
 }
 
 void Poseidon2TraceBuilder::process_permutation(
