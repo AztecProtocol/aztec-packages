@@ -209,8 +209,6 @@ export interface L2BlockSource {
    */
   getBlock(number: BlockNumber): Promise<L2BlockNew | undefined>;
 
-  getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]>;
-
   /**
    * Returns all checkpointed blocks for a given epoch.
    * @dev Use this method only with recent epochs, since it walks the block list backwards.

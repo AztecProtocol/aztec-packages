@@ -19,7 +19,7 @@ export class L2BlockStream {
   constructor(
     private l2BlockSource: Pick<
       L2BlockSource,
-      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
+      'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
     >,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
@@ -213,7 +213,7 @@ export class L2BlockStream {
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
-        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit);
+        const blocks = await this.l2BlockSource.getBlocks(BlockNumber(nextBlockNumber), BlockNumber(limit));
         if (blocks.length === 0) {
           break;
         }

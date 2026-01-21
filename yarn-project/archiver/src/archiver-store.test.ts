@@ -294,7 +294,7 @@ describe('Archiver Store', () => {
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
     });
 
-    it('retrieves multiple blocks with getL2BlocksNew', async () => {
+    it('retrieves multiple blocks with getBlocks', async () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
@@ -303,14 +303,14 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
       await archiver.addBlock(block3);
 
-      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 3);
+      const blocks = await archiver.getBlocks(BlockNumber(1), 3);
       expect(blocks.length).toEqual(3);
       expect(await blocks[0].hash()).toEqual(await block1.hash());
       expect(await blocks[1].hash()).toEqual(await block2.hash());
       expect(await blocks[2].hash()).toEqual(await block3.hash());
     });
 
-    it('retrieves blocks with limit in getL2BlocksNew', async () => {
+    it('retrieves blocks with limit in getBlocks', async () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
@@ -320,13 +320,13 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block3);
 
       // Request only 2 blocks starting from block 1
-      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 2);
+      const blocks = await archiver.getBlocks(BlockNumber(1), 2);
       expect(blocks.length).toEqual(2);
       expect(await blocks[0].hash()).toEqual(await block1.hash());
       expect(await blocks[1].hash()).toEqual(await block2.hash());
     });
 
-    it('retrieves blocks starting from middle with getL2BlocksNew', async () => {
+    it('retrieves blocks starting from middle with getBlocks', async () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
@@ -336,7 +336,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block3);
 
       // Start from block 2
-      const blocks = await archiver.getL2BlocksNew(BlockNumber(2), 2);
+      const blocks = await archiver.getBlocks(BlockNumber(2), 2);
       expect(blocks.length).toEqual(2);
       expect(await blocks[0].hash()).toEqual(await block2.hash());
       expect(await blocks[1].hash()).toEqual(await block3.hash());
@@ -348,7 +348,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block1);
 
       // Request blocks starting from block 5 (which doesn't exist)
-      const blocks = await archiver.getL2BlocksNew(BlockNumber(5), 3);
+      const blocks = await archiver.getBlocks(BlockNumber(5), 3);
       expect(blocks).toEqual([]);
     });
 
@@ -360,7 +360,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
 
       // Request 10 blocks but only 2 are available
-      const blocks = await archiver.getL2BlocksNew(BlockNumber(1), 10);
+      const blocks = await archiver.getBlocks(BlockNumber(1), 10);
       expect(blocks.length).toEqual(2);
       expect(await blocks[0].hash()).toEqual(await block1.hash());
       expect(await blocks[1].hash()).toEqual(await block2.hash());

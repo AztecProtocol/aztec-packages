@@ -107,7 +107,7 @@ describe('L2BlockStream', () => {
     );
 
     // Returns blocks up until what was reported as the latest block (for uncheckpointed blocks)
-    blockSource.getL2BlocksNew.mockImplementation((from, limit) =>
+    blockSource.getBlocks.mockImplementation((from, limit) =>
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
@@ -170,7 +170,7 @@ describe('L2BlockStream', () => {
       localData.proposed.number = BlockNumber(10);
 
       await blockStream.work();
-      expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
+      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -180,7 +180,7 @@ describe('L2BlockStream', () => {
       setRemoteTips(45);
 
       await blockStream.work();
-      expect(blockSource.getL2BlocksNew).toHaveBeenCalledTimes(5);
+      expect(blockSource.getBlocks).toHaveBeenCalledTimes(5);
       expect(handler.callCount).toEqual(5);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
@@ -196,7 +196,7 @@ describe('L2BlockStream', () => {
       blockStream.running = false;
 
       await blockStream.work();
-      expect(blockSource.getL2BlocksNew).toHaveBeenCalledTimes(1);
+      expect(blockSource.getBlocks).toHaveBeenCalledTimes(1);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -266,7 +266,7 @@ describe('L2BlockStream', () => {
         expectCheckpointed(),
       ]);
       expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
-      expect(blockSource.getL2BlocksNew).not.toHaveBeenCalled();
+      expect(blockSource.getBlocks).not.toHaveBeenCalled();
     });
 
     it('fetches checkpointed blocks first, then uncheckpointed blocks', async () => {
@@ -275,7 +275,7 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
 
-      // First 3 blocks come via checkpoints, last 2 via getL2BlocksNew
+      // First 3 blocks come via checkpoints, last 2 via getBlocks
       expect(handler.events).toEqual([
         expectBlocksAdded([1]),
         expectCheckpointed(),
@@ -286,7 +286,7 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([4, 5]),
       ]);
       expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
-      expect(blockSource.getL2BlocksNew).toHaveBeenCalledWith(BlockNumber(4), 2, undefined);
+      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(4), 2, undefined);
     });
 
     it('handles reorg with uncheckpointed reason when pruned to checkpointed tip', async () => {
