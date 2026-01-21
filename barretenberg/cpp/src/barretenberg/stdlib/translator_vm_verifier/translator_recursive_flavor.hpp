@@ -31,8 +31,6 @@ namespace bb {
 class TranslatorRecursiveFlavor {
 
   public:
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
-    // needed
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
