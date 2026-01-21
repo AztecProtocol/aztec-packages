@@ -20,6 +20,7 @@ template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_
 using namespace bb::plookup;
 
 constexpr uint32_t AES128_BASE = 9;
+constexpr size_t EXTENDED_KEY_LENGTH = 176;
 
 template <typename Builder> field_t<Builder> normalize_sparse_form(Builder*, field_t<Builder>& byte)
 {
@@ -73,7 +74,7 @@ template <typename Builder> field_t<Builder> convert_from_sparse_bytes(Builder* 
 }
 
 /**
- * @brief Expands a 128-bit AES key into the full key schedule (176 bytes / 11 round keys).
+ * @brief Expands a 128-bit AES key into the full key schedule (EXTENDED_KEY_LENGTH bytes / 11 round keys).
  *
  * Implements the AES-128 key expansion algorithm (FIPS 197, Section 5.2) in-circuit.
  * The key schedule derives 11 round keys (each 16 bytes) from the original 128-bit key:
@@ -96,12 +97,14 @@ template <typename Builder> field_t<Builder> convert_from_sparse_bytes(Builder* 
  * @tparam Builder
  * @param ctx Pointer to the circuit builder context
  * @param key The 128-bit encryption key packed into a field element (16 bytes, big-endian)
- * @return std::array<field_t<Builder>, 176> The expanded key schedule as 176 sparse-form bytes
+ * @return std::array<field_t<Builder>, EXTENDED_KEY_LENGTH> The expanded key schedule as EXTENDED_KEY_LENGTH
+ * sparse-form bytes
  *
  * @note Round constants array is 0-indexed with a placeholder at index 0 (0x8d = 2^{-1} in GF(2^8))
  *       so that round_constants[i] corresponds to Rcon[i] from FIPS 197.
  */
-template <typename Builder> std::array<field_t<Builder>, 176> expand_key(Builder* ctx, const field_t<Builder>& key)
+template <typename Builder>
+std::array<field_t<Builder>, EXTENDED_KEY_LENGTH> expand_key(Builder* ctx, const field_t<Builder>& key)
 {
     // Round constants (Rcon) from FIPS 197. Index 0 is a placeholder (never used);
     // indices 1-10 are Rcon[1] through Rcon[10] = {0x01, 0x02, 0x04, ..., 0x36}.
@@ -116,14 +119,14 @@ template <typename Builder> std::array<field_t<Builder>, 176> expand_key(Builder
         return result;
     }();
 
-    std::array<field_t<Builder>, 176> round_key{};
+    std::array<field_t<Builder>, EXTENDED_KEY_LENGTH> round_key{};
     const auto sparse_key = convert_into_sparse_bytes(ctx, key);
 
     std::array<field_t<Builder>, 4> temp{};
     std::array<uint64_t, 4> temp_add_counts{};
     // Track the number of additions in each byte to normalize to prevent overflow in the sparse representation
-    std::array<uint64_t, 176> add_counts{};
-    for (size_t i = 0; i < 176; ++i) {
+    std::array<uint64_t, EXTENDED_KEY_LENGTH> add_counts{};
+    for (size_t i = 0; i < EXTENDED_KEY_LENGTH; ++i) {
         add_counts[i] = 1;
     }
 
@@ -186,10 +189,11 @@ template <typename Builder> std::array<field_t<Builder>, 176> expand_key(Builder
         for (size_t k = 0; k < 4; ++k) {
             // If the number of additions exceeds the target or the byte corresponds to a word index that is a multiple
             // of 4 (i.e. the byte is used as input to the S-box) we normalize the sparse form
-            if (add_counts[j + k] > target || (add_counts[j + k] > 1 && ((j + k) & 12) == 12)) {
-                round_key[j + k] = normalize_sparse_form(ctx, round_key[j + k]);
+            size_t byte_index = j + k;
+            if (add_counts[byte_index] > target || (add_counts[byte_index] > 1 && (byte_index & 12) == 12)) {
+                round_key[byte_index] = normalize_sparse_form(ctx, round_key[byte_index]);
                 // Reset the addition counter
-                add_counts[j + k] = 1;
+                add_counts[byte_index] = 1;
             }
         }
     }
@@ -252,7 +256,7 @@ template <typename Builder> void shift_rows(byte_pair<Builder>* state)
  *
  * @tparam Builder The circuit builder type
  * @param column_pairs Array of 4 byte_pairs representing one column of the state after SubBytes
- * @param round_key The expanded key schedule (176 bytes in sparse form)
+ * @param round_key The expanded key schedule (EXTENDED_KEY_LENGTH bytes in sparse form)
  * @param round The current round number (1-10), used to index into round_key
  */
 template <typename Builder>
