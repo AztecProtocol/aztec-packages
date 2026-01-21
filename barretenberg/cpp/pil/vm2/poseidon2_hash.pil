@@ -68,9 +68,11 @@ namespace poseidon2_hash;
     // The amount of padding can be 0, 1 or 2.
     // Note the padded values are not enforced to be zero here, the calling function SHOULD enforce this
     padding * (padding - 1) * (padding - 2) = 0;
+
     pol PADDED_LEN = input_len + padding;
     // Check that the PADDED_LEN = num_rounds * 3 at the start of the computation
     start * (num_perm_rounds_rem * 3 - PADDED_LEN) = 0;
+
     // If we still have rounds to perform, the num_perm_rounds_rem is decremented
     sel * (1 - LATCH_CONDITION) * (num_perm_rounds_rem' - num_perm_rounds_rem + 1) = 0;
     // Need an additional helper that holds the inverse of the num_perm_rounds_rem;
@@ -78,6 +80,14 @@ namespace poseidon2_hash;
     pol NEXT_ROUND_COUNT = num_perm_rounds_rem - 1;
     // end == 1 when the (num_perm_rounds_rem - 1) == 0
     sel * (NEXT_ROUND_COUNT * (end * (1 - num_perm_rounds_rem_inv) + num_perm_rounds_rem_inv) - 1 + end) = 0;
+
+    // Prevention of an invalid padding:
+    // Note that on a finite field, once can always devide by 3 and a malicious prover can set an incorrect padding value,
+    // setting `padding` so that `PADDED_LEN` is not a multiple of 3 over the integers. If this happens,
+    // on `start == 1`, `num_perm_rounds_rem` must be huge, i.e., larger than p/3 (more than 250 bits).
+    // This cannot happen because to satisfy the current subtrace constraints, the attacker must decrement `num_perm_rounds_rem`
+    // to `1` which would require ca. 2^250 rows. This implies that we will never reach legitimate `num_perm_rounds_rem` values
+    // and that `end == 1` cannot be satisfied for this multi-row invocation.
 
     //=== Output Chaining ===
     // The permutation input values are represented by a_0, a_1, a_2, a_3
