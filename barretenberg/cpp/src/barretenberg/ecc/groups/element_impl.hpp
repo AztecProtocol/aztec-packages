@@ -711,15 +711,20 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& scalar) c
     return accumulator;
 }
 
-// =====================================================================================
-// Batch Affine Operations - Helper Functions
-// =====================================================================================
-
 /**
  * @brief Core batch affine addition using Montgomery's batch inversion trick
  * @tparam Policy Memory layout policy (ParallelArrayPolicy or InterleavedArrayPolicy)
  * @tparam AffineElement Affine point type
  * @tparam Fq Base field type
+ *
+ * @warning ASSUMES NO EDGE CASES:
+ *   - All points must be valid (not point at infinity)
+ *   - lhs[i] != rhs[i] for all i (no point doubling cases)
+ *   - lhs[i] != -rhs[i] for all i (no point at infinity results)
+ *   - Points are linearly independent (generic position)
+ *
+ * @note This is the "unsafe" fast path. For general point addition with edge case handling,
+ *       use Jacobian arithmetic or handle edge cases separately before calling this function.
  */
 template <typename Policy, typename AffineElement, typename Fq>
 __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineElement* lhs_base,
@@ -774,6 +779,14 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
  * @brief Batch affine point doubling using Montgomery's trick
  * @tparam AffineElement Affine point type
  * @tparam Fq Base field type
+ *
+ * @warning ASSUMES NO EDGE CASES:
+ *   - All points must be valid (not point at infinity)
+ *   - points[i].y != 0 for all i (no vertical tangents)
+ *   - No points with order 2 (where 2P = point at infinity)
+ *
+ * @note This is the "unsafe" fast path. For general point doubling with edge case handling,
+ *       use Jacobian arithmetic or check for edge cases before calling this function.
  */
 template <typename AffineElement, typename Fq>
 __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElement* points,
@@ -812,16 +825,20 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
 /**
  * @brief Pairwise affine add points in first and second group
  *
- * @param first_group
- * @param second_group
- * @param results
+ * @param first_group Left-hand points
+ * @param second_group Right-hand points
+ * @param results Output array for results[i] = first_group[i] + second_group[i]
+ *
+ * @warning This function does NOT handle edge cases (point at infinity, point doubling, etc.).
+ *          For generic point addition with edge case handling, use Jacobian coordinates instead.
+ *          Only use this when you know points are in generic position (e.g., in Pippenger/MSM).
  */
 template <class Fq, class Fr, class T>
 void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr, T>>& first_group,
                                           const std::span<affine_element<Fq, Fr, T>>& second_group,
                                           const std::span<affine_element<Fq, Fr, T>>& results) noexcept
 {
-    typedef affine_element<Fq, Fr, T> affine_element;
+    using affine_element = affine_element<Fq, Fr, T>;
     const size_t num_points = first_group.size();
     BB_ASSERT_EQ(second_group.size(), first_group.size());
 
