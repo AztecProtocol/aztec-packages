@@ -1,0 +1,99 @@
+name: Backport Checker
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled]
+    branches:
+      - next
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-backport-needed:
+    name: Check if backport should be considered
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for backport labels
+        id: check-labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if PR has any backport-to-* labels
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "Labels: $LABELS"
+
+          HAS_BACKPORT_LABEL=$(echo "$LABELS" | jq -r 'map(select(startswith("backport-to-"))) | length > 0')
+          echo "has_backport_label=$HAS_BACKPORT_LABEL" >> $GITHUB_OUTPUT
+
+      - name: Remove existing backport comment if label added
+        if: steps.check-labels.outputs.has_backport_label == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_GITHUB_TOKEN }}
+        run: |
+          # Find and delete the backport reminder comment if it exists
+          COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --jq '.[] | select(.body | contains("Consider backporting to")) | .id' | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            echo "Removing backport reminder comment (ID: $COMMENT_ID)"
+            gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID -X DELETE
+          else
+            echo "No backport reminder comment found to remove"
+          fi
+
+      - name: Checkout repository
+        if: steps.check-labels.outputs.has_backport_label == 'false'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        if: steps.check-labels.outputs.has_backport_label == 'false'
+        id: changed-files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the list of changed files in this PR
+          CHANGED_FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only || git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }})
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check for sequencer-related changes
+          SEQUENCER_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^yarn-project/sequencer-client/' || true)
+
+          # Check for release-image/bootstrap.sh changes
+          RELEASE_IMAGE_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^release-image/bootstrap\.sh$' || true)
+
+          # Check for prover coordination changes (prover-client and prover-node)
+          PROVER_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^yarn-project/(prover-client|prover-node)/' || true)
+
+          # Determine if backport should be considered
+          NEEDS_BACKPORT="false"
+
+          if [ -n "$SEQUENCER_CHANGES" ] || [ -n "$RELEASE_IMAGE_CHANGES" ] || [ -n "$PROVER_CHANGES" ]; then
+            NEEDS_BACKPORT="true"
+          fi
+
+          echo "needs_backport=$NEEDS_BACKPORT" >> $GITHUB_OUTPUT
+
+      - name: Check for existing backport comment
+        if: steps.check-labels.outputs.has_backport_label == 'false' && steps.changed-files.outputs.needs_backport == 'true'
+        id: check-comment
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_GITHUB_TOKEN }}
+        run: |
+          # Check if we've already commented on this PR about backports
+          EXISTING_COMMENT=$(gh pr view ${{ github.event.pull_request.number }} --json comments --jq '.comments[].body' | grep -c "Consider backporting to" || true)
+          if [ "$EXISTING_COMMENT" -gt 0 ]; then
+            echo "already_commented=true" >> $GITHUB_OUTPUT
+          else
+            echo "already_commented=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR about backport consideration
+        if: steps.check-labels.outputs.has_backport_label == 'false' && steps.changed-files.outputs.needs_backport == 'true' && steps.check-comment.outputs.already_commented == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "This PR touches sequencer/prover code. Consider backporting to \`v2\` (Ignition) or \`v3\` (Testnet) if applicable."
