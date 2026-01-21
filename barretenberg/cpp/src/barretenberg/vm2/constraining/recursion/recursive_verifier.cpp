@@ -82,6 +82,10 @@ AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(cons
  * @details This function reduces verification of an AVM proof to a pairing check, which is deferred for performance
  * reasons.
  *
+ * @note As the AVM verifier is arithmetized over Mega, this function does not enforce the validity of the elliptic
+ * curve operations. Such verification is deferred to the circuit that verifies the proof of the circuit that contains
+ * the AVM verifier.
+ *
  */
 AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     const stdlib::Proof<Builder>& stdlib_proof, const std::vector<std::vector<FF>>& public_inputs)
