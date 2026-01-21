@@ -100,6 +100,7 @@ export class ProvingOrchestrator implements EpochProver {
     private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
+    private readonly cancelJobsOnStop: boolean = false,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -504,11 +505,15 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   /**
-   * Cancel any further proving
+   * Cancel any further proving.
+   * If cancelJobsOnStop is true, aborts all pending jobs with the broker (which marks them as 'Aborted').
+   * If cancelJobsOnStop is false (default), jobs remain in the broker queue and can be reused on restart/reorg.
    */
   public cancel() {
-    for (const controller of this.pendingProvingJobs) {
-      controller.abort();
+    if (this.cancelJobsOnStop) {
+      for (const controller of this.pendingProvingJobs) {
+        controller.abort();
+      }
     }
 
     this.provingState?.cancel();
