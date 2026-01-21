@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "c_bind.hpp"
 
 #include "barretenberg/common/assert.hpp"
