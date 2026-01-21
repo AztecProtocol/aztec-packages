@@ -1,16 +1,16 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
-#include <memory>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/ecc/fields/field_declarations.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_mem.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using Poseidon2Perm = bb::crypto::Poseidon2Permutation<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
