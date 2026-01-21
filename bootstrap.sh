@@ -150,14 +150,15 @@ function check_toolchains {
 }
 
 function versions {
-  local noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
-  local anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
-  local node_version=$(node --version | cut -d 'v' -f 2)
-  local cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
-  local clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
-  local zig_version=$(zig version)
-  local rustc_version=$(rustc --version | cut -d' ' -f2)
-  local wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  noir_version=$(git -C noir/noir-repo describe --tags --exact-match HEAD)
+  anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
+  node_version=$(node --version | cut -d 'v' -f 2)
+  cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
+  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  zig_version=$(zig version)
+  rustc_version=$(rustc --version | cut -d' ' -f2)
+  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
   echo "noir: $noir_version"
   echo "foundry: $anvil_version"
   echo "node: $node_version"
