@@ -59,7 +59,7 @@ function get_contract_path {
   else
     # Just contract name provided (e.g. ecdsa_k_account_contract)
     contract_path=$(grep -oP "(?<=$folder_name/)[^\"]+/$input" Nargo.toml)
-    if [ -z "$contract_path" ]; then
+    if [[ -z $contract_path ]]; then
       echo "Contract $input not found in Nargo.toml" >&2
       exit 1
     fi
@@ -100,7 +100,7 @@ function build {
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
   local folder_name=$(basename $working_dir)
 
-  if [ "$#" -eq 0 ]; then
+  if [[ "$#" -eq 0 ]]; then
     rm -rf target
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
   else
@@ -108,7 +108,7 @@ function build {
   fi
   set +e
   parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
-  code=$?
+  local code=$?
   cat joblog.txt
   return $code
 }
@@ -120,10 +120,10 @@ function test_cmds {
   # Test bb aztec_process command
   echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
 
-  i=0
+  local i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
+    local port=$((45730 + (i++ % ${NUM_TXES:-1})))
+    [[ -z "${cache[$package]:-}" ]] && cache[$package]=$(get_contract_hash $package $folder_name)
     echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }
