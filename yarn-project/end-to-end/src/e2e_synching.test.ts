@@ -362,7 +362,7 @@ describe('e2e_synching', () => {
       }
 
       const blockNumber = await aztecNode.getBlockNumber();
-      const publishedCheckpoints = await aztecNode.getPublishedCheckpoints(CheckpointNumber(1), blockNumber);
+      const publishedCheckpoints = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber);
       const checkpoints = publishedCheckpoints.map(pc => pc.checkpoint);
 
       await variant.writeCheckpoints(checkpoints);

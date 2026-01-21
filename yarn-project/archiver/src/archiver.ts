@@ -424,14 +424,12 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Now attempt to retrieve checkpoints for proven, finalised and checkpointed blocks
     const [[provenBlockCheckpoint], [finalizedBlockCheckpoint], [checkpointedBlockCheckpoint]] = await Promise.all([
       provenCheckpointedBlock !== undefined
-        ? await this.getPublishedCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
+        ? await this.getCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
         : [undefined],
       finalizedCheckpointedBlock !== undefined
-        ? await this.getPublishedCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
+        ? await this.getCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
         : [undefined],
-      checkpointedBlock !== undefined
-        ? await this.getPublishedCheckpoints(checkpointedBlock?.checkpointNumber, 1)
-        : [undefined],
+      checkpointedBlock !== undefined ? await this.getCheckpoints(checkpointedBlock?.checkpointNumber, 1) : [undefined],
     ]);
 
     const initialcheckpointId: CheckpointId = {

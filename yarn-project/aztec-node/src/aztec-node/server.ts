@@ -43,7 +43,6 @@ import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockParameter,
-  type CheckpointedL2Block,
   type DataInBlock,
   L2BlockHash,
   L2BlockNew,
@@ -624,12 +623,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return (await this.blockSource.getL2BlocksNew(from, limit)) ?? [];
   }
 
-  public async getPublishedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
-    return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
-  }
-
-  public async getPublishedCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    return (await this.blockSource.getPublishedCheckpoints(from, limit)) ?? [];
+  public async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    return (await this.blockSource.getCheckpoints(from, limit)) ?? [];
   }
 
   public async getL2BlocksNew(from: BlockNumber, limit: number): Promise<L2BlockNew[]> {

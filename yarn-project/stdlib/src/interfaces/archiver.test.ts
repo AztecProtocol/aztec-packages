@@ -135,32 +135,24 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2BlockNew)]);
   });
 
-  it('getPublishedCheckpoints', async () => {
-    const response = await context.client.getPublishedCheckpoints(CheckpointNumber(1), BlockNumber(1));
+  it('getCheckpoints', async () => {
+    const response = await context.client.getCheckpoints(CheckpointNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
     expect(response[0].checkpoint.constructor.name).toEqual('Checkpoint');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
 
-  it('getPublishedBlocks', async () => {
-    const response = await context.client.getPublishedBlocks(BlockNumber(1), BlockNumber(1));
-    expect(response).toHaveLength(1);
-    expect(response[0].block.constructor.name).toEqual('L2BlockNew');
-    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
-    expect(response[0].l1).toBeDefined();
-  });
-
-  it('getPublishedBlockByArchive', async () => {
-    const result = await context.client.getPublishedBlockByArchive(Fr.random());
+  it('getCheckpointedBlockByArchive', async () => {
+    const result = await context.client.getCheckpointedBlockByArchive(Fr.random());
     expect(result).toBeDefined();
     expect(result!.block.constructor.name).toEqual('L2BlockNew');
     expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(result!.l1).toBeDefined();
   });
 
-  it('getPublishedBlockByHash', async () => {
-    const result = await context.client.getPublishedBlockByHash(Fr.random());
+  it('getCheckpointedBlockByHash', async () => {
+    const result = await context.client.getCheckpointedBlockByHash(Fr.random());
     expect(result).toBeDefined();
     expect(result!.block.constructor.name).toEqual('L2BlockNew');
     expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
@@ -431,7 +423,7 @@ class MockArchiver implements ArchiverApi {
   async getBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<L2BlockNew[]> {
     return [await L2BlockNew.random(from)];
   }
-  async getPublishedCheckpoints(from: CheckpointNumber, _limit: number): Promise<PublishedCheckpoint[]> {
+  async getCheckpoints(from: CheckpointNumber, _limit: number): Promise<PublishedCheckpoint[]> {
     return [
       PublishedCheckpoint.from({
         checkpoint: await Checkpoint.random(CheckpointNumber(from)),
@@ -443,23 +435,13 @@ class MockArchiver implements ArchiverApi {
   getCheckpointByArchive(_archive: Fr): Promise<Checkpoint | undefined> {
     return Promise.resolve(Checkpoint.random());
   }
-  async getPublishedBlocks(from: BlockNumber, _limit: number, _proven?: boolean): Promise<CheckpointedL2Block[]> {
-    return [
-      CheckpointedL2Block.fromFields({
-        checkpointNumber: CheckpointNumber(1),
-        block: await L2BlockNew.random(from),
-        attestations: [CommitteeAttestation.random()],
-        l1: new L1PublishedData(1n, 0n, `0x`),
-      }),
-    ];
-  }
 
   async getL2BlocksNew(from: BlockNumber, _1: number, _2?: boolean): Promise<L2BlockNew[]> {
     const block = await L2BlockNew.random(from);
     return [block];
   }
 
-  async getPublishedBlockByHash(_blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
+  async getCheckpointedBlockByHash(_blockHash: Fr): Promise<CheckpointedL2Block | undefined> {
     return CheckpointedL2Block.fromFields({
       checkpointNumber: CheckpointNumber(1),
       block: await L2BlockNew.random(BlockNumber(1)),
@@ -467,7 +449,7 @@ class MockArchiver implements ArchiverApi {
       l1: new L1PublishedData(1n, 0n, `0x`),
     });
   }
-  async getPublishedBlockByArchive(_archive: Fr): Promise<CheckpointedL2Block | undefined> {
+  async getCheckpointedBlockByArchive(_archive: Fr): Promise<CheckpointedL2Block | undefined> {
     return CheckpointedL2Block.fromFields({
       checkpointNumber: CheckpointNumber(1),
       block: await L2BlockNew.random(BlockNumber(1)),

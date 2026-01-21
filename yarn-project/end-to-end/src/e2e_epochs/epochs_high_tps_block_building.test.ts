@@ -117,7 +117,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     logger.warn(`All txs have been mined`);
 
     // Check all blocks mined by the sequencers have under the expected max number of transactions.
-    const blocks = await nodes[0].getPublishedBlocks(BlockNumber(1), 50);
+    const blocks = await nodes[0].getCheckpointedBlocks(BlockNumber(1), 50);
     for (const block of blocks) {
       logger.warn(
         `Block ${block.block.number} was mined at L1 ${block.l1.blockNumber} with ${block.block.body.txEffects.length} transactions`,

@@ -122,7 +122,7 @@ describe('L2BlockStream', () => {
 
     // Returns published checkpoints - each checkpoint contains just the one block for simplicity
     // Respects the limit parameter and returns up to `limit` checkpoints
-    blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) =>
+    blockSource.getCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) =>
       Promise.resolve(
         compactArray(
           times(limit, i => {
@@ -449,7 +449,7 @@ describe('L2BlockStream', () => {
       );
 
       // Returns published checkpoints with multiple blocks each, respecting the limit parameter
-      blockSource.getPublishedCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) => {
+      blockSource.getCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) => {
         const checkpoints: PublishedCheckpoint[] = [];
         for (let i = 0; i < limit; i++) {
           const cpNum = CheckpointNumber(checkpointNumber + i);
@@ -769,7 +769,7 @@ describe('L2BlockStream', () => {
 
         // Should have fetched all 3 checkpoints in a single call (Loop 2 makes 1 call with limit 10)
         // Even though we requested 10, only 3 exist - verify we handle this correctly
-        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const calls = blockSource.getCheckpoints.mock.calls;
         const loop2Calls = calls.filter(([_, limit]) => limit === 10);
         expect(loop2Calls.length).toBe(1);
         expect(loop2Calls[0][0]).toBe(1); // Starting from checkpoint 1
@@ -804,7 +804,7 @@ describe('L2BlockStream', () => {
         await prefetchStream.work();
 
         // Loop 2 should start fetching from checkpoint 3 (block 7 is in checkpoint 3)
-        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const calls = blockSource.getCheckpoints.mock.calls;
         const loop2Calls = calls.filter(([_, limit]) => limit === 10);
         expect(loop2Calls.length).toBe(1);
         expect(loop2Calls[0][0]).toBe(3); // Starting from checkpoint 3, not 1
@@ -838,7 +838,7 @@ describe('L2BlockStream', () => {
         await prefetchStream.work();
 
         // Should start prefetching from checkpoint 3
-        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const calls = blockSource.getCheckpoints.mock.calls;
         const loop2Calls = calls.filter(([_, limit]) => limit === 10);
         expect(loop2Calls.length).toBe(1);
         expect(loop2Calls[0][0]).toBe(3); // Starting from checkpoint 3
@@ -871,7 +871,7 @@ describe('L2BlockStream', () => {
         await prefetchStream.work();
 
         // Should have made 3 calls with limit 2 to fetch 5 checkpoints
-        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const calls = blockSource.getCheckpoints.mock.calls;
         const loop2Calls = calls.filter(([_, limit]) => limit === 2);
         expect(loop2Calls.length).toBe(3); // ceil(5/2) = 3
         expect(loop2Calls[0][0]).toBe(1); // First batch: checkpoints 1-2
@@ -895,7 +895,7 @@ describe('L2BlockStream', () => {
         await defaultPrefetchStream.work();
 
         // Should have used default limit of 50 for Loop 2 calls
-        const calls = blockSource.getPublishedCheckpoints.mock.calls;
+        const calls = blockSource.getCheckpoints.mock.calls;
         const loop2Calls = calls.filter(([_, limit]) => limit === 50);
         expect(loop2Calls.length).toBeGreaterThanOrEqual(1);
       });

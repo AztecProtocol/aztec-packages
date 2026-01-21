@@ -110,13 +110,13 @@ describe('Archiver Store', () => {
     await archiver?.stop();
   });
 
-  describe('getPublishedCheckpoints', () => {
+  describe('getCheckpoints', () => {
     it('returns published checkpoints with full checkpoint data', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 10);
+      const result = await archiver.getCheckpoints(CheckpointNumber(1), 10);
 
       expect(result.length).toBe(3);
       expect(result.map(c => c.checkpoint.number)).toEqual([1, 2, 3]);
@@ -132,7 +132,7 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 2);
+      const result = await archiver.getCheckpoints(CheckpointNumber(1), 2);
 
       expect(result.length).toBe(2);
       expect(result.map(c => c.checkpoint.number)).toEqual([1, 2]);
@@ -143,14 +143,14 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getPublishedCheckpoints(CheckpointNumber(2), 10);
+      const result = await archiver.getCheckpoints(CheckpointNumber(2), 10);
 
       expect(result.length).toBe(2);
       expect(result.map(c => c.checkpoint.number)).toEqual([2, 3]);
     });
 
     it('returns empty array when no checkpoints exist', async () => {
-      const result = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 10);
+      const result = await archiver.getCheckpoints(CheckpointNumber(1), 10);
 
       expect(result).toEqual([]);
     });

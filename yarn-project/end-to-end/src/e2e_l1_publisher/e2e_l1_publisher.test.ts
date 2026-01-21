@@ -189,20 +189,6 @@ describe('L1Publisher integration', () => {
       getBlocks(from, limit, _proven) {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
-      getPublishedBlocks(from, limit, _proven) {
-        const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
-        return Promise.all(
-          slicedBlocks.map(async block =>
-            CheckpointedL2Block.fromFields({
-              checkpointNumber: CheckpointNumber(block.number),
-              attestations: [],
-              block,
-              // Use L2 block number and hash for faking the L1 info
-              l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
-            }),
-          ),
-        );
-      },
       // Methods needed by L2BlockStream for world state sync
       getCheckpointedBlocks(from, limit, _proven) {
         const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
@@ -218,7 +204,7 @@ describe('L1Publisher integration', () => {
           ),
         );
       },
-      async getPublishedCheckpoints(checkpointNumber, _limit) {
+      async getCheckpoints(checkpointNumber, _limit) {
         const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
         if (!block) {
           return Promise.resolve([]);

@@ -158,7 +158,7 @@ describe('full_prover', () => {
 
       // Get all checkpoints that were proven in this epoch
       const numCheckpointsProven = Number(newProvenCheckpointNumber) - Number(oldProvenCheckpointNumber);
-      const publishedCheckpoints = await t.aztecNode.getPublishedCheckpoints(
+      const publishedCheckpoints = await t.aztecNode.getCheckpoints(
         CheckpointNumber(Number(oldProvenCheckpointNumber) + 1),
         numCheckpointsProven,
       );
