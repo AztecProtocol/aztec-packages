@@ -349,7 +349,9 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
 {
 
     const auto sorted_elements = get_sorted_steps();
-    // TODO(#756): can be parallelized further. This will use at most 5 threads
+    // TODO(#756): Could parallelize the inner loop (5462 elements) in addition to the outer (5 shifts),
+    // but profiling would be needed to determine if the overhead of nested parallelization exceeds
+    // the benefit for such simple array assignments. Current approach uses 5 threads effectively.
     auto fill_with_shift = [&](size_t shift) {
         for (size_t i = 0; i < sorted_elements.size(); i++) {
             proving_key->polynomials.ordered_extra_range_constraints_numerator.at(
