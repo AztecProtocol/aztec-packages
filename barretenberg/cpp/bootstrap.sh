@@ -105,6 +105,32 @@ function build_cross {
   fi
 }
 
+# Build iOS static library (for barretenberg-rs FFI backend).
+# Must be run on macOS with Xcode installed.
+function build_ios {
+  set -eu
+  target=$1  # ios-arm64 or ios-sim-arm64
+  if ! cache_download barretenberg-$target-$hash.zst; then
+    build_preset $target --target bb-external
+    cache_upload barretenberg-$target-$hash.zst build-$target/lib
+  fi
+}
+
+# Build Android static library (for barretenberg-rs FFI backend).
+# Requires ANDROID_NDK_HOME to be set.
+function build_android {
+  set -eu
+  target=$1  # android-arm64 or android-x86_64
+  if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+    echo "ANDROID_NDK_HOME not set, skipping Android build"
+    return 0
+  fi
+  if ! cache_download barretenberg-$target-$hash.zst; then
+    build_preset $target --target bb-external
+    cache_upload barretenberg-$target-$hash.zst build-$target/lib
+  fi
+}
+
 # Selectively build components with address sanitizer (with optimizations)
 function build_asan_fast {
   set -eu
@@ -220,9 +246,29 @@ function build_release_dir {
 
   # Package amd64-macos
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
+
+  # Package static libraries for barretenberg-rs FFI backend
+  # Native library (same arch as build machine)
+  tar -czf build-release/barretenberg-rs-$arch-linux.tar.gz -C build/lib libbb-external.a
+
+  # iOS libraries (if built on macOS)
+  if [ -f build-ios-arm64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-rs-aarch64-apple-ios.tar.gz -C build-ios-arm64/lib libbb-external.a
+  fi
+  if [ -f build-ios-sim-arm64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-rs-aarch64-apple-ios-sim.tar.gz -C build-ios-sim-arm64/lib libbb-external.a
+  fi
+
+  # Android libraries (if NDK was available)
+  if [ -f build-android-arm64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-rs-aarch64-linux-android.tar.gz -C build-android-arm64/lib libbb-external.a
+  fi
+  if [ -f build-android-x86_64/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-rs-x86_64-linux-android.tar.gz -C build-android-x86_64/lib libbb-external.a
+  fi
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
@@ -243,6 +289,8 @@ function build {
       "build_cross arm64-linux" \
       "build_cross amd64-macos true" \
       "build_cross arm64-macos true"
+    # Note: iOS builds require macOS with Xcode, Android builds require NDK
+    # These are built separately on appropriate runners and artifacts merged
     build_release_dir
   else
     builds=(
