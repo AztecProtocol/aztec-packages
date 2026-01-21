@@ -22,15 +22,23 @@ void mutate_note_hash(FF& note_hash, std::mt19937_64& rng)
     mutate_field(note_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
 }
 
-// Generate a random nullifier
+// Generate a random nullifier. Can't be zero.
 FF generate_nullifier(std::mt19937_64& rng)
 {
-    return generate_random_field(rng);
+    FF nullifier = 0;
+    while (nullifier == 0) {
+        nullifier = generate_random_field(rng);
+    }
+    return nullifier;
 }
 
+// Mutate a nullifier. Can't be zero.
 void mutate_nullifier(FF& nullifier, std::mt19937_64& rng)
 {
     mutate_field(nullifier, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+    while (nullifier == 0) {
+        mutate_field(nullifier, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
+    }
 }
 
 // Generate a random L2 to L1 message
