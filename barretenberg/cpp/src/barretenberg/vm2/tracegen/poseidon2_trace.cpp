@@ -250,30 +250,36 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
 
     for (const auto& event : perm_mem_events) {
         // Addresses cast to uint64_t to capture overflows
-        uint64_t src_addr = static_cast<uint64_t>(event.src_address);
-        uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
+        const uint64_t src_addr = static_cast<uint64_t>(event.src_address);
+        const uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
         // Error Handling, check that the addresses are within the valid range
         // The max read address is src_addr + 3 since 4 input elements are read
         // The max write address is dst_addr + 3 since 4 output elements are written
-        bool src_out_of_range_err = src_addr + 3 > AVM_HIGHEST_MEM_ADDRESS;
-        bool dst_out_of_range_err = dst_addr + 3 > AVM_HIGHEST_MEM_ADDRESS;
-        bool should_read_mem = !(src_out_of_range_err || dst_out_of_range_err);
+        const bool src_out_of_range_err = src_addr + 3 > AVM_HIGHEST_MEM_ADDRESS;
+        const bool dst_out_of_range_err = dst_addr + 3 > AVM_HIGHEST_MEM_ADDRESS;
+        const bool should_read_mem = !(src_out_of_range_err || dst_out_of_range_err);
 
         // Error Handling, check that the input tags are valid
         bool invalid_tag =
             std::ranges::any_of(event.input, [](const auto& input) { return input.get_tag() != MemoryTag::FF; });
-        uint32_t target_tag = static_cast<uint32_t>(MemoryTag::FF);
-        uint32_t batched_tag_check = 0;
-        // Performs the batched tag check described in the circuit.
-        // see https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers
-        for (uint32_t i = 0; i < event.input.size(); i++) {
-            uint32_t exponent = 3 * i;
-            uint32_t current_tag = static_cast<uint32_t>(event.input[i].get_tag());
-            batched_tag_check += (current_tag - target_tag) * (1 << exponent);
-        }
-        FF batch_tag_inv = invalid_tag ? FF(batched_tag_check).invert() : 0;
 
-        bool err = src_out_of_range_err || dst_out_of_range_err || invalid_tag;
+        FF batch_tag_inv = 0;
+
+        // No need to use batch inversion because in the happy path we do not perform any field inversion.
+        if (invalid_tag) {
+            uint32_t target_tag = static_cast<uint32_t>(MemoryTag::FF);
+            FF batched_tag_check = 0;
+            // Performs the batched tag check described in the circuit.
+            // see https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers
+            for (uint32_t i = 0; i < event.input.size(); i++) {
+                uint32_t exponent = 3 * i;
+                uint32_t current_tag = static_cast<uint32_t>(event.input[i].get_tag());
+                batched_tag_check += (FF(current_tag) - FF(target_tag)) * FF((1 << exponent));
+            }
+            batch_tag_inv = batched_tag_check.invert();
+        }
+
+        const bool err = src_out_of_range_err || dst_out_of_range_err || invalid_tag;
 
         trace.set(row,
                   { {
