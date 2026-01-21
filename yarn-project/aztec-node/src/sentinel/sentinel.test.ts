@@ -77,7 +77,7 @@ describe('sentinel', () => {
       proofSubmissionEpochs: 1,
     };
 
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, now: ts });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, nowMs: ts * 1000n });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
@@ -566,7 +566,7 @@ describe('sentinel', () => {
         epoch: epochNumber,
         slot,
         ts,
-        now: ts,
+        nowMs: ts * 1000n,
       });
       archiver.getL2Block.calledWith(blockNumber).mockResolvedValue(mockBlock);
       archiver.getL1Constants.mockResolvedValue(l1Constants);

@@ -16,11 +16,12 @@ export class MockEpochCache implements EpochCacheInterface {
     });
   }
 
-  getEpochAndSlotNow(): EpochAndSlot {
+  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
     return {
       epoch: EpochNumber.ZERO,
       slot: SlotNumber(0),
       ts: 0n,
+      nowMs: 0n,
     };
   }
 
