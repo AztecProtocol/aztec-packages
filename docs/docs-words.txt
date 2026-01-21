@@ -77,6 +77,8 @@ Danksharding
 databus
 defiexit
 defn
+deflatten
+deflattenFields
 delegatecall
 DELEGATECALL
 delegatecalls
@@ -384,3 +386,4 @@ supermajority
 finalise
 undelegation
 unbonding
+zkpassport
