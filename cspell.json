@@ -119,6 +119,7 @@
     "ecdh",
     "ecdsasecp",
     "elif",
+    "emittable",
     "endgroup",
     "enrs",
     "entrypoints",

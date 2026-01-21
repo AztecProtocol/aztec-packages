@@ -17,7 +17,7 @@ import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
-import { packAsRetrievedNote } from './note_packing_utils.js';
+import { packAsHintedNote } from './note_packing_utils.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -259,7 +259,7 @@ export class Oracle {
     [offset]: ACVMField[],
     [status]: ACVMField[],
     [maxNotes]: ACVMField[],
-    [packedRetrievedNoteLength]: ACVMField[],
+    [packedHintedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     // Parse Option<AztecAddress>: ownerSome is 0 for None, 1 for Some
     const owner = Fr.fromString(ownerSome).toNumber() === 1 ? AztecAddress.fromString(ownerValue) : undefined;
@@ -281,8 +281,8 @@ export class Oracle {
       +status,
     );
 
-    const returnDataAsArrayOfPackedRetrievedNotes = noteDatas.map(noteData =>
-      packAsRetrievedNote({
+    const returnDataAsArrayOfPackedHintedNotes = noteDatas.map(noteData =>
+      packAsHintedNote({
         contractAddress: noteData.contractAddress,
         owner: noteData.owner,
         randomness: noteData.randomness,
@@ -294,12 +294,12 @@ export class Oracle {
     );
 
     // Now we convert each sub-array to an array of ACVMField
-    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedRetrievedNotes.map(subArray =>
+    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedHintedNotes.map(subArray =>
       subArray.map(toACVMField),
     );
 
     // At last we convert the array of arrays to a bounded vec of arrays
-    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedRetrievedNoteLength);
+    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedHintedNoteLength);
   }
 
   privateNotifyCreatedNote(

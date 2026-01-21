@@ -1,9 +1,11 @@
 export {
   Tx,
   TxExecutionRequest,
+  TxExecutionResult,
   TxHash,
   TxReceipt,
   TxStatus,
+  SortedTxStatuses,
   Capsule,
   HashedValues,
   GlobalVariables,

@@ -1,10 +1,10 @@
 use crate::{
-    context::{note_hash_read::NoteHashRead, PrivateContext},
+    context::PrivateContext,
     note::{
+        confirmed_note::ConfirmedNote,
         note_interface::{NoteHash, NoteType},
         note_message::NoteMessage,
-        retrieved_note::RetrievedNote,
-        utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
+        utils::compute_confirmed_note_hash_for_nullification,
     },
     oracle::{notes::notify_created_note, random::random},
 };
@@ -71,33 +71,18 @@ where
     )
 }
 
-// Note: This function is currently totally unused.
-pub fn destroy_note<Note>(context: &mut PrivateContext, retrieved_note: RetrievedNote<Note>)
+pub fn destroy_note<Note>(context: &mut PrivateContext, confirmed_note: ConfirmedNote<Note>)
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note);
-
-    destroy_note_unsafe(context, retrieved_note, note_hash_read)
-}
-
-pub fn destroy_note_unsafe<Note>(
-    context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
-    note_hash_read: NoteHashRead,
-)
-where
-    Note: NoteHash,
-{
-    let note_hash_for_nullification =
-        compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
-    let nullifier = retrieved_note.note.compute_nullifier(
+    let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
+    let nullifier = confirmed_note.note.compute_nullifier(
         context,
-        retrieved_note.owner,
+        confirmed_note.owner,
         note_hash_for_nullification,
     );
 
-    let note_hash = if retrieved_note.metadata.is_settled() {
+    let note_hash = if confirmed_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
         0
     } else {

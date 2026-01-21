@@ -16,6 +16,7 @@ import type {
   ExecutablePrivateFunctionWithMembershipProof,
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -64,8 +65,9 @@ export class KVArchiverDataStore implements ContractDataSource {
   constructor(
     private db: AztecAsyncKVStore,
     logsMaxPageSize: number = 1000,
+    l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
-    this.#blockStore = new BlockStore(db);
+    this.#blockStore = new BlockStore(db, l1Constants);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -99,6 +101,11 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Closes the underlying data store. */
   public close() {
     return this.db.close();
+  }
+
+  /** Computes the finalized block number based on the proven block number. */
+  getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    return this.#blockStore.getFinalizedL2BlockNumber();
   }
 
   /** Looks up a public function name given a selector. */
@@ -434,24 +441,33 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
    */
-  getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPrivateLogsByTags(tags);
+      return this.#logStore.getPrivateLogsByTags(tags, page);
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination. Returns at most 10 logs per tag per page.
    */
-  getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+  getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags);
+      return this.#logStore.getPublicLogsByTagsFromContract(contractAddress, tags, page);
     } catch (err) {
       return Promise.reject(err);
     }

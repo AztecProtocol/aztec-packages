@@ -297,7 +297,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
 void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::lte");
-    constexpr auto opcode = ExecutionOpCode::LT;
+    constexpr auto opcode = ExecutionOpCode::LTE;
     auto& memory = context.get_memory();
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
@@ -1885,6 +1885,9 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .parent_cd_size = parent_context.get_parent_cd_size(),
         .parent_gas_used = parent_context.get_parent_gas_used(),
         .parent_gas_limit = parent_context.get_parent_gas_limit(),
+        .internal_call_id = parent_context.get_internal_call_stack_manager().get_call_id(),
+        .internal_call_return_id = parent_context.get_internal_call_stack_manager().get_return_call_id(),
+        .next_internal_call_id = parent_context.get_internal_call_stack_manager().get_next_call_id(),
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
         // Non-tree-tracked side effects

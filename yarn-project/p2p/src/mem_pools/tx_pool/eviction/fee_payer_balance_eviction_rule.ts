@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
+import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
@@ -22,7 +22,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
   private log = createLogger('p2p:mempool:tx_pool:fee_payer_balance_eviction_rule');
 
-  constructor(private worldState: ReadonlyWorldStateAccess) {}
+  constructor(private worldState: WorldStateSynchronizer) {}
 
   async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     try {
@@ -31,11 +31,12 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
       }
 
       if (context.event === EvictionEvent.BLOCK_MINED) {
-        return await this.evictForFeePayers(
-          context.feePayers,
-          this.worldState.getSnapshot(context.block.getBlockNumber()),
-          txPool,
-        );
+        const blockNumber = context.block.getBlockNumber();
+        // Ensure world state is synced to this block before accessing the snapshot.
+        // This handles the race where a block is added to the archiver
+        // but the world state hasn't synced it yet.
+        await this.worldState.syncImmediate(blockNumber);
+        return await this.evictForFeePayers(context.feePayers, this.worldState.getSnapshot(blockNumber), txPool);
       }
 
       // TODO: fix this edge-case
@@ -49,6 +50,8 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
       // -----
       // Proposed fix: evict only if node is synched
       if (context.event === EvictionEvent.CHAIN_PRUNED) {
+        // Ensure world state is synced to this block before accessing the snapshot.
+        await this.worldState.syncImmediate(context.blockNumber);
         const feePayers = await txPool.getPendingFeePayers();
         return await this.evictForFeePayers(feePayers, this.worldState.getSnapshot(context.blockNumber), txPool);
       }

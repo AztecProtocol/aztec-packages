@@ -51,7 +51,7 @@ fi
 # Noop when redis is unavailable.
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-    redis-cli --raw -h $CI_REDIS "$@"
+    redis-cli --raw -h $CI_REDIS "$@" || true
   fi
 }
 

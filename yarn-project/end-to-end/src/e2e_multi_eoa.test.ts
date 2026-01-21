@@ -1,7 +1,6 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
@@ -164,7 +163,7 @@ describe('e2e_multi_eoa', () => {
       logger.warn(`L2 deploy tx sent with hash ${(await tx.getTxHash()).toString()}`);
 
       const receipt = await tx.wait();
-      expect(receipt.status).toBe(TxStatus.SUCCESS);
+      expect(receipt.isMined() && receipt.hasExecutionSucceeded()).toBe(true);
 
       logger.warn(`Got ${blockedTxs.length} blocked txs for ${blockedSender}`);
       expect(blockedTxs.length).toBeGreaterThan(0);

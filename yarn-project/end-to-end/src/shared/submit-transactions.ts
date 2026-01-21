@@ -23,12 +23,7 @@ export const submitTxsTo = async (
 
       logger.info(`Tx sent with hash ${txHash}`);
       const receipt = await tx.getReceipt();
-      expect(receipt).toEqual(
-        expect.objectContaining({
-          status: TxStatus.PENDING,
-          error: '',
-        }),
-      );
+      expect(receipt.status).toBe(TxStatus.PENDING);
       logger.info(`Receipt received for ${txHash}`);
       txs.push(tx);
     }),

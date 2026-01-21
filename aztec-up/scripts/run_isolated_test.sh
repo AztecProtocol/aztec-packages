@@ -108,6 +108,9 @@ EOF
   '
 }
 
+# We want to use nargo from our local noir-repo build.
+export NARGO=/home/ubuntu/aztec-packages/noir/noir-repo/target/release/nargo
+
 retry install_node
 source ~/.nvm/nvm.sh
 retry install_verdaccio

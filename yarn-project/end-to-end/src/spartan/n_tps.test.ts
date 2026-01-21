@@ -62,6 +62,36 @@ const CHAOS_MESH_NAME = 'network-shaping';
 const p2pLatencyQuery = (perc: string, topicName: TopicType) =>
   `histogram_quantile(${perc}, sum(rate(aztec_p2p_gossip_message_latency_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}", aztec_gossip_topic_name="${topicName}"}[1m])) by (le))`;
 
+const attestationLatencyQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_sequencer_checkpoint_attestation_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const attestationSuccessCountQuery = () =>
+  `sum(aztec_validator_attestation_success_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const attestationFailedBadProposalCountQuery = () =>
+  `sum(aztec_validator_attestation_failed_bad_proposal_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const attestationFailedNodeIssueCountQuery = () =>
+  `sum(aztec_validator_attestation_failed_node_issue_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const reqRespTxsFractionQuery = () =>
+  `sum(rate(aztec_tx_collector_txs_requested_fraction_sum{k8s_namespace_name="${config.NAMESPACE}"}[1m])) / ` +
+  `sum(rate(aztec_tx_collector_txs_requested_fraction_count{k8s_namespace_name="${config.NAMESPACE}"}[1m]))`;
+
+const reqRespTxsDelayQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_tx_collector_txs_requested_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const mempoolTxMinedDelayQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_mempool_tx_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const mempoolAttestationMinedDelayQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_mempool_attestations_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const peerCountQuery = () => `avg(aztec_peer_manager_peer_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const peerConnectionDurationQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
 
@@ -90,8 +120,63 @@ describe('sustained N TPS test', () => {
 
           metrics.recordP2PGossipLatency(topic, p50, p95);
         } catch (err) {
-          logger.warn(`Failed to scrape prometheus data: ${err}`, { err });
+          logger.warn(`Failed to scrape P2P gossip latency: ${err}`, { err });
         }
+      }
+
+      try {
+        const [p50, p95] = await Promise.all([
+          prometheusClient.querySingleValue(attestationLatencyQuery('0.50')),
+          prometheusClient.querySingleValue(attestationLatencyQuery('0.95')),
+        ]);
+        metrics.recordAttestationLatency(p50, p95);
+      } catch (err) {
+        logger.warn(`Failed to scrape attestation latency: ${err}`, { err });
+      }
+
+      try {
+        const [success, failedBad, failedNode] = await Promise.all([
+          prometheusClient.querySingleValue(attestationSuccessCountQuery()),
+          prometheusClient.querySingleValue(attestationFailedBadProposalCountQuery()),
+          prometheusClient.querySingleValue(attestationFailedNodeIssueCountQuery()),
+        ]);
+        metrics.recordAttestationCounts(success, failedBad, failedNode);
+      } catch (err) {
+        logger.warn(`Failed to scrape attestation counts: ${err}`, { err });
+      }
+
+      try {
+        const [fraction, delayP50, delayP95] = await Promise.all([
+          prometheusClient.querySingleValue(reqRespTxsFractionQuery()),
+          prometheusClient.querySingleValue(reqRespTxsDelayQuery('0.50')),
+          prometheusClient.querySingleValue(reqRespTxsDelayQuery('0.95')),
+        ]);
+        metrics.recordReqRespStats(fraction, delayP50, delayP95);
+      } catch (err) {
+        logger.warn(`Failed to scrape req/resp stats: ${err}`, { err });
+      }
+
+      try {
+        const [avgCount, durationP50, durationP95] = await Promise.all([
+          prometheusClient.querySingleValue(peerCountQuery()),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50')),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95')),
+        ]);
+        metrics.recordPeerStats(avgCount, durationP50, durationP95);
+      } catch (err) {
+        logger.warn(`Failed to scrape peer stats: ${err}`, { err });
+      }
+
+      try {
+        const [txP50, txP95, attestationP50, attestationP95] = await Promise.all([
+          prometheusClient.querySingleValue(mempoolTxMinedDelayQuery('0.50')),
+          prometheusClient.querySingleValue(mempoolTxMinedDelayQuery('0.95')),
+          prometheusClient.querySingleValue(mempoolAttestationMinedDelayQuery('0.50')),
+          prometheusClient.querySingleValue(mempoolAttestationMinedDelayQuery('0.95')),
+        ]);
+        metrics.recordMempoolMinedDelay(txP50, txP95, attestationP50, attestationP95);
+      } catch (err) {
+        logger.warn(`Failed to scrape mempool mined delay stats: ${err}`, { err });
       }
 
       await mkdir(dirname(process.env.BENCH_OUTPUT), { recursive: true });

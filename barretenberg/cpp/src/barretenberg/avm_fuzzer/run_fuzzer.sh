@@ -51,8 +51,8 @@ if [ "$COMMAND" = "analyze" ]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     BARRETENBERG_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
     CPP_DIR="$BARRETENBERG_ROOT/cpp"
-    BUILD_DIR="$CPP_DIR/build-fuzzing-avm"
-    BUILD_PRESET="fuzzing-avm"
+    BUILD_DIR="$CPP_DIR/build-fuzzing-avm-tooling"
+    BUILD_PRESET="fuzzing-avm-tooling"
 
     cd "$CPP_DIR"
 
@@ -127,6 +127,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BARRETENBERG_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 PROJECT_ROOT="$(cd "$BARRETENBERG_ROOT/.." && pwd)"
 CPP_DIR="$BARRETENBERG_ROOT/cpp"
+COVERAGE_OUTPUT_DIR="$SCRIPT_DIR/coverage"
 
 # Set AVM_SIMULATOR_BIN environment variable (relative to PROJECT_ROOT)
 export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js}"
@@ -221,8 +222,9 @@ mkdir -p "$SYNC_CORPUS_DIR"
 cd "$BUILD_DIR"
 
 # Default fuzzer parameters
-TIMEOUT=5
-WORKERS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN PARALLEL
+TIMEOUT=10
+RSS_LIMIT_MB=4096
+WORKERS=4
 JOBS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN PARALLEL
 ENTROPIC=1
 SHRINK=1
@@ -238,6 +240,7 @@ echo "Crashes directory: $CRASHES_DIR"
 if [ "$COMMAND" = "fuzz" ]; then
     echo "Parameters:"
     echo "  -timeout=$TIMEOUT"
+    echo "  -rss_limit_mb=$RSS_LIMIT_MB"
     echo "  -workers=$WORKERS"
     echo "  -jobs=$JOBS"
     echo "  -entropic=$ENTROPIC"
@@ -252,7 +255,8 @@ echo ""
 
 # Set coverage environment variable if coverage command
 if [ "$COMMAND" = "coverage" ]; then
-    export LLVM_PROFILE_FILE="${LLVM_PROFILE_FILE:-coverage.profraw}"
+    mkdir -p "$COVERAGE_OUTPUT_DIR"
+    export LLVM_PROFILE_FILE="$COVERAGE_OUTPUT_DIR/fuzzer.profraw"
     echo "Coverage profiling enabled: LLVM_PROFILE_FILE=$LLVM_PROFILE_FILE"
     echo "COVERAGE_AVM: check_circuit is skipped in coverage builds"
     echo ""
@@ -263,11 +267,16 @@ FUZZER_CMD=(./bin/$FUZZER_TYPE)
 
 if [ "$COMMAND" = "coverage" ]; then
     # When running with coverage, run all corpus entries once (runs=0 means corpus only)
-    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR" -runs=0)
+    FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR"
+        -timeout=$TIMEOUT
+        -rss_limit_mb=$RSS_LIMIT_MB
+        -workers=$WORKERS
+        -runs=0)
 else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
         -timeout=$TIMEOUT
+        -rss_limit_mb=$RSS_LIMIT_MB
         -workers=$WORKERS
         -jobs=$JOBS
         -entropic=$ENTROPIC
@@ -304,8 +313,17 @@ if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
     echo "Processing coverage data..."
     echo "=========================================="
 
-    COVERAGE_DATA="coverage.profdata"
-    llvm-profdata-20 merge -sparse "$LLVM_PROFILE_FILE" -o "$COVERAGE_DATA"
+    COVERAGE_DATA="$COVERAGE_OUTPUT_DIR/bb_avm.profdata"
+    # Merge all profraw and profdata files in coverage directory
+    COVERAGE_FILES=("$COVERAGE_OUTPUT_DIR"/*.profraw "$COVERAGE_OUTPUT_DIR"/*.profdata)
+    echo "Merging coverage files:"
+    for f in "${COVERAGE_FILES[@]}"; do
+        if [ -f "$f" ]; then
+            echo "  $f"
+        fi
+    done
+    echo ""
+    llvm-profdata-20 merge -sparse "${COVERAGE_FILES[@]}" -o "$COVERAGE_DATA"
 
     if [ $? -ne 0 ]; then
         echo "Error: Failed to merge coverage data"
@@ -321,11 +339,15 @@ if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
     # Set path filter for vm2 directory
     VM2_PATH_FILTER="$CPP_DIR/src/barretenberg/vm2"
 
-    # Ignore patterns for generated and constraining directories
-    IGNORE_REGEX="(vm2/generated|vm2/constraining|vm2/testing|vm2/tooling)"
+    # Ignore patterns for:
+    #  - Generated, constraining, testing, tooling, optimized directories
+    #  - opcodes.cpp:                  Debug utility, not called in normal execution
+    #  - interfaces/*.hpp:             Interface pattern, virtual destructors aren't called directly
+    #  - test_interaction_builder.hpp: Test-only code
+    IGNORE_REGEX="(vm2/generated|vm2/constraining|vm2/testing|vm2/tooling|vm2/optimized|vm2/common/opcodes.cpp|vm2/simulation/interfaces|tracegen/lib/test_interaction_builder.hpp)"
 
     if [ "$COVERAGE_FORMAT" = "html" ]; then
-        REPORT_DIR="out/report"
+        REPORT_DIR="$COVERAGE_OUTPUT_DIR/html"
         mkdir -p "$REPORT_DIR"
         llvm-cov-20 show -output-dir="$REPORT_DIR" -format=html \
             -ignore-filename-regex="$IGNORE_REGEX" \

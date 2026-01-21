@@ -46,7 +46,7 @@ export function useTransaction() {
       // TODO: Don't send the tx if the user has cancelled the transaction
       receipt = await tx.wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
 
-      if (showNotifications && receipt.status === TxStatus.SUCCESS) {
+      if (showNotifications && receipt.hasExecutionSucceeded()) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
           severity: 'success',
         });
@@ -63,14 +63,14 @@ export function useTransaction() {
         ...currentTx,
         ...{
           txHash,
-          status: receipt.status,
+          status: receipt.hasExecutionSucceeded() ? 'success' : receipt.status,
           receipt,
           error: receipt.error,
         },
       });
     } catch (e) {
       if (e instanceof TimeoutError) {
-        const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, e.message);
+        const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, e.message);
         await playgroundDB.storeTx({
           contractAddress,
           txHash,

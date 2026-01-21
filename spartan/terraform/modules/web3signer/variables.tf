@@ -43,6 +43,11 @@ variable "VALIDATOR_MNEMONIC_START_INDEX" {
   type        = number
 }
 
+variable "VALIDATOR_HA_REPLICAS" {
+  description = "How many HA copies of validators running"
+  type        = number
+}
+
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic index start for key derivation"
   type        = number

@@ -52,7 +52,7 @@ with state variables in your Aztec smart contract. This is conceptually
 similar to Solidity's <code>mapping(K =&gt; V)</code> syntax, where you can store and
 retrieve values by their associated keys.</p>
 <p>You can declare a state variable contained within a Map in your contract's
-#[storage] struct.</p>
+<a href="../../../noir_aztec/macros/storage/fn.storage.html">storage</a> struct.</p>
 <p>For example, you might use
 <code>Map&lt;AztecAddress, PublicMutable&lt;FieldNote, Context&gt;, Context&gt;</code> to track
 token balances for different users, similar to how you'd use
@@ -87,7 +87,7 @@ public, utility).</p>
 contexts)</li>
 </ul>
 <h2>Usage</h2>
-<p>Maps are typically declared in your contract's #[storage] struct and
+<p>Maps are typically declared in your contract's <a href="../../../noir_aztec/macros/storage/fn.storage.html">storage</a> struct and
 accessed
 using the <code>at(key)</code> method to get the state variable for a specific key.
 The resulting state variable can then be read from or written to using its

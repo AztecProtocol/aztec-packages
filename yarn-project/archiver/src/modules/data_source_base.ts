@@ -87,8 +87,12 @@ export abstract class ArchiverDataSourceBase
     return this.store.getCheckpointedBlock(number);
   }
 
-  public getCheckpointedBlockNumber(): Promise<BlockNumber> {
+  public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
     return this.store.getCheckpointedL2BlockNumber();
+  }
+
+  public getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    return this.store.getFinalizedL2BlockNumber();
   }
 
   public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {
@@ -173,12 +177,16 @@ export abstract class ArchiverDataSourceBase
     return blocks;
   }
 
-  public getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getPrivateLogsByTags(tags);
+  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+    return this.store.getPrivateLogsByTags(tags, page);
   }
 
-  public getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags);
+  public getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    return this.store.getPublicLogsByTagsFromContract(contractAddress, tags, page);
   }
 
   public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {

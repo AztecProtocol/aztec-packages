@@ -1,4 +1,4 @@
-import { TopicType } from '@aztec/stdlib/p2p';
+import { MAX_TX_SIZE_KB, TopicType } from '@aztec/stdlib/p2p';
 
 import { compressSync, uncompressSync } from 'snappy';
 
@@ -225,8 +225,8 @@ describe('SnappyTransform', () => {
         transform = new SnappyTransform();
       });
 
-      it('should accept tx payload within 512kb limit', () => {
-        const size = 400 * 1024; // 400kb
+      it('should accept tx payload within size limit', () => {
+        const size = MAX_TX_SIZE_KB * 1024 - 1;
         const data = Buffer.alloc(size, 'a');
         const compressed = compressSync(data);
 
@@ -234,13 +234,22 @@ describe('SnappyTransform', () => {
         expect(result.length).toBe(size);
       });
 
-      it('should reject tx payload exceeding 512kb limit', () => {
-        const size = 600 * 1024; // 600kb (exceeds 512kb limit)
+      it('should accept tx payload exactly at size limit', () => {
+        const size = MAX_TX_SIZE_KB * 1024;
+        const data = Buffer.alloc(size, 'a');
+        const compressed = compressSync(data);
+
+        const result = transform.inboundTransformData(compressed, TopicType.tx);
+        expect(result.length).toBe(size);
+      });
+
+      it('should reject tx payload exceeding size limit', () => {
+        const size = MAX_TX_SIZE_KB * 1024 + 1;
         const data = Buffer.alloc(size, 'a');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, TopicType.tx)).toThrow(
-          'Decompressed size 614400 exceeds maximum allowed size of 512kb',
+          `Decompressed size ${size} exceeds maximum allowed size of ${MAX_TX_SIZE_KB}kb`,
         );
       });
 

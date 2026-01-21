@@ -91,6 +91,10 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
           // First Row in new context
           {
               { C::execution_sel, 1 },
+              { C::execution_sel_first_row_in_context, 1 },
+              { C::execution_internal_call_id, 1 },
+              { C::execution_internal_call_return_id, 0 },
+              { C::execution_next_internal_call_id, 2 },
               { C::execution_pc, 0 }, // pc=0 because it is after a CALL
               { C::execution_next_pc, 20 },
               { C::execution_context_id, 2 },      // Previous row next_context_id
@@ -107,6 +111,9 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
           // Return Row
           {
               { C::execution_sel, 1 },
+              { C::execution_internal_call_id, 1 },
+              { C::execution_internal_call_return_id, 0 },
+              { C::execution_next_internal_call_id, 2 },
               { C::execution_pc, 20 },
               { C::execution_next_pc, 30 },
               { C::execution_sel_execute_return, 1 },
@@ -223,6 +230,10 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
           // First Row in new context
           {
               { C::execution_sel, 1 },
+              { C::execution_sel_first_row_in_context, 1 },
+              { C::execution_internal_call_id, 1 },
+              { C::execution_internal_call_return_id, 0 },
+              { C::execution_next_internal_call_id, 2 },
               { C::execution_pc, 0 }, // pc=0 because it is after a CALL
               { C::execution_next_pc, 20 },
               { C::execution_context_id, 2 },      // Previous row next_context_id
@@ -239,6 +250,9 @@ TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
           {
               { C::execution_sel, 1 },
               { C::execution_pc, 20 },
+              { C::execution_internal_call_id, 1 },
+              { C::execution_internal_call_return_id, 0 },
+              { C::execution_next_internal_call_id, 2 },
               { C::execution_next_pc, 30 },
               // Note that `sel_execute_return` is 0 because this is an exceptional halt.
               { C::execution_rop_0_, 500 },      // Return data size offset
@@ -1001,12 +1015,14 @@ TEST(ContextConstrainingTest, ContextIdPropagation)
         {
             { C::execution_sel, 1 },
             { C::execution_enqueued_call_start, 1 },
+            { C::execution_sel_first_row_in_context, 1 },
             { C::execution_context_id, 1 },
             { C::execution_next_context_id, 2 },
             { C::execution_sel_enter_call, 1 },
         },
         {
             { C::execution_sel, 1 },
+            { C::execution_sel_first_row_in_context, 1 },
             { C::execution_context_id, 2 },
             { C::execution_next_context_id, 3 },
             { C::execution_sel_exit_call, 1 },
