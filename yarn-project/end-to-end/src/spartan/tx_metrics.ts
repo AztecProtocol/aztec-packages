@@ -24,6 +24,14 @@ export class TxInclusionMetrics {
 
   private p2pGossipLatencyByTopic: Partial<Record<TopicType, { p50: number; p95: number }>> = {};
 
+  private attestationLatency: { p50: number; p95: number } | undefined;
+  private attestationCounts: { success: number; failedBad: number; failedNode: number } | undefined;
+  private reqRespStats: { fraction: number; delayP50: number; delayP95: number } | undefined;
+  private peerStats: { avgCount: number; connectionDurationP50: number; connectionDurationP95: number } | undefined;
+  private mempoolMinedDelay:
+    | { txP50: number; txP95: number; attestationP50: number; attestationP95: number }
+    | undefined;
+
   constructor(private aztecNode: AztecNode) {}
 
   recordSentTx(tx: Tx, group: string): void {
@@ -111,6 +119,26 @@ export class TxInclusionMetrics {
     this.p2pGossipLatencyByTopic[topicName] = { p50, p95 };
   }
 
+  public recordAttestationLatency(p50: number, p95: number): void {
+    this.attestationLatency = { p50, p95 };
+  }
+
+  public recordAttestationCounts(success: number, failedBad: number, failedNode: number): void {
+    this.attestationCounts = { success, failedBad, failedNode };
+  }
+
+  public recordReqRespStats(fraction: number, delayP50: number, delayP95: number): void {
+    this.reqRespStats = { fraction, delayP50, delayP95 };
+  }
+
+  public recordPeerStats(avgCount: number, connectionDurationP50: number, connectionDurationP95: number): void {
+    this.peerStats = { avgCount, connectionDurationP50, connectionDurationP95 };
+  }
+
+  public recordMempoolMinedDelay(txP50: number, txP95: number, attestationP50: number, attestationP95: number): void {
+    this.mempoolMinedDelay = { txP50, txP95, attestationP50, attestationP95 };
+  }
+
   toGithubActionBenchmarkJSON(): Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> {
     const data: Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> = [];
     for (const group of this.groups) {
@@ -148,6 +176,56 @@ export class TxInclusionMetrics {
       });
     }
 
-    return data;
+    if (this.attestationLatency) {
+      data.push(
+        { name: 'attestation_latency/p50', unit: 'ms', value: this.attestationLatency.p50 },
+        { name: 'attestation_latency/p95', unit: 'ms', value: this.attestationLatency.p95 },
+      );
+    }
+
+    if (this.attestationCounts) {
+      const { success, failedBad, failedNode } = this.attestationCounts;
+      const total = success + failedBad + failedNode;
+      const ratio = total > 0 ? success / total : 0;
+      data.push(
+        { name: 'attestation/success_count', unit: 'count', value: success },
+        { name: 'attestation/failed_bad_proposal_count', unit: 'count', value: failedBad },
+        { name: 'attestation/failed_node_issue_count', unit: 'count', value: failedNode },
+        { name: 'attestation/success_ratio', unit: 'ratio', value: ratio },
+      );
+    }
+
+    if (this.reqRespStats) {
+      data.push(
+        { name: 'req_resp/txs_requested_fraction', unit: 'ratio', value: this.reqRespStats.fraction },
+        { name: 'req_resp/delay_p50', unit: 'ms', value: this.reqRespStats.delayP50 },
+        { name: 'req_resp/delay_p95', unit: 'ms', value: this.reqRespStats.delayP95 },
+      );
+    }
+
+    if (this.peerStats) {
+      data.push(
+        { name: 'peers/avg_count', unit: 'peers', value: this.peerStats.avgCount },
+        { name: 'peers/connection_duration_p50', unit: 'ms', value: this.peerStats.connectionDurationP50 },
+        { name: 'peers/connection_duration_p95', unit: 'ms', value: this.peerStats.connectionDurationP95 },
+      );
+    }
+
+    if (this.mempoolMinedDelay) {
+      data.push(
+        { name: 'mempool/tx_mined_delay_p50', unit: 'ms', value: this.mempoolMinedDelay.txP50 },
+        { name: 'mempool/tx_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.txP95 },
+        { name: 'mempool/attestation_mined_delay_p50', unit: 'ms', value: this.mempoolMinedDelay.attestationP50 },
+        { name: 'mempool/attestation_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.attestationP95 },
+      );
+    }
+
+    const scenario = process.env.BENCH_SCENARIO?.trim();
+    if (!scenario) {
+      return data;
+    }
+
+    const scenarioPrefix = `scenario/${scenario}/`;
+    return data.map(entry => ({ ...entry, name: `${scenarioPrefix}${entry.name}` }));
   }
 }
