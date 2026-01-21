@@ -4,3 +4,4 @@ global:
 validatorKill:
   enabled: true
   percent: 25
+  duration: 60s

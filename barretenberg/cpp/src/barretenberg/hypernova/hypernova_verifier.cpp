@@ -15,15 +15,10 @@ HypernovaFoldingVerifier<Flavor_>::Commitment HypernovaFoldingVerifier<Flavor_>:
     const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
-    for (size_t idx = 0; const auto& point : _points) {
-        points[idx++] = point;
+    for (size_t idx = 0; idx < N; ++idx) {
+        points[idx] = _points[idx];
     }
-
-    if constexpr (IsRecursiveFlavor<Flavor>) {
-        return Curve::Group::batch_mul(points, scalars);
-    } else {
-        return batch_mul_native<Curve>(points, scalars);
-    }
+    return Commitment::batch_mul(points, scalars);
 }
 
 template <typename Flavor>

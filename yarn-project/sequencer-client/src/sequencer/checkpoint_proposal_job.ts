@@ -332,6 +332,11 @@ export class CheckpointProposalJob implements Traceable {
 
       return checkpoint;
     } catch (err) {
+      if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
+        // swallow this error. It's already been logged by a function deeper in the stack
+        return undefined;
+      }
+
       this.log.error(`Error building checkpoint at slot ${this.slot}`, err);
       return undefined;
     }

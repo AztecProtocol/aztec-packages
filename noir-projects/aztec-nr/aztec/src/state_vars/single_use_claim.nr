@@ -124,7 +124,7 @@ impl SingleUseClaim<&mut PrivateContext> {
         let has_been_claimed = unsafe { check_nullifier_exists(nullifier) };
         assert(has_been_claimed, "cannot prove claim exists");
 
-        self.context.push_nullifier_read_request(nullifier, self.context.this_address())
+        self.context.assert_nullifier_exists(nullifier, self.context.this_address())
     }
 }
 

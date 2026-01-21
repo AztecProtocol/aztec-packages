@@ -233,14 +233,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->add_option("--verifier_target, -t",
                          flags.verifier_target,
                          "Target verification environment. Determines hash function and ZK settings.\n"
-                         "  evm:                    Ethereum/Solidity verification (keccak, ZK)\n"
-                         "  evm-no-zk:              Ethereum/Solidity without zero-knowledge\n"
-                         "  noir-recursive:         Recursive verification in Noir circuits (poseidon2, ZK)\n"
-                         "  noir-recursive-no-zk:   Recursive verification without ZK\n"
-                         "  noir-rollup:            Rollup circuits with IPA accumulation (poseidon2, ZK)\n"
-                         "  noir-rollup-no-zk:      Rollup circuits without ZK\n"
-                         "  starknet:               Starknet verification via Garaga (ZK)\n"
-                         "  starknet-no-zk:         Starknet without zero-knowledge")
+                         "\n"
+                         "Options:\n"
+                         "  evm                  Ethereum/Solidity (keccak, ZK)\n"
+                         "  evm-no-zk            Ethereum/Solidity without ZK\n"
+                         "  noir-recursive       Noir circuits (poseidon2, ZK)\n"
+                         "  noir-recursive-no-zk Noir circuits without ZK\n"
+                         "  noir-rollup          Rollup with IPA (poseidon2, ZK)\n"
+                         "  noir-rollup-no-zk    Rollup without ZK\n"
+                         "  starknet             Starknet via Garaga (ZK)\n"
+                         "  starknet-no-zk       Starknet without ZK")
             ->envname("BB_VERIFIER_TARGET")
             ->check(CLI::IsMember({ "evm",
                                     "evm-no-zk",
@@ -360,6 +362,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
     };
 
+    const auto add_output_format_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--output_format",
+                         flags.output_format,
+                         "Output format for proofs and verification keys: 'binary' (default) or 'json'.\n"
+                         "JSON format includes metadata like bb_version, scheme, and verifier_target.")
+            ->check(CLI::IsMember({ "binary", "json" }).name("is_member"));
+    };
+
     bool print_bench = false;
     const auto add_print_bench_flag = [&](CLI::App* subcommand) {
         return subcommand
@@ -458,6 +469,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
     add_storage_budget_option(prove);
+    add_output_format_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -484,6 +496,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
+    add_output_format_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify

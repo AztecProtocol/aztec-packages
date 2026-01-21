@@ -215,18 +215,13 @@ void ECCVMVerifier_<Flavor>::compute_translation_opening_claims(const std::vecto
     FF batched_translation_evaluation = translation_evaluations.get_all()[0];
     FF batching_scalar = batching_challenge_v;
 
-    Commitment batched_commitment;
     std::vector<FF> batching_challenges = { FF::one() };
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
         batched_translation_evaluation += batching_scalar * translation_evaluations.get_all()[idx];
         batching_challenges.push_back(batching_scalar);
         batching_scalar *= batching_challenge_v;
     }
-    if constexpr (IsRecursive) {
-        batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
-    } else {
-        batched_commitment = batch_mul_native<Curve>(translation_commitments, batching_challenges);
-    }
+    Commitment batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
 
     // Place the claim to the array containing the SmallSubgroupIPA opening claims
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },

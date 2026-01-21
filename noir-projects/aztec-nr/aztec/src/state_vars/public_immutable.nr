@@ -14,7 +14,7 @@ use protocol_types::{
 /// during initialization and remain permanently unchanged.
 ///
 /// You can declare a state variable of type PublicImmutable within your contract's
-/// #[storage] struct:
+/// [storage](crate::macros::storage::storage) struct:
 ///
 /// E.g.:
 /// `your_variable: PublicImmutable<T, Context>`

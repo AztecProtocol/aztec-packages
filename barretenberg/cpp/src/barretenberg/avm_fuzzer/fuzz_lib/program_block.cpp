@@ -1462,11 +1462,11 @@ void ProgramBlock::process_toradixbe_instruction(TORADIXBE_Instruction instructi
     preprocess_memory_addresses(dst_operand.value().first);
 
     auto toradixbe_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::TORADIXBE)
-                                     .operand(dst_operand.value().second)
                                      .operand(value_operand.value().second)
                                      .operand(radix_operand.value().second)
                                      .operand(num_limbs_operand.value().second)
                                      .operand(output_bits_operand.value().second)
+                                     .operand(dst_operand.value().second)
                                      .build();
     instructions.push_back(toradixbe_instruction);
 

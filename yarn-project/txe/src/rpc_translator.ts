@@ -6,7 +6,7 @@ import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
-  packAsRetrievedNote,
+  packAsHintedNote,
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -397,7 +397,7 @@ export class RPCTranslator {
     foreignOffset: ForeignCallSingle,
     foreignStatus: ForeignCallSingle,
     foreignMaxNotes: ForeignCallSingle,
-    foreignPackedRetrievedNoteLength: ForeignCallSingle,
+    foreignPackedHintedNoteLength: ForeignCallSingle,
   ) {
     // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
     const owner = fromSingle(foreignOwnerIsSome).toBool()
@@ -418,7 +418,7 @@ export class RPCTranslator {
     const offset = fromSingle(foreignOffset).toNumber();
     const status = fromSingle(foreignStatus).toNumber();
     const maxNotes = fromSingle(foreignMaxNotes).toNumber();
-    const packedRetrievedNoteLength = fromSingle(foreignPackedRetrievedNoteLength).toNumber();
+    const packedHintedNoteLength = fromSingle(foreignPackedHintedNoteLength).toNumber();
 
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
       owner,
@@ -439,7 +439,7 @@ export class RPCTranslator {
     );
 
     const returnDataAsArrayOfArrays = noteDatas.map(noteData =>
-      packAsRetrievedNote({
+      packAsHintedNote({
         contractAddress: noteData.contractAddress,
         owner: noteData.owner,
         randomness: noteData.randomness,
@@ -457,11 +457,7 @@ export class RPCTranslator {
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(
-        returnDataAsArrayOfForeignCallSingleArrays,
-        maxNotes,
-        packedRetrievedNoteLength,
-      ),
+      arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, maxNotes, packedHintedNoteLength),
     );
   }
 

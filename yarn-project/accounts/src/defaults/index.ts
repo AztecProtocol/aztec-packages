@@ -6,5 +6,4 @@
  * @packageDocumentation
  */
 
-export * from './account_interface.js';
 export * from './account_contract.js';

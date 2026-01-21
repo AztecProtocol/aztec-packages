@@ -700,12 +700,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  public getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getPrivateLogsByTags(tags);
+  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPrivateLogsByTags(tags, page);
   }
 
-  public getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags);
+  public getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page?: number,
+  ): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
   }
 
   /**

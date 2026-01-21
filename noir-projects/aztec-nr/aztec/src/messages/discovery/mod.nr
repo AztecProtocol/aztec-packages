@@ -42,7 +42,7 @@ pub struct NoteHashAndNullifier {
 ///
 ///         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 ///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
+///             HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
 ///             storage_slot
 ///         );
 ///

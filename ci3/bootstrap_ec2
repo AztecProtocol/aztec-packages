@@ -316,6 +316,7 @@ function run {
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
+        -e NETWORK=${NETWORK:-} \
         --pids-limit=32768 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

@@ -33,9 +33,7 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache to return different slot numbers
-    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentProposer: proposer.address,
-      nextProposer: proposer.address,
+    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
       currentSlot: SlotNumber(98),
       nextSlot: SlotNumber(99),
     });
@@ -55,9 +53,7 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache to return matching slot number but invalid committee membership
-    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentProposer: proposer.address,
-      nextProposer: proposer.address,
+    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
       currentSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
@@ -77,9 +73,7 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache for valid case with current slot
-    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentProposer: proposer.address,
-      nextProposer: proposer.address,
+    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
       currentSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
@@ -100,9 +94,7 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache for valid case with next slot
-    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentProposer: proposer.address,
-      nextProposer: proposer.address,
+    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
       currentSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
@@ -123,9 +115,7 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache with different proposer
-    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
-      currentProposer: proposer.address,
-      nextProposer: proposer.address,
+    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
       currentSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
@@ -145,7 +135,12 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache to throw NoCommitteeError
-    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());
+    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
+      currentSlot: SlotNumber(100),
+      nextSlot: SlotNumber(101),
+    });
+    (epochCache.isInCommittee as jest.Mock).mockReturnValue(true);
+    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());
 
     const result = await validator.validate(mockAttestation);
     expect(result).toBe(PeerErrorSeverity.LowToleranceError);

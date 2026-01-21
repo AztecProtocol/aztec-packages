@@ -108,6 +108,22 @@ Ethereum address that receives all L1 block rewards and tx fees.
 
 Use the Aztec CLI's keystore utility to generate both your private and public keystores:
 
+#if(testnet)
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --l1-rpc-urls $ETH_RPC
+```
+
+**Relevant parameters:**
+- `--fee-recipient`: Set to all zeros (not currently used by the protocol)
+- `--staker-output`: Generate the public keystore for the staking dashboard
+- `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xfb243b9112bb65785a4a8edaf32529accf003614` for Sepolia testnet)
+- `--l1-rpc-urls`: Your Ethereum Sepolia L1 RPC endpoint
+  - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your RPC URL (e.g., `https://sepolia.infura.io/v3/YOUR_API_KEY`)
+#else
 ```bash
 aztec validator-keys new \
   --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
@@ -122,12 +138,17 @@ aztec validator-keys new \
 - `--gse-address`: The GSE (Governance Staking Escrow) contract address (`0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f` for mainnet)
 - `--l1-rpc-urls`: Your Ethereum mainnet RPC endpoint
   - Set `ETH_RPC` environment variable, or replace `$ETH_RPC` with your Ethereum mainnet RPC URL (e.g., `https://mainnet.infura.io/v3/YOUR_API_KEY`)
+#endif
 - `--count`: Number of validator identities to generate (default: 1)
   - Use this to generate multiple attester identities in a single keystore
   - Example: `--count 5` generates 5 validator identities with sequential addresses
   - All identities are derived from the same mnemonic using different derivation paths
   - Useful for operators running multiple sequencer identities or delegated staking providers
+#if(testnet)
+- `--publisher-count` Number of publisher accounts per validator (default 1)
+#else
 - `--publisher-count` Number of publisher accounts per validator (default 0)
+#endif
 
 
 **This command creates two JSON files:**
@@ -192,6 +213,19 @@ acc3:
 
 All other information (BLS keys, public keys, addresses) can be re-derived from the mnemonic if needed.
 
+#if(testnet)
+:::tip Provide Your Own Mnemonic
+For deterministic key generation or to recreate keys later, provide your own mnemonic:
+```bash
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --l1-rpc-urls $ETH_RPC \
+  --mnemonic "your twelve word mnemonic phrase here"
+```
+:::
+#else
 :::tip Provide Your Own Mnemonic
 For deterministic key generation or to recreate keys later, provide your own mnemonic:
 ```bash
@@ -203,7 +237,21 @@ aztec validator-keys new \
   --mnemonic "your twelve word mnemonic phrase here"
 ```
 :::
+#endif
 
+#if(testnet)
+:::tip Generate Multiple Validator Identities
+To generate multiple validator identities (useful for delegated staking providers or operators running multiple sequencers):
+```bash
+# Generate 5 validator identities from the same mnemonic
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --staker-output \
+  --gse-address 0xfb243b9112bb65785a4a8edaf32529accf003614 \
+  --l1-rpc-urls $ETH_RPC \
+  --count 5
+```
+#else
 :::tip Generate Multiple Validator Identities
 To generate multiple validator identities (useful for delegated staking providers or operators running multiple sequencers):
 ```bash
@@ -215,6 +263,7 @@ aztec validator-keys new \
   --l1-rpc-urls $ETH_RPC \
   --count 5
 ```
+#endif
 
 Each identity gets a unique attester address derived from sequential derivation paths. All identities are included in:
 - The same private keystore file (`keyN.json`)
@@ -281,6 +330,20 @@ Set up monitoring or alerts to notify you when the publisher balance falls below
 
 Add the following to your `.env` file:
 
+#if(testnet)
+```bash
+DATA_DIRECTORY=./data
+KEY_STORE_DIRECTORY=./keys
+LOG_LEVEL=info
+ETHEREUM_HOSTS=[your Ethereum Sepolia execution endpoint, or a comma separated list if you have multiple]
+L1_CONSENSUS_HOST_URLS=[your Ethereum Sepolia consensus endpoint, or a comma separated list if you have multiple]
+ETHEREUM_DEBUG_HOSTS=[your trace capable L1 execution endpoint]
+P2P_IP=[your external IP address]
+P2P_PORT=40400
+AZTEC_PORT=8080
+AZTEC_ADMIN_PORT=8880
+```
+#else
 ```bash
 DATA_DIRECTORY=./data
 KEY_STORE_DIRECTORY=./keys
@@ -293,6 +356,7 @@ P2P_PORT=40400
 AZTEC_PORT=8080
 AZTEC_ADMIN_PORT=8880
 ```
+#endif
 
 :::tip
 Find your public IP address with: `curl ipv4.icanhazip.com`
@@ -319,7 +383,7 @@ Create a `docker-compose.yml` file in your `aztec-sequencer` directory:
 ```yaml
 services:
   aztec-sequencer:
-    image: "aztecprotocol/aztec:2.1.9"
+    image: "aztecprotocol/aztec:#release_version"
     container_name: "aztec-sequencer"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -347,7 +411,7 @@ services:
       --node
       --archiver
       --sequencer
-      --network mainnet
+      --network #release_network
     networks:
       - aztec
     restart: always
@@ -368,7 +432,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
 ```
 :::
 
-This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network #release_network` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
 
 ### Step 6: Start the Sequencer
 

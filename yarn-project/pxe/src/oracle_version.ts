@@ -8,4 +8,4 @@ export const ORACLE_VERSION = 6;
 
 /// This hash is computed as by hashing the Oracle interface and it is used to detect when the Oracle interface changes,
 /// which in turn implies that you need to update the ORACLE_VERSION constant.
-export const ORACLE_INTERFACE_HASH = 'cc2a1f26a3b39ef194d710f94683929f63939d725f10b4fe2c82749a47a74c7b';
+export const ORACLE_INTERFACE_HASH = '8fb18d1fa560c4844b22c55a3e79c32ffcb71ded9ac409911470ee0296a84d72';

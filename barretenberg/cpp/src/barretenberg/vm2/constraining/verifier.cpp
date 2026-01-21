@@ -176,16 +176,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     auto shifted_challenges = challenges.get_to_be_shifted();
 
     // Batch shifted commitments
-    Commitment batched_shifted = batch_mul_native<Curve>(shifted_comms, shifted_challenges);
+    Commitment batched_shifted = Commitment::batch_mul(shifted_comms, shifted_challenges);
 
     // Batch unshifted commitments: ColumnAndShifts::precomputed_clk has coefficient 1, rest are batched with
     // challenges. We reuse the calculation performed for shifted commitments.
     Commitment batched_unshifted =
         batched_shifted +
-        batch_mul_native<Curve>(unshifted_comms.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
-                                unshifted_challenges.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX)) +
-        batch_mul_native<Curve>(unshifted_comms.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
-                                unshifted_challenges.subspan(WIRES_TO_BE_SHIFTED_END_IDX));
+        Commitment::batch_mul(unshifted_comms.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
+                              unshifted_challenges.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX)) +
+        Commitment::batch_mul(unshifted_comms.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
+                              unshifted_challenges.subspan(WIRES_TO_BE_SHIFTED_END_IDX));
 
     // Batch evaluations: compute inner product with first eval as initial value for unshifted
     FF batched_unshifted_eval =

@@ -98,9 +98,9 @@ mod test {
     use crate::{
         messages::{discovery::NoteHashAndNullifier, logs::note::MAX_NOTE_PACKED_LEN},
         note::{
+            hinted_note::HintedNote,
             note_interface::{NoteHash, NoteType},
             note_metadata::SettledNoteMetadata,
-            retrieved_note::RetrievedNote,
             utils::compute_note_hash_for_nullification,
         },
         oracle::random::random,
@@ -132,7 +132,7 @@ mod test {
             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
             let note_hash_for_nullification = compute_note_hash_for_nullification(
-                RetrievedNote {
+                HintedNote {
                     note,
                     contract_address,
                     owner,
@@ -210,14 +210,14 @@ mod test {
     unconstrained fn construct_note(value: Field, note_index_in_tx: u32) -> NoteAndData {
         let note_nonce = compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx);
 
-        let retrieved_note = MockNote::new(value)
+        let hinted_note = MockNote::new(value)
             .contract_address(CONTRACT_ADDRESS)
             .owner(OWNER)
             .randomness(RANDOMNESS)
             .storage_slot(STORAGE_SLOT)
             .note_metadata(SettledNoteMetadata::new(note_nonce).into())
-            .build_retrieved_note();
-        let note = retrieved_note.note;
+            .build_hinted_note();
+        let note = hinted_note.note;
 
         let note_hash = note.compute_note_hash(OWNER, STORAGE_SLOT, RANDOMNESS);
         let unique_note_hash = compute_unique_note_hash(
@@ -226,7 +226,7 @@ mod test {
         );
         let inner_nullifier = note.compute_nullifier_unconstrained(
             OWNER,
-            compute_note_hash_for_nullification(retrieved_note),
+            compute_note_hash_for_nullification(hinted_note),
         );
 
         NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }

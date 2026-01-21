@@ -70,8 +70,8 @@ pub contract StaticChild {
         let options = NoteGetterOptions::new()
             .select(FieldNote::properties().value, Comparator.EQ, amount)
             .set_limit(1);
-        let retrieved_notes = self.storage.a_private_value.at(owner).get_notes(options);
-        retrieved_notes.get(0).note.value
+        let hinted_notes = self.storage.a_private_value.at(owner).get_notes(options);
+        hinted_notes.get(0).note.value
     }
 
     // Increments `current_value` by `new_value`
