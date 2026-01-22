@@ -14,7 +14,7 @@ template <typename FF_> class poseidon2_hashImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 3, 3, 3, 3, 4, 4, 4,
+    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 3, 3, 3, 3, 3, 4, 4, 4,
                                                                             5, 4, 4, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -38,6 +38,7 @@ template <typename FF> class poseidon2_hash : public Relation<poseidon2_hashImpl
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_SELECTOR_ON_END = 6;
+    static constexpr size_t SR_SELECTOR_ON_START = 7;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -46,6 +47,8 @@ template <typename FF> class poseidon2_hash : public Relation<poseidon2_hashImpl
             return "TRACE_CONTINUITY";
         case SR_SELECTOR_ON_END:
             return "SELECTOR_ON_END";
+        case SR_SELECTOR_ON_START:
+            return "SELECTOR_ON_START";
         }
         return std::to_string(index);
     }

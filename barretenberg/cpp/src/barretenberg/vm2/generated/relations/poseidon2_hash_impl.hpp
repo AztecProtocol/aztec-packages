@@ -65,31 +65,37 @@ void poseidon2_hashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::poseidon2_hash_sel)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SELECTOR_ON_START
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_padding)) *
-                   (static_cast<View>(in.get(C::poseidon2_hash_padding)) - FF(1)) *
-                   (static_cast<View>(in.get(C::poseidon2_hash_padding)) - FF(2));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_start)) *
+                   (FF(1) - static_cast<View>(in.get(C::poseidon2_hash_sel)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) *
-                   static_cast<View>(in.get(C::poseidon2_hash_start)) *
-                   (static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem)) * FF(3) -
-                    CView(poseidon2_hash_PADDED_LEN));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_padding)) *
+                   (static_cast<View>(in.get(C::poseidon2_hash_padding)) - FF(1)) *
+                   (static_cast<View>(in.get(C::poseidon2_hash_padding)) - FF(2));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
-                   ((static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem_shift)) -
-                     static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem))) +
-                    FF(1));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) *
+                   static_cast<View>(in.get(C::poseidon2_hash_start)) *
+                   (static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem)) * FF(3) -
+                    CView(poseidon2_hash_PADDED_LEN));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
+                   ((static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem_shift)) -
+                     static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem))) +
+                    FF(1));
+        std::get<10>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) *
                    ((CView(poseidon2_hash_NEXT_ROUND_COUNT) *
                          (static_cast<View>(in.get(C::poseidon2_hash_end)) *
@@ -97,73 +103,73 @@ void poseidon2_hashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::poseidon2_hash_num_perm_rounds_rem_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::poseidon2_hash_end)));
-        std::get<10>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_hash_sel)) * static_cast<View>(in.get(C::poseidon2_hash_start)) *
-            (static_cast<View>(in.get(C::poseidon2_hash_a_0)) - static_cast<View>(in.get(C::poseidon2_hash_input_0)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
-                   ((static_cast<View>(in.get(C::poseidon2_hash_a_0_shift)) -
-                     static_cast<View>(in.get(C::poseidon2_hash_b_0))) -
-                    static_cast<View>(in.get(C::poseidon2_hash_input_0_shift)));
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_hash_sel)) * static_cast<View>(in.get(C::poseidon2_hash_start)) *
+            (static_cast<View>(in.get(C::poseidon2_hash_a_0)) - static_cast<View>(in.get(C::poseidon2_hash_input_0)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_hash_sel)) * static_cast<View>(in.get(C::poseidon2_hash_start)) *
-            (static_cast<View>(in.get(C::poseidon2_hash_a_1)) - static_cast<View>(in.get(C::poseidon2_hash_input_1)));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
+                   ((static_cast<View>(in.get(C::poseidon2_hash_a_0_shift)) -
+                     static_cast<View>(in.get(C::poseidon2_hash_b_0))) -
+                    static_cast<View>(in.get(C::poseidon2_hash_input_0_shift)));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
-                   ((static_cast<View>(in.get(C::poseidon2_hash_a_1_shift)) -
-                     static_cast<View>(in.get(C::poseidon2_hash_b_1))) -
-                    static_cast<View>(in.get(C::poseidon2_hash_input_1_shift)));
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_hash_sel)) * static_cast<View>(in.get(C::poseidon2_hash_start)) *
+            (static_cast<View>(in.get(C::poseidon2_hash_a_1)) - static_cast<View>(in.get(C::poseidon2_hash_input_1)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_hash_sel)) * static_cast<View>(in.get(C::poseidon2_hash_start)) *
-            (static_cast<View>(in.get(C::poseidon2_hash_a_2)) - static_cast<View>(in.get(C::poseidon2_hash_input_2)));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
+                   ((static_cast<View>(in.get(C::poseidon2_hash_a_1_shift)) -
+                     static_cast<View>(in.get(C::poseidon2_hash_b_1))) -
+                    static_cast<View>(in.get(C::poseidon2_hash_input_1_shift)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
-                   ((static_cast<View>(in.get(C::poseidon2_hash_a_2_shift)) -
-                     static_cast<View>(in.get(C::poseidon2_hash_b_2))) -
-                    static_cast<View>(in.get(C::poseidon2_hash_input_2_shift)));
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_hash_sel)) * static_cast<View>(in.get(C::poseidon2_hash_start)) *
+            (static_cast<View>(in.get(C::poseidon2_hash_a_2)) - static_cast<View>(in.get(C::poseidon2_hash_input_2)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) *
-                   static_cast<View>(in.get(C::poseidon2_hash_start)) *
-                   (static_cast<View>(in.get(C::poseidon2_hash_a_3)) - CView(poseidon2_hash_IV));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
+                   ((static_cast<View>(in.get(C::poseidon2_hash_a_2_shift)) -
+                     static_cast<View>(in.get(C::poseidon2_hash_b_2))) -
+                    static_cast<View>(in.get(C::poseidon2_hash_input_2_shift)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
-            (static_cast<View>(in.get(C::poseidon2_hash_a_3_shift)) - static_cast<View>(in.get(C::poseidon2_hash_b_3)));
+        auto tmp = static_cast<View>(in.get(C::poseidon2_hash_sel)) *
+                   static_cast<View>(in.get(C::poseidon2_hash_start)) *
+                   (static_cast<View>(in.get(C::poseidon2_hash_a_3)) - CView(poseidon2_hash_IV));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp =
+            static_cast<View>(in.get(C::poseidon2_hash_sel)) * (FF(1) - CView(poseidon2_hash_LATCH_CONDITION)) *
+            (static_cast<View>(in.get(C::poseidon2_hash_a_3_shift)) - static_cast<View>(in.get(C::poseidon2_hash_b_3)));
+        std::get<19>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
+        auto tmp =
             static_cast<View>(in.get(C::poseidon2_hash_sel)) * CView(poseidon2_hash_LATCH_CONDITION) *
             (static_cast<View>(in.get(C::poseidon2_hash_output)) - static_cast<View>(in.get(C::poseidon2_hash_b_0)));
-        std::get<19>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
 }
 

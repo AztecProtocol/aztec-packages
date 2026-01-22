@@ -58,6 +58,14 @@ namespace poseidon2_hash;
     #[SELECTOR_ON_END]
     end * (1 - sel) = 0;
 
+    // Selector must be 1 in start row
+    // This gadget is looked up based on `start` destination selector and therefore we
+    // need to ensure that this computation is performed on the active (`sel == 1`) rows.
+    // Otherwise, a malicious prover could circumvent most of the constraints.
+    // (Same pattern as merkle_check.pil lines 117-123)
+    #[SELECTOR_ON_START]
+    start * (1 - sel) = 0;
+
     // Our latch condition can either be the designated end of the computation or the first row
     // The previous relation ensures they cannot both be 1
     pol LATCH_CONDITION = end + precomputed.first_row;
