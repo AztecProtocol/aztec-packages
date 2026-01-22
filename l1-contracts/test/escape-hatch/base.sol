@@ -153,7 +153,10 @@ contract EscapeHatchBase is TestBase {
   }
 
   function _warpForwardEpochs(uint256 _numEpochs) internal {
-    vm.warp(block.timestamp + _numEpochs * EPOCH_DURATION);
+    // Use proper epoch calculation from current rollup (handles both real and fake rollup)
+    Epoch currentEpoch = _getCurrentEpoch();
+    Epoch targetEpoch = Epoch.wrap(Epoch.unwrap(currentEpoch) + _numEpochs);
+    _warpToEpoch(Epoch.unwrap(targetEpoch));
   }
 
   function _getHatchForEpoch(uint256 _epochNumber) internal view returns (Hatch) {
@@ -168,11 +171,15 @@ contract EscapeHatchBase is TestBase {
     return IValidatorSelection(_getRollup()).getCurrentEpoch();
   }
 
-  /// @notice Warps to a safe epoch where selectCandidates() won't underflow
-  /// @dev Must be at epoch >= FREQUENCY so that baseEpoch (first epoch of current hatch) is large enough
-  ///      to subtract LAG_IN_EPOCHS_FOR_SET_SIZE and LAG_IN_EPOCHS_FOR_RANDAO without underflow
+  /// @notice Ensures we're at a safe epoch where joinCandidateSet won't revert with HatchTooEarly
+  /// @dev Only warps forward if needed - never goes backward in time.
+  ///      Must be at an epoch where getSetTimestamp() won't revert.
+  ///      This happens when currentHatch >= lagInHatches and the freeze epoch is valid.
   function _warpToSafeEpoch() internal {
-    _warpToEpoch(config.frequency);
+    uint256 safeEpoch = (config.lagInHatches) * config.frequency;
+    if (Epoch.unwrap(_getCurrentEpoch()) < safeEpoch) {
+      _warpToEpoch(safeEpoch);
+    }
   }
 
   // ============ Fuzz Config Helpers ============
@@ -221,7 +228,8 @@ contract EscapeHatchBase is TestBase {
   }
 
   /// @notice Modifier that bounds a fuzzed config, stores it, and deploys a new EscapeHatch
-  /// @dev Use this when you want to test with various valid configurations
+  /// @dev Use this when you want to test with various valid configurations.
+  ///      Automatically warps to safe epoch to avoid HatchTooEarly errors.
   modifier givenValidConfig(EscapeHatchConfig memory _config) {
     config = _boundValidConfig(_config);
 
@@ -239,6 +247,9 @@ contract EscapeHatchBase is TestBase {
     );
 
     vm.label(address(escapeHatch), "FuzzedEscapeHatch");
+
+    // Warp to safe epoch to avoid HatchTooEarly errors
+    _warpToSafeEpoch();
     _;
   }
 
