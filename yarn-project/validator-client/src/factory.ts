@@ -1,5 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import { BlockProposalValidator, type P2PClient } from '@aztec/p2p';
@@ -24,12 +25,18 @@ export function createBlockProposalHandler(
     epochCache: EpochCache;
     dateProvider: DateProvider;
     telemetry: TelemetryClient;
+    loggerFactory: LoggerFactory;
   },
 ) {
   const metrics = new ValidatorMetrics(deps.telemetry);
-  const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
-    txsPermitted: !config.disableTransactions,
-  });
+  const log = deps.loggerFactory.createLogger('validator:block-proposal-handler');
+  const blockProposalValidator = new BlockProposalValidator(
+    deps.epochCache,
+    {
+      txsPermitted: !config.disableTransactions,
+    },
+    log,
+  );
   return new BlockProposalHandler(
     deps.checkpointsBuilder,
     deps.worldState,
@@ -42,6 +49,7 @@ export function createBlockProposalHandler(
     metrics,
     deps.dateProvider,
     deps.telemetry,
+    log,
   );
 }
 
@@ -58,6 +66,7 @@ export function createValidatorClient(
     epochCache: EpochCache;
     keyStoreManager: KeystoreManager | undefined;
     blobClient: BlobClientInterface;
+    loggerFactory: LoggerFactory;
   },
 ) {
   if (config.disableValidator || !deps.keyStoreManager) {
@@ -76,6 +85,7 @@ export function createValidatorClient(
     txProvider,
     deps.keyStoreManager,
     deps.blobClient,
+    deps.loggerFactory,
     deps.dateProvider,
     deps.telemetry,
   );

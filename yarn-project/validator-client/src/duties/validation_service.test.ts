@@ -3,6 +3,7 @@ import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 import { DutyType } from '@aztec/validator-ha-signer/types';
@@ -22,7 +23,7 @@ describe('ValidationService', () => {
     keys = [generatePrivateKey(), generatePrivateKey()];
     addresses = keys.map(key => EthAddress.fromString(getAddressFromPrivateKey(key)));
     store = new LocalKeyStore(keys.map(key => Buffer32.fromString(key)));
-    service = new ValidationService(store);
+    service = new ValidationService(store, createLogger('validator:validation-service'));
   });
 
   it('creates a block proposal with txs appended', async () => {
@@ -99,7 +100,7 @@ describe('ValidationService', () => {
       getAddress: (index: number) => store.getAddress(index),
       getAddresses: () => store.getAddresses(),
     };
-    const spyService = new ValidationService(spyStore as any);
+    const spyService = new ValidationService(spyStore as any, createLogger('validator:validation-service'));
 
     // Create checkpoint header
     const checkpointHeader = makeCheckpointHeader(1);

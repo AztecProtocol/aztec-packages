@@ -12,7 +12,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
+import type { LogData, Logger, LoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -105,7 +105,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private blobClient: BlobClientInterface,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
-    log = createLogger('validator'),
+    log: Logger,
   ) {
     super();
 
@@ -187,13 +187,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txProvider: TxProvider,
     keyStoreManager: KeystoreManager,
     blobClient: BlobClientInterface,
+    loggerFactory: LoggerFactory,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     const metrics = new ValidatorMetrics(telemetry);
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
-      txsPermitted: !config.disableTransactions,
-    });
+    const blockProposalHandlerLogger = loggerFactory.createLogger('validator:block-proposal-handler');
+    const blockProposalValidator = new BlockProposalValidator(
+      epochCache,
+      {
+        txsPermitted: !config.disableTransactions,
+      },
+      blockProposalHandlerLogger,
+    );
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
       worldState,
@@ -206,6 +212,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       metrics,
       dateProvider,
       telemetry,
+      blockProposalHandlerLogger,
     );
 
     let validatorKeyStore: ExtendedValidatorKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
@@ -215,10 +222,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         ...config,
         maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
       };
-      const { signer } = await createHASigner(haConfig);
-      validatorKeyStore = new HAKeyStore(validatorKeyStore, signer);
+      const { signer } = await createHASigner(loggerFactory, haConfig);
+      const haKeyStoreLog = loggerFactory.createLogger('validator:ha-key-store');
+      validatorKeyStore = new HAKeyStore(validatorKeyStore, signer, haKeyStoreLog);
     }
 
+    const log = loggerFactory.createLogger('validator');
     const validator = new ValidatorClient(
       validatorKeyStore,
       epochCache,
@@ -232,6 +241,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       blobClient,
       dateProvider,
       telemetry,
+      log,
     );
 
     return validator;

@@ -1,7 +1,7 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
@@ -36,8 +36,6 @@ import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_fac
 // Re-export for backward compatibility
 export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
 
-const log = createLogger('checkpoint-builder');
-
 /** Result of building a block within a checkpoint. Extends the base interface with timer. */
 export interface BuildBlockInCheckpointResultWithTimer extends BuildBlockInCheckpointResult {
   blockBuildingTimer: Timer;
@@ -55,6 +53,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient,
+    private log: Logger,
   ) {}
 
   getConstantData(): CheckpointGlobalVariables {
@@ -73,7 +72,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const blockBuildingTimer = new Timer();
     const slot = this.checkpointBuilder.constants.slotNumber;
 
-    log.verbose(`Building block ${blockNumber} for slot ${slot} within checkpoint`, {
+    this.log.verbose(`Building block ${blockNumber} for slot ${slot} within checkpoint`, {
       slot,
       blockNumber,
       ...opts,
@@ -115,7 +114,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       usedTxs,
       usedTxBlobFields,
     };
-    log.debug('Built block within checkpoint', res.block.header);
+    this.log.debug('Built block within checkpoint', res.block.header);
     return res;
   }
 
@@ -123,7 +122,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   async completeCheckpoint(): Promise<Checkpoint> {
     const checkpoint = await this.checkpointBuilder.completeCheckpoint();
 
-    log.verbose(`Completed checkpoint ${checkpoint.number}`, {
+    this.log.verbose(`Completed checkpoint ${checkpoint.number}`, {
       checkpointNumber: checkpoint.number,
       numBlocks: checkpoint.blocks.length,
       archiveRoot: checkpoint.archive.root.toString(),
@@ -139,13 +138,14 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
   protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, fork: MerkleTreeWriteOperations) {
     const txPublicSetupAllowList = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
-    const contractsDB = new PublicContractsDB(this.contractDataSource);
-    const guardedFork = new GuardedMerkleTreeOperations(fork);
+    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log);
+    const guardedFork = new GuardedMerkleTreeOperations(fork, this.log);
 
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
       guardedFork,
       contractsDB,
       globalVariables,
+      this.log,
       this.telemetryClient,
     );
 
@@ -155,8 +155,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       contractsDB,
       publicTxSimulator,
       this.dateProvider,
+      this.log,
       this.telemetryClient,
-      undefined,
       this.config,
     );
 
@@ -165,6 +165,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       this.contractDataSource,
       globalVariables,
       txPublicSetupAllowList,
+      this.log,
     );
 
     return {
@@ -176,13 +177,18 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
 /** Factory for creating checkpoint builders. */
 export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
+  private readonly log: Logger;
+
   constructor(
     private config: FullNodeBlockBuilderConfig & Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>,
     private worldState: WorldStateSynchronizer,
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
+    loggerFactory: LoggerFactory,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
-  ) {}
+  ) {
+    this.log = loggerFactory.createLogger('validator:checkpoints');
+  }
 
   public getConfig(): FullNodeBlockBuilderConfig {
     return this.config;
@@ -205,7 +211,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-    log.verbose(`Building new checkpoint ${checkpointNumber}`, {
+    this.log.verbose(`Building new checkpoint ${checkpointNumber}`, {
       checkpointNumber,
       msgCount: l1ToL2Messages.length,
       initialStateReference: stateReference.toInspect(),
@@ -219,7 +225,10 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
+      this.log,
     );
+
+    const instanceLog = this.log.createChild('builder', { instanceId: `checkpoint-${checkpointNumber}` });
 
     return new CheckpointBuilder(
       lightweightBuilder,
@@ -228,6 +237,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.contractDataSource,
       this.dateProvider,
       this.telemetryClient,
+      instanceLog,
     );
   }
 
@@ -249,7 +259,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       return this.startCheckpoint(checkpointNumber, constants, l1ToL2Messages, previousCheckpointOutHashes, fork);
     }
 
-    log.verbose(`Resuming checkpoint ${checkpointNumber} with ${existingBlocks.length} existing blocks`, {
+    this.log.verbose(`Resuming checkpoint ${checkpointNumber} with ${existingBlocks.length} existing blocks`, {
       checkpointNumber,
       msgCount: l1ToL2Messages.length,
       existingBlockCount: existingBlocks.length,
@@ -265,7 +275,10 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       previousCheckpointOutHashes,
       fork,
       existingBlocks,
+      this.log,
     );
+
+    const instanceLog = this.log.createChild('builder', { instanceId: `checkpoint-${checkpointNumber}` });
 
     return new CheckpointBuilder(
       lightweightBuilder,
@@ -274,6 +287,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.contractDataSource,
       this.dateProvider,
       this.telemetryClient,
+      instanceLog,
     );
   }
 

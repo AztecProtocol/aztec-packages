@@ -10,6 +10,7 @@ import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
@@ -98,7 +99,7 @@ describe('ValidatorClient HA Integration', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(createLogger('validator'));
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
     blobClient.sendBlobsToFilestore.mockResolvedValue(true);
@@ -166,19 +167,26 @@ describe('ValidatorClient HA Integration', () => {
     // Track pool for cleanup
     pools.push(pool);
     // Create HA signer with pglite pool
-    const { signer: haSigner } = await createHASigner(config, { pool: pool as any });
+    const loggerFactory = createLoggerFactory();
+    const { signer: haSigner } = await createHASigner(loggerFactory, config, { pool: pool as any });
 
     // Create base keystore
     const baseKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
 
     // Wrap with HA key store
-    const haKeyStore = new HAKeyStore(baseKeyStore, haSigner);
+    const haKeyStoreLogger = createLogger('ha-key-store');
+    const haKeyStore = new HAKeyStore(baseKeyStore, haSigner, haKeyStoreLogger);
 
     // Create block proposal handler
     const metrics = new ValidatorMetrics(getTelemetryClient());
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
-      txsPermitted: true,
-    });
+    const blockProposalHandlerLogger = createLogger('validator:block-proposal-handler');
+    const blockProposalValidator = new BlockProposalValidator(
+      epochCache,
+      {
+        txsPermitted: true,
+      },
+      blockProposalHandlerLogger,
+    );
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
       worldState,
@@ -191,10 +199,12 @@ describe('ValidatorClient HA Integration', () => {
       metrics,
       dateProvider,
       getTelemetryClient(),
+      blockProposalHandlerLogger,
     );
 
     // Create validator using protected constructor via type assertion
     // This is necessary to test HA coordination with real services
+    const validatorLogger = createLogger('validator');
     const validator = new (ValidatorClient as any)(
       haKeyStore,
       epochCache,
@@ -208,6 +218,7 @@ describe('ValidatorClient HA Integration', () => {
       blobClient,
       dateProvider,
       getTelemetryClient(),
+      validatorLogger,
     ) as ValidatorClient;
 
     // Note: Validator is tracked in the calling code (beforeEach)

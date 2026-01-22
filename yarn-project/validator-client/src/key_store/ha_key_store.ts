@@ -7,7 +7,7 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
@@ -49,12 +49,14 @@ import type { ExtendedValidatorKeyStore } from './interface.js';
  * ```
  */
 export class HAKeyStore implements ExtendedValidatorKeyStore {
-  private readonly log = createLogger('ha-key-store');
+  private readonly log: Logger;
 
   constructor(
     private readonly baseKeyStore: ExtendedValidatorKeyStore,
     private readonly haSigner: ValidatorHASigner,
+    log: Logger,
   ) {
+    this.log = log;
     this.log.info('HAKeyStore initialized', {
       nodeId: haSigner.nodeId,
     });

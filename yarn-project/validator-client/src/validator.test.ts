@@ -8,6 +8,7 @@ import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
@@ -94,7 +95,7 @@ describe('ValidatorClient', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(createLogger('validator:test'));
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
     blobClient.sendBlobsToFilestore.mockResolvedValue(true);
@@ -150,6 +151,7 @@ describe('ValidatorClient', () => {
       txProvider,
       keyStoreManager,
       blobClient,
+      createLogger('validator:test'),
       dateProvider,
     );
   });

@@ -2,6 +2,7 @@ import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundatio
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
@@ -93,7 +94,7 @@ describe('HAKeyStore', () => {
     let haKeyStore: HAKeyStore;
 
     beforeEach(() => {
-      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner);
+      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner, createLogger('ha-key-store'));
     });
 
     it('should delegate getAddress to base key store', () => {
@@ -199,7 +200,7 @@ describe('HAKeyStore', () => {
     };
 
     beforeEach(() => {
-      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner);
+      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner, createLogger('ha-key-store'));
     });
 
     it('should return signature on successful signing', async () => {
@@ -273,7 +274,7 @@ describe('HAKeyStore', () => {
     };
 
     beforeEach(() => {
-      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner);
+      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner, createLogger('ha-key-store'));
     });
 
     it('should return signature on successful signing', async () => {
@@ -330,7 +331,7 @@ describe('HAKeyStore', () => {
 
   describe('all duty types', () => {
     it('should handle all HA-protected duty types', async () => {
-      const haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner);
+      const haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner, createLogger('ha-key-store'));
 
       // Build contexts for each HA-protected duty type
       const haProtectedContexts: SigningContext[] = [
@@ -361,7 +362,7 @@ describe('HAKeyStore', () => {
     let haKeyStore: HAKeyStore;
 
     beforeEach(() => {
-      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner);
+      haKeyStore = new HAKeyStore(mockBaseKeyStore, mockHASigner, createLogger('ha-key-store'));
     });
 
     it('should run start() on the HA signer', async () => {

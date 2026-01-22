@@ -9,7 +9,7 @@ import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import type { CreateCheckpointProposalLastBlockData } from '@aztec/stdlib/interfaces/server';
 import {
@@ -30,10 +30,14 @@ import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types'
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
 export class ValidationService {
+  private readonly log: Logger;
+
   constructor(
     private keyStore: ValidatorKeyStore,
-    private log = createLogger('validator:validation-service'),
-  ) {}
+    log: Logger,
+  ) {
+    this.log = log;
+  }
 
   /**
    * Create a block proposal with the given header, archive, and transactions

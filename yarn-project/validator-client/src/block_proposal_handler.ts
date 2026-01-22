@@ -3,7 +3,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
@@ -25,7 +25,7 @@ import {
   ReExTimeoutError,
   TransactionsNotAvailableError,
 } from '@aztec/stdlib/validators';
-import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer } from '@aztec/telemetry-client';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
@@ -81,10 +81,10 @@ export class BlockProposalHandler {
     private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
     private config: ValidatorClientFullConfig,
-    private metrics?: ValidatorMetrics,
-    private dateProvider: DateProvider = new DateProvider(),
-    telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('validator:block-proposal-handler'),
+    private metrics: ValidatorMetrics | undefined,
+    private dateProvider: DateProvider,
+    telemetry: TelemetryClient,
+    private log: Logger,
   ) {
     if (config.fishermanMode) {
       this.log = this.log.createChild('[FISHERMAN]');
