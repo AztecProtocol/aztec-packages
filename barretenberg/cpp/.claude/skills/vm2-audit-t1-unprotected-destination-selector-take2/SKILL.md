@@ -337,22 +337,6 @@ in gadget.end { gadget.input_0, ..., gadget.output };
     "exploitability": "high",
     "impact": "Critical - breaks hash security for public data trees, address derivation, class ID verification",
     "fix": "Add: start * (1 - sel) = 0;"
-  }, {
-    "id": "vm2-audit-t1-unprotected-destination-selector-bitwise-106-start_keccak",
-    "severity": "critical",
-    "file": "pil/vm2/bitwise.pil",
-    "line": 106,
-    "destination_selector": "start_keccak",
-    "selector_type": "sub-selector",
-    "source_lookups": [
-      "pil/vm2/keccak.pil:XX (THETA_XOR_01)"
-    ],
-    "description": "bitwise.start_keccak used as lookup destination by keccak without start_keccak * (1 - sel) = 0. Parent start has implicit protection but sub-selector does not.",
-    "implicit_protection": "partial - parent start protected via INTEGRAL_TAG_LENGTH chain for err=0 path, but sub-selector exploitable via err=1 path",
-    "error_path_exploitable": "yes - tag mismatch forces err=1, disabling protective lookup, allowing sel=0 with start_keccak=1",
-    "exploitability": "high",
-    "impact": "Critical - forges XOR results in keccak permutation, breaking hash security",
-    "fix": "Add: start_keccak * (1 - sel) = 0;"
   }]
 }
 ```

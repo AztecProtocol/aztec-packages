@@ -49,35 +49,64 @@ INFINITY_PRED = x_match * (1 - y_match)
 
 ## Workflow
 
-### 1. Map PIL Columns to Tracegen
+> **PERFORMANCE RULE**: This audit MUST be scoped to ONE component at a time. The codebase has ~65 PIL files and ~115 tracegen files — cross-referencing all of them at once will exhaust the context window. Process component-by-component (e.g., "alu", "execution", "gas", "memory").
+>
+> If the user says "audit all", iterate through components one at a time with explicit progress markers, writing findings incrementally.
+
+### Phase 1: Scope to a Single Component
+
+Identify the PIL file and its matching tracegen file(s):
 ```bash
-grep -n "pol commit" pil/vm2/<component>.pil
-grep -n "row\\.<column>" src/barretenberg/vm2/tracegen/<component>*.cpp
+# Example for "alu" component:
+ls pil/vm2/alu*.pil
+ls src/barretenberg/vm2/tracegen/alu*.cpp src/barretenberg/vm2/tracegen/alu*.hpp
 ```
 
-### 2. Trace Constraints to Tracegen
-For each constraint: What values? How computed in tracegen? Satisfied for all paths?
+Read BOTH files fully. This is the foundation — do not skip reading either file.
 
-### 3. Check All Code Paths
-- Normal execution
-- Error handling (correct exception types?)
-- Edge cases (zero, max, empty)
+### Phase 2: Batch Column Mapping
 
-### 4. Verify Event Handling
+In one pass through the PIL file, list all `pol commit` columns. In one pass through the tracegen file, list all `row.<column>` assignments. Compute the diff:
+
+- **PIL-only columns** (declared but never assigned in tracegen): potential missing assignments
+- **Tracegen-only assignments** (assigned but not in PIL): potential stale code
+
+This is a single mental diff, not per-column greps.
+
+### Phase 3: Constraint-by-Constraint Verification
+
+Read the PIL constraints and for each one, verify the tracegen computes the right values. Focus on:
+
+1. **Selector toggles**: Does tracegen set `sel_X = 1` when PIL expects it?
+2. **Computation correctness**: Does tracegen integer math match PIL field math? (watch for `static_cast` truncation)
+3. **Error paths**: Does tracegen handle exceptions that PIL error selectors expect?
+4. **Partition derivations**: For `sel = A + B + C` in PIL, verify tracegen computes sub-selectors algebraically correctly
+
+### Phase 4: Spot-Check Event Handling
+
+For the component being audited, check that simulation events match tracegen handlers:
 ```bash
-grep -rn "struct.*Event" src/barretenberg/vm2/simulation/ --include="*.hpp"
-grep -rn "process.*event" src/barretenberg/vm2/tracegen/ --include="*.cpp"
+grep -n "struct.*Event" src/barretenberg/vm2/simulation/ --include="*.hpp" | grep -i "<component>"
+grep -n "process.*event\|handle.*event" src/barretenberg/vm2/tracegen/<component>*.cpp
 ```
 
-### 5. Check Type Conversions
-```bash
-grep -rn "static_cast" src/barretenberg/vm2/tracegen/ --include="*.cpp"
-```
+### Phase 5: Completeness Check
 
-### 6. Verify Partition Derivations
-```bash
-grep -rn "sel.*=.*+.*+" pil/vm2/ --include="*.pil"
-```
+After auditing the component, verify coverage:
+- Count of `pol commit` columns in PIL vs count analyzed
+- Any `switch`/`if` branches in tracegen that weren't verified
+- Flag any columns skipped with a note explaining why (e.g., "precomputed, not tracegen responsibility")
+
+### Component Iteration (if auditing all)
+
+Process components in this priority order (highest-risk first):
+1. execution.pil (core dispatch, most complex)
+2. alu.pil (arithmetic, overflow-sensitive)
+3. gas.pil (gas accounting)
+4. memory.pil (memory model)
+5. Remaining files alphabetically
+
+After each component, output interim findings before moving to next. This ensures partial results are captured even if context runs low.
 
 ## Extended Examples
 Read `references/known-issues.md` for detailed examples from PRs #18864, #19001, #19254, #19471, #19527.

@@ -42,39 +42,36 @@ pol SEL_OP_FOO = sel * condition;  // Inherently safe
 
 ## Workflow
 
-### Step 1: Find Opcode Selectors
+> **PERFORMANCE RULE**: Do NOT iterate per-selector with individual greps. Use batch collection to gather all opcode selectors and implication constraints first, then cross-reference in memory.
+
+### Phase 1: Batch Collection (3 parallel searches)
+
+**Search A — All opcode selectors**:
 ```bash
 grep -rn "pol commit sel_op_\|pol commit sel_execute_" pil/vm2/ --include="*.pil"
 ```
 
-### Step 2: Check Implication Constraint
-For each `sel_op_X`, verify ONE exists:
+**Search B — All implication constraints and derivations**:
 ```bash
-# Direct implication
-grep -n "sel_op_X.*(1 - sel)" pil/vm2/<file>.pil
-# Or derived
-grep -n "pol.*SEL_OP_X = sel \*" pil/vm2/<file>.pil
+grep -rn "sel_op_.*\* (1 - sel)\|pol.*= sel \*" pil/vm2/ --include="*.pil"
 ```
 
-### Step 3: Check Composite Selector Membership
+**Search C — All composite selector sums and dispatch permutations**:
 ```bash
-# If sel_op_X is in a sum that's constrained
-grep -n "sel_op_X" pil/vm2/<file>.pil | grep "+"
+grep -rn "sel_op_.*+\|op_id.*} is " pil/vm2/ --include="*.pil"
 ```
 
-If `sel_group = sel_op_X + sel_op_Y + ...` AND `sel_group * (1 - sel) = 0`, then individual ops are transitively constrained.
+### Phase 2: Set Difference (compute candidates)
 
-### Step 4: Check Dispatch Permutation
-```bash
-# If dispatched via permutation with op_id
-grep -n "op_id" pil/vm2/<file>.pil | grep " is "
-```
+From the batch results:
+1. ALL_OPS = opcode selectors from Search A
+2. PROTECTED = selectors in Search B (implication or derivation) + transitively constrained via sums in Search C
+3. CANDIDATES = ALL_OPS - PROTECTED
 
-If `execution.sel { op_id, ... } is alu.sel { alu.op_id, ... }`, opcode selectors contributing to `op_id` are dispatch-enforced.
+### Phase 3: Deep Analysis (only on candidates)
 
-### Step 5: Assess Impact
-If unconstrained:
-- Check what values the opcode selector gates
+For each unprotected selector:
+- Check what values it gates
 - If all uses are `sel * sel_op_X * (...)`, then Low severity (tracegen only)
 - If ANY ungated use exists, High severity
 

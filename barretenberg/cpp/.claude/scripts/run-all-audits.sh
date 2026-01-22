@@ -15,7 +15,8 @@
 #   -o, --output DIR    Output directory (default: ./audit-results)
 #   -s, --skill SKILL   Run only specific skill(s) (can be repeated)
 #   -t, --target PATH   Target path/file to audit (default: pil/vm2)
-#   -m, --model MODEL   Model to use (default: sonnet)
+#   -m, --model MODEL   Model to use (default: sonnet for claude, o4-mini for codex)
+#   --codex             Use OpenAI Codex CLI instead of Claude Code
 #   --summarize-only    Only run summarizer on existing results
 #   --no-summarize      Skip the summarizer step
 #   --multi-model-summary  Run extra multi-model validation (Gemini/GPT via PAL MCP)
@@ -36,6 +37,7 @@
 #   ./run-all-audits.sh -T 1,2                  # Run Tiers 1 and 2 (recommended)
 #   ./run-all-audits.sh -T 1-3 -j 6             # Run Tiers 1-3 with 6 parallel jobs
 #   ./run-all-audits.sh                         # Run all tiers (comprehensive)
+#   ./run-all-audits.sh --codex -m gpt-4.1      # Run with Codex CLI using gpt-4.1
 
 set -euo pipefail
 
@@ -51,7 +53,9 @@ NC='\033[0m' # No Color
 MAX_JOBS=4
 OUTPUT_DIR="./audit-results"
 TARGET_PATH="pil/vm2"
-MODEL="sonnet"
+MODEL=""  # Set later based on USE_CODEX
+MODEL_EXPLICIT=false  # Whether user explicitly set the model
+USE_CODEX=false
 SPECIFIC_SKILLS=()
 SELECTED_TIERS=()  # Empty means all tiers
 SUMMARIZE_ONLY=false
@@ -199,7 +203,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         -m|--model)
             MODEL="$2"
+            MODEL_EXPLICIT=true
             shift 2
+            ;;
+        --codex)
+            USE_CODEX=true
+            shift
             ;;
         --summarize-only)
             SUMMARIZE_ONLY=true
@@ -218,7 +227,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            head -38 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
+            head -40 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
             exit 0
             ;;
         *)
@@ -227,6 +236,29 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Set default model based on backend
+if [[ -z "$MODEL" ]]; then
+    if [[ "$USE_CODEX" == "true" ]]; then
+        MODEL=""  # Empty = use Codex's default (required for ChatGPT auth)
+    else
+        MODEL="sonnet"
+    fi
+fi
+
+# Model to use for the summarizer (always Claude)
+SUMMARIZER_MODEL="${MODEL}"
+if [[ "$USE_CODEX" == "true" ]]; then
+    SUMMARIZER_MODEL="sonnet"
+fi
+
+# Validate codex is available if requested
+if [[ "$USE_CODEX" == "true" ]]; then
+    if ! command -v codex &>/dev/null; then
+        echo -e "${RED}Error: codex CLI not found. Install with: npm i -g @openai/codex${NC}" >&2
+        exit 1
+    fi
+fi
 
 # Handle --list-skills
 if [[ "$LIST_SKILLS" == "true" ]]; then
@@ -283,17 +315,50 @@ run_skill() {
     # Build the prompt for the skill
     # Note: We pass the absolute output path so the skill knows where to write its JSON file
     local abs_output_dir="$(cd "$OUTPUT_DIR" && pwd)"
-    local prompt="Run the /${skill} audit on ${TARGET_PATH}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding. Write the JSON findings file to: ${abs_output_dir}/${skill}.json"
+    local task_prompt="Run the /${skill} audit on ${TARGET_PATH}. Provide a thorough audit report with findings categorized by severity (Critical, High, Medium, Low). Include file locations and line numbers for each finding. Write the JSON findings file to: ${abs_output_dir}/${skill}.json"
 
-    # Run claude with the skill
-    if claude -p "$prompt" \
-        --model "$MODEL" \
-        --allowedTools "Read,Glob,Grep,Bash,Write,Edit" \
-        --output-format text \
-        > "$output_file" 2>&1; then
-        echo "success" > "$status_file"
+    if [[ "$USE_CODEX" == "true" ]]; then
+        # For Codex: read the SKILL.md and prepend it to the prompt via stdin
+        local skill_file="$SKILLS_DIR/${skill}/SKILL.md"
+        if [[ ! -f "$skill_file" ]]; then
+            echo "Skill file not found: $skill_file" > "$output_file"
+            echo "failed" > "$status_file"
+            echo "0" >> "$status_file"
+            return
+        fi
+
+        # Build combined prompt: skill instructions + task
+        local combined_prompt
+        combined_prompt="$(cat "$skill_file")
+
+---
+
+TASK: ${task_prompt}"
+
+        # Run codex exec with the combined prompt via stdin
+        # -o writes the final assistant message to the output file
+        # stdout/stderr are suppressed (contain status lines and ANSI codes)
+        local codex_args=(exec - --full-auto -o "$output_file")
+        if [[ -n "$MODEL" ]]; then
+            codex_args+=(-m "$MODEL")
+        fi
+        if echo "$combined_prompt" | codex "${codex_args[@]}" \
+            >/dev/null 2>&1; then
+            echo "success" > "$status_file"
+        else
+            echo "failed" > "$status_file"
+        fi
     else
-        echo "failed" > "$status_file"
+        # Run claude with the skill (original behavior)
+        if claude -p "$task_prompt" \
+            --model "$MODEL" \
+            --allowedTools "Read,Glob,Grep,Bash,Write,Edit" \
+            --output-format text \
+            > "$output_file" 2>&1; then
+            echo "success" > "$status_file"
+        else
+            echo "failed" > "$status_file"
+        fi
     fi
 
     local end_time=$(date +%s)
@@ -365,7 +430,7 @@ announce_completions() {
 
 # Export functions for parallel execution
 export -f run_skill
-export OUTPUT_DIR TARGET_PATH MODEL
+export OUTPUT_DIR TARGET_PATH MODEL USE_CODEX SKILLS_DIR
 
 # Skip to summarizer if --summarize-only
 if [[ "$SUMMARIZE_ONLY" == "true" ]]; then
@@ -377,10 +442,15 @@ else
     log "${GREEN}║              VM2 Audit Skills - Batch Runner                 ║${NC}"
     log "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
     log ""
+    BACKEND="Claude Code"
+    if [[ "$USE_CODEX" == "true" ]]; then
+        BACKEND="OpenAI Codex CLI"
+    fi
     log "Configuration:"
+    log "  Backend: $BACKEND"
     log "  Output directory: $OUTPUT_DIR"
     log "  Target path: $TARGET_PATH"
-    log "  Model: $MODEL"
+    log "  Model: ${MODEL:-"(default)"}"
     log "  Max parallel jobs: $MAX_JOBS"
     if [[ ${#SELECTED_TIERS[@]} -gt 0 ]]; then
         log "  Selected tiers: ${SELECTED_TIERS[*]}"
@@ -493,7 +563,7 @@ if [[ "$NO_SUMMARIZE" != "true" ]]; then
 
     SUMMARIZER_SCRIPT="$SCRIPT_DIR/summarize-audits.sh"
     if [[ -x "$SUMMARIZER_SCRIPT" ]]; then
-        SUMMARIZER_ARGS=(-o "$OUTPUT_DIR" -m "$MODEL")
+        SUMMARIZER_ARGS=(-o "$OUTPUT_DIR" -m "$SUMMARIZER_MODEL")
         if [[ "$EXTRA_MULTI_MODEL_SUMMARY" == "true" ]] || [[ "$EXTRA_MULTI_MODEL_SUMMARY" == "1" ]]; then
             SUMMARIZER_ARGS+=(--multi-model-summary)
         fi
