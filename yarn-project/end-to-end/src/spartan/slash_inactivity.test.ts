@@ -15,6 +15,7 @@ import assert from 'assert';
 import type { ChildProcess } from 'child_process';
 
 import {
+  ChainHealth,
   getL1DeploymentAddresses,
   getPublicViemClient,
   getSequencersConfig,
@@ -41,8 +42,10 @@ describe('slash inactivity test', () => {
   let constants: Omit<L1RollupConstants, 'ethereumSlotDuration'>;
   let monitor: ChainMonitor;
   let offlineValidator: EthAddress;
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   beforeAll(async () => {
+    await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
@@ -52,6 +55,7 @@ describe('slash inactivity test', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     // Clear out the disabled validators so we don't affect other tests
     await updateSequencersConfig(config, { disabledValidators: [] });
     monitor.removeAllListeners();

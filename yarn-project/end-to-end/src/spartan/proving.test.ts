@@ -5,7 +5,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { setupEnvironment, startPortForwardForRPC } from './utils.js';
+import { ChainHealth, setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 jest.setTimeout(2_400_000); // 40 minutes
 
@@ -16,14 +16,18 @@ const SLEEP_MS = 1000;
 describe('proving test', () => {
   let aztecNode: AztecNode;
   const forwardProcesses: ChildProcess[] = [];
+  const health = new ChainHealth(config.NAMESPACE, logger);
+
   beforeAll(async () => {
+    await health.setup();
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     aztecNode = createAztecNodeClient(rpcUrl);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    await health.teardown();
     forwardProcesses.forEach(p => p.kill());
   });
 
