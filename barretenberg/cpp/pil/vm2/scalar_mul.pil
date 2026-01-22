@@ -176,10 +176,10 @@ namespace scalar_mul;
     temp_inf' - temp_inf' = 0;
 
     #[DOUBLE]
-    sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', temp_x', temp_y', temp_inf' }
+    sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', sel_not_end /* = 1 */ }
     in
     ecc.sel
-        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
+        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.double_op };
 
     ///////////////////////////////
     // Result Computation
