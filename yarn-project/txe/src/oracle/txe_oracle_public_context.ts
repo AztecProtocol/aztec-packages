@@ -101,8 +101,8 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     ]);
   }
 
-  async avmOpcodeStorageRead(slot: Fr): Promise<Fr> {
-    const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
+  async avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr> {
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
 
     const lowLeafResult = await this.forkedWorldTrees.getPreviousValueIndex(
       MerkleTreeId.PUBLIC_DATA_TREE,
@@ -119,7 +119,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
             )) as PublicDataTreeLeafPreimage
           ).leaf.value;
 
-    this.logger.debug('AVM storage read', { slot, value });
+    this.logger.debug('AVM storage read', { slot, contractAddress, value });
 
     return value;
   }

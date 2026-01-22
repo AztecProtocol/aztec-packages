@@ -22,9 +22,9 @@ struct lookup_sload_storage_read_settings_ {
     static constexpr Column COUNTS = Column::lookup_sload_storage_read_counts;
     static constexpr Column INVERSES = Column::lookup_sload_storage_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_register_0_,
+        ColumnAndShifts::execution_register_2_,
         ColumnAndShifts::execution_prev_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
