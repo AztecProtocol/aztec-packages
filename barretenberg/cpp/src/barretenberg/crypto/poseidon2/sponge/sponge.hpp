@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Sergei], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -48,7 +48,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
         }
 
         // Apply permutation
-        state = Permutation::permutation(state);
+        Permutation::permutation_inplace(state);
 
         // Reset the cache
         cache = {};
