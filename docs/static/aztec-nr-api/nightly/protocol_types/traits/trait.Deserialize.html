@@ -67,6 +67,7 @@
 <li><a href="#impl-Deserialize-for-GlobalVariables">GlobalVariables</a></li>
 <li><a href="#impl-Deserialize-for-HasArray">HasArray</a></li>
 <li><a href="#impl-Deserialize-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
+<li><a href="#impl-Deserialize-for-HintedNote<Note>">HintedNote<Note></a></li>
 <li><a href="#impl-Deserialize-for-IvpkM">IvpkM</a></li>
 <li><a href="#impl-Deserialize-for-KeyValidationRequest">KeyValidationRequest</a></li>
 <li><a href="#impl-Deserialize-for-KeyValidationRequestAndGenerator">KeyValidationRequestAndGenerator</a></li>
@@ -105,7 +106,6 @@
 <li><a href="#impl-Deserialize-for-PublicKeys">PublicKeys</a></li>
 <li><a href="#impl-Deserialize-for-PublicKeysHash">PublicKeysHash</a></li>
 <li><a href="#impl-Deserialize-for-PublicLogs">PublicLogs</a></li>
-<li><a href="#impl-Deserialize-for-RetrievedNote<Note>">RetrievedNote<Note></a></li>
 <li><a href="#impl-Deserialize-for-Scoped<T>">Scoped<T></a></li>
 <li><a href="#impl-Deserialize-for-Smol">Smol</a></li>
 <li><a href="#impl-Deserialize-for-SpongeBlob">SpongeBlob</a></li>
@@ -297,6 +297,10 @@ deserializing return values from function calls in Noir. Since the same function
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
+<h3 id="impl-Deserialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
+
 <h3 id="impl-Deserialize-for-IvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></h3>
 
 <h3 id="impl-Deserialize-for-KeyValidationRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a></code></h3>
@@ -374,10 +378,6 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-PublicKeysHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/address/public_keys_hash/struct.PublicKeysHash.html" class="struct">PublicKeysHash</a></code></h3>
 
 <h3 id="impl-Deserialize-for-PublicLogs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
-
-<h3 id="impl-Deserialize-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
-<div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
 <h3 id="impl-Deserialize-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
 <div class="where-clause">where

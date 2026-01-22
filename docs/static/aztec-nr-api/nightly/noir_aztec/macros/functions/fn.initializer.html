@@ -73,7 +73,7 @@ of course not have taken place.</p>
 <p>The initialization process emits a nullifier which marks the contract as initialized. All other <a href="../../../noir_aztec/macros/functions/fn.external.html">external</a> functions
 are automatically made to check that this nullifier exists, ensuring initialization.</p>
 <p>For private non-initializer functions, the cost of this check is equivalent to that of a call to
-<a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html#push_nullifier_read_request">PrivateContext::push_nullifier_read_request</a>.
+<a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html#assert_nullifier_exists">PrivateContext::assert_nullifier_exists</a>.
 For public ones, it is equivalent to a call to
 <a href="../../../noir_aztec/context/public_context/struct.PublicContext.html#nullifier_exists_unsafe">PublicContext::nullifier_exists_unsafe</a>.</p>
 <p>The <a href="../../../noir_aztec/macros/functions/fn.noinitcheck.html">noinitcheck</a> attribute can be used to skip the initialization nullifer checks.</p></div>
