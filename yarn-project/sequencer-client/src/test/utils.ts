@@ -41,7 +41,13 @@ export async function makeBlock(txs: Tx[], globalVariables: GlobalVariables): Pr
   const body = new Body(processedTxs.map(tx => tx.txEffect));
   const header = BlockHeader.empty({ globalVariables });
   const archive = makeAppendOnlyTreeSnapshot(globalVariables.blockNumber + 1);
-  return new L2Block(archive, header, body, CheckpointNumber(globalVariables.blockNumber), IndexWithinCheckpoint(0));
+  return new L2Block(
+    archive,
+    header,
+    body,
+    CheckpointNumber.fromBlockNumber(globalVariables.blockNumber),
+    IndexWithinCheckpoint(0),
+  );
 }
 
 /**

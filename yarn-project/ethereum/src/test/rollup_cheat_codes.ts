@@ -124,7 +124,7 @@ export class RollupCheatCodes {
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const slotNumber = SlotNumber(epoch * Number(slotsInEpoch));
+    const slotNumber = SlotNumber(Number(epoch) * Number(slotsInEpoch));
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });

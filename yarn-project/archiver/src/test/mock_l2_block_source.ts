@@ -113,7 +113,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       return Promise.resolve(undefined);
     }
     const checkpointedBlock = new CheckpointedL2Block(
-      CheckpointNumber(number),
+      CheckpointNumber.fromBlockNumber(number),
       block,
       new L1PublishedData(BigInt(number), BigInt(number), `0x${number.toString(16).padStart(64, '0')}`),
       [],
@@ -200,7 +200,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       const hash = await block.hash();
       if (hash.equals(blockHash)) {
         return CheckpointedL2Block.fromFields({
-          checkpointNumber: CheckpointNumber(block.number),
+          checkpointNumber: CheckpointNumber.fromBlockNumber(block.number),
           block,
           l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
           attestations: [],
@@ -217,7 +217,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     }
     return Promise.resolve(
       CheckpointedL2Block.fromFields({
-        checkpointNumber: CheckpointNumber(block.number),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(block.number),
         block,
         l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
         attestations: [],
@@ -384,7 +384,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
     const makeTipId = (blockId: typeof latestBlockId) => ({
       block: blockId,
-      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+      checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
     });
 
     return {

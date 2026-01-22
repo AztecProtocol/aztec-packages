@@ -196,7 +196,7 @@ describe('L1Publisher integration', () => {
           slicedBlocks.map(
             async block =>
               new CheckpointedL2Block(
-                CheckpointNumber(block.number),
+                CheckpointNumber.fromBlockNumber(block.number),
                 block,
                 new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
                 [],
@@ -213,7 +213,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          CheckpointNumber(block.number),
+          CheckpointNumber.fromBlockNumber(block.number),
         );
         return [
           new PublishedCheckpoint(
@@ -230,7 +230,7 @@ describe('L1Publisher integration', () => {
           : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
         const tipId = {
           block: blockId,
-          checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+          checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
         };
 
         return { proposed: blockId, checkpointed: tipId, proven: tipId, finalized: tipId };

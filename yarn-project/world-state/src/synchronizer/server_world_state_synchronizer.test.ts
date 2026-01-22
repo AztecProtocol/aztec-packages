@@ -262,7 +262,7 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   public override getL2Tips() {
     const makeTipId = (blockId: typeof this.latest) => ({
       block: blockId,
-      checkpoint: { number: CheckpointNumber(blockId.number), hash: blockId.hash },
+      checkpoint: { number: CheckpointNumber.fromBlockNumber(blockId.number), hash: blockId.hash },
     });
     return Promise.resolve({
       proposed: this.latest,

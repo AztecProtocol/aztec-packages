@@ -1739,7 +1739,7 @@ export function makeL2Tips(
       ? typeof checkpointNumber === 'number'
         ? CheckpointNumber(checkpointNumber)
         : checkpointNumber
-      : CheckpointNumber(bn);
+      : CheckpointNumber.fromBlockNumber(bn);
   const cph = checkpointHash ?? hash;
   return {
     proposed: { number: bn, hash },

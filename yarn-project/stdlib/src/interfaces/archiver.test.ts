@@ -483,7 +483,7 @@ class MockArchiver implements ArchiverApi {
   }
   async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
     expect(epochNumber).toEqual(EpochNumber(1));
-    return [await Checkpoint.random(CheckpointNumber(BlockNumber(1)))];
+    return [await Checkpoint.random(CheckpointNumber(1))];
   }
   async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     expect(epochNumber).toEqual(EpochNumber(1));
