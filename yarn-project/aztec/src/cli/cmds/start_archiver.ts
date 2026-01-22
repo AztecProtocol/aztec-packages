@@ -1,5 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings, createArchiver, getArchiverConfigFromEnv } from '@aztec/archiver';
-import { createLogger } from '@aztec/aztec.js/log';
+import { createLogger, createLoggerFactory } from '@aztec/aztec.js/log';
 import { type BlobClientConfig, blobClientConfigMapping, createBlobClient } from '@aztec/blob-client/client';
 import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
@@ -40,9 +40,14 @@ export async function startArchiver(
   archiverConfig.l1Contracts = addresses;
   archiverConfig = { ...archiverConfig, ...l1Config };
 
-  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
+  const loggerFactory = createLoggerFactory({});
+  const telemetry = await initTelemetryClient(createLogger('telemetry'), getTelemetryClientConfig());
   const blobClient = createBlobClient(archiverConfig, { logger: createLogger('archiver:blob-client:client') });
-  const archiver = await createArchiver(archiverConfig, { telemetry, blobClient }, { blockUntilSync: true });
+  const archiver = await createArchiver(
+    archiverConfig,
+    { telemetry, blobClient, loggerFactory },
+    { blockUntilSync: true },
+  );
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);
 

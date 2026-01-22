@@ -6,7 +6,7 @@ import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
@@ -117,7 +117,7 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = await initTelemetryClient(telemetryConfig);
+  const telemetry = await initTelemetryClient(createLogger('telemetry'), telemetryConfig);
 
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
@@ -135,7 +135,7 @@ export async function startNode(
     const { addBot } = await import('./start_bot.js');
 
     const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
-    const wallet = await TestWallet.create(node, pxeConfig);
+    const wallet = await TestWallet.create(node, pxeConfig, { loggers: {} });
 
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
@@ -148,6 +148,7 @@ export async function startNode(
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
       signalHandlers,
+      createLogger('update-check'),
       async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
     );
   }

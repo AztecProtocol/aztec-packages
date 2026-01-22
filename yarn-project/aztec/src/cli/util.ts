@@ -4,7 +4,7 @@ import type { ViemClient } from '@aztec/ethereum/types';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
 import { getTelemetryClient } from '@aztec/telemetry-client/start';
@@ -308,14 +308,15 @@ export async function setupUpdateMonitor(
   publicClient: ViemClient,
   registryContractAddress: EthAddress,
   signalHandlers: Array<() => Promise<void>>,
+  logger: Logger,
   updateNodeConfig?: (config: object) => Promise<void>,
 ) {
-  const logger = createLogger('update-check');
   const { UpdateChecker } = await import('@aztec/stdlib/update-checker');
   const checker = await UpdateChecker.new({
     baseURL: updatesLocation,
     publicClient,
     registryContractAddress,
+    log: logger,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises

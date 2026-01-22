@@ -1,5 +1,6 @@
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -20,10 +21,12 @@ export class CheatCodes {
   ) {}
 
   static async create(rpcUrls: string[], node: AztecNode, dateProvider: DateProvider): Promise<CheatCodes> {
-    const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
+    const loggerFactory = createLoggerFactory({ actor: 'test' });
+    const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider, loggerFactory);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await node.getNodeInfo().then(n => n.l1ContractAddresses),
+      loggerFactory.createLogger('rollup-cheat-codes'),
     );
     return new CheatCodes(ethCheatCodes, rollupCheatCodes);
   }

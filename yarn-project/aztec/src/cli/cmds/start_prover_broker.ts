@@ -1,7 +1,7 @@
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLoggerFactory } from '@aztec/foundation/log';
 import {
   type ProverBrokerConfig,
   ProvingJobBrokerSchema,
@@ -45,8 +45,9 @@ export async function startProverBroker(
   config.l1Contracts = addresses;
   config.rollupVersion = rollupConfig.rollupVersion;
 
-  const client = await initTelemetryClient(getTelemetryClientConfig());
-  const broker = await createAndStartProvingBroker(config, client);
+  const loggerFactory = createLoggerFactory({});
+  const client = await initTelemetryClient(loggerFactory.createLogger('telemetry'), getTelemetryClientConfig());
+  const broker = await createAndStartProvingBroker(config, client, loggerFactory);
 
   if (options.autoUpdate !== 'disabled' && options.autoUpdateUrl) {
     await setupUpdateMonitor(
@@ -56,6 +57,7 @@ export async function startProverBroker(
       getPublicClient(config),
       config.l1Contracts.registryAddress,
       signalHandlers,
+      loggerFactory.createLogger('update-check'),
     );
   }
 

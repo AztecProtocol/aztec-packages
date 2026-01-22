@@ -1,7 +1,7 @@
 import { times } from '@aztec/foundation/collection';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
 import {
   InlineProofStore,
@@ -45,20 +45,34 @@ export async function startProverAgent(
 
   await preloadCrsDataForServerSideProving(config, userLog);
 
+  const loggerFactory = createLoggerFactory({});
+  const logger = createLogger('prover-agent');
   const fetch = makeTracedFetch(
     // retry connections every 3s, up to 30s before giving up
     [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
     false,
-    makeUndiciFetch(new Agent({ connections: 10 })),
+    logger,
+    makeUndiciFetch(logger, new Agent({ connections: 10 })),
   );
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
-  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
-  const prover = await buildServerCircuitProver(config, telemetry);
+  const telemetry = await initTelemetryClient(
+    logger,
+    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
+  );
+  const prover = await buildServerCircuitProver(config, { telemetry, loggerFactory });
   const proofStore = new InlineProofStore();
   const agents = times(
     config.proverAgentCount,
-    () => new ProvingAgent(broker, proofStore, prover, config.proverAgentProofTypes, config.proverAgentPollIntervalMs),
+    () =>
+      new ProvingAgent(
+        broker,
+        proofStore,
+        prover,
+        logger,
+        config.proverAgentProofTypes,
+        config.proverAgentPollIntervalMs,
+      ),
   );
 
   // expose all agents as individual services

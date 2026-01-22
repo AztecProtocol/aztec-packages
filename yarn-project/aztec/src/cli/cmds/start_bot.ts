@@ -1,6 +1,6 @@
 import { type BotConfig, BotRunner, BotStore, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { type AztecNode, type AztecNodeAdmin, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
@@ -29,7 +29,8 @@ export async function startBot(
     process.exit(1);
   }
 
-  const fetch = makeTracedFetch([1, 2, 3], true);
+  const logger = createLogger('bot');
+  const fetch = makeTracedFetch([1, 2, 3], true, logger);
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
   if (!config.nodeUrl) {
     throw new Error('The bot requires access to a Node');
@@ -38,9 +39,9 @@ export async function startBot(
   const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
   const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
-  const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  const wallet = await TestWallet.create(aztecNode, pxeConfig, { loggers: {} });
 
-  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await initTelemetryClient(logger, getTelemetryClientConfig());
   await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined);
 }
 
@@ -54,15 +55,17 @@ export async function addBot(
   aztecNodeAdmin?: AztecNodeAdmin,
 ) {
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
+  const loggerFactory = createLoggerFactory({});
+  const log = createLogger('bot');
 
   const db = await (config.dataDirectory
-    ? createStore('bot', BotStore.SCHEMA_VERSION, config)
-    : openTmpStore('bot', true, config.dataStoreMapSizeKb));
+    ? createStore('bot', BotStore.SCHEMA_VERSION, config, loggerFactory)
+    : openTmpStore('bot', loggerFactory, true, config.dataStoreMapSizeKb));
 
-  const store = new BotStore(db);
+  const store = new BotStore(db, log.createChild('store'));
   await store.cleanupOldClaims();
 
-  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store);
+  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store, log);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time
   }

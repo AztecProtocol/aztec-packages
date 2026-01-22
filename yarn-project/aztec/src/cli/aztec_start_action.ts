@@ -3,7 +3,7 @@ import {
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import type { LogFn, Logger } from '@aztec/foundation/log';
+import { type LogFn, type Logger, createLoggerFactory } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
@@ -83,12 +83,13 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
+  const loggerFactory = createLoggerFactory({});
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
-      log: debugLogger,
+      loggerFactory,
       middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
@@ -101,7 +102,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   if (Object.entries(adminServices).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(adminServices, {
       http200OnError: false,
-      log: debugLogger,
+      loggerFactory,
       middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,

@@ -42,7 +42,7 @@ async function main() {
   }
 
   const networkName = getActiveNetworkName(networkValue);
-  await enrichEnvironmentWithNetworkConfig(networkName);
+  await enrichEnvironmentWithNetworkConfig(networkName, debugLogger);
   enrichEnvironmentWithChainName(networkName);
 
   const cliVersion = getCliVersion();
@@ -56,7 +56,7 @@ async function main() {
   program = injectAztecNodeCommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
   program = injectValidatorKeysCommands(program, userLog);
-  program = injectMigrateCommand(program, userLog);
+  program = injectMigrateCommand(program, userLog, debugLogger);
 
   await program.parseAsync(process.argv);
 }

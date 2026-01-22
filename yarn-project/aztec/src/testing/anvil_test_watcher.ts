@@ -2,7 +2,7 @@ import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -27,14 +27,13 @@ export class AnvilTestWatcher {
   private syncDateProviderPromise?: RunningPromise;
   private markingAsProvenRunningPromise?: RunningPromise;
 
-  private logger: Logger = createLogger(`aztecjs:utils:watcher`);
-
   private isMarkingAsProven = true;
 
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
     l1Client: ViemClient,
+    private logger: Logger,
     private dateProvider?: TestDateProvider,
   ) {
     this.rollup = getContract({
@@ -43,9 +42,13 @@ export class AnvilTestWatcher {
       client: l1Client,
     });
 
-    this.rollupCheatCodes = new RollupCheatCodes(this.cheatcodes, {
-      rollupAddress,
-    });
+    this.rollupCheatCodes = new RollupCheatCodes(
+      this.cheatcodes,
+      {
+        rollupAddress,
+      },
+      this.logger,
+    );
 
     this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
   }

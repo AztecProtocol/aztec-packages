@@ -1,5 +1,6 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet/server';
@@ -8,7 +9,7 @@ const logger = createLogger('example:token');
 
 const nodeUrl = 'http://localhost:8080';
 
-const node = createAztecNodeClient(nodeUrl);
+const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
 
 const ALICE_MINT_BALANCE = 333n;
 const TRANSFER_AMOUNT = 33n;

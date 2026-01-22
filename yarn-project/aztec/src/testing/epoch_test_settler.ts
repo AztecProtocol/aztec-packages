@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { type EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
 import type { Logger } from '@aztec/foundation/log';
 import { EpochMonitor } from '@aztec/prover-node';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
@@ -17,12 +18,21 @@ export class EpochTestSettler {
     private log: Logger,
     private options: { pollingIntervalMs: number; provingDelayMs?: number },
   ) {
-    this.rollupCheatCodes = new RollupCheatCodes(cheatcodes, { rollupAddress });
+    this.rollupCheatCodes = new RollupCheatCodes(
+      cheatcodes,
+      { rollupAddress },
+      createLogger('epoch-test-settler:rollup-cheat-codes'),
+    );
   }
 
   async start() {
     const { epochDuration } = await this.rollupCheatCodes.getConfig();
-    this.epochMonitor = new EpochMonitor(this.l2BlockSource, { epochDuration: Number(epochDuration) }, this.options);
+    this.epochMonitor = new EpochMonitor(
+      this.l2BlockSource,
+      { epochDuration: Number(epochDuration) },
+      createLogger('epoch-test-settler'),
+      this.options,
+    );
     this.epochMonitor.start(this);
   }
 

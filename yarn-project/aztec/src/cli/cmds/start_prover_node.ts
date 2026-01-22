@@ -5,7 +5,7 @@ import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,
@@ -67,7 +67,12 @@ export async function startProverNode(
     );
   }
 
-  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const loggerFactory = createLoggerFactory({});
+  const logger = createLogger('prover-node');
+  const telemetry = await initTelemetryClient(
+    logger,
+    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
+  );
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
@@ -77,7 +82,8 @@ export async function startProverNode(
     const fetch = makeTracedFetch(
       [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
       false,
-      makeUndiciFetch(new Agent({ connections: 100 })),
+      logger,
+      makeUndiciFetch(logger, new Agent({ connections: 100 })),
     );
     broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl, getVersions(proverConfig), fetch);
   } else if (options.proverBroker) {
@@ -95,7 +101,11 @@ export async function startProverNode(
 
   await preloadCrsDataForVerifying(proverConfig, userLog);
 
-  const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
+  const proverNode = await createProverNode(
+    proverConfig,
+    { telemetry, broker, loggerFactory },
+    { prefilledPublicData },
+  );
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   if (proverNode.getP2P()) {
@@ -118,6 +128,7 @@ export async function startProverNode(
       getPublicClient(proverConfig),
       proverConfig.l1Contracts.registryAddress,
       signalHandlers,
+      loggerFactory.createLogger('update-check'),
     );
   }
   return { config: proverConfig };
