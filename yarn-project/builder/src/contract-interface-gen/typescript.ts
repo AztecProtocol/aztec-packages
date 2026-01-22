@@ -98,14 +98,14 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(1));
+    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${contractName}.log, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
   public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(2));
+    return new DeployMethod<${contractName}>(publicKeys, wallet, ${contractName}.log, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(2));
   }
 
   /**
@@ -118,6 +118,7 @@ function generateDeploy(input: ContractArtifact) {
     return new DeployMethod<${contractName}>(
       opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
+      ${contractName}.log,
       ${artifactName},
       (instance, wallet) => ${contractName}.at(instance.address, wallet),
       Array.from(arguments).slice(1),
@@ -135,11 +136,14 @@ function generateDeploy(input: ContractArtifact) {
  */
 function generateConstructor(name: string) {
   return `
+  /** Logger for contract interactions. */
+  private static log = createLogger('aztecjs:${name.toLowerCase()}');
+
   private constructor(
     address: AztecAddress,
     wallet: Wallet,
   ) {
-    super(address, ${name}ContractArtifact, wallet);
+    super(address, ${name}ContractArtifact, wallet, ${name}Contract.log);
   }
   `;
 }
@@ -310,6 +314,7 @@ import { Contract, ContractBase, ContractFunctionInteraction, type ContractMetho
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec/aztec.js/keys';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 ${artifactStatement}
 
