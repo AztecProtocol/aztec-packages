@@ -2,6 +2,7 @@ import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundatio
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -32,14 +33,20 @@ describe('ValidatorHASigner', () => {
   let pool: Pool;
   let db: PostgresSlashingProtectionDatabase;
   let config: ValidatorHASignerConfig;
+  let signerLog: Logger;
+  let slashingProtectionLog: Logger;
 
   beforeEach(async () => {
     pglite = new PGlite();
     pool = new Pool({ pglite });
 
     await setupTestSchema(pglite);
-    db = new PostgresSlashingProtectionDatabase(pool);
+    const dbLog = createLogger('slashing-protection:postgres:test');
+    db = new PostgresSlashingProtectionDatabase(pool, dbLog);
     await db.initialize();
+
+    signerLog = createLogger('validator-ha-signer:test');
+    slashingProtectionLog = createLogger('slashing-protection:test');
 
     config = {
       haSigningEnabled: true,
@@ -60,23 +67,30 @@ describe('ValidatorHASigner', () => {
       const defaultConfig = { ...defaultValidatorHASignerConfig };
       expect(
         () =>
-          new ValidatorHASigner(db, {
-            ...defaultConfig,
-            databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
-            haSigningEnabled: true,
-          }),
+          new ValidatorHASigner(
+            db,
+            {
+              ...defaultConfig,
+              databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
+              haSigningEnabled: true,
+            },
+            signerLog,
+            slashingProtectionLog,
+          ),
       ).toThrow('NODE_ID is required for high-availability setups');
     });
 
     it('should not initialize when enabled is false', () => {
       const disabledConfig = { ...config, haSigningEnabled: false };
-      expect(() => new ValidatorHASigner(db, disabledConfig)).toThrow('Validator HA Signer is not enabled in config');
+      expect(() => new ValidatorHASigner(db, disabledConfig, signerLog, slashingProtectionLog)).toThrow(
+        'Validator HA Signer is not enabled in config',
+      );
     });
   });
 
   describe('lifecycle', () => {
     it('should start and stop without error when enabled', async () => {
-      const signer = new ValidatorHASigner(db, config);
+      const signer = new ValidatorHASigner(db, config, signerLog, slashingProtectionLog);
       signer.start();
       await signer.stop();
     });
@@ -87,7 +101,7 @@ describe('ValidatorHASigner', () => {
     let signFn: jest.Mock<(messageHash: Buffer32) => Promise<Signature>>;
 
     beforeEach(() => {
-      signer = new ValidatorHASigner(db, config);
+      signer = new ValidatorHASigner(db, config, signerLog, slashingProtectionLog);
       signer.start();
       signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
       signFn.mockResolvedValue(mockSignature);
@@ -754,7 +768,9 @@ describe('ValidatorHASigner', () => {
       const nodeIds = Array.from({ length: numSigners }, (_, i) => `node-${i + 1}`);
 
       // Create separate signers with different node IDs for the same validator
-      const signers = nodeIds.map(nodeId => new ValidatorHASigner(db, { ...config, nodeId }));
+      const signers = nodeIds.map(
+        nodeId => new ValidatorHASigner(db, { ...config, nodeId }, signerLog, slashingProtectionLog),
+      );
 
       // Start all signers
       signers.forEach(signer => signer.start());

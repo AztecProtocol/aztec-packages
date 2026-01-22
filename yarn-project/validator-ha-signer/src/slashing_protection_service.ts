@@ -4,7 +4,7 @@
  * Provides distributed locking and slashing protection for validator duties.
  * Uses an external database to coordinate across multiple validator nodes.
  */
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -44,8 +44,9 @@ export class SlashingProtectionService {
   constructor(
     private readonly db: SlashingProtectionDatabase,
     private readonly config: ValidatorHASignerConfig,
+    log: Logger,
   ) {
-    this.log = createLogger('slashing-protection');
+    this.log = log;
     this.pollingIntervalMs = config.pollingIntervalMs;
     this.signingTimeoutMs = config.signingTimeoutMs;
     // Default to 144s (2x 72s Aztec slot duration) if not explicitly configured

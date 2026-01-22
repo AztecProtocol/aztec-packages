@@ -1,6 +1,7 @@
 import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -30,14 +31,18 @@ describe('SlashingProtectionService', () => {
   let db: PostgresSlashingProtectionDatabase;
   let service: SlashingProtectionService;
   let config: ValidatorHASignerConfig;
+  let serviceLog: Logger;
 
   beforeEach(async () => {
     pglite = new PGlite();
     pool = new Pool({ pglite });
 
     await setupTestSchema(pglite);
-    db = new PostgresSlashingProtectionDatabase(pool);
+    const dbLog = createLogger('slashing-protection:postgres:test');
+    db = new PostgresSlashingProtectionDatabase(pool, dbLog);
     await db.initialize();
+
+    serviceLog = createLogger('slashing-protection:test');
 
     config = {
       haSigningEnabled: true,
@@ -46,7 +51,7 @@ describe('SlashingProtectionService', () => {
       signingTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
     };
-    service = new SlashingProtectionService(db, config);
+    service = new SlashingProtectionService(db, config, serviceLog);
   });
 
   afterEach(async () => {
@@ -267,7 +272,7 @@ describe('SlashingProtectionService', () => {
 
     it('should timeout if signing takes too long', async () => {
       const shortTimeoutConfig = { ...config, signingTimeoutMs: 200 };
-      const serviceWithShortTimeout = new SlashingProtectionService(db, shortTimeoutConfig);
+      const serviceWithShortTimeout = new SlashingProtectionService(db, shortTimeoutConfig, serviceLog);
 
       try {
         const params: CheckAndRecordParams = {
@@ -525,7 +530,7 @@ describe('SlashingProtectionService', () => {
 
       // Create a new service with a very short maxStuckDutiesAgeMs
       const shortAgeConfig = { ...config, maxStuckDutiesAgeMs: 1 };
-      const newService = new SlashingProtectionService(db, shortAgeConfig);
+      const newService = new SlashingProtectionService(db, shortAgeConfig, serviceLog);
 
       // Wait a bit for the duty to become "old"
       await sleep(10);

@@ -1,6 +1,7 @@
 import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -492,13 +493,13 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
       await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
 
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       await expect(spDb.initialize()).resolves.not.toThrow();
     });
 
     it('should throw when schema_version table does not exist', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       await expect(spDb.initialize()).rejects.toThrow(
         'Database schema not initialized. Please run migrations first: aztec migrate-ha-db up --database-url <url>',
@@ -514,7 +515,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         )
       `);
 
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       await expect(spDb.initialize()).rejects.toThrow(
         'Database schema not initialized. Please run migrations first: aztec migrate-ha-db up --database-url <url>',
@@ -528,7 +529,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
       await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION - 1]);
 
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       await expect(spDb.initialize()).rejects.toThrow(
         `Database schema version ${SCHEMA_VERSION - 1} is outdated (expected ${SCHEMA_VERSION}). Please run migrations: aztec migrate-ha-db up --database-url <url>`,
@@ -542,7 +543,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
       }
       await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION + 1]);
 
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       await expect(spDb.initialize()).rejects.toThrow(
         `Database schema version ${SCHEMA_VERSION + 1} is newer than expected (${SCHEMA_VERSION}). Please update your application.`,
@@ -550,7 +551,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should allow closing the database connection', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       const endSpy = jest.spyOn(pool, 'end');
       await spDb.close();
@@ -573,7 +574,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it.each([1, 2, 3])('should retry %i time(s) and eventually succeed', async numRetries => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
       let callCount = 0;
 
       // Mock pool.query to return no rows on first numRetries calls, then rows on subsequent call
@@ -610,7 +611,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should throw error after all 3 retries are exhausted', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Mock pool.query to always return no rows
       jest
@@ -634,7 +635,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should throw error if query returns more than one row (database constraint violation)', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Mock pool.query to return multiple rows (simulating a database constraint violation)
       // These use snake_case to match database column names
@@ -715,7 +716,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     it('should handle large slot numbers correctly', async () => {
       const largeSlot = SlotNumber(Number.MAX_SAFE_INTEGER); // Max safe integer
 
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
       const result = await spDb.tryInsertOrGetExisting({
         validatorAddress: VALIDATOR_ADDRESS,
         slot: largeSlot,
@@ -733,7 +734,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     it('should handle large block numbers correctly', async () => {
       const largeBlockNumber = BlockNumber(Number.MAX_SAFE_INTEGER);
 
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
       const result = await spDb.tryInsertOrGetExisting({
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
@@ -765,7 +766,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return true and update duty to signed status with correct token', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert a duty first
       const insertResult = await spDb.tryInsertOrGetExisting({
@@ -807,7 +808,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return false with wrong token', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert a duty first
       const insertResult = await spDb.tryInsertOrGetExisting({
@@ -843,7 +844,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return false if duty not found', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       const success = await spDb.updateDutySigned(
         VALIDATOR_ADDRESS,
@@ -858,7 +859,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return false if status is not signing', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert and mark as signed
       const insertResult = await spDb.tryInsertOrGetExisting({
@@ -895,7 +896,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should handle non-block-proposal duties (uses -1 for block index)', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert an ATTESTATION duty (non-block-proposal, so no blockIndexWithinCheckpoint)
       const insertResult = await spDb.tryInsertOrGetExisting({
@@ -952,7 +953,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return true and delete a signing duty with correct token', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert a duty first
       const insertResult = await spDb.tryInsertOrGetExisting({
@@ -982,7 +983,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return false with wrong token', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert a duty first
       await spDb.tryInsertOrGetExisting({
@@ -1009,7 +1010,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return false if duty not found', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       const success = await spDb.deleteDuty(VALIDATOR_ADDRESS, SLOT, DutyType.BLOCK_PROPOSAL, 'some-token', 0);
 
@@ -1017,7 +1018,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should return false if duty is already signed', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert and mark as signed
       const insertResult = await spDb.tryInsertOrGetExisting({
@@ -1047,7 +1048,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
 
     it('should handle non-block-proposal duties (uses -1 for block index)', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      const spDb = new PostgresSlashingProtectionDatabase(pool, createLogger('slashing-protection:postgres:test'));
 
       // Insert an ATTESTATION duty (non-block-proposal, so no blockIndexWithinCheckpoint)
       const insertResult = await spDb.tryInsertOrGetExisting({

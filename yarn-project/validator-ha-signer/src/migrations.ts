@@ -1,7 +1,7 @@
 /**
  * Programmatic migration runner
  */
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { readdirSync } from 'fs';
 import { runner } from 'node-pg-migrate';
@@ -22,14 +22,17 @@ export interface RunMigrationsOptions {
  * Run database migrations programmatically
  *
  * @param databaseUrl - PostgreSQL connection string
+ * @param log - Logger for migration output
  * @param options - Migration options (direction, verbose)
  * @returns Array of applied migration names
  */
-export async function runMigrations(databaseUrl: string, options: RunMigrationsOptions = {}): Promise<string[]> {
+export async function runMigrations(
+  databaseUrl: string,
+  log: Logger,
+  options: RunMigrationsOptions = {},
+): Promise<string[]> {
   const direction = options.direction ?? 'up';
   const verbose = options.verbose ?? false;
-
-  const log = createLogger('validator-ha-signer:migrations');
 
   const migrationsDir = join(__dirname, 'db', 'migrations');
 

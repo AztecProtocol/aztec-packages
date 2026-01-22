@@ -8,7 +8,7 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import type { ValidatorHASignerConfig } from './config.js';
 import { type DutyIdentifier, DutyType } from './db/types.js';
@@ -45,8 +45,10 @@ export class ValidatorHASigner {
   constructor(
     db: SlashingProtectionDatabase,
     private readonly config: ValidatorHASignerConfig,
+    log: Logger,
+    slashingProtectionLog: Logger,
   ) {
-    this.log = createLogger('validator-ha-signer');
+    this.log = log;
 
     if (!config.haSigningEnabled) {
       // this shouldn't happen, the validator should use different signer for non-HA setups
@@ -56,7 +58,7 @@ export class ValidatorHASigner {
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
     }
-    this.slashingProtection = new SlashingProtectionService(db, config);
+    this.slashingProtection = new SlashingProtectionService(db, config, slashingProtectionLog);
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,
     });

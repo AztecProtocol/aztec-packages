@@ -4,7 +4,7 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import type { QueryResult, QueryResultRow } from 'pg';
@@ -35,8 +35,11 @@ export interface QueryablePool {
 export class PostgresSlashingProtectionDatabase implements SlashingProtectionDatabase {
   private readonly log: Logger;
 
-  constructor(private readonly pool: QueryablePool) {
-    this.log = createLogger('slashing-protection:postgres');
+  constructor(
+    private readonly pool: QueryablePool,
+    log: Logger,
+  ) {
+    this.log = log;
   }
 
   /**
@@ -118,9 +121,9 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
 
         return queryResult;
       },
+      this.log,
       `INSERT_OR_GET_DUTY for node ${params.nodeId}`,
       fastBackoff,
-      this.log,
       true,
     );
 
