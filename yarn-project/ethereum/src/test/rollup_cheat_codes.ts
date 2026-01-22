@@ -176,7 +176,7 @@ export class RollupCheatCodes {
    * Marks the specified checkpoint (or latest if none) as proven
    * @param maybeCheckpointNumber - The checkpoint number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeCheckpointNumber?: number | bigint) {
+  public markAsProven(maybeCheckpointNumber?: CheckpointNumber) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;
