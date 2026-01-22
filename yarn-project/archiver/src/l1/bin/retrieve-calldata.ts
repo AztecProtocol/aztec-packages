@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -145,7 +145,7 @@ async function main() {
     const result = await retriever.getCheckpointFromRollupTx(
       txHash,
       [],
-      CheckpointNumber.fromBlockNumber(l2BlockNumber),
+      CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)),
       {},
     );
 

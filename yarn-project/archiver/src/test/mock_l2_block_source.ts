@@ -287,7 +287,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(
       blocks.map(block =>
         CheckpointedL2Block.fromFields({
-          checkpointNumber: CheckpointNumber(block.number),
+          checkpointNumber: CheckpointNumber.fromBlockNumber(block.number),
           block,
           l1: new L1PublishedData(BigInt(block.number), BigInt(block.number), Buffer32.random().toString()),
           attestations: [],

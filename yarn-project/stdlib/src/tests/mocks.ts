@@ -404,6 +404,7 @@ export async function mockCheckpointAndMessages(
     numL1ToL2Messages = 1,
     makeBlockOptions = () => ({}),
     previousArchive,
+    maxEffects,
     ...options
   }: {
     startBlockNumber?: BlockNumber;
@@ -413,6 +414,7 @@ export async function mockCheckpointAndMessages(
     makeBlockOptions?: (blockNumber: BlockNumber) => Partial<Parameters<typeof L2Block.random>[1]>;
     previousArchive?: AppendOnlyTreeSnapshot;
     blocks?: L2Block[];
+    maxEffects?: number;
   } & Partial<Parameters<typeof Checkpoint.random>[1]> &
     Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
@@ -421,6 +423,8 @@ export async function mockCheckpointAndMessages(
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
   let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
+  // Pass maxEffects via txOptions so it reaches TxEffect.random
+  const txOptions = maxEffects !== undefined ? { maxEffects } : {};
   for (let i = 0; i < (blocks?.length ?? numBlocks); i++) {
     const blockNumber = BlockNumber(startBlockNumber + i);
     const { block, messages } = {
@@ -430,6 +434,7 @@ export async function mockCheckpointAndMessages(
           checkpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
+          txOptions,
           slotNumber,
           ...options,
           ...makeBlockOptions(blockNumber),
@@ -702,7 +707,9 @@ export async function randomPublishedL2Block(
   });
 
   const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const checkpoint = await Checkpoint.random(CheckpointNumber.fromBlockNumber(l2BlockNumber), { numBlocks: 0 });
+  const checkpoint = await Checkpoint.random(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), {
+    numBlocks: 0,
+  });
   checkpoint.blocks = [block];
   const atts = signers.map(signer =>
     makeCheckpointAttestation({
@@ -714,5 +721,5 @@ export async function randomPublishedL2Block(
   const attestations = atts.map(
     (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
   );
-  return new CheckpointedL2Block(CheckpointNumber.fromBlockNumber(l2BlockNumber), block, l1, attestations);
+  return new CheckpointedL2Block(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), block, l1, attestations);
 }

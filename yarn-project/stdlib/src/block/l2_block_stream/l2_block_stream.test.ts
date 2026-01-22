@@ -170,7 +170,7 @@ describe('L2BlockStream', () => {
       localData.proposed.number = BlockNumber(10);
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(11), 5, undefined);
+      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(11), 5);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -286,7 +286,7 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([4, 5]),
       ]);
       expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
-      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(4), 2, undefined);
+      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(4), 2);
     });
 
     it('handles reorg with uncheckpointed reason when pruned to checkpointed tip', async () => {
