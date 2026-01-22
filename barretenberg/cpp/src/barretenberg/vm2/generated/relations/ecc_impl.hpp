@@ -127,8 +127,7 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // INFINITY_RESULT
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ecc_sel)) *
-                   (static_cast<View>(in.get(C::ecc_result_infinity)) -
+        auto tmp = (static_cast<View>(in.get(C::ecc_result_infinity)) -
                     (CView(ecc_INVERSE_PRED) * CView(ecc_BOTH_NON_INF) + CView(ecc_BOTH_INF)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }

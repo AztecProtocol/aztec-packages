@@ -15,7 +15,7 @@ template <typename FF_> class eccImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
-                                                                            5, 3, 5, 6, 6, 6, 6, 6, 3 };
+                                                                            5, 3, 5, 6, 6, 5, 6, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

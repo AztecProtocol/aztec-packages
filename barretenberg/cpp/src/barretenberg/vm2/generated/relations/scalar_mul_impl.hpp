@@ -62,9 +62,8 @@ void scalar_mulImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::scalar_mul_sel_not_end)) -
-             static_cast<View>(in.get(C::scalar_mul_sel)) * (FF(1) - static_cast<View>(in.get(C::scalar_mul_end))));
+        auto tmp = (static_cast<View>(in.get(C::scalar_mul_sel_not_end)) -
+                    (static_cast<View>(in.get(C::scalar_mul_sel)) - static_cast<View>(in.get(C::scalar_mul_end))));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // INPUT_CONSISTENCY_X
