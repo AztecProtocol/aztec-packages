@@ -1,13 +1,16 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/stdlib/keys';
 
 import { KeyStore } from './key_store.js';
 
+const logger = createLogger('key-store:test');
+
 describe('KeyStore', () => {
   it('Adds account and returns keys', async () => {
-    const keyStore = new KeyStore(await openTmpStore('test'));
+    const keyStore = new KeyStore(await openTmpStore('test', logger));
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);
