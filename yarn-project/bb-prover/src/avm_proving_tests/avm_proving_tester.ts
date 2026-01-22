@@ -1,4 +1,5 @@
-import type { LogFn, LogLevel, Logger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type LogFn, type LogLevel, type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   PublicTxSimulationTester,
@@ -22,6 +23,12 @@ import { type BBResult, type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmPr
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
 
+/** Creates a temporary NativeWorldStateService for testing. Remember to call close() on it when done. */
+export function createTmpWorldState(): Promise<NativeWorldStateService> {
+  const log = createLogger('avm-proving-tests:world-state');
+  return NativeWorldStateService.tmp(EthAddress.ZERO, true, [], log);
+}
+
 // An InterceptingLogger that records all log messages and forwards them to a wrapped logger.
 class InterceptingLogger implements Logger {
   public readonly logs: string[] = [];
@@ -41,6 +48,10 @@ class InterceptingLogger implements Logger {
   }
 
   createChild(_childModule: string): Logger {
+    throw new Error('Not implemented');
+  }
+
+  createLogger(_module: string): Logger {
     throw new Error('Not implemented');
   }
 
@@ -96,13 +107,14 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
   constructor(
     private checkCircuitOnly: boolean,
+    logger: Logger,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
   ) {
     // simulator factory is undefined because for proving, we use the default C++ simulator
-    super(merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
+    super(logger, merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
   }
 
   static async new(
@@ -111,9 +123,10 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
   ) {
-    const contractDataSource = new SimpleContractDataSource();
+    const logger = createLogger('avm-proving-tester');
+    const contractDataSource = new SimpleContractDataSource(logger);
     const merkleTrees = await worldStateService.fork();
-    return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
+    return new AvmProvingTester(checkCircuitOnly, logger, contractDataSource, merkleTrees, globals, metrics);
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx'): Promise<BBResult> {

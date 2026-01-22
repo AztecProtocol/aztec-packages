@@ -5,12 +5,12 @@ import {
   getSpamConfigsPerOpcode,
   testOpcodeSpamCase,
 } from '@aztec/simulator/public/fixtures';
-import { NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, createTmpWorldState } from './avm_proving_tester.js';
 
 // NOTE: this test is meant to be run locally for measurements or via bb-prover/bootstrap.sh.
 // Set RUN_AVM_OPCODE_SPAM=1 to enable.
@@ -24,7 +24,7 @@ describeOrSkip('AVM Opcode Spammer Proving Benchmarks', () => {
   const groupedSpamConfigs = getSpamConfigsPerOpcode(/*maxConfigsPerOpcode=*/ 2);
 
   // Shared metrics instance for benchmark collection
-  const metrics = new TestExecutorMetrics();
+  const metrics = new TestExecutorMetrics(logger);
   // Full proving only (no check-circuit mode)
   let worldStateService: NativeWorldStateService;
   let tester: AvmProvingTester;
@@ -42,7 +42,7 @@ describeOrSkip('AVM Opcode Spammer Proving Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
     // FULL PROVING! Not check-circuit.
     tester = await AvmProvingTester.new(
       worldStateService,

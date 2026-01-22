@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -83,15 +83,17 @@ class IVCVerifierMetrics {
 export class QueuedIVCVerifier implements ClientProtocolCircuitVerifier {
   private queue: SerialQueue;
   private metrics: IVCVerifierMetrics;
+  private logger: Logger;
 
   public constructor(
     config: BBConfig,
     private verifier: ClientProtocolCircuitVerifier,
+    loggerFactory: LoggerFactory,
     private telemetry: TelemetryClient = getTelemetryClient(),
-    private logger = createLogger('bb-prover:queued_chonk_verifier'),
   ) {
+    this.logger = loggerFactory.createLogger('bb-prover:queued-chonk-verifier');
     this.metrics = new IVCVerifierMetrics(this.telemetry, 'QueuedIVCVerifier');
-    this.queue = new SerialQueue();
+    this.queue = new SerialQueue(this.logger);
     this.logger.info(`Starting QueuedIVCVerifier with ${config.numConcurrentIVCVerifiers} concurrent verifiers`);
     this.queue.start(config.numConcurrentIVCVerifiers);
   }

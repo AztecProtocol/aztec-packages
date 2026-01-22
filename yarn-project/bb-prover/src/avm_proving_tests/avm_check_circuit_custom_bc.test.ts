@@ -11,16 +11,16 @@ import {
   invalidTagValueTest,
   pcOutOfRangeTest,
 } from '@aztec/simulator/public/fixtures';
-import { NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, createTmpWorldState } from './avm_proving_tester.js';
 
 describe('AVM custom bytecodes unhappy paths', () => {
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
   });
 
@@ -59,7 +59,7 @@ describe('AVM bytecode flow unhappy paths', () => {
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
   });
 

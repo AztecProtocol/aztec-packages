@@ -4,18 +4,18 @@ import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/Av
 import { TestExecutorMetrics, defaultGlobals } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, createTmpWorldState } from './avm_proving_tester.js';
 
 // Note: this test is meant to be run locally for measurements. It is skipped in CI.
 describe.skip('AVM proven gadgets test', () => {
   const logger = createLogger('avm-proven-gadgets-test');
   let tester: AvmProvingTester;
-  const metrics = new TestExecutorMetrics();
+  const metrics = new TestExecutorMetrics(logger);
   let worldStateService: NativeWorldStateService;
 
   const sender = AztecAddress.fromNumber(42);
@@ -23,7 +23,7 @@ describe.skip('AVM proven gadgets test', () => {
 
   beforeEach(async () => {
     // FULL PROVING! Not check-circuit.
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
     tester = await AvmProvingTester.new(
       worldStateService,
       /*checkCircuitOnly=*/ false,

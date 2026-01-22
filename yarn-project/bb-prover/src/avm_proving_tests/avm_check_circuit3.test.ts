@@ -4,9 +4,9 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, createTmpWorldState } from './avm_proving_tester.js';
 
 const TIMEOUT = 100_000;
 
@@ -17,7 +17,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],

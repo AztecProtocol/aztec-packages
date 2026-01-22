@@ -1,24 +1,24 @@
 import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestExecutorMetrics, bulkTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
-import { NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, createTmpWorldState } from './avm_proving_tester.js';
 
 const TIMEOUT = 180_000;
 
 describe('AVM proven bulk test', () => {
   const logger = createLogger('avm-bulk-test');
-  const metrics = new TestExecutorMetrics();
+  const metrics = new TestExecutorMetrics(logger);
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
     // FULL PROVING! Not check-circuit.
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
     tester = await AvmProvingTester.new(
       worldStateService,
       /*checkCircuitOnly=*/ false,

@@ -1,8 +1,9 @@
 import { AztecClientBackend, type BackendOptions, Barretenberg } from '@aztec/bb.js';
-import { type LogLevel, type Logger, createLogger } from '@aztec/foundation/log';
+import type { LogLevel, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
 import {
+  type ForeignCallHandler,
   convertHidingKernelPublicInputsToWitnessMapWithAbi,
   convertHidingKernelToRollupInputsToWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
@@ -15,8 +16,8 @@ import {
   convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
   convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
-  foreignCallHandler,
   getPrivateKernelResetArtifactName,
+  makeForeignCallHandler,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import {
@@ -45,16 +46,18 @@ import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@azt
 
 import { ungzip } from 'pako';
 
-export type BBPrivateKernelProverOptions = Omit<BackendOptions, 'logger'> & { logger?: Logger };
+export type BBPrivateKernelProverOptions = Omit<BackendOptions, 'logger'> & { logger: Logger };
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   private log: Logger;
+  private foreignCallHandler: ForeignCallHandler;
 
   constructor(
     protected artifactProvider: ArtifactProvider,
     protected simulator: CircuitSimulator,
-    protected options: BBPrivateKernelProverOptions = {},
+    protected options: BBPrivateKernelProverOptions,
   ) {
-    this.log = options.logger || createLogger('bb-prover:private-kernel');
+    this.log = options.logger;
+    this.foreignCallHandler = makeForeignCallHandler(this.log);
   }
 
   public async generateInitOutput(
@@ -203,7 +206,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
 
     const outputWitness = await this.simulator
-      .executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler)
+      .executeProtocolCircuit(witnessMap, compiledCircuit, this.foreignCallHandler)
       .catch((err: Error) => {
         this.log.debug(`Failed to simulate ${circuitType}`, {
           circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
@@ -238,7 +241,11 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       await this.artifactProvider.getClientCircuitArtifactByName(circuitType);
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
-    const outputWitness = await this.simulator.executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler);
+    const outputWitness = await this.simulator.executeProtocolCircuit(
+      witnessMap,
+      compiledCircuit,
+      this.foreignCallHandler,
+    );
     const output = convertOutputs(outputWitness.witness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {

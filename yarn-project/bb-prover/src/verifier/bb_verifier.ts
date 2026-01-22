@@ -1,5 +1,5 @@
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import {
@@ -39,12 +39,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     return Promise.resolve();
   }
 
-  public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
+  public static async new(config: BBConfig, loggerFactory: LoggerFactory) {
     if (!config.bbWorkingDirectory) {
       throw new Error(`Barretenberg working directory (BB_WORKING_DIRECTORY) is not set`);
     }
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    return new BBCircuitVerifier(config, logger);
+    return new BBCircuitVerifier(config, loggerFactory.createLogger('bb-prover:verifier'));
   }
 
   public getVerificationKeyData(circuit: ProtocolArtifact): VerificationKeyData {
@@ -89,7 +89,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         proofType: 'ultra-honk',
       } satisfies CircuitVerificationStats);
     };
-    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
+    await runInDirectory(this.config.bbWorkingDirectory, operation, this.logger, this.config.bbSkipCleanup);
   }
 
   public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
@@ -131,7 +131,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           proofType: 'chonk',
         } satisfies CircuitVerificationStats);
       };
-      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
+      await runInDirectory(this.config.bbWorkingDirectory, operation, this.logger, this.config.bbSkipCleanup);
       return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
     } catch (err) {
       this.logger.warn(`Failed to verify ${proofType} proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);

@@ -4,10 +4,11 @@ import {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type ForeignCallHandler,
   type ServerProtocolArtifact,
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockMergeRollupPrivateInputsToWitnessMap,
@@ -41,8 +42,8 @@ import {
   convertRootRollupPrivateInputsToWitnessMap,
   convertTxMergeRollupOutputsFromWitnessMap,
   convertTxMergeRollupPrivateInputsToWitnessMap,
-  foreignCallHandler,
   getSimulatedServerCircuitArtifact,
+  makeForeignCallHandler,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circuits-types/types';
@@ -106,14 +107,18 @@ type TestDelay =
 export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulatorWithBlobs();
   private instrumentation: ProverInstrumentation;
-  private logger = createLogger('bb-prover:test-prover');
+  private logger: Logger;
+  private foreignCallHandler: ForeignCallHandler;
 
   constructor(
+    loggerFactory: LoggerFactory,
     private simulator?: CircuitSimulator,
     private opts: TestDelay = { proverTestDelayType: 'fixed', proverTestDelayMs: 0 },
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
+    this.logger = loggerFactory.createLogger('bb-prover:test-prover');
+    this.foreignCallHandler = makeForeignCallHandler(this.logger);
   }
 
   get tracer() {
@@ -456,7 +461,7 @@ export class TestCircuitProver implements ServerCircuitProver {
         await this.wasmSimulator.executeProtocolCircuit(
           witnessMap,
           getSimulatedServerCircuitArtifact(artifactName),
-          foreignCallHandler,
+          this.foreignCallHandler,
         )
       ).witness;
     } else {

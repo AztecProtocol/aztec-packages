@@ -10,9 +10,9 @@ import {
   ScheduledValueChange,
 } from '@aztec/stdlib/delayed-public-mutable';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
-import { AvmProvingTester } from './avm_proving_tester.js';
+import { AvmProvingTester, createTmpWorldState } from './avm_proving_tester.js';
 
 const TIMEOUT = 60_000;
 
@@ -25,7 +25,7 @@ describe('AVM check-circuit - contract updates', () => {
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await createTmpWorldState();
   });
 
   afterEach(async () => {

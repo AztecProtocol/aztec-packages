@@ -8,7 +8,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import {
   type ServerProtocolArtifact,
@@ -107,8 +107,6 @@ import { getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
 import { readProofsFromOutputDirectory } from '../proof_utils.js';
 
-const logger = createLogger('bb-prover');
-
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
   circuitFilter?: ServerProtocolArtifact[];
@@ -119,27 +117,32 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private instrumentation: ProverInstrumentation;
+  private readonly logger: Logger;
 
   constructor(
     private config: BBProverConfig,
     telemetry: TelemetryClient,
+    logger: Logger,
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
+    this.logger = logger;
   }
 
   get tracer() {
     return this.instrumentation.tracer;
   }
 
-  static async new(config: BBProverConfig, telemetry: TelemetryClient = getTelemetryClient()) {
+  static async new(config: BBProverConfig, deps: { telemetry?: TelemetryClient; loggerFactory: LoggerFactory }) {
+    const log = deps.loggerFactory.createLogger('bb-prover');
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
-    logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
+    log.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
+    log.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
-    return new BBNativeRollupProver(config, telemetry);
+    return new BBNativeRollupProver(config, telemetry, log);
   }
 
   /**
@@ -462,12 +465,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const simulator = new NativeACVMSimulator(
       this.config.acvmWorkingDirectory,
       this.config.acvmBinaryPath,
+      this.logger,
       outputWitnessFile,
     );
 
     const artifact = getServerCircuitArtifact(circuitType);
 
-    logger.debug(`Generating witness data for ${circuitType}`);
+    this.logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
     const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
@@ -479,7 +483,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
     this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
 
-    logger.info(`Generated witness`, {
+    this.logger.info(`Generated witness`, {
       circuitName,
       duration: witnessResult.duration,
       inputSize: input.toBuffer().length,
@@ -488,7 +492,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     } satisfies CircuitWitnessGenerationStats);
 
     // Now prove the circuit from the generated witness
-    logger.debug(`Proving ${circuitType}...`);
+    this.logger.debug(`Proving ${circuitType}...`);
 
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
@@ -498,11 +502,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
-      logger,
+      this.logger,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+      this.logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -513,12 +517,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
-    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
+    this.logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
+    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, this.logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
+      this.logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -538,7 +542,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, provingResult.durationMs);
       this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
 
-      logger.info(
+      this.logger.info(
         `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
         {
           circuitName: circuitType,
@@ -590,14 +594,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
       // Read the proof as fields
-      const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vkData, proofLength, logger);
+      const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vkData, proofLength, this.logger);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
       this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
       this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
-      logger.info(
+      this.logger.info(
         `Generated proof for ${circuitType} in ${Math.ceil(provingResult.durationMs)} ms, size: ${
           proof.proof.length
         } fields`,
@@ -628,13 +632,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = this.getVerificationKeyDataForCircuit(circuitType);
     return await this.verifyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, getUltraHonkFlavorForCircuit(circuitType), logger),
+      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, getUltraHonkFlavorForCircuit(circuitType), this.logger),
     );
   }
 
   public async verifyAvmProof(proof: Proof, publicInputs: AvmCircuitPublicInputs) {
     return await this.verifyInternal(proof, /*verificationKey=*/ undefined, (proofPath, /*unused*/ _vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, logger),
+      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, this.logger),
     );
   }
   private async verifyInternal(
@@ -660,7 +664,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         throw new ProvingError(errorMessage, result, result.retry);
       }
 
-      logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
+      this.logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
     };
 
     await this.runInDirectory(operation);
@@ -707,11 +711,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.config.bbWorkingDirectory,
       (dir: string) =>
         fn(dir).catch(err => {
-          logger.error(`Error running operation at ${dir}: ${err}`);
+          this.logger.error(`Error running operation at ${dir}: ${err}`);
           throw err;
         }),
+      this.logger,
       this.config.bbSkipCleanup,
-      logger,
     );
   }
 }
