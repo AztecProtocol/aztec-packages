@@ -152,7 +152,7 @@ export class TXESession implements TXESessionStateHandler {
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new TXEContractStore(store);
-    const noteStore = await NoteStore.create(store);
+    const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -162,7 +162,13 @@ export class TXESession implements TXESessionStateHandler {
 
     // Create job coordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore]);
+    jobCoordinator.registerStores([
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+    ]);
 
     // Register protocol contracts.
     for (const { contractClass, instance, artifact } of protocolContracts) {
@@ -310,6 +316,7 @@ export class TXESession implements TXESessionStateHandler {
       this.noteStore,
       this.stateMachine.node,
       this.stateMachine.anchorBlockStore,
+      this.currentJobId,
     ).syncNoteNullifiers(contractAddress);
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
@@ -403,6 +410,7 @@ export class TXESession implements TXESessionStateHandler {
       this.noteStore,
       this.stateMachine.node,
       this.stateMachine.anchorBlockStore,
+      this.currentJobId,
     ).syncNoteNullifiers(contractAddress);
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
