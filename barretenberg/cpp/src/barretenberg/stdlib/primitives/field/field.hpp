@@ -145,7 +145,7 @@ template <typename Builder_> class field_t {
     mutable uint32_t witness_index = IS_CONSTANT;
 
   public:
-    mutable OriginTag tag{};
+    mutable OriginTag tag;
 
     field_t(Builder* parent_context = nullptr);
     field_t(Builder* parent_context, const bb::fr& value);
