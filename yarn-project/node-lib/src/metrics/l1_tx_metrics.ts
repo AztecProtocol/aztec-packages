@@ -1,6 +1,6 @@
 import type { IL1TxMetrics, L1TxState } from '@aztec/ethereum/l1-tx-utils';
 import { TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Attributes, type Histogram, type Meter, Metrics, type UpDownCounter } from '@aztec/telemetry-client';
 
 export type L1TxScope = 'sequencer' | 'prover' | 'other';
@@ -28,8 +28,8 @@ export class L1TxMetrics implements IL1TxMetrics {
 
   constructor(
     private meter: Meter,
-    private scope: L1TxScope = 'other',
-    private logger = createLogger('l1-tx-utils:metrics'),
+    private scope: L1TxScope,
+    private logger: Logger,
   ) {
     this.txMinedDuration = this.meter.createHistogram(Metrics.L1_TX_MINED_DURATION);
 

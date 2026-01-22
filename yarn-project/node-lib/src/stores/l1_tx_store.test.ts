@@ -1,6 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { type L1TxState, TxUtilsState } from '@aztec/ethereum/l1-tx-utils';
 import { omit } from '@aztec/foundation/collection';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
@@ -14,8 +15,8 @@ describe('L1TxStore', () => {
   let count = 0;
 
   beforeEach(async () => {
-    kvStore = await openTmpStore(`l1-tx-store-test-${count++}`, true);
-    store = new L1TxStore(kvStore);
+    kvStore = await openTmpStore(`l1-tx-store-test-${count++}`, createLoggerFactory(), true);
+    store = new L1TxStore(kvStore, createLogger('l1-tx-utils:store'));
   });
 
   afterEach(async () => {

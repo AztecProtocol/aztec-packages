@@ -12,7 +12,7 @@ import {
 } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { omit } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -31,11 +31,11 @@ async function createSharedDeps(
   config: DataStoreConfig & { scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
   },
 ) {
-  const logger = deps.logger ?? createLogger('l1-tx-utils');
+  const logger = deps.loggerFactory.createLogger('l1-tx-utils');
 
   // Note that we do NOT bind them to the rollup address, since we still need to
   // monitor and cancel txs for previous rollups to free up our nonces.
@@ -46,7 +46,7 @@ async function createSharedDeps(
   const meter = deps.telemetry.getMeter('L1TxUtils');
   const metrics = new L1TxMetrics(meter, config.scope ?? 'other', logger);
 
-  return { logger, store, metrics, dateProvider: deps.dateProvider };
+  return { loggerFactory: deps.loggerFactory, store, metrics, dateProvider: deps.dateProvider };
 }
 
 /**
@@ -57,7 +57,7 @@ export async function createL1TxUtilsWithBlobsFromViemWallet(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
   },
 ) {
@@ -77,7 +77,7 @@ export async function createL1TxUtilsWithBlobsFromEthSigner(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
   },
 ) {
@@ -96,9 +96,8 @@ export async function createL1TxUtilsWithBlobsFromEthSigner(
   const uniqueSigners = Array.from(signersByAddress.values());
 
   if (uniqueSigners.length < signers.length) {
-    sharedDeps.logger.info(
-      `Deduplicated ${signers.length} signers to ${uniqueSigners.length} unique publisher addresses`,
-    );
+    const logger = sharedDeps.loggerFactory.createLogger('l1-tx-utils');
+    logger.info(`Deduplicated ${signers.length} signers to ${uniqueSigners.length} unique publisher addresses`);
   }
 
   return uniqueSigners.map(signer =>
@@ -114,7 +113,7 @@ export async function createL1TxUtilsFromViemWalletWithStore(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
     scope?: L1TxScope;
   },
@@ -133,7 +132,7 @@ export async function createL1TxUtilsFromEthSignerWithStore(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
     scope?: L1TxScope;
   },
@@ -153,9 +152,8 @@ export async function createL1TxUtilsFromEthSignerWithStore(
   const uniqueSigners = Array.from(signersByAddress.values());
 
   if (uniqueSigners.length < signers.length) {
-    sharedDeps.logger.info(
-      `Deduplicated ${signers.length} signers to ${uniqueSigners.length} unique publisher addresses`,
-    );
+    const logger = sharedDeps.loggerFactory.createLogger('l1-tx-utils');
+    logger.info(`Deduplicated ${signers.length} signers to ${uniqueSigners.length} unique publisher addresses`);
   }
 
   return uniqueSigners.map(signer => createL1TxUtilsFromEthSignerBase(client, signer, sharedDeps, config));
@@ -171,7 +169,7 @@ export async function createForwarderL1TxUtilsFromViemWallet(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
   },
 ) {
@@ -193,7 +191,7 @@ export async function createForwarderL1TxUtilsFromEthSigner(
   config: DataStoreConfig & Partial<L1TxUtilsConfig> & { debugMaxGasLimit?: boolean; scope?: L1TxScope },
   deps: {
     telemetry: TelemetryClient;
-    logger?: ReturnType<typeof createLogger>;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
   },
 ) {

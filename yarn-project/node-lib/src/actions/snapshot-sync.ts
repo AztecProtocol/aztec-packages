@@ -60,7 +60,11 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
   // Create an archiver store to check the current state (do this only once)
   log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiverStore = await createArchiverStore(
+    config,
+    { loggerFactory: log },
+    { epochDuration: config.aztecEpochDuration },
+  );
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
   try {
@@ -232,7 +236,7 @@ export async function snapshotSync(
 
     // If download was successful, clear lock and version, and move download there
     const archiverPath = join(dataDirectory, ARCHIVER_STORE_NAME);
-    await prepareTarget(archiverPath, ARCHIVER_DB_VERSION, rollupAddress);
+    await prepareTarget(archiverPath, ARCHIVER_DB_VERSION, rollupAddress, log);
     await rename(downloadPaths.archiver, join(archiverPath, 'data.mdb'));
     log.info(`Archiver database set up from snapshot`, {
       path: archiverPath,
@@ -242,7 +246,7 @@ export async function snapshotSync(
 
     // Same for the world state dbs, only that we do not close them, since we assume they are not yet in use
     const worldStateBasePath = join(dataDirectory, WORLD_STATE_DIR);
-    await prepareTarget(worldStateBasePath, WORLD_STATE_DB_VERSION, rollupAddress);
+    await prepareTarget(worldStateBasePath, WORLD_STATE_DB_VERSION, rollupAddress, log);
     for (const [name, dir] of NATIVE_WORLD_STATE_DBS) {
       const path = join(worldStateBasePath, dir);
       await mkdir(path, { recursive: true });
@@ -266,13 +270,14 @@ export async function snapshotSync(
 }
 
 /** Deletes target dir and writes the new version file. */
-async function prepareTarget(target: string, schemaVersion: number, rollupAddress: EthAddress) {
+async function prepareTarget(target: string, schemaVersion: number, rollupAddress: EthAddress, log: Logger) {
   const noOpen = () => Promise.resolve(undefined);
   const versionManager = new DatabaseVersionManager<undefined>({
     schemaVersion,
     rollupAddress,
     dataDirectory: target,
     onOpen: noOpen,
+    log,
   });
   await versionManager.resetDataDirectory();
   await versionManager.writeVersion();

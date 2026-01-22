@@ -2,6 +2,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { KeystoreManager } from '@aztec/node-keystore';
@@ -25,7 +26,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
   };
 
   beforeEach(async () => {
-    kvStore = await openTmpStore(`l1-tx-utils-integration-test-${count++}`, true);
+    kvStore = await openTmpStore(`l1-tx-utils-integration-test-${count++}`, createLoggerFactory(), true);
 
     // Mock ViemClient
     mockClient = {
@@ -82,6 +83,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
     const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(mockClient, allPublisherSigners, mockConfig, {
       telemetry: mockTelemetry,
+      loggerFactory: createLoggerFactory(),
     });
 
     // all of the publisherSigners should deduplicate to one L1TxUtils instance
@@ -141,6 +143,7 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
     const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(mockClient, allPublisherSigners, mockConfig, {
       telemetry: mockTelemetry,
+      loggerFactory: createLoggerFactory(),
     });
 
     expect(l1TxUtils).toHaveLength(3);
