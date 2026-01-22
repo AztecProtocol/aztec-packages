@@ -1,10 +1,13 @@
+import { createLogger } from '../log/pino-logger.js';
 import { PriorityMemoryQueue } from './priority_memory_queue.js';
+
+const logger = createLogger('test:priority-memory-queue');
 
 describe('PriorityMemoryQueue', () => {
   let queue: PriorityMemoryQueue<number>;
 
   beforeEach(() => {
-    queue = new PriorityMemoryQueue<number>((a, b) => a - b);
+    queue = new PriorityMemoryQueue<number>((a, b) => a - b, logger);
   });
 
   it('returns items in the correct order', async () => {

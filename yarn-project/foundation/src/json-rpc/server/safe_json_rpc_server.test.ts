@@ -1,6 +1,7 @@
 import request from 'supertest';
 
 import { times } from '../../collection/array.js';
+import { createLoggerFactory } from '../../log/pino-logger.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import {
   type SafeJsonRpcServer,
@@ -10,6 +11,7 @@ import {
 } from './safe_json_rpc_server.js';
 
 const jsonrpc = '2.0';
+const loggerFactory = createLoggerFactory();
 
 describe('SafeJsonRpcServer', () => {
   let testState: TestState;
@@ -32,7 +34,7 @@ describe('SafeJsonRpcServer', () => {
 
   describe('single', () => {
     beforeEach(() => {
-      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { loggerFactory });
     });
 
     it.each([
@@ -114,7 +116,7 @@ describe('SafeJsonRpcServer', () => {
 
   describe('batch', () => {
     beforeEach(() => {
-      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { maxBatchSize: 10 });
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { loggerFactory, maxBatchSize: 10 });
     });
 
     it('handles multiple requests', async () => {
@@ -177,10 +179,13 @@ describe('SafeJsonRpcServer', () => {
     beforeEach(() => {
       lettersState = testState;
       numbersState = new TestState([new TestNote('1'), new TestNote('2')]);
-      server = createNamespacedSafeJsonRpcServer({
-        letters: makeHandler<TestStateApi>(lettersState, TestStateSchema),
-        numbers: makeHandler<TestStateApi>(numbersState, TestStateSchema),
-      });
+      server = createNamespacedSafeJsonRpcServer(
+        {
+          letters: makeHandler<TestStateApi>(lettersState, TestStateSchema),
+          numbers: makeHandler<TestStateApi>(numbersState, TestStateSchema),
+        },
+        { loggerFactory },
+      );
     });
 
     it('routes to the correct namespace', async () => {

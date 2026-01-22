@@ -1,3 +1,4 @@
+import type { Logger } from '../log/index.js';
 import { BaseMemoryQueue } from './base_memory_queue.js';
 import { PriorityQueue } from './priority_queue.js';
 
@@ -9,8 +10,8 @@ import { PriorityQueue } from './priority_queue.js';
 export class PriorityMemoryQueue<T> extends BaseMemoryQueue<T> {
   private container: PriorityQueue<T>;
 
-  constructor(comparator: (a: T, b: T) => number) {
-    super();
+  constructor(comparator: (a: T, b: T) => number, logger: Logger) {
+    super(logger);
     this.container = new PriorityQueue(comparator);
   }
 

@@ -1,5 +1,6 @@
 import type http from 'http';
 
+import { createLoggerFactory } from '../../log/pino-logger.js';
 import type { ApiSchemaFor } from '../../schemas/api.js';
 import { makeFetch } from '../client/fetch.js';
 import { type SafeJsonRpcClientOptions, createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
@@ -20,12 +21,13 @@ export type JsonRpcTestContext<T extends object> = {
 export async function createJsonRpcTestSetup<T extends object>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  serverOptions: SafeJsonRpcServerOptions = {},
+  serverOptions: Partial<SafeJsonRpcServerOptions> = {},
   clientOptions: SafeJsonRpcClientOptions = {},
 ): Promise<JsonRpcTestContext<T>> {
-  const server = createSafeJsonRpcServer<T>(handler, schema, serverOptions);
+  const loggerFactory = serverOptions.loggerFactory ?? createLoggerFactory();
+  const server = createSafeJsonRpcServer<T>(handler, schema, { loggerFactory, ...serverOptions });
   const httpServer = await startHttpRpcServer(server, { host: '127.0.0.1' });
-  const noRetryFetch = makeFetch([], true);
+  const noRetryFetch = makeFetch([], true, loggerFactory);
   const url = `http://127.0.0.1:${httpServer.port}`;
   const client = createSafeJsonRpcClient<T>(url, schema, {
     fetch: noRetryFetch,

@@ -1,5 +1,5 @@
 import { TimeoutError } from '../error/index.js';
-import { type Logger, createLogger } from '../log/index.js';
+import type { Logger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
@@ -38,18 +38,18 @@ export function* makeBackoff(retries: number[]) {
  * It logs the error and retry interval in case an error is caught. The function can be named for better log output.
  *
  * @param fn - The asynchronous function to be retried.
+ * @param log - Logger to use for logging.
  * @param name - The optional name of the operation, used for logging purposes.
  * @param backoff - The optional backoff generator providing the intervals in seconds between retries. Defaults to a predefined series.
- * @param log - Logger to use for logging.
  * @param failSilently - Do not log errors while retrying.
  * @returns A Promise that resolves with the successful result of the provided function, or rejects if backoff generator ends.
  * @throws If `NoRetryError` is thrown by the `fn`, it is rethrown.
  */
 export async function retry<Result>(
   fn: () => Promise<Result>,
+  log: Logger,
   name = 'Operation',
   backoff = backoffGenerator(),
-  log: Logger = createLogger('foundation:retry'),
   failSilently = false,
 ) {
   while (true) {

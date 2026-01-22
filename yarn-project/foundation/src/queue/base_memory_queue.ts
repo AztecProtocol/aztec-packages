@@ -1,11 +1,11 @@
 import { TimeoutError } from '../error/index.js';
-import { createLogger } from '../log/index.js';
+import type { Logger } from '../log/index.js';
 
 export abstract class BaseMemoryQueue<T> {
   private waiting: ((item: T | null) => void)[] = [];
   private flushing = false;
 
-  constructor(private log = createLogger('foundation:memory_fifo')) {}
+  constructor(private log: Logger) {}
 
   protected abstract get items(): {
     length: number;

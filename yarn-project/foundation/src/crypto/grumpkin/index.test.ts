@@ -1,12 +1,15 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { GrumpkinScalar } from '../../curves/grumpkin/index.js';
 import type { Point } from '../../curves/grumpkin/point.js';
 import { Grumpkin } from './index.js';
 
-const log = createLogger('circuits:grumpkin_test');
-
 describe('grumpkin', () => {
+  let log: Logger;
+
+  beforeAll(() => {
+    log = createLogger('circuits:grumpkin_test');
+  });
   it('should correctly perform scalar muls', async () => {
     const exponent = GrumpkinScalar.random();
 

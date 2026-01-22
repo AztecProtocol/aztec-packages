@@ -1,10 +1,11 @@
+import { createLogger } from '../log/pino-logger.js';
 import { sleep } from '../sleep/index.js';
 import { TestDateProvider } from './date.js';
 
 describe('TestDateProvider', () => {
   let dateProvider: TestDateProvider;
   beforeEach(() => {
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(createLogger('test'));
   });
 
   it('should return the current datetime', () => {

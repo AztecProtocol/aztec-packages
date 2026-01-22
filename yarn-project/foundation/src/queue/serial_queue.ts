@@ -1,12 +1,17 @@
+import type { Logger } from '../log/index.js';
 import { FifoMemoryQueue } from './fifo_memory_queue.js';
 
 /**
  * A more specialized fifo queue that enqueues functions to execute. Enqueued functions are executed in serial.
  */
 export class SerialQueue {
-  private readonly queue = new FifoMemoryQueue<() => Promise<void>>();
+  private readonly queue: FifoMemoryQueue<() => Promise<void>>;
   private runningPromises: Promise<void>[] = [];
   private started = false;
+
+  constructor(logger: Logger) {
+    this.queue = new FifoMemoryQueue(logger);
+  }
 
   /**
    * Initializes the execution of enqueued functions in the serial queue.

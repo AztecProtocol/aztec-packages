@@ -1,9 +1,12 @@
 import { jest } from '@jest/globals';
 
 import { range } from '../array/array.js';
+import { createLogger } from '../log/pino-logger.js';
 import { promiseWithResolvers } from '../promise/utils.js';
 import { sleep } from '../sleep/index.js';
 import { BatchQueue } from './batch_queue.js';
+
+const logger = createLogger('test:batch-queue');
 
 describe('BatchQueue', () => {
   let queue: BatchQueue<number, number>;
@@ -15,7 +18,7 @@ describe('BatchQueue', () => {
     intervalMs = 50;
     maxBatchSize = 5;
     processSpy = jest.fn();
-    queue = new BatchQueue(processSpy, maxBatchSize, intervalMs);
+    queue = new BatchQueue(processSpy, maxBatchSize, intervalMs, logger);
     queue.start();
   });
 

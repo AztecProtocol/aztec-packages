@@ -8,7 +8,7 @@ import type { AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
-import { type Logger, createLogger } from '../../log/index.js';
+import type { Logger, LoggerFactory } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
 import { jsonStringify } from '../convert.js';
@@ -47,6 +47,8 @@ export class SafeJsonRpcServer {
 
   private config: SafeJsonRpcServerConfig;
 
+  private log: Logger;
+
   constructor(
     /** The proxy object to delegate requests to */
     private readonly proxy: Proxy,
@@ -55,9 +57,10 @@ export class SafeJsonRpcServer {
     private readonly healthCheck: StatusCheckFn = () => true,
     /** Additional middlewares */
     private extraMiddlewares: Application.Middleware[] = [],
-    /** Logger */
-    private log = createLogger('json-rpc:server'),
+    /** Logger factory for creating loggers */
+    loggerFactory: LoggerFactory,
   ) {
+    this.log = loggerFactory.createLogger('json-rpc:server');
     this.config = { ...defaultServerConfig, ...config };
 
     // handle empty string
@@ -286,14 +289,16 @@ interface Proxy {
  * before forwarding calls, and then converts outputs into JSON using default conversions.
  */
 export class SafeJsonProxy<T extends object = any> implements Proxy {
-  private log = createLogger('json-rpc:proxy');
+  private log: Logger;
   private schema: ApiSchema;
 
   constructor(
     private handler: T,
     schema: ApiSchemaFor<T>,
+    logger: Logger,
   ) {
     this.schema = schema;
+    this.log = logger;
   }
 
   /**
@@ -323,9 +328,10 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
 class NamespacedSafeJsonProxy implements Proxy {
   private readonly proxies: Record<string, Proxy> = {};
 
-  constructor(handlers: NamespacedApiHandlers) {
+  constructor(handlers: NamespacedApiHandlers, loggerFactory: LoggerFactory) {
     for (const [namespace, [handler, schema]] of Object.entries(handlers)) {
-      this.proxies[namespace] = new SafeJsonProxy(handler, schema);
+      const logger = loggerFactory.createLogger(`json-rpc:proxy:${namespace}`);
+      this.proxies[namespace] = new SafeJsonProxy(handler, schema, logger);
     }
   }
 
@@ -352,7 +358,7 @@ export function makeHandler<T extends object>(handler: T, schema: ApiSchemaFor<T
   return [handler, schema];
 }
 
-function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Logger): StatusCheckFn {
+function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log: Logger): StatusCheckFn {
   return async () => {
     try {
       const results = await Promise.all(
@@ -363,24 +369,22 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
       );
       const failed = results.filter(([_, result]) => !result);
       if (failed.length > 0) {
-        log?.warn(`Health check failed for ${failed.map(([name]) => name).join(', ')}`);
+        log.warn(`Health check failed for ${failed.map(([name]) => name).join(', ')}`);
         return false;
       }
       return true;
     } catch (err) {
-      log?.error(`Error during health check`, err);
+      log.error(`Error during health check`, err);
       return false;
     }
   };
 }
 
-export type SafeJsonRpcServerOptions = Partial<
-  SafeJsonRpcServerConfig & {
-    healthCheck: StatusCheckFn;
-    log: Logger;
-    middlewares: Application.Middleware[];
-  }
->;
+export type SafeJsonRpcServerOptions = Partial<SafeJsonRpcServerConfig> & {
+  healthCheck?: StatusCheckFn;
+  loggerFactory: LoggerFactory;
+  middlewares?: Application.Middleware[];
+};
 
 /**
  * Creates a single SafeJsonRpcServer from multiple handlers.
@@ -389,22 +393,23 @@ export type SafeJsonRpcServerOptions = Partial<
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  options: Omit<SafeJsonRpcServerOptions, 'healthcheck'> = {},
+  options: Omit<SafeJsonRpcServerOptions, 'healthCheck'>,
 ): SafeJsonRpcServer {
-  const { middlewares, log } = options;
-  const proxy = new NamespacedSafeJsonProxy(handlers);
+  const { middlewares, loggerFactory } = options;
+  const log = loggerFactory.createLogger('json-rpc:server');
+  const proxy = new NamespacedSafeJsonProxy(handlers, loggerFactory);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, options, healthCheck, middlewares, log);
+  return new SafeJsonRpcServer(proxy, options, healthCheck, middlewares, loggerFactory);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  options: SafeJsonRpcServerOptions = {},
+  options: SafeJsonRpcServerOptions,
 ) {
-  const { log, healthCheck, middlewares: extraMiddlewares } = options;
-  const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, options, healthCheck, extraMiddlewares, log);
+  const { loggerFactory, healthCheck, middlewares: extraMiddlewares } = options;
+  const proxy = new SafeJsonProxy(handler, schema, loggerFactory.createLogger('json-rpc:proxy'));
+  return new SafeJsonRpcServer(proxy, options, healthCheck, extraMiddlewares, loggerFactory);
 }
 
 /**

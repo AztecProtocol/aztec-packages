@@ -1,12 +1,10 @@
 import EventEmitter from 'events';
 import { format } from 'util';
 
-import { createLogger } from '../log/index.js';
+import type { Logger, LoggerFactory } from '../log/index.js';
 import { type EventMessage, type ResponseMessage, isEventMessage } from './dispatch/messages.js';
 import type { Connector } from './interface/connector.js';
 import type { Socket } from './interface/socket.js';
-
-const log = createLogger('foundation:transport_client');
 
 /**
  * Represents a pending request in the TransportClient.
@@ -45,9 +43,14 @@ export class TransportClient<Payload> extends EventEmitter {
   private msgId = 0;
   private pendingRequests: PendingRequest[] = [];
   private socket?: Socket;
+  private readonly log: Logger;
 
-  constructor(private transportConnect: Connector) {
+  constructor(
+    private transportConnect: Connector,
+    loggerFactory: LoggerFactory,
+  ) {
     super();
+    this.log = loggerFactory.createLogger('transport:client');
   }
 
   /**
@@ -91,7 +94,7 @@ export class TransportClient<Payload> extends EventEmitter {
     }
     const msgId = this.msgId++;
     const msg = { msgId, payload };
-    log.debug(format(`->`, msg));
+    this.log.debug(format(`->`, msg));
     return new Promise<any>((resolve, reject) => {
       this.pendingRequests.push({ resolve, reject, msgId });
       this.socket!.send(msg, transfer).catch(reject);
@@ -111,7 +114,7 @@ export class TransportClient<Payload> extends EventEmitter {
       this.close();
       return;
     }
-    log.debug(format(`<-`, msg));
+    this.log.debug(format(`<-`, msg));
     if (isEventMessage(msg)) {
       this.emit('event_msg', msg.payload);
       return;

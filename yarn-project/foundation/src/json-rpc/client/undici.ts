@@ -2,7 +2,7 @@ import { promisify } from 'node:util';
 import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
 import { Agent, type Dispatcher } from 'undici';
 
-import { createLogger } from '../../log/pino-logger.js';
+import type { Logger } from '../../log/pino-logger.js';
 import { NoRetryError } from '../../retry/index.js';
 import { jsonStringify } from '../convert.js';
 import type { JsonRpcFetch } from './fetch.js';
@@ -10,14 +10,13 @@ import type { JsonRpcFetch } from './fetch.js';
 const gzip = promisify(gzipCb);
 const gunzip = promisify(gunzipCb);
 
-const log = createLogger('json-rpc:json_rpc_client:undici');
-
 /** Minimum request size in bytes to trigger compression. */
 const COMPRESSION_THRESHOLD = 1024;
 
 export { Agent };
 
-export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
+export function makeUndiciFetch(logger: Logger, client = new Agent()): JsonRpcFetch {
+  const log = logger.createChild('json-rpc:undici-client');
   return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry = false) => {
     log.trace(`JsonRpcClient.fetch: ${host}`, { host, body });
     let resp: Dispatcher.ResponseData;

@@ -1,3 +1,4 @@
+import { createLoggerFactory } from '../../log/pino-logger.js';
 import { createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import { startHttpRpcServer } from '../server/safe_json_rpc_server.js';
@@ -135,10 +136,13 @@ describe('JsonRpc integration', () => {
     beforeEach(async () => {
       lettersState = testState;
       numbersState = new TestState([new TestNote('1'), new TestNote('2')]);
-      server = createNamespacedSafeJsonRpcServer({
-        letters: makeHandler<TestStateApi>(lettersState, TestStateSchema),
-        numbers: makeHandler<TestStateApi>(numbersState, TestStateSchema),
-      });
+      server = createNamespacedSafeJsonRpcServer(
+        {
+          letters: makeHandler<TestStateApi>(lettersState, TestStateSchema),
+          numbers: makeHandler<TestStateApi>(numbersState, TestStateSchema),
+        },
+        { loggerFactory: createLoggerFactory() },
+      );
 
       httpServer = await startHttpRpcServer(server, { host: '127.0.0.1' });
       url = `http://127.0.0.1:${httpServer.port}`;
@@ -157,7 +161,10 @@ describe('JsonRpc integration', () => {
     });
 
     it('fails if calls without namespace', async () => {
-      const client = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema);
+      const loggerFactory = createLoggerFactory();
+      const client = createSafeJsonRpcClient<TestStateApi>(url, TestStateSchema, {
+        log: loggerFactory.createLogger('json-rpc:client'),
+      });
       await expect(() => client.getNote(1)).rejects.toThrow('Method not found: getNote');
     });
   });

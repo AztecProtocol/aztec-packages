@@ -1,4 +1,4 @@
-import { createLogger } from '../log/pino-logger.js';
+import type { Logger } from '../log/pino-logger.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from '../promise/utils.js';
 import { FifoMemoryQueue } from './fifo_memory_queue.js';
 
@@ -25,7 +25,7 @@ type Batch<T, K> = {
  * The consumer side of this queue will process batches as quickly as possible.
  */
 export class BatchQueue<T, K extends string | number> {
-  private container = new FifoMemoryQueue<Batch<T, K>>();
+  private container: FifoMemoryQueue<Batch<T, K>>;
   private currentBatch?: Batch<T, K>;
   private runningPromise?: Promise<void>;
 
@@ -33,8 +33,10 @@ export class BatchQueue<T, K extends string | number> {
     private processBatch: (items: Array<T>, key: K) => void | Promise<void>,
     private maxBatchSize: number,
     private maxBatchDuration: number,
-    private log = createLogger('foundation:batch_queue'),
-  ) {}
+    private log: Logger,
+  ) {
+    this.container = new FifoMemoryQueue(log);
+  }
 
   /**
    * Put an item in the queue. It will be routed based on the given key

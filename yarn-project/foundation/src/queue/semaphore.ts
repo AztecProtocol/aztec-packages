@@ -1,12 +1,14 @@
+import type { Logger } from '../log/index.js';
 import { FifoMemoryQueue } from './fifo_memory_queue.js';
 
 /**
  * Allows the acquiring of up to `size` tokens before calls to acquire block, waiting for a call to release().
  */
 export class Semaphore {
-  private readonly queue = new FifoMemoryQueue<boolean>();
+  private readonly queue: FifoMemoryQueue<boolean>;
 
-  constructor(size: number) {
+  constructor(size: number, logger: Logger) {
+    this.queue = new FifoMemoryQueue(logger);
     new Array(size).fill(true).map(() => this.queue.put(true));
   }
 

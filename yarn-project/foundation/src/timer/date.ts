@@ -1,4 +1,4 @@
-import { createLogger } from '../log/pino-logger.js';
+import type { Logger } from '../log/pino-logger.js';
 
 /** Returns current datetime. */
 export class DateProvider {
@@ -19,7 +19,7 @@ export class DateProvider {
 export class TestDateProvider extends DateProvider {
   private offset = 0;
 
-  constructor(private readonly logger = createLogger('foundation:test-date-provider')) {
+  constructor(private readonly logger: Logger) {
     super();
   }
 

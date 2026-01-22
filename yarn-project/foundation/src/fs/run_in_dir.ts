@@ -1,15 +1,15 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { createLogger } from '../log/pino-logger.js';
+import type { Logger } from '../log/pino-logger.js';
 
 // Create a random directory underneath a 'base' directory
 // Calls a provided method, ensures the random directory is cleaned up afterwards unless the operation fails
 export async function runInDirectory<T>(
   workingDirBase: string,
   fn: (dir: string) => Promise<T>,
-  skipCleanup: boolean | undefined,
-  logger = createLogger('foundation:run-in-directory'),
+  logger: Logger,
+  skipCleanup?: boolean,
 ): Promise<T> {
   // Create random directory to be used for temp files
   const workingDirectory = await fs.mkdtemp(path.join(workingDirBase, 'tmp-'));

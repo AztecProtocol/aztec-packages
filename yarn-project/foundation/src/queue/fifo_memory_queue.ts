@@ -9,8 +9,8 @@ import { BaseMemoryQueue } from './base_memory_queue.js';
 export class FifoMemoryQueue<T> extends BaseMemoryQueue<T> {
   private container = new FifoQueue<T>();
 
-  constructor(log?: Logger) {
-    super(log);
+  constructor(logger: Logger) {
+    super(logger);
   }
 
   protected override get items() {

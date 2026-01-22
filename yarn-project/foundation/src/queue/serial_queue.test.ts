@@ -1,6 +1,9 @@
+import { createLogger } from '../log/pino-logger.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/timer.js';
 import { SerialQueue } from './serial_queue.js';
+
+const logger = createLogger('test:serial-queue');
 
 describe('SerialQueue', () => {
   let queue: SerialQueue;
@@ -34,7 +37,7 @@ describe('SerialQueue', () => {
   };
 
   beforeEach(() => {
-    queue = new SerialQueue();
+    queue = new SerialQueue(logger);
   });
 
   afterEach(async () => {

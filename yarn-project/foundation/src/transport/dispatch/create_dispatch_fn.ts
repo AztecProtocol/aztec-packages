@@ -1,6 +1,6 @@
 import { format } from 'util';
 
-import { createLogger } from '../../log/index.js';
+import type { LoggerFactory } from '../../log/index.js';
 
 /**
  * Represents a message object for dispatching function calls.
@@ -23,13 +23,14 @@ export interface DispatchMsg {
  * the method to be called ('fn') and an array of arguments to be passed to the method ('args').
  *
  * @param targetFn - A function that returns the target object containing the methods to be dispatched.
- * @param log - Optional logging function for debugging purposes.
+ * @param loggerFactory - Logger factory for creating loggers.
  * @returns A dispatch function that accepts a DispatchMsg object and calls the target's method with provided arguments.
  */
-export function createDispatchFn(targetFn: () => any, log = createLogger('foundation:dispatch')) {
+export function createDispatchFn(targetFn: () => any, loggerFactory: LoggerFactory) {
+  const logger = loggerFactory.createLogger('transport:dispatch');
   return async ({ fn, args }: DispatchMsg) => {
     const target = targetFn();
-    log.debug(format(`dispatching to ${target}: ${fn}`, args));
+    logger.debug(format(`dispatching to ${target}: ${fn}`, args));
     return await target[fn](...args);
   };
 }

@@ -1,4 +1,4 @@
-import { createLogger } from '../log/index.js';
+import type { Logger } from '../log/index.js';
 import { Semaphore } from './semaphore.js';
 import { SerialQueue } from './serial_queue.js';
 
@@ -7,14 +7,15 @@ import { SerialQueue } from './serial_queue.js';
  * if the queue size = maxQueueSize.
  */
 export class BoundedSerialQueue {
-  private readonly queue = new SerialQueue();
+  private readonly queue: SerialQueue;
   private semaphore: Semaphore;
 
   constructor(
     maxQueueSize: number,
-    private log = createLogger('foundation:bounded_serial_queue'),
+    private log: Logger,
   ) {
-    this.semaphore = new Semaphore(maxQueueSize);
+    this.queue = new SerialQueue(log);
+    this.semaphore = new Semaphore(maxQueueSize, log);
   }
 
   /**

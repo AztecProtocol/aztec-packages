@@ -12,9 +12,27 @@ import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
 import type { LogData, LogFn } from './log_fn.js';
 
-export function createLogger(module: string): Logger {
-  module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
-  const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
+/** Additional properties that can be added to a logger */
+export type LoggerBindings = {
+  actor?: string;
+  instanceId?: string;
+};
+
+/** Creates logs with pre-defined bindings */
+export type LoggerFactory = { createLogger: (module: string, bindings?: LoggerBindings) => Logger };
+
+/** Creates a new logger factory with the given bindings */
+export function createLoggerFactory(bindings: LoggerBindings = {}): LoggerFactory {
+  return {
+    createLogger: (module: string, newBindings?: LoggerBindings) =>
+      createLogger(module, { ...bindings, ...newBindings }),
+  };
+}
+
+/** Creates a new logger with the given module name and bindings */
+export function createLogger(module: string, bindings: LoggerBindings = {}): Logger {
+  module = module.replace(/^aztec:/, '');
+  const pinoLogger = logger.child({ module, ...bindings }, { level: getLogLevelFromFilters(logFilters, module) });
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
@@ -45,7 +63,11 @@ export function createLogger(module: string): Logger {
     /** Module name for the logger. */
     module,
     /** Creates another logger by extending this logger module name. */
-    createChild: (childModule: string) => createLogger(`${module}:${childModule}`),
+    createChild: (childModule: string, newBindings?: LoggerBindings) =>
+      createLogger(`${module}:${childModule}`, { ...bindings, ...newBindings }),
+    /** Creates another logger with the new module name and same bindings as this one. */
+    createLogger: (module: string, newBindings?: LoggerBindings) =>
+      createLogger(module, { ...bindings, ...newBindings }),
   };
 }
 
@@ -60,31 +82,6 @@ export function addLogDataHandler(handler: LogDataHandler): void {
 
 function processLogData(data: LogData): LogData {
   return logDataHandlers.reduce((accum, handler) => handler(accum), data);
-}
-
-// Allow global hooks for tweaking module names.
-// Used in tests to add a uid to modules, so we can differentiate multiple nodes in the same process.
-type LogNameHandler = (module: string) => string;
-const logNameHandlers: LogNameHandler[] = [];
-
-export function addLogNameHandler(handler: LogNameHandler): void {
-  logNameHandlers.push(handler);
-}
-
-export function removeLogNameHandler(handler: LogNameHandler) {
-  const index = logNameHandlers.indexOf(handler);
-  if (index !== -1) {
-    logNameHandlers.splice(index, 1);
-  }
-}
-
-/** Creates all loggers within the given callback with the suffix appended to the module name. */
-export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
-  const logNameHandler = (module: string) => `${module}:${suffix}`;
-  addLogNameHandler(logNameHandler);
-  const result = await callback();
-  removeLogNameHandler(logNameHandler);
-  return result;
 }
 
 // Patch isLevelEnabled missing from pino/browser.
@@ -146,13 +143,13 @@ export const levels = {
 // Transport options for pretty logging to stderr via pino-pretty.
 const colorEnv = process.env['FORCE_COLOR' satisfies EnvVar];
 const useColor = colorEnv === undefined ? isColorSupported : parseBooleanEnv(colorEnv);
-const { bold, reset } = createColors({ useColor });
+const { bold, reset, cyan } = createColors({ useColor });
 export const pinoPrettyOpts = {
   destination: 2,
   sync: true,
   colorize: useColor,
-  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags,severity',
-  messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
+  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags,severity,actor,instanceId',
+  messageFormat: `{if actor}${reset(cyan('{actor}'))} {end}${bold(cyan('{module}'))}{if instanceId} ${reset(cyan('{instanceId}'))}{end} ${reset('{msg}')}`,
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
@@ -261,7 +258,8 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
   level: LogLevel;
   isLevelEnabled: (level: LogLevel) => boolean;
   module: string;
-  createChild: (childModule: string) => Logger;
+  createChild: (childModule: string, bindings?: LoggerBindings) => Logger;
+  createLogger: (module: string) => Logger;
 };
 
 /**

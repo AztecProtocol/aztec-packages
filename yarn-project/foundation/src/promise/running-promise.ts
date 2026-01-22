@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '../log/pino-logger.js';
+import type { Logger } from '../log/pino-logger.js';
 import { InterruptibleSleep } from '../sleep/index.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from './utils.js';
 
@@ -32,7 +32,7 @@ export class RunningPromise {
 
   constructor(
     private fn: () => void | Promise<void>,
-    private logger = createLogger('running-promise'),
+    private logger: Logger,
     private pollingIntervalMS = 10000,
     private handleError: ErrorHandler = makeLoggingErrorHandler(logger),
   ) {}
