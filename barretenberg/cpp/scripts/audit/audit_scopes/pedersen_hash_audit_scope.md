@@ -1,14 +1,16 @@
 # Pedersen Hash Audit Scope
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 4a956ceb179c2fe855e4f1fd78f2594e7fc3f5ea
+Commit hash:
 
 ### Files to audit
 
 #### Native implementation
 1. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.hpp```
 2. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.cpp```
-3. ```barretenberg/cpp/src/barretenberg/crypto/generators/generator_data.hpp```
+3. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_commitment/pedersen.hpp```
+4. ```barretenberg/cpp/src/barretenberg/crypto/pedersen_commitment/pedersen.cpp```
+5. ```barretenberg/cpp/src/barretenberg/crypto/generators/generator_data.hpp```
 
 ### Summary of the module
 
@@ -34,6 +36,7 @@ Key features:
 
 #### Tests
 - ```barretenberg/cpp/src/barretenberg/crypto/pedersen_hash/pedersen.test.cpp```
+- ```barretenberg/cpp/src/barretenberg/crypto/generators/generator_data.test.cpp```
 
 ### Documentation
 

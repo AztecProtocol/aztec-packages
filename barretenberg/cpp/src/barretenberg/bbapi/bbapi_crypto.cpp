@@ -26,20 +26,6 @@ Poseidon2Permutation::Response Poseidon2Permutation::execute(BB_UNUSED BBApiRequ
     return { Permutation::permutation(inputs) };
 }
 
-Poseidon2HashAccumulate::Response Poseidon2HashAccumulate::execute(BB_UNUSED BBApiRequest& request) &&
-{
-    if (inputs.empty()) {
-        throw_or_abort("Poseidon2HashAccumulate requires at least one input");
-    }
-
-    fr result = inputs[0];
-    for (size_t i = 1; i < inputs.size(); ++i) {
-        result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ inputs[i], result });
-    }
-
-    return { result };
-}
-
 PedersenCommit::Response PedersenCommit::execute(BB_UNUSED BBApiRequest& request) &&
 {
     crypto::GeneratorContext<curve::Grumpkin> ctx;

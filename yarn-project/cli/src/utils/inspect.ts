@@ -44,7 +44,10 @@ export async function inspectTx(
   const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
-  log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
+  log(` Status: ${receipt.status}`);
+  if (receipt.executionResult) {
+    log(` Execution result: ${receipt.executionResult}`);
+  }
   if (receipt.error) {
     log(` Error: ${receipt.error}`);
   }

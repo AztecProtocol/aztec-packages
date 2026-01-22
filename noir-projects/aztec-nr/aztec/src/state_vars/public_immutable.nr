@@ -1,7 +1,7 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::state_variable::StateVariable,
-    utils::with_hash::WithHash,
+    utils::WithHash,
 };
 use protocol_types::{
     constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,

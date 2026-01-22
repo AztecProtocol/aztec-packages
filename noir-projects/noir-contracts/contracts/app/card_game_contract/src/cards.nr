@@ -3,8 +3,8 @@ use aztec::{
     keys::getters::get_public_keys,
     messages::message_delivery::MessageDelivery,
     note::{
-        constants::MAX_NOTES_PER_PAGE, hinted_note::HintedNote,
-        note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
+        constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteGetterOptions,
+        note_viewer_options::NoteViewerOptions,
     },
     protocol_types::{
         address::AztecAddress,
@@ -13,7 +13,7 @@ use aztec::{
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
-use field_note::field_note::FieldNote;
+use field_note::FieldNote;
 use std::meta::derive;
 
 #[derive(Packable, Serialize)]

@@ -30,19 +30,18 @@ pub comptime fn generate_authorization_interface_and_get_selector(
 
     let authorization_selector = compute_struct_selector(
         s,
-        quote { crate::authwit::authorization_selector::AuthorizationSelector::from_signature },
+        quote { crate::authwit::AuthorizationSelector::from_signature },
     );
 
     let from_field = get_trait_impl_method(
-        quote { crate::authwit::authorization_selector::AuthorizationSelector }.as_type(),
+        quote { crate::authwit::AuthorizationSelector }.as_type(),
         quote { crate::protocol_types::traits::FromField },
         quote { from_field },
     );
 
     let authorization_interface =
         quote { crate::authwit::authorization_interface::AuthorizationInterface };
-    let authorization_selector_type =
-        quote { crate::authwit::authorization_selector::AuthorizationSelector };
+    let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };
 
     (
         quote {

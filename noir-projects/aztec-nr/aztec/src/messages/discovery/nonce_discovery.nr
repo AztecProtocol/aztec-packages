@@ -98,7 +98,7 @@ mod test {
     use crate::{
         messages::{discovery::NoteHashAndNullifier, logs::note::MAX_NOTE_PACKED_LEN},
         note::{
-            hinted_note::HintedNote,
+            HintedNote,
             note_interface::{NoteHash, NoteType},
             note_metadata::SettledNoteMetadata,
             utils::compute_note_hash_for_nullification,

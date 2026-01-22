@@ -1,7 +1,6 @@
 //! Efficient string storage.
 
 mod compressed_string;
+pub use compressed_string::CompressedString;
 mod field_compressed_string;
-
-pub use crate::compressed_string::CompressedString;
-pub use crate::field_compressed_string::FieldCompressedString;
+pub use field_compressed_string::FieldCompressedString;

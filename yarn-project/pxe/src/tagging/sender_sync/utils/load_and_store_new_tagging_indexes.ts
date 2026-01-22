@@ -1,10 +1,12 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
+import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
 /**
  * Loads tagging indexes from the Aztec node and stores them in the tagging data provider.
@@ -27,6 +29,7 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
+  anchorBlockHash: L2BlockHash,
   jobId: string,
 ) {
   // We compute the tags for the current window of indexes
@@ -37,7 +40,7 @@ export async function loadAndStoreNewTaggingIndexes(
     preTagsForWindow.map(async preTag => SiloedTag.compute(await Tag.compute(preTag), app)),
   );
 
-  const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode);
+  const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);
   const highestIndexMap = getTxHighestIndexMap(txsForTags, preTagsForWindow);
 
   // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
@@ -49,8 +52,14 @@ export async function loadAndStoreNewTaggingIndexes(
 
 // Returns txs that used the given tags. A tag might have been used in multiple txs and for this reason we return
 // an array for each tag.
-async function getTxsContainingTags(tags: SiloedTag[], aztecNode: AztecNode): Promise<TxHash[][]> {
-  const allLogs = await aztecNode.getPrivateLogsByTags(tags);
+async function getTxsContainingTags(
+  tags: SiloedTag[],
+  aztecNode: AztecNode,
+  anchorBlockHash: L2BlockHash,
+): Promise<TxHash[][]> {
+  // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
+  // pagination here.
+  const allLogs = await getAllPrivateLogsByTags(aztecNode, tags, anchorBlockHash);
   return allLogs.map(logs => logs.map(log => log.txHash));
 }
 

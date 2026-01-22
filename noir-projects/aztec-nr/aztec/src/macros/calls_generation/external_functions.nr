@@ -128,11 +128,11 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
             pub context: Context,
         }
 
-        impl CallSelf<&mut dep::aztec::context::private_context::PrivateContext> {
+        impl CallSelf<&mut dep::aztec::context::PrivateContext> {
             $call_self_private_methods
         }
 
-        impl CallSelf<dep::aztec::context::public_context::PublicContext> {
+        impl CallSelf<dep::aztec::context::PublicContext> {
             $call_self_public_methods
         }
 
@@ -141,11 +141,11 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
             pub context: Context,
         }
 
-        impl CallSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
+        impl CallSelfStatic<&mut dep::aztec::context::PrivateContext> {
             $call_self_private_static_methods
         }
 
-        impl CallSelfStatic<dep::aztec::context::public_context::PublicContext> {
+        impl CallSelfStatic<dep::aztec::context::PublicContext> {
             $call_self_public_static_methods
         }
 
@@ -154,7 +154,7 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
             pub context: Context,
         }
 
-        impl EnqueueSelf<&mut dep::aztec::context::private_context::PrivateContext> {
+        impl EnqueueSelf<&mut dep::aztec::context::PrivateContext> {
             $enqueue_self_methods
         }
 
@@ -163,7 +163,7 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
             pub context: Context,
         }
 
-        impl EnqueueSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
+        impl EnqueueSelfStatic<&mut dep::aztec::context::PrivateContext> {
             $enqueue_self_static_methods
         }
     }

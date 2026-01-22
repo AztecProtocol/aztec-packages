@@ -126,7 +126,7 @@ where
 
 mod test {
     use crate::{
-        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
+        test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
         utils::with_hash::WithHash,
     };
     use protocol_types::{hash::poseidon2_hash, traits::{Hash, Packable, ToField}};

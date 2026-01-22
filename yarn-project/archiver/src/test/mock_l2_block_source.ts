@@ -18,7 +18,7 @@ import {
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { type BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
@@ -94,6 +94,14 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public getProvenBlockNumber() {
     return Promise.resolve(BlockNumber(this.provenBlockNumber));
+  }
+
+  public getCheckpointedL2BlockNumber() {
+    return Promise.resolve(BlockNumber(this.checkpointedBlockNumber));
+  }
+
+  public getFinalizedL2BlockNumber() {
+    return Promise.resolve(BlockNumber(this.finalizedBlockNumber));
   }
 
   public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
@@ -348,10 +356,12 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     for (const block of this.l2Blocks) {
       for (const txEffect of block.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
+          // In mock, assume all txs are checkpointed with successful execution
           return new TxReceipt(
             txHash,
-            TxStatus.SUCCESS,
-            '',
+            TxStatus.CHECKPOINTED,
+            TxExecutionResult.SUCCESS,
+            undefined,
             txEffect.transactionFee.toBigInt(),
             L2BlockHash.fromField(await block.hash()),
             block.number,

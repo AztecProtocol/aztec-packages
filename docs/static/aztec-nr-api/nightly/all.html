@@ -48,7 +48,7 @@
 <li><a href="noir_aztec/context/calls/struct.UtilityCall.html">noir_aztec::context::calls::UtilityCall</a></li>
 <li><a href="noir_aztec/context/gas/struct.GasOpts.html">noir_aztec::context::gas::GasOpts</a></li>
 <li><a href="noir_aztec/context/inputs/private_context_inputs/struct.PrivateContextInputs.html">noir_aztec::context::inputs::private_context_inputs::PrivateContextInputs</a></li>
-<li><a href="noir_aztec/context/note_hash_read/struct.NoteHashRead.html">noir_aztec::context::note_hash_read::NoteHashRead</a></li>
+<li><a href="noir_aztec/context/note_existence_request/struct.NoteExistenceRequest.html">noir_aztec::context::note_existence_request::NoteExistenceRequest</a></li>
 <li><a href="noir_aztec/context/private_context/struct.PrivateContext.html">noir_aztec::context::private_context::PrivateContext</a></li>
 <li><a href="noir_aztec/context/public_context/struct.PublicContext.html">noir_aztec::context::public_context::PublicContext</a></li>
 <li><a href="noir_aztec/context/returns_hash/struct.ReturnsHash.html">noir_aztec::context::returns_hash::ReturnsHash</a></li>
@@ -62,6 +62,8 @@
 <li><a href="noir_aztec/messages/encryption/aes128/struct.AES128.html">noir_aztec::messages::encryption::aes128::AES128</a></li>
 <li><a href="noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html">noir_aztec::messages::message_delivery::MessageDeliveryEnum</a></li>
 <li><a href="noir_aztec/messages/processing/message_context/struct.MessageContext.html">noir_aztec::messages::processing::message_context::MessageContext</a></li>
+<li><a href="noir_aztec/note/confirmed_note/struct.ConfirmedNote.html">noir_aztec::note::confirmed_note::ConfirmedNote</a></li>
+<li><a href="noir_aztec/note/hinted_note/struct.HintedNote.html">noir_aztec::note::hinted_note::HintedNote</a></li>
 <li><a href="noir_aztec/note/lifecycle/struct.NewNote.html">noir_aztec::note::lifecycle::NewNote</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html">noir_aztec::note::note_getter_options::NoteGetterOptions</a></li>
 <li><a href="noir_aztec/note/note_getter_options/struct.NoteStatusEnum.html">noir_aztec::note::note_getter_options::NoteStatusEnum</a></li>
@@ -76,7 +78,6 @@
 <li><a href="noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html">noir_aztec::note::note_metadata::PendingSamePhaseNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html">noir_aztec::note::note_metadata::SettledNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html">noir_aztec::note::note_viewer_options::NoteViewerOptions</a></li>
-<li><a href="noir_aztec/note/retrieved_note/struct.RetrievedNote.html">noir_aztec::note::retrieved_note::RetrievedNote</a></li>
 <li><a href="noir_aztec/oracle/get_membership_witness/struct.MembershipWitness.html">noir_aztec::oracle::get_membership_witness::MembershipWitness</a></li>
 <li><a href="noir_aztec/oracle/get_nullifier_membership_witness/struct.NullifierMembershipWitness.html">noir_aztec::oracle::get_nullifier_membership_witness::NullifierMembershipWitness</a></li>
 <li><a href="noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html">noir_aztec::oracle::get_public_data_witness::PublicDataWitness</a></li>
@@ -246,15 +247,13 @@
 <li><a href="noir_aztec/messages/offchain_messages/fn.deliver_offchain_message.html">noir_aztec::messages::offchain_messages::deliver_offchain_message</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.create_note.html">noir_aztec::note::lifecycle::create_note</a></li>
 <li><a href="noir_aztec/note/lifecycle/fn.destroy_note.html">noir_aztec::note::lifecycle::destroy_note</a></li>
-<li><a href="noir_aztec/note/lifecycle/fn.destroy_note_unsafe.html">noir_aztec::note::lifecycle::destroy_note_unsafe</a></li>
 <li><a href="noir_aztec/note/note_getter/fn.get_note.html">noir_aztec::note::note_getter::get_note</a></li>
 <li><a href="noir_aztec/note/note_getter/fn.get_notes.html">noir_aztec::note::note_getter::get_notes</a></li>
 <li><a href="noir_aztec/note/note_getter/fn.view_note.html">noir_aztec::note::note_getter::view_note</a></li>
 <li><a href="noir_aztec/note/note_getter/fn.view_notes.html">noir_aztec::note::note_getter::view_notes</a></li>
+<li><a href="noir_aztec/note/utils/fn.compute_confirmed_note_hash_for_nullification.html">noir_aztec::note::utils::compute_confirmed_note_hash_for_nullification</a></li>
+<li><a href="noir_aztec/note/utils/fn.compute_note_existence_request.html">noir_aztec::note::utils::compute_note_existence_request</a></li>
 <li><a href="noir_aztec/note/utils/fn.compute_note_hash_for_nullification.html">noir_aztec::note::utils::compute_note_hash_for_nullification</a></li>
-<li><a href="noir_aztec/note/utils/fn.compute_note_hash_for_nullification_from_note_hash_read.html">noir_aztec::note::utils::compute_note_hash_for_nullification_from_note_hash_read</a></li>
-<li><a href="noir_aztec/note/utils/fn.compute_note_hash_read.html">noir_aztec::note::utils::compute_note_hash_read</a></li>
-<li><a href="noir_aztec/note/utils/fn.compute_siloed_note_nullifier.html">noir_aztec::note::utils::compute_siloed_note_nullifier</a></li>
 <li><a href="noir_aztec/oracle/aes128_decrypt/fn.aes128_decrypt_oracle.html">noir_aztec::oracle::aes128_decrypt::aes128_decrypt_oracle</a></li>
 <li><a href="noir_aztec/oracle/auth_witness/fn.get_auth_witness.html">noir_aztec::oracle::auth_witness::get_auth_witness</a></li>
 <li><a href="noir_aztec/oracle/block_header/fn.get_block_header_at.html">noir_aztec::oracle::block_header::get_block_header_at</a></li>

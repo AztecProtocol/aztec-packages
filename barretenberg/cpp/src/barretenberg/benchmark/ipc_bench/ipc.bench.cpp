@@ -1,6 +1,6 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <array>
@@ -20,17 +20,17 @@ using namespace bb;
 
 namespace {
 
-void poseiden_hash_direct(State& state) noexcept
+void poseidon_hash_direct(State& state) noexcept
 {
-    grumpkin::fq x = grumpkin::fq::random_element();
-    grumpkin::fq y = grumpkin::fq::random_element();
+    fr x = fr::random_element();
+    fr y = fr::random_element();
     for (auto _ : state) {
-        std::vector<grumpkin::fq> to_hash{ x, y };
+        std::vector<fr> to_hash{ x, y };
         auto hash = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_hash);
         DoNotOptimize(hash);
     }
 }
-BENCHMARK(poseiden_hash_direct)->Unit(benchmark::kMicrosecond)->Iterations(10000);
+BENCHMARK(poseidon_hash_direct)->Unit(benchmark::kMicrosecond)->Iterations(10000);
 
 // Helper: Spawn bb binary for msgpack benchmarks
 static pid_t spawn_bb_msgpack_server(const std::string& path)
@@ -74,8 +74,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
     pid_t bb_pid{ 0 };
     std::array<std::thread, (NumClients > 1 ? NumClients - 1 : 1)> background_threads{};
     std::atomic<bool> stop_background{ false };
-    grumpkin::fq x{};
-    grumpkin::fq y{};
+    fr x{};
+    fr y{};
 
     std::string ipc_path;
 
@@ -156,8 +156,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
         if constexpr (NumClients > 1) {
             for (size_t i = 1; i < NumClients; i++) {
                 background_threads[i - 1] = std::thread([this, i]() {
-                    grumpkin::fq bx = grumpkin::fq::random_element();
-                    grumpkin::fq by = grumpkin::fq::random_element();
+                    fr bx = fr::random_element();
+                    fr by = fr::random_element();
 
                     while (!stop_background.load(std::memory_order_relaxed)) {
                         // Create Poseidon2Hash command
@@ -195,8 +195,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
         }
 
         // Pre-generate test inputs for benchmark thread (client 0)
-        x = grumpkin::fq::random_element();
-        y = grumpkin::fq::random_element();
+        x = fr::random_element();
+        y = fr::random_element();
     }
 
     void TearDown(const ::benchmark::State& /*unused*/) override
@@ -311,11 +311,11 @@ using Poseidon2BBSocketMPSC = Poseidon2BBMsgpack<TransportType::Socket, 3>;
 
 // Macro to register benchmark variants
 #define REGISTER_BB_BENCHMARK(fixture_name)                                                                            \
-    BENCHMARK_DEFINE_F(fixture_name, poseiden_hash_roundtrip)(benchmark::State & state)                                \
+    BENCHMARK_DEFINE_F(fixture_name, poseidon_hash_roundtrip)(benchmark::State & state)                                \
     {                                                                                                                  \
         run_benchmark(state);                                                                                          \
     }                                                                                                                  \
-    BENCHMARK_REGISTER_F(fixture_name, poseiden_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000)
+    BENCHMARK_REGISTER_F(fixture_name, poseidon_hash_roundtrip)->Unit(benchmark::kMicrosecond)->Iterations(10000)
 
 REGISTER_BB_BENCHMARK(Poseidon2BBSocketSPSC);
 REGISTER_BB_BENCHMARK(Poseidon2BBSocketMPSC);

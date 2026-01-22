@@ -1,4 +1,4 @@
-use crate::note::{hinted_note::HintedNote, note_interface::NoteType};
+use crate::note::{HintedNote, note_interface::NoteType};
 
 use dep::protocol_types::{address::AztecAddress, traits::Packable};
 

@@ -7,14 +7,11 @@ pub contract Claim {
     // docs:end:history_import
     use dep::aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        note::{
-            hinted_note::HintedNote, note_interface::NoteHash,
-            utils::compute_note_hash_for_nullification,
-        },
+        note::{HintedNote, note_interface::NoteHash, utils::compute_note_hash_for_nullification},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use dep::uint_note::uint_note::UintNote;
+    use dep::uint_note::UintNote;
     use token::Token;
 
     // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
@@ -51,7 +48,7 @@ pub contract Claim {
         // 3) Prove that the note hash exists in the note hash tree
         // docs:start:prove_note_inclusion
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(hinted_note);
+        let _ = header.prove_note_inclusion(hinted_note);
         // docs:end:prove_note_inclusion
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be

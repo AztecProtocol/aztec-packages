@@ -87,8 +87,12 @@ export abstract class ArchiverDataSourceBase
     return this.store.getCheckpointedBlock(number);
   }
 
-  public getCheckpointedBlockNumber(): Promise<BlockNumber> {
+  public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
     return this.store.getCheckpointedL2BlockNumber();
+  }
+
+  public getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    return this.store.getFinalizedL2BlockNumber();
   }
 
   public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {

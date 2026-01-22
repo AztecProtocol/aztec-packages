@@ -12,12 +12,10 @@ pub contract Crowdfunding {
         state_vars::{Owned, PrivateSet, PublicImmutable, state_variable::StateVariable},
         utils::{array, comparison::Comparator},
     };
-    use aztec::note::{
-        constants::MAX_NOTES_PER_PAGE, hinted_note::HintedNote, note_getter_options::NoteStatus,
-    };
+    use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
     use public_checks::utils::privately_check_timestamp;
     use token::Token;
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[event]
     struct WithdrawalProcessed {

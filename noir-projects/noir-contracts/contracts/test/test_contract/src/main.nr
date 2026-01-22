@@ -19,8 +19,8 @@ pub contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::{NoteGetterOptions, NoteStatus},
             note_viewer_options::NoteViewerOptions,
-            confirmed_note::ConfirmedNote,
-            hinted_note::HintedNote,
+            ConfirmedNote,
+            HintedNote,
         },
         // State variable types
         state_vars::{
@@ -56,8 +56,8 @@ pub contract Test {
 
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
-    use address_note::address_note::AddressNote;
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use address_note::AddressNote;
+    use uint_note::{PartialUintNote, UintNote};
 
     #[event]
     struct ExampleEvent {
@@ -262,7 +262,7 @@ pub contract Test {
         };
 
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(hinted_note);
+        let _ = header.prove_note_inclusion(hinted_note);
     }
 
     #[external("private")]

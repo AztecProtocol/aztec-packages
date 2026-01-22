@@ -1,7 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { FieldsOf } from '@aztec/foundation/types';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import { type TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import type { ContractBase } from './contract_base.js';
@@ -14,12 +13,43 @@ export type DeployedWaitOpts = WaitOpts & {
 };
 
 /** Extends a transaction receipt with a contract instance that represents the newly deployed contract. */
-export type DeployTxReceipt<TContract extends ContractBase = ContractBase> = FieldsOf<TxReceipt> & {
-  /** Instance of the newly deployed contract. */
-  contract: TContract;
-  /** The deployed contract instance with address and metadata. */
-  instance: ContractInstanceWithAddress;
-};
+export class DeployTxReceipt<TContract extends ContractBase = ContractBase> extends TxReceipt {
+  constructor(
+    /** Instance of the newly deployed contract. */
+    public contract: TContract,
+    /** The deployed contract instance with address and metadata. */
+    public instance: ContractInstanceWithAddress,
+    /** Arguments for the tx receipt */
+    ...args: ConstructorParameters<typeof TxReceipt>
+  ) {
+    super(...args);
+  }
+
+  /**
+   * Creates a new instance out of a TxReceipt
+   * @param contract - The contract class
+   * @param instance - The deployed contract instance with address and metadata
+   * @param receipt - The transaction receipt
+   * @returns A new DeployTxReceipt instance
+   */
+  static fromTxReceipt<TContract extends ContractBase = ContractBase>(
+    contract: TContract,
+    instance: ContractInstanceWithAddress,
+    receipt: TxReceipt,
+  ): DeployTxReceipt<TContract> {
+    return new DeployTxReceipt(
+      contract,
+      instance,
+      receipt.txHash,
+      receipt.status,
+      receipt.executionResult,
+      receipt.error,
+      receipt.transactionFee,
+      receipt.blockHash,
+      receipt.blockNumber,
+    );
+  }
+}
 
 /**
  * A contract deployment transaction sent to the network, extending SentTx with methods to publish a contract instance.
@@ -70,6 +100,6 @@ export class DeploySentTx<TContract extends ContractBase = ContractBase> extends
     }
     const instance = await this.instanceGetter();
     const contract = this.postDeployCtor(instance, contractWallet) as TContract;
-    return { ...receipt, contract, instance };
+    return DeployTxReceipt.fromTxReceipt(contract, instance, receipt);
   }
 }

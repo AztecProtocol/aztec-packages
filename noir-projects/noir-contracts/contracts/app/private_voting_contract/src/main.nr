@@ -9,9 +9,7 @@ pub contract PrivateVoting {
         address::AztecAddress,
         traits::{Deserialize, Serialize, ToField},
     };
-    use dep::aztec::state_vars::{
-        Map, Owned, PublicImmutable, PublicMutable, single_use_claim::SingleUseClaim,
-    };
+    use dep::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]
     pub struct ElectionId {

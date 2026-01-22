@@ -73,9 +73,9 @@ function release {
       aztecprotocol/aztec:$tag-arm64
 
     # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
-    docker buildx imagetools create -t aztecprotocol/aztec:$(dist_tag) \
-      aztecprotocol/aztec:$tag-amd64 \
-      aztecprotocol/aztec:$tag-arm64
+    # docker buildx imagetools create -t aztecprotocol/aztec:$(dist_tag) \
+    #   aztecprotocol/aztec:$tag-amd64 \
+    #   aztecprotocol/aztec:$tag-arm64
   fi
 }
 

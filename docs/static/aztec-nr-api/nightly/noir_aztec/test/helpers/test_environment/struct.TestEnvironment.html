@@ -436,7 +436,7 @@ belongs to.</p>
 
 env.discover_note(note_message);
 
-env.private_context(|context| { <span class="kw">let</span> (retrieved_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot); });</code></pre></div>
+env.private_context(|context| { <span class="kw">let</span> (hinted_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot); });</code></pre></div>
 </div><code id="discover_note_at" class="code-header">pub unconstrained fn <a href="#discover_note_at"><span class="fn">discover_note_at</span></a>&lt;Note&gt;(
     self,
     addr: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -458,7 +458,7 @@ which is required when the note was not emitted in the default address used by
 env.discover_note_at(contract_address, note_message);
 
 env.private_context_at(contract_address, |context| {
-    <span class="kw">let</span> (retrieved_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot);
+    <span class="kw">let</span> (hinted_note, _) = get_note::&lt;MockNote&gt;(context, storage_slot);
 });</code></pre></div>
 </div></div></main>
 </span>

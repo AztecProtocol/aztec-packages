@@ -17,6 +17,7 @@ import {
   performTransfers,
 } from './setup_test_wallets.js';
 import {
+  ChainHealth,
   applyProverFailure,
   getGitProjectRoot,
   setupEnvironment,
@@ -58,13 +59,16 @@ describe('reorg test', () => {
   let testAccounts: TestAccounts;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
   afterAll(async () => {
+    await health.teardown();
     await cleanup?.();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
+    await health.setup();
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
