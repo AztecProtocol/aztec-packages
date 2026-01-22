@@ -5,6 +5,7 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 import type { PXEConfig } from '@aztec/pxe/config';
@@ -118,12 +119,12 @@ async function main() {
         dataDirectory: join(dataDir, 'pxe'),
       };
 
-      const node = createAztecNodeClient(nodeUrl);
+      const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
       const wallet = await CLIWallet.create(node, userLog, db, overridePXEConfig);
 
       walletAndNodeWrapper.setNodeAndWallet(node, wallet);
 
-      await db.init(await openStoreAt(dataDir));
+      await db.init(await openStoreAt(dataDir, debugLogger));
       let protocolContractsRegistered;
       try {
         protocolContractsRegistered = !!(await db.retrieveAlias('contracts:ContractClassRegistry'));

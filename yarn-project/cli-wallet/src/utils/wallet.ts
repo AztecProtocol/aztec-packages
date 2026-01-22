@@ -14,8 +14,7 @@ import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXEConfig } from '@aztec/pxe/config';
-import type { PXE } from '@aztec/pxe/server';
-import { createPXE, getPXEConfig } from '@aztec/pxe/server';
+import { type PXE, type PXECreationOptions, createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
@@ -47,9 +46,10 @@ export class CLIWallet extends BaseWallet {
     log: LogFn,
     db?: WalletDB,
     overridePXEConfig?: Partial<PXEConfig>,
+    options: PXECreationOptions = { loggers: {} },
   ): Promise<CLIWallet> {
     const pxeConfig = Object.assign(getPXEConfig(), overridePXEConfig);
-    const pxe = await createPXE(node, pxeConfig);
+    const pxe = await createPXE(node, pxeConfig, options);
     return new CLIWallet(pxe, node, log, db);
   }
 
