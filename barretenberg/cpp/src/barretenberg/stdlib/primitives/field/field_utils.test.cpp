@@ -217,3 +217,53 @@ TYPED_TEST(FieldUtilsTests, ValidateSplitWitnessLoConstantHiRejectsModulus)
     // The circuit should FAIL because value == modulus is invalid
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
+
+/**
+ * @brief Test that the constraint rejects value == modulus even with corrupted borrow witness
+ * @details This test manually builds the constraint logic with a corrupted borrow value (set to 0
+ * when it should be 1) to verify that the constraint equation itself is sound. A malicious prover
+ * cannot bypass the check by choosing an arbitrary borrow value.
+ *
+ * Before the fix, with constraint: lo_diff = r_lo - lo + borrow * 2^lo_bits
+ *   - Setting borrow=0 with lo=r_lo gave lo_diff=0, which passed the range check (BUG)
+ *
+ * After the fix, with constraint: lo_diff = (r_lo - 1) - lo + borrow * 2^lo_bits
+ *   - Setting borrow=0 with lo=r_lo gives lo_diff=-1, which fails the range check (FIXED)
+ *   - Setting borrow=1 with lo=r_lo gives lo_diff=2^lo_bits - 1, but then hi_diff=-1 fails
+ */
+TYPED_TEST(FieldUtilsTests, ValidateSplitRejectsModulusWithCorruptedBorrowZero)
+{
+    using Builder = TypeParam;
+    using field_t = typename TestFixture::field_t;
+    using native = typename TestFixture::native;
+
+    Builder builder;
+    constexpr size_t lo_bits = 128;
+    const size_t hi_bits = native::modulus.get_msb() + 1 - lo_bits;
+
+    // Use value == modulus
+    uint256_t modulus = native::modulus;
+    uint256_t r_lo = modulus.slice(0, lo_bits);
+    uint256_t r_hi = modulus.slice(lo_bits, native::modulus.get_msb() + 1);
+
+    // Create witnesses for lo = r_lo, hi = r_hi (value == modulus)
+    auto lo = field_t::from_witness(&builder, native(r_lo));
+    auto hi = field_t::from_witness(&builder, native(r_hi));
+
+    // Malicious prover sets borrow = 0 (trying to bypass the check)
+    auto borrow = field_t::from_witness(&builder, native(0));
+    builder.create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
+
+    // Build the constraints manually (matching the fixed implementation)
+    // hi_diff = r_hi - hi - borrow
+    // lo_diff = (r_lo - 1) - lo + borrow * 2^lo_bits
+    field_t hi_diff = (-hi + r_hi) - borrow;
+    field_t lo_diff = (-lo + (r_lo - 1)) + (borrow * (uint256_t(1) << lo_bits));
+
+    hi_diff.create_range_constraint(hi_bits);
+    lo_diff.create_range_constraint(lo_bits);
+
+    // The circuit should FAIL because with borrow=0 and lo=r_lo:
+    // lo_diff = (r_lo - 1) - r_lo = -1, which underflows and fails the range check
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}

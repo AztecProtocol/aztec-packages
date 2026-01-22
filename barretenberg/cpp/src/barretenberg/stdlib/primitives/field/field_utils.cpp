@@ -24,15 +24,15 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
 
     // Algorithm: Validate lo + hi * 2^lo_bits < field_modulus using borrow logic
     //
-    // We compute: hi_diff = r_hi - hi - borrow, lo_diff = r_lo - lo + borrow * 2^lo_bits
-    // Both must be in range [0, 2^bits) for the check to pass.
+    // We want: value < modulus, i.e., value <= modulus - 1
+    // We compute: hi_diff = r_hi - hi - borrow, lo_diff = (r_lo - 1) - lo + borrow * 2^lo_bits
+    // Both must be in range [0, 2^{*_bits}) for the check to pass.
     //
-    //   - If lo < r_lo: no borrow, straightforward comparison of hi parts
-    //   - If lo >= r_lo: set borrow=1, which reduces the allowed hi value by 1
-    //     This correctly rejects value == modulus because lo_diff becomes 2^lo_bits (out of range)
-    bool need_borrow = uint256_t(lo.get_value()) >= r_lo;
+    //   - If lo <= r_lo - 1: no borrow needed
+    //   - If lo > r_lo - 1 (i.e., lo >= r_lo): set borrow=1, which reduces the allowed hi value by 1
+    bool need_borrow = uint256_t(lo.get_value()) > r_lo - 1;
 
-    // If both lo and hi are constant, the validation is entirely deterministic
+    // If both lo and hi are constant, the validation is straightforward
     const bool both_constant = lo.is_constant() && hi.is_constant();
     Builder* ctx = validate_context(lo.get_context(), hi.get_context());
 
@@ -48,9 +48,9 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
     }
 
     // Hi range check = r_hi - hi - borrow
-    // Lo range check = r_lo - lo + borrow * 2^lo_bits
+    // Lo range check = (r_lo - 1) - lo + borrow * 2^lo_bits
     field_t<Builder> hi_diff = (-hi + r_hi) - borrow;
-    field_t<Builder> lo_diff = (-lo + r_lo) + (borrow * (uint256_t(1) << lo_bits));
+    field_t<Builder> lo_diff = (-lo + (r_lo - 1)) + (borrow * (uint256_t(1) << lo_bits));
 
     hi_diff.create_range_constraint(hi_bits);
     lo_diff.create_range_constraint(lo_bits);
