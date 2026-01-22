@@ -146,11 +146,15 @@ describe('EmpireSlasherClient', () => {
     dateProvider = new DateProvider();
 
     // Create real stores with in-memory database
-    kvStore = openTmpStore();
-    offensesStore = new SlasherOffensesStore(kvStore, {
-      ...settings,
-      slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
-    });
+    kvStore = openTmpStore(logger);
+    offensesStore = new SlasherOffensesStore(
+      kvStore,
+      {
+        ...settings,
+        slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+      },
+      logger.createChild('offenses-store'),
+    );
     payloadsStore = new SlasherPayloadsStore(kvStore, {
       slashingPayloadLifetimeInRounds: settings.slashingPayloadLifetimeInRounds,
     });

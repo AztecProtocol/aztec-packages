@@ -4,7 +4,7 @@ import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -24,15 +24,15 @@ export async function createSlasherFacade(
   dateProvider: DateProvider,
   epochCache: EpochCache,
   /** List of own validator addresses to add to the slashValidatorNever list unless slashSelfAllowed is true */
-  validatorAddresses: EthAddress[] = [],
-  logger = createLogger('slasher'),
+  validatorAddresses: EthAddress[],
+  logger: Logger,
 ): Promise<SlasherClientInterface> {
   if (!l1Contracts.rollupAddress || l1Contracts.rollupAddress.equals(EthAddress.ZERO)) {
     throw new Error('Cannot initialize SlasherClient without a Rollup address');
   }
 
-  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, createLogger('slasher:lmdb'));
-  const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
+  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, logger.createChild('lmdb'));
+  const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress, logger.createChild('rollup'));
 
   const slashValidatorsNever = config.slashSelfAllowed
     ? config.slashValidatorsNever

@@ -4,7 +4,7 @@ import { RollupContract, SlasherContract, TallySlashingProposerContract } from '
 import { maxBigint } from '@aztec/foundation/bigint';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, partition, times } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
@@ -96,10 +96,16 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
     private offensesStore: SlasherOffensesStore,
-    private log = createLogger('slasher:consensus'),
+    private log: Logger,
   ) {
-    this.roundMonitor = new SlashRoundMonitor(settings, dateProvider);
-    this.offensesCollector = new SlashOffensesCollector(config, settings, watchers, offensesStore);
+    this.roundMonitor = new SlashRoundMonitor(settings, dateProvider, log.createChild('round-monitor'));
+    this.offensesCollector = new SlashOffensesCollector(
+      config,
+      settings,
+      watchers,
+      offensesStore,
+      log.createChild('offenses-collector'),
+    );
   }
 
   public async start() {

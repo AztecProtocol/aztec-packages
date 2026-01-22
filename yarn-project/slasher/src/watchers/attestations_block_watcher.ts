@@ -1,7 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   type InvalidCheckpointDetectedEvent,
   type L2BlockSourceEventEmitter,
@@ -30,8 +30,6 @@ type AttestationsBlockWatcherConfig = Pick<SlasherConfig, (typeof AttestationsBl
  * If there's another block consecutive to the invalid one, its proposer and attestors should also be slashed.
  */
 export class AttestationsBlockWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-  private log: Logger = createLogger('attestations-block-watcher');
-
   // Only keep track of the last N invalid checkpoints
   private maxInvalidCheckpoints = 100;
 
@@ -55,6 +53,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     private l2BlockSource: L2BlockSourceEventEmitter,
     private epochCache: EpochCache,
     config: AttestationsBlockWatcherConfig,
+    private log: Logger,
   ) {
     super();
     this.config = pick(config, ...AttestationsBlockWatcherConfigKeys);

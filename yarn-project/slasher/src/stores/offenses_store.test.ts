@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type Offense, type OffenseIdentifier, OffenseType } from '@aztec/stdlib/slashing';
 
@@ -13,12 +14,18 @@ describe('SlasherOffensesStore', () => {
     epochDuration: 32,
   };
 
+  const logger = createLogger('slasher:offenses-store:test');
+
   beforeEach(async () => {
-    kvStore = await openTmpStore('slasher-offenses-store-test');
-    store = new SlasherOffensesStore(kvStore, {
-      ...defaultSettings,
-      slashOffenseExpirationRounds: 4,
-    });
+    kvStore = await openTmpStore('slasher-offenses-store-test', logger);
+    store = new SlasherOffensesStore(
+      kvStore,
+      {
+        ...defaultSettings,
+        slashOffenseExpirationRounds: 4,
+      },
+      logger.createChild('store'),
+    );
   });
 
   afterEach(async () => {
@@ -341,10 +348,14 @@ describe('SlasherOffensesStore', () => {
     });
 
     it('should not clear anything when expiration is disabled', async () => {
-      const storeWithNoExpiration = new SlasherOffensesStore(kvStore, {
-        ...defaultSettings,
-        slashOffenseExpirationRounds: 0,
-      });
+      const storeWithNoExpiration = new SlasherOffensesStore(
+        kvStore,
+        {
+          ...defaultSettings,
+          slashOffenseExpirationRounds: 0,
+        },
+        logger.createChild('store-no-expiration'),
+      );
 
       const offense = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 10n);
       await storeWithNoExpiration.addPendingOffense(offense);

@@ -6,7 +6,7 @@ import {
 } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
@@ -31,7 +31,7 @@ export async function createSlasherImplementation(
   epochCache: EpochCache,
   dateProvider: DateProvider,
   kvStore: AztecLMDBStoreV2,
-  logger = createLogger('slasher'),
+  logger: Logger,
 ) {
   const proposer = await rollup.getSlashingProposer();
   if (!proposer) {
@@ -42,7 +42,7 @@ export async function createSlasherImplementation(
     if (!slashFactoryAddress || slashFactoryAddress.equals(EthAddress.ZERO)) {
       throw new Error('Cannot initialize an empire-based SlasherClient without a SlashFactory address');
     }
-    const slashFactory = new SlashFactoryContract(l1Client, slashFactoryAddress.toString());
+    const slashFactory = new SlashFactoryContract(l1Client, slashFactoryAddress.toString(), logger);
     return createEmpireSlasher(config, rollup, proposer, slashFactory, watchers, dateProvider, kvStore, logger);
   }
 }
@@ -55,7 +55,7 @@ async function createEmpireSlasher(
   watchers: Watcher[],
   dateProvider: DateProvider,
   kvStore: AztecLMDBStoreV2,
-  logger = createLogger('slasher'),
+  logger: Logger,
 ): Promise<EmpireSlasherClient> {
   if (slashingProposer.type !== 'empire') {
     throw new Error('Slashing proposer contract is not of type Empire');
@@ -102,10 +102,14 @@ async function createEmpireSlasher(
   const payloadsStore = new SlasherPayloadsStore(kvStore, {
     slashingPayloadLifetimeInRounds: settings.slashingPayloadLifetimeInRounds,
   });
-  const offensesStore = new SlasherOffensesStore(kvStore, {
-    ...settings,
-    slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
-  });
+  const offensesStore = new SlasherOffensesStore(
+    kvStore,
+    {
+      ...settings,
+      slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+    },
+    logger.createChild('store:offenses'),
+  );
 
   return new EmpireSlasherClient(
     config,
@@ -118,7 +122,7 @@ async function createEmpireSlasher(
     dateProvider,
     offensesStore,
     payloadsStore,
-    logger,
+    logger.createChild('empire'),
   );
 }
 
@@ -130,7 +134,7 @@ async function createTallySlasher(
   dateProvider: DateProvider,
   epochCache: EpochCache,
   kvStore: AztecLMDBStoreV2,
-  logger = createLogger('slasher'),
+  logger: Logger,
 ): Promise<TallySlasherClient> {
   if (slashingProposer.type !== 'tally') {
     throw new Error('Slashing proposer contract is not of type tally');
@@ -139,10 +143,14 @@ async function createTallySlasher(
   const settings = await getTallySlasherSettings(rollup, slashingProposer);
   const slasher = await rollup.getSlasherContract();
 
-  const offensesStore = new SlasherOffensesStore(kvStore, {
-    ...settings,
-    slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
-  });
+  const offensesStore = new SlasherOffensesStore(
+    kvStore,
+    {
+      ...settings,
+      slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+    },
+    logger.createChild('store:offenses'),
+  );
 
   return new TallySlasherClient(
     config,
@@ -154,6 +162,6 @@ async function createTallySlasher(
     epochCache,
     dateProvider,
     offensesStore,
-    logger,
+    logger.createChild('tally'),
   );
 }

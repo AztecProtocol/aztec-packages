@@ -1,5 +1,5 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
@@ -17,7 +17,7 @@ export class SlashRoundMonitor {
   constructor(
     private settings: SlashRoundMonitorSettings,
     private dateProvider: DateProvider,
-    private log = createLogger('slasher:round-monitor'),
+    private log: Logger,
   ) {}
 
   public start() {

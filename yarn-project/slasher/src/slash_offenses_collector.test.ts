@@ -27,15 +27,25 @@ describe('SlashOffensesCollector', () => {
   };
 
   beforeEach(() => {
-    kvStore = openTmpStore(true);
-    offensesStore = new SlasherOffensesStore(kvStore, {
-      slashingRoundSize: 32 * 6,
-      epochDuration: 32,
-      slashOffenseExpirationRounds: 4,
-    });
     logger = createLogger('test');
+    kvStore = openTmpStore(logger, true);
+    offensesStore = new SlasherOffensesStore(
+      kvStore,
+      {
+        slashingRoundSize: 32 * 6,
+        epochDuration: 32,
+        slashOffenseExpirationRounds: 4,
+      },
+      logger.createChild('offenses-store'),
+    );
 
-    offensesCollector = new SlashOffensesCollector(config, settings, [], offensesStore, logger);
+    offensesCollector = new SlashOffensesCollector(
+      config,
+      settings,
+      [],
+      offensesStore,
+      logger.createChild('collector'),
+    );
   });
 
   afterEach(async () => {

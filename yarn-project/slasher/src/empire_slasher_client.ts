@@ -3,7 +3,7 @@ import { sumBigint } from '@aztec/foundation/bigint';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -128,11 +128,17 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     private dateProvider: DateProvider,
     private offensesStore: SlasherOffensesStore,
     private payloadsStore: SlasherPayloadsStore,
-    private log = createLogger('slasher:empire'),
+    private log: Logger,
   ) {
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
-    this.roundMonitor = new SlashRoundMonitor(this.settings, this.dateProvider);
-    this.offensesCollector = new SlashOffensesCollector(config, this.settings, watchers, offensesStore);
+    this.roundMonitor = new SlashRoundMonitor(this.settings, this.dateProvider, log.createChild('round-monitor'));
+    this.offensesCollector = new SlashOffensesCollector(
+      config,
+      this.settings,
+      watchers,
+      offensesStore,
+      log.createChild('offenses-collector'),
+    );
   }
 
   public async start() {

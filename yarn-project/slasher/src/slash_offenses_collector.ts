@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { Prettify } from '@aztec/foundation/types';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -25,7 +25,7 @@ export class SlashOffensesCollector {
     private readonly settings: SlashOffensesCollectorSettings,
     private readonly watchers: Watcher[],
     private readonly offensesStore: SlasherOffensesStore,
-    private readonly log = createLogger('slasher:offenses-collector'),
+    private readonly log: Logger,
   ) {}
 
   public start() {

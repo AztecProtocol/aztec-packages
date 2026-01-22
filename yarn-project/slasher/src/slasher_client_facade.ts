@@ -3,7 +3,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
@@ -32,7 +32,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
     private kvStore: AztecLMDBStoreV2,
-    private logger = createLogger('slasher'),
+    private logger: Logger,
   ) {}
 
   public async start(): Promise<void> {

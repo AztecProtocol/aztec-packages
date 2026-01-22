@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSet } from '@aztec/kv-store';
 import {
   type Offense,
@@ -20,8 +20,6 @@ export class SlasherOffensesStore {
   /** Multimap from round to offense keys (only used for consensus based slashing) */
   private roundsOffenses: AztecAsyncMultiMap<string, string>;
 
-  private log = createLogger('slasher:store:offenses');
-
   constructor(
     private kvStore: AztecAsyncKVStore,
     private settings: {
@@ -29,6 +27,7 @@ export class SlasherOffensesStore {
       epochDuration: number;
       slashOffenseExpirationRounds?: number;
     },
+    private log: Logger,
   ) {
     this.offenses = kvStore.openMap('offenses');
     this.roundsOffenses = kvStore.openMultiMap('rounds-offenses');

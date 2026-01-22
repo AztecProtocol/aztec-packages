@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import type {
   InvalidCheckpointDetectedEvent,
   L2BlockSourceEventEmitter,
@@ -26,12 +27,14 @@ describe('AttestationsBlockWatcher', () => {
   let proposer: EthAddress;
   let committee: EthAddress[];
 
+  const logger = createLogger('test:attestations-block-watcher');
+
   beforeEach(() => {
     epochCache = mock<EpochCache>();
     config = DefaultSlasherConfig;
     handler = jest.fn();
 
-    watcher = new AttestationsBlockWatcher(mock<L2BlockSourceEventEmitter>(), epochCache, config);
+    watcher = new AttestationsBlockWatcher(mock<L2BlockSourceEventEmitter>(), epochCache, config, logger);
     watcher.on(WANT_TO_SLASH_EVENT, handler);
 
     // Set up common test data

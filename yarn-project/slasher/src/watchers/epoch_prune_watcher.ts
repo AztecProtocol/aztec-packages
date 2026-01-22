@@ -2,7 +2,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   EthAddress,
   L2BlockNew,
@@ -42,8 +42,6 @@ type EpochPruneWatcherPenalties = Pick<SlasherConfig, (typeof EpochPruneWatcherP
  * - OR the archive roots match when re-building all the blocks in the epoch (i.e. the epoch *could* have been proven)
  */
 export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-  private log: Logger = createLogger('epoch-prune-watcher');
-
   // Store bound function reference for proper listener removal
   private boundHandlePruneL2Blocks = this.handlePruneL2Blocks.bind(this);
 
@@ -56,6 +54,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private checkpointsBuilder: ICheckpointsBuilder,
     penalties: EpochPruneWatcherPenalties,
+    private log: Logger,
   ) {
     super();
     this.penalties = pick(penalties, ...EpochPruneWatcherPenaltiesConfigKeys);

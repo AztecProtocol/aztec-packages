@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OffenseType, type SlashPayload, type SlashPayloadRound, type ValidatorSlash } from '@aztec/stdlib/slashing';
 
@@ -8,8 +9,10 @@ describe('SlasherPayloadsStore', () => {
   let kvStore: ReturnType<typeof openTmpStore>;
   let store: SlasherPayloadsStore;
 
+  const logger = createLogger('slasher:payloads-store:test');
+
   beforeEach(() => {
-    kvStore = openTmpStore();
+    kvStore = openTmpStore(logger);
     store = new SlasherPayloadsStore(kvStore, {
       slashingPayloadLifetimeInRounds: 5,
     });

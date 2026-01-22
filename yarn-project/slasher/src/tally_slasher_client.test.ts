@@ -115,14 +115,18 @@ describe('TallySlasherClient', () => {
   };
 
   beforeEach(() => {
-    kvStore = openTmpStore(true);
-    offensesStore = new SlasherOffensesStore(kvStore, {
-      ...settings,
-      slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
-    });
+    logger = createLogger('test');
+    kvStore = openTmpStore(logger, true);
+    offensesStore = new SlasherOffensesStore(
+      kvStore,
+      {
+        ...settings,
+        slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+      },
+      logger.createChild('offenses-store'),
+    );
     dummyWatcher = new DummyWatcher();
     dateProvider = new DateProvider();
-    logger = createLogger('test');
     committee = times(settings.targetCommitteeSize, i => EthAddress.fromNumber(i + 1));
 
     // Create mock EpochCache

@@ -1,6 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { L2BlockNew, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -62,10 +63,18 @@ describe('EpochPruneWatcher', () => {
 
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
-    watcher = new EpochPruneWatcher(l2BlockSource, l1ToL2MessageSource, epochCache, txProvider, checkpointsBuilder, {
-      slashPrunePenalty: validEpochPrunedPenalty,
-      slashDataWithholdingPenalty: dataWithholdingPenalty,
-    });
+    watcher = new EpochPruneWatcher(
+      l2BlockSource,
+      l1ToL2MessageSource,
+      epochCache,
+      txProvider,
+      checkpointsBuilder,
+      {
+        slashPrunePenalty: validEpochPrunedPenalty,
+        slashDataWithholdingPenalty: dataWithholdingPenalty,
+      },
+      createLogger('test:epoch-prune-watcher'),
+    );
     await watcher.start();
   });
 
