@@ -865,6 +865,124 @@ describe('sequencer', () => {
       expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
+
+    it('handles error when createBlockProposal throws in multi-block mode', async () => {
+      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+
+      const txs = await timesParallel(8, i => makeTx(i * 0x10000));
+      block = await makeBlock(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
+
+      // Mock successful L1 submission (checkpoint would succeed without the error below)
+      publisher.sendRequests.mockResolvedValue({
+        successfulActions: ['propose'],
+        failedActions: [],
+        sentActions: ['propose'],
+        expiredActions: [],
+      } as any);
+
+      // Make createBlockProposal throw a generic error
+      validatorClient.createBlockProposal.mockRejectedValue(new Error('Failed to create block proposal'));
+
+      const checkpoint = await sequencer.work();
+
+      // When createBlockProposal always throws, checkpoint building fails
+      expect(checkpoint).toBeUndefined();
+      expect(validatorClient.createBlockProposal).toHaveBeenCalled();
+      expect(p2p.broadcastProposal).not.toHaveBeenCalled();
+    });
+
+    it('handles error when broadcastProposal throws in multi-block mode', async () => {
+      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+
+      const txs = await timesParallel(8, i => makeTx(i * 0x10000));
+      block = await makeBlock(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
+
+      // Mock successful L1 submission (checkpoint would succeed without the error below)
+      publisher.sendRequests.mockResolvedValue({
+        successfulActions: ['propose'],
+        failedActions: [],
+        sentActions: ['propose'],
+        expiredActions: [],
+      } as any);
+
+      // Make broadcastProposal throw a generic error
+      p2p.broadcastProposal.mockRejectedValue(new Error('Failed to broadcast proposal'));
+
+      const checkpoint = await sequencer.work();
+
+      // When broadcastProposal always throws, checkpoint building fails
+      expect(checkpoint).toBeUndefined();
+      expect(p2p.broadcastProposal).toHaveBeenCalled();
+    });
+
+    it('recovers after transient createBlockProposal error', async () => {
+      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+
+      const txs = await timesParallel(8, i => makeTx(i * 0x10000));
+      block = await makeBlock(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
+
+      // Fail once, then succeed
+      let callCount = 0;
+      validatorClient.createBlockProposal.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error('Transient error'));
+        }
+        return Promise.resolve(createBlockProposal());
+      });
+
+      // Mock successful L1 submission
+      publisher.sendRequests.mockResolvedValue({
+        successfulActions: ['propose'],
+        failedActions: [],
+        sentActions: ['propose'],
+        expiredActions: [],
+      } as any);
+
+      const checkpoint = await sequencer.work();
+
+      // Check recovery happened (called more than once due to retry)
+      expect(callCount).toBeGreaterThan(1);
+      expect(p2p.broadcastProposal).toHaveBeenCalled();
+      expect(checkpoint).toBeDefined();
+      expect(checkpoint!.blocks.length).toBeGreaterThan(1); // Multiple blocks after recovery
+    });
+
+    it('recovers after transient broadcastProposal error', async () => {
+      sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
+
+      const txs = await timesParallel(8, i => makeTx(i * 0x10000));
+      block = await makeBlock(txs);
+      TestUtils.mockPendingTxs(p2p, txs);
+
+      // Fail once, then succeed
+      let callCount = 0;
+      p2p.broadcastProposal.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error('Transient error'));
+        }
+        return Promise.resolve(undefined);
+      });
+
+      // Mock successful L1 submission
+      publisher.sendRequests.mockResolvedValue({
+        successfulActions: ['propose'],
+        failedActions: [],
+        sentActions: ['propose'],
+        expiredActions: [],
+      } as any);
+
+      const checkpoint = await sequencer.work();
+
+      // Check recovery happened (called more than once due to retry)
+      expect(callCount).toBeGreaterThan(1);
+      expect(checkpoint).toBeDefined();
+      expect(checkpoint!.blocks.length).toBeGreaterThan(1); // Multiple blocks after recovery
+    });
   });
 });
 

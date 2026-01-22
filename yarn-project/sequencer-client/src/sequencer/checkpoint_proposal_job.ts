@@ -30,7 +30,12 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import type { BlockProposalOptions, CheckpointProposal, CheckpointProposalOptions } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  BlockProposalOptions,
+  CheckpointProposal,
+  CheckpointProposalOptions,
+} from '@aztec/stdlib/p2p';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
@@ -433,6 +438,8 @@ export class CheckpointProposalJob implements Traceable {
         this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
       });
 
+      usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
+
       // If this is the last block, exit the loop now so we start collecting attestations
       if (timingInfo.isLastBlock) {
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.slot}`, {
@@ -447,16 +454,14 @@ export class CheckpointProposalJob implements Traceable {
       // For non-last blocks, broadcast the block proposal (unless we're in fisherman mode)
       // If the block is the last one, we'll broadcast it along with the checkpoint at the end of the loop
       if (!this.config.fishermanMode) {
-        const proposal = await this.validatorClient.createBlockProposal(
-          block.header,
-          block.indexWithinCheckpoint,
+        const proposal = await this.createBlockProposalWithRetry(
+          block,
           inHash,
-          block.archive.root,
           usedTxs,
-          this.proposer,
           blockProposalOptions,
+          timingInfo.deadline,
         );
-        await this.p2pClient.broadcastProposal(proposal);
+        await this.broadcastProposalWithRetry(proposal, blockNumber, timingInfo.deadline);
       }
 
       // Wait until the next block's start time
@@ -477,6 +482,85 @@ export class CheckpointProposalJob implements Traceable {
     this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slot);
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, { slot: this.slot });
     await this.waitUntilTimeInSlot(nextSubslotStart);
+  }
+
+  private async broadcastProposalWithRetry(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    deadline: number,
+  ): Promise<void> {
+    const RETRY_DELAY_MS = 100;
+    let lastError: any;
+
+    do {
+      try {
+        await this.p2pClient.broadcastProposal(proposal);
+        return;
+      } catch (e) {
+        lastError = e;
+        this.log.warn(`Unable to broadcast block proposal, retrying`, {
+          slot: this.slot,
+          blockNumber,
+          deadline,
+          secondsIntoSlot: this.getSecondsIntoSlot(),
+          error: e,
+        });
+        await sleep(RETRY_DELAY_MS);
+      }
+    } while (this.getSecondsIntoSlot() < deadline);
+
+    this.log.warn(`Failed to broadcast block proposal before deadline`, {
+      slot: this.slot,
+      blockNumber,
+      deadline,
+    });
+    throw lastError;
+  }
+
+  private async createBlockProposalWithRetry(
+    block: L2Block,
+    inHash: Fr,
+    txs: Tx[],
+    options: BlockProposalOptions,
+    deadline: number,
+  ): Promise<BlockProposal> {
+    const RETRY_DELAY_MS = 100;
+    const blockNumber = block.header.getBlockNumber();
+    let lastError: any;
+
+    do {
+      try {
+        return await this.validatorClient.createBlockProposal(
+          block.header,
+          block.indexWithinCheckpoint,
+          inHash,
+          block.archive.root,
+          txs,
+          this.proposer,
+          options,
+        );
+      } catch (e) {
+        if (e instanceof DutyAlreadySignedError || e instanceof SlashingProtectionError) {
+          throw e;
+        }
+        lastError = e;
+        this.log.warn(`Unable to create block proposal, retrying`, {
+          slot: this.slot,
+          blockNumber,
+          deadline,
+          secondsIntoSlot: this.getSecondsIntoSlot(),
+          error: e,
+        });
+        await sleep(RETRY_DELAY_MS);
+      }
+    } while (this.getSecondsIntoSlot() < deadline);
+
+    this.log.warn(`Failed to create block proposal before deadline`, {
+      slot: this.slot,
+      blockNumber,
+      deadline,
+    });
+    throw lastError;
   }
 
   /** Builds a single block. Called from the main block building loop. */
