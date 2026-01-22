@@ -1,5 +1,8 @@
+include "constants_gen.pil";
 include "ecc.pil";
 include "gt.pil";
+include "memory.pil";
+include "precomputed.pil";
 
 /**
  * This handles the memory writes when the ECADD opcode is executed by user code.
@@ -197,7 +200,7 @@ namespace ecc_add_mem;
     ////////////////////////////////////////////////
     #[WRITE_MEM_0]
     sel_should_exec {
-        execution_clk, space_id, dst_addr[0], res_x, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+        execution_clk, space_id, dst_addr[0], res_x, /*FF_mem_tag=0*/ precomputed.zero, /*rw=1*/ sel_should_exec
     } is
     memory.sel_ecc_write[0] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
@@ -205,7 +208,7 @@ namespace ecc_add_mem;
 
     #[WRITE_MEM_1]
     sel_should_exec {
-        execution_clk, space_id, dst_addr[1], res_y, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+        execution_clk, space_id, dst_addr[1], res_y, /*FF_mem_tag=0*/ precomputed.zero, /*rw=1*/ sel_should_exec
     } is
     memory.sel_ecc_write[1] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw

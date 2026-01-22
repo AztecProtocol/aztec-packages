@@ -1,5 +1,6 @@
 include "ecc.pil";
 include "to_radix.pil";
+include "precomputed.pil";
 
 /**
  * This subtrace supports scalar point multiplication over the Grumpkin curve (in SW form:  Y^2 = X^3 − 17).
@@ -47,8 +48,14 @@ include "to_radix.pil";
  * |     0 |   1 |       0     | p           | s      | p         |   1 |       0 | p          |          0 |
  * +-------+-----+-------------+-------------+--------+-----------+-----+---------+------------+------------+
  *
- * INTERACTIONS: This subtrace is looked up by:
+ * INTERACTIONS:
+ *
+ * This subtrace is looked up by:
  * - address_derivation.pil: To constrain that the preaddress public key is the result of the scalar multiplication of preaddress * G (#[PREADDRESS_SCALAR_MUL]).
+ *
+ * This subtrace looks up:
+ * - ecc.pil: To retrieve the output points given by temp + temp (#[DOUBLE]) and res + temp (#[ADD]).
+ * - to_radix.pil: To constrain the correctness of bit at bit_idx of the decomposed scalar (#[TO_RADIX]).
  *
 */
 
@@ -142,7 +149,7 @@ namespace scalar_mul;
     sel * (const_two - 2) = 0;
 
     #[TO_RADIX]
-    sel { scalar, bit, bit_idx, const_two /* == bit_radix */ }
+    sel { scalar, bit, bit_idx, const_two /* = bit_radix */ }
     in
     to_radix.sel
         { to_radix.value, to_radix.limb, to_radix.limb_index, to_radix.radix };
