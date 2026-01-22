@@ -68,30 +68,6 @@ SHA256<Builder>::sparse_witness_limbs SHA256<Builder>::convert_witness(const fie
 }
 
 /**
- * @brief Apply an implicit 32-bit range constraint by performing a lookup on the input.
- *
- * @details This is more efficient in the context of SHA-256 operations than explicit 32-bit range constraints since the
- * lookup table is already in use. We use the SHA256_MAJ_INPUT MultiTable since it results in only 3 lookup gates per
- * lookup.
- *
- * @note The result of the lookup is not used, but the accumulator outputs are marked as intentionally unused to
- * avoid false positives in the boomerang value detection analysis.
- *
- * @param input The field element to constrain to 32 bits.
- */
-template <typename Builder>
-void SHA256<Builder>::apply_32_bit_range_constraint_via_lookup(const field_t<Builder>& input)
-{
-    auto lookup_data = plookup_read<Builder>::get_lookup_accumulators(MultiTableId::SHA256_MAJ_INPUT, input);
-    // Mark all accumulator outputs as intentionally unused (they exist only for the range constraint side-effect)
-    for (auto& col : lookup_data.columns) {
-        for (auto& elem : col) {
-            mark_witness_as_used(elem);
-        }
-    }
-}
-
-/**
  * @brief Extend the 16-word message block to 64 words per SHA-256 specification.
  *
  * SHA-256 Spec (FIPS 180-4, Section 6.2.2):
@@ -449,8 +425,8 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     // Apply range constraints to `a` and `e` which are the only outputs of the previous loop not already
     // lookup-constrained via sparse form conversion. Although not strictly necessary, this simplifies the analysis that
     // the output of compression is fully constrained at minimal cost.
-    apply_32_bit_range_constraint_via_lookup(a.normal);
-    apply_32_bit_range_constraint_via_lookup(e.normal);
+    a.normal.create_range_constraint(32);
+    e.normal.create_range_constraint(32);
 
     // Add round results into previous block output.
     // Overflow bits = 1 since each summand is constrained to 32 bits.
