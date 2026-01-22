@@ -132,7 +132,7 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
     logger.warn(`Checkpoint ${targetCheckpoint} has been mined`);
 
     // Get the checkpoints from the archiver
-    const publishedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 50);
+    const publishedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${publishedCheckpoints.length} checkpoints from archiver`);
 
     // Log checkpoint information and verify MBPS
@@ -225,7 +225,7 @@ describe.skip('e2e_epochs/epochs_multiple_blocks_per_slot', () => {
     );
 
     // Get the checkpoints from the archiver
-    const publishedCheckpoints = await archiver.getPublishedCheckpoints(CheckpointNumber(1), 50);
+    const publishedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${publishedCheckpoints.length} checkpoints from archiver`);
 
     // Collect all blocks from all checkpoints

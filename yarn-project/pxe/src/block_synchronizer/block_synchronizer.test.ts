@@ -3,7 +3,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockHash, L2BlockNew, type L2BlockStream } from '@aztec/stdlib/block';
+import { GENESIS_CHECKPOINT_HEADER_HASH, L2Block, L2BlockHash, type L2BlockStream } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
@@ -41,7 +41,7 @@ describe('BlockSynchronizer', () => {
   });
 
   it('sets header from latest block', async () => {
-    const block = await L2BlockNew.random(BlockNumber(1));
+    const block = await L2Block.random(BlockNumber(1));
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
@@ -54,14 +54,14 @@ describe('BlockSynchronizer', () => {
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
       if (block instanceof L2BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
-        return (await L2BlockNew.random(BlockNumber(3))).header;
+        return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;
     });
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
+      blocks: await timesParallel(5, i => L2Block.random(BlockNumber(i))),
     });
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -78,14 +78,14 @@ describe('BlockSynchronizer', () => {
     aztecNode.getBlockHeader.mockImplementation(async block => {
       // For the test, when block hash matches block 3, return block header for block 3
       if (block instanceof L2BlockHash && Fr.fromBuffer(block.toBuffer()).equals(block3Hash)) {
-        return (await L2BlockNew.random(BlockNumber(3))).header;
+        return (await L2Block.random(BlockNumber(3))).header;
       }
       return undefined;
     });
 
     await synchronizer.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await timesParallel(5, i => L2BlockNew.random(BlockNumber(i))),
+      blocks: await timesParallel(5, i => L2Block.random(BlockNumber(i))),
     });
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',

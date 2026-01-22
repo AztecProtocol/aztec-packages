@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { BatchedBlob, Blob, getEthBlobEvaluationInputs, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { writeFile } from 'fs/promises';
@@ -15,7 +15,7 @@ const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
  */
 export async function writeJson(
   fileName: string,
-  block: L2BlockNew,
+  block: L2Block,
   l1ToL2Content: Fr[],
   blobs: Blob[],
   batchedBlob: BatchedBlob,

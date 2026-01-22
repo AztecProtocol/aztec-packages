@@ -3,7 +3,7 @@ import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types'
 import { type ZodTypeAny, z } from 'zod';
 
 import { L2BlockHash } from './block_hash.js';
-import type { L2BlockNew } from './l2_block_new.js';
+import type { L2Block } from './l2_block.js';
 
 export type InBlock = {
   l2BlockNumber: BlockNumber;
@@ -29,7 +29,7 @@ export function randomDataInBlock<T>(data: T): DataInBlock<T> {
   };
 }
 
-export async function wrapDataInBlock<T>(data: T, block: L2BlockNew): Promise<DataInBlock<T>> {
+export async function wrapDataInBlock<T>(data: T, block: L2Block): Promise<DataInBlock<T>> {
   return {
     data,
     l2BlockNumber: block.number,
