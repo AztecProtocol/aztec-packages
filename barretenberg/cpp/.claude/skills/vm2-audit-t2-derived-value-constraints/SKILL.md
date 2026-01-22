@@ -33,77 +33,75 @@ Completeness bugs reachable via canonical simulation on valid inputs are **Criti
 
 ## Workflow
 
-> PIL files in `barretenberg/cpp/pil/vm2/`. Use `find pil/vm2 -name "*.pil"` to list.
+> **PERFORMANCE RULE**: Do NOT analyze all ~1,730 committed columns individually. Use the filter-first approach below to narrow to suspicious candidates, then do deep analysis only on those. Per-column iteration will exhaust the context window.
+>
+> PIL files in `barretenberg/cpp/pil/vm2/`.
 
-### Step 1: Identify Committed Columns
+### Phase 1: Filter to Suspicious Candidates (3 parallel batch searches)
 
+**Search A — All committed columns** (the full set):
 ```bash
 grep -rn "pol commit" pil/vm2/ --include="*.pil"
-# Distinguish from intermediate expressions (uppercase by convention):
-grep -rn "^pol [A-Z]" pil/vm2/ --include="*.pil"
 ```
 
-### Step 2: Categorize Each Column
+**Search B — All columns that ARE constrained** (the safe set):
+```bash
+# Columns on LHS of equations (col = expr, or col - expr = 0)
+grep -rn "^[^/]*[a-z_][a-z_0-9]* \(=\|- \)" pil/vm2/ --include="*.pil" | grep -v "pol "
+# Columns in lookup/permutation tuples
+grep -rn "{.*}" pil/vm2/ --include="*.pil"
+# Columns constrained by definition (equation IS the constraint)
+grep -rn "pol commit.*=\|^[a-z_].*= .*;" pil/vm2/ --include="*.pil"
+```
 
-| Category | Examples | Constraint Source |
-|----------|----------|-------------------|
-| **Input** | `opcode`, `operand` | Lookup/permutation |
-| **Derived** | `next_pc`, `output`, `remaining_gas` | **AUDIT FOCUS** |
-| **Witness** | `inv`, `quotient`, `diff_inv` | Zero-check pattern |
-| **Selector** | `sel_add`, `sel_jump` | Decomposition |
-| **Constrained by Definition** | `sel_error = err_a + err_b...` | Equation IS constraint |
+**Search C — Red flag patterns** (high-priority candidates):
+```bash
+grep -rn "TODO.*constrain\|FIXME.*constrain\|unconstrained\|should be\|must be" pil/vm2/ --include="*.pil"
+```
 
-### Step 3: Check Constraint Patterns
+### Phase 2: Compute Candidate Set
+
+From the batch results:
+1. ALL_COLUMNS = committed columns from Search A
+2. CONSTRAINED = columns appearing in Search B (on LHS of equations, in tuples, etc.)
+3. RED_FLAGS = columns flagged by Search C
+4. CANDIDATES = (ALL_COLUMNS - CONSTRAINED) ∪ RED_FLAGS
+
+Exclude from candidates:
+- Intermediate expressions (`pol UPPER_CASE = ...` — these are constrained by definition)
+- Input columns that appear in lookup DESTINATION positions (caller constrains them)
+- Columns in `precomputed` namespace (populated by prover, not witnesses)
+
+Typically yields **15-40 candidates** to investigate deeply.
+
+### Phase 3: Deep Analysis Per Candidate
+
+For each candidate, read the relevant PIL file (group candidates by file to minimize reads) and verify:
+
+1. **Constrained by definition?** `col = expr;` means the equation IS the constraint
+2. **Selector-gated constraint?** `sel * (col - expr) = 0;` — check ALL cases are covered
+3. **In a lookup/permutation tuple?** Constrained by the interaction
+4. **Cascade-protected?** When `sel == 0`, does the cascade make it irrelevant?
+5. **Missing default case?** If `sel_op_a * (col - X) = 0; sel_op_b * (col - Y) = 0;` but no `(1 - sel_op_a - sel_op_b) * col = 0;`
+
+### Phase 4: Completeness Check
+
+After analyzing candidates, verify nothing was missed by the batch filter:
 
 ```bash
-# Direct constraint (col = expr or expr - col = 0)
-grep -rn "column_name\s*=" pil/vm2/ --include="*.pil"
-# Selector-gated constraint
-grep -rn "sel.*column_name\|column_name.*sel" pil/vm2/ --include="*.pil"
-# In lookup/permutation tuple
-grep -rn "column_name" pil/vm2/ --include="*.pil" | grep -E "(in|is)\s"
-# In interaction tuple
-grep -rn "column_name" pil/vm2/ --include="*.pil" | grep "{"
+# Per-file column count: compare declared vs analyzed
+for f in pil/vm2/*.pil pil/vm2/**/*.pil; do
+  [ -f "$f" ] || continue
+  declared=$(grep -c "pol commit" "$f" 2>/dev/null || echo 0)
+  echo "$f: $declared columns"
+done
 ```
 
-### Step 4: Verify "Constrained by Definition" Pattern
+Cross-check: for any file with >10 columns where 0 candidates were found, do a quick manual scan of that file's constraint section to verify all columns are indeed constrained. This is O(files), not O(columns), so it stays bounded.
 
-```pil
-pol commit sel_error;
-sel_error = err_a + err_b - err_a * err_b;  // Equation IS constraint - NOT a bug
-```
-
-### Step 5: Check Selector Deactivation Cascades
-
-```pil
-// Cascade from execution.pil:
-// sel == 0 ==> sel_bytecode_retrieval_success == 0 ==> ... ==> sel_should_execute_opcode == 0
-```
-
-Verify derived values are either:
-1. Constrained when `sel == 1`, OR
-2. Proven 0/irrelevant when `sel == 0` via cascade
-
-### Step 6: Check Case Coverage
-
-```pil
-// VULNERABLE: Only one case constrained
-sel_op_a * (derived - formula_a) = 0;
-// What if sel_op_a = 0?
-
-// SECURE: Complete coverage
-sel_op_a * (derived - formula_a) = 0;
-sel_op_b * (derived - formula_b) = 0;
-(1 - sel_op_a - sel_op_b) * derived = 0;  // Default case
-```
-
-### Step 7: Search for Red Flags
-
-```bash
-grep -rn "TODO.*constrain\|FIXME.*constrain\|unconstrained" pil/vm2/ --include="*.pil"
-grep -rn "@boolean" pil/vm2/ --include="*.pil"  # Should have boolean constraint
-grep -rn "should be\|must be\|derived from" pil/vm2/ --include="*.pil"
-```
+Also check for any column categories not handled by the batch filter:
+- Array columns (`pol commit col[N]`) — may need loop constraint verification
+- Columns only referenced via namespace prefix in other files
 
 ## Vulnerable Patterns
 

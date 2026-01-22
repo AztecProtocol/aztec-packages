@@ -19,40 +19,70 @@ Find columns declared (`pol commit`) but never meaningfully constrained - indica
 
 ## Workflow
 
-### Step 1: Find Columns and Check Usage
+> **PERFORMANCE RULE**: Do NOT run individual greps for each of ~1,730 columns. Use the automated batch script below. Per-column iteration will exhaust the context window.
+
+### Phase 1: Automated Dead Column Detection (single bash command)
+
+Run this script to find all potentially dead columns in one shot:
+
 ```bash
-# List all PIL files
-find pil/vm2 -name "*.pil"
-
-# List declared columns
-grep -n "pol commit" pil/vm2/<component>.pil
-
-# Check usage count (should have >1 occurrence)
-grep -c "column_name" pil/vm2/<component>.pil
-
-# Check cross-file usage
-grep -rn "component\\.column_name" pil/vm2/ --include="*.pil"
+# For each PIL file, extract declared columns, then check if each appears >1 time in all PIL files
+for pil_file in pil/vm2/*.pil pil/vm2/**/*.pil; do
+  [ -f "$pil_file" ] || continue
+  # Get namespace prefix for cross-file lookups (e.g., "alu" from "pil/vm2/alu.pil")
+  ns=$(basename "$pil_file" .pil)
+  # Extract column names from "pol commit col;" and "pol commit col[N];" declarations
+  grep -oP 'pol commit \K[a-z_][a-z_0-9]*(?=[\[;,])' "$pil_file" | while read col; do
+    # Count occurrences in same file (declaration + usage)
+    local_count=$(grep -c "$col" "$pil_file" 2>/dev/null || echo 0)
+    # Count cross-file references (namespace.col)
+    cross_count=$(grep -rl "${ns}\.${col}" pil/vm2/ --include="*.pil" 2>/dev/null | wc -l)
+    total=$((local_count + cross_count))
+    if [ "$total" -le 1 ]; then
+      echo "DEAD: $pil_file : $col (local=$local_count, cross=$cross_count)"
+    fi
+  done
+done
 ```
 
-Column is potentially dead if it only appears in its declaration.
+This produces a focused list of dead column candidates — typically **10-30**, not hundreds.
 
-### Step 2: Verify Valid Usage Types
+### Phase 2: Verify Candidates
+
+For each candidate from Phase 1, read the relevant PIL file and check:
 
 | Usage Type | Check | Status |
 |------------|-------|--------|
-| Lookup destination | `grep -rn "in component\\." pil/vm2/` | Valid |
+| Lookup destination | Other traces reference `component.col` | Valid (cross-file) |
 | Used in intermediate | `pol DERIVED = column * ...` | Valid |
 | Conditional constraint | `sel_X * (column - ...) = 0` | Valid |
+| Array member | `col[i]` in loop — grep may miss | Valid (verify manually) |
 | Tracegen only | Only in `.cpp`, not constrained | **Dead** |
 | Commented constraint | Constraint is `// commented` | **Dead** |
 
-### Step 3: Categorize by Severity
+**Note on array columns**: The bash script may miss array references like `col[0]`, `col[1]`. For any array columns (`pol commit col[N]`), manually verify they're used in loop constraints.
+
+### Phase 3: Categorize by Severity
 
 | Category | Severity | Description |
 |----------|----------|-------------|
 | Incomplete constraint | High | Security check missing |
 | Refactoring leftover | Low | Can be removed |
 | Placeholder | Info | Has TODO comment |
+
+### Phase 4: Completeness Check
+
+Verify the script covered all PIL files:
+```bash
+# Compare file count from script vs actual
+find pil/vm2 -name "*.pil" | wc -l
+```
+
+Also check for columns declared with unusual syntax (multi-line declarations, macro-generated columns) that the regex might miss:
+```bash
+grep -rn "pol commit" pil/vm2/ --include="*.pil" | grep -v "pol commit [a-z_]"
+```
+Any results here are unconventional declarations — manually verify them.
 
 ## Patterns
 

@@ -39,28 +39,41 @@ pol SUB = sel * condition;
 
 ## Workflow
 
-### Step 1: Find All Selectors
+> **PERFORMANCE RULE**: Do NOT iterate per-selector with individual greps. Use the batch-first approach below. The codebase has hundreds of sub-selectors — per-selector iteration will exhaust the context window.
+
+### Phase 1: Batch Collection (3 parallel searches)
+
+**Search A — All committed sub-selectors** (candidates):
 ```bash
-# Sub-selectors (sel_*, is_*, *_op patterns)
 grep -rn "pol commit.*sel_\|pol commit is_\|pol commit.*_op" pil/vm2/ --include="*.pil"
-
-# Main selector
-grep -rn "pol commit sel;" pil/vm2/ --include="*.pil"
 ```
 
-### Step 2: Check Implication Constraints
-For each sub-selector, verify existence of:
+**Search B — All implication constraints** (already protected):
 ```bash
-# Direct: sub_selector * (1 - sel) = 0
-grep -rn "sub_selector.*(1 - sel)" pil/vm2/ --include="*.pil"
-
-# Or derived: pol SUB = sel * ...
-grep -rn "pol [A-Z_]* = sel \*" pil/vm2/ --include="*.pil"
+grep -rn "\* (1 - sel)" pil/vm2/ --include="*.pil"
 ```
 
-**Missing constraint if**: `pol commit sub_sel` exists with boolean constraint, but no `sub_sel * (1 - sel) = 0` and not derived from `sel *`.
+**Search C — All derived-from-sel intermediates** (inherently safe):
+```bash
+grep -rn "pol [A-Z_]* = sel \*\|pol [A-Z_]* = .*\* sel" pil/vm2/ --include="*.pil"
+```
 
-### Step 3: Assess Exploitability
+### Phase 2: Set Difference (compute candidates)
+
+From the batch results:
+1. DECLARED = sub-selectors from Search A
+2. PROTECTED = selectors appearing in Search B + derived selectors from Search C
+3. CANDIDATES = DECLARED - PROTECTED
+
+Typically yields **5-20 candidates** to investigate.
+
+### Phase 3: Deep Analysis (only on candidates)
+
+For each candidate, read the relevant PIL file and check:
+1. Does it trigger a permutation or lookup? (grep for the column name in `{...} is {...}` patterns)
+2. If permutation: can attacker create legitimate destination rows?
+3. If lookup only: LOW severity (one-way)
+4. If incoming uses `trace.sel` as destination selector: NOT AN ISSUE
 
 | Interaction Type | Exploitability | Severity |
 |------------------|----------------|----------|
@@ -69,12 +82,19 @@ grep -rn "pol [A-Z_]* = sel \*" pil/vm2/ --include="*.pil"
 | **Lookup** | One-way (source can't fake destination) | LOW |
 | Incoming uses `trace.sel` | Ghost rows isolated | NOT AN ISSUE |
 
-**Key question for permutations**: Can attacker create legitimate destination rows?
+**WARNING**: "Destination protected by `write * (1 - sel) = 0`" is NOT sufficient! Ghost sources can still match legitimate destinations.
+
+### Phase 4: Completeness Reconciliation
+
+Catch sub-selectors with unconventional names by finding ALL columns that gate interactions:
 ```bash
-grep -rn "destination_trace" src/barretenberg/vm2/simulation/
+# Find all columns used as selectors in permutation/lookup source positions
+grep -roPh "[a-z_][a-z_0-9]* \{" pil/vm2/ --include="*.pil" | sort -u
 ```
 
-**WARNING**: "Destination protected by `write * (1 - sel) = 0`" is NOT sufficient! Ghost sources can still match legitimate destinations.
+Cross-check: any selector name appearing here that wasn't in Search A is an unconventionally-named sub-selector. Add to candidates and re-run Phase 3.
+
+Also verify: for each PIL file that declares a `pol commit sel;`, confirm at least one sub-selector was analyzed. List any files with 0 candidates (they may have no sub-selectors, but flag for awareness).
 
 ## Critical Examples
 

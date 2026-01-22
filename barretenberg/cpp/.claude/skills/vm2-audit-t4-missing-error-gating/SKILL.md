@@ -49,32 +49,38 @@ sel_operation { input } in dest.sel { dest.input };
 
 ## Workflow
 
-### 1. Identify All Interactions
+> **PERFORMANCE RULE**: Do NOT iterate per-interaction with individual greps. Use batch collection to gather all interactions and error gating patterns first, then cross-reference in memory.
+
+### Phase 1: Batch Collection (3 parallel searches)
+
+**Search A — All interactions across all PIL files**:
 ```bash
-grep -nP '}\s*(in|is)\b' pil/vm2/<component>.pil
+grep -rnP '}\s*(in|is)\b' pil/vm2/ --include="*.pil"
 ```
 
-### 2. For Each Interaction
-1. Identify source selector (left side of `in` or `is`)
-2. Check if raw (`sel_op`) or gated (`sel_op * (1 - sel_err)`)
-3. Determine what errors can occur during this operation
-
-### 3. Check Simulation Code
+**Search B — All error-gated selectors**:
 ```bash
-grep -rn "<operation_name>" src/barretenberg/vm2/simulation/ --include="*.cpp"
-```
-- Can errors occur during this operation?
-- Is destination event emitted on error path?
-- If NOT emitted on error, source MUST be gated
-
-### 4. Verify Error Gating
-```bash
-grep -B5 "<interaction_name>" pil/vm2/<component>.pil
+grep -rn "(1 - sel_err)\|(1 - sel_tag_err)\|(1 - sel_opcode_error)\|(1 - error)" pil/vm2/ --include="*.pil"
 ```
 
-Look for:
-- `sel_op * (1 - sel_err)` - gated by general error
-- `sel_op * (1 - sel_tag_err) * (1 - sel_err)` - multi-error gating
+**Search C — All error flags and which operations can error**:
+```bash
+grep -rn "sel_err\|sel_tag_err\|sel_div_0\|sel_overflow" pil/vm2/ --include="*.pil"
+```
+
+### Phase 2: Cross-Reference (identify ungated interactions)
+
+From the batch results:
+1. ALL_INTERACTIONS = interactions from Search A (extract source selectors)
+2. GATED = selectors appearing in Search B (error-gated patterns)
+3. CANDIDATES = interactions whose source selectors are NOT in GATED
+
+### Phase 3: Deep Analysis (only on candidates)
+
+For each ungated interaction:
+1. Check simulation code: can errors occur during this operation?
+2. Is destination event emitted on error path?
+3. If NOT emitted on error, source MUST be gated → finding
 
 ## Patterns
 

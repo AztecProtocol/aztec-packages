@@ -74,11 +74,44 @@ STATS_FILE="$OUTPUT_DIR/STATS.txt"
 # Temp files for large prompts (avoids "Argument list too long" errors)
 PROMPT_FILE=""
 CONSENSUS_PROMPT_FILE=""
+CONDENSED_JSON_FILE=""
 cleanup_temp_files() {
     [[ -n "$PROMPT_FILE" && -f "$PROMPT_FILE" ]] && rm -f "$PROMPT_FILE"
     [[ -n "$CONSENSUS_PROMPT_FILE" && -f "$CONSENSUS_PROMPT_FILE" ]] && rm -f "$CONSENSUS_PROMPT_FILE"
+    [[ -n "$CONDENSED_JSON_FILE" && -f "$CONDENSED_JSON_FILE" ]] && rm -f "$CONDENSED_JSON_FILE"
 }
 trap cleanup_temp_files EXIT
+
+# Maximum JSON size (in bytes) to pass directly to Claude prompt.
+# Beyond this, we condense the JSON to strip verbose fields.
+MAX_JSON_PROMPT_SIZE=100000
+
+# Condense findings JSON by stripping verbose fields, keeping only what's needed for summarization.
+# Uses jq to trim description to first 120 chars, drop exploit_vector, evidence, recommendation, fix, etc.
+condense_findings_json() {
+    local input_file="$1"
+    local output_file="$2"
+    jq '
+      .skills = [.skills[] | {
+        skill,
+        status,
+        statistics: (if .statistics then {
+          files_scanned: .statistics.files_scanned,
+          genuine_findings: .statistics.genuine_findings,
+          findings_by_severity: .statistics.findings_by_severity
+        } else null end),
+        findings: [(.findings // [])[] | {
+          id,
+          severity,
+          exploitability,
+          file,
+          line,
+          column,
+          description: (.description // "" | if length > 150 then .[:150] + "..." else . end)
+        }]
+      }]
+    ' "$input_file" > "$output_file"
+}
 
 echo -e "${BLUE}Gathering audit results from: $OUTPUT_DIR${NC}"
 
@@ -394,6 +427,18 @@ Note if multiple skills found the same underlying issue.
 
 Use the finding IDs exactly as they appear in the JSON.'
 
+    # Determine which JSON to use: full or condensed (if too large for prompt)
+    JSON_FOR_PROMPT="$JSON_FINDINGS_FILE"
+    json_size=$(wc -c < "$JSON_FINDINGS_FILE")
+    if [[ "$json_size" -gt "$MAX_JSON_PROMPT_SIZE" ]]; then
+        echo -e "${YELLOW}JSON findings too large (${json_size} bytes > ${MAX_JSON_PROMPT_SIZE}). Condensing...${NC}"
+        CONDENSED_JSON_FILE=$(mktemp)
+        condense_findings_json "$JSON_FINDINGS_FILE" "$CONDENSED_JSON_FILE"
+        condensed_size=$(wc -c < "$CONDENSED_JSON_FILE")
+        echo -e "${GREEN}Condensed JSON: ${condensed_size} bytes (was ${json_size})${NC}"
+        JSON_FOR_PROMPT="$CONDENSED_JSON_FILE"
+    fi
+
     # Run claude with JSON data via stdin (avoids "Argument list too long" for large findings)
     # Use streaming append to avoid heredoc backslash interpretation issues with JSON
     PROMPT_FILE=$(mktemp)
@@ -401,10 +446,14 @@ Use the finding IDs exactly as they appear in the JSON.'
     {
         echo "$SUMMARIZE_PROMPT"
         echo ""
+        if [[ "$JSON_FOR_PROMPT" != "$JSON_FINDINGS_FILE" ]]; then
+            echo "NOTE: Findings have been condensed to fit prompt limits. Descriptions are truncated. See individual skill .json files for full details."
+            echo ""
+        fi
         echo "## JSON Findings Data"
         echo '```json'
     } > "$PROMPT_FILE"
-    cat "$JSON_FINDINGS_FILE" >> "$PROMPT_FILE"
+    cat "$JSON_FOR_PROMPT" >> "$PROMPT_FILE"
     {
         echo '```'
         echo ""
@@ -440,6 +489,21 @@ if [[ "$JSON_ONLY" != "true" ]] && { [[ "$EXTRA_MULTI_MODEL_SUMMARY" == "true" ]
     MULTI_MODEL_LOG="$OUTPUT_DIR/.multi-model-validate.log"
     MULTI_MODEL_START=$(date +%s)
 
+    # Determine which JSON to use for multi-model: full or condensed
+    CONSENSUS_JSON_FOR_PROMPT="$JSON_FINDINGS_FILE"
+    consensus_json_size=$(wc -c < "$JSON_FINDINGS_FILE")
+    if [[ "$consensus_json_size" -gt "$MAX_JSON_PROMPT_SIZE" ]]; then
+        # Reuse condensed file if already created, otherwise create it
+        if [[ -n "$CONDENSED_JSON_FILE" && -f "$CONDENSED_JSON_FILE" ]]; then
+            CONSENSUS_JSON_FOR_PROMPT="$CONDENSED_JSON_FILE"
+        else
+            CONDENSED_JSON_FILE=$(mktemp)
+            condense_findings_json "$JSON_FINDINGS_FILE" "$CONDENSED_JSON_FILE"
+            CONSENSUS_JSON_FOR_PROMPT="$CONDENSED_JSON_FILE"
+        fi
+        echo -e "${YELLOW}Using condensed JSON for multi-model validation${NC}"
+    fi
+
     # Use temp file for prompt to avoid "Argument list too long" with large JSON
     # Use streaming append to avoid heredoc backslash interpretation issues with JSON
     CONSENSUS_PROMPT_FILE=$(mktemp)
@@ -464,7 +528,7 @@ if [[ "$JSON_ONLY" != "true" ]] && { [[ "$EXTRA_MULTI_MODEL_SUMMARY" == "true" ]
         echo 'Findings JSON:'
         echo '```json'
     } > "$CONSENSUS_PROMPT_FILE"
-    cat "$JSON_FINDINGS_FILE" >> "$CONSENSUS_PROMPT_FILE"
+    cat "$CONSENSUS_JSON_FOR_PROMPT" >> "$CONSENSUS_PROMPT_FILE"
     echo '```' >> "$CONSENSUS_PROMPT_FILE"
 
     if claude -p - \
