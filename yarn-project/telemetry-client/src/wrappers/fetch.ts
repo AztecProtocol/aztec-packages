@@ -10,11 +10,12 @@ import { ATTR_JSONRPC_METHOD, ATTR_JSONRPC_REQUEST_ID } from '../vendor/attribut
 /**
  * Makes a fetch function that retries based on the given attempts and propagates trace information.
  * @param retries - Sequence of intervals (in seconds) to retry.
- * @param noRetry - Whether to stop retries on server errors.
- * @param log - Optional logger for logging attempts.
+ * @param defaultNoRetry - Whether to stop retries on server errors.
+ * @param log - Logger for logging attempts.
+ * @param fetch - The underlying fetch function to use.
  * @returns A fetch function.
  */
-export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, fetch = defaultFetch, log?: Logger) {
+export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, log: Logger, fetch = defaultFetch) {
   return (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry?: boolean) => {
     const telemetry = getTelemetryClient();
     return telemetry.getTracer('fetch').startActiveSpan(`JsonRpcClient`, { kind: SpanKind.CLIENT }, async span => {
@@ -29,9 +30,9 @@ export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, fetc
         propagation.inject(context.active(), headers);
         return await retry(
           () => fetch(host, body, headers, noRetry ?? defaultNoRetry),
+          log,
           `JsonRpcClient request to ${host}`,
           makeBackoff(retries),
-          log,
           false,
         );
       } catch (err: any) {

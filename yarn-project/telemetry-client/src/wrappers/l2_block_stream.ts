@@ -1,5 +1,5 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Logger } from '@aztec/foundation/log';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -18,8 +18,8 @@ export class TraceableL2BlockStream extends L2BlockStream implements Traceable {
     localData: L2BlockStreamLocalDataProvider,
     handler: L2BlockStreamEventHandler,
     public readonly tracer: Tracer,
+    log: Logger,
     private readonly name: string = 'L2BlockStream',
-    log = createLogger('types:block_stream'),
     opts: {
       proven?: boolean;
       pollIntervalMS?: number;

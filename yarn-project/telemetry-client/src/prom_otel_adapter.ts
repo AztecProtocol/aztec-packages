@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { Registry } from 'prom-client';
@@ -413,7 +413,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
 
   constructor(
     telemetryClient: TelemetryClient,
-    private logger: Logger = createLogger('telemetry:otel-metrics-adapter'),
+    private logger: Logger,
   ) {
     super();
     this.meter = telemetryClient.getMeter('metrics-adapter');
