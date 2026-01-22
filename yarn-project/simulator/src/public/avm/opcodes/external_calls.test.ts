@@ -107,7 +107,7 @@ describe('External Calls', () => {
       expect(successValue).toEqual(new Uint1(0n)); // failure, contract non-existent!
 
       const retValue = context.machineState.nestedReturndata;
-      expect(retValue).toEqual([]);
+      expect(retValue.readAll()).toEqual([]);
 
       // should charge for the CALL instruction itself, and all allocated gas should be consumed
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas - l2Gas);
@@ -169,7 +169,7 @@ describe('External Calls', () => {
       expect(successValue).toEqual(new Uint1(1n));
 
       const retValue = context.machineState.nestedReturndata;
-      expect(retValue).toEqual([new Fr(1n), new Fr(2n)]);
+      expect(retValue.readAll()).toEqual([new Fr(1n), new Fr(2n)]);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
       expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
@@ -229,8 +229,8 @@ describe('External Calls', () => {
       expect(successValue).toEqual(new Uint1(1n));
 
       const retValues = context.machineState.nestedReturndata;
-      expect(retValues).toHaveLength(1);
-      expect(retValues[0].toBigInt()).toBeLessThan(initialL2Gas);
+      expect(retValues.length()).toBe(1);
+      expect(retValues.read(0).toBigInt()).toBeLessThan(initialL2Gas);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
       expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
@@ -335,7 +335,7 @@ describe('External Calls', () => {
 
       expect(context.machineState.getHalted()).toBe(true);
       expect(context.machineState.getReverted()).toBe(false);
-      expect(context.machineState.getOutput()).toEqual(returnData);
+      expect(context.machineState.getOutput().readAll()).toEqual(returnData);
     });
   });
 
@@ -368,7 +368,7 @@ describe('External Calls', () => {
 
       expect(context.machineState.getHalted()).toBe(true);
       expect(context.machineState.getReverted()).toBe(true);
-      expect(context.machineState.getOutput()).toEqual(returnData.map(f => f.toFr()));
+      expect(context.machineState.getOutput().readAll()).toEqual(returnData.map(f => f.toFr()));
     });
   });
 

@@ -19,6 +19,7 @@ import {
 import { strict as assert } from 'assert';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { CallDataArray } from '../avm/calldata.js';
 import { AvmSimulator } from '../avm/index.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
@@ -357,7 +358,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       transactionFee,
       this.globalVariables,
       request.isStaticCall,
-      calldata,
+      new CallDataArray(calldata),
       allocatedGas,
       this.config,
     );
