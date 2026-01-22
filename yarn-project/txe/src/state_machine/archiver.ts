@@ -3,6 +3,7 @@ import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { CheckpointId, L2BlockId, L2TipId, L2Tips, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -14,11 +15,15 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
  * without needing any of the extra overhead that the Archiver itself requires (i.e. an L1 client).
  */
 export class TXEArchiver extends ArchiverDataSourceBase {
-  private readonly updater = new ArchiverDataStoreUpdater(this.store);
+  private readonly updater: ArchiverDataStoreUpdater;
 
-  constructor(db: AztecAsyncKVStore) {
-    const store = new KVArchiverDataStore(db, 9999, { epochDuration: 32 });
+  constructor(
+    db: AztecAsyncKVStore,
+    private readonly log: Logger,
+  ) {
+    const store = new KVArchiverDataStore(db, log, 9999, { epochDuration: 32 });
     super(store);
+    this.updater = new ArchiverDataStoreUpdater(this.store, this.log);
   }
 
   // TXE-specific method for adding checkpoints

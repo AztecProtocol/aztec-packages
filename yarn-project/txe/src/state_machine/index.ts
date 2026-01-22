@@ -1,6 +1,6 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { AnchorBlockStore } from '@aztec/pxe/server';
 import { L2BlockNew } from '@aztec/stdlib/block';
@@ -25,14 +25,13 @@ export class TXEStateMachine {
     public anchorBlockStore: AnchorBlockStore,
   ) {}
 
-  public static async create(db: AztecAsyncKVStore) {
-    const archiver = new TXEArchiver(db);
+  public static async create(db: AztecAsyncKVStore, logger: Logger) {
+    const archiver = new TXEArchiver(db, logger);
     const synchronizer = await TXESynchronizer.create();
     const anchorBlockStore = new AnchorBlockStore(db);
 
     const aztecNodeConfig = {} as AztecNodeConfig;
 
-    const log = createLogger('txe_node');
     const node = new AztecNodeService(
       aztecNodeConfig,
       new DummyP2P(),
@@ -51,8 +50,7 @@ export class TXEStateMachine {
       new MockEpochCache(),
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
-      undefined,
-      log,
+      logger,
     );
 
     return new this(node, synchronizer, archiver, anchorBlockStore);

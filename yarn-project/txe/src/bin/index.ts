@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createLogger } from '@aztec/aztec.js/log';
+import { createLoggerFactory } from '@aztec/aztec.js/log';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import { createTXERpcServer } from '../index.js';
@@ -9,6 +9,9 @@ import { createTXERpcServer } from '../index.js';
  */
 async function main() {
   const { TXE_PORT = 8080 } = process.env;
+
+  const loggerFactory = createLoggerFactory();
+  const logger = loggerFactory.createLogger('txe:rpc');
 
   process.on('SIGTERM', () => {
     logger.info('Received SIGTERM.');
@@ -20,10 +23,9 @@ async function main() {
     process.exit(0);
   });
 
-  const logger = createLogger('txe:rpc');
   logger.info(`Setting up TXE...`);
 
-  const txeServer = createTXERpcServer(logger);
+  const txeServer = createTXERpcServer(loggerFactory);
   const { port } = await startHttpRpcServer(txeServer, {
     host: '127.0.0.1',
     port: TXE_PORT,

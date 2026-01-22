@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockNew } from '@aztec/stdlib/block';
@@ -19,7 +19,6 @@ import type { IAvmExecutionOracle } from './interfaces.js';
 export class TXEOraclePublicContext implements IAvmExecutionOracle {
   isAvm = true as const;
 
-  private logger: Logger;
   private transientUniqueNoteHashes: Fr[] = [];
   private transientSiloedNullifiers: Fr[] = [];
   private publicDataWrites: PublicDataWrite[] = [];
@@ -29,9 +28,8 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     private forkedWorldTrees: MerkleTreeWriteOperations,
     private txRequestHash: Fr,
     private globalVariables: GlobalVariables,
+    private logger: Logger,
   ) {
-    this.logger = createLogger('txe:public_context');
-
     this.logger.debug('Entering Public Context', {
       contractAddress,
       blockNumber: globalVariables.blockNumber,

@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
@@ -122,6 +122,7 @@ export class TXESession implements TXESessionStateHandler {
   private authwits: Map<string, AuthWitness> = new Map();
 
   constructor(
+    private loggerFactory: LoggerFactory,
     private logger: Logger,
     private stateMachine: TXEStateMachine,
     private oracleHandler:
@@ -146,22 +147,23 @@ export class TXESession implements TXESessionStateHandler {
     private nextBlockTimestamp: bigint,
   ) {}
 
-  static async init(protocolContracts: ProtocolContract[]) {
-    const store = await openTmpStore('txe-session');
+  static async init(protocolContracts: ProtocolContract[], loggerFactory: LoggerFactory) {
+    const logger = loggerFactory.createLogger('txe:session');
+    const store = await openTmpStore('txe-session', logger);
 
     const addressStore = new AddressStore(store);
-    const privateEventStore = new PrivateEventStore(store);
+    const privateEventStore = new PrivateEventStore(store, logger);
     const contractStore = new TXEContractStore(store);
-    const noteStore = new NoteStore(store);
+    const noteStore = new NoteStore(store, logger);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
-    const capsuleStore = new CapsuleStore(store);
+    const capsuleStore = new CapsuleStore(store, logger);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
     // Create job coordinator and register staged stores
-    const jobCoordinator = new JobCoordinator(store);
+    const jobCoordinator = new JobCoordinator(store, logger);
     jobCoordinator.registerStores([
       capsuleStore,
       senderTaggingStore,
@@ -176,7 +178,7 @@ export class TXESession implements TXESessionStateHandler {
       await contractStore.addContractInstance(instance);
     }
 
-    const stateMachine = await TXEStateMachine.create(store);
+    const stateMachine = await TXEStateMachine.create(store, loggerFactory.createLogger('txe:node'));
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -201,11 +203,13 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      loggerFactory.createLogger('txe:top_level_context'),
     );
     await topLevelOracleHandler.txeAdvanceBlocksBy(1);
 
     return new TXESession(
-      createLogger('txe:session'),
+      loggerFactory,
+      logger,
       stateMachine,
       topLevelOracleHandler,
       contractStore,
@@ -300,6 +304,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.loggerFactory.createLogger('txe:top_level_context'),
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -361,6 +366,7 @@ export class TXESession implements TXESessionStateHandler {
       this.capsuleStore,
       this.privateEventStore,
       this.currentJobId,
+      this.logger,
     );
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -392,6 +398,7 @@ export class TXESession implements TXESessionStateHandler {
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
       getSingleTxBlockRequestHash(globalVariables.blockNumber),
       globalVariables,
+      this.loggerFactory.createLogger('txe:public_context'),
     );
 
     this.state = { name: 'PUBLIC' };
@@ -431,6 +438,7 @@ export class TXESession implements TXESessionStateHandler {
       this.capsuleStore,
       this.privateEventStore,
       this.currentJobId,
+      this.logger,
     );
 
     this.state = { name: 'UTILITY' };
@@ -522,8 +530,9 @@ export class TXESession implements TXESessionStateHandler {
           this.capsuleStore,
           this.privateEventStore,
           this.currentJobId,
+          this.logger,
         );
-        await new WASMSimulator()
+        await new WASMSimulator(this.logger)
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
           .catch((err: Error) => {
             err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

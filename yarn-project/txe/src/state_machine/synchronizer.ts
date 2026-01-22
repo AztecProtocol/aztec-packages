@@ -1,6 +1,8 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import type { L2BlockNew } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -18,7 +20,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
   static async create() {
-    const nativeWorldStateService = await NativeWorldStateService.tmp();
+    const log = createLogger('txe:synchronizer');
+    const nativeWorldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], log);
 
     return new this(nativeWorldStateService);
   }

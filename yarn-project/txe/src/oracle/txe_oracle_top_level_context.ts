@@ -9,7 +9,7 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import {
@@ -92,8 +92,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   isMisc = true as const;
   isTxe = true as const;
 
-  private logger: Logger;
-
   constructor(
     private stateMachine: TXEStateMachine,
     private contractStore: TXEContractStore,
@@ -111,8 +109,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private logger: Logger,
   ) {
-    this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
   }
 
@@ -324,7 +322,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     await noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
-    const simulator = new WASMSimulator();
+    const simulator = new WASMSimulator(this.logger);
 
     const privateExecutionOracle = new PrivateExecutionOracle(
       argsHash,
@@ -352,9 +350,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       this.capsuleStore,
       this.privateEventStore,
       this.jobId,
+      this.logger, // log
       0, // totalPublicArgsCount
       minRevertibleSideEffectCounter, // (start) sideEffectCounter
-      undefined, // log
       undefined, // scopes
       /**
        * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
@@ -414,8 +412,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
-    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractStore));
-    const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
+    const contractsDB = new PublicContractsDB(
+      new TXEPublicContractDataSource(blockNumber, this.contractStore),
+      this.logger,
+    );
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees, this.logger);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: true,
       collectDebugLogs: true,
@@ -427,8 +428,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config),
-      new TestDateProvider(),
+      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, this.logger, config),
+      new TestDateProvider(this.logger),
+      this.logger,
     );
 
     const tx = await Tx.create({
@@ -525,8 +527,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
-    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(blockNumber, this.contractStore));
-    const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees);
+    const contractsDB = new PublicContractsDB(
+      new TXEPublicContractDataSource(blockNumber, this.contractStore),
+      this.logger,
+    );
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(forkedWorldTrees, this.logger);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: true,
       collectDebugLogs: true,
@@ -534,8 +539,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
-    const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
+    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, this.logger, config);
+    const processor = new PublicProcessor(
+      globals,
+      guardedMerkleTrees,
+      contractsDB,
+      simulator,
+      new TestDateProvider(this.logger),
+      this.logger,
+    );
 
     // We're simulating a scenario in which private execution immediately enqueues a public call and halts. The private
     // kernel init would in this case inject a nullifier with the transaction request hash as a non-revertible
@@ -692,8 +704,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         this.capsuleStore,
         this.privateEventStore,
         this.jobId,
+        this.logger,
       );
-      const acirExecutionResult = await new WASMSimulator()
+      const acirExecutionResult = await new WASMSimulator(this.logger)
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

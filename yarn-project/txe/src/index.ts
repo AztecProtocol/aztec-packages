@@ -8,7 +8,7 @@ import {
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import type { Logger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { computeArtifactHash } from '@aztec/stdlib/contract';
@@ -70,7 +70,10 @@ const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
 class TXEDispatcher {
   private protocolContracts!: ProtocolContract[];
 
-  constructor(private logger: Logger) {}
+  constructor(
+    private logger: Logger,
+    private loggerFactory: LoggerFactory,
+  ) {}
 
   private fastHashFile(path: string) {
     return new Promise(resolve => {
@@ -209,7 +212,7 @@ class TXEDispatcher {
           protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
         );
       }
-      sessions.set(sessionId, await TXESession.init(this.protocolContracts));
+      sessions.set(sessionId, await TXESession.init(this.protocolContracts, this.loggerFactory));
     }
 
     switch (functionName) {
@@ -234,11 +237,13 @@ const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
 
 /**
  * Creates an RPC server that forwards calls to the TXE.
- * @param logger - Logger to output to
+ * @param loggerFactory - Logger factory to output to
  * @returns A TXE RPC server.
  */
-export function createTXERpcServer(logger: Logger) {
-  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiSchema, {
+export function createTXERpcServer(loggerFactory: LoggerFactory) {
+  const logger = loggerFactory.createLogger('txe:dispatcher');
+  return createSafeJsonRpcServer(new TXEDispatcher(logger, loggerFactory), TXEDispatcherApiSchema, {
     http200OnError: true,
+    loggerFactory,
   });
 }
