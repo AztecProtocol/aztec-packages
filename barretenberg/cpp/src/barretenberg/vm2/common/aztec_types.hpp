@@ -571,7 +571,7 @@ inline std::string debug_log_level_to_string(DebugLogLevel lvl)
         return "trace";
     }
 
-    throw_or_abort("Unreachable");
+    __builtin_unreachable();
 }
 
 struct DebugLog {
