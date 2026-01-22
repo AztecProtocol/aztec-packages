@@ -19,7 +19,7 @@ import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/pr
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
-import { chainConfigMappings } from '@aztec/stdlib/config';
+import { chainConfigMappings, nodeRpcConfigMappings } from '@aztec/stdlib/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
 import { worldStateConfigMappings } from '@aztec/world-state/config';
 
@@ -148,6 +148,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: '',
       env: 'API_PREFIX',
     },
+    configToFlag('--rpcMaxBatchSize', nodeRpcConfigMappings.rpcMaxBatchSize),
+    configToFlag('--rpcMaxBodySize', nodeRpcConfigMappings.rpcMaxBodySize),
   ],
   ETHEREUM: [
     configToFlag('--l1-chain-id', l1ReaderConfigMappings.l1ChainId),
