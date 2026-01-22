@@ -1,6 +1,6 @@
 import { findNapiBinary } from '@aztec/bb.js';
 import { type LogLevel, LogLevels, type Logger } from '@aztec/foundation/log';
-import { Semaphore } from '@aztec/foundation/queue';
+import type { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
 
@@ -140,7 +140,18 @@ export function cancelSimulation(token: CancellationToken): void {
  */
 const UV_THREADPOOL_SIZE = parseInt(process.env.UV_THREADPOOL_SIZE ?? '4', 10);
 const MAX_CONCURRENT_AVM_SIMULATIONS = Math.max(1, Math.floor(UV_THREADPOOL_SIZE / 2));
-const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
+
+let avmSimulationSemaphore: Semaphore | undefined;
+
+async function getAvmSimulationSemaphore(): Promise<Semaphore> {
+  if (!avmSimulationSemaphore) {
+    // Lazy import to avoid module-level createLogger call
+    const { Semaphore } = await import('@aztec/foundation/queue');
+    const { createLogger } = await import('@aztec/foundation/log');
+    avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS, createLogger('native:semaphore'));
+  }
+  return avmSimulationSemaphore;
+}
 
 /**
  * AVM simulation function that takes serialized inputs and a contract provider.
@@ -161,7 +172,8 @@ export async function avmSimulate(
   logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
-  await avmSimulationSemaphore.acquire();
+  const semaphore = await getAvmSimulationSemaphore();
+  await semaphore.acquire();
 
   try {
     return await nativeAvmSimulate(
@@ -173,7 +185,7 @@ export async function avmSimulate(
       cancellationToken,
     );
   } finally {
-    avmSimulationSemaphore.release();
+    semaphore.release();
   }
 }
 
@@ -186,10 +198,11 @@ export async function avmSimulate(
  * @returns Promise resolving to msgpack-serialized simulation results buffer
  */
 export async function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
-  await avmSimulationSemaphore.acquire();
+  const semaphore = await getAvmSimulationSemaphore();
+  await semaphore.acquire();
   try {
     return await nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
   } finally {
-    avmSimulationSemaphore.release();
+    semaphore.release();
   }
 }
