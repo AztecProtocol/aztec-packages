@@ -482,9 +482,9 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
 {
     uint32_t mock_checkpoint_id = 0;
     EXPECT_CALL(base_merkle_db, get_checkpoint_id)
-        .WillOnce(testing::Return(mock_checkpoint_id))
+        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
         .WillOnce(testing::Invoke([&]() { return ++mock_checkpoint_id; }))
-        .WillOnce(testing::Return(mock_checkpoint_id))
+        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
         .WillOnce(testing::Invoke([&]() { return ++mock_checkpoint_id; }));
     ;
     EXPECT_CALL(base_merkle_db, create_checkpoint).Times(2);
@@ -493,7 +493,7 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
     hinting_merkle_db.create_checkpoint();
 
     EXPECT_CALL(base_merkle_db, get_checkpoint_id)
-        .WillOnce(testing::Return(mock_checkpoint_id))
+        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
         .WillOnce(testing::Invoke([&]() { return --mock_checkpoint_id; }));
     EXPECT_CALL(base_merkle_db, commit_checkpoint).Times(1);
     hinting_merkle_db.commit_checkpoint();
@@ -502,7 +502,7 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(2);
 
     EXPECT_CALL(base_merkle_db, get_checkpoint_id)
-        .WillOnce(testing::Return(mock_checkpoint_id))
+        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
         .WillOnce(testing::Invoke([&]() { return --mock_checkpoint_id; }));
     EXPECT_CALL(base_merkle_db, revert_checkpoint).Times(1);
     hinting_merkle_db.revert_checkpoint();
