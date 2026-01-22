@@ -323,8 +323,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
-    // The epoch is complete if the current L2 block is the last one in the epoch (or later)
-    const header = await this.getBlockHeader('latest');
+    // The epoch is complete if the current checkpointed L2 block is the last one in the epoch (or later).
+    // We use the checkpointed block number (synced from L1) instead of 'latest' to avoid returning true
+    // prematurely when proposed blocks have been pushed to the archiver but not yet checkpointed on L1.
+    const checkpointedBlockNumber = await this.getCheckpointedL2BlockNumber();
+    const header = checkpointedBlockNumber > 0 ? await this.getBlockHeader(checkpointedBlockNumber) : undefined;
     const slot = header ? header.globalVariables.slotNumber : undefined;
     const [_startSlot, endSlot] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
     if (slot && slot >= endSlot) {
