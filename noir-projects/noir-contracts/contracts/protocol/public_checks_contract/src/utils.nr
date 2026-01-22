@@ -1,5 +1,5 @@
 use crate::PublicChecks;
-use aztec::context::private_context::PrivateContext;
+use aztec::context::PrivateContext;
 use aztec::protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
 
 // docs:start:helper_public_checks_functions

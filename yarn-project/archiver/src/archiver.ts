@@ -369,16 +369,12 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async getL2Tips(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber] = await Promise.all([
+    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
       this.getBlockNumber(),
       this.getProvenBlockNumber(),
-      this.getCheckpointedBlockNumber(),
+      this.getCheckpointedL2BlockNumber(),
+      this.getFinalizedL2BlockNumber(),
     ] as const);
-
-    // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
-    // We just force it 2 epochs worth of proven data for now.
-    // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
-    const finalizedBlockNumber = BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2, 0));
 
     const beforeInitialblockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 

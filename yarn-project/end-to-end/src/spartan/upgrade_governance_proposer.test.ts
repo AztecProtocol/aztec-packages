@@ -16,6 +16,7 @@ import { parseEther, stringify } from 'viem/utils';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
+  ChainHealth,
   setupEnvironment,
   startPortForwardForEthereum,
   startPortForwardForRPC,
@@ -34,12 +35,15 @@ describe('spartan_upgrade_governance_proposer', () => {
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
-  afterAll(() => {
+  afterAll(async () => {
+    await health.teardown();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
+    await health.setup();
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);

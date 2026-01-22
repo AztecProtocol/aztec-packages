@@ -14,7 +14,7 @@ pub contract Benchmarking {
         protocol_types::address::AztecAddress,
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

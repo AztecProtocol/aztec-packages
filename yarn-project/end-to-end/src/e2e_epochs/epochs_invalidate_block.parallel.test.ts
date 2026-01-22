@@ -166,7 +166,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Verify the transaction was eventually included
     const receipt = await sentTx.wait({ timeout: 30 });
-    expect(receipt.status).toBe('success');
+    expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
     // Check that we have tagged an offense for that

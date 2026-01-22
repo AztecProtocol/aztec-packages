@@ -25,7 +25,7 @@ pub unconstrained fn avm_return(returndata: [Field]) {
     return_opcode(returndata)
 }
 
-pub unconstrained fn avm_revert(revertdata: [Field]) {
+pub unconstrained fn revert(revertdata: [Field]) {
     revert_opcode(revertdata)
 }
 

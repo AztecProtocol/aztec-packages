@@ -16,13 +16,7 @@ import { useLocalStorage } from '@uidotdev/usehooks';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
 import { colors, commonStyles } from '../../global.styles';
 
-const TX_ERRORS = [
-  'error',
-  TxStatus.APP_LOGIC_REVERTED,
-  TxStatus.TEARDOWN_REVERTED,
-  TxStatus.BOTH_REVERTED,
-  TxStatus.DROPPED,
-];
+const TX_ERRORS = ['error', TxStatus.DROPPED];
 
 const container = css({
   width: '320px',
@@ -253,7 +247,7 @@ export function TxPanel() {
     lastLog = lastLog.slice(0, 100) + '...';
   }
 
-  const hasError = pendingTx?.error || TX_ERRORS.includes(pendingTx?.status);
+  const hasError = pendingTx?.error || TX_ERRORS.includes(pendingTx?.status) || pendingTx?.receipt?.hasExecutionReverted();
   const errorMessage = pendingTx?.error;
 
   let subtitle;

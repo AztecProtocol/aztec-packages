@@ -424,7 +424,7 @@ describe('e2e_block_building', () => {
       const rct = await tx.send().wait();
 
       // compare logs
-      expect(rct.status).toEqual('success');
+      expect(rct.hasExecutionSucceeded()).toBe(true);
       const privateLogs = tx.data.getNonEmptyPrivateLogs();
       expect(privateLogs.length).toBe(3);
 
@@ -636,7 +636,10 @@ describe('e2e_block_building', () => {
       // And wait until it is brought back tx1
       logger.info(`Waiting for node to re-include tx1`);
       await retryUntil(
-        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.SUCCESS,
+        async () => {
+          const receipt = await aztecNode.getTxReceipt(tx1.txHash);
+          return receipt.isMined() && receipt.hasExecutionSucceeded();
+        },
         'wait for re-inclusion',
         15,
         1,

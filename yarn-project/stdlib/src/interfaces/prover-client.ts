@@ -17,6 +17,12 @@ export type ActualProverConfig = {
   proverTestDelayMs: number;
   /** If using realistic delays, what percentage of realistic times to apply. */
   proverTestDelayFactor: number;
+  /**
+   * Whether to abort pending proving jobs when the orchestrator is cancelled.
+   * When false (default), jobs remain in the broker queue and can be reused on restart/reorg.
+   * When true, jobs are explicitly cancelled with the broker, which prevents reuse.
+   */
+  cancelJobsOnStop: boolean;
 };
 
 /**
@@ -43,6 +49,7 @@ export const ProverConfigSchema = zodFor<ProverConfig>()(
     proverTestDelayFactor: z.number(),
     proverAgentCount: z.number(),
     failedProofStore: z.string().optional(),
+    cancelJobsOnStop: z.boolean(),
   }),
 );
 
@@ -84,6 +91,14 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     env: 'PROVER_FAILED_PROOF_STORE',
     description:
       'Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.',
+  },
+  cancelJobsOnStop: {
+    env: 'PROVER_CANCEL_JOBS_ON_STOP',
+    description:
+      'Whether to abort pending proving jobs when the orchestrator is cancelled. ' +
+      'When false (default), jobs remain in the broker queue and can be reused on restart/reorg. ' +
+      'When true, jobs are explicitly cancelled with the broker, which prevents reuse.',
+    ...booleanConfigHelper(false),
   },
 };
 

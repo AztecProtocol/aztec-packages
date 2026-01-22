@@ -9,7 +9,7 @@ use crate::{
         PrivateCall, PrivateContext, PrivateStaticCall, PublicCall, PublicContext, PublicStaticCall,
         UtilityCall, UtilityContext,
     },
-    event::{event_interface::EventInterface, event_message::EventMessage},
+    event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
         discovery::{
@@ -18,13 +18,13 @@ use crate::{
         },
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
-        processing::{message_context::MessageContext, validate_enqueued_notes_and_events},
+        processing::{MessageContext, validate_enqueued_notes_and_events},
     },
     note::{
-        hinted_note::HintedNote,
+        HintedNote,
         note_interface::{NoteHash, NoteType},
-        note_message::NoteMessage,
         note_metadata::SettledNoteMetadata,
+        NoteMessage,
         utils::compute_note_hash_for_nullification,
     },
     oracle::version::assert_compatible_oracle_version,

@@ -18,7 +18,6 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -276,7 +275,7 @@ export class CrossChainTestHarness {
     withdrawAmount: bigint,
     authwitNonce: Fr = Fr.ZERO,
     authWitness: AuthWitness,
-  ): Promise<FieldsOf<TxReceipt>> {
+  ): Promise<TxReceipt> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ authWitnesses: [authWitness], from: this.ownerAddress })
@@ -285,7 +284,7 @@ export class CrossChainTestHarness {
     return withdrawReceipt;
   }
 
-  async withdrawPublicFromAztecToL1(withdrawAmount: bigint, authwitNonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
+  async withdrawPublicFromAztecToL1(withdrawAmount: bigint, authwitNonce: Fr = Fr.ZERO): Promise<TxReceipt> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ from: this.ownerAddress })

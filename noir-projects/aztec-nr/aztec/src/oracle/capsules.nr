@@ -77,7 +77,7 @@ mod test {
 
     use crate::{
         oracle::capsules::{copy, delete, load, store},
-        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
+        test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
     };
     use protocol_types::{address::AztecAddress, traits::{FromField, ToField}};
 

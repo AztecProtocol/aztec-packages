@@ -5,6 +5,7 @@ import type { ChildProcess } from 'child_process';
 
 import { AlertTriggeredError, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
+  ChainHealth,
   applyProverBrokerKill,
   applyProverKill,
   deleteResourceByLabel,
@@ -57,7 +58,10 @@ describe('prover node recovery', () => {
   const forwardProcesses: ChildProcess[] = [];
   let alertChecker: GrafanaClient;
   let spartanDir: string;
+  const health = new ChainHealth(config.NAMESPACE, logger);
+
   beforeAll(async () => {
+    await health.setup();
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
     let promPort = 0;
     let promProc: ChildProcess | undefined;
@@ -97,6 +101,7 @@ describe('prover node recovery', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     const cleanup = async (instanceName: string) => {
       const label = `app.kubernetes.io/instance=${instanceName}`;
       await deleteResourceByLabel({ resource: 'podchaos', namespace: config.NAMESPACE, label }).catch(() => undefined);

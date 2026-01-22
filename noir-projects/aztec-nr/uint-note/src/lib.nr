@@ -1,3 +1,4 @@
 //! Note for a numeric value.
 
-pub mod uint_note;
+mod uint_note;
+pub use uint_note::{PartialUintNote, UintNote};

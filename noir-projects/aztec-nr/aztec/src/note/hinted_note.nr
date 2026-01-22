@@ -1,8 +1,14 @@
 use crate::note::note_metadata::NoteMetadata;
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
-/// A container for a note and the corresponding metadata that can be used to prove the note's existence, regardless of
-/// whether the note is pending (created in the current transaction) or settled (created in a previous transaction).
+/// A hint for a note that might exist.
+///
+/// This contains the actual note content and all metadata that is required in order to prove note's existence,
+/// regardless of whether the note is pending or settled (see [crate::note::note_metadata::NoteMetadata]).
+///
+/// This value typically unconstrained (originating from oracles or as a contract function parameter), and can be
+/// converted into a [crate::note::confirmed_note::ConfirmedNote] via
+/// [crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion].
 #[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct HintedNote<Note> {
     pub note: Note,
@@ -14,7 +20,7 @@ pub struct HintedNote<Note> {
 }
 
 mod test {
-    use crate::note::{hinted_note::HintedNote, note_metadata::NoteMetadata};
+    use crate::note::{HintedNote, note_metadata::NoteMetadata};
     use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     #[derive(Packable)]

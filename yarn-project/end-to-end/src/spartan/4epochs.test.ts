@@ -17,7 +17,7 @@ import {
   createWalletAndAztecNodeClient,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
+import { ChainHealth, setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 
@@ -39,13 +39,16 @@ describe('token transfer test', () => {
   let wallet: TestWallet;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   afterAll(async () => {
+    await health.teardown();
     await cleanup?.();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
+    await health.setup();
     logger.info('Starting port forward for PXE and Ethereum');
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);

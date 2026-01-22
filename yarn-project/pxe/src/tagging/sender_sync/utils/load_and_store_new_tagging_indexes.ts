@@ -5,6 +5,7 @@ import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
+import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
 /**
  * Loads tagging indexes from the Aztec node and stores them in the tagging data provider.
@@ -50,7 +51,9 @@ export async function loadAndStoreNewTaggingIndexes(
 // Returns txs that used the given tags. A tag might have been used in multiple txs and for this reason we return
 // an array for each tag.
 async function getTxsContainingTags(tags: SiloedTag[], aztecNode: AztecNode): Promise<TxHash[][]> {
-  const allLogs = await aztecNode.getPrivateLogsByTags(tags);
+  // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
+  // pagination here.
+  const allLogs = await getAllPrivateLogsByTags(aztecNode, tags);
   return allLogs.map(logs => logs.map(log => log.txHash));
 }
 

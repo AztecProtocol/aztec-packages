@@ -37,7 +37,7 @@ import {
   deploySponsoredTestAccounts,
   deploySponsoredTestAccountsWithTokens,
 } from './setup_test_wallets.js';
-import { getExternalIP, getSequencersConfig, setupEnvironment, updateSequencersConfig } from './utils.js';
+import { ChainHealth, getExternalIP, getSequencersConfig, setupEnvironment, updateSequencersConfig } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -63,8 +63,10 @@ describe('mempool limiter test', () => {
   }[] = [];
 
   const forwardProcesses: ChildProcess[] = [];
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
   beforeAll(async () => {
+    await health.setup();
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     rpcUrl = `http://${rpcIP}:8080`;
     node = createAztecNodeClient(rpcUrl);
@@ -174,6 +176,7 @@ describe('mempool limiter test', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     if (originalMinTxsPerBlock !== undefined) {
       await updateSequencersConfig(config, {
         maxPendingTxCount: baselineMaxPendingTxCount,

@@ -17,7 +17,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   private readonly updater = new ArchiverDataStoreUpdater(this.store);
 
   constructor(db: AztecAsyncKVStore) {
-    const store = new KVArchiverDataStore(db, 9999);
+    const store = new KVArchiverDataStore(db, 9999, { epochDuration: 32 });
     super(store);
   }
 

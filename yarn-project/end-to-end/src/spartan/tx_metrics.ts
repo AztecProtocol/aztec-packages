@@ -1,7 +1,7 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { L2BlockNew } from '@aztec/stdlib/block';
 import type { TopicType } from '@aztec/stdlib/p2p';
-import { Tx, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { createHistogram } from 'perf_hooks';
 
@@ -53,8 +53,8 @@ export class TxInclusionMetrics {
   }
 
   async recordMinedTx(txReceipt: TxReceipt): Promise<void> {
-    const { status, txHash, blockNumber } = txReceipt;
-    if (status !== TxStatus.SUCCESS || !blockNumber) {
+    const { txHash, blockNumber } = txReceipt;
+    if (!txReceipt.isMined() || !txReceipt.hasExecutionSucceeded() || !blockNumber) {
       return;
     }
 

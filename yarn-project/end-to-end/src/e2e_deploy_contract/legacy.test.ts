@@ -3,7 +3,7 @@ import { type DeployOptions, getContractInstanceFromInstantiationParams } from '
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -123,7 +123,7 @@ describe('e2e_deploy_contract legacy', () => {
     expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
     expect(badTxReceipt.blockNumber).toEqual(expect.any(Number));
 
-    expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+    expect(badTxReceipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
 
     const badInstance = await badDeploy.getInstance();
     // But the bad tx did not deploy the class
