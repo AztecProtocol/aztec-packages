@@ -2,7 +2,7 @@
  * Tests for keystore duplication check logic and validation integration
  */
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { describe, expect, it } from '@jest/globals';
@@ -15,10 +15,12 @@ import { KeyStoreLoadError, loadKeystoreFile, mergeKeystores } from '../src/load
 import type { KeyStore, ProverKeyStoreWithId } from '../src/types.js';
 import { keystoreSchema } from './schemas.js';
 
-// Enable logger output in tests by setting LOG_LEVEL
-const logger = createLogger('node-keystore:validation-test');
-
 describe('Keystore Duplication Validation', () => {
+  let logger: Logger;
+
+  beforeAll(() => {
+    logger = createLogger('node-keystore:validation-test');
+  });
   it('should reject duplicate attester addresses across keystores', () => {
     logger.info('Testing duplicate attester validation');
 
@@ -45,10 +47,10 @@ describe('Keystore Duplication Validation', () => {
       ],
     });
 
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(address.toLowerCase());
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(privateKey);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(/Duplicate attester address/);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(address.toLowerCase());
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow(privateKey);
   });
 
   it('should reject multiple prover configurations across keystores', () => {
@@ -64,10 +66,10 @@ describe('Keystore Duplication Validation', () => {
       prover: '0x9999999999999999999999999999999999999999999999999999999999999999' as any,
     };
 
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Multiple prover configurations found/);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(keystore1.prover!);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(keystore2.prover!);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(/Multiple prover configurations found/);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow(keystore1.prover!);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow(keystore2.prover!);
   });
 
   it('should reject duplicate ETH attester across keystores even if BLS differs', () => {
@@ -95,11 +97,11 @@ describe('Keystore Duplication Validation', () => {
       ],
     };
 
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
-    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(eth);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(bls1);
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow(bls2);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).toThrow(/Duplicate attester address/);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow(eth);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow(bls1);
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow(bls2);
   });
 
   it('should allow unique attester addresses across keystores', () => {
@@ -125,9 +127,9 @@ describe('Keystore Duplication Validation', () => {
       ],
     };
 
-    expect(() => mergeKeystores([keystore1, keystore2])).not.toThrow();
+    expect(() => mergeKeystores([keystore1, keystore2], logger)).not.toThrow();
 
-    const merged = mergeKeystores([keystore1, keystore2]);
+    const merged = mergeKeystores([keystore1, keystore2], logger);
     logger.info('Successfully merged keystores with unique attesters');
     expect(merged.validators).toHaveLength(2);
   });
@@ -146,7 +148,7 @@ describe('Keystore Duplication Validation', () => {
       ] as any,
     };
 
-    const merged = mergeKeystores([keystore1, keystore2]);
+    const merged = mergeKeystores([keystore1, keystore2], logger);
 
     // Expect merged.slasher to be an array of all entries
     expect(Array.isArray(merged.slasher)).toBe(true);
@@ -194,7 +196,7 @@ describe('Keystore Duplication Validation', () => {
       ],
     };
 
-    const merged = mergeKeystores([keystore1, keystore2]);
+    const merged = mergeKeystores([keystore1, keystore2], logger);
 
     // Expect merged.publisher to be an array of all entries
     expect(Array.isArray(merged.publisher)).toBe(true);
@@ -225,11 +227,11 @@ describe('Keystore Duplication Validation', () => {
       ],
     };
 
-    expect(() => mergeKeystores([v1Keystore, v2Keystore])).toThrow(KeyStoreLoadError);
-    expect(() => mergeKeystores([v1Keystore, v2Keystore])).toThrow(
+    expect(() => mergeKeystores([v1Keystore, v2Keystore], logger)).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([v1Keystore, v2Keystore], logger)).toThrow(
       /Cannot merge keystores with different schema versions/,
     );
-    expect(() => mergeKeystores([v1Keystore, v2Keystore])).toThrow(/keystores\[0\].schemaVersion/);
+    expect(() => mergeKeystores([v1Keystore, v2Keystore], logger)).toThrow(/keystores\[0\].schemaVersion/);
   });
 
   it('should use last-one-wins for top-level publisher when mnemonics are involved', () => {
@@ -259,7 +261,7 @@ describe('Keystore Duplication Validation', () => {
       ],
     };
 
-    const merged = mergeKeystores([keystore1, keystore2]);
+    const merged = mergeKeystores([keystore1, keystore2], logger);
 
     // Should use the second one (last-one-wins when mnemonic is involved)
     expect(merged.publisher).toBe(publisherKey);

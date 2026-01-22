@@ -4,7 +4,7 @@
  * Handles loading and parsing keystore configuration files.
  */
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { Hex } from '@aztec/foundation/string';
 
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -13,8 +13,6 @@ import { privateKeyToAddress } from 'viem/accounts';
 
 import { keystoreSchema } from './schemas.js';
 import type { EthAccounts, KeyStore } from './types.js';
-
-const logger = createLogger('node-keystore:loader');
 
 /**
  * Error thrown when keystore loading fails
@@ -192,11 +190,12 @@ export function loadMultipleKeystores(paths: string | string[]): KeyStore[] {
  * performed downstream by the validator client.
  *
  * @param keystores Array of keystores to merge.
+ * @param logger Logger for warning about merge conflicts.
  * @returns A merged keystore object.
  * @throws Error When keystore list is empty.
  * @throws KeyStoreLoadError When duplicate attester keys are found or multiple prover configs exist.
  */
-export function mergeKeystores(keystores: KeyStore[]): KeyStore {
+export function mergeKeystores(keystores: KeyStore[], logger: Logger): KeyStore {
   if (keystores.length === 0) {
     throw new Error('Cannot merge empty keystore list');
   }
