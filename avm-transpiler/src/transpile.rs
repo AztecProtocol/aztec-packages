@@ -1696,13 +1696,19 @@ fn handle_storage_read(
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
-    assert_eq!(inputs.len(), 1); // output
+    assert_eq!(inputs.len(), 2); // slot, contract_address
     assert_eq!(destinations.len(), 1); // return value
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset,
-        _ => panic!("ForeignCall address input should be a single value"),
+        _ => panic!("ForeignCall slot input should be a single value"),
+    };
+
+    let contract_address_offset_maybe = inputs[1];
+    let contract_address_offset = match contract_address_offset_maybe {
+        ValueOrArray::MemoryAddress(contract_address_offset) => contract_address_offset,
+        _ => panic!("ForeignCall contract_address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
@@ -1716,11 +1722,13 @@ fn handle_storage_read(
         addressing_mode: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&slot_offset)
+                .direct_operand(&contract_address_offset)
                 .direct_operand(&dest_offset)
                 .build(),
         ),
         operands: vec![
             AvmOperand::U16 { value: slot_offset.to_u32() as u16 },
+            AvmOperand::U16 { value: contract_address_offset.to_u32() as u16 },
             AvmOperand::U16 { value: dest_offset.to_u32() as u16 },
         ],
         ..Default::default()

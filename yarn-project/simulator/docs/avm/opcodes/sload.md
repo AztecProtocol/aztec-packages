@@ -7,12 +7,12 @@ Load value from public storage
 Opcode `0x2F`
 
 ```javascript
-M[dstOffset] = storage[contractAddress][M[slotOffset]]
+M[dstOffset] = storage[M[contractAddressOffset]][M[slotOffset]]
 ```
 
 ## Details
 
-Reads from public storage at the specified slot. Performs a read of the Public Data Tree. The contractAddress is the address of the currently executing contract and does not come from the bytecode. Both slot and result have type tag FIELD. Gas cost varies based on whether the slot is warm (recently accessed) or cold (first access in this transaction).
+Reads from public storage at the specified slot. Performs a read of the Public Data Tree. The contractAddress is read from memory at the specified offset. Slot, contract address, and result all have type tag FIELD. Gas cost varies based on whether the slot is warm (recently accessed) or cold (first access in this transaction).
 
 ## Gas Costs
 
@@ -29,6 +29,7 @@ Reads from public storage at the specified slot. Performs a read of the Public D
 | Name | Type | Description |
 |------|------|-------------|
 | `slotOffset` | Memory offset | Memory offset of the storage slot to read from |
+| `contractAddressOffset` | Memory offset | Memory offset of the contract address to read from |
 | `dstOffset` | Memory offset | Memory offset where the loaded value will be written |
 
 ## Wire Formats
@@ -41,13 +42,14 @@ See [Wire Format](../wire-format.md) page for an explanation of wire format vari
 title: "SLOAD"
 config:
   packet:
-    bitsPerRow: 48
+    bitsPerRow: 64
 ---
 packet-beta
 0-7: "Opcode (0x2F)"
 8-15: "Addressing modes"
 16-31: "Operand: slotOffset"
-32-47: "Operand: dstOffset"
+32-47: "Operand: contractAddressOffset"
+48-63: "Operand: dstOffset"
 ```
 
 ## Addressing Modes
@@ -55,7 +57,7 @@ See [Addressing](../addressing.md) page for a detailed explanation.
 
 8-bit bitmask: 2 bits per memory offset operand (indirect flag + relative flag)
 
-Memory offset operands (`slotOffset`, `dstOffset`) are encoded as follows:
+Memory offset operands (`slotOffset`, `contractAddressOffset`, `dstOffset`) are encoded as follows:
 
 ```mermaid
 ---
@@ -68,10 +70,10 @@ config:
 packet-beta
   0: "slotOffset is indirect"
   1: "slotOffset is relative"
-  2: "dstOffset is indirect"
-  3: "dstOffset is relative"
-  4: "Unused"
-  5: "Unused"
+  2: "contractAddressOffset is indirect"
+  3: "contractAddressOffset is relative"
+  4: "dstOffset is indirect"
+  5: "dstOffset is relative"
   6: "Unused"
   7: "Unused"
 ```
@@ -79,6 +81,7 @@ packet-beta
 ## Tag Checks
 
 - `T[slotOffset] == FIELD`
+- `T[contractAddressOffset] == FIELD`
 
 ## Tag Updates
 
@@ -86,7 +89,7 @@ packet-beta
 
 ## Error Conditions
 
-- **INVALID_TAG**: Slot operand is not FIELD
+- **INVALID_TAG**: Slot or contract address operand is not FIELD
 - **MEMORY_ACCESS_OUT_OF_RANGE**: Memory offset operand exceeds addressable memory
 
 ---

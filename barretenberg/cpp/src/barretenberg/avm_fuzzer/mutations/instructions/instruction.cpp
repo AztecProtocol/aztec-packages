@@ -82,6 +82,14 @@ void sanitize_address_ref(AddressRef& address_ref, uint32_t base_offset, uint32_
     }
 }
 
+uint32_t generate_address(std::mt19937_64& rng)
+{
+    if (std::uniform_int_distribution<int>(0, 19)(rng) == 0) { // 5% chance to generate the highest address
+        return AVM_HIGHEST_MEM_ADDRESS;
+    }
+    return generate_random_uint32(rng);
+}
+
 } // namespace
 
 namespace bb::avm2::fuzzer {
@@ -355,7 +363,7 @@ AddressingMode InstructionMutator::generate_addressing_mode(std::mt19937_64& rng
 
 AddressRef InstructionMutator::generate_address_ref(std::mt19937_64& rng, uint32_t max_operand_value)
 {
-    AddressRef address_ref = AddressRef{ .address = generate_random_uint32(rng),
+    AddressRef address_ref = AddressRef{ .address = generate_address(rng),
                                          .pointer_address_seed = generate_random_uint16(rng),
                                          .mode = generate_addressing_mode(rng) };
     sanitize_address_ref(address_ref, base_offset, max_operand_value);
