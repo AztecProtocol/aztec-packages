@@ -23,6 +23,7 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
@@ -347,10 +348,14 @@ export interface AztecNode
    * array implies no logs match that tag.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination.
+   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
+   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
+   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
+   * undefined behavior in the client's code.
    * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
    * for a tag, the caller should fetch the next page to check for more logs.
    */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]>;
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: L2BlockHash): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
@@ -358,6 +363,10 @@ export interface AztecNode
    * @param contractAddress - The contract address to search logs for.
    * @param tags - The tags to search for.
    * @param page - The page number (0-indexed) for pagination.
+   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
+   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
+   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
+   * undefined behavior in the client's code.
    * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
    * for a tag, the caller should fetch the next page to check for more logs.
    */
@@ -365,6 +374,7 @@ export interface AztecNode
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    referenceBlock?: L2BlockHash,
   ): Promise<TxScopedL2Log[][]>;
 
   /**
@@ -631,12 +641,17 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogsByTags: z
     .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)))
+    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(L2BlockHash.schema))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   getPublicLogsByTagsFromContract: z
     .function()
-    .args(schemas.AztecAddress, z.array(Tag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)))
+    .args(
+      schemas.AztecAddress,
+      z.array(Tag.schema).max(MAX_RPC_LEN),
+      optional(z.number().gte(0)),
+      optional(L2BlockHash.schema),
+    )
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),
