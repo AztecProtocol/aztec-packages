@@ -124,8 +124,6 @@ template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
     const size_t log_n, std::span<const Fr> multilinear_challenge, const Polynomial& A_0, const bool& has_zk)
 {
-    const size_t num_threads = get_num_cpus_pow2();
-
     const size_t virtual_log_n = multilinear_challenge.size();
 
     constexpr size_t efficient_operations_per_thread = 64; // A guess of the number of operation for which there
@@ -150,18 +148,13 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // size of the previous polynomial/2
         const size_t n_l = 1 << (log_n - l - 1);
 
-        // Use as many threads as it is useful so that 1 thread doesn't process 1 element, but make sure that there is
-        // at least 1
-        size_t num_used_threads = std::min(n_l / efficient_operations_per_thread, num_threads);
-        num_used_threads = num_used_threads ? num_used_threads : 1;
-
         // Opening point is the same for all
         const Fr u_l = multilinear_challenge[l];
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
 
-        parallel_for(num_used_threads, [&](ThreadChunk chunk) {
+        parallel_for(n_l, efficient_operations_per_thread, [&](ThreadChunk chunk) {
             for (size_t j : chunk.range(n_l)) {
                 // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
                 //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]

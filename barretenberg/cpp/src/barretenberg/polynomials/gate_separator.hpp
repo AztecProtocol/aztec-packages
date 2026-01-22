@@ -171,71 +171,46 @@ template <typename FF> struct GateSeparatorPolynomial {
         size_t pow_size = 1 << log_num_monomials;
         Polynomial<FF> beta_products(pow_size, Polynomial<FF>::DontZeroMemory::FLAG);
 
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
-        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
-        size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
-        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t desired_num_threads = pow_size / min_iterations_per_thread;
-        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
-        num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
-        size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
-        const size_t num_betas_per_thread = numeric::get_msb(iterations_per_thread);
-
         // Explanations of the algorithm:
         // The product of the betas at index i (beta_products[i]) contains the multiplicative factor betas[j] if and
         // only if the jth bit of i is 1 (j starting with 0 for the least significant bit). For instance, i = 13 = 1101
-        // in binary, so the product is betas[0] * betas[2] * betas[3]. Observe that if we toggle the kth bit of i (0 to
-        // 1), i.e., we add 2^k to i, then the product is multiplied by betas[k]: beta_products[i + 2^k] =
-        // beta_products[i] * betas[k]. If we know the products for the interval of indices [0, 2^k), we can compute all
-        // the products for the interval of indices [2^k, 2^(k+1)) by multiplying each element by betas[k]. Iteratively,
-        // starting with beta_products[0] = 1, we can double the number of computed products at each iteration by
-        // multiplying the previous products by betas[k]. We first multiply beta_products[0] = 1 by betas[0], then we
-        // multiply beta_products[0] and beta_products[1] by betas[1], etc...
+        // in binary, so the product is betas[0] * betas[2] * betas[3].
         //
-        // We distribute the computation of the beta_products evenly across threads, i.e., thread number
-        // thread_idx will handle the interval of indices [thread_idx * iterations_per_thread, (thread_idx + 1) *
-        // iterations_per_thread). Note that for a given thread, all the processed indices have the same
-        // prefix in binary. Therefore, each beta_product of the thread is a multiple of this "prefix product". The
-        // successive products are then populated by the above algorithm whereby we double the interval at each
-        // iteration and multiply by the new beta to process the suffix bits. The difference is that we initialize the
-        // first product with this "prefix product" instead of 1.
+        // Key insight: beta_products[i] = beta_products[i with LSB cleared] * betas[position of LSB]
+        // So if the predecessor (i with LSB cleared) is in our thread's range, we just multiply by one beta.
+        // Otherwise, we compute directly by iterating over only the set bits using ctz (O(popcount) multiplications).
 
-        // Compute the prefix products for each thread
-        std::vector<FF> thread_prefix_beta_products(num_threads);
-        thread_prefix_beta_products.at(0) = scaling_factor;
-
-        // Same algorithm applies for the prefix products. The difference is that we start at a beta which is not the
-        // first one (index 0), but the one at index num_betas_per_thread. We process the high bits only.
-        // Example: If num_betas_per_thread = 3, we compute after the first iteration:
-        //          (1, beta_3)
-        // 2nd iteration: (1, beta_3, beta_4, beta_3 * beta_4)
-        // 3nd iteration: (1, beta_3, beta_4, beta_3 * beta_4, beta_5, beta_3 * beta_5, beta_4 * beta_5, beta_3 * beta_4
-        // * beta_5)
-        // etc ....
-        for (size_t beta_idx = num_betas_per_thread, window_size = 1; beta_idx < log_num_monomials;
-             beta_idx++, window_size <<= 1) {
-            const auto& beta = betas.at(beta_idx);
-            for (size_t j = 0; j < window_size; j++) {
-                thread_prefix_beta_products.at(window_size + j) = beta * thread_prefix_beta_products.at(j);
+        constexpr size_t MIN_ITERATIONS_PER_THREAD = 1 << 6;
+        parallel_for(pow_size, MIN_ITERATIONS_PER_THREAD, [&](ThreadChunk chunk) {
+            auto range = chunk.range(pow_size);
+            if (range.empty()) {
+                return;
             }
-        }
+            size_t start = *range.begin();
 
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            size_t start = thread_idx * iterations_per_thread;
-            beta_products.at(start) = thread_prefix_beta_products.at(thread_idx);
+            for (size_t i : range) {
+                if (i == 0) {
+                    beta_products.at(0) = scaling_factor;
+                    continue;
+                }
 
-            // Compute the suffix products for each thread
-            // Example: Assume we start with the prefix product = beta_3 * beta_5
-            // After the first iteration, we get: (beta_3 * beta_5, beta_0 * beta_3 * beta_5)
-            // 2nd iteration: (beta_3 * beta_5, beta_0 * beta_3 * beta_5, beta_1 * beta_3 * beta_5, beta_0 * beta_1 *
-            // beta_3 * beta_5)
-            // etc ...
-            for (size_t beta_idx = 0, window_size = 1; beta_idx < num_betas_per_thread; beta_idx++, window_size <<= 1) {
-                const auto& beta = betas.at(beta_idx);
-                for (size_t j = 0; j < window_size; j++) {
-                    beta_products.at(start + window_size + j) = beta * beta_products.at(start + j);
+                // Find the lowest set bit position and the predecessor index
+                size_t lsb_pos = numeric::get_lsb(i);
+                size_t predecessor = i ^ (static_cast<size_t>(1) << lsb_pos); // clear the lowest set bit
+
+                if (predecessor >= start) {
+                    // Predecessor is in our range, O(1) computation
+                    beta_products.at(i) = beta_products.at(predecessor) * betas[lsb_pos];
+                } else {
+                    // Predecessor is not in our range, compute directly from set bits only
+                    FF result = scaling_factor;
+                    size_t remaining = i;
+                    while (remaining != 0) {
+                        size_t bit = numeric::get_lsb(remaining);
+                        result *= betas[bit];
+                        remaining ^= static_cast<size_t>(1) << bit; // clear this bit
+                    }
+                    beta_products.at(i) = result;
                 }
             }
         });
