@@ -168,10 +168,12 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     };
 
     // Validate public inputs match the claimed evaluations
-    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
-        public_input_evaluation.assert_equal(claimed_evaluations[i],
-                                             format("public_input_evaluation failed at column ", i));
+    for (size_t idx = 0;
+         const auto& [public_input_column, claimed_evaluation] : zip_view(public_inputs, claimed_evaluations)) {
+        FF public_input_evaluation = evaluate_public_input_column(public_input_column, output.challenge);
+        public_input_evaluation.assert_equal(claimed_evaluation,
+                                             format("public_input_evaluation failed at column ", idx));
+        idx++;
     }
 
     // ========== Execute PCS verification ==========
@@ -211,7 +213,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
             128) +
         batched_shifted;
 
-    // Batch evaluationså
+    // Batch evaluations
     FF batched_unshifted_eval =
         std::inner_product(unshifted_challenges.begin(), unshifted_challenges.end(), unshifted_evals.begin(), FF(0));
 

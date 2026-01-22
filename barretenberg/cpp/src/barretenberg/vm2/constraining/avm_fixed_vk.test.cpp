@@ -62,7 +62,7 @@ TEST(AvmFixedVKTests, FixedVKCommitments)
     auto vk_computed_commitments = vk_computed.get_all();
 
     // Get the fixed VK commitments
-    auto fixed_vk = AvmVerifier::VerificationKey();
+    AvmVerifier::VerificationKey fixed_vk;
 
     // Check that sizes match
     EXPECT_EQ(vk_computed_commitments.size(), fixed_vk.get_all().size())

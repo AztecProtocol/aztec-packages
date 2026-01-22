@@ -144,12 +144,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         output.claimed_evaluations.get(C::public_inputs_cols_2_),
         output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
-    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
-        if (public_input_evaluation != claimed_evaluations[i]) {
-            vinfo("public_input_evaluation failed, public inputs col ", i);
+    for (size_t idx = 0;
+         const auto& [public_input_column, claimed_evaluation] : zip_view(public_inputs, claimed_evaluations)) {
+        FF public_input_evaluation = evaluate_public_input_column(public_input_column, output.challenge);
+        if (public_input_evaluation != claimed_evaluation) {
+            vinfo("public_input_evaluation failed, public inputs col ", idx);
             return false;
         }
+        idx++;
     }
 
     // ========== Execute PCS verification ==========

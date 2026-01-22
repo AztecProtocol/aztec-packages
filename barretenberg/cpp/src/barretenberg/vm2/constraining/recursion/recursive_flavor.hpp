@@ -62,7 +62,7 @@ class AvmRecursiveFlavor {
     };
 
     /**
-     * @brief In-circuit representation of the verification key of the AVM. It is reconstructed by precomputed values
+     * @brief In-circuit representation of the verification key of the AVM. It is reconstructed from precomputed values
      * and fixed as a constant of the circuit when the AVM verifier is constructed. The vk commitments and vk hash are
      * stored in the selectors of the circuit that contains an AVM verifier.
      *

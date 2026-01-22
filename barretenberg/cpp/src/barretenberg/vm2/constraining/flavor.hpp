@@ -125,11 +125,7 @@ class AvmFlavor {
     //               "in constants.nr accordingly.");
 
     // VK is composed of
-    // - log circuit size (constant, equal to MAX_AVM_TRACE_LOG_SIZE)
-    // - num_public_inputs (constant, equal to AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH)
     // - NUM_PRECOMPUTED_ENTITIES commitments
-    // As log_circuit_size and num_public_inputs are hard-coded, we don't serialize them when writing down the vk as a
-    // buffer.
     // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
     // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
     //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
@@ -232,7 +228,7 @@ class AvmFlavor {
     };
 
     /**
-     * @brief Verification key of the AVM. It is fixed and reconstructed by precomputed values.
+     * @brief Verification key of the AVM. It is fixed and reconstructed from precomputed values.
      *
      */
     using VerificationKey =
