@@ -1,4 +1,5 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
@@ -26,6 +27,7 @@ export async function syncSenderTaggingIndexes(
   app: AztecAddress,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
+  anchorBlockHash: L2BlockHash,
   jobId: string,
 ): Promise<void> {
   // # Explanation of how syncing works
@@ -57,7 +59,7 @@ export async function syncSenderTaggingIndexes(
   while (true) {
     // Load and store indexes for the current window. These indexes may already exist in the database if txs using
     // them were previously sent from this PXE. Any duplicates are handled by the tagging data provider.
-    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore, jobId);
+    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore, anchorBlockHash, jobId);
 
     // Retrieve all indexes within the current window from storage and update their status accordingly.
     const pendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);

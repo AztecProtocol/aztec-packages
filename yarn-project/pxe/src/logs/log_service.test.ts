@@ -1,10 +1,13 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { Tag } from '@aztec/stdlib/logs';
-import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { makeBlockHeader, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -56,6 +59,10 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockReset();
       aztecNode.getPublicLogsByTagsFromContract.mockReset();
       aztecNode.getTxEffect.mockReset();
+
+      // Set up anchor block header (required for bulkRetrieveLogs)
+      const header = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+      await anchorBlockStore.setHeader(header);
     });
 
     it('returns no logs if none are found', async () => {
