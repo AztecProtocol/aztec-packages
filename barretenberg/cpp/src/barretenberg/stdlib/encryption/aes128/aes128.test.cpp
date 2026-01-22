@@ -1,6 +1,8 @@
 #include "aes128.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
+#include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
@@ -275,4 +277,304 @@ TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_all_witness_blocks)
 TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_all_constant_blocks)
 {
     test_aes128_mixed_input(false, false, { false, false, false, false });
+}
+
+// ============================================================================
+// Sparse Form XOR Tests
+// ============================================================================
+// In AES circuits, XOR is performed via addition in base-9 sparse form:
+//   - Each bit of a byte becomes a digit (0 or 1) in a base-9 number
+//   - Adding two sparse values: digits become 0, 1, or 2
+//   - Normalization maps: even digits → 0, odd digits → 1 (exactly XOR semantics)
+//
+// This allows XOR to be computed as: sparse(a) + sparse(b), then normalize
+// ============================================================================
+
+constexpr uint64_t AES_SPARSE_BASE = 9;
+
+/**
+ * @brief Test that sparse form correctly represents bytes
+ *
+ * Verifies map_into_sparse_form and map_from_sparse_form are inverses.
+ */
+TEST(stdlib_aes128_sparse, sparse_form_roundtrip)
+{
+    // Test all possible byte values
+    for (uint64_t byte = 0; byte < 256; ++byte) {
+        uint256_t sparse = numeric::map_into_sparse_form<AES_SPARSE_BASE>(byte);
+        uint64_t recovered = numeric::map_from_sparse_form<AES_SPARSE_BASE>(sparse);
+        EXPECT_EQ(recovered, byte) << "Roundtrip failed for byte 0x" << std::hex << byte;
+    }
+}
+
+/**
+ * @brief Test that addition of sparse forms equals XOR after normalization (native)
+ *
+ * This tests the mathematical property without circuit constraints.
+ */
+TEST(stdlib_aes128_sparse, sparse_addition_equals_xor_native)
+{
+    // Test a variety of byte pairs
+    std::vector<std::pair<uint8_t, uint8_t>> test_cases = {
+        { 0x00, 0x00 }, // 0 XOR 0 = 0
+        { 0xFF, 0x00 }, // FF XOR 0 = FF
+        { 0xFF, 0xFF }, // FF XOR FF = 0
+        { 0xAA, 0x55 }, // Alternating bits: AA XOR 55 = FF
+        { 0x0F, 0xF0 }, // 0F XOR F0 = FF
+        { 0x12, 0x34 }, // Random: 12 XOR 34 = 26
+        { 0x2b, 0x6b }, // From AES test vectors: key[0] XOR plaintext[0]
+    };
+
+    for (const auto& [a, b] : test_cases) {
+        uint8_t expected_xor = a ^ b;
+
+        // Convert to sparse form
+        uint256_t sparse_a = numeric::map_into_sparse_form<AES_SPARSE_BASE>(a);
+        uint256_t sparse_b = numeric::map_into_sparse_form<AES_SPARSE_BASE>(b);
+
+        // Add in sparse form (this is the circuit operation)
+        uint256_t sparse_sum = sparse_a + sparse_b;
+
+        // The sum needs normalization. In the circuit, this is done via plookup.
+        // For native testing, we can verify digit-by-digit:
+        // Each digit d in sparse_sum should normalize to (d % 2)
+        uint256_t normalized = 0;
+        uint256_t power = 1;
+        uint256_t temp = sparse_sum;
+
+        for (size_t i = 0; i < 8; ++i) {
+            uint64_t digit = (temp % AES_SPARSE_BASE).data[0];
+            uint64_t normalized_digit = digit % 2; // even→0, odd→1
+            normalized += power * normalized_digit;
+            power *= AES_SPARSE_BASE;
+            temp /= AES_SPARSE_BASE;
+        }
+
+        // Convert normalized result back to byte
+        uint64_t actual_xor = numeric::map_from_sparse_form<AES_SPARSE_BASE>(normalized);
+
+        EXPECT_EQ(actual_xor, expected_xor) << "Sparse XOR failed for 0x" << std::hex << (int)a << " ^ 0x" << (int)b
+                                            << ": expected 0x" << (int)expected_xor << ", got 0x" << actual_xor;
+    }
+}
+
+/**
+    @brief Test that when using AES input table, sparse form is correctly applied to the input bytes.
+    @param builder The circuit builder to use
+    @param input The input bytes to test
+    @param expected The expected sparse form of the input bytes
+    @return True if the test passes, false otherwise
+ */
+TEST(stdlib_aes128_sparse, sparse_form_lookup_table)
+{
+    using field_ct = stdlib::field_t<UltraCircuitBuilder>;
+    using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
+    using plookup_read = stdlib::plookup_read<UltraCircuitBuilder>;
+
+    auto builder = UltraCircuitBuilder();
+
+    // Take an input to the AES (16 bytes)
+    uint8_t lhs[16] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+    uint8_t rhs[16] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+    };
+
+    uint8_t expected_xor[16];
+    for (size_t i = 0; i < 16; ++i) {
+        expected_xor[i] = lhs[i] ^ rhs[i];
+    }
+
+    field_ct expected_xor_field = witness_ct(&builder, fr(convert_bytes_to_uint256(expected_xor)));
+
+    // pack the 16 bytes into a field_ct
+    field_ct lhs_field = witness_ct(&builder, fr(convert_bytes_to_uint256(lhs)));
+    field_ct rhs_field = witness_ct(&builder, fr(convert_bytes_to_uint256(rhs)));
+
+    // Now use the AES input table to convert lhs and rhs to sparse form using the AES input table
+    std::array<field_ct, 16> lhs_sparse_fields = stdlib::aes128::convert_into_sparse_bytes(&builder, lhs_field);
+    std::array<field_ct, 16> rhs_sparse_fields = stdlib::aes128::convert_into_sparse_bytes(&builder, rhs_field);
+
+    // Add the sparse fields together
+    for (size_t i = 0; i < 16; ++i) {
+        lhs_sparse_fields[i] = lhs_sparse_fields[i] + rhs_sparse_fields[i];
+        // Normalize the result
+        lhs_sparse_fields[i] = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, lhs_sparse_fields[i]);
+    }
+    auto output_bytes = stdlib::aes128::convert_from_sparse_bytes(&builder, lhs_sparse_fields.data());
+
+    output_bytes.assert_equal(expected_xor_field);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
+}
+
+/**
+ * @brief Test sparse XOR in circuit using plookup normalization
+ *
+ * This tests the actual circuit operation used in AES.
+ */
+TEST(stdlib_aes128_sparse, sparse_xor_circuit)
+{
+    using field_ct = stdlib::field_t<UltraCircuitBuilder>;
+    using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
+    using plookup_read = stdlib::plookup_read<UltraCircuitBuilder>;
+
+    auto builder = UltraCircuitBuilder();
+
+    // Test cases: pairs of bytes and their expected XOR
+    std::vector<std::tuple<uint8_t, uint8_t, uint8_t>> test_cases = {
+        { 0x00, 0x00, 0x00 }, { 0xFF, 0xFF, 0x00 }, { 0xAA, 0x55, 0xFF },
+        { 0x12, 0x34, 0x26 }, { 0x2b, 0x6b, 0x40 }, // key[0] XOR plaintext[0] from NIST vectors
+    };
+
+    for (const auto& [a, b, expected] : test_cases) {
+        // Convert bytes to sparse form
+        uint256_t sparse_a = numeric::map_into_sparse_form<AES_SPARSE_BASE>(a);
+        uint256_t sparse_b = numeric::map_into_sparse_form<AES_SPARSE_BASE>(b);
+
+        // Create circuit witnesses
+        field_ct field_a = witness_ct(&builder, fr(sparse_a));
+        field_ct field_b = witness_ct(&builder, fr(sparse_b));
+
+        // Add in circuit (this is the XOR operation before normalization)
+        field_ct sum = field_a + field_b;
+
+        // Normalize via plookup (this completes the XOR)
+        field_ct normalized = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, sum);
+
+        // Convert result back to byte and verify
+        uint64_t sparse_result = uint256_t(normalized.get_value()).data[0];
+        uint8_t actual = static_cast<uint8_t>(numeric::map_from_sparse_form<AES_SPARSE_BASE>(sparse_result));
+
+        EXPECT_EQ(actual, expected) << "Circuit sparse XOR failed for 0x" << std::hex << (int)a << " ^ 0x" << (int)b;
+    }
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test multi-way XOR via sparse form (a XOR b XOR c)
+ *
+ * In AES, we often XOR multiple values together (e.g., in AddRoundKey, MixColumns).
+ * Sparse form allows accumulating multiple additions before normalizing.
+ */
+TEST(stdlib_aes128_sparse, sparse_multi_xor_circuit)
+{
+    using field_ct = stdlib::field_t<UltraCircuitBuilder>;
+    using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
+    using plookup_read = stdlib::plookup_read<UltraCircuitBuilder>;
+
+    auto builder = UltraCircuitBuilder();
+
+    // Test 3-way and 4-way XOR
+    uint8_t a = 0x12, b = 0x34, c = 0x56, d = 0x78;
+
+    // Expected results
+    uint8_t expected_3way = a ^ b ^ c;     // 0x12 ^ 0x34 ^ 0x56 = 0x70
+    uint8_t expected_4way = a ^ b ^ c ^ d; // 0x12 ^ 0x34 ^ 0x56 ^ 0x78 = 0x08
+
+    // Convert to sparse form
+    field_ct sparse_a = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(a)));
+    field_ct sparse_b = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(b)));
+    field_ct sparse_c = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(c)));
+    field_ct sparse_d = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(d)));
+
+    // 3-way XOR: add all three, then normalize
+    field_ct sum_3way = sparse_a + sparse_b + sparse_c;
+    field_ct normalized_3way = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, sum_3way);
+
+    uint64_t sparse_result_3way = uint256_t(normalized_3way.get_value()).data[0];
+    uint8_t actual_3way = static_cast<uint8_t>(numeric::map_from_sparse_form<AES_SPARSE_BASE>(sparse_result_3way));
+    EXPECT_EQ(actual_3way, expected_3way) << "3-way sparse XOR failed";
+
+    // 4-way XOR: add all four, then normalize
+    field_ct sum_4way = sparse_a + sparse_b + sparse_c + sparse_d;
+    field_ct normalized_4way = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, sum_4way);
+
+    uint64_t sparse_result_4way = uint256_t(normalized_4way.get_value()).data[0];
+    uint8_t actual_4way = static_cast<uint8_t>(numeric::map_from_sparse_form<AES_SPARSE_BASE>(sparse_result_4way));
+    EXPECT_EQ(actual_4way, expected_4way) << "4-way sparse XOR failed";
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test the maximum number of additions before overflow
+ *
+ * With base-9, each digit can hold values 0-8 before overflowing.
+ * This means we can safely add up to 8 sparse bytes (each with digits 0 or 1)
+ * before normalization is required.
+ */
+TEST(stdlib_aes128_sparse, sparse_addition_limit)
+{
+    using field_ct = stdlib::field_t<UltraCircuitBuilder>;
+    using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
+    using plookup_read = stdlib::plookup_read<UltraCircuitBuilder>;
+
+    auto builder = UltraCircuitBuilder();
+
+    // Add 8 copies of 0xFF (all bits set)
+    // Each digit will be 8 (the maximum safe value in base-9)
+    uint8_t value = 0xFF;
+    field_ct sparse_value = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(value)));
+
+    field_ct accumulated = sparse_value;
+    for (size_t i = 1; i < 8; ++i) {
+        accumulated = accumulated + sparse_value;
+    }
+
+    // XOR of 8 copies of 0xFF = 0x00 (even count = all zeros)
+    field_ct normalized = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, accumulated);
+
+    uint64_t sparse_result = uint256_t(normalized.get_value()).data[0];
+    uint8_t actual = static_cast<uint8_t>(numeric::map_from_sparse_form<AES_SPARSE_BASE>(sparse_result));
+
+    EXPECT_EQ(actual, 0x00) << "8-way XOR of 0xFF should be 0x00";
+
+    // Add 7 copies of 0xFF = 0xFF (odd count = all ones)
+    field_ct accumulated_7 = sparse_value;
+    for (size_t i = 1; i < 7; ++i) {
+        accumulated_7 = accumulated_7 + sparse_value;
+    }
+
+    field_ct normalized_7 = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, accumulated_7);
+
+    uint64_t sparse_result_7 = uint256_t(normalized_7.get_value()).data[0];
+    uint8_t actual_7 = static_cast<uint8_t>(numeric::map_from_sparse_form<AES_SPARSE_BASE>(sparse_result_7));
+
+    EXPECT_EQ(actual_7, 0xFF) << "7-way XOR of 0xFF should be 0xFF";
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test the minimum number of additions with overflow
+ *
+ * With base-9, each digit can hold values 0-8 before overflowing.
+ * This means we need to add 9 sparse bytes (each with digits 0 or 1) to overflow.
+ */
+TEST(stdlib_aes128_sparse, sparse_addition_overflow)
+{
+    using field_ct = stdlib::field_t<UltraCircuitBuilder>;
+    using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
+    using plookup_read = stdlib::plookup_read<UltraCircuitBuilder>;
+
+    auto builder = UltraCircuitBuilder();
+
+    // Add 9 copies of 0xFF (all bits set)
+    // Each digit will be 9 (the minimum value to overflow)
+    uint8_t value = 0xFF;
+    field_ct sparse_value = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(value)));
+
+    field_ct accumulated = sparse_value;
+    for (size_t i = 1; i < 9; ++i) {
+        accumulated = accumulated + sparse_value;
+    }
+
+    // 9-way addition of 0xFF overflows base-9 sparse form (digit value 9 >= base)
+    // This should throw an exception because the value exceeds the lookup table range
+    EXPECT_THROW(plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, accumulated), std::runtime_error)
+        << "9-way XOR of 0xFF should overflow and throw";
 }

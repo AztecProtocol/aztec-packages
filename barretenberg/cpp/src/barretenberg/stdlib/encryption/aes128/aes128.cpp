@@ -19,9 +19,6 @@ namespace bb::stdlib::aes128 {
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;
 using namespace bb::plookup;
 
-constexpr uint32_t AES128_BASE = 9;
-constexpr size_t EXTENDED_KEY_LENGTH = 176;
-
 template <typename Builder> field_t<Builder> normalize_sparse_form(Builder*, field_t<Builder>& byte)
 {
     auto result = plookup_read<Builder>::read_from_1_to_2_table(AES_NORMALIZE, byte);
@@ -448,10 +445,14 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
     }
     return output;
 }
-#define INSTANTIATE_ENCRYPT_BUFFER_CBC(Builder)                                                                        \
+// Explicit template instantiations
+#define INSTANTIATE_AES128_TEMPLATES(Builder)                                                                          \
     template std::vector<field_t<Builder>> encrypt_buffer_cbc<Builder>(                                                \
-        const std::vector<field_t<Builder>>&, const field_t<Builder>&, const field_t<Builder>&)
+        const std::vector<field_t<Builder>>&, const field_t<Builder>&, const field_t<Builder>&);                       \
+    template std::array<field_t<Builder>, 16> convert_into_sparse_bytes<Builder>(Builder*, const field_t<Builder>&);   \
+    template field_t<Builder> convert_from_sparse_bytes<Builder>(Builder*, field_t<Builder>*)
 
-INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::UltraCircuitBuilder);
-INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::MegaCircuitBuilder);
+INSTANTIATE_AES128_TEMPLATES(bb::UltraCircuitBuilder);
+INSTANTIATE_AES128_TEMPLATES(bb::MegaCircuitBuilder);
+
 } // namespace bb::stdlib::aes128
