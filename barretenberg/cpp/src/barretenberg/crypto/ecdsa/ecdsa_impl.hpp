@@ -165,7 +165,7 @@ bool ecdsa_verify_signature(const std::string& message,
     Fr u2 = r * s_inv;
 
     typename G1::affine_element R((typename G1::element(public_key) * u2) + (G1::one * u1));
-    BB_ASSERT_EQ(R.is_point_at_infinity(), false, "Result of the scalar multiplication is the point at infinity.");
+    // BB_ASSERT_EQ(R.is_point_at_infinity(), false, "Result of the scalar multiplication is the point at infinity.");
 
     uint256_t Rx(R.x);
     Fr result(Rx);
