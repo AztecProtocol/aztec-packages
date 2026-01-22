@@ -22,6 +22,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 
     // Packs 16 bytes from the inputs (plaintext, iv, key) into a field element
     // Note that noir-stdlib already pads the inputs in accordance with PKCS7 padding scheme.
+    BB_ASSERT(constraint.inputs.size() % 16 == 0, "Inputs must be a multiple of 16");
     const auto convert_input = [&](std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent> inputs,
                                    Builder& builder) {
         field_ct converted = 0;
