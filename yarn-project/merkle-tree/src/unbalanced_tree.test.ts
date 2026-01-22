@@ -1,11 +1,14 @@
 import { SHA256Trunc, sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { StandardTree } from './standard_tree/standard_tree.js';
 import { UnbalancedTree } from './unbalanced_tree.js';
+
+const logger = createLogger('merkle-tree:test:unbalanced');
 
 const noopDeserializer: FromBuffer<Buffer> = {
   fromBuffer: (buffer: Buffer) => buffer,
@@ -242,7 +245,7 @@ describe('Unbalanced tree', () => {
       const res = await createAndFillTree(31);
       tree = res.tree;
       leaves = res.leaves;
-      stdTree = new StandardTree(openTmpStore(true), hasher, `temp`, 5, 0n, noopDeserializer);
+      stdTree = new StandardTree(openTmpStore(logger, true), hasher, `temp`, 5, 0n, noopDeserializer, logger);
       // We have set the last leaf to be H(1, 2), so we can fill a 32 size tree with:
       stdTree.appendLeaves([...res.leaves.slice(0, 30), new Fr(1).toBuffer(), new Fr(2).toBuffer()]);
     });

@@ -1,5 +1,5 @@
 import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type Hasher, SiblingPath } from '@aztec/foundation/trees';
 import type { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
@@ -63,6 +63,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     private depth: number,
     protected size: bigint = 0n,
     protected deserializer: FromBuffer<T>,
+    logger: Logger,
     root?: Buffer,
   ) {
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
@@ -83,7 +84,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     this.root = root ? root : current;
     this.maxIndex = 2n ** BigInt(depth) - 1n;
 
-    this.log = createLogger(`merkle-tree:${name.toLowerCase()}`);
+    this.log = logger.createChild(`merkle-tree:${name.toLowerCase()}`);
   }
 
   /**

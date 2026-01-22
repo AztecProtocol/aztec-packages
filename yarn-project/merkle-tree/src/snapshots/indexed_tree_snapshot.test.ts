@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -10,6 +11,8 @@ import { StandardIndexedTreeWithAppend } from '../standard_indexed_tree/test/sta
 import { IndexedTreeSnapshotBuilder } from './indexed_tree_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
+const logger = createLogger('merkle-tree:test:indexed-snapshot');
+
 class NullifierTree extends StandardIndexedTreeWithAppend {
   constructor(
     db: AztecKVStore,
@@ -18,9 +21,10 @@ class NullifierTree extends StandardIndexedTreeWithAppend {
     depth: number,
     size: bigint = 0n,
     _noop: any,
+    log: Logger,
     root?: Buffer,
   ) {
-    super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+    super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, log, root);
   }
 }
 
@@ -30,8 +34,8 @@ describe('IndexedTreeSnapshotBuilder', () => {
   let snapshotBuilder: IndexedTreeSnapshotBuilder;
 
   beforeEach(async () => {
-    db = openTmpStore();
-    tree = await newTree(NullifierTree, db, new Pedersen(), 'test', { fromBuffer: (b: Buffer) => b }, 4);
+    db = openTmpStore(logger);
+    tree = await newTree(NullifierTree, db, new Pedersen(), 'test', { fromBuffer: (b: Buffer) => b }, 4, logger);
     snapshotBuilder = new IndexedTreeSnapshotBuilder(db, tree, NullifierLeafPreimage);
   });
 

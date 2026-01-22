@@ -1,5 +1,6 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Logger } from '@aztec/foundation/log';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -75,9 +76,10 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     size: bigint = 0n,
     protected leafPreimageFactory: PreimageFactory,
     protected leafFactory: LeafFactory,
+    logger: Logger,
     root?: Buffer,
   ) {
-    super(store, hasher, name, depth, size, noopDeserializer, root);
+    super(store, hasher, name, depth, size, noopDeserializer, logger, root);
     this.leaves = store.openMap(`tree_${name}_leaves`);
     this.leafIndex = store.openMap(`tree_${name}_leaf_index`);
     this.#snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);

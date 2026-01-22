@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -12,16 +13,18 @@ import { PedersenWithCounter } from '../test/utils/pedersen_with_counter.js';
 import { INITIAL_LEAF } from '../tree_base.js';
 import { StandardTree } from './standard_tree.js';
 
+const logger = createLogger('merkle-tree:test:standard');
+
 const noopDeserializer: FromBuffer<Buffer> = {
   fromBuffer: (buffer: Buffer) => buffer,
 };
 
 const createDb = async (store: AztecKVStore, hasher: Hasher, name: string, depth: number) => {
-  return await newTree(StandardTree, store, hasher, name, noopDeserializer, depth);
+  return await newTree(StandardTree, store, hasher, name, noopDeserializer, depth, logger);
 };
 
 const createFromName = async (store: AztecKVStore, hasher: Hasher, name: string) => {
-  return await loadTree(StandardTree, store, hasher, name, noopDeserializer);
+  return await loadTree(StandardTree, store, hasher, name, noopDeserializer, logger);
 };
 
 treeTestSuite('StandardTree', createDb, createFromName);
@@ -39,7 +42,7 @@ describe('StandardTree_batchAppend', () => {
   });
 
   it('correctly computes root when batch appending and calls hash function expected num times', async () => {
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', 3);
     const leaves = Array.from({ length: 5 }, _ => Fr.random().toBuffer());
 
@@ -75,7 +78,7 @@ describe('StandardTree_batchAppend', () => {
   });
 
   it('should be able to find indexes of leaves', async () => {
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', 3);
     const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
 

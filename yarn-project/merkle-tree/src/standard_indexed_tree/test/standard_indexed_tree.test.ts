@@ -1,5 +1,6 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FromBuffer } from '@aztec/foundation/serialize';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
@@ -16,6 +17,8 @@ import { INITIAL_LEAF, type MerkleTree, Pedersen, loadTree, newTree } from '../.
 import { treeTestSuite } from '../../test/test_suite.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
 
+const logger = createLogger('merkle-tree:test:indexed');
+
 class NullifierTree extends StandardIndexedTreeWithAppend {
   constructor(
     store: AztecKVStore,
@@ -24,9 +27,10 @@ class NullifierTree extends StandardIndexedTreeWithAppend {
     depth: number,
     size: bigint = 0n,
     _noop: any,
+    log: Logger,
     root?: Buffer,
   ) {
-    super(store, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+    super(store, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, log, root);
   }
 }
 
@@ -38,9 +42,10 @@ class PublicDataTree extends StandardIndexedTreeWithAppend {
     depth: number,
     size: bigint = 0n,
     _noop: any,
+    log: Logger,
     root?: Buffer,
   ) {
-    super(store, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf, root);
+    super(store, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf, log, root);
   }
 }
 
@@ -49,11 +54,11 @@ const noopDeserializer: FromBuffer<Buffer> = {
 };
 
 const createDb = async (store: AztecKVStore, hasher: Hasher, name: string, depth: number, prefilledSize = 1) => {
-  return await newTree(NullifierTree, store, hasher, name, noopDeserializer, depth, prefilledSize);
+  return await newTree(NullifierTree, store, hasher, name, noopDeserializer, depth, logger, prefilledSize);
 };
 
 const createFromName = async (store: AztecKVStore, hasher: Hasher, name: string) => {
-  return await loadTree(NullifierTree, store, hasher, name, noopDeserializer);
+  return await loadTree(NullifierTree, store, hasher, name, noopDeserializer, logger);
 };
 
 const createNullifierTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
@@ -100,7 +105,7 @@ describe('StandardIndexedTreeSpecific', () => {
 
   it('produces the correct roots and sibling paths', async () => {
     // Create a depth-3 indexed merkle tree
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', 3);
 
     /**
@@ -297,7 +302,7 @@ describe('StandardIndexedTreeSpecific', () => {
 
   it('Can append empty leaves and handle insertions', async () => {
     // Create a depth-3 indexed merkle tree
-    const tree = await createDb(openTmpStore(), pedersen, 'test', 3);
+    const tree = await createDb(openTmpStore(logger), pedersen, 'test', 3);
 
     /**
      * Initial state:
@@ -514,8 +519,8 @@ describe('StandardIndexedTreeSpecific', () => {
     const SUBTREE_HEIGHT = 5; // originally from NULLIFIER_SUBTREE_HEIGHT
 
     // Create a depth-3 indexed merkle tree
-    const appendTree = await createDb(openTmpStore(), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
-    const insertTree = await createDb(openTmpStore(), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
+    const appendTree = await createDb(openTmpStore(logger), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
+    const insertTree = await createDb(openTmpStore(logger), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
 
     appendTree.appendLeaves(leaves);
     await insertTree.batchInsert(leaves, SUBTREE_HEIGHT);
@@ -526,7 +531,7 @@ describe('StandardIndexedTreeSpecific', () => {
   });
 
   it('should be able to find indexes of leaves', async () => {
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', 3);
     const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
 
@@ -544,8 +549,8 @@ describe('StandardIndexedTreeSpecific', () => {
   describe('Updatable leaves', () => {
     it('should be able to upsert leaves', async () => {
       // Create a depth-3 indexed merkle tree
-      const db = openTmpStore();
-      const tree = await newTree(PublicDataTree, db, pedersen, 'test', {}, 3, 1);
+      const db = openTmpStore(logger);
+      const tree = await newTree(PublicDataTree, db, pedersen, 'test', {}, 3, logger, 1);
 
       /**
        * Initial state:
@@ -654,9 +659,27 @@ describe('StandardIndexedTreeSpecific', () => {
       const INITIAL_TREE_SIZE = 8;
       const SUBTREE_HEIGHT = 5;
 
-      const db = openTmpStore();
-      const appendTree = await newTree(PublicDataTree, db, pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
-      const insertTree = await newTree(PublicDataTree, db, pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
+      const db = openTmpStore(logger);
+      const appendTree = await newTree(
+        PublicDataTree,
+        db,
+        pedersen,
+        'test',
+        {},
+        TREE_HEIGHT,
+        logger,
+        INITIAL_TREE_SIZE,
+      );
+      const insertTree = await newTree(
+        PublicDataTree,
+        db,
+        pedersen,
+        'test',
+        {},
+        TREE_HEIGHT,
+        logger,
+        INITIAL_TREE_SIZE,
+      );
 
       appendTree.appendLeaves(initialState.map(leaf => leaf.toBuffer()));
       insertTree.appendLeaves(initialState.map(leaf => leaf.toBuffer()));

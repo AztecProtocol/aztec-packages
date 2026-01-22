@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -7,6 +8,8 @@ import { Pedersen } from '../index.js';
 import type { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import type { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
+
+const logger = createLogger('merkle-tree:test:suite');
 
 const expectSameTrees = async (
   tree1: AppendOnlyTree | UpdateOnlyTree,
@@ -51,10 +54,10 @@ export const treeTestSuite = (
     });
 
     it('should revert changes on rollback', async () => {
-      const dbEmpty = openTmpStore();
+      const dbEmpty = openTmpStore(logger);
       const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
 
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
@@ -86,10 +89,10 @@ export const treeTestSuite = (
     });
 
     it('should not revert changes after commit', async () => {
-      const dbEmpty = openTmpStore();
+      const dbEmpty = openTmpStore(logger);
       const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
 
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
@@ -105,7 +108,7 @@ export const treeTestSuite = (
     });
 
     it('should be able to restore from previous committed data', async () => {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test', 10);
       await appendLeaves(tree, values.slice(0, 4));
       await tree.commit();
@@ -122,7 +125,7 @@ export const treeTestSuite = (
     });
 
     it('should throw an error if previous data does not exist for the given name', async () => {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       await expect(
         (async () => {
           await createFromName(db, pedersen, 'a_whole_new_tree');
@@ -131,7 +134,7 @@ export const treeTestSuite = (
     });
 
     it('should serialize sibling path data to a buffer and be able to deserialize it back', async () => {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test', 10);
       await appendLeaves(tree, values.slice(0, 1));
 

@@ -1,6 +1,6 @@
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -14,7 +14,7 @@ import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js
 import { treeTestSuite } from '../test/test_suite.js';
 import { SparseTree } from './sparse_tree.js';
 
-const log = createLogger('merkle-tree:test:sparse_tree');
+const logger = createLogger('merkle-tree:test:sparse');
 
 const createDb = async (
   db: AztecKVStore,
@@ -31,13 +31,21 @@ const createDb = async (
       fromBuffer: (buffer: Buffer): Buffer => buffer,
     },
     depth,
+    logger,
   );
 };
 
 const createFromName = async (db: AztecKVStore, hasher: Hasher, name: string): Promise<UpdateOnlyTree<Buffer>> => {
-  return await loadTree(SparseTree, db, hasher, name, {
-    fromBuffer: (buffer: Buffer): Buffer => buffer,
-  });
+  return await loadTree(
+    SparseTree,
+    db,
+    hasher,
+    name,
+    {
+      fromBuffer: (buffer: Buffer): Buffer => buffer,
+    },
+    logger,
+  );
 };
 
 const TEST_TREE_DEPTH = 3;
@@ -47,13 +55,18 @@ standardBasedTreeTestSuite('SparseTree', createDb);
 
 describe('SparseTreeSpecific', () => {
   let pedersen: Pedersen;
+  let log: Logger;
+
+  beforeAll(() => {
+    log = logger;
+  });
 
   beforeEach(() => {
     pedersen = new Pedersen();
   });
 
   it('throws when index is bigger than (2^DEPTH - 1) ', async () => {
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const depth = 32;
     const tree = await createDb(db, pedersen, 'test', depth);
 
@@ -65,7 +78,7 @@ describe('SparseTreeSpecific', () => {
     const depth = 32;
     const maxIndex = 2 ** depth - 1;
 
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', depth);
 
     const randomIndex = randomBigInt(BigInt(maxIndex));
@@ -84,7 +97,7 @@ describe('SparseTreeSpecific', () => {
     const depth = 254;
     const maxIndex = 2 ** depth - 1;
 
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', depth);
 
     const randomIndex = randomBigInt(BigInt(maxIndex));
@@ -100,7 +113,7 @@ describe('SparseTreeSpecific', () => {
   });
 
   it('should have correct root and sibling path after in a "non-append-only" way', async () => {
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', 3);
 
     const level2ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
@@ -173,7 +186,7 @@ describe('SparseTreeSpecific', () => {
     const depth = 254;
     const maxIndex = 2 ** depth - 1;
 
-    const db = openTmpStore();
+    const db = openTmpStore(logger);
     const tree = await createDb(db, pedersen, 'test', depth);
 
     const leaves = Array.from({ length: 1000 }).map(() => Fr.random().toBuffer());

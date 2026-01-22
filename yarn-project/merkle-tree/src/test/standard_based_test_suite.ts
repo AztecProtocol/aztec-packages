@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -8,6 +9,8 @@ import { INITIAL_LEAF, Pedersen } from '../index.js';
 import type { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import type { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
+
+const logger = createLogger('merkle-tree:test:standard-based-suite');
 
 const TEST_TREE_DEPTH = 2;
 
@@ -35,21 +38,21 @@ export const standardBasedTreeTestSuite = (
     });
 
     it('should have correct empty tree root for depth 32', async () => {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test', 32);
       const root = tree.getRoot(false);
       expect(root.toString('hex')).toEqual('16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb');
     });
 
     it('should throw when appending beyond max index', async () => {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test', 2);
       const leaves = Array.from({ length: 5 }, _ => Fr.random().toBuffer());
       await expect(appendLeaves(tree, leaves)).rejects.toThrow();
     });
 
     it('should have correct root and sibling paths', async () => {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const tree = await createDb(db, pedersen, 'test', 2);
 
       const level1ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);

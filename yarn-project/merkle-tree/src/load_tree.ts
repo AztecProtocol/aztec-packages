@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import type { Bufferable, FromBuffer } from '@aztec/foundation/serialize';
 import type { Hasher } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -10,6 +11,8 @@ import { type TreeBase, getTreeMeta } from './tree_base.js';
  * @param db - A database used to store the Merkle tree data.
  * @param hasher - A hasher used to compute hash paths.
  * @param name - Name of the tree.
+ * @param deserializer - A deserializer for the leaf values.
+ * @param logger - A logger to use for logging.
  * @returns The newly created tree.
  */
 export function loadTree<T extends TreeBase<Bufferable>, D extends FromBuffer<Bufferable>>(
@@ -20,14 +23,16 @@ export function loadTree<T extends TreeBase<Bufferable>, D extends FromBuffer<Bu
     depth: number,
     size: bigint,
     deserializer: D,
+    logger: Logger,
     root: Buffer,
   ) => T,
   store: AztecKVStore,
   hasher: Hasher,
   name: string,
   deserializer: D,
+  logger: Logger,
 ): Promise<T> {
   const { root, depth, size } = getTreeMeta(store, name);
-  const tree = new c(store, hasher, name, depth, size, deserializer, root);
+  const tree = new c(store, hasher, name, depth, size, deserializer, logger, root);
   return Promise.resolve(tree);
 }
