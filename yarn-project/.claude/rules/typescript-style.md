@@ -236,12 +236,72 @@ Avoid `Set`/`Map` of non-primitive class instances; this leads to errors with `h
 
 ## Logging
 
+### Logger Injection
+
+**Never import and call the free functions `createLogger()` or `createLoggerFactory()` from `@aztec/foundation/log`** except in:
+- Unit tests (`*.test.ts` files)
+- Entry points (`bin/index.ts`, CLI commands, main entry files)
+- Static factory methods that act as application entry points
+
+**Calling `loggerFactory.createLogger()` on an injected `LoggerFactory` instance is allowed**—this is the intended usage pattern. The rule only bans importing and using the free function directly.
+
+Classes and functions should receive loggers via dependency injection:
+
+```typescript
+// GOOD: Receives logger via constructor
+export class BlockProcessor {
+  constructor(
+    private readonly db: Database,
+    private readonly logger: Logger,
+  ) {}
+}
+
+// GOOD: Receives LoggerFactory and calls createLogger() on it
+export class Sequencer {
+  private readonly logger: Logger;
+
+  constructor(
+    config: SequencerConfig,
+    loggerFactory: LoggerFactory,
+  ) {
+    // This is fine - calling createLogger() on the injected factory
+    this.logger = loggerFactory.createLogger('sequencer');
+  }
+}
+
+// BAD: Imports and calls the free function createLogger()
+import { createLogger } from '@aztec/foundation/log';
+
+export class BlockProcessor {
+  // This is banned - using the free function instead of injection
+  private readonly logger = createLogger('block-processor');
+
+  constructor(private readonly db: Database) {}
+}
+```
+
+In general, a standalone component such as a `Sequencer` or `Archiver` should receive a `LoggerFactory` to create a new logger for itself. However, if the component is created by a factory method like `createSequencer`, then the factory method should receive the `LoggerFactory` and use it to create the logger for the component. On the other hand, a utility like a `SerialQueue` should receive a `Logger` so the caller can decide how to name it descriptively.
+
+### Loggers as Logger Factories
+
+The `Logger` itself is a valid `LoggerFactory`. If a component needs a `LoggerFactory` but a `Logger` is available in the current scope, we can use the `Logger` as the `LoggerFactory`. Also, no method should require both a `Logger` and a `LoggerFactory`, only one is needed.
+
+### Child Loggers
+
+Use `logger.createChild()` to create scoped loggers for sub-components:
+
+```typescript
+const childLogger = this.logger.createChild('sub-component');
+```
+
+### Log Levels and Content
+
 - Be generous with logging, but not excessive
 - Include structured context objects
 - Use appropriate log levels: `trace`, `debug`, `verbose`, `info`, `warn`, `error`
 
 ```typescript
-this.log.info(`Preparing checkpoint ${checkpointNumber}`, {
+this.logger.info(`Preparing checkpoint ${checkpointNumber}`, {
   slot,
   checkpointNumber,
   proposer,
@@ -276,6 +336,35 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 ```
 
 ## Function Arguments
+
+### Parameter Ordering
+
+Order parameters from most to least essential:
+1. Required parameters first
+2. Optional parameters last (with default values)
+
+This allows callers to omit optional parameters without passing `undefined`:
+
+```typescript
+// GOOD: Required params first, optional with defaults last
+function createClient(
+  url: string,
+  logger: Logger,
+  telemetry: TelemetryClient = getTelemetryClient(),
+  batchWindowMs: number = 0,
+): Client { ... }
+
+// BAD: Optional param before required forces awkward calls
+function createClient(
+  url: string,
+  telemetry: TelemetryClient,  // Optional but no default
+  logger: Logger,              // Required
+): Client { ... }
+
+// Caller forced to do: createClient(url, undefined, logger)
+```
+
+### Simplify Expressions
 
 Simplify function arguments to single expressions where possible:
 
