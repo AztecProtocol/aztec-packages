@@ -32,8 +32,7 @@ describe('NoteService', () => {
   beforeEach(async () => {
     const store = await openTmpStore('test');
     keyStore = new KeyStore(store);
-    noteStore = await NoteStore.create(store);
-    noteStore = await NoteStore.create(store);
+    noteStore = new NoteStore(store);
     aztecNode = mock<AztecNode>();
     anchorBlockStore = new AnchorBlockStore(store);
     await anchorBlockStore.setHeader(
@@ -44,81 +43,104 @@ describe('NoteService', () => {
 
     contractAddress = await AztecAddress.random();
 
-    // Check that there are no notes in the database
-    const notes = await noteStore.getNotes({ contractAddress });
+    const notes = await noteStore.getNotes({ contractAddress }, 'test');
     expect(notes).toHaveLength(0);
 
-    // Check that the expected number of accounts is present
     const accounts = await keyStore.getAccounts();
     expect(accounts).toHaveLength(0);
 
     recipient = await keyStore.addAccount(new Fr(69), Fr.random());
 
-    noteService = new NoteService(noteStore, aztecNode, anchorBlockStore);
+    noteService = new NoteService(noteStore, aztecNode, anchorBlockStore, 'test');
   });
 
   it('should remove notes that have been nullified', async () => {
-    // Set up initial state with a note
     const noteDao = await NoteDao.random({ contractAddress });
 
     // Spy on the noteStore.applyNullifiers to later on have additional guarantee that we really removed
     // the note.
     jest.spyOn(noteStore, 'applyNullifiers');
 
-    // Add the note to storage
-    await noteStore.addNotes([noteDao], recipient.address);
+    await noteStore.addNotes([noteDao], recipient.address, 'test');
 
     // Set up the nullifier in the merkle tree
     const nullifierIndex = randomDataInBlock(123n);
     aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
 
-    // Call the function under test
     await noteService.syncNoteNullifiers(contractAddress);
 
-    // Verify the note was removed by checking storage
-    const remainingNotes = await noteStore.getNotes({
-      contractAddress,
-      status: NoteStatus.ACTIVE,
-      scopes: [recipient.address],
-    });
+    const remainingNotes = await noteStore.getNotes(
+      {
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient.address],
+      },
+      'test',
+    );
     expect(remainingNotes).toHaveLength(0);
 
     // Verify the note was removed by checking the spy
     expect(noteStore.applyNullifiers).toHaveBeenCalledTimes(1);
+
+    // Verify that the changes persist after job completion
+    {
+      await noteStore.commit('test');
+      const remainingNotes = await noteStore.getNotes(
+        {
+          contractAddress,
+          status: NoteStatus.ACTIVE,
+          scopes: [recipient.address],
+        },
+        'fresh-job',
+      );
+      expect(remainingNotes).toHaveLength(0);
+    }
   });
 
   it('should keep notes that have not been nullified', async () => {
-    // Set up initial state with a note
     const noteDao = await NoteDao.random({ contractAddress });
 
-    // Add the note to storage
-    await noteStore.addNotes([noteDao], recipient.address);
+    await noteStore.addNotes([noteDao], recipient.address, 'test');
 
     // No nullifier found in merkle tree
     aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
 
-    // Call the function under test
     await noteService.syncNoteNullifiers(contractAddress);
 
-    // Verify note still exists
-    const remainingNotes = await noteStore.getNotes({
-      contractAddress,
-      status: NoteStatus.ACTIVE,
-      scopes: [recipient.address],
-    });
+    const remainingNotes = await noteStore.getNotes(
+      {
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient.address],
+      },
+      'test',
+    );
     expect(remainingNotes).toHaveLength(1);
     expect(remainingNotes[0]).toEqual(noteDao);
+
+    // Verify that the changes persist after job completion
+    {
+      await noteStore.commit('test');
+      const remainingNotes = await noteStore.getNotes(
+        {
+          contractAddress,
+          status: NoteStatus.ACTIVE,
+          scopes: [recipient.address],
+        },
+        'fresh-job',
+      );
+      expect(remainingNotes).toHaveLength(1);
+      expect(remainingNotes[0]).toEqual(noteDao);
+    }
   });
 
   // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
   // synced yet. We mock the nullifier to only exist in blocks beyond our current sync point, then verify the note
   // is not removed by applyNullifiers.
   it('should not remove notes if nullifier is in unsynced blocks', async () => {
-    // Set up initial state with a note
     const noteDao = await NoteDao.random({ contractAddress });
 
-    // Add the note to storage
-    await noteStore.addNotes([noteDao], recipient.address);
+    await noteStore.addNotes([noteDao], recipient.address, 'test');
 
     // Mock nullifier to only exist after synced block
     aztecNode.findLeavesIndexes.mockImplementation(blockNum => {
@@ -128,37 +150,51 @@ describe('NoteService', () => {
       return Promise.resolve([undefined]);
     });
 
-    // Call the function under test
     await noteService.syncNoteNullifiers(contractAddress);
 
     // Verify note still exists
-    const remainingNotes = await noteStore.getNotes({
-      contractAddress,
-      status: NoteStatus.ACTIVE,
-      scopes: [recipient.address],
-    });
+    const remainingNotes = await noteStore.getNotes(
+      {
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+        scopes: [recipient.address],
+      },
+      'test',
+    );
     expect(remainingNotes).toHaveLength(1);
     expect(remainingNotes[0]).toEqual(noteDao);
+
+    // Verify that the changes persist after job completion
+    {
+      await noteStore.commit('test');
+      const remainingNotes = await noteStore.getNotes(
+        {
+          contractAddress,
+          status: NoteStatus.ACTIVE,
+          scopes: [recipient.address],
+        },
+        'fresh-job',
+      );
+      expect(remainingNotes).toHaveLength(1);
+      expect(remainingNotes[0]).toEqual(noteDao);
+    }
   });
 
   it('should search for notes from all accounts', async () => {
-    // Add multiple accounts to keystore
     await keyStore.addAccount(Fr.random(), Fr.random());
     await keyStore.addAccount(Fr.random(), Fr.random());
 
     expect(await keyStore.getAccounts()).toHaveLength(3);
 
-    // Spy on the noteStore.getNotesSpy
     const getNotesSpy = jest.spyOn(noteStore, 'getNotes');
 
-    // Call the function under test
     await noteService.syncNoteNullifiers(contractAddress);
 
     // Verify applyNullifiers was called once for all accounts
     expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
-    // Verify getNotes was called with the correct contract address
-    expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }));
+    // Verify getNotes was called with the correct contract address and jobId
+    expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }), 'test');
   });
 
   describe('storeNote', () => {
@@ -248,10 +284,20 @@ describe('NoteService', () => {
       );
 
       // Verify note was stored
-      const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] });
+      const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'test');
 
       expect(notes).toHaveLength(1);
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+
+      // Verify note is still stored after committing job
+      {
+        await noteStore.commit('test');
+
+        const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'fresh-job');
+
+        expect(notes).toHaveLength(1);
+        expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+      }
     });
 
     it('should throw if tx hash does not exist', async () => {
@@ -332,22 +378,35 @@ describe('NoteService', () => {
         recipient.address,
       );
 
-      // Now we verify that the note is stored as nullified by checking it can be retrieved only with
-      // the ACTIVE_OR_NULLIFIED status on the input.
-      const allNotes = await noteStore.getNotes({
-        contractAddress,
-        scopes: [recipient.address],
-        status: NoteStatus.ACTIVE_OR_NULLIFIED,
-      });
-      expect(allNotes).toHaveLength(1);
-      expect(allNotes[0].noteHash.equals(noteHash)).toBe(true);
+      const verifyNoteNullifiedInJobContext = async (jobId: string) => {
+        // Now we verify that the note is stored as nullified by checking it can be retrieved only with
+        // the ACTIVE_OR_NULLIFIED status on the input.
+        const allNotes = await noteStore.getNotes(
+          {
+            contractAddress,
+            scopes: [recipient.address],
+            status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          },
+          jobId,
+        );
+        expect(allNotes).toHaveLength(1);
+        expect(allNotes[0].noteHash.equals(noteHash)).toBe(true);
 
-      const activeNotes = await noteStore.getNotes({
-        contractAddress,
-        scopes: [recipient.address],
-        status: NoteStatus.ACTIVE,
-      });
-      expect(activeNotes).toHaveLength(0);
+        const activeNotes = await noteStore.getNotes(
+          {
+            contractAddress,
+            scopes: [recipient.address],
+            status: NoteStatus.ACTIVE,
+          },
+          jobId,
+        );
+        expect(activeNotes).toHaveLength(0);
+      };
+
+      // Verify store behaves correctly pre and post commit
+      await verifyNoteNullifiedInJobContext('test');
+      await noteStore.commit('test');
+      await verifyNoteNullifiedInJobContext('fresh-job');
     });
   });
 });
