@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
@@ -206,12 +206,11 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
-  private log = createLogger('world-state:merkle-trees-fork-facade');
-
   constructor(
     instance: NativeWorldStateInstance,
     initialHeader: BlockHeader,
     revision: WorldStateRevision,
+    private readonly log: Logger,
     private opts: { closeDelayMs?: number },
   ) {
     assert.notEqual(revision.forkId, 0, 'Fork ID must be set');

@@ -14,6 +14,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { MerkleTreeAdminDatabase, WorldStateConfig } from '../index.js';
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type WorldStateStatusSummary, buildEmptyWorldStateStatusFull } from '../native/message.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
@@ -86,7 +87,15 @@ describe('ServerWorldStateSynchronizer', () => {
       worldStateBlockHistory: 0,
     };
 
-    server = new TestWorldStateSynchronizer(merkleTreeDb, blockAndMessagesSource, config, l2BlockStream);
+    const instrumentation = new WorldStateInstrumentation(log);
+    server = new TestWorldStateSynchronizer(
+      merkleTreeDb,
+      blockAndMessagesSource,
+      config,
+      l2BlockStream,
+      log,
+      instrumentation,
+    );
   });
 
   afterEach(async () => {
@@ -254,8 +263,10 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     blockAndMessagesSource: L2BlockSource & L1ToL2MessageSource,
     worldStateConfig: WorldStateConfig,
     private mockBlockStream: L2BlockStream,
+    log: Logger,
+    instrumentation: WorldStateInstrumentation,
   ) {
-    super(merkleTrees, blockAndMessagesSource, worldStateConfig);
+    super(merkleTrees, blockAndMessagesSource, worldStateConfig, log, instrumentation);
   }
 
   protected override createBlockStream(): L2BlockStream {

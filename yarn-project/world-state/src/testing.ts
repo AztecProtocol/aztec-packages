@@ -1,5 +1,7 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -13,12 +15,9 @@ async function generateGenesisValues(prefilledPublicData: PublicDataTreeLeaf[]) 
     };
   }
 
+  const log = createLogger('world-state:testing');
   // Create a temporary world state to compute the genesis values.
-  const ws = await NativeWorldStateService.tmp(
-    undefined /* rollupAddress */,
-    true /* cleanupTmpDir */,
-    prefilledPublicData,
-  );
+  const ws = await NativeWorldStateService.tmp(EthAddress.ZERO, true /* cleanupTmpDir */, prefilledPublicData, log);
   const genesisArchiveRoot = new Fr((await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
   await ws.close();
 

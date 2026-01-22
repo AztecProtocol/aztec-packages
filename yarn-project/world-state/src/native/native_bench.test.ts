@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { L2BlockNew } from '@aztec/stdlib/block';
 import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 
@@ -12,6 +12,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import { mockBlock } from '../test/utils.js';
 import { DataRetrievalType, InsertionType, NativeBenchMetics } from './bench_metrics.js';
@@ -20,7 +21,8 @@ import { NativeWorldStateService } from './native_world_state.js';
 jest.setTimeout(300_000);
 
 describe('Native World State: benchmarks', () => {
-  const logger = createLogger('native-world-state-bench');
+  let log: Logger;
+  let instrumentation: WorldStateInstrumentation;
   let dataDir: string;
   let rollupAddress: EthAddress;
   const defaultDBMapSize = 128 * 1024 * 1024;
@@ -34,6 +36,11 @@ describe('Native World State: benchmarks', () => {
   const metrics = new NativeBenchMetics();
   let worldState!: NativeWorldStateService;
 
+  beforeAll(() => {
+    log = createLogger('native-world-state-bench');
+    instrumentation = new WorldStateInstrumentation(log);
+  });
+
   afterAll(async () => {
     if (process.env.BENCH_OUTPUT) {
       await mkdir(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
@@ -41,16 +48,16 @@ describe('Native World State: benchmarks', () => {
     } else if (process.env.BENCH_OUTPUT_MD) {
       await writeFile(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
     } else {
-      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
-      logger.info(metrics.toPrettyString());
-      logger.info(`\n`);
+      log.info(`\n`); // sometimes jest tests obscure the last line(s)
+      log.info(metrics.toPrettyString());
+      log.info(`\n`);
     }
   });
 
   beforeEach(async () => {
     dataDir = await mkdtemp(join(tmpdir(), 'world-state-test'));
     rollupAddress = EthAddress.random();
-    worldState = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+    worldState = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
   });
 
   afterEach(async () => {

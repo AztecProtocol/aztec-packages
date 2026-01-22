@@ -14,6 +14,7 @@ import { timesAsync } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { L2BlockNew } from '@aztec/stdlib/block';
@@ -28,6 +29,7 @@ import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } fro
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
@@ -40,6 +42,8 @@ describe('NativeWorldState', () => {
   let dataDir: string;
   let backupDir: string | undefined;
   let rollupAddress: EthAddress;
+  let log: Logger;
+  let instrumentation: WorldStateInstrumentation;
   const defaultDBMapSize = 128 * 1024 * 1024; // 128 GB
   const tbMapSize = 1024 * 1024 * 1024; // 1 TB
   const wsTreeMapSizes: WorldStateTreeMapSizes = {
@@ -53,6 +57,8 @@ describe('NativeWorldState', () => {
   beforeAll(async () => {
     dataDir = await mkdtemp(join(tmpdir(), 'world-state-test'));
     rollupAddress = EthAddress.random();
+    log = createLogger('world-state:test:native_world_state');
+    instrumentation = new WorldStateInstrumentation(log);
   });
 
   afterAll(async () => {
@@ -67,7 +73,7 @@ describe('NativeWorldState', () => {
     let fork: MerkleTreeWriteOperations;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.tmp();
+      ws = await NativeWorldStateService.tmp(EthAddress.random(), true, [], log, instrumentation);
       fork = await ws.fork();
     });
 
@@ -177,7 +183,7 @@ describe('NativeWorldState', () => {
       );
 
     beforeAll(async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
       noteHash = block.body.txEffects[0].noteHashes[0];
@@ -188,7 +194,7 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly restores committed state', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalizedBlockNumber).toBe(1);
@@ -197,13 +203,13 @@ describe('NativeWorldState', () => {
 
     it('copies and restores committed state', async () => {
       backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       await expect(findLeafIndex(noteHash, ws)).resolves.toBeDefined();
       await ws.backupTo(join(backupDir, WORLD_STATE_DIR), true);
       await ws.close();
 
       await writeVersion(backupDir);
-      const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, wsTreeMapSizes);
+      const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, wsTreeMapSizes, [], log, instrumentation);
       const status2 = await ws2.getStatusSummary();
       expect(status2.unfinalizedBlockNumber).toBe(1);
       await expect(findLeafIndex(noteHash, ws2)).resolves.toBeDefined();
@@ -213,7 +219,7 @@ describe('NativeWorldState', () => {
 
     it('blocks writes while copying', async () => {
       backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const copyPromise = ws.backupTo(join(backupDir, WORLD_STATE_DIR), true);
 
       await timesAsync(5, async i => {
@@ -228,7 +234,7 @@ describe('NativeWorldState', () => {
       await ws.close();
 
       await writeVersion(backupDir);
-      const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, wsTreeMapSizes);
+      const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, wsTreeMapSizes, [], log, instrumentation);
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws2)).resolves.toBeDefined();
       expect((await ws2.getStatusSummary()).unfinalizedBlockNumber).toBe(1);
       await ws2.close();
@@ -236,7 +242,14 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the rollup is different', async () => {
       // open ws against the same data dir but a different rollup
-      let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      let ws = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        wsTreeMapSizes,
+        [],
+        log,
+        instrumentation,
+      );
       // db should be empty
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
@@ -244,7 +257,7 @@ describe('NativeWorldState', () => {
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalizedBlockNumber).toBe(0);
@@ -253,7 +266,7 @@ describe('NativeWorldState', () => {
 
     it('clears the database if the world state version is different', async () => {
       // open ws against the data again
-      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      let ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       // db should be empty
       let emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalizedBlockNumber).toBe(0);
@@ -277,7 +290,7 @@ describe('NativeWorldState', () => {
       await writeFile(fullPath, modifiedVersion.toBuffer());
 
       // Open the world state again and it should be empty
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       // db should be empty
       emptyStatus = await ws.getStatusSummary();
       expect(emptyStatus.unfinalizedBlockNumber).toBe(0);
@@ -294,7 +307,7 @@ describe('NativeWorldState', () => {
         messageTreeMapSizeKb: 1024,
         publicDataTreeMapSizeKb: 1024,
       };
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const initialFork = await ws.fork();
 
       const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 8, initialFork);
@@ -335,7 +348,14 @@ describe('NativeWorldState', () => {
     });
 
     it('manually clears the database', async () => {
-      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        wsTreeMapSizes,
+        [],
+        log,
+        instrumentation,
+      );
       const initialStatus = await ws.getStatusSummary();
       expect(initialStatus.unfinalizedBlockNumber).toBe(0);
 
@@ -357,7 +377,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes, [], log, instrumentation);
     }, 30_000);
 
     afterEach(async () => {
@@ -442,7 +462,7 @@ describe('NativeWorldState', () => {
 
     beforeEach(async () => {
       rollupAddress = EthAddress.random();
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
     });
 
     afterEach(async () => {
@@ -578,7 +598,14 @@ describe('NativeWorldState', () => {
       }
 
       // Open up the world state again
-      const newWorldState = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const newWorldState = await NativeWorldStateService.new(
+        rollupAddress,
+        dataDir,
+        wsTreeMapSizes,
+        [],
+        log,
+        instrumentation,
+      );
       await unsyncFunction(newWorldState);
 
       // Now, close down the world state and reinstate the nullifier and public data trees
@@ -591,7 +618,7 @@ describe('NativeWorldState', () => {
         await copyFiles(destDirectory, sourceDirectory);
       }
       await rm(tempDirectory, { recursive: true, force: true });
-      return await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      return await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
     };
 
     it('handles historic block numbers being out of sync', async () => {
@@ -803,8 +830,14 @@ describe('NativeWorldState', () => {
         (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(BlockNumber(blockNumber), fork),
       ],
     ])('can re-org %s', async (_, genBlock) => {
-      const nonReorgState = await NativeWorldStateService.tmp();
-      const sequentialReorgState = await NativeWorldStateService.tmp();
+      const nonReorgState = await NativeWorldStateService.tmp(EthAddress.random(), true, [], log, instrumentation);
+      const sequentialReorgState = await NativeWorldStateService.tmp(
+        EthAddress.random(),
+        true,
+        [],
+        log,
+        instrumentation,
+      );
       let fork = await ws.fork();
 
       const blockForks = [];
@@ -943,7 +976,7 @@ describe('NativeWorldState', () => {
 
     beforeEach(async () => {
       rollupAddress = EthAddress.random();
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
     });
 
     afterEach(async () => {
@@ -1016,7 +1049,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1078,7 +1111,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1143,7 +1176,7 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports block numbers', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const statuses = [];
       const numBlocks = 2;
       const txsPerBlock = 2;
@@ -1201,7 +1234,7 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports status', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes, [], log, instrumentation);
       const statuses = [];
       for (let i = 0; i < 2; i++) {
         const fork = await ws.fork();
@@ -1316,7 +1349,14 @@ describe('NativeWorldState', () => {
   describe('Initialization args', () => {
     it('initializes with prefilled public data', async () => {
       // Without prefilled.
-      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        wsTreeMapSizes,
+        [],
+        log,
+        instrumentation,
+      );
       const { state: initialState, ...initialRest } = ws.getInitialHeader();
 
       // With prefilled.
@@ -1329,6 +1369,8 @@ describe('NativeWorldState', () => {
         dataDir,
         wsTreeMapSizes,
         prefilledPublicData,
+        log,
+        instrumentation,
       );
       const { state: prefilledState, ...prefilledRest } = wsPrefilled.getInitialHeader();
 
@@ -1353,7 +1395,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.tmp();
+      ws = await NativeWorldStateService.tmp(EthAddress.random(), true, [], log, instrumentation);
     });
 
     afterEach(async () => {
@@ -1428,7 +1470,7 @@ describe('NativeWorldState', () => {
     let ws: NativeWorldStateService;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.tmp();
+      ws = await NativeWorldStateService.tmp(EthAddress.random(), true, [], log, instrumentation);
       const fork = await ws.fork();
       const { block, messages } = await mockBlock(BlockNumber(1), 2, fork);
       await fork.close();

@@ -1,7 +1,7 @@
 import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
@@ -25,7 +25,6 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateStatusFull } from '../native/message.js';
@@ -60,8 +59,8 @@ export class ServerWorldStateSynchronizer
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private readonly config: WorldStateConfig,
-    private instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
-    private readonly log: Logger = createLogger('world_state'),
+    private readonly log: Logger,
+    private instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(log),
   ) {
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
     this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
@@ -127,8 +126,7 @@ export class ServerWorldStateSynchronizer
   }
 
   protected createBlockStream(): L2BlockStream {
-    const logger = createLogger('world-state:block_stream');
-    return new L2BlockStream(this.l2BlockSource, this, this, logger, {
+    return new L2BlockStream(this.l2BlockSource, this, this, this.log.createChild('block_stream'), {
       proven: this.config.worldStateProvenBlocksOnly,
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,

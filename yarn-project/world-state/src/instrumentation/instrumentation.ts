@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   Attributes,
@@ -7,6 +7,7 @@ import {
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
+  getTelemetryClient,
 } from '@aztec/telemetry-client';
 
 import {
@@ -41,8 +42,8 @@ export class WorldStateInstrumentation {
   private criticalErrors: UpDownCounter;
 
   constructor(
-    public readonly telemetry: TelemetryClient,
-    private log: Logger = createLogger('world-state:instrumentation'),
+    private log: Logger,
+    public readonly telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     const meter = telemetry.getMeter('World State');
     this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE);

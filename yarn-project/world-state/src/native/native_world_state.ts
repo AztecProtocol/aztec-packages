@@ -4,7 +4,7 @@ import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { L2BlockNew } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
@@ -16,7 +16,6 @@ import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { WorldStateRevision } from '@aztec/stdlib/world-state';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
 import { mkdtemp, rm } from 'fs/promises';
@@ -52,7 +51,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected constructor(
     protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
-    protected readonly log: Logger = createLogger('world-state:database'),
+    protected readonly log: Logger,
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -61,10 +60,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     dataDir: string,
     wsTreeMapSizes: WorldStateTreeMapSizes,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
-    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
-    log = createLogger('world-state:database'),
+    log: Logger,
+    instrumentation?: WorldStateInstrumentation,
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
+    const wsInstrumentation = instrumentation ?? new WorldStateInstrumentation(log.createChild('instrumentation'));
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager({
@@ -72,12 +72,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       rollupAddress,
       dataDirectory: worldStateDirectory,
       onOpen: (dir: string) => {
-        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation));
+        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, wsInstrumentation, log));
       },
+      log,
     });
 
     const [instance] = await versionManager.open();
-    const worldState = new this(instance, instrumentation, log, cleanup);
+    const worldState = new this(instance, wsInstrumentation, log, cleanup);
     try {
       await worldState.init();
     } catch (e) {
@@ -89,12 +90,12 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   static async tmp(
-    rollupAddress = EthAddress.ZERO,
-    cleanupTmpDir = true,
-    prefilledPublicData: PublicDataTreeLeaf[] = [],
-    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    rollupAddress: EthAddress,
+    cleanupTmpDir: boolean,
+    prefilledPublicData: PublicDataTreeLeaf[],
+    log: Logger,
+    instrumentation?: WorldStateInstrumentation,
   ): Promise<NativeWorldStateService> {
-    const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
     const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
@@ -116,7 +117,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, log, instrumentation, cleanup);
   }
 
   protected async init() {
@@ -176,6 +177,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         /* blockNumber=*/ BlockNumber.ZERO,
         /* includeUncommitted=*/ true,
       ),
+      this.log,
       opts,
     );
   }

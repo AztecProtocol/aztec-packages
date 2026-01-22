@@ -11,6 +11,7 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { describe, jest } from '@jest/globals';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import type { WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
@@ -26,6 +27,7 @@ describe('world-state integration', () => {
   let synchronizer: TestWorldStateSynchronizer;
   let config: WorldStateConfig & DataStoreConfig;
   let log: Logger;
+  let instrumentation: WorldStateInstrumentation;
 
   let checkpoints: { checkpoint: Checkpoint; messages: Fr[] }[];
 
@@ -33,8 +35,9 @@ describe('world-state integration', () => {
 
   beforeAll(async () => {
     log = createLogger('world-state:test:integration');
+    instrumentation = new WorldStateInstrumentation(log);
     rollupAddress = EthAddress.random();
-    const db = await NativeWorldStateService.tmp(rollupAddress);
+    const db = await NativeWorldStateService.tmp(rollupAddress, true, [], log, instrumentation);
     const fork = await db.fork(BlockNumber(0));
     log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
     checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
@@ -58,7 +61,7 @@ describe('world-state integration', () => {
 
     archiver = new MockPrefilledArchiver(checkpoints);
 
-    db = (await createWorldState(config)) as NativeWorldStateService;
+    db = (await createWorldState(config, log)) as NativeWorldStateService;
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
     log.info(`Created synchronizer`);
   }, 30_000);
@@ -270,6 +273,18 @@ describe('world-state integration', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
+  constructor(
+    db: NativeWorldStateService,
+    archiver: MockPrefilledArchiver,
+    config: WorldStateConfig & DataStoreConfig,
+    log?: Logger,
+    instrumentation?: WorldStateInstrumentation,
+  ) {
+    const testLog = log ?? createLogger('world-state:test:integration:synchronizer');
+    const testInstrumentation = instrumentation ?? new WorldStateInstrumentation(testLog);
+    super(db, archiver, config, testLog, testInstrumentation);
+  }
+
   // Stops the block stream but not the db so we can reuse it for another synchronizer
   public async stopBlockStream() {
     await this.blockStream?.stop();
