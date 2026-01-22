@@ -176,7 +176,7 @@ template <typename Builder> class bool_t {
      * the actual boolean value (not inverted). Direct access is restricted to internal bool_t methods.
      */
     mutable uint32_t witness_index = IS_CONSTANT;
-    mutable OriginTag tag{};
+    mutable OriginTag tag;
 
     template <typename, typename> friend class bigfield;
     template <typename> friend class field_t;
