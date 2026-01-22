@@ -3,4 +3,4 @@ export * from '../../execution/server.js';
 
 export { type ServerProtocolArtifact } from '../../artifacts/types.js';
 
-export { foreignCallHandler } from '../../utils/server/foreign_call_handler.js';
+export { makeForeignCallHandler, type ForeignCallHandler } from '../../utils/server/foreign_call_handler.js';
