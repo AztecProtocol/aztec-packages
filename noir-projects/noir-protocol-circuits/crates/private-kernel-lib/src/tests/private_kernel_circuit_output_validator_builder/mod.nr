@@ -1,8 +1,6 @@
 mod validate_aggregated_values;
-mod validate_initial_values;
 mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
-mod validate_propagated_from_private_call_to_init;
 
 use crate::components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator;
 use dep::types::{
@@ -69,20 +67,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.private_call.counter = 777;
         self.output.value_offset = 9999 - num_prepended_items;
         self.output.counter = 777;
-    }
-
-    pub fn validate_as_first_call(self) {
-        let private_call = self.private_call.to_private_call_data();
-        let output = self.output.to_private_kernel_circuit_public_inputs();
-        PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
-            self.tx_request,
-            private_call,
-            self.private_call.vk_tree_root,
-            self.private_call.protocol_contracts,
-            self.is_private_only,
-            self.first_nullifier_hint,
-            self.revertible_counter_hint,
-        );
     }
 
     pub fn validate_as_inner_call(self) {
