@@ -489,7 +489,7 @@ describe('ReqResp', () => {
       const batchSize = 12;
       nodes = await createNodes(peerScoring, 3);
 
-      const requesterLoggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
+      const requesterLoggerSpy = jest.spyOn((nodes[0].req as any).logger, 'warn');
 
       await startNodes(nodes);
       await sleep(500);
