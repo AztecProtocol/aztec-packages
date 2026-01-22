@@ -12,7 +12,7 @@ pub contract StaticChild {
         utils::comparison::Comparator,
     };
     use aztec::note::note_interface::NoteProperties;
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

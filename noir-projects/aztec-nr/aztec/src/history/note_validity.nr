@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext,
     history::{note_inclusion::ProveNoteInclusion, nullifier_non_inclusion::ProveNoteNotNullified},
-    note::{hinted_note::HintedNote, note_interface::NoteHash},
+    note::{HintedNote, note_interface::NoteHash},
 };
 
 use protocol_types::abis::block_header::BlockHeader;

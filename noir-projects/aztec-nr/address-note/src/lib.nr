@@ -1,3 +1,4 @@
 //! Note for an Aztec address value.
 
-pub mod address_note;
+mod address_note;
+pub use address_note::AddressNote;

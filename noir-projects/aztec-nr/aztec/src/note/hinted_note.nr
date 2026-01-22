@@ -20,7 +20,7 @@ pub struct HintedNote<Note> {
 }
 
 mod test {
-    use crate::note::{hinted_note::HintedNote, note_metadata::NoteMetadata};
+    use crate::note::{HintedNote, note_metadata::NoteMetadata};
     use protocol_types::{address::AztecAddress, traits::{FromField, Packable}};
 
     #[derive(Packable)]

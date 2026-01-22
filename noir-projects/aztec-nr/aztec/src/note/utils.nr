@@ -1,6 +1,6 @@
 use crate::{
-    context::note_existence_request::NoteExistenceRequest,
-    note::{confirmed_note::ConfirmedNote, hinted_note::HintedNote, note_interface::NoteHash},
+    context::NoteExistenceRequest,
+    note::{ConfirmedNote, HintedNote, note_interface::NoteHash},
 };
 
 use protocol_types::hash::{compute_siloed_note_hash, compute_unique_note_hash};

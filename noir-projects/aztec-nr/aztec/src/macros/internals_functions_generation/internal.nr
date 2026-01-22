@@ -14,7 +14,7 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
         .join(quote {, });
 
     let params = quote {
-        context: &mut aztec::context::private_context::PrivateContext,
+        context: &mut aztec::context::PrivateContext,
         $original_params
     };
 
@@ -39,12 +39,12 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
             let mut self = {
                 $storage_init
                 let self_address = context.this_address();
-                let call_self: CallSelf<&mut aztec::context::private_context::PrivateContext> = CallSelf { address: self_address, context };
-                let enqueue_self: EnqueueSelf<&mut aztec::context::private_context::PrivateContext> = EnqueueSelf { address: self_address, context };
-                let call_self_static: CallSelfStatic<&mut aztec::context::private_context::PrivateContext> = CallSelfStatic { address: self_address, context };
-                let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::private_context::PrivateContext> = EnqueueSelfStatic { address: self_address, context };
-                let internal: CallInternal<&mut aztec::context::private_context::PrivateContext> = CallInternal { context };
-                aztec::contract_self::ContractSelf::new_private(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
+                let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf { address: self_address, context };
+                let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf { address: self_address, context };
+                let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic { address: self_address, context };
+                let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic { address: self_address, context };
+                let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal { context };
+                aztec::ContractSelf::new_private(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
             };
             
             $body
@@ -66,7 +66,7 @@ pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted
         .join(quote {, });
 
     let params = quote {
-        context: aztec::context::public_context::PublicContext,
+        context: aztec::context::PublicContext,
         $original_params
     };
 
@@ -93,10 +93,10 @@ pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted
             let mut self = {
                 $storage_init
                 let self_address = context.this_address();
-                let call_self: CallSelf<aztec::context::public_context::PublicContext> = CallSelf { address: self_address, context };
-                let call_self_static: CallSelfStatic<aztec::context::public_context::PublicContext> = CallSelfStatic { address: self_address, context };
-                let internal: CallInternal<aztec::context::public_context::PublicContext> = CallInternal { context };
-                aztec::contract_self::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
+                let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
+                let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
+                let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
+                aztec::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
             };
 
             $body

@@ -1,5 +1,5 @@
 use crate::{
-    event::{event_interface::EventInterface, event_selector::EventSelector},
+    event::{event_interface::EventInterface, EventSelector},
     messages::{
         encoding::{encode_message, MAX_MESSAGE_CONTENT_LEN, MESSAGE_EXPANDED_METADATA_LEN},
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
