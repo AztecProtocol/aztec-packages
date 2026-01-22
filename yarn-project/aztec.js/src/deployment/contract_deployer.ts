@@ -1,3 +1,4 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -11,6 +12,9 @@ import type { Wallet } from '../wallet/wallet.js';
  * @remarks Keeping this around even though we have Aztec.nr contract types because it can be useful for non-TS users.
  */
 export class ContractDeployer {
+  /** Logger for contract deployment. */
+  private static log: Logger = createLogger('aztecjs:deployer');
+
   constructor(
     private artifact: ContractArtifact,
     private wallet: Wallet,
@@ -33,6 +37,7 @@ export class ContractDeployer {
     return new DeployMethod(
       this.publicKeys ?? PublicKeys.default(),
       this.wallet,
+      ContractDeployer.log,
       this.artifact,
       postDeployCtor,
       args,

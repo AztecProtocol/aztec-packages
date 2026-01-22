@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -8,6 +9,8 @@ import { ContractFunctionInteraction } from '../contract/contract_function_inter
 import { SetPublicAuthwitContractInteraction } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { FeePaymentMethod } from './fee_payment_method.js';
+
+const log: Logger = createLogger('aztecjs:fee_payment');
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -63,7 +66,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
         errorTypes: {},
         isInitializer: false,
       } as FunctionAbi;
-      const interaction = new ContractFunctionInteraction(this.wallet, this.paymentContract, abi, []);
+      const interaction = new ContractFunctionInteraction(this.wallet, log, this.paymentContract, abi, []);
 
       const executionPayload = await interaction.request();
       this.assetPromise = this.wallet

@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { Capsule, ExecutionPayload } from '@aztec/stdlib/tx';
 
@@ -11,10 +11,9 @@ import { SentTx } from './sent_tx.js';
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  protected log = createLogger('aztecjs:contract_interaction');
-
   constructor(
     protected wallet: Wallet,
+    protected log: Logger,
     protected authWitnesses: AuthWitness[] = [],
     protected capsules: Capsule[] = [],
   ) {}

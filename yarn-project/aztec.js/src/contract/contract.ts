@@ -1,3 +1,4 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -15,6 +16,9 @@ import { DeployMethod } from './deploy_method.js';
  * interaction with Aztec's privacy protocol.
  */
 export class Contract extends ContractBase {
+  /** Logger for contract interactions. */
+  private static log: Logger = createLogger('aztecjs:contract');
+
   /**
    * Gets a contract instance.
    * @param address - The address of the contract instance.
@@ -23,7 +27,7 @@ export class Contract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet): Contract {
-    return new Contract(address, artifact, wallet);
+    return new Contract(address, artifact, wallet, Contract.log);
   }
 
   /**
@@ -36,7 +40,15 @@ export class Contract extends ContractBase {
   public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, artifact, wallet);
-    return new DeployMethod(PublicKeys.default(), wallet, artifact, postDeployCtor, args, constructorName);
+    return new DeployMethod(
+      PublicKeys.default(),
+      wallet,
+      Contract.log,
+      artifact,
+      postDeployCtor,
+      args,
+      constructorName,
+    );
   }
 
   /**
@@ -57,6 +69,6 @@ export class Contract extends ContractBase {
   ) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, artifact, wallet);
-    return new DeployMethod(publicKeys, wallet, artifact, postDeployCtor, args, constructorName);
+    return new DeployMethod(publicKeys, wallet, Contract.log, artifact, postDeployCtor, args, constructorName);
   }
 }

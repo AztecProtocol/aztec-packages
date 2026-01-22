@@ -1,5 +1,6 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
@@ -16,6 +17,8 @@ import type {
 } from '../contract/interaction_options.js';
 import type { SentTx } from '../contract/sent_tx.js';
 import type { Wallet } from '../wallet/index.js';
+
+const log: Logger = createLogger('aztecjs:authwit');
 
 /** Intent with an inner hash */
 export type IntentInnerHash = {
@@ -187,7 +190,7 @@ export async function lookupValidity(
     errorTypes: {},
   } as FunctionAbi;
   try {
-    results.isValidInPrivate = (await new ContractFunctionInteraction(wallet, onBehalfOf, lookupValidityAbi, [
+    results.isValidInPrivate = (await new ContractFunctionInteraction(wallet, log, onBehalfOf, lookupValidityAbi, [
       consumer,
       innerHash,
     ]).simulate({ from: onBehalfOf, authWitnesses: [witness] })) as boolean;
@@ -219,6 +222,7 @@ export async function lookupValidity(
   } as FunctionAbi;
   results.isValidInPublic = (await new ContractFunctionInteraction(
     wallet,
+    log,
     ProtocolContractAddress.AuthRegistry,
     isConsumableAbi,
     [onBehalfOf, messageHash],
@@ -237,10 +241,13 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
     messageHash: Fr,
     authorized: boolean,
   ) {
-    super(wallet, ProtocolContractAddress.AuthRegistry, SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(), [
-      messageHash,
-      authorized,
-    ]);
+    super(
+      wallet,
+      log,
+      ProtocolContractAddress.AuthRegistry,
+      SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(),
+      [messageHash, authorized],
+    );
   }
 
   static async create(

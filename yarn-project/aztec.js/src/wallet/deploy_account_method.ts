@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -54,6 +55,9 @@ export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contract
  * contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
  */
 export class DeployAccountMethod<TContract extends ContractBase = Contract> extends DeployMethod<TContract> {
+  /** Logger for deploy account method. */
+  private static log: Logger = createLogger('aztecjs:deploy_account');
+
   constructor(
     publicKeys: PublicKeys,
     wallet: Wallet,
@@ -64,7 +68,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
   ) {
-    super(publicKeys, wallet, artifact, postDeployCtor, args, constructorNameOrArtifact);
+    super(publicKeys, wallet, DeployAccountMethod.log, artifact, postDeployCtor, args, constructorNameOrArtifact);
   }
 
   /**

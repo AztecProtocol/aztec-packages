@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import {
   type ContractArtifact,
   type FieldLayout,
@@ -44,10 +45,12 @@ export class ContractBase {
     public readonly artifact: ContractArtifact,
     /** The wallet used for interacting with this contract. */
     public wallet: Wallet,
+    /** Logger for contract interactions. */
+    protected log: Logger,
   ) {
     getAllFunctionAbis(artifact).forEach((f: FunctionAbi) => {
       const interactionFunction = (...args: any[]) => {
-        return new ContractFunctionInteraction(this.wallet, this.address, f, args);
+        return new ContractFunctionInteraction(this.wallet, this.log, this.address, f, args);
       };
 
       this.methods[f.name] = Object.assign(interactionFunction, {
@@ -68,6 +71,6 @@ export class ContractBase {
    * @returns A new contract instance.
    */
   public withWallet(wallet: Wallet): this {
-    return new ContractBase(this.address, this.artifact, wallet) as this;
+    return new ContractBase(this.address, this.artifact, wallet, this.log) as this;
   }
 }

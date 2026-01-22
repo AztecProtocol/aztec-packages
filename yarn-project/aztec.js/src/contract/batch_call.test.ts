@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ExecutionPayload, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
@@ -7,6 +8,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
+
+const log = createLogger('aztecjs:batch_call_test');
 
 // eslint-disable-next-line jsdoc/require-jsdoc
 function createUtilityExecutionPayload(
@@ -107,7 +110,7 @@ describe('BatchCall', () => {
       const utilityPayload2 = createUtilityExecutionPayload('checkPermission', [Fr.random()], contractAddress3);
       const publicPayload = createPublicExecutionPayload('mint', [Fr.random()], contractAddress1);
 
-      batchCall = new BatchCall(wallet, [utilityPayload1, privatePayload, utilityPayload2, publicPayload]);
+      batchCall = new BatchCall(wallet, log, [utilityPayload1, privatePayload, utilityPayload2, publicPayload]);
 
       // Mock utility simulation results
       const utilityResult1 = UtilitySimulationResult.random();
@@ -179,7 +182,7 @@ describe('BatchCall', () => {
       const utilityPayload1 = createUtilityExecutionPayload('view1', [], contractAddress1);
       const utilityPayload2 = createUtilityExecutionPayload('view2', [], contractAddress2);
 
-      batchCall = new BatchCall(wallet, [utilityPayload1, utilityPayload2]);
+      batchCall = new BatchCall(wallet, log, [utilityPayload1, utilityPayload2]);
 
       // Mock utility simulation results
       const utilityResult1 = UtilitySimulationResult.random();
@@ -217,7 +220,7 @@ describe('BatchCall', () => {
       const privatePayload = createPrivateExecutionPayload('privateFunc', [Fr.random()], contractAddress1, 1);
       const publicPayload = createPublicExecutionPayload('publicFunc', [Fr.random()], contractAddress2);
 
-      batchCall = new BatchCall(wallet, [privatePayload, publicPayload]);
+      batchCall = new BatchCall(wallet, log, [privatePayload, publicPayload]);
 
       const privateReturnValues = [Fr.random()];
       const publicReturnValues = [Fr.random()];
@@ -255,7 +258,7 @@ describe('BatchCall', () => {
     });
 
     it('should handle empty batch', async () => {
-      batchCall = new BatchCall(wallet, []);
+      batchCall = new BatchCall(wallet, log, []);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
 
@@ -269,7 +272,7 @@ describe('BatchCall', () => {
       const contractAddress = await AztecAddress.random();
       const payload = createPrivateExecutionPayload('func', [Fr.random()], contractAddress);
 
-      batchCall = new BatchCall(wallet, [payload]);
+      batchCall = new BatchCall(wallet, log, [payload]);
 
       const feePayload = createPrivateExecutionPayload('payFee', [Fr.random()], await AztecAddress.random());
       // eslint-disable-next-line jsdoc/require-jsdoc

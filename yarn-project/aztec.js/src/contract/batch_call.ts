@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import {
   ExecutionPayload,
@@ -19,9 +20,10 @@ import {
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
+    log: Logger,
     protected interactions: (BaseContractInteraction | ExecutionPayload)[],
   ) {
-    super(wallet);
+    super(wallet, log);
   }
   // docs:end:batch_call_class
 

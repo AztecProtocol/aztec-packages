@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -23,6 +24,7 @@ import {
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
+    log: Logger,
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
@@ -30,7 +32,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     capsules: Capsule[] = [],
     private extraHashedArgs: HashedValues[] = [],
   ) {
-    super(wallet, authWitnesses, capsules);
+    super(wallet, log, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
@@ -191,6 +193,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }): ContractFunctionInteraction {
     return new ContractFunctionInteraction(
       this.wallet,
+      this.log,
       this.contractAddress,
       this.functionDao,
       this.args,

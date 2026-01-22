@@ -5,6 +5,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/stdlib/abi';
 import {
@@ -26,12 +27,14 @@ import type { Wallet } from '../wallet/index.js';
  * @param wallet - Wallet to send the transaction.
  * @param artifact - Contract artifact that contains the function to be broadcast.
  * @param selector - Selector of the function to be broadcast.
+ * @param log - Logger instance for debug output.
  * @returns A ContractFunctionInteraction object that can be used to send the transaction.
  */
 export async function broadcastPrivateFunction(
   wallet: Wallet,
   artifact: ContractArtifact,
   selector: FunctionSelector,
+  log: Logger,
 ): Promise<ContractFunctionInteraction> {
   const contractClass = await getContractClassFromArtifact(artifact);
   const privateFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
@@ -54,7 +57,7 @@ export async function broadcastPrivateFunction(
     utilityFunctionsTreeRoot,
     privateFunctionTreeSiblingPath,
     privateFunctionTreeLeafIndex,
-  } = await createPrivateFunctionMembershipProof(selector, artifact);
+  } = await createPrivateFunctionMembershipProof(selector, artifact, log);
 
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
 
@@ -93,12 +96,14 @@ export async function broadcastPrivateFunction(
  * @param wallet - Wallet to send the transaction.
  * @param artifact - Contract artifact that contains the function to be broadcast.
  * @param selector - Selector of the function to be broadcast.
+ * @param log - Logger instance for debug output.
  * @returns A ContractFunctionInteraction object that can be used to send the transaction.
  */
 export async function broadcastUtilityFunction(
   wallet: Wallet,
   artifact: ContractArtifact,
   selector: FunctionSelector,
+  log: Logger,
 ): Promise<ContractFunctionInteraction> {
   const contractClass = await getContractClassFromArtifact(artifact);
   const utilityFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UTILITY);
@@ -119,7 +124,7 @@ export async function broadcastUtilityFunction(
     artifactTreeSiblingPath,
     functionMetadataHash,
     privateFunctionsArtifactTreeRoot,
-  } = await createUtilityFunctionMembershipProof(selector, artifact);
+  } = await createUtilityFunctionMembershipProof(selector, artifact, log);
 
   const classRegistry = ContractClassRegistryContract.at(wallet);
   const bytecode = bufferAsFields(

@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
@@ -55,10 +55,9 @@ export class DeployTxReceipt<TContract extends ContractBase = ContractBase> exte
  * A contract deployment transaction sent to the network, extending SentTx with methods to publish a contract instance.
  */
 export class DeploySentTx<TContract extends ContractBase = ContractBase> extends SentTx {
-  private log = createLogger('aztecjs:deploy_sent_tx');
-
   constructor(
     wallet: Wallet,
+    private log: Logger,
     sendTx: () => Promise<TxHash>,
     private postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     /** A getter for the deployed contract instance */

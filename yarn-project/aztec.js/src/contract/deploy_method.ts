@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -105,6 +106,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   constructor(
     private publicKeys: PublicKeys,
     wallet: Wallet,
+    log: Logger,
     protected artifact: ContractArtifact,
     protected postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     private args: any[] = [],
@@ -112,7 +114,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
   ) {
-    super(wallet, authWitnesses, capsules);
+    super(wallet, log, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
   }
 
@@ -221,6 +223,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
       const { address } = await this.getInstance(options);
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
+        this.log,
         address,
         this.constructorArtifact,
         this.args,
@@ -245,7 +248,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
       return this.wallet.sendTx(executionPayload, sendOptions);
     };
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
-    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
+    return new DeploySentTx(this.wallet, this.log, sendTx, this.postDeployCtor, () => this.getInstance(options));
   }
 
   /**
@@ -332,6 +335,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     return new DeployMethod(
       this.publicKeys,
       this.wallet,
+      this.log,
       this.artifact,
       this.postDeployCtor,
       this.args,
