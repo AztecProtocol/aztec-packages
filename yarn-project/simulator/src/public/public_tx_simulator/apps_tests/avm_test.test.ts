@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -15,7 +16,7 @@ describe.each([
   let simTester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     simTester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined,

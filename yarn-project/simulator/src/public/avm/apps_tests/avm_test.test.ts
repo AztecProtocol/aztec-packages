@@ -1,5 +1,7 @@
 import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -17,7 +19,8 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
   let simTester: AvmSimulationTester;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    const log = createLogger('avm-test:apps:avm-test');
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], log);
     simTester = await AvmSimulationTester.create(worldStateService);
     // create enough unique contract classes to hit the limit
     instances = [];

@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import initACVM, { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import initAbi from '@aztec/noir-noirc_abi';
@@ -11,7 +11,7 @@ import type { ACVMSuccess } from './acvm_native.js';
 import { type CircuitSimulator, enrichNoirError } from './circuit_simulator.js';
 
 export class WASMSimulator implements CircuitSimulator {
-  constructor(protected log = createLogger('wasm-simulator')) {}
+  constructor(protected log: Logger) {}
 
   async init(): Promise<void> {
     // If these are available, then we are in the
@@ -67,6 +67,6 @@ export class WASMSimulator implements CircuitSimulator {
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     await this.init();
-    return acvm(artifact.bytecode, input, callback);
+    return acvm(artifact.bytecode, input, callback, this.log);
   }
 }

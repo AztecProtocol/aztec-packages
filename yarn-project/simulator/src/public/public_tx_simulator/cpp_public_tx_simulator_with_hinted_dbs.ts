@@ -1,4 +1,4 @@
-import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
+import { type Logger, logLevel } from '@aztec/foundation/log';
 import { avmSimulateWithHintedDbs } from '@aztec/native';
 import {
   AvmCircuitInputs,
@@ -27,16 +27,14 @@ import type {
  * to C++ to run hinted simulation.
  */
 export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements PublicTxSimulatorInterface {
-  protected override log: Logger;
-
   constructor(
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
-    this.log = createLogger(`simulator:cpp_public_tx_simulator_hinted_dbs`);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   /**
@@ -113,10 +111,11 @@ export class MeasuredCppPublicTxSimulatorHintedDbs
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {

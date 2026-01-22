@@ -68,7 +68,7 @@ abstract class ExternalCall extends Instruction {
     const aztecAddress = callAddress.toAztecAddress();
     const nestedContext = await context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
-    const simulator = await context.provideSimulator!(nestedContext);
+    const simulator = await context.provideSimulator!(nestedContext, context.log);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 

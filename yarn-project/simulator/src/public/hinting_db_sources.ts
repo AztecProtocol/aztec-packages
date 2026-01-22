@@ -1,7 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import {
@@ -55,8 +55,6 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
-  private static readonly log: Logger = createLogger('simulator:hinting-public-contracts-db');
-
   private checkpointActionCounter: number = 0;
   private nextCheckpointId: number = 1;
   private checkpointStack: number[] = [0];
@@ -64,6 +62,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   constructor(
     private readonly db: PublicContractsDBInterface,
     private hints: AvmExecutionHints,
+    private readonly log: Logger,
   ) {}
 
   public async getContractInstance(
@@ -87,7 +86,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
         ),
       );
 
-      HintingPublicContractsDB.log.trace(
+      this.log.trace(
         `[getContractInstance:${hintKey}] Added contract instance ${instance.address.toString()} to hints.`,
       );
     }
@@ -108,9 +107,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
         ),
       );
 
-      HintingPublicContractsDB.log.trace(
-        `[getContractClass:${hintKey}] Added contract class ${contractClassId.toString()} to hints.`,
-      );
+      this.log.trace(`[getContractClass:${hintKey}] Added contract class ${contractClassId.toString()} to hints.`);
     }
     return contractClass;
   }
@@ -121,7 +118,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
       const hintKey = this.getHintKey();
       this.hints.bytecodeCommitments.push(new AvmBytecodeCommitmentHint(hintKey, contractClassId, commitment));
 
-      HintingPublicContractsDB.log.trace(
+      this.log.trace(
         `[getBytecodeCommitment:${hintKey}] Added bytecode commitment ${commitment.toString()} to hints for contract class ${contractClassId.toString()}.`,
       );
     }
@@ -134,7 +131,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   ): Promise<string | undefined> {
     const name = await this.db.getDebugFunctionName(contractAddress, selector);
     if (name) {
-      HintingPublicContractsDB.log.debug(
+      this.log.debug(
         `[getDebugFunctionName] Adding debug function name ${name} to hints for contract ${contractAddress.toString()} and selector ${selector.toString()}.`,
       );
       // We hint selector as a field to make things way simpler in C++.
@@ -157,9 +154,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
       new AvmContractDbCreateCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
     );
 
-    HintingPublicContractsDB.log.trace(
-      `[createCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`,
-    );
+    this.log.trace(`[createCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`);
   }
 
   public commitCheckpoint(): void {
@@ -176,9 +171,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
       new AvmContractDbCommitCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
     );
 
-    HintingPublicContractsDB.log.trace(
-      `[commitCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`,
-    );
+    this.log.trace(`[commitCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`);
   }
 
   public revertCheckpoint(): void {
@@ -195,9 +188,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
       new AvmContractDbRevertCheckpointHint(hintKey, oldCheckpointId, newCheckpointId),
     );
 
-    HintingPublicContractsDB.log.trace(
-      `[revertCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`,
-    );
+    this.log.trace(`[revertCheckpoint:${hintKey}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId}.`);
   }
 
   // Private methods.
@@ -214,7 +205,6 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
  * A low-level merkle DB that collects hints.
  */
 export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
-  private static readonly log: Logger = createLogger('simulator:hinting-merkle-db');
   // This stack is only for debugging purposes.
   // The top of the stack is the current checkpoint id.
   // We need the stack to be non-empty and use 0 as an arbitrary initial checkpoint id.
@@ -223,8 +213,8 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   private nextCheckpointId: number = 1;
   private checkpointActionCounter: number = 0; // yes, a side-effect counter.
 
-  public static async create(db: MerkleTreeWriteOperations, hints: AvmExecutionHints) {
-    const hintingTreesDB = new HintingMerkleWriteOperations(db, hints);
+  public static async create(db: MerkleTreeWriteOperations, hints: AvmExecutionHints, log: Logger) {
+    const hintingTreesDB = new HintingMerkleWriteOperations(db, hints, log);
     const startStateReference = await db.getStateReference();
     hints.startingTreeRoots = new TreeSnapshots(
       startStateReference.l1ToL2MessageTree,
@@ -240,6 +230,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   private constructor(
     private db: MerkleTreeWriteOperations,
     private hints: AvmExecutionHints,
+    private readonly log: Logger,
   ) {}
 
   // Getters.
@@ -341,7 +332,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     const result = await this.db.sequentialInsert<TreeHeight, ID>(treeId, leaves);
 
     const afterState = await this.getHintKey(treeId);
-    HintingMerkleWriteOperations.logTreeChange('sequentialInsert', beforeState, afterState, treeId);
+    this.logTreeChange('sequentialInsert', beforeState, afterState, treeId);
 
     switch (treeId) {
       case MerkleTreeId.PUBLIC_DATA_TREE:
@@ -421,7 +412,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     this.hints.createCheckpointHints.push(new AvmCreateCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
-    HintingMerkleWriteOperations.log.trace(
+    this.log.trace(
       `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
@@ -445,7 +436,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     this.hints.commitCheckpointHints.push(new AvmCommitCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
-    HintingMerkleWriteOperations.log.trace(
+    this.log.trace(
       `[commitCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
@@ -479,11 +470,11 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
       AvmRevertCheckpointHint.create(actionCounter, oldCheckpointId, newCheckpointId, beforeState, afterState),
     );
 
-    HintingMerkleWriteOperations.log.trace(
+    this.log.trace(
       `[revertCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
     for (const treeId of merkleTreeIds()) {
-      HintingMerkleWriteOperations.logTreeChange('revertCheckpoint', beforeState[treeId], afterState[treeId], treeId);
+      this.logTreeChange('revertCheckpoint', beforeState[treeId], afterState[treeId], treeId);
     }
   }
 
@@ -503,14 +494,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return Fr.fromBuffer(sha256Trunc(Buffer.concat(stateReferenceFields.map(field => field.toBuffer()))));
   }
 
-  private static logTreeChange(
+  private logTreeChange(
     action: string,
     beforeState: AppendOnlyTreeSnapshot,
     afterState: AppendOnlyTreeSnapshot,
     treeId: MerkleTreeId,
   ) {
     const treeName = getTreeName(treeId);
-    HintingMerkleWriteOperations.log.trace(
+    this.log.trace(
       `[${action}] ${treeName} tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
     );
   }
@@ -528,7 +519,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     const afterState = await this.getHintKey(treeId);
 
-    HintingMerkleWriteOperations.logTreeChange('appendLeaves', beforeState, afterState, treeId);
+    this.logTreeChange('appendLeaves', beforeState, afterState, treeId);
 
     this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, [leaf as Fr]));
 

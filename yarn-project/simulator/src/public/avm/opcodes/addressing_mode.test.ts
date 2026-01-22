@@ -1,7 +1,10 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { TaggedMemory, Uint32 } from '../avm_memory_types.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 
 describe('Addressing', () => {
+  const logger = createLogger('test:addressing-mode');
   it('should reserialize correctly', () => {
     const addressingMode = Addressing.fromWire(0b10101010);
     const wireModes = addressingMode.toWire();
@@ -38,7 +41,7 @@ describe('Addressing', () => {
     // Only first is indirect
     const addressingMode = Addressing.fromWire(0b00000001);
     const offsets = [10, 20, 30];
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
     mem.set(10, new Uint32(100));
     mem.set(20, new Uint32(200));
     mem.set(30, new Uint32(300));

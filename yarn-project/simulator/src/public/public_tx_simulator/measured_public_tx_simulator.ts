@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
@@ -22,10 +23,11 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {

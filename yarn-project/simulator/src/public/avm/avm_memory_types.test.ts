@@ -1,27 +1,31 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { AssertionError } from 'assert';
 
 import { Field, TaggedMemory, Uint1, Uint8, Uint16, Uint32, Uint64, Uint128 } from './avm_memory_types.js';
 
 describe('TaggedMemory', () => {
+  const logger = createLogger('test:avm-memory');
+
   it('Elements should be Field(0) after construction', () => {
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
     expect(mem.get(10)).toStrictEqual(new Field(0));
   });
 
   it(`Should set and get integral types`, () => {
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
     mem.set(10, new Uint8(5));
     expect(mem.get(10)).toStrictEqual(new Uint8(5));
   });
 
   it(`Should set and get field elements`, () => {
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
     mem.set(10, new Field(5));
     expect(mem.get(10)).toStrictEqual(new Field(5));
   });
 
   it(`Slice should get Field(0) on unset elements`, () => {
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
 
     mem.set(10, new Field(10));
     mem.set(12, new Field(12));
@@ -30,7 +34,7 @@ describe('TaggedMemory', () => {
   });
 
   it(`Should set and get slices`, () => {
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
     const val = [new Field(5), new Field(6)];
 
     mem.setSlice(10, val);
@@ -40,14 +44,14 @@ describe('TaggedMemory', () => {
 
   it(`Should access and write in last index of memory`, () => {
     const last = TaggedMemory.MAX_MEMORY_SIZE - 1;
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
     const val = new Uint64(42);
     mem.set(last, val);
     expect(mem.get(last)).toStrictEqual(val);
   });
 
   it(`Should not access beyond memory last index`, () => {
-    const mem = new TaggedMemory();
+    const mem = new TaggedMemory(logger);
 
     expect(() => mem.set(TaggedMemory.MAX_MEMORY_SIZE, new Field(1))).toThrow(AssertionError);
     expect(() => mem.get(TaggedMemory.MAX_MEMORY_SIZE)).toThrow(AssertionError);

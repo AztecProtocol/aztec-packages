@@ -1,4 +1,5 @@
 import { AVM_MAX_OPERANDS } from '@aztec/constants';
+import { createLogger } from '@aztec/foundation/log';
 
 import { computeAddressingCost, getBaseGasCost, getDynamicGasCost, sumGas } from './avm_gas.js';
 import { TypeTag } from './avm_memory_types.js';
@@ -9,6 +10,8 @@ import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { MAX_OPCODE_VALUE } from './serialization/instruction_serialization.js';
 
 describe.skip('AVM simulator: dynamic gas costs per instruction', () => {
+  const logger = createLogger('test:avm-gas');
+
   it.each([
     // BASE_GAS(10) * 1 + MEMORY_WRITE(100) = 110
     [new SetInstruction(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT8, /*value=*/ 1), [110, 0]],
@@ -29,10 +32,10 @@ describe.skip('AVM simulator: dynamic gas costs per instruction', () => {
     [new Div(/*addressing_mode=*/ 3, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3), [150]],
   ] as const)('computes gas cost for %s', async (instruction, [l2GasCost, daGasCost]) => {
     const bytecode = encodeToBytecode([instruction]);
-    const context = initContext();
+    const context = initContext({ log: logger });
     const { l2GasLeft: initialL2GasLeft, daGasLeft: initialDaGasLeft } = context.machineState;
 
-    await new AvmSimulator(context).executeBytecode(bytecode);
+    await new AvmSimulator(context, logger).executeBytecode(bytecode);
 
     expect(initialL2GasLeft - context.machineState.l2GasLeft).toEqual(l2GasCost ?? 0);
     expect(initialDaGasLeft - context.machineState.daGasLeft).toEqual(daGasCost ?? 0);

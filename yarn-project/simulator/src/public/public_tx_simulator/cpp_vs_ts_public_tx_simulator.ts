@@ -1,4 +1,4 @@
-import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
+import { type Logger, logLevel } from '@aztec/foundation/log';
 import { avmSimulate } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
@@ -30,16 +30,14 @@ import type {
  * For contract DB accesses, it makes callbacks through NAPI back to the TS PublicContractsDB cache.
  */
 export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements PublicTxSimulatorInterface {
-  protected override log: Logger;
-
   constructor(
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
-    this.log = createLogger(`simulator:cpp_vs_public_tx_simulator`);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   /**
@@ -103,7 +101,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     );
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
-    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables);
+    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables, this.log);
 
     // Serialize to msgpack and call the C++ simulator
     this.log.debug(`Serializing fast simulation inputs to msgpack...`);
@@ -218,10 +216,11 @@ export class MeasuredCppVsTsPublicTxSimulator
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {

@@ -2,6 +2,7 @@ import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@a
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig, type PublicTxResult } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -53,6 +54,7 @@ export type MeasuredSimulatorFactory = (
   merkleTree: MerkleTreeWriteOperations,
   contractsDB: PublicContractsDB,
   globals: GlobalVariables,
+  log: Logger,
   metrics: TestExecutorMetrics,
   config: PublicSimulatorConfig,
 ) => MeasuredPublicTxSimulatorInterface;
@@ -68,36 +70,47 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private metricsPrefix?: string;
 
   constructor(
+    logger: Logger,
     merkleTree: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables = defaultGlobals(),
-    private metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+    private metrics: TestExecutorMetrics = new TestExecutorMetrics(logger),
     simulatorFactory?: MeasuredSimulatorFactory,
     config: PublicSimulatorConfig = defaultConfig,
   ) {
-    super(contractDataSource, merkleTree);
+    super(logger, contractDataSource, merkleTree);
 
-    const contractsDB = new PublicContractsDB(contractDataSource);
+    const contractsDB = new PublicContractsDB(contractDataSource, logger);
     if (simulatorFactory) {
-      this.simulator = simulatorFactory(merkleTree, contractsDB, globals, this.metrics, config);
+      this.simulator = simulatorFactory(merkleTree, contractsDB, globals, logger, this.metrics, config);
     } else {
-      this.simulator = new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
+      this.simulator = new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, logger, this.metrics, config);
     }
   }
 
   public static async create(
     worldStateService: NativeWorldStateService, // make sure to close this later
     globals: GlobalVariables = defaultGlobals(),
-    metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+    metrics?: TestExecutorMetrics,
     useCppSimulator = false,
     config: PublicSimulatorConfig = defaultConfig,
   ): Promise<PublicTxSimulationTester> {
-    const contractDataSource = new SimpleContractDataSource();
+    const logger = createLogger('public-tx-simulation-tester');
+    const contractDataSource = new SimpleContractDataSource(logger);
     const merkleTree = await worldStateService.fork();
+    const actualMetrics = metrics ?? new TestExecutorMetrics(logger);
     const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-      ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-      : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
-    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, simulatorFactory, config);
+      ? (mt, cdb, g, log, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, log, m, c)
+      : (mt, cdb, g, log, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, log, m, c);
+    return new PublicTxSimulationTester(
+      logger,
+      merkleTree,
+      contractDataSource,
+      globals,
+      actualMetrics,
+      simulatorFactory,
+      config,
+    );
   }
 
   public setMetricsPrefix(prefix: string) {

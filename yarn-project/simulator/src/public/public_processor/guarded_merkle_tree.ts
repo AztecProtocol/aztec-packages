@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Logger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
@@ -23,9 +24,13 @@ import type { WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/st
 
 export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   private isStopped = false;
-  private serialQueue = new SerialQueue();
+  private serialQueue: SerialQueue;
 
-  constructor(private target: MerkleTreeWriteOperations) {
+  constructor(
+    private target: MerkleTreeWriteOperations,
+    log: Logger,
+  ) {
+    this.serialQueue = new SerialQueue(log);
     this.serialQueue.start();
   }
 

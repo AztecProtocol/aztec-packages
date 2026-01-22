@@ -7,7 +7,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   AvmAccumulatedData,
   AvmAccumulatedDataArrayLengths,
@@ -54,8 +54,6 @@ import { getCallRequestsWithCalldataByPhase } from '../utils.js';
  * The transaction-level context for public execution.
  */
 export class PublicTxContext {
-  private log: Logger;
-
   /* Gas used including private, teardown gas _limit_, setup and app logic */
   private gasUsedByPublic: Gas = Gas.empty();
   /* Gas actually used during teardown (different from limit) */
@@ -68,6 +66,7 @@ export class PublicTxContext {
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
   private constructor(
+    private readonly log: Logger,
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
     private readonly startTreeSnapshots: TreeSnapshots,
@@ -87,11 +86,10 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
     private readonly trace: SideEffectTrace,
-  ) {
-    this.log = createLogger(`simulator:public_tx_context`);
-  }
+  ) {}
 
   public static async create(
+    log: Logger,
     treesDB: PublicTreesDB,
     contractsDB: PublicContractsDBInterface,
     tx: Tx,
@@ -104,12 +102,13 @@ export class PublicTxContext {
     const revertibleContractDeploymentData = contractDeploymentData.getRevertibleContractDeploymentData();
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const trace = new SideEffectTrace();
+    const trace = new SideEffectTrace(log);
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = PublicPersistableStateManager.create(
+      log,
       treesDB,
       contractsDB,
       trace,
@@ -123,8 +122,9 @@ export class PublicTxContext {
     const gasAllocatedToPublicTeardown = gasSettings.teardownGasLimits;
 
     return new PublicTxContext(
+      log,
       tx.getTxHash(),
-      new PhaseStateManager(txStateManager),
+      new PhaseStateManager(log, txStateManager),
       await txStateManager.getTreeSnapshots(),
       globalVariables,
       protocolContracts,
@@ -437,13 +437,12 @@ export class PublicTxContext {
  * transaction level one.
  */
 class PhaseStateManager {
-  private log: Logger;
-
   private currentlyActiveStateManager: PublicPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: PublicPersistableStateManager) {
-    this.log = createLogger(`simulator:public_phase_state_manager`);
-  }
+  constructor(
+    private readonly log: Logger,
+    private readonly txStateManager: PublicPersistableStateManager,
+  ) {}
 
   async fork() {
     assert(!this.currentlyActiveStateManager, 'Cannot fork when already forked');

@@ -1,3 +1,5 @@
+import type { Logger } from '@aztec/foundation/log';
+
 import { CircuitRecorder } from './circuit_recorder.js';
 
 /*
@@ -5,7 +7,7 @@ import { CircuitRecorder } from './circuit_recorder.js';
  * while we decide the fate of the FileCircuitRecorder
  */
 export class MemoryCircuitRecorder extends CircuitRecorder {
-  constructor() {
-    super();
+  constructor(logger: Logger) {
+    super(logger);
   }
 }

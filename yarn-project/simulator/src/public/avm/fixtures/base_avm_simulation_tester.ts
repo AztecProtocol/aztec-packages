@@ -1,6 +1,6 @@
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { computeFeePayerBalanceStorageSlot, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
@@ -28,9 +28,8 @@ import { createContractClassAndInstance } from './utils.js';
  * with contract information.
  */
 export abstract class BaseAvmSimulationTester {
-  public logger = createLogger('avm-simulation-tester');
-
   constructor(
+    public readonly logger: Logger,
     public contractDataSource: SimpleContractDataSource,
     public merkleTrees: MerkleTreeWriteOperations,
     private initialFeePayerBalance = new Fr(10 ** 10),

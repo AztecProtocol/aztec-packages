@@ -1,3 +1,5 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import {
   addressingWithBaseTagIssueTest,
   addressingWithIndirectTagIssueTest,
@@ -20,11 +22,12 @@ describe.each([
   { useCppSimulator: false, simulatorName: 'TS Simulator' },
   { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
 ])('Public TX simulator apps tests: custom bytecodes unhappy paths ($simulatorName)', ({ useCppSimulator }) => {
+  const logger = createLogger('public-tx-apps-tests-custom-bc');
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     tester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined,
@@ -67,11 +70,12 @@ describe.each([
   { useCppSimulator: false, simulatorName: 'TS Simulator' },
   { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
 ])('Public TX simulator apps tests: bytecode flow unhappy paths ($simulatorName)', ({ useCppSimulator }) => {
+  const logger = createLogger('public-tx-apps-tests-bytecode-flow');
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     tester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined,

@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
@@ -16,6 +17,7 @@ export function createPublicTxSimulatorForBlockBuilding(
   merkleTree: MerkleTreeWriteOperations,
   contractsDB: PublicContractsDB,
   globalVariables: GlobalVariables,
+  log: Logger,
   telemetryClient: TelemetryClient,
 ) {
   const config = PublicSimulatorConfig.from({
@@ -35,7 +37,7 @@ export function createPublicTxSimulatorForBlockBuilding(
       collectHints: true,
       collectPublicInputs: true,
     };
-    return new DumpingCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, dumpingConfig, dumpDir);
+    return new DumpingCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, log, dumpingConfig, dumpDir);
   }
-  return new TelemetryCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, telemetryClient, config);
+  return new TelemetryCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, log, telemetryClient, config);
 }

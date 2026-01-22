@@ -8,6 +8,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { AvmTxHint, type PublicTxResult } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { contractClassPublicFromPlainObject, contractInstanceWithAddressFromPlainObject } from '@aztec/stdlib/contract';
@@ -194,17 +195,19 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
   private simulator: PublicTxSimulator;
 
   constructor(
+    logger: Logger,
     merkleTrees: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables,
     protocolContracts: ProtocolContracts,
   ) {
-    super(contractDataSource, merkleTrees);
-    const contractsDb = new PublicContractsDB(contractDataSource);
+    super(logger, contractDataSource, merkleTrees);
+    const contractsDb = new PublicContractsDB(contractDataSource, logger);
     this.simulator = new PublicTxSimulator(
       merkleTrees,
       contractsDb,
       globals,
+      logger,
       {
         skipFeeEnforcement: false,
         collectDebugLogs: false,
@@ -224,9 +227,10 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     globals: GlobalVariables,
     protocolContracts: ProtocolContracts,
   ): Promise<AvmFuzzerSimulator> {
-    const contractDataSource = new SimpleContractDataSource();
+    const logger = createLogger('avm-fuzzer-simulator');
+    const contractDataSource = new SimpleContractDataSource(logger);
     const merkleTrees = await worldStateService.fork();
-    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals, protocolContracts);
+    return new AvmFuzzerSimulator(logger, merkleTrees, contractDataSource, globals, protocolContracts);
   }
 
   /**

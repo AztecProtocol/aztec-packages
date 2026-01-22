@@ -1,6 +1,7 @@
 import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -14,7 +15,6 @@ import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -75,8 +75,9 @@ describe('public_processor', () => {
   };
 
   beforeEach(() => {
+    const logger = createLogger('test:public-processor');
     merkleTree = mock<MerkleTreeWriteOperations>();
-    contractsDB = new PublicContractsDB(mock<ContractDataSource>());
+    contractsDB = new PublicContractsDB(mock<ContractDataSource>(), logger);
     publicTxSimulator = mock();
 
     const stateReference = StateReference.empty();
@@ -97,11 +98,11 @@ describe('public_processor', () => {
 
     processor = new PublicProcessor(
       globalVariables,
-      new GuardedMerkleTreeOperations(merkleTree),
+      new GuardedMerkleTreeOperations(merkleTree, createLogger('simulator:public-processor')),
       contractsDB,
       publicTxSimulator,
-      new TestDateProvider(),
-      getTelemetryClient(),
+      new TestDateProvider(createLogger('simulator:public-processor')),
+      createLogger('simulator:public-processor'),
     );
   });
 

@@ -1,4 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -16,7 +18,8 @@ describe('AVM simulator apps tests: TokenContract', () => {
   let simTester: AvmSimulationTester;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    const log = createLogger('avm-test:apps:token');
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], log);
     simTester = await AvmSimulationTester.create(worldStateService);
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await simTester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);

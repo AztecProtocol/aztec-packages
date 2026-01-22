@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import {
   AvmCircuitPublicInputs,
   type AvmTxHint,
@@ -37,13 +38,20 @@ async function openExistingWorldState(dataDir: string, mapSizeKb: number): Promi
     return cached;
   }
 
-  const ws = await NativeWorldStateService.new(EthAddress.ZERO, dataDir, {
-    archiveTreeMapSizeKb: mapSizeKb,
-    nullifierTreeMapSizeKb: mapSizeKb,
-    noteHashTreeMapSizeKb: mapSizeKb,
-    messageTreeMapSizeKb: mapSizeKb,
-    publicDataTreeMapSizeKb: mapSizeKb,
-  });
+  const log = createLogger('avm-fuzzer:world-state');
+  const ws = await NativeWorldStateService.new(
+    EthAddress.ZERO,
+    dataDir,
+    {
+      archiveTreeMapSizeKb: mapSizeKb,
+      nullifierTreeMapSizeKb: mapSizeKb,
+      noteHashTreeMapSizeKb: mapSizeKb,
+      messageTreeMapSizeKb: mapSizeKb,
+      publicDataTreeMapSizeKb: mapSizeKb,
+    },
+    [],
+    log,
+  );
 
   worldStateCache.set(dataDir, ws);
   return ws;

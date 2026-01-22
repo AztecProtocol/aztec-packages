@@ -1,5 +1,6 @@
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -29,7 +30,7 @@ import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 describe('Public TX simulator apps tests: benchmarks', () => {
   const logger = createLogger('public-tx-apps-tests-bench');
 
-  const metrics = new TestExecutorMetrics();
+  const metrics = new TestExecutorMetrics(logger);
   // choose options for speed as we are benchmarking
   const config: PublicSimulatorConfig = PublicSimulatorConfig.from({
     skipFeeEnforcement: false,
@@ -61,14 +62,15 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       let tester: PublicTxSimulationTester;
 
       beforeEach(async () => {
-        worldStateService = await NativeWorldStateService.tmp();
-        const contractDataSource = new SimpleContractDataSource();
+        worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
+        const contractDataSource = new SimpleContractDataSource(logger);
         const merkleTree = await worldStateService.fork();
         // For benchmarking, use pure simulators (no CppVsTs comparison overhead)
         const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-          ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-          : (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
+          ? (mt, cdb, g, log, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, log, m, c)
+          : (mt, cdb, g, log, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, log, m, c);
         tester = new PublicTxSimulationTester(
+          logger,
           merkleTree,
           contractDataSource,
           defaultGlobals(),
@@ -141,14 +143,15 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       let avmGadgetsTestContract: ContractInstanceWithAddress;
 
       beforeEach(async () => {
-        worldStateService = await NativeWorldStateService.tmp();
-        const contractDataSource = new SimpleContractDataSource();
+        worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
+        const contractDataSource = new SimpleContractDataSource(logger);
         const merkleTree = await worldStateService.fork();
         // For benchmarking, use pure simulators (no CppVsTs comparison overhead)
         const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-          ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-          : (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
+          ? (mt, cdb, g, log, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, log, m, c)
+          : (mt, cdb, g, log, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, log, m, c);
         tester = new PublicTxSimulationTester(
+          logger,
           merkleTree,
           contractDataSource,
           defaultGlobals(),

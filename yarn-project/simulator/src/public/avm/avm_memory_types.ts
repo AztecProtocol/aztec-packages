@@ -9,7 +9,7 @@ import {
 } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { FunctionsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -239,8 +239,6 @@ export enum TypeTag {
 export type TaggedMemoryInterface = FunctionsOf<TaggedMemory>;
 
 export class TaggedMemory implements TaggedMemoryInterface {
-  static readonly log: Logger = createLogger('simulator:avm:memory');
-
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';
 
@@ -250,7 +248,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   static readonly MAX_MEMORY_SIZE = Number(1n << 32n);
   private _mem: Map<number, MemoryValue>;
 
-  constructor() {
+  constructor(private readonly log: Logger) {
     this._mem = new Map<number, MemoryValue>();
   }
 
@@ -265,9 +263,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public getAs<T>(offset: number): T {
     assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     const word = this._mem.get(offset);
-    //TaggedMemory.log.trace(`Memory read: ${offset} -> ${word}`);
+    //this.log.trace(`Memory read: ${offset} -> ${word}`);
     if (word === undefined) {
-      TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
+      this.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
       return new Field(0) as T;
     }
     return word as T;
@@ -286,7 +284,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
       slice[i] = this._mem.get(offset + i) ?? new Field(0);
     }
 
-    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${slice}`);
+    this.log.trace(`getSlice(${offset}, ${size}) = ${slice}`);
     return slice;
   }
 
@@ -301,7 +299,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public set(offset: number, v: MemoryValue) {
     assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     this._mem.set(offset, v);
-    //TaggedMemory.log.trace(`Memory write: ${offset} <- ${v}`);
+    //this.log.trace(`Memory write: ${offset} <- ${v}`);
   }
 
   public setSlice(offset: number, slice: MemoryValue[]) {
@@ -314,7 +312,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     slice.forEach((element, idx) => {
       this._mem.set(offset + idx, element);
     });
-    TaggedMemory.log.trace(`setSlice(${offset}, ${slice})`);
+    this.log.trace(`setSlice(${offset}, ${slice})`);
   }
 
   public getTag(offset: number): TypeTag {

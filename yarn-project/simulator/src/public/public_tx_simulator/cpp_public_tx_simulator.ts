@@ -1,4 +1,4 @@
-import { type Logger, createLogger, logLevel } from '@aztec/foundation/log';
+import { type Logger, logLevel } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type CancellationToken, avmSimulate, cancelSimulation, createCancellationToken } from '@aztec/native';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
@@ -33,7 +33,6 @@ import type {
  * For contract DB accesses, it makes callbacks through NAPI back to the TS PublicContractsDB cache.
  */
 export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxSimulatorInterface {
-  protected override log: Logger;
   /** Current cancellation token for in-flight simulation. */
   private cancellationToken?: CancellationToken;
   /** Current simulation promise, used to wait for completion after cancellation. */
@@ -43,10 +42,10 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
-    this.log = createLogger(`simulator:cpp_public_tx_simulator`);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   /**
@@ -84,7 +83,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     );
 
     // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
-    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables);
+    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables, this.log);
 
     // Serialize to msgpack and call the C++ simulator
     this.log.trace(`Serializing fast simulation inputs to msgpack...`);
@@ -169,10 +168,11 @@ export class MeasuredCppPublicTxSimulator extends CppPublicTxSimulator implement
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, log, config);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -198,11 +198,12 @@ export class TelemetryCppPublicTxSimulator extends MeasuredCppPublicTxSimulator 
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     config?: Partial<PublicSimulatorConfig>,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'CppPublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, metrics, config);
+    super(merkleTree, contractsDB, globalVariables, log, metrics, config);
     this.tracer = metrics.tracer;
   }
 }

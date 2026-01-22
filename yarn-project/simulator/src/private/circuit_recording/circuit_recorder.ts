@@ -1,5 +1,5 @@
 import { sha512 } from '@aztec/foundation/crypto/sha512';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
@@ -89,14 +89,12 @@ export class CircuitRecording {
  * ```
  */
 export class CircuitRecorder {
-  protected readonly logger = createLogger('simulator:acvm:recording');
-
   protected recording?: CircuitRecording;
 
   private stackDepth: number = 0;
   private newCircuit: boolean = true;
 
-  protected constructor() {}
+  protected constructor(protected readonly logger: Logger) {}
 
   /**
    * Initializes a new circuit recording session.

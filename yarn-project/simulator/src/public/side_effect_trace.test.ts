@@ -10,6 +10,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
@@ -24,6 +25,7 @@ import { MaxCallsToUniqueContractClassIdsError, SideEffectLimitReachedError } fr
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 
 describe('Public Side Effect Trace', () => {
+  const logger = createLogger('test:side-effect-trace');
   const utxo = Fr.random();
   const slot = Fr.random();
   const value = Fr.random();
@@ -40,7 +42,7 @@ describe('Public Side Effect Trace', () => {
     address = await AztecAddress.random();
     startCounter = randomInt(/*max=*/ 1000000);
     startCounterPlus1 = startCounter + 1;
-    trace = new SideEffectTrace(startCounter);
+    trace = new SideEffectTrace(logger, startCounter);
   });
 
   it('Should trace storage writes', async () => {
@@ -197,6 +199,7 @@ describe('Public Side Effect Trace', () => {
 
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', async () => {
       trace = new SideEffectTrace(
+        logger,
         0,
         new SideEffectArrayLengths(
           MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -224,7 +227,7 @@ describe('Public Side Effect Trace', () => {
 
   describe.each([false, true])('Should merge forked traces', reverted => {
     it(`${reverted ? 'Reverted' : 'Successful'} forked trace should be merged properly`, async () => {
-      const nestedTrace = new SideEffectTrace(startCounter);
+      const nestedTrace = new SideEffectTrace(logger, startCounter);
       let testCounter = startCounter;
       await nestedTrace.tracePublicStorageWrite(address, slot, value, false);
       testCounter++;

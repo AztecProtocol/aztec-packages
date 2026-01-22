@@ -8,6 +8,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite, PublicSimulatorConfig, PublicTxResult, RevertCode } from '@aztec/stdlib/avm';
@@ -40,6 +41,8 @@ import { PublicPersistableStateManager } from '../state_manager/state_manager.js
 import { PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
+  const logger = createLogger('test:public-tx-simulator');
+
   // Nullifier must be >=128 since tree starts with 128 entries pre-filled
   const MIN_NULLIFIER = 128;
   // Gas settings.
@@ -220,6 +223,7 @@ describe('public_tx_simulator', () => {
       merkleTrees,
       contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
+      logger,
       PublicSimulatorConfig.from({
         skipFeeEnforcement,
         proverId,
@@ -259,10 +263,10 @@ describe('public_tx_simulator', () => {
     privateGasUsed = new Gas(13, 17);
     enqueuedCallGasUsed = new Gas(12, 34);
 
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     merkleTrees = await worldStateService.fork();
     merkleTreesCopy = await worldStateService.fork();
-    contractsDB = new PublicContractsDB(mock<ContractDataSource>());
+    contractsDB = new PublicContractsDB(mock<ContractDataSource>(), logger);
 
     simulator = createSimulator({ skipFeeEnforcement: true });
   }, 30_000);

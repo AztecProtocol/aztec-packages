@@ -2,7 +2,7 @@ import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS } f
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { type LogLevel, createLogger } from '@aztec/foundation/log';
+import type { LogLevel, Logger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -42,12 +42,11 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class PublicPersistableStateManager {
-  private readonly log = createLogger('simulator:state_manager');
-
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
 
   constructor(
+    private readonly log: Logger,
     private readonly treesDB: PublicTreesDB,
     private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
@@ -62,13 +61,14 @@ export class PublicPersistableStateManager {
    * Create a new state manager
    */
   public static create(
+    log: Logger,
     treesDB: PublicTreesDB,
     contractsDB: PublicContractsDBInterface,
     trace: PublicSideEffectTraceInterface,
     firstNullifier: Fr,
     timestamp: UInt64,
   ): PublicPersistableStateManager {
-    return new PublicPersistableStateManager(treesDB, contractsDB, trace, firstNullifier, timestamp);
+    return new PublicPersistableStateManager(log, treesDB, contractsDB, trace, firstNullifier, timestamp);
   }
 
   /**
@@ -77,6 +77,7 @@ export class PublicPersistableStateManager {
   public async fork() {
     await this.treesDB.createCheckpoint();
     return new PublicPersistableStateManager(
+      this.log,
       this.treesDB,
       this.contractsDB,
       this.trace.fork(),

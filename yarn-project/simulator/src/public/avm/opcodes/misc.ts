@@ -1,4 +1,4 @@
-import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, applyStringFormatting } from '@aztec/foundation/log';
 
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
@@ -9,7 +9,6 @@ import { Instruction } from './instruction.js';
 export class DebugLog extends Instruction {
   static type: string = 'DEBUGLOG';
   static readonly opcode: Opcode = Opcode.DEBUGLOG;
-  static readonly logger = createLogger('simulator:avm:debug_log');
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
@@ -89,13 +88,13 @@ export class DebugLog extends Instruction {
       );
 
       // Skips string formatting if the level is disabled.
-      if (DebugLog.logger.isLevelEnabled(level)) {
+      if (context.log.isLevelEnabled(level)) {
         const formattedStr = applyStringFormatting(
           messageAsStr,
           fields.map(field => field.toFr()),
         );
 
-        DebugLog.logger[level](formattedStr);
+        context.log[level](formattedStr);
       }
     }
   }

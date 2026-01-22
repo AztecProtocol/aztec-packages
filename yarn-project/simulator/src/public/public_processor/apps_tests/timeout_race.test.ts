@@ -12,6 +12,7 @@
  * - Nothing stops C++ simulation on PublicProcessor deadline
  */
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -19,7 +20,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -55,7 +55,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
   });
 
   afterEach(async () => {
@@ -87,13 +87,13 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const globals = GlobalVariables.empty();
     globals.gasFees = new GasFees(2, 3);
 
-    const contractDataSource = new SimpleContractDataSource();
+    const contractDataSource = new SimpleContractDataSource(logger);
     const merkleTrees = await worldStateService.fork();
-    const contractsDB = new PublicContractsDB(contractDataSource);
+    const contractsDB = new PublicContractsDB(contractDataSource, logger);
 
-    const simulator = new CppPublicTxSimulator(merkleTrees, contractsDB, globals);
+    const simulator = new CppPublicTxSimulator(merkleTrees, contractsDB, globals, logger);
 
-    const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
+    const tester = new PublicTxSimulationTester(logger, merkleTrees, contractDataSource, globals);
     await tester.setFeePayerBalance(admin);
 
     // Deploy spammer contract(s) based on configuration
@@ -232,12 +232,12 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const globals = GlobalVariables.empty();
     globals.gasFees = new GasFees(2, 3);
 
-    const contractDataSource = new SimpleContractDataSource();
+    const contractDataSource = new SimpleContractDataSource(logger);
     const merkleTrees = await worldStateService.fork();
-    const contractsDB = new PublicContractsDB(contractDataSource);
+    const contractsDB = new PublicContractsDB(contractDataSource, logger);
 
     // Set up contracts and balances using a tester on the unguarded fork
-    const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
+    const tester = new PublicTxSimulationTester(logger, merkleTrees, contractDataSource, globals);
     await tester.setFeePayerBalance(admin);
 
     // Deploy spammer contract(s) based on configuration
@@ -250,10 +250,10 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     for (let iteration = 0; iteration < numIterations; iteration++) {
       // Create fresh guarded tree and processor for each iteration because
       // GuardedMerkleTreeOperations.stop() is called on timeout and can't be reused.
-      const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
+      const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees, logger);
 
       // Create the real C++ simulator
-      const realSimulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals);
+      const realSimulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, logger);
 
       // Track the simulation promise so we can await it for cleanup.
       // Use an object wrapper to avoid TypeScript control flow analysis issues.
@@ -272,7 +272,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       };
 
       // Use TestDateProvider to control time
-      const dateProvider = new TestDateProvider();
+      const dateProvider = new TestDateProvider(logger);
 
       // Create PublicProcessor with the simulator
       const processor = new PublicProcessor(
@@ -281,7 +281,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
         contractsDB,
         simulator,
         dateProvider,
-        getTelemetryClient(),
+        createLogger('simulator:public-processor'),
       );
 
       // Get initial state for trees we need to check

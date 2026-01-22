@@ -1,3 +1,5 @@
+import type { Logger } from '@aztec/foundation/log';
+
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -7,8 +9,11 @@ import { CircuitRecorder, type CircuitRecording } from './circuit_recorder.js';
 export class FileCircuitRecorder extends CircuitRecorder {
   declare recording?: CircuitRecording & { filePath: string; isFirstCall: boolean };
 
-  constructor(private readonly recordDir: string) {
-    super();
+  constructor(
+    logger: Logger,
+    private readonly recordDir: string,
+  ) {
+    super(logger);
   }
 
   override async start(

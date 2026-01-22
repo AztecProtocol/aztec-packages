@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -37,7 +38,7 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
   const groupedSpamConfigs = getSpamConfigsPerOpcode();
 
   // Shared metrics instance for benchmark collection
-  const metrics = new TestExecutorMetrics();
+  const metrics = new TestExecutorMetrics(logger);
 
   // Benchmark config - disable most collection for speed
   const config: PublicSimulatorConfig = PublicSimulatorConfig.from({
@@ -77,13 +78,14 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
     let tester: PublicTxSimulationTester;
 
     beforeEach(async () => {
-      worldStateService = await NativeWorldStateService.tmp();
-      const contractDataSource = new SimpleContractDataSource();
+      worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
+      const contractDataSource = new SimpleContractDataSource(logger);
       const merkleTree = await worldStateService.fork();
       const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-        ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-        : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+        ? (mt, cdb, g, log, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, log, m, c)
+        : (mt, cdb, g, log, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, log, m, c);
       tester = new PublicTxSimulationTester(
+        logger,
         merkleTree,
         contractDataSource,
         defaultGlobals(),

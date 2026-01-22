@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -30,7 +30,6 @@ type OpcodeTally = {
 };
 
 export class AvmSimulator implements AvmSimulatorInterface {
-  private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
   // maps pc to [instr, bytesRead]
@@ -43,13 +42,13 @@ export class AvmSimulator implements AvmSimulatorInterface {
   // only. Otherwise, use build() below.
   constructor(
     private context: AvmContext,
+    private log: Logger,
     private instructionSet: InstructionSet = INSTRUCTION_SET,
     enableTallying = false,
   ) {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
-    context.provideSimulator = AvmSimulator.build;
-    this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
+    context.provideSimulator = (ctx: AvmContext, logger: Logger) => AvmSimulator.build(ctx, logger);
     // Turn on tallying if explicitly enabled or if trace logging
     if (enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
@@ -59,12 +58,8 @@ export class AvmSimulator implements AvmSimulatorInterface {
 
   // Factory to have a proper function name in the logger. Retrieving the name is asynchronous and
   // cannot be done as part of the constructor.
-  public static async build(context: AvmContext): Promise<AvmSimulator> {
-    const simulator = new AvmSimulator(context);
-    const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
-    simulator.log = createLogger(`simulator:avm(f:${fnName})`);
-
-    return simulator;
+  public static build(context: AvmContext, log: Logger): Promise<AvmSimulator> {
+    return Promise.resolve(new AvmSimulator(context, log));
   }
 
   public static async create(
@@ -77,6 +72,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     calldata: Fr[],
     allocatedGas: Gas,
     config: PublicSimulatorConfig,
+    log: Logger,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -89,9 +85,9 @@ export class AvmSimulator implements AvmSimulatorInterface {
       config,
     );
 
-    const avmMachineState = new AvmMachineState(allocatedGas);
-    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    return await AvmSimulator.build(avmContext);
+    const avmMachineState = new AvmMachineState(allocatedGas, log);
+    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState, log);
+    return await AvmSimulator.build(avmContext, log);
   }
 
   /**

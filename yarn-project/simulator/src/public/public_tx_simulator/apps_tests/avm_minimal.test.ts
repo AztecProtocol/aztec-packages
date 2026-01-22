@@ -1,3 +1,5 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -12,6 +14,7 @@ describe.each([
   //{ useCppSimulator: false, simulatorName: 'TS Simulator' },
   { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
 ])('Public TX simulator apps tests: AvmMinimalTestContract ($simulatorName)', ({ useCppSimulator }) => {
+  const logger = createLogger('public-tx-apps-tests-avm-minimal');
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
   // Make sure we collect hints
@@ -25,7 +28,7 @@ describe.each([
   });
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     tester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined,

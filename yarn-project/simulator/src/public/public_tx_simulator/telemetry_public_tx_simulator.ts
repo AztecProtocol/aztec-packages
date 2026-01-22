@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -23,11 +24,12 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     config?: Partial<PublicSimulatorConfig>,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, metrics, config);
+    super(merkleTree, contractsDB, globalVariables, log, metrics, config);
     this.tracer = metrics.tracer;
   }
 

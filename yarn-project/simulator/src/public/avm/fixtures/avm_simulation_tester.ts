@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { encodeArguments } from '@aztec/stdlib/abi';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -31,31 +32,34 @@ const DEFAULT_GAS_FEES = new GasFees(2, 3);
  */
 export class AvmSimulationTester extends BaseAvmSimulationTester {
   constructor(
+    logger: Logger,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
     private stateManager: PublicPersistableStateManager,
   ) {
-    super(contractDataSource, merkleTrees);
+    super(logger, contractDataSource, merkleTrees);
   }
 
   static async create(
     worldStateService: NativeWorldStateService, // make sure to close this later
   ): Promise<AvmSimulationTester> {
-    const contractDataSource = new SimpleContractDataSource();
+    const logger = createLogger('avm-simulation-tester');
+    const contractDataSource = new SimpleContractDataSource(logger);
     const merkleTrees = await worldStateService.fork();
-    const treesDB = new PublicTreesDB(merkleTrees);
-    const contractsDB = new PublicContractsDB(contractDataSource);
-    const trace = new SideEffectTrace();
+    const treesDB = new PublicTreesDB(merkleTrees, logger);
+    const contractsDB = new PublicContractsDB(contractDataSource, logger);
+    const trace = new SideEffectTrace(logger);
     const firstNullifier = new Fr(420000);
 
     const stateManager = PublicPersistableStateManager.create(
+      logger,
       treesDB,
       contractsDB,
       trace,
       firstNullifier,
       DEFAULT_TIMESTAMP,
     );
-    return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
+    return new AvmSimulationTester(logger, contractDataSource, merkleTrees, stateManager);
   }
 
   /**
@@ -97,10 +101,10 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       config,
     });
     const persistableState = await this.stateManager.fork();
-    const context = initContext({ env: environment, persistableState });
+    const context = initContext({ env: environment, persistableState, log: this.logger });
 
     // First we simulate (though it's not needed in this simple case).
-    const simulator = new AvmSimulator(context);
+    const simulator = new AvmSimulator(context, this.logger);
     const result = await simulator.execute();
     if (result.reverted) {
       this.logger.error(`Error in ${fnName}:`);

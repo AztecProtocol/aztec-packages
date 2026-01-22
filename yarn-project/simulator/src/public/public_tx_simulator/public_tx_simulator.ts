@@ -1,6 +1,6 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxEffect, PublicTxResult } from '@aztec/stdlib/avm';
@@ -78,18 +78,17 @@ type ProcessedPhase = {
 };
 
 export class PublicTxSimulator implements PublicTxSimulatorInterface {
-  protected log: Logger;
   protected readonly config: PublicSimulatorConfig;
 
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
     protected globalVariables: GlobalVariables,
+    protected log: Logger,
     config?: Partial<PublicSimulatorConfig>,
     protected protocolContracts: ProtocolContracts = ProtocolContractsList,
   ) {
     this.config = PublicSimulatorConfig.from(config ?? {});
-    this.log = createLogger(`simulator:public_tx_simulator`);
   }
 
   /**
@@ -107,11 +106,12 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
       this.protocolContracts,
     );
-    const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
-    const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
-    const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
+    const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints, this.log);
+    const hintingTreesDB = new PublicTreesDB(hintingMerkleTree, this.log);
+    const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints, this.log);
 
     const context = await PublicTxContext.create(
+      this.log,
       hintingTreesDB,
       hintingContractsDB,
       tx,
@@ -360,6 +360,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       calldata,
       allocatedGas,
       this.config,
+      this.log,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();

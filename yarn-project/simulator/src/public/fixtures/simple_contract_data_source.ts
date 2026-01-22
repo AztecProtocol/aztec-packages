@@ -1,6 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -15,7 +15,7 @@ import { getFunctionSelector } from '../avm/fixtures/utils.js';
  * This class does not include any real merkle trees & merkle operations.
  */
 export class SimpleContractDataSource implements ContractDataSource {
-  public logger = createLogger('simple-contract-data-source');
+  constructor(public readonly logger: Logger) {}
 
   // maps contract class ID to class
   private contractClasses: Map<string, ContractClassPublic> = new Map();

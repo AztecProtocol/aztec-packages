@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   type ExecutionError,
   type ForeignCallInput,
@@ -37,6 +37,7 @@ export interface ACIRExecutionResult {
  * @param acir - The ACIR circuit bytecode to execute.
  * @param initialWitness - The initial witness map defining all of the inputs to `circuit`.
  * @param callback - A callback to process any foreign calls from the circuit.
+ * @param logger - Logger instance.
  * @returns The solved witness calculated by executing the circuit on the provided inputs, as well as the return
  * witness indices as specified by the circuit.
  */
@@ -44,9 +45,8 @@ export async function acvm(
   acir: Buffer,
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
+  logger: Logger,
 ): Promise<ACIRExecutionResult> {
-  const logger = createLogger('simulator:acvm');
-
   const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     acir,
     initialWitness,

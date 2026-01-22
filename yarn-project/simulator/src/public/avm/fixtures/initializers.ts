@@ -2,6 +2,7 @@ import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Logger } from '@aztec/foundation/log';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -28,11 +29,14 @@ export function initContext(overrides?: {
   persistableState?: PublicPersistableStateManager;
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
+  log?: Logger;
 }): AvmContext {
+  const log = overrides?.log ?? mock<Logger>();
   const ctx = new AvmContext(
-    overrides?.persistableState || initPersistableStateManager(),
+    overrides?.persistableState || initPersistableStateManager({ log }),
     overrides?.env || initExecutionEnvironment(),
-    overrides?.machineState || initMachineState(),
+    overrides?.machineState || initMachineState({ log }),
+    log,
   );
   ctx.provideSimulator = AvmSimulator.build;
   return ctx;
@@ -47,9 +51,11 @@ export function initPersistableStateManager(overrides?: {
   nullifiers?: NullifierManager;
   firstNullifier?: Fr;
   timestamp?: UInt64;
+  log?: Logger;
 }): PublicPersistableStateManager {
   const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
   return new PublicPersistableStateManager(
+    overrides?.log || mock<Logger>(),
     treesDB,
     overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
@@ -94,9 +100,12 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
 /**
  * Create an empty instance of the Machine State where all values are set to a large enough amount, unless overridden in the overrides object
  */
-export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
-  return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? AVM_MAX_PROCESSABLE_L2_GAS,
-    daGasLeft: overrides?.daGasLeft ?? 1e8,
-  });
+export function initMachineState(overrides?: Partial<AvmMachineState> & { log?: Logger }): AvmMachineState {
+  return AvmMachineState.fromState(
+    {
+      l2GasLeft: overrides?.l2GasLeft ?? AVM_MAX_PROCESSABLE_L2_GAS,
+      daGasLeft: overrides?.daGasLeft ?? 1e8,
+    },
+    overrides?.log ?? mock<Logger>(),
+  );
 }

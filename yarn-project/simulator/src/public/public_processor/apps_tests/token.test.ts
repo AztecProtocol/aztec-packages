@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -7,7 +8,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import { GlobalVariables } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
@@ -38,11 +38,11 @@ describe.each([
     // apply some nonzero default gas fees
     globals.gasFees = new GasFees(2, 3);
 
-    const contractDataSource = new SimpleContractDataSource();
-    worldStateService = await NativeWorldStateService.tmp();
+    const contractDataSource = new SimpleContractDataSource(logger);
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     const merkleTrees = await worldStateService.fork();
-    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
-    contractsDB = new PublicContractsDB(contractDataSource);
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees, logger);
+    contractsDB = new PublicContractsDB(contractDataSource, logger);
     const config = PublicSimulatorConfig.from({
       skipFeeEnforcement: false,
       collectDebugLogs: true,
@@ -53,19 +53,19 @@ describe.each([
     // TS mode: use CppVsTs to compare TS and C++ results
     // C++ mode: use only C++ (pure Cpp simulator)
     const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config)
-      : new CppVsTsPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
+      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, logger, config)
+      : new CppVsTsPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, logger, config);
 
     processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
       contractsDB,
       simulator,
-      new TestDateProvider(),
-      getTelemetryClient(),
+      new TestDateProvider(logger),
+      logger,
     );
 
-    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
+    tester = new PublicTxSimulationTester(logger, merkleTrees, contractDataSource, globals);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);

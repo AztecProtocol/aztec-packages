@@ -1,3 +1,5 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -6,13 +8,14 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('C++ Exception Handling during Public Tx Simulation', () => {
+  const logger = createLogger('public-tx-apps-tests-cpp-exception');
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: PublicTxSimulationTester;
   let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     tester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined,

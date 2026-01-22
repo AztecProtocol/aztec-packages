@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
@@ -27,10 +28,11 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     config: Partial<PublicSimulatorConfig>,
     outputDir: string,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config);
+    super(merkleTree, contractsDB, globalVariables, log, config);
     assert(config.collectHints === true, 'collectHints must be enabled to dump AVM circuit inputs');
     assert(config.collectPublicInputs === true, 'collectPublicInputs must be enabled to dump AVM circuit inputs');
     this.outputDir = outputDir;

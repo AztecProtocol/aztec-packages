@@ -62,8 +62,8 @@ describe('Misc Instructions', () => {
       context.machineState.memory.set(fieldsSizeOffset, new Uint32(1n)); // One field value
 
       // Mock verbose logger
-      const mockIsVerbose = jest.spyOn(DebugLog.logger, 'isLevelEnabled').mockImplementation(() => true);
-      const mockVerbose = jest.spyOn(DebugLog.logger, 'verbose').mockImplementation(() => {});
+      const mockIsVerbose = jest.spyOn(context.log, 'isLevelEnabled').mockImplementation(() => true);
+      const mockVerbose = jest.spyOn(context.log, 'verbose').mockImplementation(() => {});
 
       try {
         // Execute debug log instruction
@@ -102,7 +102,7 @@ describe('Misc Instructions', () => {
       context.machineState.memory.set(fieldsSizeOffset, new Uint32(1n)); // One field value
 
       // Mock verbose logger
-      const mockVerbose = jest.spyOn(DebugLog.logger, 'verbose').mockImplementation(() => {});
+      const mockVerbose = jest.spyOn(context.log, 'verbose').mockImplementation(() => {});
 
       try {
         // Execute debug log instruction

@@ -1,6 +1,7 @@
 import { NOTE_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
@@ -27,6 +28,7 @@ import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interf
 import type { PublicPersistableStateManager } from './state_manager.js';
 
 describe('state_manager', () => {
+  const logger = createLogger('test:state-manager');
   let address: AztecAddress;
   const utxo = Fr.random();
   const leafIndex = randomBigInt(2n << 36n);
@@ -81,7 +83,7 @@ describe('state_manager', () => {
     });
 
     it('checkNoteHashExists works for index out of range', async () => {
-      treesDB = new PublicTreesDB(mock<MerkleTreeWriteOperations>());
+      treesDB = new PublicTreesDB(mock<MerkleTreeWriteOperations>(), logger);
       persistableState = initPersistableStateManager({ treesDB, contractsDB, trace, firstNullifier });
       const invalidIndex = BigInt(NOTE_HASH_TREE_LEAF_COUNT + 1);
       await expect(treesDB.getNoteHash(invalidIndex)).rejects.toThrow(NoteHashIndexOutOfRangeError);

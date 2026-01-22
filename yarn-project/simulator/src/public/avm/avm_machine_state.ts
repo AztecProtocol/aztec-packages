@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 
 import type { Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
@@ -56,7 +57,7 @@ export class AvmMachineState {
   public internalCallStack: CallStackEntry[] = [];
 
   /** Memory accessible to user code */
-  public readonly memory: TaggedMemory = new TaggedMemory();
+  public readonly memory: TaggedMemory;
 
   /**
    * Signals that execution should end.
@@ -73,14 +74,16 @@ export class AvmMachineState {
   public instrCounter: number = 0;
   // End metrics only
 
-  constructor(gasLeft: Gas);
-  constructor(l2GasLeft: number, daGasLeft: number);
-  constructor(gasLeftOrL2GasLeft: Gas | number, daGasLeft?: number) {
+  constructor(gasLeft: Gas, log: Logger);
+  constructor(l2GasLeft: number, daGasLeft: number, log: Logger);
+  constructor(gasLeftOrL2GasLeft: Gas | number, daGasLeftOrLog?: number | Logger, log?: Logger) {
     if (typeof gasLeftOrL2GasLeft === 'object') {
       ({ l2Gas: this.l2GasLeft, daGas: this.daGasLeft } = gasLeftOrL2GasLeft);
+      this.memory = new TaggedMemory(daGasLeftOrLog as Logger);
     } else {
       this.l2GasLeft = gasLeftOrL2GasLeft!;
-      this.daGasLeft = daGasLeft!;
+      this.daGasLeft = daGasLeftOrLog as number;
+      this.memory = new TaggedMemory(log!);
     }
   }
 
@@ -88,8 +91,8 @@ export class AvmMachineState {
     return { l2Gas: this.l2GasLeft, daGas: this.daGasLeft };
   }
 
-  public static fromState(state: InitialAvmMachineState): AvmMachineState {
-    return new AvmMachineState(state.l2GasLeft, state.daGasLeft);
+  public static fromState(state: InitialAvmMachineState, log: Logger): AvmMachineState {
+    return new AvmMachineState(state.l2GasLeft, state.daGasLeft, log);
   }
 
   /**

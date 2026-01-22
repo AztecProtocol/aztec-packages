@@ -1,7 +1,7 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -64,6 +64,7 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
 export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
+    private log: Logger,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
@@ -79,10 +80,10 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     config: PublicSimulatorConfig,
   ): PublicProcessor {
-    const contractsDB = new PublicContractsDB(this.contractDataSource);
-
-    const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
+    const log = this.log.createLogger('simulator:public-processor');
+    const contractsDB = new PublicContractsDB(this.contractDataSource, log);
+    const guardedFork = new GuardedMerkleTreeOperations(merkleTree, log);
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, log, config);
 
     return new PublicProcessor(
       globalVariables,
@@ -90,6 +91,7 @@ export class PublicProcessorFactory {
       contractsDB,
       publicTxSimulator,
       this.dateProvider,
+      log,
       this.telemetryClient,
     );
   }
@@ -98,9 +100,17 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
+    log: Logger,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
-    return new TelemetryCppPublicTxSimulator(merkleTree, contractsDB, globalVariables, this.telemetryClient, config);
+    return new TelemetryCppPublicTxSimulator(
+      merkleTree,
+      contractsDB,
+      globalVariables,
+      log,
+      this.telemetryClient,
+      config,
+    );
   }
 }
 
@@ -124,8 +134,8 @@ export class PublicProcessor implements Traceable {
     protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulatorInterface,
     private dateProvider: DateProvider,
+    private log: Logger,
     telemetryClient: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('simulator:public-processor'),
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
@@ -478,7 +488,7 @@ export class PublicProcessor implements Traceable {
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     // This high-level db is used as a convenient helper. It could be done with the merkleTree directly.
-    const treesDB = new PublicTreesDB(this.guardedMerkleTree);
+    const treesDB = new PublicTreesDB(this.guardedMerkleTree, this.log);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 

@@ -1,5 +1,5 @@
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { ForeignCallHandler, WitnessMap } from '@aztec/noir-acvm_js';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
@@ -11,8 +11,6 @@ import { promises as fs } from 'fs';
 import type { ACIRCallback, ACIRExecutionResult } from './acvm/acvm.js';
 import type { ACVMWitness } from './acvm/acvm_types.js';
 import type { CircuitSimulator } from './circuit_simulator.js';
-
-const logger = createLogger('simulator:acvm-native');
 
 export enum ACVM_RESULT {
   SUCCESS,
@@ -55,6 +53,7 @@ function parseIntoWitnessMap(outputString: string) {
  * @param bytecode - The circuit bytecode
  * @param workingDirectory - A directory to use for temporary files by the ACVM
  * @param pathToAcvm - The path to the ACVM binary
+ * @param logger - Logger instance
  * @param outputFilename - If specified, the output will be stored as a file, encoded using Bincode
  * @returns The completed partial witness outputted from the circuit
  */
@@ -63,6 +62,7 @@ export async function executeNativeCircuit(
   bytecode: Buffer,
   workingDirectory: string,
   pathToAcvm: string,
+  logger: Logger,
   outputFilename?: string,
 ): Promise<ACVMResult> {
   const bytecodeFilename = 'bytecode';
@@ -148,6 +148,7 @@ export class NativeACVMSimulator implements CircuitSimulator {
   constructor(
     private workingDirectory: string,
     private pathToAcvm: string,
+    private log: Logger,
     private witnessFilename?: string,
   ) {}
 
@@ -171,6 +172,7 @@ export class NativeACVMSimulator implements CircuitSimulator {
         decodedBytecode,
         directory,
         this.pathToAcvm,
+        this.log,
         this.witnessFilename,
       );
 
@@ -181,7 +183,7 @@ export class NativeACVMSimulator implements CircuitSimulator {
       return result;
     };
 
-    return await runInDirectory(this.workingDirectory, operation, false, logger);
+    return await runInDirectory(this.workingDirectory, operation, this.log, false);
   }
 
   executeUserCircuit(

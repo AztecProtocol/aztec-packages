@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
@@ -17,17 +18,19 @@ export class AvmContext {
    * @param persistableState - Manages world state and accrued substate during execution - (caching, fetching, tracing)
    * @param environment - Contains constant variables provided by the kernel
    * @param machineState - VM state that is modified on an instruction-by-instruction basis
+   * @param log - Logger instance
    * @returns new AvmContext instance
    */
   constructor(
     public persistableState: PublicPersistableStateManager,
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
+    public readonly log: Logger,
   ) {}
 
   // This is needed to break a dependency cycle created by the CALL opcode,
   // which needs to create a new simulator but cannot depend directly on AvmSimulator.
-  public provideSimulator?: (context: AvmContext) => Promise<AvmSimulatorInterface>;
+  public provideSimulator?: (context: AvmContext, log: Logger) => Promise<AvmSimulatorInterface>;
 
   /**
    * Prepare a new AVM context that will be ready for an external/nested call
@@ -55,7 +58,7 @@ export class AvmContext {
         : this.environment.deriveEnvironmentForNestedStaticCall;
     const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata);
     const forkedWorldState = await this.persistableState.fork();
-    const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
-    return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
+    const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas), this.log);
+    return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState, this.log);
   }
 }

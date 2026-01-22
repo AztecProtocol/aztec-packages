@@ -1,5 +1,5 @@
 import { sum } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { RevertCode } from '@aztec/stdlib/avm';
 import type { GasUsed } from '@aztec/stdlib/gas';
@@ -82,15 +82,12 @@ function createEmptyTxMetrics(): PublicTxMetrics {
 }
 
 export class TestExecutorMetrics implements ExecutorMetricsInterface {
-  private logger: Logger;
   // tx label -> tx metrics
   private txMetrics: Map<string, PublicTxMetrics> = new Map();
   private currentTxLabel: string | undefined;
   private txTimer: Timer | undefined;
 
-  constructor() {
-    this.logger = createLogger(`simulator:test_executor_metrics`);
-  }
+  constructor(private readonly logger: Logger) {}
 
   startRecordingTxSimulation(txLabel: string) {
     assert(!this.currentTxLabel, 'Cannot start recording tx simulation when another is live');

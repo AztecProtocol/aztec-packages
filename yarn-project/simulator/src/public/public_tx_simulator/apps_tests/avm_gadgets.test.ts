@@ -1,5 +1,7 @@
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -8,6 +10,8 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: gadgets', () => {
+  const logger = createLogger('public-tx-apps-tests-gadgets');
+
   describe.each([
     { useCppSimulator: false, simulatorName: 'TS Simulator' },
     { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
@@ -19,7 +23,7 @@ describe('Public TX simulator apps tests: gadgets', () => {
     let avmGadgetsTestContract: ContractInstanceWithAddress;
 
     beforeEach(async () => {
-      worldStateService = await NativeWorldStateService.tmp();
+      worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
       tester = await PublicTxSimulationTester.create(
         worldStateService,
         defaultGlobals(),
