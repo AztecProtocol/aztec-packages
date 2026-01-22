@@ -1,6 +1,6 @@
 use crate::{
     note::{
-        hinted_note::HintedNote,
+        HintedNote,
         lifecycle::{create_note as lifecycle_create_note, destroy_note},
         note_getter::{get_note, view_note},
     },

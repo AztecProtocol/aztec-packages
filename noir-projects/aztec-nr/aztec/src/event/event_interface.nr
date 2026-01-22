@@ -1,4 +1,4 @@
-use crate::{event::event_selector::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LEN};
+use crate::{event::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LEN};
 use protocol_types::{
     constants::DOM_SEP__EVENT_COMMITMENT,
     hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_bounded_vec},

@@ -8,7 +8,7 @@ use crate::messages::{
     msg_type::{
         PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
     },
-    processing::message_context::MessageContext,
+    processing::MessageContext,
 };
 
 use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};

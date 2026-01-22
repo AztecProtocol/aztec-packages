@@ -9,7 +9,7 @@ pub contract TestLog {
         protocol_types::{address::AztecAddress, traits::FromField},
         state_vars::{Owned, PrivateSet},
     };
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[event]
     struct ExampleEvent0 {

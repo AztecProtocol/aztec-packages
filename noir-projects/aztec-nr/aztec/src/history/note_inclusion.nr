@@ -5,7 +5,7 @@ use protocol_types::{
 };
 
 use crate::{
-    note::{confirmed_note::ConfirmedNote, hinted_note::HintedNote, note_interface::NoteHash},
+    note::{ConfirmedNote, HintedNote, note_interface::NoteHash},
     oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 

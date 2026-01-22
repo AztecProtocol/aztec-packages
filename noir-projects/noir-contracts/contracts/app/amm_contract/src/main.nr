@@ -46,7 +46,7 @@ pub contract AMM {
     };
 
     use dep::token::Token;
-    use dep::uint_note::uint_note::PartialUintNote;
+    use dep::uint_note::PartialUintNote;
 
     #[storage]
     struct Storage<Context> {

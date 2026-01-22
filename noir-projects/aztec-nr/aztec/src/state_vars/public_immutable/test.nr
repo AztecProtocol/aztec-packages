@@ -2,7 +2,7 @@ use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::public_immutable::PublicImmutable,
 };
-use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct};
+use crate::test::{helpers::test_environment::TestEnvironment, mocks::MockStruct};
 use std::mem::zeroed;
 
 global storage_slot: Field = 7;

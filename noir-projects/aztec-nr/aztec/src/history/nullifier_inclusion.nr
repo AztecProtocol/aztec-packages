@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext,
     note::{
-        confirmed_note::ConfirmedNote, note_interface::NoteHash,
+        ConfirmedNote, note_interface::NoteHash,
         utils::compute_confirmed_note_hash_for_nullification,
     },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,

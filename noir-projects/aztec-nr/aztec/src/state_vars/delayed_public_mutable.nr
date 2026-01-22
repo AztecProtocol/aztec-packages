@@ -11,7 +11,7 @@ use dep::protocol_types::{
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::state_variable::StateVariable,
-    utils::with_hash::WithHash,
+    utils::WithHash,
 };
 
 mod test;

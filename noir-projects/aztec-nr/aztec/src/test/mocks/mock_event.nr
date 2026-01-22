@@ -1,9 +1,7 @@
 //! Event mocking utilities.
 
 use crate::{
-    event::{
-        event_emission::NewEvent, event_interface::EventInterface, event_selector::EventSelector,
-    },
+    event::{event_emission::NewEvent, event_interface::EventInterface, EventSelector},
     oracle::random::random,
 };
 
