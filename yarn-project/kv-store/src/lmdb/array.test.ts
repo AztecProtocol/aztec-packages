@@ -1,8 +1,12 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { describeAztecArray } from '../interfaces/array_test_suite.js';
 import { openTmpStore } from './index.js';
 
-describe('LMDBArray', () => {
-  describeAztecArray('Sync AztecArray', () => openTmpStore(true));
+const logger = createLogger('kv-store:lmdb:test');
 
-  describeAztecArray('Async AztecArray', () => Promise.resolve(openTmpStore(true)), true);
+describe('LMDBArray', () => {
+  describeAztecArray('Sync AztecArray', () => openTmpStore(logger, true));
+
+  describeAztecArray('Async AztecArray', () => Promise.resolve(openTmpStore(logger, true)), true);
 });

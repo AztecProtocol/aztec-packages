@@ -1,4 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
+import { createLogger } from '@aztec/foundation/log';
 
 import { expect } from 'chai';
 
@@ -7,12 +8,14 @@ import { openTmpStore } from './factory.js';
 import { AztecLMDBStoreV2 } from './store.js';
 import type { WriteTransaction } from './write_transaction.js';
 
+const logger = createLogger('kv-store:lmdb-v2:close:test');
+
 describe('Clean shutdown', () => {
   let store: AztecLMDBStoreV2;
   let map: AztecAsyncMap<string, string>;
 
   beforeEach(async () => {
-    store = await openTmpStore('test');
+    store = await openTmpStore('test', logger);
     map = store.openMap<string, string>('test');
   });
 

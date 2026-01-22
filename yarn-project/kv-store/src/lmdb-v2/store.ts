@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
@@ -34,7 +34,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   private open = false;
   private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
   private writerCtx = new AsyncLocalStorage<WriteTransaction>();
-  private writerQueue = new SerialQueue();
+  private writerQueue: SerialQueue;
   private availableCursors: Semaphore;
 
   private constructor(
@@ -47,7 +47,8 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     this.log.info(`Starting data store with maxReaders ${maxReaders}`);
     this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders));
     // leave one reader to always be available for regular, atomic, reads
-    this.availableCursors = new Semaphore(maxReaders - 1);
+    this.writerQueue = new SerialQueue(log);
+    this.availableCursors = new Semaphore(maxReaders - 1, log);
   }
 
   public get dataDirectory(): string {
@@ -72,10 +73,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   public static async new(
     dataDir: string,
+    log: Logger,
     dbMapSizeKb: number = 10 * 1024 * 1024,
     maxReaders: number = 16,
     cleanup?: () => Promise<void>,
-    log = createLogger('kv-store:lmdb-v2'),
   ) {
     const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup);
     await db.start();

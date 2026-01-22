@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -11,13 +12,15 @@ import { openStoreAt, openTmpStore } from './factory.js';
 import type { ReadTransaction } from './read_transaction.js';
 import type { AztecLMDBStoreV2 } from './store.js';
 
+const logger = createLogger('kv-store:lmdb-v2:store:test');
+
 const testMaxReaders = 4;
 
 describe('AztecLMDBStoreV2', () => {
   let store: AztecLMDBStoreV2;
 
   beforeEach(async () => {
-    store = await openTmpStore('test', true, 10 * 1024 * 1024, testMaxReaders, undefined);
+    store = await openTmpStore('test', logger, true, 10 * 1024 * 1024, testMaxReaders);
   });
 
   afterEach(async () => {
@@ -191,7 +194,7 @@ describe('AztecLMDBStoreV2', () => {
     const backupDir = await mkdtemp(join(tmpdir(), 'lmdb-store-test-backup'));
     await store.backupTo(backupDir, true);
 
-    const store2 = await openStoreAt(backupDir);
+    const store2 = await openStoreAt(backupDir, logger);
     expect(Buffer.from((await store2.getReadTx().get(key))!).toString()).to.eq('bar');
     await store2.close();
     await store2.delete();

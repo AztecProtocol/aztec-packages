@@ -1,5 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { promises as fs, mkdirSync } from 'fs';
 import { type Database, type RootDatabase, open } from 'lmdb';
@@ -30,13 +30,15 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
-  #log = createLogger('kv-store:lmdb');
+  #log: Logger;
 
   constructor(
     rootDb: RootDatabase,
     public readonly isEphemeral: boolean,
     private path: string,
+    log: Logger,
   ) {
+    this.#log = log;
     this.#rootDb = rootDb;
 
     // big bucket to store all the data
@@ -60,23 +62,24 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * the database is cleared before returning the store. This way data is not accidentally shared between
    * different rollup instances.
    *
+   * @param log - A logger to use
    * @param path - A path on the disk to store the database. Optional
+   * @param mapSizeKb - The map size in KB. Defaults to 1GB
    * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional
-   * @param log - A logger to use. Optional
    * @returns The store
    */
   static open(
+    log: Logger,
     path?: string,
     mapSizeKb = 1 * 1024 * 1024, // defaults to 1 GB map size
     ephemeral: boolean = false,
-    log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
     const dbPath = path ?? join(tmpdir(), randomBytes(8).toString('hex'));
     mkdirSync(dbPath, { recursive: true });
     const mapSize = 1024 * mapSizeKb;
     log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
     const rootDb = open({ path: dbPath, noSync: ephemeral, mapSize });
-    return new AztecLmdbStore(rootDb, ephemeral, dbPath);
+    return new AztecLmdbStore(rootDb, ephemeral, dbPath, log);
   }
 
   /**

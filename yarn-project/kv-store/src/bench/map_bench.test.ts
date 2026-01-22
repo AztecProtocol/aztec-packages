@@ -26,7 +26,7 @@ describe('LMDBMap benchmarks', () => {
   };
 
   beforeEach(async () => {
-    store = await openTmpStore('test');
+    store = await openTmpStore('test', logger);
     map = new LMDBMap(store, 'test');
   });
 

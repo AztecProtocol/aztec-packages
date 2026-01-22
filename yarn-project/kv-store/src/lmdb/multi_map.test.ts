@@ -1,8 +1,12 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { describeAztecMultiMap } from '../interfaces/multi_map_test_suite.js';
 import { openTmpStore } from './index.js';
 
-describe('LMDBMultiMap', () => {
-  describeAztecMultiMap('Sync AztecMultiMap', () => openTmpStore(true));
+const logger = createLogger('kv-store:lmdb:test');
 
-  describeAztecMultiMap('Async AztecMultiMap', () => Promise.resolve(openTmpStore(true)), true);
+describe('LMDBMultiMap', () => {
+  describeAztecMultiMap('Sync AztecMultiMap', () => openTmpStore(logger, true));
+
+  describeAztecMultiMap('Async AztecMultiMap', () => Promise.resolve(openTmpStore(logger, true)), true);
 });

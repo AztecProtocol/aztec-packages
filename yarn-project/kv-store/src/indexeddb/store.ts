@@ -55,10 +55,11 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     rootDB: IDBPDatabase<AztecIDBSchema>,
     public readonly isEphemeral: boolean,
     name: string,
+    logger: Logger,
   ) {
     this.#rootDB = rootDB;
     this.#name = name;
-    this.#txQueue = new SerialQueue();
+    this.#txQueue = new SerialQueue(logger);
     this.#txQueue.start();
   }
   /**
@@ -88,7 +89,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
       },
     });
 
-    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, name);
+    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, name, log);
     return kvStore;
   }
 

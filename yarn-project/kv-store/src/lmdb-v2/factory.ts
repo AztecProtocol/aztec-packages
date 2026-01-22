@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -15,9 +15,10 @@ export async function createStore(
   name: string,
   schemaVersion: number,
   config: DataStoreConfig,
-  log: Logger = createLogger('kv-store:lmdb-v2:' + name),
+  loggerFactory: LoggerFactory,
 ): Promise<AztecLMDBStoreV2> {
   const { dataDirectory, l1Contracts } = config;
+  const log = loggerFactory.createLogger('kv-store:lmdb-v2', { instanceId: name });
 
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
@@ -32,8 +33,8 @@ export async function createStore(
       schemaVersion,
       rollupAddress,
       dataDirectory: subDir,
-      onOpen: dbDirectory =>
-        AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), log),
+      onOpen: dbDirectory => AztecLMDBStoreV2.new(dbDirectory, log, config.dataStoreMapSizeKb, MAX_READERS),
+      log,
     });
 
     log.info(
@@ -41,7 +42,7 @@ export async function createStore(
     );
     [store] = await versionManager.open();
   } else {
-    store = await openTmpStore(name, true, config.dataStoreMapSizeKb, MAX_READERS, log);
+    store = await openTmpStore(name, log, true, config.dataStoreMapSizeKb, MAX_READERS);
   }
 
   return store;
@@ -49,12 +50,13 @@ export async function createStore(
 
 export async function openTmpStore(
   name: string,
+  loggerFactory: LoggerFactory,
   ephemeral: boolean = true,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
-  log: Logger = createLogger('kv-store:lmdb-v2:' + name),
 ): Promise<AztecLMDBStoreV2> {
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
+  const log = loggerFactory.createLogger('kv-store:lmdb-v2', { instanceId: name });
   log.debug(`Created temporary data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
 
   // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
@@ -73,33 +75,36 @@ export async function openTmpStore(
 
   // For temporary stores, we don't need to worry about versioning
   // as they are ephemeral and get cleaned up after use
-  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, log);
+  return AztecLMDBStoreV2.new(dataDir, log, dbMapSizeKb, maxReaders, cleanup);
 }
 
 export async function openStoreAt(
   dataDir: string,
+  loggerFactory: LoggerFactory,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
-  log: Logger = createLogger('kv-store:lmdb-v2'),
 ): Promise<AztecLMDBStoreV2> {
+  const log = loggerFactory.createLogger('kv-store:lmdb-v2');
   log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
-  return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log);
+  return await AztecLMDBStoreV2.new(dataDir, log, dbMapSizeKb, maxReaders);
 }
 
 export async function openVersionedStoreAt(
   dataDirectory: string,
   schemaVersion: number,
   rollupAddress: EthAddress,
+  loggerFactory: LoggerFactory,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
-  log: Logger = createLogger('kv-store:lmdb-v2'),
 ): Promise<AztecLMDBStoreV2> {
+  const log = loggerFactory.createLogger('kv-store:lmdb-v2');
   log.debug(`Opening data store at: ${dataDirectory} with size: ${dbMapSizeKb} KB (LMDB v2)`);
   const [store] = await new DatabaseVersionManager({
     schemaVersion,
     rollupAddress,
     dataDirectory,
-    onOpen: dataDir => AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log),
+    onOpen: dataDir => AztecLMDBStoreV2.new(dataDir, log, dbMapSizeKb, maxReaders),
+    log,
   }).open();
   return store;
 }

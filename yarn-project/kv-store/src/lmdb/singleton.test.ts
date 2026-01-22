@@ -1,8 +1,12 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { describeAztecSingleton } from '../interfaces/singleton_test_suite.js';
 import { openTmpStore } from './index.js';
 
-describe('LMDBSingleton', () => {
-  describeAztecSingleton('Sync AztecSingleton', () => openTmpStore(true));
+const logger = createLogger('kv-store:lmdb:test');
 
-  describeAztecSingleton('Async AztecSingleton', () => Promise.resolve(openTmpStore(true)), true);
+describe('LMDBSingleton', () => {
+  describeAztecSingleton('Sync AztecSingleton', () => openTmpStore(logger, true));
+
+  describeAztecSingleton('Async AztecSingleton', () => Promise.resolve(openTmpStore(logger, true)), true);
 });
