@@ -205,7 +205,7 @@ function pass {
 
   line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
-  exit
+  exit 0
 }
 
 # Show FAILED and exit with error code.
@@ -308,7 +308,7 @@ function flake {
     -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data" &>/dev/null
-  exit
+  exit 0
 }
 
 # Test passed.
