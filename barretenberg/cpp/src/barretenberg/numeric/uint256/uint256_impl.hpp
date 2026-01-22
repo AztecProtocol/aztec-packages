@@ -114,15 +114,21 @@ constexpr void uint256_t::wasm_madd(const uint64_t& left_limb,
  */
 constexpr std::array<uint64_t, WASM_NUM_LIMBS> uint256_t::wasm_convert(const uint64_t* data)
 {
-    return { data[0] & 0x1fffffff,
-             (data[0] >> 29) & 0x1fffffff,
-             ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
-             (data[1] >> 23) & 0x1fffffff,
-             ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
-             (data[2] >> 17) & 0x1fffffff,
-             ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
-             (data[3] >> 11) & 0x1fffffff,
-             (data[3] >> 40) & 0x1fffffff };
+    // 0x1fffffff == 2^30 - 1
+    return {
+        data[0] & 0x1fffffff,         // bits [0, 29) from data[0]
+        (data[0] >> 29) & 0x1fffffff, // bits [29, 58) from data[0]
+        ((data[0] >> 58) & 0x3f) |
+            ((data[1] & 0x7fffff) << 6), // bits [58, 64) from data[0] + bits [0, 23) from data[1]
+        (data[1] >> 23) & 0x1fffffff,    // bits [23, 52) from data[1]
+        ((data[1] >> 52) & 0xfff) |
+            ((data[2] & 0x1ffff) << 12), // bits [52, 64) from data[1] + bits [0, 17) from data[2]
+        (data[2] >> 17) & 0x1fffffff,    // bits [17, 46) from data[2]
+        ((data[2] >> 46) & 0x3ffff) |
+            ((data[3] & 0x7ff) << 18), // bits [46, 64) from data[2] + bits [0, 11) from data[3]
+        (data[3] >> 11) & 0x1fffffff,  // bits [11, 40) from data[3]
+        (data[3] >> 40) & 0x1fffffff   // bits [40, 64) from data[3]
+    };
 }
 #endif
 constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) const

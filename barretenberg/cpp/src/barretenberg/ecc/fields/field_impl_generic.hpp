@@ -15,21 +15,27 @@
 namespace bb {
 
 // NOLINTBEGIN(readability-implicit-bool-conversion)
-template <class T> constexpr std::pair<uint64_t, uint64_t> field<T>::mul_wide(uint64_t a, uint64_t b) noexcept
+template <class T>
+constexpr std::pair<uint64_t, uint64_t> field<T>::mul_wide([[maybe_unused]] uint64_t a,
+                                                           [[maybe_unused]] uint64_t b) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = (static_cast<uint128_t>(a) * static_cast<uint128_t>(b));
     return { static_cast<uint64_t>(res), static_cast<uint64_t>(res >> 64) };
 #else
     static_assert(false, "mul_wide is not implemented for WASM");
+    return { 0, 0 };
 #endif
 }
 /**
  * @brief Compute uint128_t(a * b + c + carry_in), where the inputs are all `uint64_t`. Return the top 64 bits.
  */
 template <class T>
-constexpr uint64_t field<T>::mac(
-    const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t carry_in, uint64_t& carry_out) noexcept
+constexpr uint64_t field<T>::mac([[maybe_unused]] const uint64_t a,
+                                 [[maybe_unused]] const uint64_t b,
+                                 [[maybe_unused]] const uint64_t c,
+                                 [[maybe_unused]] const uint64_t carry_in,
+                                 [[maybe_unused]] uint64_t& carry_out) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = static_cast<uint128_t>(a) + (static_cast<uint128_t>(b) * static_cast<uint128_t>(c)) +
@@ -38,6 +44,7 @@ constexpr uint64_t field<T>::mac(
     return static_cast<uint64_t>(res);
 #else
     static_assert(false, "mac is not implemented for WASM");
+    return 0;
 #endif
 }
 
@@ -46,12 +53,12 @@ constexpr uint64_t field<T>::mac(
  * 64 bits and carry_out is rewritten to the top 64 bits.
  */
 template <class T>
-constexpr void field<T>::mac(const uint64_t a,
-                             const uint64_t b,
-                             const uint64_t c,
-                             const uint64_t carry_in,
-                             uint64_t& out,
-                             uint64_t& carry_out) noexcept
+constexpr void field<T>::mac([[maybe_unused]] const uint64_t a,
+                             [[maybe_unused]] const uint64_t b,
+                             [[maybe_unused]] const uint64_t c,
+                             [[maybe_unused]] const uint64_t carry_in,
+                             [[maybe_unused]] uint64_t& out,
+                             [[maybe_unused]] uint64_t& carry_out) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = static_cast<uint128_t>(a) + (static_cast<uint128_t>(b) * static_cast<uint128_t>(c)) +
@@ -64,10 +71,10 @@ constexpr void field<T>::mac(const uint64_t a,
 }
 
 template <class T>
-constexpr uint64_t field<T>::mac_mini(const uint64_t a,
-                                      const uint64_t b,
-                                      const uint64_t c,
-                                      uint64_t& carry_out) noexcept
+constexpr uint64_t field<T>::mac_mini([[maybe_unused]] const uint64_t a,
+                                      [[maybe_unused]] const uint64_t b,
+                                      [[maybe_unused]] const uint64_t c,
+                                      [[maybe_unused]] uint64_t& carry_out) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = static_cast<uint128_t>(a) + (static_cast<uint128_t>(b) * static_cast<uint128_t>(c));
@@ -75,12 +82,16 @@ constexpr uint64_t field<T>::mac_mini(const uint64_t a,
     return static_cast<uint64_t>(res);
 #else
     static_assert(false, "mac is not implemented for WASM");
+    return 0;
 #endif
 }
 
 template <class T>
-constexpr void field<T>::mac_mini(
-    const uint64_t a, const uint64_t b, const uint64_t c, uint64_t& out, uint64_t& carry_out) noexcept
+constexpr void field<T>::mac_mini([[maybe_unused]] const uint64_t a,
+                                  [[maybe_unused]] const uint64_t b,
+                                  [[maybe_unused]] const uint64_t c,
+                                  [[maybe_unused]] uint64_t& out,
+                                  [[maybe_unused]] uint64_t& carry_out) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = static_cast<uint128_t>(a) + (static_cast<uint128_t>(b) * static_cast<uint128_t>(c));
@@ -92,13 +103,16 @@ constexpr void field<T>::mac_mini(
 }
 
 template <class T>
-constexpr uint64_t field<T>::mac_discard_lo(const uint64_t a, const uint64_t b, const uint64_t c) noexcept
+constexpr uint64_t field<T>::mac_discard_lo([[maybe_unused]] const uint64_t a,
+                                            [[maybe_unused]] const uint64_t b,
+                                            [[maybe_unused]] const uint64_t c) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = static_cast<uint128_t>(a) + (static_cast<uint128_t>(b) * static_cast<uint128_t>(c));
     return static_cast<uint64_t>(res >> 64);
 #else
     static_assert(false, "mac_discord_lo is not implemented for WASM");
+    return 0;
 #endif
 }
 /**
@@ -162,13 +176,13 @@ constexpr uint64_t field<T>::sbb(const uint64_t a,
  *
  */
 template <class T>
-constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
-                                               const uint64_t b,
-                                               const uint64_t c,
-                                               const uint64_t carry_in_lo,
-                                               const uint64_t carry_in_hi,
-                                               uint64_t& carry_lo,
-                                               uint64_t& carry_hi) noexcept
+constexpr uint64_t field<T>::square_accumulate([[maybe_unused]] const uint64_t a,
+                                               [[maybe_unused]] const uint64_t b,
+                                               [[maybe_unused]] const uint64_t c,
+                                               [[maybe_unused]] const uint64_t carry_in_lo,
+                                               [[maybe_unused]] const uint64_t carry_in_hi,
+                                               [[maybe_unused]] uint64_t& carry_lo,
+                                               [[maybe_unused]] uint64_t& carry_hi) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t product = static_cast<uint128_t>(b) * static_cast<uint128_t>(c);
@@ -189,6 +203,7 @@ constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
     return out;
 #else
     static_assert(false, "square_accumulate is not implemented for WASM");
+    return 0;
 #endif
 }
 /**
@@ -349,6 +364,8 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
  *
  * @details Explanation of Montgomery form can be found in \ref field_docs_montgomery_explainer and the difference
  * between WASM and generic versions is explained in \ref field_docs_architecture_details
+ *
+ * @note Both non-WASM and WASM algorithms are constant-time.
  */
 template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& other) const noexcept
 {
@@ -450,12 +467,14 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
     uint64_t temp_17 = 0;
-
+    // Compute left[0] * right and replace with a representative modulo p that zeros out the lowest
+    // 29 bits. In other words, after first reduction: temp_1..temp_8 hold the partial Montgomery product after
+    // processing left[0]. temp_0 has been "consumed" (its information propagated via carry to temp_1).
     // Multiply-add 0th limb of the left argument by all 9 limbs of the right arguemnt
     wasm_madd(left[0], right, temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    // Instantly reduce
+    // Instantly Montgomery reduce
     wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    // Continue for other limbs
+    //  Continue for other limbs
     wasm_madd(left[1], right, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_madd(left[2], right, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -472,8 +491,20 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_madd(left[8], right, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-
-    // After all multiplications and additions, convert relaxed form to strict (all limbs are 29 bits)
+    // MontgomeryMul(left, right) := (left * right) / R mod p.
+    // Then, after the add/reduce sequence, we have the following: MontgomeryMul(left, right) ≡ \sum_{i=0}^8 temp_{i+9}
+    // * 2^{29 * i} mod p. In particular, the information we want is stored in {t_9, ..., t_16}. However, these t_i are
+    // not yet 29 bits.
+    //
+    // Moreover, we claim that the value \sum_{i=0}^8 temp_{i+9} is less than than p + 2^{512-261} = p +
+    // 2^{251}. The reasoning is again generic: we have computed aR * bR + k_{0, 1, .., 8}p. Each aR and bR are, by
+    // assumption, 256 bits, and each k is 29 bits: k_0 is at most 2^29 - 1, k_1 is at most 2^58 - 2^29, etc.
+    // Telescoping, this means that the sum is upper-bounded by 2^512 + (2^261 - 1) * p. As we are taking the "high"
+    // part, we are simply trying to upper-bound this sum divided by 2^261. In particular, this shows that we have to do
+    // at most one subtraction to make the result 256 bits.
+    //
+    // After all multiplications and additions, convert relaxed form to strict (i.e., force all limbs to be
+    // 29 bits)
     temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
     temp_11 += temp_10 >> WASM_LIMB_BITS;
@@ -500,7 +531,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     uint64_t r_temp_6;
     uint64_t r_temp_7;
     uint64_t r_temp_8;
-    // Subtract modulus from result
+
     r_temp_0 = temp_9 - wasm_modulus[0];
     r_temp_1 = temp_10 - wasm_modulus[1] - ((r_temp_0) >> 63);
     r_temp_2 = temp_11 - wasm_modulus[2] - ((r_temp_1) >> 63);
@@ -536,8 +567,9 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
 
 /**
- * @brief Multiply left limb by a sequence of 9 limbs and put into result variables
+ * @brief Multiply left limb by a sequence of 9 limbs and accumulate into result variables
  *
+ * @note There is no carrying in this method.
  */
 template <class T>
 constexpr void field<T>::wasm_madd(uint64_t& left_limb,
@@ -564,8 +596,24 @@ constexpr void field<T>::wasm_madd(uint64_t& left_limb,
 }
 
 /**
- * @brief Perform 29-bit montgomery reduction on 1 limb (result_0 should be zero modulo 2**29 after this)
+ * @brief Perform 29-bit Montgomery reduction on 1 limb (result_0 should be zero modulo 2^29 after calling this method).
  *
+ * @details Inputs are 9 `uint64_t` limbs (result_0, ..., result_8), with the assumption that adding a 58-bit number
+ * (from a 29-bit × 29-bit multiplication) does NOT cause 64-bit overflow.
+ * Let x = \sum_{i=0}^{8} result_i * 2^{29*i} be the value represented before calling this method.
+ * After calling this method, the value \sum_{i=1}^{8} result_i * 2^{29*i} is congruent to x / 2^29 modulo p.
+ * Moreover, the low 29 bits of result_0 are zero and result_0 can be discarded.
+ * The carry information from result_0 is propagated to result_1 via the term (result_0 >> 29).
+ * No other carries are propagated, hence the limbs remain in "relaxed form".
+ *
+ * @note In particular, the limbs are in "relaxed form", i.e., they are not strictly constrained to be 29 bits.
+ * @note This function is called 9 times during Montgomery multiplication (once per limb), where the initial inputs are
+ * 58 bits, and the alternation between wasm_madd and wasm_reduce keeps the accumulated values safely within 64 bits.
+ * @note We only propagate the carry from result_0 to result_1 because result_0 is effectively discarded after
+ * this operation (it's not used in subsequent iterations), while result_1 through result_8 continue accumulating. The
+ * methods calling this method will be responsible for strictifying the result again.
+ * @note For our application, we require bounds on the output limbs (especially result_8). For information on how we
+ * deduce these, please see where this method is called.
  */
 template <class T>
 constexpr void field<T>::wasm_reduce(uint64_t& result_0,
@@ -579,7 +627,7 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
                                      uint64_t& result_8)
 {
     constexpr uint64_t mask = 0x1fffffff;
-    constexpr uint64_t r_inv = T::r_inv & mask;
+    constexpr uint64_t r_inv = T::r_inv & mask; //  -(modulus ^ { -1 }) modulo 2 ^ WASM_LIMB_BITS
     uint64_t k = (result_0 * r_inv) & mask;
     result_0 += k * wasm_modulus[0];
     result_1 += k * wasm_modulus[1] + (result_0 >> WASM_LIMB_BITS);
@@ -593,8 +641,13 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
 }
 
 /**
- * @brief Perform 29-bit montgomery reduction on 1 limb using Yuval's method  *
- * @details https://hackmd.io/@Ingonyama/Barret-Montgomery
+ * @brief Perform 29-bit montgomery reduction on 1 limb using Yuval's method.
+ * @details We explain, colloquially, what we are doing. We are given a number of the form x := \sum_{i=0}^{9}result_i *
+ * 2^{29*i}. Our goal is to find a number, congruent to x mod p, whose lowest 29 bits are 0, and then divide by 2^29.
+ * Set r_inv to be 2^{-29} modulo p.  We simply add (r_inv * result_0) to \sum_{i=1}^9(result_i * 2^{29(i - 1)}).
+ * @note We accumulate the higher order bits from result_0 because, although we discard result_0 after this
+ * reduction, it is possible that result_0 had MORE than 29 bits. We therefore propage them as this step to result_1.
+ * @note For a reference, please see: https://hackmd.io/@Ingonyama/Barret-Montgomery
  *
  */
 template <class T>
@@ -644,6 +697,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
         return montgomery_mul_big(other);
     }
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    // process first limb of self, data[0]
     auto [t0, c] = mul_wide(data[0], other.data[0]);
     uint64_t k = t0 * T::r_inv;
     uint64_t a = mac_discard_lo(t0, k, modulus.data[0]);
@@ -655,7 +709,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     uint64_t t3 = mac_mini(a, data[0], other.data[3], a);
     mac(t3, k, modulus.data[3], c, t2, c);
     t3 = c + a;
-
+    // process second limb of self, data[1]
     mac_mini(t0, data[1], other.data[0], t0, a);
     k = t0 * T::r_inv;
     c = mac_discard_lo(t0, k, modulus.data[0]);
@@ -666,7 +720,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     mac(t3, data[1], other.data[3], a, t3, a);
     mac(t3, k, modulus.data[3], c, t2, c);
     t3 = c + a;
-
+    // process third limb of self, data[2]
     mac_mini(t0, data[2], other.data[0], t0, a);
     k = t0 * T::r_inv;
     c = mac_discard_lo(t0, k, modulus.data[0]);
@@ -677,7 +731,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     mac(t3, data[2], other.data[3], a, t3, a);
     mac(t3, k, modulus.data[3], c, t2, c);
     t3 = c + a;
-
+    // process fourth limb of self, data[3]
     mac_mini(t0, data[3], other.data[0], t0, a);
     k = t0 * T::r_inv;
     c = mac_discard_lo(t0, k, modulus.data[0]);
@@ -713,8 +767,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
 
-    // Perform a series of multiplications and reductions (we multiply 1 limb of left argument by the whole right
-    // argument and then reduce)
+    // Perform a series of mul-adds and then reductions
     wasm_madd(left[0], right, temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     wasm_madd(left[1], right, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_madd(left[2], right, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -724,7 +777,8 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     wasm_madd(left[6], right, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
     wasm_madd(left[7], right, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_madd(left[8], right, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
-
+    // At this point, the value aR * bR is contained in \sum_{i=0}^16 temp_{i}*2^{29*i}. Note that this value is no
+    // greater than 4p^2 as aR and bR are both less than 2p.
     wasm_reduce_yuval(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_reduce_yuval(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
     wasm_reduce_yuval(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
@@ -734,23 +788,24 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     wasm_reduce_yuval(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_reduce_yuval(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
-    // In case there is some unforseen edge case encountered in wasm multiplications, we can quickly restore previous
-    // functionality. Comment all "wasm_reduce_yuval" and uncomment the following:
-
-    // wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
-    // wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
-    // wasm_reduce(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
-    // wasm_reduce(temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
-    // wasm_reduce(temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
-    // wasm_reduce(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
-    // wasm_reduce(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
-    // wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
-
     // The first 8 limbs are reduced using Yuval's method, the last one is reduced using the regular method
     // The reason for this is that Yuval's method produces a 10-limb representation of the reduced limb, which is then
     // added to the higher limbs. If we do this for the last limb we reduce, we'll get a 10-limb representation instead
     // of a 9-limb one, so we'll have to reduce it again in some other way.
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
+    // We must now reason about the current value of \sum_{i=0}^8 temp_{i+8} from the original assumptions.
+    // Following the algorithm, this is aR * bR + k_{0, 1, ..., 7}*r_inv_wasm + k_8p. Here, k_0 < 2^29-1, k_1 < 2^58 -
+    // 2^29, and so on, until k_8 < 2^261 - 2^232. Moreover, r_inv_wasm < p. (From the definition, it is the value of
+    // 2^{-29} mod p, and our choice of limb-representation is smaller than p. In fact, it is empirically smaller than
+    // p/2 for Fq and Fr.)
+    //
+    // Therefore, this whole sum is bounded by 4p^2 + (2^261 - 1)*p. Dividing by 2^261 and taking
+    // the integral part (corresponding to taking the top half of the limbs), and noting that 4p^2 / 2^261 << 1, we
+    // conclude that the result is in [0, p]. In particular, this implies that we are safely in [0, 2p), as desired.
+    //
+    // Note that the above analysis is soft, and it is overwhelmingly likely that the result is in [0, p). However, the
+    // only guarantee we require is that it is in [0, 2p), as with 254-bit fields we work with the coarse
+    // representation.
 
     // Convert result to unrelaxed form (all limbs are 29 bits)
     temp_10 += temp_9 >> WASM_LIMB_BITS;
