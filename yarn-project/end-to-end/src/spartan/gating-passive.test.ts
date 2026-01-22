@@ -10,6 +10,7 @@ import type { ChildProcess } from 'child_process';
 
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
+  ChainHealth,
   applyBootNodeFailure,
   applyNetworkShaping,
   applyValidatorKill,
@@ -56,8 +57,10 @@ describe('a test that passively observes the network in the presence of network 
   const forwardProcesses: ChildProcess[] = [];
   const podChaosInstances: string[] = [];
   const networkShapingInstance = `${NAMESPACE}-network-shaping`;
+  const health = new ChainHealth(NAMESPACE, debugLogger);
 
   beforeAll(async () => {
+    await health.setup();
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
     let promPort = 0;
     let promProc: ChildProcess | undefined;
@@ -108,6 +111,7 @@ describe('a test that passively observes the network in the presence of network 
   });
 
   afterAll(async () => {
+    await health.teardown();
     if (alertChecker) {
       await alertChecker.runAlertCheck(qosAlerts);
     }

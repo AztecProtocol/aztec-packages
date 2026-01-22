@@ -13,6 +13,7 @@ import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import {
+  ChainHealth,
   getL1DeploymentAddresses,
   getNodeClient,
   getPublicViemClient,
@@ -43,6 +44,7 @@ describe('invalidate blocks test', () => {
   let origMinTxsPerBlock: number | undefined;
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
   let origSlashAttestDescendantOfInvalidPenalty: bigint | undefined;
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
     const keys = Object.keys(expected) as (keyof AztecNodeAdminConfig)[];
@@ -55,6 +57,7 @@ describe('invalidate blocks test', () => {
   };
 
   beforeAll(async () => {
+    await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
@@ -68,6 +71,7 @@ describe('invalidate blocks test', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     const restoreConfig: Partial<AztecNodeAdminConfig> = {
       skipCollectingAttestations: false,
       minTxsPerBlock: origMinTxsPerBlock,

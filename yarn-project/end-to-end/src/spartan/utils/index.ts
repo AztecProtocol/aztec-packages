@@ -53,3 +53,6 @@ export {
 
 // Client utilities
 export { getPublicViemClient, getL1DeploymentAddresses, getNodeClient } from './clients.js';
+
+// Health checks
+export { ChainHealth, type ChainHealthSnapshot } from './health.js';
