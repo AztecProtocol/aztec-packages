@@ -1,3 +1,4 @@
+import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
@@ -6,7 +7,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -16,12 +17,12 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
 import { createPublicClient, fallback, http } from 'viem';
 
-import { Archiver, type ArchiverDeps } from './archiver.js';
+import { Archiver } from './archiver.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
@@ -29,17 +30,27 @@ import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './store/kv_archiver_st
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
+type ArchiverDeps = {
+  telemetry?: TelemetryClient;
+  blobClient: BlobClientInterface;
+  epochCache?: EpochCache;
+  dateProvider?: DateProvider;
+  loggerFactory: LoggerFactory;
+};
+
 /** Creates an archiver store. */
 export async function createArchiverStore(
   userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+  deps: Pick<ArchiverDeps, 'loggerFactory'>,
   l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
 ) {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
-  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
-  return new KVArchiverDataStore(store, config.maxLogs, l1Constants);
+  const log = deps.loggerFactory.createLogger('archiver');
+  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, log.createChild('lmdb'));
+  return new KVArchiverDataStore(store, log.createChild('data-store'), config.maxLogs, l1Constants);
 }
 
 /**
@@ -54,7 +65,7 @@ export async function createArchiver(
   deps: ArchiverDeps,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
 ): Promise<Archiver> {
-  const archiverStore = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiverStore = await createArchiverStore(config, deps, { epochDuration: config.aztecEpochDuration });
   await registerProtocolContracts(archiverStore);
 
   // Create Ethereum clients
@@ -74,7 +85,8 @@ export async function createArchiver(
   }) as ViemPublicDebugClient;
 
   // Create L1 contract instances
-  const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
+  const log = deps.loggerFactory.createLogger('archiver');
+  const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress, log.createChild('rollup'));
   const inbox = new InboxContract(publicClient, config.l1Contracts.inboxAddress);
 
   // Fetch L1 constants from rollup contract
@@ -114,9 +126,16 @@ export async function createArchiver(
     mapArchiverConfig(config),
   );
 
-  const epochCache = deps.epochCache ?? (await EpochCache.create(config.l1Contracts.rollupAddress, config, deps));
+  const epochCache =
+    deps.epochCache ??
+    (await EpochCache.create(config.l1Contracts.rollupAddress, config, {
+      ...deps,
+      logger: log.createChild('epoch-cache'),
+    }));
   const telemetry = deps.telemetry ?? getTelemetryClient();
-  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize());
+  const instrumentation = await ArchiverInstrumentation.new(telemetry, log.createChild('instrumentation'), () =>
+    archiverStore.estimateSize(),
+  );
 
   // Create the event emitter that will be shared by archiver and synchronizer
   const events = new EventEmitter() as ArchiverEmitter;
@@ -137,6 +156,7 @@ export async function createArchiver(
     l1Constants,
     events,
     instrumentation.tracer,
+    log.createChild('l1-sync'),
   );
 
   const archiver = new Archiver(
@@ -151,6 +171,7 @@ export async function createArchiver(
     l1Constants,
     synchronizer,
     events,
+    log,
   );
 
   await archiver.start(opts.blockUntilSync);

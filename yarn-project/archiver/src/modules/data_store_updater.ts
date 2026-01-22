@@ -1,6 +1,6 @@
 import { BlockNumber, type CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   ContractClassPublishedEvent,
   PrivateFunctionBroadcastedEvent,
@@ -42,9 +42,14 @@ type ReconcileCheckpointsResult = {
 
 /** Archiver helper module to handle updates to the data store. */
 export class ArchiverDataStoreUpdater {
-  private readonly log = createLogger('archiver:store_updater');
+  private readonly log: Logger;
 
-  constructor(private store: KVArchiverDataStore) {}
+  constructor(
+    private store: KVArchiverDataStore,
+    log: Logger,
+  ) {
+    this.log = log;
+  }
 
   /**
    * Adds blocks to the store with contract class/instance extraction from logs.
@@ -393,13 +398,16 @@ export class ArchiverDataStoreUpdater {
       );
 
       const privateFunctionsWithValidity = await Promise.all(
-        privateFns.map(async fn => ({ fn, valid: await isValidPrivateFunctionMembershipProof(fn, contractClass) })),
+        privateFns.map(async fn => ({
+          fn,
+          valid: await isValidPrivateFunctionMembershipProof(fn, contractClass, this.log),
+        })),
       );
       const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
       const utilityFunctionsWithValidity = await Promise.all(
         utilityFns.map(async fn => ({
           fn,
-          valid: await isValidUtilityFunctionMembershipProof(fn, contractClass),
+          valid: await isValidUtilityFunctionMembershipProof(fn, contractClass, this.log),
         })),
       );
       const validUtilityFns = utilityFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);

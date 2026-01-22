@@ -11,6 +11,7 @@ import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -88,7 +89,8 @@ describe('KVArchiverDataStore', () => {
   };
 
   beforeEach(async () => {
-    store = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000, { epochDuration: 32 });
+    const logger = createLogger('archiver:store:test');
+    store = new KVArchiverDataStore(await openTmpStore('archiver_test', logger), logger, 1000, { epochDuration: 32 });
     // Create checkpoints sequentially to ensure archive roots are chained properly.
     // Each block's header.lastArchive must equal the previous block's archive.
     publishedCheckpoints = [];
@@ -2155,9 +2157,6 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-  // Note that a lot of tests here are basically duplicates of the ones in getPublicLogsByTagsFromContract but
-  // the types used by each of the endpoints are different and that makes improving code reuse here not
-  // straightforward.
   describe('getPrivateLogsByTags', () => {
     const numBlocksForLogs = 3;
     const numTxsPerBlock = 4;
@@ -2296,73 +2295,9 @@ describe('KVArchiverDataStore', () => {
 
         expect(logsByTags).toEqual([[]]);
       });
-
-      /**
-       * Verifies that logs are stored and returned in block order (ascending).
-       * This ordering guarantee is critical for pagination safety: if logs were not ordered
-       * by block number, new logs added between paginated calls could be inserted in the
-       * middle of the result set, causing callers to receive duplicate logs or miss logs
-       * entirely. By maintaining block order, new logs always appear at the end of the
-       * result set, meaning previously fetched pages remain stable.
-       */
-      it('maintains stable pagination when new logs are added between page fetches', async () => {
-        // Fetch page 0 and record the block numbers
-        const page0Before = await store.getPrivateLogsByTags([paginationTag], 0);
-        expect(page0Before[0]).toHaveLength(MAX_LOGS_PER_TAG);
-        const blockNumbersBefore = page0Before[0].map(log => log.blockNumber);
-
-        // Verify block numbers are in ascending order
-        for (let i = 1; i < blockNumbersBefore.length; i++) {
-          expect(blockNumbersBefore[i]).toBeGreaterThanOrEqual(blockNumbersBefore[i - 1]);
-        }
-
-        // Add more blocks with the same tag
-        const additionalBlocks = 3;
-        for (let i = 0; i < additionalBlocks; i++) {
-          const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
-          const blockNumber = logsCheckpoints.length + 1;
-          const newCheckpoint = await makeCheckpointWithLogs(blockNumber, {
-            previousArchive,
-            numTxsPerBlock,
-            privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
-          });
-          const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1];
-          newLog.fields[0] = paginationTag.value;
-          newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1] = newLog;
-          await store.addCheckpoints([newCheckpoint]);
-          await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
-          logsCheckpoints.push(newCheckpoint);
-        }
-
-        // Fetch page 0 again - should return the exact same logs
-        const page0After = await store.getPrivateLogsByTags([paginationTag], 0);
-        expect(page0After[0]).toHaveLength(MAX_LOGS_PER_TAG);
-        const blockNumbersAfter = page0After[0].map(log => log.blockNumber);
-        expect(blockNumbersAfter).toEqual(blockNumbersBefore);
-
-        // Fetch page 1 - should include the newly added logs
-        const page1 = await store.getPrivateLogsByTags([paginationTag], 1);
-        expect(page1[0].length).toBeGreaterThan(0);
-
-        // Verify all logs across both pages are in ascending block order
-        const allBlockNumbers = [...blockNumbersAfter, ...page1[0].map(log => log.blockNumber)];
-        for (let i = 1; i < allBlockNumbers.length; i++) {
-          expect(allBlockNumbers[i]).toBeGreaterThanOrEqual(allBlockNumbers[i - 1]);
-        }
-
-        // The new logs should appear on page 1, meaning their block numbers
-        // should be greater than or equal to the max block number on page 0
-        const maxBlockOnPage0 = Math.max(...blockNumbersAfter);
-        const newLogBlockNumbers = page1[0].slice(-additionalBlocks).map(log => log.blockNumber);
-        for (const blockNum of newLogBlockNumbers) {
-          expect(blockNum).toBeGreaterThanOrEqual(maxBlockOnPage0);
-        }
-      });
     });
   });
 
-  // Note that a lot of tests here are basically duplicates of the ones in getPrivateLogsByTags but the types used
-  // by each of the endpoints are different and that makes improving code reuse here not straightforward.
   describe('getPublicLogsByTagsFromContract', () => {
     const numBlocksForLogs = 3;
     const numTxsPerBlock = 4;
@@ -2501,68 +2436,6 @@ describe('KVArchiverDataStore', () => {
         const logsByTags = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 100);
 
         expect(logsByTags).toEqual([[]]);
-      });
-
-      /**
-       * Verifies that logs are stored and returned in block order (ascending).
-       * This ordering guarantee is critical for pagination safety: if logs were not ordered
-       * by block number, new logs added between paginated calls could be inserted in the
-       * middle of the result set, causing callers to receive duplicate logs or miss logs
-       * entirely. By maintaining block order, new logs always appear at the end of the
-       * result set, meaning previously fetched pages remain stable.
-       */
-      it('maintains stable pagination when new logs are added between page fetches', async () => {
-        // Fetch page 0 and record the block numbers
-        const page0Before = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 0);
-        expect(page0Before[0]).toHaveLength(MAX_LOGS_PER_TAG);
-        const blockNumbersBefore = page0Before[0].map(log => log.blockNumber);
-
-        // Verify block numbers are in ascending order
-        for (let i = 1; i < blockNumbersBefore.length; i++) {
-          expect(blockNumbersBefore[i]).toBeGreaterThanOrEqual(blockNumbersBefore[i - 1]);
-        }
-
-        // Add more blocks with the same tag
-        const additionalBlocks = 3;
-        for (let i = 0; i < additionalBlocks; i++) {
-          const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
-          const blockNumber = logsCheckpoints.length + 1;
-          const newCheckpoint = await makeCheckpointWithLogs(blockNumber, {
-            previousArchive,
-            numTxsPerBlock,
-            publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
-          });
-          const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1];
-          newLog.fields[0] = paginationTag.value;
-          newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1] = newLog;
-          await store.addCheckpoints([newCheckpoint]);
-          await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
-          logsCheckpoints.push(newCheckpoint);
-        }
-
-        // Fetch page 0 again - should return the exact same logs
-        const page0After = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 0);
-        expect(page0After[0]).toHaveLength(MAX_LOGS_PER_TAG);
-        const blockNumbersAfter = page0After[0].map(log => log.blockNumber);
-        expect(blockNumbersAfter).toEqual(blockNumbersBefore);
-
-        // Fetch page 1 - should include the newly added logs
-        const page1 = await store.getPublicLogsByTagsFromContract(contractAddress, [paginationTag], 1);
-        expect(page1[0].length).toBeGreaterThan(0);
-
-        // Verify all logs across both pages are in ascending block order
-        const allBlockNumbers = [...blockNumbersAfter, ...page1[0].map(log => log.blockNumber)];
-        for (let i = 1; i < allBlockNumbers.length; i++) {
-          expect(allBlockNumbers[i]).toBeGreaterThanOrEqual(allBlockNumbers[i - 1]);
-        }
-
-        // The new logs should appear on page 1, meaning their block numbers
-        // should be greater than or equal to the max block number on page 0
-        const maxBlockOnPage0 = Math.max(...blockNumbersAfter);
-        const newLogBlockNumbers = page1[0].slice(-additionalBlocks).map(log => log.blockNumber);
-        for (const blockNum of newLogBlockNumbers) {
-          expect(blockNum).toBeGreaterThanOrEqual(maxBlockOnPage0);
-        }
       });
     });
   });

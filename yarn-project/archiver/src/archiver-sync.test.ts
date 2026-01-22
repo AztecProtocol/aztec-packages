@@ -62,7 +62,7 @@ describe('Archiver Sync', () => {
     logger = createLogger('archiver:sync:test');
     syncLogger = createLogger('archiver:l1-sync:test');
     now = Math.floor(Date.now() / 1000);
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(logger);
 
     // L1 constants
     l1Constants = {
@@ -77,7 +77,7 @@ describe('Archiver Sync', () => {
     };
 
     // Create fake L1 state
-    fake = new FakeL1State({ ...l1Constants, rollupAddress, inboxAddress });
+    fake = new FakeL1State({ ...l1Constants, rollupAddress, inboxAddress }, logger);
 
     // Create mock clients from the fake
     publicClient = fake.createMockPublicClient();
@@ -92,7 +92,9 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000, { epochDuration: 32 });
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test', logger), logger, 1000, {
+      epochDuration: 32,
+    });
 
     const contractAddresses = {
       registryAddress,
@@ -146,6 +148,7 @@ describe('Archiver Sync', () => {
       l1Constants,
       synchronizer,
       events,
+      logger,
     );
   });
 

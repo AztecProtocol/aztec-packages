@@ -3,7 +3,7 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import {
   type AztecAsyncKVStore,
@@ -41,9 +41,13 @@ export class MessageStore {
   /** Stores total messages stored */
   #totalMessageCount: AztecAsyncSingleton<bigint>;
 
-  #log = createLogger('archiver:message_store');
+  #log: Logger;
 
-  constructor(private db: AztecAsyncKVStore) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    log: Logger,
+  ) {
+    this.#log = log;
     this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');

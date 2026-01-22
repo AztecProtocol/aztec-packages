@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { EpochCache } from '@aztec/epoch-cache';
 import { BlockTagTooOldError, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
@@ -9,10 +8,9 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
-import { DateProvider } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
   type CheckpointId,
@@ -30,7 +28,7 @@ import {
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { NoBlobBodiesFoundError } from './errors.js';
@@ -49,13 +47,6 @@ type AddBlockRequest = {
   block: L2BlockNew;
   resolve: () => void;
   reject: (err: Error) => void;
-};
-
-export type ArchiverDeps = {
-  telemetry?: TelemetryClient;
-  blobClient: BlobClientInterface;
-  epochCache?: EpochCache;
-  dateProvider?: DateProvider;
 };
 
 /**
@@ -121,7 +112,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     protected override readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
-    private readonly log: Logger = createLogger('archiver'),
+    private readonly log: Logger,
   ) {
     super(dataStore, l1Constants);
 
@@ -129,7 +120,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
-    this.updater = new ArchiverDataStoreUpdater(this.dataStore);
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.log.createChild('store_updater'));
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
@@ -158,7 +149,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
     await this.blobClient.testSources();
     await this.synchronizer.testEthereumNodeSynced();
-    await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false);
+    await validateAndLogTraceAvailability(this.debugClient, this.config.ethereumAllowNoDebugHosts ?? false, this.log);
 
     // Log initial state for the archiver
     const { l1StartBlock } = this.l1Constants;

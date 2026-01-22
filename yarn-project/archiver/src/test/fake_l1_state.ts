@@ -8,7 +8,7 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -122,7 +122,6 @@ type MessageData = {
  * ```
  */
 export class FakeL1State {
-  private readonly log = createLogger('archiver:test:fake-l1');
   private l1BlockNumber: bigint;
   private checkpoints: CheckpointData[] = [];
   private messages: MessageData[] = [];
@@ -135,7 +134,10 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
-  constructor(private readonly config: FakeL1StateConfig) {
+  constructor(
+    private readonly config: FakeL1StateConfig,
+    private readonly log: Logger,
+  ) {
     this.l1BlockNumber = config.l1StartBlock;
     this.lastArchive = new AppendOnlyTreeSnapshot(config.genesisArchiveRoot, 1);
   }

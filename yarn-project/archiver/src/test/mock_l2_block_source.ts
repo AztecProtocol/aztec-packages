@@ -4,7 +4,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -31,7 +31,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   private finalizedBlockNumber: number = 0;
   private checkpointedBlockNumber: number = 0;
 
-  private log = createLogger('archiver:mock_l2_block_source');
+  constructor(private readonly log?: Logger) {}
 
   public async createBlocks(numBlocks: number) {
     for (let i = 0; i < numBlocks; i++) {
@@ -40,17 +40,17 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       this.l2Blocks.push(block);
     }
 
-    this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
+    this.log?.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
   }
 
   public addBlocks(blocks: L2BlockNew[]) {
     this.l2Blocks.push(...blocks);
-    this.log.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
+    this.log?.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
   }
 
   public removeBlocks(numBlocks: number) {
     this.l2Blocks = this.l2Blocks.slice(0, -numBlocks);
-    this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
+    this.log?.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
   }
 
   public setProvenBlockNumber(provenBlockNumber: number) {
@@ -444,7 +444,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @returns A promise that signals the initialization of the l2 block source on completion.
    */
   public start(): Promise<void> {
-    this.log.verbose('Starting mock L2 block source');
+    this.log?.verbose('Starting mock L2 block source');
     return Promise.resolve();
   }
 
@@ -453,7 +453,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
    * @returns A promise that signals the l2 block source is now stopped.
    */
   public stop(): Promise<void> {
-    this.log.verbose('Stopping mock L2 block source');
+    this.log?.verbose('Stopping mock L2 block source');
     return Promise.resolve();
   }
 

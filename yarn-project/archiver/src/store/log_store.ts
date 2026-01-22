@@ -2,7 +2,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { filterAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -36,13 +36,15 @@ export class LogStore {
   #publicLogsByBlock: AztecAsyncMap<number, Buffer>;
   #contractClassLogsByBlock: AztecAsyncMap<number, Buffer>;
   #logsMaxPageSize: number;
-  #log = createLogger('archiver:log_store');
+  #log: Logger;
 
   constructor(
     private db: AztecAsyncKVStore,
     private blockStore: BlockStore,
+    log: Logger,
     logsMaxPageSize: number = 1000,
   ) {
+    this.#log = log;
     this.#privateLogsByTag = db.openMap('archiver_private_tagged_logs_by_tag');
     this.#publicLogsByContractAndTag = db.openMap('archiver_public_tagged_logs_by_tag');
     this.#privateLogKeysByBlock = db.openMap('archiver_private_log_keys_by_block');

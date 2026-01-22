@@ -2,7 +2,7 @@ import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constant
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 import { isDefined } from '@aztec/foundation/types';
@@ -111,12 +111,14 @@ export class BlockStore {
   /** Index mapping block archive to block number */
   #blockArchiveIndex: AztecAsyncMap<string, number>;
 
-  #log = createLogger('archiver:block_store');
+  #log: Logger;
 
   constructor(
     private db: AztecAsyncKVStore,
+    log: Logger,
     private l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
+    this.#log = log;
     this.#blocks = db.openMap('archiver_blocks');
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');

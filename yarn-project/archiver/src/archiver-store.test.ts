@@ -13,6 +13,7 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2BlockNew } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -61,7 +62,11 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000, { epochDuration: 4 });
+    const logger = createLogger('archiver:store:test');
+
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test', logger), logger, 1000, {
+      epochDuration: 4,
+    });
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
@@ -103,6 +108,7 @@ describe('Archiver Store', () => {
       l1Constants,
       synchronizer,
       events,
+      logger,
     );
   });
 

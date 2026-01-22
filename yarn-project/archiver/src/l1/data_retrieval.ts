@@ -18,7 +18,7 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -160,7 +160,7 @@ export async function retrieveCheckpointsFromRollup(
     slashingProposerAddress: EthAddress;
   },
   instrumentation: ArchiverInstrumentation,
-  logger: Logger = createLogger('archiver'),
+  logger: Logger,
   isHistoricalSync: boolean = false,
 ): Promise<RetrievedCheckpoint[]> {
   const retrievedCheckpoints: RetrievedCheckpoint[] = [];

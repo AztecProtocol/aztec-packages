@@ -2,7 +2,7 @@ import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -60,16 +60,18 @@ export class KVArchiverDataStore implements ContractDataSource {
 
   private functionNames = new Map<string, string>();
 
-  #log = createLogger('archiver:data-store');
+  #log: Logger;
 
   constructor(
     private db: AztecAsyncKVStore,
+    log: Logger,
     logsMaxPageSize: number = 1000,
     l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
-    this.#blockStore = new BlockStore(db, l1Constants);
-    this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
-    this.#messageStore = new MessageStore(db);
+    this.#log = log;
+    this.#blockStore = new BlockStore(db, log.createChild('block-store'), l1Constants);
+    this.#logStore = new LogStore(db, this.#blockStore, log.createChild('log-store'), logsMaxPageSize);
+    this.#messageStore = new MessageStore(db, log.createChild('message-store'));
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
   }

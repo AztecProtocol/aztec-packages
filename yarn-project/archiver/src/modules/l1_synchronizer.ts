@@ -10,7 +10,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined } from '@aztec/foundation/types';
@@ -77,9 +77,9 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
-    private readonly log: Logger = createLogger('archiver:l1-sync'),
+    private readonly log: Logger,
   ) {
-    this.updater = new ArchiverDataStoreUpdater(this.store);
+    this.updater = new ArchiverDataStoreUpdater(this.store, this.log.createChild('store-updater'));
     this.tracer = tracer;
   }
 

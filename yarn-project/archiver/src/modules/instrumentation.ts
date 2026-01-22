@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { L2BlockNew } from '@aztec/stdlib/block';
 import {
   Attributes,
@@ -35,12 +35,14 @@ export class ArchiverInstrumentation {
 
   private blockProposalTxTargetCount: UpDownCounter;
 
-  private log = createLogger('archiver:instrumentation');
+  private log: Logger;
 
   private constructor(
     private telemetry: TelemetryClient,
+    log: Logger,
     lmdbStats?: LmdbStatsCallback,
   ) {
+    this.log = log;
     this.tracer = telemetry.getTracer('Archiver');
     const meter = telemetry.getMeter('Archiver');
 
@@ -81,8 +83,8 @@ export class ArchiverInstrumentation {
     );
   }
 
-  public static async new(telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
-    const instance = new ArchiverInstrumentation(telemetry, lmdbStats);
+  public static async new(telemetry: TelemetryClient, log: Logger, lmdbStats?: LmdbStatsCallback) {
+    const instance = new ArchiverInstrumentation(telemetry, log, lmdbStats);
 
     instance.syncBlockCount.add(0);
     instance.syncMessageCount.add(0);

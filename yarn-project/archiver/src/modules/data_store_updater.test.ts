@@ -1,5 +1,6 @@
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
@@ -44,8 +45,11 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test'), 1000, { epochDuration: 32 });
-    updater = new ArchiverDataStoreUpdater(store);
+    const logger = createLogger('archiver:store:test');
+    store = new KVArchiverDataStore(await openTmpStore('data_store_updater_test', logger), logger, 1000, {
+      epochDuration: 32,
+    });
+    updater = new ArchiverDataStoreUpdater(store, logger);
 
     // Create contract class log from sample fixture data
     contractClassLog = ContractClassLog.fromBuffer(getSampleContractClassPublishedEventPayload());
