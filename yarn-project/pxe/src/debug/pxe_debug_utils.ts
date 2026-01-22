@@ -1,3 +1,4 @@
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { NoteDao, NotesFilter } from '@aztec/stdlib/note';
 
 import type { PXE } from '../pxe.js';
@@ -43,6 +44,6 @@ export class PXEDebugUtils {
     const call = await this.contractStore.getFunctionCall('sync_private_state', [], filter.contractAddress);
     await this.#pxe.simulateUtility(call);
 
-    return this.noteStore.getNotes(filter);
+    return this.noteStore.getNotes(filter, randomBytes(8).toString('hex'));
   }
 }
