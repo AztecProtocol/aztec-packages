@@ -700,15 +700,44 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
+  public async getPrivateLogsByTags(
+    tags: SiloedTag[],
+    page?: number,
+    referenceBlock?: L2BlockHash,
+  ): Promise<TxScopedL2Log[][]> {
+    if (referenceBlock) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (!referenceBlock.equals(initialBlockHash)) {
+        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
+        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        if (!header) {
+          throw new Error(
+            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+          );
+        }
+      }
+    }
     return this.logsSource.getPrivateLogsByTags(tags, page);
   }
 
-  public getPublicLogsByTagsFromContract(
+  public async getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
+    referenceBlock?: L2BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    if (referenceBlock) {
+      const initialBlockHash = await this.#getInitialHeaderHash();
+      if (!referenceBlock.equals(initialBlockHash)) {
+        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
+        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
+        if (!header) {
+          throw new Error(
+            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+          );
+        }
+      }
+    }
     return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
   }
 
