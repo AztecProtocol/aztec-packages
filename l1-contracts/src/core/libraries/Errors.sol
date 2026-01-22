@@ -109,6 +109,7 @@ library Errors {
   error EscapeHatch__InvalidConfiguration();
   error EscapeHatch__SetUnstable(Hatch hatch);
   error EscapeHatch__AlreadyValidated(Hatch hatch);
+  error EscapeHatch__HatchTooEarly(Hatch hatch);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
