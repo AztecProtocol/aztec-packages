@@ -1,6 +1,6 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
@@ -14,7 +14,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
@@ -96,9 +95,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     capsuleStore: CapsuleStore,
     privateEventStore: PrivateEventStore,
     jobId: string,
+    log: Logger,
     private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
-    log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
     private senderForTags?: AztecAddress,
     private simulator?: CircuitSimulator,
@@ -266,15 +265,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      const anchorBlockHash = L2BlockHash.fromField(await this.anchorBlockHeader.hash());
-      await syncSenderTaggingIndexes(
-        secret,
-        this.contractAddress,
-        this.aztecNode,
-        this.senderTaggingStore,
-        anchorBlockHash,
-        this.jobId,
-      );
+      await syncSenderTaggingIndexes(secret, this.contractAddress, this.aztecNode, this.senderTaggingStore, this.jobId);
 
       const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
@@ -564,9 +555,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.capsuleStore,
       this.privateEventStore,
       this.jobId,
+      this.log,
       this.totalPublicCalldataCount,
       sideEffectCounter,
-      this.log,
       this.scopes,
       this.senderForTags,
       this.simulator,

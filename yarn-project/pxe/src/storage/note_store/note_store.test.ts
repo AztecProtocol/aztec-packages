@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2BlockHash } from '@aztec/stdlib/block';
@@ -37,8 +38,8 @@ describe('NoteStore', () => {
 
   // Sets up a fresh NoteStore with two scopes and three notes.
   async function setupNoteStoreWithNotes(storeName: string) {
-    const store = await openTmpStore(storeName);
-    const noteStore = new NoteStore(store);
+    const store = await openTmpStore(storeName, createLogger('pxe:test'));
+    const noteStore = new NoteStore(store, createLogger('pxe:test'));
 
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
@@ -95,8 +96,8 @@ describe('NoteStore', () => {
   // In these tests, we verify the presence/absence of notes by their `siloedNullifier`.
   describe('NoteStore.create', () => {
     it('creates a NoteStore on an empty store and confirms getNotes returns an empty array', async () => {
-      const store = await openTmpStore('note_store_fresh_store');
-      const noteStore = new NoteStore(store);
+      const store = await openTmpStore('note_store_fresh_store', createLogger('pxe:test'));
+      const noteStore = new NoteStore(store, createLogger('pxe:test'));
 
       await verifyAndCommitForEachJob(['pre-commit', 'post-commit'], noteStore, async (jobId: string) => {
         const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A }, jobId);
@@ -108,11 +109,11 @@ describe('NoteStore', () => {
     });
 
     it('re-initializes from an existing store and restores previously added notes', async () => {
-      const store = await openTmpStore('note_store_re-init_test');
+      const store = await openTmpStore('note_store_re-init_test', createLogger('pxe:test'));
 
       // First note store populates the persistent store; second reopens it to verify persistence
       {
-        const noteStore1 = new NoteStore(store);
+        const noteStore1 = new NoteStore(store, createLogger('pxe:test'));
 
         const noteA = await mkNote({ contractAddress: CONTRACT_A, siloedNullifier: SILOED_NULLIFIER_1 });
         const noteB = await mkNote({ contractAddress: CONTRACT_B, siloedNullifier: SILOED_NULLIFIER_2 });
@@ -120,7 +121,7 @@ describe('NoteStore', () => {
         await noteStore1.commit('first-store');
       }
 
-      const noteStore2 = new NoteStore(store);
+      const noteStore2 = new NoteStore(store, createLogger('pxe:test'));
 
       await verifyAndCommitForEachJob(['second-store', 'fresh-job'], noteStore2, async (jobId: string) => {
         const notesA = await noteStore2.getNotes({ contractAddress: CONTRACT_A }, jobId);
@@ -611,8 +612,8 @@ describe('NoteStore', () => {
     let store: AztecLMDBStoreV2;
 
     beforeEach(async () => {
-      store = await openTmpStore('note_store_rollback_test');
-      noteStore = new NoteStore(store);
+      store = await openTmpStore('note_store_rollback_test', createLogger('pxe:test'));
+      noteStore = new NoteStore(store, createLogger('pxe:test'));
     });
 
     afterEach(async () => {

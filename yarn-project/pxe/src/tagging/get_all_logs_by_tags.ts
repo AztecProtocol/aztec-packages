@@ -1,5 +1,4 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -35,16 +34,10 @@ async function getAllPages<T>(numTags: number, fetchPage: (page: number) => Prom
  * Fetches all private logs for the given tags, automatically paginating through all pages.
  * @param aztecNode - The Aztec node to query.
  * @param tags - The siloed tags to search for.
- * @param anchorBlockHash - reference block for the Aztec node query, throws if block is not found there (typically
- * because of reorgs).
  * @returns An array of log arrays, one per tag, containing all logs across all pages.
  */
-export function getAllPrivateLogsByTags(
-  aztecNode: AztecNode,
-  tags: SiloedTag[],
-  anchorBlockHash: L2BlockHash,
-): Promise<TxScopedL2Log[][]> {
-  return getAllPages(tags.length, page => aztecNode.getPrivateLogsByTags(tags, page, anchorBlockHash));
+export function getAllPrivateLogsByTags(aztecNode: AztecNode, tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+  return getAllPages(tags.length, page => aztecNode.getPrivateLogsByTags(tags, page));
 }
 
 /**
@@ -52,17 +45,12 @@ export function getAllPrivateLogsByTags(
  * @param aztecNode - The Aztec node to query.
  * @param contractAddress - The contract address to search logs for.
  * @param tags - The tags to search for.
- * @param anchorBlockHash - reference block for the Aztec node query, throws if block is not found there (typically
- * because of reorgs).
  * @returns An array of log arrays, one per tag, containing all logs across all pages.
  */
 export function getAllPublicLogsByTagsFromContract(
   aztecNode: AztecNode,
   contractAddress: AztecAddress,
   tags: Tag[],
-  anchorBlockHash: L2BlockHash,
 ): Promise<TxScopedL2Log[][]> {
-  return getAllPages(tags.length, page =>
-    aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags, page, anchorBlockHash),
-  );
+  return getAllPages(tags.length, page => aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags, page));
 }

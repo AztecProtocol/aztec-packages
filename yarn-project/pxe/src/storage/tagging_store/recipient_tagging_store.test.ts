@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
@@ -10,7 +11,7 @@ describe('RecipientTaggingStore', () => {
   let secret2: DirectionalAppTaggingSecret;
 
   beforeEach(async () => {
-    taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+    taggingStore = new RecipientTaggingStore(await openTmpStore('test', createLogger('pxe:test')));
     secret1 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
     secret2 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
   });

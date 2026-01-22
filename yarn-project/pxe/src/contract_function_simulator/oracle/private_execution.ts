@@ -1,6 +1,5 @@
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
@@ -44,8 +43,8 @@ export async function executePrivateFunction(
   artifact: FunctionArtifactWithContractName,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  log = createLogger('simulator:private_execution'),
 ): Promise<PrivateCallExecutionResult> {
+  const log = privateExecutionOracle.getLogger();
   const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const initialWitness = privateExecutionOracle.getInitialWitness(artifact);

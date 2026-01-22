@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
@@ -10,8 +11,9 @@ describe('JobCoordinator', () => {
   let coordinator: JobCoordinator;
 
   beforeEach(async () => {
-    store = await openTmpStore('job_coordinator_test');
-    coordinator = new JobCoordinator(store);
+    const log = createLogger('pxe:test');
+    store = await openTmpStore('job_coordinator_test', log);
+    coordinator = new JobCoordinator(store, log);
   });
 
   describe('beginJob', () => {

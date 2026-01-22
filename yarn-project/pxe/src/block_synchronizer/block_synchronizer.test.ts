@@ -1,6 +1,7 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { GENESIS_CHECKPOINT_HEADER_HASH, L2BlockHash, L2BlockNew, type L2BlockStream } from '@aztec/stdlib/block';
@@ -30,14 +31,23 @@ describe('BlockSynchronizer', () => {
   };
 
   beforeEach(async () => {
-    const store = await openTmpStore('test');
+    const log = createLogger('pxe:test');
+    const store = await openTmpStore('test', log);
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe');
     anchorBlockStore = new AnchorBlockStore(store);
-    noteStore = new NoteStore(store);
-    privateEventStore = new PrivateEventStore(store);
-    synchronizer = new TestSynchronizer(aztecNode, store, anchorBlockStore, noteStore, privateEventStore, tipsStore);
+    noteStore = new NoteStore(store, log);
+    privateEventStore = new PrivateEventStore(store, log);
+    synchronizer = new TestSynchronizer(
+      aztecNode,
+      store,
+      anchorBlockStore,
+      noteStore,
+      privateEventStore,
+      tipsStore,
+      log,
+    );
   });
 
   it('sets header from latest block', async () => {

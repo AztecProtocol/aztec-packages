@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -43,9 +44,10 @@ describe('storeEvent', () => {
   // beforeEach sets up the happy path case, so error modes are tested
   // by minimally failing happy path conditions
   beforeEach(async () => {
-    const store = await openTmpStore('test');
+    const log = createLogger('pxe:test');
+    const store = await openTmpStore('test', log);
     anchorBlockStore = new AnchorBlockStore(store);
-    privateEventStore = new PrivateEventStore(store);
+    privateEventStore = new PrivateEventStore(store, log);
 
     aztecNode = mock<AztecNode>();
 

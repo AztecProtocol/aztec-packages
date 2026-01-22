@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
@@ -21,7 +21,6 @@ import type { PrivateEventStore } from '../storage/private_event_store/private_e
  * for querying sync status.
  */
 export class BlockSynchronizer implements L2BlockStreamEventHandler {
-  private log: Logger;
   private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
 
@@ -32,18 +31,14 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private noteStore: NoteStore,
     private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
+    private log: Logger,
     config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
-    loggerOrSuffix?: string | Logger,
   ) {
-    this.log =
-      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
-        ? createLogger(loggerOrSuffix ? `pxe:block_synchronizer:${loggerOrSuffix}` : `pxe:block_synchronizer`)
-        : loggerOrSuffix;
     this.blockStream = this.createBlockStream(config);
   }
 
   protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>>) {
-    return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
+    return new L2BlockStream(this.node, this.l2TipsStore, this, this.log.createChild('block-stream'), {
       batchSize: config.l2BlockBatchSize,
       // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
       // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.

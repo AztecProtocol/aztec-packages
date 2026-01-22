@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -30,9 +31,10 @@ describe('NoteService', () => {
   let noteService: NoteService;
 
   beforeEach(async () => {
-    const store = await openTmpStore('test');
+    const store = await openTmpStore('test', createLogger('pxe:test'));
     keyStore = new KeyStore(store);
-    noteStore = new NoteStore(store);
+    const log = createLogger('pxe:test');
+    noteStore = new NoteStore(store, log);
     aztecNode = mock<AztecNode>();
     anchorBlockStore = new AnchorBlockStore(store);
     await anchorBlockStore.setHeader(

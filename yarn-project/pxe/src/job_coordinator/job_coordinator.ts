@@ -1,5 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 
 /**
@@ -40,15 +40,16 @@ export interface StagedStore {
  * using a job queue with concurrency=1.
  */
 export class JobCoordinator {
-  private readonly log = createLogger('pxe:job_coordinator');
-
   /** The underlying KV store */
   kvStore: AztecAsyncKVStore;
 
   #currentJobId: string | undefined;
   #stores: Map<string, StagedStore> = new Map();
 
-  constructor(kvStore: AztecAsyncKVStore) {
+  constructor(
+    kvStore: AztecAsyncKVStore,
+    private readonly log: Logger,
+  ) {
     this.kvStore = kvStore;
   }
 

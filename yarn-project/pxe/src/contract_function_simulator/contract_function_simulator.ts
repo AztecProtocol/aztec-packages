@@ -19,7 +19,7 @@ import {
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -93,8 +93,6 @@ import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
  * The contract function simulator.
  */
 export class ContractFunctionSimulator {
-  private log: Logger;
-
   constructor(
     private contractStore: ContractStore,
     private noteStore: NoteStore,
@@ -108,9 +106,8 @@ export class ContractFunctionSimulator {
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
     private simulator: CircuitSimulator,
-  ) {
-    this.log = createLogger('simulator');
-  }
+    private log: Logger,
+  ) {}
 
   /**
    * Runs a private function.
@@ -195,9 +192,9 @@ export class ContractFunctionSimulator {
       this.capsuleStore,
       this.privateEventStore,
       jobId,
+      this.log,
       0, // totalPublicArgsCount
       startSideEffectCounter,
-      undefined, // log
       scopes,
       senderForTags,
       this.simulator,
@@ -292,7 +289,7 @@ export class ContractFunctionSimulator {
       this.capsuleStore,
       this.privateEventStore,
       jobId,
-      undefined,
+      this.log,
       scopes,
     );
 

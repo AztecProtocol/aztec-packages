@@ -1,6 +1,5 @@
 import { BBPrivateKernelProver } from '@aztec/bb-prover/client';
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -18,22 +17,15 @@ import type { PXECreationOptions } from '../../pxe_creation_options.js';
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Config to use
- * @param options - (Optional) Optional information for creating an PXE.
+ * @param options - Options for creating a PXE, including optional loggers.
  * @returns A Promise that resolves to the started PXE instance.
  */
-export async function createPXE(
-  aztecNode: AztecNode,
-  config: PXEConfig,
-  options: PXECreationOptions = { loggers: {} },
-) {
-  const logSuffix =
-    typeof options.useLogSuffix === 'boolean'
-      ? options.useLogSuffix
-        ? randomBytes(3).toString('hex')
-        : undefined
-      : options.useLogSuffix;
-
-  const loggers = options.loggers ?? {};
+export async function createPXE(aztecNode: AztecNode, config: PXEConfig, options: PXECreationOptions) {
+  const { loggers } = options;
+  const storeLogger = loggers?.store ?? createLogger('pxe:store');
+  const simulatorLogger = loggers?.simulator ?? createLogger('pxe:simulator');
+  const proverLogger = loggers?.prover ?? createLogger('pxe:prover');
+  const pxeLogger = loggers?.pxe ?? createLogger('pxe');
 
   const l1Contracts = await aztecNode.getL1ContractAddresses();
   const configWithContracts = {
@@ -41,14 +33,9 @@ export async function createPXE(
     l1Contracts,
   } as PXEConfig;
 
-  const storeLogger = loggers.store ? loggers.store : createLogger('pxe:data:idb' + (logSuffix ? `:${logSuffix}` : ''));
-
   const store = options.store ?? (await createStore('pxe_data', configWithContracts, storeLogger));
 
-  const simulator = options.simulator ?? new WASMSimulator();
-  const proverLogger = loggers.prover
-    ? loggers.prover
-    : createLogger('pxe:bb:wasm:bundle' + (logSuffix ? `:${logSuffix}` : ''));
+  const simulator = options.simulator ?? new WASMSimulator(simulatorLogger);
 
   let prover;
   if (options.proverOrOptions instanceof BBPrivateKernelProver) {
@@ -58,7 +45,6 @@ export async function createPXE(
   }
   const protocolContractsProvider = new BundledProtocolContractsProvider();
 
-  const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
   const pxe = await PXE.create(aztecNode, store, prover, simulator, protocolContractsProvider, config, pxeLogger);
   return pxe;
 }

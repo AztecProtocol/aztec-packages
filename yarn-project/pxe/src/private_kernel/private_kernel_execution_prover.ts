@@ -1,6 +1,6 @@
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -56,11 +56,10 @@ export interface PrivateKernelExecutionProverConfig {
  * inform state tree updates.
  */
 export class PrivateKernelExecutionProver {
-  private log = createLogger('pxe:private-kernel-execution-prover');
-
   constructor(
     private oracle: PrivateKernelOracle,
     private proofCreator: PrivateKernelProver,
+    private log: Logger,
     private fakeProofs = false,
   ) {}
 

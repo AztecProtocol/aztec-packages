@@ -109,7 +109,7 @@ export const buildL1ToL2Message = async (
 };
 
 describe('Private Execution test suite', () => {
-  const simulator = new WASMSimulator();
+  const simulator = new WASMSimulator(createLogger('test:wasm-simulator'));
 
   let contractStore: MockProxy<ContractStore>;
   let noteStore: MockProxy<NoteStore>;
@@ -230,9 +230,9 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown tree ${name}`);
     }
     if (!trees[name]) {
-      const db = openTmpStore();
+      const db = openTmpStore(logger);
       const poseidon = new Poseidon();
-      trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name]);
+      trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name], logger);
     }
     const tree = trees[name];
 
@@ -478,6 +478,7 @@ describe('Private Execution test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
+      createLogger('pxe:test'),
     );
   });
 

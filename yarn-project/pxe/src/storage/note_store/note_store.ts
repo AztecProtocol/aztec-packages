@@ -1,4 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
+import type { Logger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -47,8 +48,11 @@ export class NoteStore implements StagedStore {
   // jobId => lock
   #jobLocks: Map<string, Semaphore>;
 
-  constructor(store: AztecAsyncKVStore) {
+  #logger: Logger;
+
+  constructor(store: AztecAsyncKVStore, logger: Logger) {
     this.#store = store;
+    this.#logger = logger;
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullifiersByNullificationBlockNumber = store.openMultiMap('note_block_number_to_nullifier');
@@ -344,7 +348,7 @@ export class NoteStore implements StagedStore {
   async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
     let lock = this.#jobLocks.get(jobId);
     if (!lock) {
-      lock = new Semaphore(1);
+      lock = new Semaphore(1, this.#logger);
       this.#jobLocks.set(jobId, lock);
     }
     await lock.acquire();

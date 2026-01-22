@@ -2,7 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -46,7 +46,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isMisc = true as const;
   isUtility = true as const;
 
-  private aztecNrDebugLog = createLogger('aztec-nr:debug_log');
+  private aztecNrDebugLog: Logger;
 
   constructor(
     protected readonly contractAddress: AztecAddress,
@@ -65,9 +65,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     protected readonly capsuleStore: CapsuleStore,
     protected readonly privateEventStore: PrivateEventStore,
     protected readonly jobId: string,
-    protected log = createLogger('simulator:client_view_context'),
+    protected log: Logger,
     protected readonly scopes?: AztecAddress[],
-  ) {}
+  ) {
+    this.aztecNrDebugLog = log.createChild('aztec-nr:debug_log');
+  }
+
+  public getLogger(): Logger {
+    return this.log;
+  }
 
   public utilityAssertCompatibleOracleVersion(version: number): void {
     if (version !== ORACLE_VERSION) {
@@ -348,6 +354,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log,
     );
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
@@ -453,6 +460,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
+      this.log,
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);

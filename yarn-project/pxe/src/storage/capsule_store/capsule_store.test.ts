@@ -1,6 +1,7 @@
 import { range } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -15,8 +16,9 @@ describe('capsule data provider', () => {
     // Setup mock contract address
     contract = await AztecAddress.random();
     // Setup store
-    store = await openTmpStore('capsule_store_test');
-    capsuleStore = new CapsuleStore(store);
+    const log = createLogger('pxe:test');
+    store = await openTmpStore('capsule_store_test', log);
+    capsuleStore = new CapsuleStore(store, log);
   });
 
   describe('store and load', () => {

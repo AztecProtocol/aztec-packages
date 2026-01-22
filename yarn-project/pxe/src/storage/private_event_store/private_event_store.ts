@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
@@ -61,9 +61,10 @@ export class PrivateEventStore implements StagedStore {
   /** jobId => eventId (event siloed nullifier)  => PrivateEventEntry */
   #eventLogsInJobStage: Map<string, Map<string, PrivateEventEntry>>;
 
-  logger = createLogger('private_event_store');
+  logger: Logger;
 
-  constructor(store: AztecAsyncKVStore) {
+  constructor(store: AztecAsyncKVStore, logger: Logger) {
+    this.logger = logger;
     this.#store = store;
     this.#eventLogs = this.#store.openMap('private_event_logs');
     this.#eventsByContractScopeSelector = this.#store.openMultiMap('events_by_contract_scope_selector');

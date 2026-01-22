@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.js/OracleVersionCheck';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -25,7 +26,7 @@ import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Oracle Version Check test suite', () => {
-  const simulator = new WASMSimulator();
+  const simulator = new WASMSimulator(createLogger('test:wasm-simulator'));
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
@@ -104,6 +105,7 @@ describe('Oracle Version Check test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
+      createLogger('pxe:test'),
     );
   });
 

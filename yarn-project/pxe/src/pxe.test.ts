@@ -4,6 +4,7 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -34,10 +35,10 @@ describe('PXE', () => {
   let node: MockProxy<AztecNode>;
 
   beforeAll(async () => {
-    kvStore = await openTmpStore('test');
+    kvStore = await openTmpStore('test', createLogger('pxe:test'));
     node = mock<AztecNode>();
-    const simulator = new WASMSimulator();
-    const kernelProver = new BBBundlePrivateKernelProver(simulator);
+    const simulator = new WASMSimulator(createLogger('test:wasm-simulator'));
+    const kernelProver = new BBBundlePrivateKernelProver(simulator, { logger: createLogger('test:kernel-prover') });
     const protocolContractsProvider = new BundledProtocolContractsProvider();
     const config: PXEConfig = {
       l2BlockBatchSize: 50,
@@ -77,7 +78,15 @@ describe('PXE', () => {
       },
     });
 
-    pxe = await PXE.create(node, kvStore, kernelProver, simulator, protocolContractsProvider, config);
+    pxe = await PXE.create(
+      node,
+      kvStore,
+      kernelProver,
+      simulator,
+      protocolContractsProvider,
+      config,
+      createLogger('test:pxe'),
+    );
   }, 120_000);
 
   it('registers an account and returns it as an account only and not as a recipient', async () => {
@@ -207,7 +216,7 @@ describe('PXE', () => {
 
       scope = await AztecAddress.random();
 
-      privateEventStore = new PrivateEventStore(kvStore);
+      privateEventStore = new PrivateEventStore(kvStore, createLogger('pxe:test:event-store'));
     });
 
     let eventCounter = 0;

@@ -7,7 +7,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -31,7 +31,7 @@ import { mock } from 'jest-mock-extended';
 import { PrivateKernelExecutionProver } from './private_kernel_execution_prover.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
-const logger = createLogger('private_kernel_execution_prover');
+let logger: Logger;
 
 describe('Private Kernel Sequencer', () => {
   let txRequest: TxRequest;
@@ -45,6 +45,7 @@ describe('Private Kernel Sequencer', () => {
   const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
 
   beforeAll(async () => {
+    logger = createLogger('private_kernel_execution_prover');
     await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
   });
 
@@ -180,7 +181,7 @@ describe('Private Kernel Sequencer', () => {
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
 
-    prover = new PrivateKernelExecutionProver(oracle, proofCreator, true);
+    prover = new PrivateKernelExecutionProver(oracle, proofCreator, createLogger('pxe:test'), true);
   });
 
   it('should create proofs in correct order', async () => {

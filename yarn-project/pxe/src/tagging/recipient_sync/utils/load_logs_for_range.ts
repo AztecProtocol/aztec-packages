@@ -1,6 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, PreTag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
@@ -19,7 +18,6 @@ export async function loadLogsForRange(
   start: number,
   end: number,
   anchorBlockNumber: BlockNumber,
-  anchorBlockHash: L2BlockHash,
 ): Promise<Array<{ log: TxScopedL2Log; taggingIndex: number }>> {
   // Derive tags for the window
   const preTags: PreTag[] = Array(end - start)
@@ -31,7 +29,7 @@ export async function loadLogsForRange(
 
   // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
   // pagination here.
-  const logs = await getAllPrivateLogsByTags(aztecNode, siloedTags, anchorBlockHash);
+  const logs = await getAllPrivateLogsByTags(aztecNode, siloedTags);
 
   // Pair logs with their corresponding tagging indexes
   const logsWithIndexes: Array<{ log: TxScopedL2Log; taggingIndex: number }> = [];

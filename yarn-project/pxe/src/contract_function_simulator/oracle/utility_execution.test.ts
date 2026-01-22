@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -30,7 +31,7 @@ import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
-  const simulator = new WASMSimulator();
+  const simulator = new WASMSimulator(createLogger('test:wasm-simulator'));
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
@@ -104,6 +105,7 @@ describe('Utility Execution test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
+      createLogger('pxe:test'),
     );
 
     const ownerPartialAddress = Fr.random();
@@ -223,6 +225,7 @@ describe('Utility Execution test suite', () => {
         capsuleStore,
         privateEventStore,
         'test-job-id',
+        createLogger('test:utility-execution-oracle'),
       );
     });
 

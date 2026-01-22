@@ -1,9 +1,9 @@
 import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { makeBlockHeader, makeL2Tips, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -16,8 +16,7 @@ import { loadPrivateLogsForSenderRecipientPair } from './load_private_logs_for_s
 
 // In this test suite we don't care about the anchor block behavior as that is sufficiently tested by
 // the loadLogsForRange test suite, so we use a high block number to ensure it occurs after all logs.
-const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
-const MOCK_ANCHOR_BLOCK_HASH = L2BlockHash.random();
+const NON_INTERFERING_ANCHOR_BLOCK_NUMBER = BlockNumber(100);
 
 describe('loadPrivateLogsForSenderRecipientPair', () => {
   let secret: DirectionalAppTaggingSecret;
@@ -47,7 +46,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
     aztecNode.getPrivateLogsByTags.mockReset();
     aztecNode.getL2Tips.mockReset();
     aztecNode.getBlockHeader.mockReset();
-    taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+    taggingStore = new RecipientTaggingStore(await openTmpStore('test', createLogger('pxe:test')));
   });
 
   it('returns empty array when no logs found', async () => {
@@ -65,8 +64,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       app,
       aztecNode,
       taggingStore,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
+      NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
       'test',
     );
 
@@ -100,8 +98,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       app,
       aztecNode,
       taggingStore,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
+      NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
       'test',
     );
 
@@ -135,8 +132,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       app,
       aztecNode,
       taggingStore,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
+      NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
       'test',
     );
 
@@ -187,8 +183,7 @@ describe('loadPrivateLogsForSenderRecipientPair', () => {
       app,
       aztecNode,
       taggingStore,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
+      NON_INTERFERING_ANCHOR_BLOCK_NUMBER,
       'test',
     );
 

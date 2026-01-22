@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -28,8 +29,9 @@ describe('PrivateEventStore', () => {
   let expectedEvent: PackedPrivateEvent;
 
   beforeEach(async () => {
-    const store = await openTmpStore('private_event_store_test');
-    privateEventStore = new PrivateEventStore(store);
+    const log = createLogger('pxe:test');
+    const store = await openTmpStore('private_event_store_test', log);
+    privateEventStore = new PrivateEventStore(store, log);
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();

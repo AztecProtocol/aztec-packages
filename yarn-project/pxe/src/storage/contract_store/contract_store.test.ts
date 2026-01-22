@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BenchmarkingContractArtifact } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -12,7 +13,7 @@ describe('ContractStore', () => {
   let contractStore: ContractStore;
 
   beforeEach(async () => {
-    const store = await openTmpStore('contract_store_test');
+    const store = await openTmpStore('contract_store_test', createLogger('pxe:test'));
     contractStore = new ContractStore(store);
   });
 

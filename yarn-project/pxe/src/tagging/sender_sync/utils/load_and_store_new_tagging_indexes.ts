@@ -1,5 +1,4 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
@@ -29,7 +28,6 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
-  anchorBlockHash: L2BlockHash,
   jobId: string,
 ) {
   // We compute the tags for the current window of indexes
@@ -40,7 +38,7 @@ export async function loadAndStoreNewTaggingIndexes(
     preTagsForWindow.map(async preTag => SiloedTag.compute(await Tag.compute(preTag), app)),
   );
 
-  const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);
+  const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode);
   const highestIndexMap = getTxHighestIndexMap(txsForTags, preTagsForWindow);
 
   // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
@@ -52,14 +50,10 @@ export async function loadAndStoreNewTaggingIndexes(
 
 // Returns txs that used the given tags. A tag might have been used in multiple txs and for this reason we return
 // an array for each tag.
-async function getTxsContainingTags(
-  tags: SiloedTag[],
-  aztecNode: AztecNode,
-  anchorBlockHash: L2BlockHash,
-): Promise<TxHash[][]> {
+async function getTxsContainingTags(tags: SiloedTag[], aztecNode: AztecNode): Promise<TxHash[][]> {
   // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
   // pagination here.
-  const allLogs = await getAllPrivateLogsByTags(aztecNode, tags, anchorBlockHash);
+  const allLogs = await getAllPrivateLogsByTags(aztecNode, tags);
   return allLogs.map(logs => logs.map(log => log.txHash));
 }
 

@@ -1,6 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
@@ -22,7 +21,6 @@ export async function loadPrivateLogsForSenderRecipientPair(
   aztecNode: AztecNode,
   taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
-  anchorBlockHash: L2BlockHash,
   jobId: string,
 ): Promise<TxScopedL2Log[]> {
   // # Explanation of how the algorithm works
@@ -94,15 +92,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
 
   while (true) {
     // Get private logs with their block timestamps and corresponding tagging indexes
-    const privateLogsWithIndexes = await loadLogsForRange(
-      secret,
-      app,
-      aztecNode,
-      start,
-      end,
-      anchorBlockNumber,
-      anchorBlockHash,
-    );
+    const privateLogsWithIndexes = await loadLogsForRange(secret, app, aztecNode, start, end, anchorBlockNumber);
 
     if (privateLogsWithIndexes.length === 0) {
       break;

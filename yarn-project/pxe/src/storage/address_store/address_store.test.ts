@@ -1,5 +1,6 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { Point } from '@aztec/foundation/curves/grumpkin';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -10,7 +11,7 @@ describe('addresses', () => {
   let addressStore: AddressStore;
 
   beforeEach(async () => {
-    const store = await openTmpStore('address_store_test');
+    const store = await openTmpStore('address_store_test', createLogger('pxe:test'));
     addressStore = new AddressStore(store);
   });
 

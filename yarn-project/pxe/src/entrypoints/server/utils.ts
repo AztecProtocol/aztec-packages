@@ -1,6 +1,5 @@
 import { BBPrivateKernelProver } from '@aztec/bb-prover/client';
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -15,23 +14,18 @@ import type { PXECreationOptions } from '../pxe_creation_options.js';
 
 type PXEConfigWithoutDefaults = Omit<PXEConfig, 'l1Contracts' | 'l1ChainId' | 'l2BlockBatchSize' | 'rollupVersion'>;
 
-export async function createPXE(
-  aztecNode: AztecNode,
-  config: PXEConfigWithoutDefaults,
-  options: PXECreationOptions = { loggers: {} },
-) {
-  const recorder = process.env.CIRCUIT_RECORD_DIR
-    ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
-    : new MemoryCircuitRecorder();
-  const simulator = new SimulatorRecorderWrapper(new WASMSimulator(), recorder);
+export async function createPXE(aztecNode: AztecNode, config: PXEConfigWithoutDefaults, options: PXECreationOptions) {
+  const { loggers } = options;
+  const storeLogger = loggers?.store ?? createLogger('pxe:store');
+  const simulatorLogger = loggers?.simulator ?? createLogger('pxe:simulator');
+  const proverLogger = loggers?.prover ?? createLogger('pxe:prover');
+  const recorderLogger = loggers?.recorder ?? createLogger('pxe:recorder');
+  const pxeLogger = loggers?.pxe ?? createLogger('pxe');
 
-  const logSuffix =
-    typeof options.useLogSuffix === 'boolean'
-      ? options.useLogSuffix
-        ? randomBytes(3).toString('hex')
-        : undefined
-      : options.useLogSuffix;
-  const loggers = options.loggers ?? {};
+  const recorder = process.env.CIRCUIT_RECORD_DIR
+    ? new FileCircuitRecorder(recorderLogger, process.env.CIRCUIT_RECORD_DIR)
+    : new MemoryCircuitRecorder(recorderLogger);
+  const simulator = new SimulatorRecorderWrapper(new WASMSimulator(simulatorLogger), recorder);
 
   const { l1ChainId, l1ContractAddresses: l1Contracts, rollupVersion } = await aztecNode.getNodeInfo();
   const configWithContracts: PXEConfig = {
@@ -42,15 +36,8 @@ export async function createPXE(
     l2BlockBatchSize: 50,
   };
 
-  if (!options.store) {
-    const storeLogger = loggers.store
-      ? loggers.store
-      : createLogger('pxe:data:lmdb' + (logSuffix ? `:${logSuffix}` : ''));
-    options.store = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, configWithContracts, storeLogger);
-  }
-  const proverLogger = loggers.prover
-    ? loggers.prover
-    : createLogger('pxe:bb:native' + (logSuffix ? `:${logSuffix}` : ''));
+  const store =
+    options.store ?? (await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, configWithContracts, storeLogger));
 
   let prover;
   if (options.proverOrOptions instanceof BBPrivateKernelProver) {
@@ -61,10 +48,9 @@ export async function createPXE(
 
   const protocolContractsProvider = new BundledProtocolContractsProvider();
 
-  const pxeLogger = loggers.pxe ? loggers.pxe : createLogger('pxe:service' + (logSuffix ? `:${logSuffix}` : ''));
   const pxe = await PXE.create(
     aztecNode,
-    options.store,
+    store,
     prover,
     simulator,
     protocolContractsProvider,

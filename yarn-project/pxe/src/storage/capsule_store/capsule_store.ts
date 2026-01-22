@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -20,14 +20,14 @@ export class CapsuleStore implements StagedStore {
 
   logger: Logger;
 
-  constructor(store: AztecAsyncKVStore) {
+  constructor(store: AztecAsyncKVStore, logger: Logger) {
     this.#store = store;
 
     this.#capsules = this.#store.openMap('capsules');
 
     this.#stagedCapsules = new Map();
 
-    this.logger = createLogger('pxe:capsule-data-provider');
+    this.logger = logger;
   }
 
   /**

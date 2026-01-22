@@ -1,7 +1,7 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -127,23 +127,18 @@ export class PXE {
     simulator: CircuitSimulator,
     protocolContractsProvider: ProtocolContractsProvider,
     config: PXEConfig,
-    loggerOrSuffix?: string | Logger,
+    log: Logger,
   ) {
-    const log =
-      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
-        ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
-        : loggerOrSuffix;
-
     const proverEnabled = !!config.proverEnabled;
     const addressStore = new AddressStore(store);
-    const privateEventStore = new PrivateEventStore(store);
+    const privateEventStore = new PrivateEventStore(store, log.createChild('private-event-store'));
     const contractStore = new ContractStore(store);
-    const noteStore = new NoteStore(store);
+    const noteStore = new NoteStore(store, log.createChild('note-store'));
     const anchorBlockStore = new AnchorBlockStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
-    const capsuleStore = new CapsuleStore(store);
+    const capsuleStore = new CapsuleStore(store, log.createChild('capsule-store'));
     const keyStore = new KeyStore(store);
     const tipsStore = new L2TipsKVStore(store, 'pxe');
     const synchronizer = new BlockSynchronizer(
@@ -153,11 +148,11 @@ export class PXE {
       noteStore,
       privateEventStore,
       tipsStore,
+      log,
       config,
-      loggerOrSuffix,
     );
 
-    const jobCoordinator = new JobCoordinator(store);
+    const jobCoordinator = new JobCoordinator(store, log.createChild('job-coordinator'));
     jobCoordinator.registerStores([
       capsuleStore,
       senderTaggingStore,
@@ -168,7 +163,7 @@ export class PXE {
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
-    const jobQueue = new SerialQueue();
+    const jobQueue = new SerialQueue(log.createChild('job-queue'));
 
     const pxe = new PXE(
       node,
@@ -221,6 +216,7 @@ export class PXE {
       this.capsuleStore,
       this.privateEventStore,
       this.simulator,
+      this.log,
     );
   }
 
@@ -392,7 +388,12 @@ export class PXE {
     const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
     const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
     const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
-    const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelTraceProver = new PrivateKernelExecutionProver(
+      kernelOracle,
+      proofCreator,
+      this.log,
+      !this.proverEnabled,
+    );
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
