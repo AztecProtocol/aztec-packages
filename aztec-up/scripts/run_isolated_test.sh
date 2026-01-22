@@ -115,7 +115,7 @@ retry install_node
 source ~/.nvm/nvm.sh
 retry install_verdaccio
 start_verdaccio
-retry install_aztec
+install_aztec
 
 # Run test. Force interactive to parse .bashrc.
 bash -i aztec-packages/aztec-up/test/$1.sh
