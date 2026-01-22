@@ -35,7 +35,7 @@ const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
  * If the process outputs a line starting with JSON_DEPLOY_RESULT_PREFIX,
  * the JSON is parsed and returned.
  */
-function runProcess<T>(
+function runProcessOnce<T>(
   command: string,
   args: string[],
   env: Record<string, string | undefined>,
@@ -75,6 +75,41 @@ function runProcess<T>(
   });
 
   return promise;
+}
+
+const DEFAULT_MAX_RETRIES = 5;
+const DEFAULT_RETRY_DELAY_MS = 30_000;
+
+/**
+ * Runs a process with retry logic for transient failures (e.g., gas price spikes).
+ * Retries up to maxRetries times with a delay between attempts.
+ */
+async function runProcess<T>(
+  command: string,
+  args: string[],
+  env: Record<string, string | undefined>,
+  cwd: string,
+  maxRetries: number = DEFAULT_MAX_RETRIES,
+  retryDelayMs: number = DEFAULT_RETRY_DELAY_MS,
+): Promise<T | undefined> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      logger.info(`${command} attempt ${attempt} of ${maxRetries}...`);
+      return await runProcessOnce<T>(command, args, env, cwd);
+    } catch (error: any) {
+      lastError = error;
+      logger.warn(`${command} attempt ${attempt} failed: ${error.message}`);
+
+      if (attempt < maxRetries) {
+        logger.info(`Waiting ${retryDelayMs / 1000}s before retry (gas price may decrease)...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+    }
+  }
+
+  throw new Error(`All ${maxRetries} attempts failed. Last error: ${lastError?.message}`);
 }
 
 // Covers an edge where where we may have a cached BlobLib that is not meant for production.

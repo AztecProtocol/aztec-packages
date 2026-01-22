@@ -1,6 +1,6 @@
 ---
 name: local-network-testing
-description: Deploy and test Aztec networks locally using GCP infrastructure. Covers GCP authentication, ci-network-deploy usage, environment configuration, and tips for faster iteration.
+description: Deploy and test Aztec networks locally using KIND or GCP infrastructure. Covers KIND setup, GCP authentication, environment configuration, and tips for faster iteration.
 ---
 
 # Local Network Testing
@@ -13,7 +13,144 @@ Use this skill when:
 - Testing upgrades, governance, or validator behavior
 - Running performance benchmarks on a realistic network
 
-## Prerequisites
+## Quick Start: KIND (Local Kubernetes)
+
+KIND (Kubernetes IN Docker) lets you run a full Aztec network locally without GCP access.
+
+### Setup KIND Cluster
+
+```bash
+cd spartan
+
+# Create KIND cluster (one-time)
+./bootstrap.sh kind
+
+# Verify cluster is running
+kubectl cluster-info --context kind-kind
+```
+
+### Build and Load Docker Image
+
+```bash
+# Build the aztec docker image
+cd /path/to/aztec-packages
+EARTHLY_BUILD_ARGS="DEVNET_TEST=true" ./spartan/bootstrap.sh build
+
+# Get the image tag (commit hash)
+IMAGE_TAG=$(git rev-parse HEAD)
+
+# Load image into KIND (required - KIND can't pull from local docker)
+kind load docker-image aztecprotocol/aztec:$IMAGE_TAG
+```
+
+### Create Environment File
+
+Create `spartan/environments/kind-test.env`:
+
+```bash
+# KIND cluster configuration
+CLUSTER=kind
+NAMESPACE=my-test
+
+# Docker image (use your built image tag)
+AZTEC_DOCKER_IMAGE=aztecprotocol/aztec:<your-commit-hash>
+
+# L1 devnet
+CREATE_ETH_DEVNET=true
+ETHEREUM_CHAIN_ID=1337
+
+# Network configuration
+VALIDATOR_REPLICAS=4
+VALIDATORS_PER_NODE=12
+PROVER_REPLICAS=1
+
+# Fast bootstrap (recommended for local testing)
+AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET=1
+AZTEC_EPOCH_DURATION=16
+
+# Disable tests (deploy only)
+RUN_TESTS=false
+
+# Resource profile for KIND
+RESOURCE_PROFILE=dev
+```
+
+### Deploy Network
+
+```bash
+cd spartan
+./bootstrap.sh network_deploy kind-test
+```
+
+### Verify Deployment
+
+```bash
+# Check all pods are Running
+kubectl get pods -n my-test
+
+# Check validator logs for block production
+kubectl logs -n my-test my-test-validator-0 -c aztec --tail=50 | grep -E "slot|block"
+```
+
+### Tear Down
+
+```bash
+# Delete namespace
+kubectl delete namespace my-test
+
+# Clean terraform state (important for fresh redeploys)
+rm -rf spartan/terraform/deploy-*/state
+rm -rf spartan/terraform/deploy-*/.terraform
+
+# Or delete entire KIND cluster
+kind delete cluster
+```
+
+## KIND Troubleshooting
+
+### ImagePullBackOff Errors
+
+KIND can't pull images from Docker Hub by default. Load images manually:
+
+```bash
+kind load docker-image aztecprotocol/aztec:$IMAGE_TAG
+```
+
+The terraform automatically sets `imagePullPolicy: IfNotPresent` for KIND clusters.
+
+### Pods Stuck in Pending
+
+Check for resource constraints:
+```bash
+kubectl describe pod -n my-test <pod-name>
+```
+
+For prover-agent issues, ensure you're using the `dev` resource profile which removes GKE-specific node selectors.
+
+### Stale Contract Addresses
+
+If pods crash with "getGovernance returned no data", the terraform state has stale addresses:
+
+```bash
+# Clean ALL terraform state including nested state directories
+rm -rf spartan/terraform/deploy-*/state
+rm -rf spartan/terraform/deploy-*/.terraform
+rm -rf spartan/terraform/deploy-*/terraform.tfstate*
+
+# Delete namespace and redeploy
+kubectl delete namespace my-test
+./bootstrap.sh network_deploy kind-test
+```
+
+### "Committee does not exist on L1"
+
+This is normal during startup. The network needs to progress through the lag period before validators can propose. With `AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET=1`, wait ~5-10 minutes.
+
+---
+
+## GCP Deployment
+
+For CI-like testing or when you need more resources.
 
 ### GCP Authentication
 
