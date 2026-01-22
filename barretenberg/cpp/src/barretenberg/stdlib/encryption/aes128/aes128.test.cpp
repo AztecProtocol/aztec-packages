@@ -402,7 +402,7 @@ TEST(stdlib_aes128_sparse, sparse_form_lookup_table)
         // Normalize the result
         lhs_sparse_fields[i] = plookup_read::read_from_1_to_2_table(plookup::AES_NORMALIZE, lhs_sparse_fields[i]);
     }
-    auto output_bytes = stdlib::aes128::convert_from_sparse_bytes(&builder, lhs_sparse_fields.data());
+    auto output_bytes = stdlib::aes128::convert_from_sparse_bytes(&builder, std::span{ lhs_sparse_fields });
 
     output_bytes.assert_equal(expected_xor_field);
 

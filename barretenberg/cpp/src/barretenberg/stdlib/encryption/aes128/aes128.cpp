@@ -13,10 +13,17 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
+#include <span>
+
 using namespace bb::crypto;
 
 namespace bb::stdlib::aes128 {
+
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;
+template <typename Builder> using state_span = std::span<byte_pair<Builder>, BLOCK_SIZE>;
+template <typename Builder> using column_span = std::span<byte_pair<Builder>, COLUMN_SIZE>;
+template <typename Builder> using key_span = std::span<field_t<Builder>, EXTENDED_KEY_LENGTH>;
+template <typename Builder> using block_span = std::span<field_t<Builder>, BLOCK_SIZE>;
 using namespace bb::plookup;
 
 template <typename Builder> field_t<Builder> normalize_sparse_form(Builder*, field_t<Builder>& byte)
@@ -47,12 +54,11 @@ std::array<field_t<Builder>, 16> convert_into_sparse_bytes(Builder* ctx, const f
     return sparse_bytes;
 }
 
-template <typename Builder> field_t<Builder> convert_from_sparse_bytes(Builder* ctx, field_t<Builder>* sparse_bytes)
+template <typename Builder>
+field_t<Builder> convert_from_sparse_bytes(Builder* ctx, block_span<Builder> sparse_bytes)
 {
-    std::array<field_t<Builder>, 16> bytes;
-
     uint256_t accumulator = 0;
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
         uint64_t sparse_byte = uint256_t(sparse_bytes[i].get_value()).data[0];
         uint256_t byte = numeric::map_from_sparse_form<AES128_BASE>(sparse_byte);
         accumulator <<= 8;
@@ -63,8 +69,8 @@ template <typename Builder> field_t<Builder> convert_from_sparse_bytes(Builder* 
 
     const auto lookup = plookup_read<Builder>::get_lookup_accumulators(AES_INPUT, result);
 
-    for (size_t i = 0; i < 16; ++i) {
-        sparse_bytes[15 - i].assert_equal(lookup[ColumnIdx::C2][i]);
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
+        sparse_bytes[BLOCK_SIZE - 1 - i].assert_equal(lookup[ColumnIdx::C2][i]);
     }
 
     return result;
@@ -203,9 +209,9 @@ std::array<field_t<Builder>, EXTENDED_KEY_LENGTH> expand_key(Builder* ctx, const
  * @details the 16 byte state is seen as a 4x4 matrix of bytes. The operation performs a circular right shift of
  * elements of row i by i positions.
  * @tparam Builder
- * @param state The state to shift
+ * @param state The 16-byte state to shift (modified in place)
  */
-template <typename Builder> void shift_rows(byte_pair<Builder>* state)
+template <typename Builder> void shift_rows(state_span<Builder> state)
 {
     byte_pair<Builder> temp = state[1];
     state[1] = state[5];
@@ -252,12 +258,16 @@ template <typename Builder> void shift_rows(byte_pair<Builder>* state)
  *               = s0.first + s0.second + s1.second + s2.first + s3.first
  *
  * @tparam Builder The circuit builder type
- * @param column_pairs Array of 4 byte_pairs representing one column of the state after SubBytes
+ * @param column_pairs Span of 4 byte_pairs representing one column of the state after SubBytes
  * @param round_key The expanded key schedule (EXTENDED_KEY_LENGTH bytes in sparse form)
  * @param round The current round number (1-10), used to index into round_key
+ * @param column The column index (0-3), used to offset into round_key
  */
 template <typename Builder>
-void mix_column_and_add_round_key(byte_pair<Builder>* column_pairs, field_t<Builder>* round_key, uint64_t round)
+void mix_column_and_add_round_key(column_span<Builder> column_pairs,
+                                  key_span<Builder> round_key,
+                                  size_t round,
+                                  size_t column)
 {
     // Intermediate values to reduce the number of additions (optimization)
     // t0 = s0 + s3 + 3·s1
@@ -274,66 +284,70 @@ void mix_column_and_add_round_key(byte_pair<Builder>* column_pairs, field_t<Buil
     // r3 = 3·s0 ⊕ s1 ⊕ s2 ⊕ 2·s3 = t1 + 3·s0 + s3 = 3·s0 + s1 + s2 + (s3 + 3·s3)
     auto r3 = t1.add_two(column_pairs[0].second, column_pairs[3].first);
 
+    // Round key offset: round * 16 (bytes per round) + column * 4 (bytes per column)
+    const size_t key_offset = round * BLOCK_SIZE + column * COLUMN_SIZE;
+
     // Add round key and store result back (only .first is updated; .second will be recomputed by next SubBytes)
-    column_pairs[0].first = r0 + round_key[(round * 16U)];
-    column_pairs[1].first = r1 + round_key[(round * 16U) + 1];
-    column_pairs[2].first = r2 + round_key[(round * 16U) + 2];
-    column_pairs[3].first = r3 + round_key[(round * 16U) + 3];
+    column_pairs[0].first = r0 + round_key[key_offset];
+    column_pairs[1].first = r1 + round_key[key_offset + 1];
+    column_pairs[2].first = r2 + round_key[key_offset + 2];
+    column_pairs[3].first = r3 + round_key[key_offset + 3];
 }
 
 template <typename Builder>
-void mix_columns_and_add_round_key(byte_pair<Builder>* state_pairs, field_t<Builder>* round_key, uint64_t round)
+void mix_columns_and_add_round_key(state_span<Builder> state_pairs, key_span<Builder> round_key, size_t round)
 {
-    mix_column_and_add_round_key(state_pairs, round_key, round);
-    mix_column_and_add_round_key(state_pairs + 4, round_key + 4, round);
-    mix_column_and_add_round_key(state_pairs + 8, round_key + 8, round);
-    mix_column_and_add_round_key(state_pairs + 12, round_key + 12, round);
+    mix_column_and_add_round_key<Builder>(state_pairs.template subspan<0, COLUMN_SIZE>(), round_key, round, 0);
+    mix_column_and_add_round_key<Builder>(state_pairs.template subspan<4, COLUMN_SIZE>(), round_key, round, 1);
+    mix_column_and_add_round_key<Builder>(state_pairs.template subspan<8, COLUMN_SIZE>(), round_key, round, 2);
+    mix_column_and_add_round_key<Builder>(state_pairs.template subspan<12, COLUMN_SIZE>(), round_key, round, 3);
 }
 
-template <typename Builder> void sub_bytes(Builder* ctx, byte_pair<Builder>* state_pairs)
+template <typename Builder> void sub_bytes(Builder* ctx, state_span<Builder> state_pairs)
 {
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
         state_pairs[i] = apply_aes_sbox_map(ctx, state_pairs[i].first);
     }
 }
 
 template <typename Builder>
-void add_round_key(byte_pair<Builder>* sparse_state, field_t<Builder>* sparse_round_key, uint64_t round)
+void add_round_key(state_span<Builder> sparse_state, key_span<Builder> sparse_round_key, size_t round)
 {
-    for (size_t i = 0; i < 16; i += 4) {
-        for (size_t j = 0; j < 4; ++j) {
-            sparse_state[i + j].first += sparse_round_key[(round * 16U) + i + j];
+    const size_t key_offset = round * BLOCK_SIZE;
+    for (size_t i = 0; i < BLOCK_SIZE; i += COLUMN_SIZE) {
+        for (size_t j = 0; j < COLUMN_SIZE; ++j) {
+            sparse_state[i + j].first += sparse_round_key[key_offset + i + j];
         }
     }
 }
 
-template <typename Builder> void xor_with_iv(byte_pair<Builder>* state, field_t<Builder>* iv)
+template <typename Builder> void xor_with_iv(state_span<Builder> state, block_span<Builder> iv)
 {
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
         state[i].first += iv[i];
     }
 }
 
 template <typename Builder>
-void aes128_cipher(Builder* ctx, byte_pair<Builder>* state, field_t<Builder>* sparse_round_key)
+void aes128_cipher(Builder* ctx, state_span<Builder> state, key_span<Builder> sparse_round_key)
 {
-    add_round_key(state, sparse_round_key, 0);
-    for (size_t i = 0; i < 16; ++i) {
+    add_round_key<Builder>(state, sparse_round_key, 0);
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) {
         state[i].first = normalize_sparse_form(ctx, state[i].first);
     }
 
-    for (size_t round = 1; round < 10; ++round) {
+    for (size_t round = 1; round < NUM_ROUNDS; ++round) {
         sub_bytes(ctx, state);
-        shift_rows(state);
-        mix_columns_and_add_round_key(state, sparse_round_key, round);
-        for (size_t i = 0; i < 16; ++i) {
+        shift_rows<Builder>(state);
+        mix_columns_and_add_round_key<Builder>(state, sparse_round_key, round);
+        for (size_t i = 0; i < BLOCK_SIZE; ++i) {
             state[i].first = normalize_sparse_form(ctx, state[i].first);
         }
     }
 
     sub_bytes(ctx, state);
-    shift_rows(state);
-    add_round_key(state, sparse_round_key, 10);
+    shift_rows<Builder>(state);
+    add_round_key<Builder>(state, sparse_round_key, NUM_ROUNDS);
 }
 
 template <typename Builder>
@@ -411,6 +425,7 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
     BB_ASSERT(ctx);
 
     auto round_key = expand_key(ctx, key);
+    key_span<Builder> round_key_span{ round_key };
 
     const size_t num_blocks = input.size();
 
@@ -423,13 +438,14 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
     }
 
     auto sparse_iv = convert_into_sparse_bytes(ctx, iv);
+    block_span<Builder> sparse_iv_span{ sparse_iv };
 
     for (size_t i = 0; i < num_blocks; ++i) {
-        byte_pair<Builder>* round_state = &sparse_state[i * 16];
-        xor_with_iv(round_state, &sparse_iv[0]);
-        aes128_cipher(ctx, round_state, &round_key[0]);
+        state_span<Builder> round_state{ &sparse_state[i * BLOCK_SIZE], BLOCK_SIZE };
+        xor_with_iv<Builder>(round_state, sparse_iv_span);
+        aes128_cipher(ctx, round_state, round_key_span);
 
-        for (size_t j = 0; j < 16; ++j) {
+        for (size_t j = 0; j < BLOCK_SIZE; ++j) {
             sparse_iv[j] = round_state[j].first;
         }
     }
@@ -441,7 +457,8 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
 
     std::vector<field_t<Builder>> output;
     for (size_t i = 0; i < num_blocks; ++i) {
-        output.push_back(convert_from_sparse_bytes(ctx, &sparse_output[i * 16]));
+        block_span<Builder> output_span{ &sparse_output[i * BLOCK_SIZE], BLOCK_SIZE };
+        output.push_back(convert_from_sparse_bytes(ctx, output_span));
     }
     return output;
 }
@@ -449,8 +466,9 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
 #define INSTANTIATE_AES128_TEMPLATES(Builder)                                                                          \
     template std::vector<field_t<Builder>> encrypt_buffer_cbc<Builder>(                                                \
         const std::vector<field_t<Builder>>&, const field_t<Builder>&, const field_t<Builder>&);                       \
-    template std::array<field_t<Builder>, 16> convert_into_sparse_bytes<Builder>(Builder*, const field_t<Builder>&);   \
-    template field_t<Builder> convert_from_sparse_bytes<Builder>(Builder*, field_t<Builder>*)
+    template std::array<field_t<Builder>, BLOCK_SIZE> convert_into_sparse_bytes<Builder>(Builder*,                     \
+                                                                                         const field_t<Builder>&);     \
+    template field_t<Builder> convert_from_sparse_bytes<Builder>(Builder*, std::span<field_t<Builder>, BLOCK_SIZE>)
 
 INSTANTIATE_AES128_TEMPLATES(bb::UltraCircuitBuilder);
 INSTANTIATE_AES128_TEMPLATES(bb::MegaCircuitBuilder);
