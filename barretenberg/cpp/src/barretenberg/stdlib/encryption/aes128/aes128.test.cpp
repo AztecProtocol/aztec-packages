@@ -365,7 +365,7 @@ TEST(stdlib_aes128_sparse, sparse_addition_equals_xor_native)
     @param expected The expected sparse form of the input bytes
     @return True if the test passes, false otherwise
  */
-TEST(stdlib_aes128_sparse, sparse_input_table)
+TEST(stdlib_aes128_sparse, sparse_form_lookup_table)
 {
     using field_ct = stdlib::field_t<UltraCircuitBuilder>;
     using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
@@ -386,24 +386,12 @@ TEST(stdlib_aes128_sparse, sparse_input_table)
         expected_xor[i] = lhs[i] ^ rhs[i];
     }
 
-    field expected_xor_field = fr(convert_bytes_to_uint256(expected_xor));
+    field_ct expected_xor_field = witness_ct(&builder, fr(convert_bytes_to_uint256(expected_xor)));
 
     // pack the 16 bytes into a field_ct
     field_ct lhs_field = witness_ct(&builder, fr(convert_bytes_to_uint256(lhs)));
     field_ct rhs_field = witness_ct(&builder, fr(convert_bytes_to_uint256(rhs)));
 
-    // Convert this to witness or constant
-    std::array<field_ct, 16> expected_lhs_field;
-    std::array<field_ct, 16> expected_rhs_field;
-    for (size_t i = 0; i < 16; ++i) {
-        expected_lhs_field[i] = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(lhs[i])));
-        expected_rhs_field[i] = witness_ct(&builder, fr(numeric::map_into_sparse_form<AES_SPARSE_BASE>(rhs[i])));
-    }
-
-    std::array<field_ct, 16> lhs_fields;
-    for (size_t i = 0; i < 16; ++i) {
-        lhs_fields[i] = witness_ct(&builder, fr(lhs[i]));
-    }
     // Now use the AES input table to convert lhs and rhs to sparse form using the AES input table
     std::array<field_ct, 16> lhs_sparse_fields = stdlib::aes128::convert_into_sparse_bytes(&builder, lhs_field);
     std::array<field_ct, 16> rhs_sparse_fields = stdlib::aes128::convert_into_sparse_bytes(&builder, rhs_field);
@@ -416,9 +404,10 @@ TEST(stdlib_aes128_sparse, sparse_input_table)
     }
     auto output_bytes = stdlib::aes128::convert_from_sparse_bytes(&builder, lhs_sparse_fields.data());
 
-    ASSERT_EQ(output_bytes.get_value(), expected_xor_field);
+    output_bytes.assert_equal(expected_xor_field);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
 }
 
 /**

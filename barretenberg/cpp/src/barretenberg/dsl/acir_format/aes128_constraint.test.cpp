@@ -33,7 +33,8 @@ auto& engine = numeric::get_debug_randomness();
  * @tparam IsKeyConstant If true, the encryption key is a constant (not a witness)
  * @tparam IsIVConstant If true, the initialization vector is a constant (not a witness)
  */
-template <typename Builder_, bool IsKeyConstant, bool IsIVConstant> class AES128TestingFunctions {
+template <typename Builder_, bool IsPlaintextConstant, bool IsKeyConstant, bool IsIVConstant>
+class AES128TestingFunctions {
   public:
     using Builder = Builder_;
     using AcirConstraint = AES128Constraint;
@@ -42,15 +43,19 @@ template <typename Builder_, bool IsKeyConstant, bool IsIVConstant> class AES128
     class InvalidWitness {
       public:
         enum class Target : uint8_t {
-            None,   // No invalidation - circuit should succeed
-            Key,    // Tamper with encryption key (only valid when key is witness)
-            IV,     // Tamper with initialization vector (only valid when IV is witness)
-            Output, // Tamper with expected output
+            None,      // No invalidation - circuit should succeed
+            Plaintext, // Tamper with plaintext (only valid when plaintext is witness)
+            Key,       // Tamper with encryption key (only valid when key is witness)
+            IV,        // Tamper with initialization vector (only valid when IV is witness)
+            Output,    // Tamper with expected output
         };
 
         static std::vector<Target> get_all()
         {
             std::vector<Target> targets = { Target::None };
+            if constexpr (!IsPlaintextConstant) {
+                targets.push_back(Target::Plaintext);
+            }
             if constexpr (!IsKeyConstant) {
                 targets.push_back(Target::Key);
             }
@@ -64,6 +69,9 @@ template <typename Builder_, bool IsKeyConstant, bool IsIVConstant> class AES128
         static std::vector<std::string> get_labels()
         {
             std::vector<std::string> labels = { "None" };
+            if constexpr (!IsPlaintextConstant) {
+                labels.push_back("Plaintext");
+            }
             if constexpr (!IsKeyConstant) {
                 labels.push_back("Key");
             }
@@ -112,36 +120,34 @@ template <typename Builder_, bool IsKeyConstant, bool IsIVConstant> class AES128
         // Compute the expected ciphertext using native AES-128-CBC (no padding for full blocks)
         std::vector<uint8_t> ciphertext = native_aes128_cbc_encrypt(plaintext, key, iv);
 
-        // Add plaintext bytes to witness and constraint (always witness)
+        // Lambda to create WitnessOrConstant based on template param
+        auto make_witness_or_constant = [&witness_values](FF value, bool is_constant) -> WitnessOrConstant<FF> {
+            if (is_constant) {
+                return WitnessOrConstant<FF>::from_constant(value);
+            }
+            uint32_t witness_idx = add_to_witness_and_track_indices(witness_values, value);
+            return WitnessOrConstant<FF>::from_index(witness_idx);
+        };
+
+        // Add plaintext bytes to constraint
         std::vector<WitnessOrConstant<FF>> input_witnesses;
         for (const auto& byte : plaintext) {
-            uint32_t witness_idx = add_to_witness_and_track_indices(witness_values, FF(byte));
-            input_witnesses.push_back(WitnessOrConstant<FF>::from_index(witness_idx));
+            input_witnesses.push_back(make_witness_or_constant(FF(byte), IsPlaintextConstant));
         }
 
-        // Add key bytes to constraint (constant or witness based on template param)
+        // Add key bytes to constraint
         std::array<WitnessOrConstant<FF>, 16> key_witnesses{};
         for (size_t i = 0; i < 16; ++i) {
-            if constexpr (IsKeyConstant) {
-                key_witnesses[i] = WitnessOrConstant<FF>::from_constant(FF(key[i]));
-            } else {
-                uint32_t witness_idx = add_to_witness_and_track_indices(witness_values, FF(key[i]));
-                key_witnesses[i] = WitnessOrConstant<FF>::from_index(witness_idx);
-            }
+            key_witnesses[i] = make_witness_or_constant(FF(key[i]), IsKeyConstant);
         }
 
-        // Add IV bytes to constraint (constant or witness based on template param)
+        // Add IV bytes to constraint
         std::array<WitnessOrConstant<FF>, 16> iv_witnesses{};
         for (size_t i = 0; i < 16; ++i) {
-            if constexpr (IsIVConstant) {
-                iv_witnesses[i] = WitnessOrConstant<FF>::from_constant(FF(iv[i]));
-            } else {
-                uint32_t witness_idx = add_to_witness_and_track_indices(witness_values, FF(iv[i]));
-                iv_witnesses[i] = WitnessOrConstant<FF>::from_index(witness_idx);
-            }
+            iv_witnesses[i] = make_witness_or_constant(FF(iv[i]), IsIVConstant);
         }
 
-        // Add output (ciphertext) bytes to witness
+        // Add output (ciphertext) bytes to witness (always witness)
         std::vector<uint32_t> output_indices;
         for (const auto& byte : ciphertext) {
             uint32_t witness_idx = add_to_witness_and_track_indices(witness_values, FF(byte));
@@ -160,12 +166,26 @@ template <typename Builder_, bool IsKeyConstant, bool IsIVConstant> class AES128
     /**
      * @brief Invalidate witness values to test circuit failure detection.
      */
-    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
-        AcirConstraint constraint, WitnessVector witness_values, const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(AcirConstraint constraint,
+                                                                       WitnessVector witness_values,
+                                                                       const typename InvalidWitness::Target& target)
     {
-        switch (invalid_witness_target) {
+        switch (target) {
         case InvalidWitness::Target::None:
             // No tampering
+            break;
+
+        case InvalidWitness::Target::Plaintext:
+            // Tamper with the first plaintext byte
+            if constexpr (IsPlaintextConstant) {
+                if (!constraint.inputs.empty()) {
+                    constraint.inputs[0] = WitnessOrConstant<FF>::from_constant(constraint.inputs[0].value + FF(1));
+                }
+            } else {
+                if (!constraint.inputs.empty()) {
+                    witness_values[constraint.inputs[0].index] += FF(1);
+                }
+            }
             break;
 
         case InvalidWitness::Target::Key:
@@ -224,10 +244,11 @@ template <typename Builder_, bool IsKeyConstant, bool IsIVConstant> class AES128
 using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 
 // =============================================================================
-// Test Configuration 1: All witnesses (key and IV are witnesses)
+// Test Configuration 1: All witnesses (plaintext, key, and IV are witnesses)
 // =============================================================================
 template <typename Builder>
-class AES128TestAllWitness : public ::testing::Test, public TestClass<AES128TestingFunctions<Builder, false, false>> {
+class AES128TestAllWitness : public ::testing::Test,
+                             public TestClass<AES128TestingFunctions<Builder, false, false, false>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -244,12 +265,35 @@ TYPED_TEST(AES128TestAllWitness, Tampering)
 {
     TestFixture::test_tampering();
 }
-
 // =============================================================================
-// Test Configuration 2: Constant key (IV is witness)
+// Test Configuration 2: Constant plaintext (key and IV are witnesses)
 // =============================================================================
 template <typename Builder>
-class AES128TestConstantKey : public ::testing::Test, public TestClass<AES128TestingFunctions<Builder, true, false>> {
+class AES128TestConstantPlaintext : public ::testing::Test,
+                                    public TestClass<AES128TestingFunctions<Builder, true, false, false>> {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+TYPED_TEST_SUITE(AES128TestConstantPlaintext, BuilderTypes);
+
+TYPED_TEST(AES128TestConstantPlaintext, GenerateVKFromConstraints)
+{
+    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
+TYPED_TEST(AES128TestConstantPlaintext, Tampering)
+{
+    TestFixture::test_tampering();
+}
+
+// =============================================================================
+// Test Configuration 3: Constant key (plaintext and IV are witnesses)
+// =============================================================================
+template <typename Builder>
+class AES128TestConstantKey : public ::testing::Test,
+                              public TestClass<AES128TestingFunctions<Builder, false, true, false>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -268,10 +312,11 @@ TYPED_TEST(AES128TestConstantKey, Tampering)
 }
 
 // =============================================================================
-// Test Configuration 3: Constant IV (key is witness)
+// Test Configuration 4: Constant IV (plaintext and key are witnesses)
 // =============================================================================
 template <typename Builder>
-class AES128TestConstantIV : public ::testing::Test, public TestClass<AES128TestingFunctions<Builder, false, true>> {
+class AES128TestConstantIV : public ::testing::Test,
+                             public TestClass<AES128TestingFunctions<Builder, false, false, true>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -290,10 +335,11 @@ TYPED_TEST(AES128TestConstantIV, Tampering)
 }
 
 // =============================================================================
-// Test Configuration 4: Both key and IV are constants
+// Test Configuration 5: All constants (plaintext, key, and IV are constants)
 // =============================================================================
 template <typename Builder>
-class AES128TestAllConstant : public ::testing::Test, public TestClass<AES128TestingFunctions<Builder, true, true>> {
+class AES128TestAllConstant : public ::testing::Test,
+                              public TestClass<AES128TestingFunctions<Builder, true, true, true>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
