@@ -5,6 +5,7 @@
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -20,7 +21,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
-import { makeAztecAddress, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeAztecAddress, makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -194,7 +195,7 @@ async function createBlockProposal(blockNumber: number, txHashes: TxHash[], seed
   const archiveRoot = new Fr(BigInt(seed) * 1000000n + BigInt(blockNumber));
   return await makeBlockProposal({
     signer: Secp256k1Signer.random(),
-    blockHeader: makeL2BlockHeader(1, blockNumber),
+    blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(blockNumber) }),
     archiveRoot,
     txHashes,
   });

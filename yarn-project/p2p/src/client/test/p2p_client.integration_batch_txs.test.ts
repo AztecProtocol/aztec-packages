@@ -8,7 +8,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -103,7 +103,7 @@ describe('p2p client integration batch txs', () => {
   const createBlockProposal = (blockNumber: number, blockHash: Fr, txHashes: TxHash[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
-      blockHeader: makeL2BlockHeader(1, blockNumber),
+      blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(blockNumber) }),
       archiveRoot: blockHash,
       txHashes,
     });

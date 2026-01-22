@@ -228,17 +228,11 @@ export class InMemoryAttestationPool implements AttestationPool {
  */
 export function createMockEpochCache(): EpochCacheInterface {
   return {
-    getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO }),
+    getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n }),
     computeProposerIndex: () => 0n,
-    getProposerAttesterAddressInCurrentOrNextSlot: () =>
-      Promise.resolve({
-        currentProposer: EthAddress.ZERO,
-        nextProposer: EthAddress.ZERO,
-        currentSlot: SlotNumber.ZERO,
-        nextSlot: SlotNumber.ZERO,
-      }),
+    getCurrentAndNextSlot: () => ({ currentSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
     getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
     getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),

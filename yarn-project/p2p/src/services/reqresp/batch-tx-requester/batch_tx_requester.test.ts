@@ -7,7 +7,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -53,7 +53,7 @@ describe('BatchTxRequester', () => {
     const blockHash = Fr.random();
     blockProposal = await makeBlockProposal({
       signer,
-      blockHeader: makeL2BlockHeader(1, 1),
+      blockHeader: makeBlockHeader(1),
       archiveRoot: blockHash,
       txHashes: [],
     });
@@ -68,7 +68,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -121,7 +121,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -195,7 +195,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -280,7 +280,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -327,7 +327,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -389,7 +389,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -444,7 +444,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -499,7 +499,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -555,7 +555,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -625,7 +625,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -796,7 +796,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -887,7 +887,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -940,7 +940,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -990,7 +990,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1068,7 +1068,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1130,7 +1130,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1207,7 +1207,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1277,7 +1277,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1349,7 +1349,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1398,7 +1398,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1448,7 +1448,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1533,7 +1533,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
@@ -1579,7 +1579,7 @@ describe('BatchTxRequester', () => {
 
       blockProposal = await makeBlockProposal({
         signer: Secp256k1Signer.random(),
-        blockHeader: makeL2BlockHeader(1, 1),
+        blockHeader: makeBlockHeader(1),
         archiveRoot: Fr.random(),
         txHashes: missing,
       });
