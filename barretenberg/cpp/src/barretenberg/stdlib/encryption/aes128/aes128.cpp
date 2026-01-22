@@ -55,7 +55,7 @@ std::array<field_t<Builder>, 16> convert_into_sparse_bytes(Builder* ctx, const f
 }
 
 template <typename Builder>
-field_t<Builder> convert_from_sparse_bytes(Builder* ctx, std::span<field_t<Builder>, BLOCK_SIZE> sparse_bytes)
+field_t<Builder> convert_from_sparse_bytes(Builder* ctx, block_span<Builder> sparse_bytes)
 {
     uint256_t accumulator = 0;
     for (size_t i = 0; i < BLOCK_SIZE; ++i) {
