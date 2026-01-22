@@ -1,9 +1,6 @@
-import { pedersenMerkleHash, poseidonMerkleHash, shaMerkleHash } from './hasher.js';
+import { poseidonMerkleHash, shaMerkleHash } from './hasher.js';
 
 export const computeBalancedShaRoot = (leaves: Buffer[]) => computeBalancedMerkleTreeRoot(leaves);
-
-export const computeBalancedPedersenRoot = async (leaves: Buffer[]) =>
-  await computeBalancedMerkleTreeRootAsync(leaves, pedersenMerkleHash);
 
 export const computeBalancedPoseidonRoot = async (leaves: Buffer[]) =>
   await computeBalancedMerkleTreeRootAsync(leaves, poseidonMerkleHash);
@@ -33,7 +30,7 @@ export function computeBalancedMerkleTreeRoot(leaves: Buffer[], hasher = shaMerk
 
 /**
  * Computes the Merkle root with the provided leaves **asynchronously**.
- * This method uses an asynchronous hash function (defaults to `pedersenHash`).
+ * This method uses an asynchronous hash function (defaults to `poseidon2Hash`).
  *
  * @throws If the number of leaves is not a power of two.
  */

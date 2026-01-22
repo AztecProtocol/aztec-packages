@@ -1,4 +1,3 @@
-import { pedersenHash as pedersenHashArray } from '../crypto/pedersen/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { sha256Trunc } from '../crypto/sha256/index.js';
 
@@ -44,9 +43,6 @@ export interface AsyncHasher {
 
 export const shaMerkleHash: Hasher['hash'] = (left: Buffer, right: Buffer) =>
   sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>;
-
-export const pedersenMerkleHash: AsyncHasher['hash'] = async (left: Buffer, right: Buffer) =>
-  (await pedersenHashArray([left, right])).toBuffer() as Buffer<ArrayBuffer>;
 
 export const poseidonMerkleHash: AsyncHasher['hash'] = async (left: Buffer, right: Buffer) =>
   (await poseidon2Hash([left, right])).toBuffer() as Buffer<ArrayBuffer>;

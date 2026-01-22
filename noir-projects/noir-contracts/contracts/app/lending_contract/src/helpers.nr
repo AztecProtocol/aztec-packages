@@ -1,4 +1,4 @@
-use dep::aztec::hash::pedersen_hash;
+use dep::aztec::protocol_types::hash::poseidon2_hash;
 use std::ops::{Add, Sub};
 
 // Utility used to easily get a "id" for a private user that sits in the same
@@ -8,7 +8,7 @@ pub fn compute_identifier(secret: Field, on_behalf_of: Field, this: Field) -> Fi
     // EITHER secret OR on_behalf_of MUST be set. But not both
     assert(!((secret == 0) as bool & (on_behalf_of == 0) as bool));
     if (secret != 0) {
-        pedersen_hash([this, secret], 0)
+        poseidon2_hash([this, secret])
     } else {
         on_behalf_of
     }
