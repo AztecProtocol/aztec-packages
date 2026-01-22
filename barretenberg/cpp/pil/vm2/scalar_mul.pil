@@ -110,8 +110,8 @@ namespace scalar_mul;
 
     // Needs to be committed because it's used in the #[DOUBLE] lookup
     pol commit sel_not_end; // @boolean (since end and sel are boolean)
-    // sel_not_end = sel & !end
-    sel_not_end - sel * (1 - end) = 0;
+    // sel_not_end = sel & !end (since end => sel)
+    sel_not_end = sel - end;
 
     // Input consistency
     #[INPUT_CONSISTENCY_X]
@@ -170,7 +170,7 @@ namespace scalar_mul;
     end * (temp_y - point_y) = 0;
     end * (temp_inf - point_inf) = 0;
 
-    // TODO Hack for bb-pilcom to see shifted temp columns // TODO required?
+    // TODO(#AVM-212) Hack for bb-pilcom to see shifted temp columns
     temp_x' - temp_x' = 0;
     temp_y' - temp_y' = 0;
     temp_inf' - temp_inf' = 0;

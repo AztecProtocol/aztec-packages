@@ -87,10 +87,9 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
         // If both points are the same, double (double_op == 1).
         bool double_predicate = (x_match && y_match);
-        // If both points differ and are NOT inverses, add (add_op == 1).
-        // This predicate is true when x-coordinates differ (regardless of y-coordinates).
-        // PIL constraint: sel = double_op + add_op + INVERSE_PRED, where INVERSE_PRED = x_match * (1 - y_match).
-        // When x_match=0: double_op=0, INVERSE_PRED=0, so add_op must be 1.
+        // If both points differ and are NOT inverses, add (add_op == 1). This predicate is true when x-coordinates
+        // differ (regardless of y-coordinates). PIL constraint: sel = double_op + add_op + INVERSE_PRED, where
+        // INVERSE_PRED = x_match * (1 - y_match). When x_match=0: double_op=0, INVERSE_PRED=0, so add_op must be 1.
         bool add_predicate = !x_match;
         // If the points are inverses, the result is the infinity point when adding (INVERSE_PRED == 1).
         // This is implied when x-coordinates match but the y's don't.
@@ -101,15 +100,11 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         // If our computation does not involve the point at infinity, use_computed_result == 1.
         bool use_computed_result = !inverse_predicate && (!p.is_infinity() && !q.is_infinity());
         // The result is the infinity point if:
-        // (1) we hit the inverse predicate (and neither p nor q are the infinity point)*
-        // (2) or both p and q are the infinity point
-        //  TODO(MW): Reword this:
-        //  * Note: Technically, if p = q = point at infinity then p and q are inverses of eachother
-        //  (since p + q = p + -p = infinity), but we consider that case separately. This is because,
-        //  being a SW curve, the infinity point does not have real coordinates (we represent it as (0,0)),
-        //  so will not trigger our coordinate-based inverse flag. We avoid the extra cost of adding infinity
-        //  edge cases to double_op and INVERSE_PRED relations (plus, we add an extra safeguard by not using
-        //  infinity's coordinates, in case we change its representation in future).
+        // (1) we hit the inverse predicate, p = -q (and neither p nor q are the infinity point)*
+        // (2) or both p and q are the infinity point, p = q = O
+        //  * Note: Technically, if p = q = point at infinity then p and q /are/ inverses (since p + q = p + -p =
+        //  infinity), but we consider that case separately. This is because, being a SW curve, the infinity point does
+        //  not have real coordinates (we represent it as (0,0)) and we treat it with edge cases.
         bool result_is_infinity = inverse_predicate && (!p.is_infinity() && !q.is_infinity());
         result_is_infinity = result_is_infinity || (p.is_infinity() && q.is_infinity());
         // Check corresponding to the #[INFINITY_RESULT] relation.

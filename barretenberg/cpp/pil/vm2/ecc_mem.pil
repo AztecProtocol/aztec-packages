@@ -8,7 +8,7 @@ include "precomputed.pil";
  * This handles the memory writes when the ECADD opcode is executed by user code.
  * Given two points, P & Q, this trace constrains that both exist on the Grumpkin curve
  * and the claimed result point, R = P + Q, is written to memory addresses within range.
- * The reads of P and Qare handled by the registers in the execution trace. The correctness
+ * The reads of P and Q are handled by the registers in the execution trace. The correctness
  * of point addition is handled by the ECC subtrace.
  *
  * This trace writes the resulting embedded curve point to the addresses {dst,
