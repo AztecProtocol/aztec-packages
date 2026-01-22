@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ steps.checkout-ref.outputs.ref }}
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
 
@@ -117,9 +117,6 @@ jobs:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
       - name: Deploy network
         id: deploy-network
         env:
@@ -141,9 +138,12 @@ jobs:
           ./scripts/install_deps.sh
           ./scripts/network_deploy.sh "${{ inputs.network }}"
 
+          # need to source this for CLUSTER
+          source "./environments/${{ inputs.network }}.env"
+
           if [ -n "$CLUSTER" ]; then
             echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT
-          else 
+          else
             echo "cluster=" >> $GITHUB_OUTPUT
           fi
 

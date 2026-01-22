@@ -10,6 +10,8 @@
 
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/update_check.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
@@ -53,12 +55,15 @@
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/gadgets/context.hpp"
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
 #include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
@@ -75,14 +80,17 @@
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
+#include "barretenberg/vm2/simulation/standalone/noop_calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/standalone/noop_update_check.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_execution_components.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_sha256.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
 #include "barretenberg/vm2/simulation/standalone/written_public_data_slots_tree_check.hpp"
 
@@ -90,50 +98,86 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
-{
-    BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen");
+namespace {
 
-    EventEmitter<ExecutionEvent> execution_emitter;
-    DeduplicatingEventEmitter<AluEvent> alu_emitter;
-    DeduplicatingEventEmitter<BitwiseEvent> bitwise_emitter;
-    EventEmitter<DataCopyEvent> data_copy_emitter;
-    EventEmitter<MemoryEvent> memory_emitter;
-    EventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
-    EventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
-    EventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-    DeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
-    EventEmitter<AddressDerivationEvent> address_derivation_emitter;
-    EventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
-    EventEmitter<SiloingEvent> siloing_emitter;
-    EventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
-    EventEmitter<EccAddEvent> ecc_add_emitter;
-    EventEmitter<ScalarMulEvent> scalar_mul_emitter;
-    EventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
-    EventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
-    EventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
-    EventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
-    EventEmitter<KeccakF1600Event> keccakf1600_emitter;
-    EventEmitter<ToRadixEvent> to_radix_emitter;
-    EventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
-    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
-    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    DeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
-    EventEmitter<ContextStackEvent> context_stack_emitter;
-    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
-    EventEmitter<UpdateCheckEvent> update_check_emitter;
-    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
-    EventEmitter<TxEvent> tx_event_emitter;
-    EventEmitter<CalldataEvent> calldata_emitter;
-    EventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
-    EventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
-    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
-    DeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
-    EventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
-    EventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
-    EventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
-    EventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
-    EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+PublicTxEffect extract_public_tx_effect(const TxExecutionResult& tx_execution_result,
+                                        const SideEffectTrackerInterface& side_effect_tracker)
+{
+    PublicTxEffect public_tx_effect;
+    const auto& side_effects = side_effect_tracker.get_side_effects();
+    public_tx_effect.transaction_fee = tx_execution_result.transaction_fee;
+    public_tx_effect.note_hashes = side_effects.note_hashes;
+    public_tx_effect.nullifiers = side_effects.nullifiers;
+    public_tx_effect.l2_to_l1_msgs = side_effects.l2_to_l1_messages;
+    public_tx_effect.public_logs = side_effects.public_logs.to_logs();
+
+    // We need to copy the storage writes slot to value in the order of the slots by insertion.
+    const size_t num_storage_writes = side_effects.storage_writes_slots_by_insertion.size();
+    public_tx_effect.public_data_writes.reserve(num_storage_writes);
+    for (size_t i = 0; i < num_storage_writes; i++) {
+        const auto& slot = side_effects.storage_writes_slots_by_insertion[i];
+        const auto& value = side_effects.storage_writes_slot_to_value.at(slot);
+        public_tx_effect.public_data_writes.push_back(PublicDataWrite{ .leaf_slot = slot, .value = value });
+    }
+
+    return public_tx_effect;
+}
+
+} // namespace
+
+// Internal helper function for event-generating simulation (with full gadgets).
+// NOTE: Some of the config parameters are ignored in this function.
+template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
+std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_for_witgen_internal(
+    ContractDBInterface& raw_contract_db,
+    LowLevelMerkleDBInterface& raw_merkle_db,
+    const PublicSimulatorConfig& config,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts)
+{
+    BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen_internal");
+
+    DefaultEventEmitter<ExecutionEvent> execution_emitter;
+    DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
+    DefaultDeduplicatingEventEmitter<BitwiseEvent> bitwise_emitter;
+    DefaultEventEmitter<DataCopyEvent> data_copy_emitter;
+    DefaultEventEmitter<MemoryEvent> memory_emitter;
+    DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
+    DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
+    DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
+    DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
+    DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
+    DefaultEventEmitter<SiloingEvent> siloing_emitter;
+    DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
+    DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
+    DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    DefaultEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
+    DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
+    DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
+    DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
+    DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
+    DefaultEventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
+    DefaultDeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
+    DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
+    DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
+    DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
+    DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    DefaultEventEmitter<TxEvent> tx_event_emitter;
+    DefaultEventEmitter<CalldataEvent> calldata_emitter;
+    DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
+    DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
+    DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
+    DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
+    DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
+    DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
+    DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -153,8 +197,15 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
         poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
+
+    // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
+    // hashes).
+    if (tx.non_revertible_accumulated_data.nullifiers.empty()) {
+        throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
+    }
+
     NoteHashTreeCheck note_hash_tree_check(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
+        tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
@@ -165,10 +216,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
-    HintedRawContractDB raw_contract_db(hints);
-    HintedRawMerkleDB raw_merkle_db(hints);
 
-    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, hints.protocol_contracts);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, protocol_contracts);
 
     MerkleDB base_merkle_db(raw_merkle_db,
                             public_data_tree_check,
@@ -184,18 +233,18 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
     SideEffectTracker side_effect_tracker;
-    SideEffectTrackingDB merkle_db(
-        hints.tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
 
-    UpdateCheck update_check(
-        poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.global_variables);
+    SideEffectTrackingDB merkle_db(
+        tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
+
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, field_gt, hints.protocol_contracts, contract_instance_retrieval_emitter);
+        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
 
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
@@ -219,7 +268,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                                      written_public_data_slots_tree_check,
                                      retrieved_bytecodes_tree_check,
                                      side_effect_tracker,
-                                     hints.global_variables);
+                                     global_variables);
     DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
     // Create GetContractInstance opcode component
@@ -227,6 +276,11 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
     NoopDebugLogger debug_log_component;
+    auto call_stack_metadata_collector =
+        config.collect_call_metadata ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<CallStackMetadataCollector>(config.collection_limits))
+                                     : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<NoopCallStackMetadataCollector>());
 
     Execution execution(alu,
                         bitwise,
@@ -246,7 +300,8 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                         get_contract_instance,
                         emit_unencrypted_log_component,
                         debug_log_component,
-                        merkle_db);
+                        merkle_db,
+                        *call_stack_metadata_collector);
 
     TxExecution tx_execution(execution,
                              context_provider,
@@ -257,14 +312,26 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
+                             *call_stack_metadata_collector,
                              tx_event_emitter);
 
-    tx_execution.simulate(hints.tx);
+    PublicInputsBuilder public_inputs_builder;
+    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
+
+    TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
+
+    public_inputs_builder.extract_outputs(raw_merkle_db,
+                                          // TODO(MW): Use of billed_gas is a bit misleading - we want public + private
+                                          // - teardown, which is stored as billed gas here/in ts:
+                                          tx_execution_result.gas_used.billed_gas,
+                                          tx_execution_result.transaction_fee,
+                                          tx_execution_result.revert_code != RevertCode::OK,
+                                          side_effect_tracker.get_side_effects());
 
     public_data_tree_check.generate_ff_gt_events_for_squashing(
         side_effect_tracker.get_side_effects().storage_writes_slots_by_insertion);
 
-    return {
+    EventsContainer events = {
         tx_event_emitter.dump_events(),
         execution_emitter.dump_events(),
         alu_emitter.dump_events(),
@@ -306,30 +373,41 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
         emit_unencrypted_log_emitter.dump_events(),
         retrieved_bytecodes_tree_check_emitter.dump_events(),
     };
+
+    TxSimulationResult tx_simulation_result = {
+        .gas_used = tx_execution_result.gas_used,
+        .revert_code = tx_execution_result.revert_code,
+        .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
+        .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
+        .logs = debug_log_component.dump_logs(),
+        .public_inputs =
+            config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
+    };
+
+    return { std::move(events), std::move(tx_simulation_result) };
 }
 
-TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
-                                                      LowLevelMerkleDBInterface& raw_merkle_db,
-                                                      const PublicSimulatorConfig& config,
-                                                      const Tx& tx,
-                                                      const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts)
+// Internal helper function for fast simulation.
+TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterface& raw_contract_db,
+                                                               LowLevelMerkleDBInterface& raw_merkle_db,
+                                                               const PublicSimulatorConfig& config,
+                                                               const Tx& tx,
+                                                               const GlobalVariables& global_variables,
+                                                               const ProtocolContracts& protocol_contracts,
+                                                               CancellationTokenPtr cancellation_token)
 {
-    BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
+    BB_BENCH_NAME("AvmSimulationHelper::simulate_fast_internal");
 
     NoopEventEmitter<ExecutionEvent> execution_emitter;
     NoopEventEmitter<DataCopyEvent> data_copy_emitter;
-    NoopEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     NoopEventEmitter<EccAddEvent> ecc_add_emitter;
     NoopEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
-    NoopEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     NoopEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
     NoopEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     NoopEventEmitter<RangeCheckEvent> range_check_emitter;
     NoopEventEmitter<ContextStackEvent> context_stack_emitter;
     NoopEventEmitter<TxEvent> tx_event_emitter;
-    NoopEventEmitter<CalldataEvent> calldata_emitter;
     NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
@@ -350,37 +428,39 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     PureAlu alu;
     PureBitwise bitwise;
-    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
-    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
+    PureSha256 sha256;
+    PureKeccakF1600 keccakf1600;
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
 
     SideEffectTracker side_effect_tracker;
     PureContractDB contract_db(raw_contract_db);
 
+    // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
+    // hashes).
+    if (tx.non_revertible_accumulated_data.nullifiers.empty()) {
+        throw std::runtime_error("Non-revertible nullifiers are empty in the transaction.");
+    }
+
     PureMerkleDB base_merkle_db(
         tx.non_revertible_accumulated_data.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
     SideEffectTrackingDB merkle_db(
+
         tx.non_revertible_accumulated_data.nullifiers[0], base_merkle_db, side_effect_tracker);
 
-    // NoopUpdateCheck update_check;
-    // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip
-    // collecting a required hint for a storage_read. Optionally use Noop if we don't need hints:
-
-    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
-
+    NoopUpdateCheck update_check;
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
         contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
+    PureTxBytecodeManager tx_bytecode_manager(contract_db, contract_instance_manager);
 
-    PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
     PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
 
     PureMemoryProvider memory_provider;
-    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    NoopCalldataHashingProvider calldata_hashing_provider;
     InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
-    ContextProvider context_provider(bytecode_manager,
+    ContextProvider context_provider(tx_bytecode_manager,
                                      memory_provider,
                                      calldata_hashing_provider,
                                      internal_call_stack_manager_provider,
@@ -395,15 +475,22 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     GetContractInstance get_contract_instance(
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
 
-    std::unique_ptr<DebugLoggerInterface> debug_log_component;
-    if (config.collect_debug_logs) {
-        // TODO(fcarreiro): add debug log level?
-        const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
-        debug_log_component = std::make_unique<DebugLogger>(
-            debug_log_level, config.max_debug_log_memory_reads, [](const std::string& message) { info(message); });
-    } else {
-        debug_log_component = std::make_unique<NoopDebugLogger>();
-    }
+    std::unique_ptr<DebugLoggerInterface> debug_log_component = [&config]() -> std::unique_ptr<DebugLoggerInterface> {
+        if (config.collect_debug_logs) {
+            // TODO(fcarreiro): add debug log level?
+            const DebugLogLevel debug_log_level = DebugLogLevel::INFO;
+            return std::make_unique<DebugLogger>(debug_log_level,
+                                                 config.collection_limits.max_debug_log_memory_reads,
+                                                 [](const std::string& message) { vinfo(message); });
+        } else {
+            return std::make_unique<NoopDebugLogger>();
+        }
+    }();
+    auto call_stack_metadata_collector =
+        config.collect_call_metadata ? static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<CallStackMetadataCollector>(config.collection_limits))
+                                     : static_cast<std::unique_ptr<CallStackMetadataCollectorInterface>>(
+                                           std::make_unique<NoopCallStackMetadataCollector>());
 
     HybridExecution execution(alu,
                               bitwise,
@@ -423,7 +510,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                               get_contract_instance,
                               emit_unencrypted_log_component,
                               *debug_log_component,
-                              merkle_db);
+                              merkle_db,
+                              *call_stack_metadata_collector,
+                              std::move(cancellation_token));
     TxExecution tx_execution(execution,
                              context_provider,
                              contract_db,
@@ -433,9 +522,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                              side_effect_tracker,
                              field_gt,
                              poseidon2,
+                             *call_stack_metadata_collector,
                              tx_event_emitter,
-                             config.skip_fee_enforcement,
-                             config.collect_call_metadata);
+                             config.skip_fee_enforcement);
 
     PublicInputsBuilder public_inputs_builder;
     public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, config.prover_id, raw_merkle_db);
@@ -455,13 +544,19 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
-        .app_logic_return_values = std::move(tx_execution_result.app_logic_return_values),
+        .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
+        .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component->dump_logs(),
         // Proving request data.
-        .public_inputs = public_inputs_builder.build(),
+        .public_inputs =
+            config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
         .hints = std::nullopt, // NOTE: hints are injected by the caller.
     };
 }
+
+/************************************
+ * Entry points
+ ************************************/
 
 TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     simulation::ContractDBInterface& raw_contract_db,
@@ -470,40 +565,80 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
     const PublicSimulatorConfig& config,
     const Tx& tx,
     const GlobalVariables& global_variables,
-    const ProtocolContracts& protocol_contracts)
+    const ProtocolContracts& protocol_contracts,
+    CancellationTokenPtr cancellation_token)
 {
-    // Create PureRawMerkleDB with the provided WorldState instance
-    PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
+    // For collecting hints, use the other method.
+    BB_ASSERT(!config.collect_hints && "Use simulate_for_hint_collection instead");
 
-    if (config.collect_hints) {
-        auto starting_tree_roots = raw_merkle_db.get_tree_roots();
-        HintingContractsDB hinting_contract_db(raw_contract_db);
-        HintingRawDB hinting_merkle_db(raw_merkle_db);
-        auto result =
-            simulate_fast(hinting_contract_db, hinting_merkle_db, config, tx, global_variables, protocol_contracts);
-        // TODO(MW): move to simulate_fast?
-        ExecutionHints collected_hints = ExecutionHints{ .global_variables = global_variables,
-                                                         .tx = tx,
-                                                         .protocol_contracts = protocol_contracts,
-                                                         .starting_tree_roots = starting_tree_roots };
-        hinting_contract_db.dump_hints(collected_hints);
-        hinting_merkle_db.dump_hints(collected_hints);
+    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
 
-        result.hints = collected_hints;
-        return result;
-    };
-
-    return simulate_fast(raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts);
+    return simulate_fast_internal(
+        raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }
 
-TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
+TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
+    simulation::ContractDBInterface& raw_contract_db,
+    const world_state::WorldStateRevision& world_state_revision,
+    world_state::WorldState& ws,
+    const PublicSimulatorConfig& config,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts,
+    CancellationTokenPtr cancellation_token)
+{
+    // If you are not collecting hints, don't use this method.
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
+
+    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
+
+    auto starting_tree_roots = raw_merkle_db.get_tree_roots();
+    HintingContractsDB hinting_contract_db(raw_contract_db);
+    HintingRawDB hinting_merkle_db(raw_merkle_db);
+
+    // We use NoopEventEmitters here because we don't want to collect events.
+    auto [/* unused */ events_, tx_result] = simulate_for_witgen_internal<NoopEventEmitter, NoopEventEmitter>(
+        hinting_contract_db, hinting_merkle_db, config, tx, global_variables, protocol_contracts);
+
+    ExecutionHints collected_hints = ExecutionHints{ .global_variables = global_variables,
+                                                     .tx = tx,
+                                                     .protocol_contracts = protocol_contracts,
+                                                     .starting_tree_roots = starting_tree_roots };
+    hinting_contract_db.dump_hints(collected_hints);
+    hinting_merkle_db.dump_hints(collected_hints);
+
+    tx_result.hints = std::move(collected_hints);
+
+    // Need to std::move to avoid copying (due to structured bindings).
+    // This was fixed in C++23 via http://wg21.link/P2266R3.
+    return std::move(tx_result);
+}
+
+EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
 {
     // TODO(fcarreiro): decide if we want to pass a config here.
     const PublicSimulatorConfig config{};
 
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-    return simulate_fast(
+
+    // We use EventEmitters and DeduplicatingEventEmitters here because we want to collect events.
+    auto [events, /* unused */ tx_result_] = simulate_for_witgen_internal<EventEmitter, DeduplicatingEventEmitter>(
+        raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts);
+
+    // Need to std::move to avoid copying (due to structured bindings).
+    // This was fixed in C++23 via http://wg21.link/P2266R3.
+    return std::move(events);
+}
+
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints,
+                                                                      const PublicSimulatorConfig& config)
+{
+    HintedRawContractDB raw_contract_db(hints);
+    HintedRawMerkleDB raw_merkle_db(hints);
+    return simulate_fast_internal(
         raw_contract_db, raw_merkle_db, config, hints.tx, hints.global_variables, hints.protocol_contracts);
 }
 

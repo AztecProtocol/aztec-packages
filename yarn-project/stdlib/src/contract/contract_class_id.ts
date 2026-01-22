@@ -1,6 +1,6 @@
 import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { strict as assert } from 'assert';
 
@@ -40,7 +40,7 @@ export async function computeContractClassIdWithPreimage(
       : await computePublicBytecodeCommitment(contractClass.packedBytecode);
   const id = await poseidon2HashWithSeparator(
     [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
-    GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
+    GeneratorIndex.CONTRACT_CLASS_ID,
   );
   return { id, artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }

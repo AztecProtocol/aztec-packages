@@ -5,6 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -53,12 +54,17 @@ describe('e2e_multiple_blobs', () => {
     const privateFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.PRIVATE);
     const utilityFunctions = contractArtifact.functions.filter(fn => fn.functionType == FunctionType.UTILITY);
 
+    // Increase the minimum number of txs per block so that all txs will be mined in the same block.
+    const TX_COUNT = 5;
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
+
     const provenTxs = [
       // 1 contract deployment tx.
       await publishContractClass(wallet, AvmTestContract.artifact),
-      // 2 private function broadcast txs.
+      // 2 private function broadcast txs. We pick [2] because it has large bytecode (~1,807 fields),
+      // which combined with the contract class publication exceeds FIELDS_PER_BLOB (4,096).
       await broadcastFunction(privateFunctions[0]),
-      await broadcastFunction(privateFunctions[1]),
+      await broadcastFunction(privateFunctions[2]),
       // 1 utility function broadcast tx.
       await broadcastFunction(utilityFunctions[0]),
       // 1 tx to emit note hash, nullifier, l2_to_l1_message, private log and public log.
@@ -75,8 +81,7 @@ describe('e2e_multiple_blobs', () => {
       ]),
     ];
 
-    // Increase the minimum number of txs per block so that all txs will be mined in the same block.
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: provenTxs.length });
+    expect(provenTxs.length).toBe(TX_COUNT);
 
     // Send them simultaneously to be picked up by the sequencer
     const receipts = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress }).wait()));
@@ -87,7 +92,7 @@ describe('e2e_multiple_blobs', () => {
 
     const block = (await aztecNode.getBlock(blockNumber))!;
 
-    const numBlobFields = block.getCheckpointBlobFields().length;
+    const numBlobFields = encodeCheckpointBlobDataFromBlocks([block.toBlockBlobData()]).length;
     const numBlobs = Math.ceil(numBlobFields / FIELDS_PER_BLOB);
     logger.info(
       `Block ${blockNumber} has ${provenTxs.length} txs, which produce ${numBlobFields} blob fields in ${numBlobs} blobs.`,

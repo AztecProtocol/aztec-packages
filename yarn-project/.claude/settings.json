@@ -1,9 +1,10 @@
 {
   "permissions": {
+    "additionalDirectories": ["../"],
     "allow": [
       "Bash(yarn:*)",
       "Bash(forge:*)",
-      "Bash(env LOG_LEVEL:* yarn:*)",
+      "Bash(env LOG_LEVEL=* yarn *)",
       "Bash(./bootstrap.sh:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
@@ -20,21 +21,13 @@
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
+      "Bash(gh:*)",
       "Bash(cd:*)",
       "Bash(grep:*)",
       "Bash(curl -XGET:*)",
       "WebFetch(domain:ci.aztec-labs.com)"
     ],
-    "deny": [
-      "Bash(git push:*-f*)",
-      "Bash(git push:*--force*)",
-      "Bash(git push:*--force-with-lease*)",
-      "Bash(git reset:*--hard*)",
-      "Bash(git clean:*-f*)",
-      "Bash(git clean:*-fd*)",
-      "Bash(git clean:*-fx*)",
-      "Bash(git branch:*-D*)"
-    ],
+    "deny": [],
     "ask": []
   }
 }

@@ -1,6 +1,7 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { randomInt, sha256 } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -46,7 +47,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
     store = new InlineProofStore();
     agents = times(
       AGENTS,
-      i => new ProvingAgent(broker, store, prover, [], WORK_LOOP, undefined, createLogger('prover-agent-' + i)),
+      i => new ProvingAgent(broker, store, prover, [], WORK_LOOP, createLogger('prover-agent-' + i)),
     );
 
     await broker.start();

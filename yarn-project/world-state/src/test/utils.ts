@@ -4,122 +4,100 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
+import { asyncMap } from '@aztec/foundation/async-map';
+import { BlockNumber, type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { L2Block } from '@aztec/stdlib/block';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { mockCheckpointAndMessages, mockL1ToL2Messages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { NativeWorldStateService } from '../native/native_world_state.js';
 
-export async function mockBlock(
-  blockNum: number,
-  size: number,
-  fork: MerkleTreeWriteOperations,
-  maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
-) {
-  const l2Block = await L2Block.random(blockNum, size, undefined, undefined, undefined, undefined, maxEffects);
-  const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.random);
+export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], fork: MerkleTreeWriteOperations) {
+  const insertData = async (
+    treeId: IndexedTreeId,
+    data: Buffer[][],
+    subTreeHeight: number,
+    fork: MerkleTreeWriteOperations,
+  ) => {
+    for (const dataBatch of data) {
+      await fork.batchInsert(treeId, dataBatch, subTreeHeight);
+    }
+  };
 
-  {
-    const insertData = async (
-      treeId: IndexedTreeId,
-      data: Buffer[][],
-      subTreeHeight: number,
-      fork: MerkleTreeWriteOperations,
-    ) => {
-      for (const dataBatch of data) {
-        await fork.batchInsert(treeId, dataBatch, subTreeHeight);
-      }
-    };
+  const publicDataInsert = insertData(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    block.body.txEffects.map(txEffect => txEffect.publicDataWrites.map(write => write.toBuffer())),
+    0,
+    fork,
+  );
+  const nullifierInsert = insertData(
+    MerkleTreeId.NULLIFIER_TREE,
+    block.body.txEffects.map(txEffect =>
+      padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(nullifier => nullifier.toBuffer()),
+    ),
+    NULLIFIER_SUBTREE_HEIGHT,
+    fork,
+  );
+  const noteHashesPadded = block.body.txEffects.flatMap(txEffect =>
+    padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+  );
 
-    const publicDataInsert = insertData(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      l2Block.body.txEffects.map(txEffect => txEffect.publicDataWrites.map(write => write.toBuffer())),
-      0,
-      fork,
-    );
-    const nullifierInsert = insertData(
-      MerkleTreeId.NULLIFIER_TREE,
-      l2Block.body.txEffects.map(txEffect =>
-        padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(nullifier => nullifier.toBuffer()),
-      ),
-      NULLIFIER_SUBTREE_HEIGHT,
-      fork,
-    );
-    const noteHashesPadded = l2Block.body.txEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
+  const l1ToL2MessagesPadded =
+    block.indexWithinCheckpoint === 0
+      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
+      : l1ToL2Messages;
 
-    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-
-    const noteHashInsert = fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
-    const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-    await Promise.all([publicDataInsert, nullifierInsert, noteHashInsert, messageInsert]);
-  }
+  const noteHashInsert = fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
+  const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+  await Promise.all([publicDataInsert, nullifierInsert, noteHashInsert, messageInsert]);
 
   const state = await fork.getStateReference();
-  l2Block.header.state = state;
-  await fork.updateArchive(l2Block.getBlockHeader());
+  block.header = BlockHeader.from({ ...block.header, state });
+  await fork.updateArchive(block.header);
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-  l2Block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
+  block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
+}
+
+export async function mockBlock(
+  blockNum: BlockNumber,
+  size: number,
+  fork: MerkleTreeWriteOperations,
+  maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
+  numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  isFirstBlockInCheckpoint: boolean = true,
+) {
+  const block = await L2Block.random(blockNum, {
+    indexWithinCheckpoint: isFirstBlockInCheckpoint ? IndexWithinCheckpoint(0) : IndexWithinCheckpoint(1),
+    txsPerBlock: size,
+    txOptions: { maxEffects },
+  });
+  const l1ToL2Messages = mockL1ToL2Messages(numL1ToL2Messages);
+
+  await updateBlockState(block, l1ToL2Messages, fork);
 
   return {
-    block: l2Block,
+    block,
     messages: l1ToL2Messages,
   };
 }
 
-export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOperations) {
+export async function mockEmptyBlock(blockNum: BlockNumber, fork: MerkleTreeWriteOperations) {
   const l2Block = L2Block.empty();
   const l1ToL2Messages = Array(16).fill(0).map(Fr.zero);
 
   l2Block.header.globalVariables.blockNumber = blockNum;
 
-  // Sync the append only trees
-  {
-    const noteHashesPadded = l2Block.body.txEffects.flatMap(txEffect =>
-      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
-    await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
-
-    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-  }
-
-  // Sync the indexed trees
-  {
-    // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-    for (const txEffect of l2Block.body.txEffects) {
-      await fork.batchInsert(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        txEffect.publicDataWrites.map(write => write.toBuffer()),
-        0,
-      );
-
-      const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);
-
-      await fork.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        nullifiersPadded.map(nullifier => nullifier.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
-    }
-  }
-
-  const state = await fork.getStateReference();
-  l2Block.header.state = state;
-  await fork.updateArchive(l2Block.getBlockHeader());
-
-  const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-
-  l2Block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
+  await updateBlockState(l2Block, l1ToL2Messages, fork);
 
   return {
     block: l2Block,
@@ -127,13 +105,18 @@ export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOper
   };
 }
 
-export async function mockBlocks(from: number, count: number, numTxs: number, worldState: NativeWorldStateService) {
-  const tempFork = await worldState.fork(from - 1);
+export async function mockBlocks(
+  from: BlockNumber,
+  count: number,
+  numTxs: number,
+  worldState: NativeWorldStateService,
+) {
+  const tempFork = await worldState.fork(BlockNumber(from - 1));
 
   const blocks = [];
   const messagesArray = [];
   for (let blockNumber = from; blockNumber < from + count; blockNumber++) {
-    const { block, messages } = await mockBlock(blockNumber, numTxs, tempFork);
+    const { block, messages } = await mockBlock(BlockNumber(blockNumber), numTxs, tempFork);
     blocks.push(block);
     messagesArray.push(messages);
   }
@@ -141,6 +124,18 @@ export async function mockBlocks(from: number, count: number, numTxs: number, wo
   await tempFork.close();
 
   return { blocks, messages: messagesArray };
+}
+
+export async function mockCheckpoint(
+  checkpointNumber: CheckpointNumber,
+  fork: MerkleTreeWriteOperations,
+  options: Partial<Parameters<typeof mockCheckpointAndMessages>[1]> = {},
+) {
+  const { checkpoint, messages } = await mockCheckpointAndMessages(checkpointNumber, options);
+  await asyncMap(checkpoint.blocks, async (block, i) => {
+    await updateBlockState(block, i === 0 ? messages : [], fork);
+  });
+  return { checkpoint, messages };
 }
 
 export async function assertSameState(forkA: MerkleTreeReadOperations, forkB: MerkleTreeReadOperations) {

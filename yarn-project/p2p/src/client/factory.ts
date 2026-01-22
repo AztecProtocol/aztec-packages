@@ -26,7 +26,7 @@ import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerI
 export type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
   store?: AztecAsyncKVStore;
-  attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
+  attestationPool?: AttestationPool;
   logger?: Logger;
   txCollectionNodeSources?: TxSource[];
   p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
@@ -73,19 +73,14 @@ export async function createP2PClient<T extends P2PClientType>(
   );
   const l1Constants = await archiver.getL1Constants();
 
-  const mempools: MemPools<T> = {
+  const mempools: MemPools = {
     txPool:
       deps.txPool ??
       new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
-        maxTxPoolSize: config.maxTxPoolSize,
+        maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
       }),
-    attestationPool:
-      clientType === P2PClientType.Full
-        ? ((deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry)) as T extends P2PClientType.Full
-            ? AttestationPool
-            : undefined)
-        : undefined,
+    attestationPool: deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry),
   };
 
   const p2pService = await createP2PService<T>(
@@ -147,7 +142,7 @@ async function createP2PService<T extends P2PClientType>(
   epochCache: EpochCacheInterface,
   store: AztecAsyncKVStore,
   peerStore: AztecLMDBStoreV2,
-  mempools: MemPools<T>,
+  mempools: MemPools,
   p2pServiceFactory: P2PClientDeps<T>['p2pServiceFactory'],
   packageVersion: string,
   logger: Logger,

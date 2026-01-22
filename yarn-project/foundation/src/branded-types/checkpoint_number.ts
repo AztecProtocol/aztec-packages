@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { BlockNumber } from './block_number.js';
 import type { Branded } from './types.js';
 
 /**
@@ -41,7 +42,7 @@ export function CheckpointNumber(value: number): CheckpointNumber {
  * @deprecated Checkpoint number and block number should no longer convert to each other once we support multiple blocks
  * per checkpoint everywhere.
  */
-CheckpointNumber.fromBlockNumber = function (value: number): CheckpointNumber {
+CheckpointNumber.fromBlockNumber = function (value: BlockNumber): CheckpointNumber {
   return CheckpointNumber(value);
 };
 
@@ -84,16 +85,31 @@ CheckpointNumber.isValid = function (value: unknown): value is CheckpointNumber 
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
-/**
- * The zero checkpoint value.
- */
+/** The zero checkpoint value. */
 CheckpointNumber.ZERO = CheckpointNumber(0);
+
+/** Initial checkpoint. */
+CheckpointNumber.INITIAL = CheckpointNumber(1);
 
 /**
  * Zod schema for parsing and validating CheckpointNumber values.
  * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
  */
-export const CheckpointNumberSchema = z
-  .union([z.number(), z.bigint(), z.string()])
-  .pipe(z.coerce.number().int().min(0))
-  .transform(value => CheckpointNumber(value));
+function makeCheckpointNumberSchema(minValue: number) {
+  return z
+    .union([z.number(), z.bigint(), z.string()])
+    .pipe(z.coerce.number().int().min(minValue))
+    .transform(value => CheckpointNumber(value));
+}
+
+/**
+ * Zod schema for parsing and validating Checkpoint values.
+ * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
+ */
+export const CheckpointNumberSchema = makeCheckpointNumberSchema(0);
+
+/**
+ * Zod schema for parsing and validating CheckpointNumber values that are strictly positive.
+ * Accepts numbers, bigints, or strings and coerces them to CheckpointNumber.
+ */
+export const CheckpointNumberPositiveSchema = makeCheckpointNumberSchema(1);

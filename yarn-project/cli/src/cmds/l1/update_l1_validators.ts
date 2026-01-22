@@ -1,24 +1,17 @@
-import {
-  GSEContract,
-  RollupContract,
-  createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-  getL1ContractsConfigEnvVars,
-  getPublicClient,
-  isAnvilTestChain,
-} from '@aztec/ethereum';
+import { createEthereumChain, isAnvilTestChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { GSEContract, RollupContract } from '@aztec/ethereum/contracts';
+import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, StakingAssetHandlerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
-import { encodeFunctionData, formatEther, getContract } from 'viem';
+import { encodeFunctionData, formatEther, getContract, maxUint256 } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-
-import { addLeadingHex } from '../../utils/aztec.js';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -58,8 +51,8 @@ export async function addL1Validator({
   privateKey,
   mnemonic,
   attesterAddress,
+  withdrawerAddress,
   stakingAssetHandlerAddress,
-  merkleProof,
   proofParams,
   blsSecretKey,
   log,
@@ -68,8 +61,8 @@ export async function addL1Validator({
   LoggerArgs & {
     blsSecretKey: bigint; // scalar field element of BN254
     attesterAddress: EthAddress;
+    withdrawerAddress: EthAddress;
     proofParams: Buffer;
-    merkleProof: string[];
   }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
@@ -92,33 +85,61 @@ export async function addL1Validator({
   });
 
   const gseAddress = await rollup.read.getGSE();
-
   const gse = new GSEContract(l1Client, gseAddress);
-
   const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
 
   const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
-  const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
-  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+  // Step 1: Claim STK tokens from the faucet
+  dualLog(`Claiming STK tokens from faucet`);
+  const { receipt: claimReceipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
-      functionName: 'addValidator',
-      args: [
-        attesterAddress.toString(),
-        merkleProofArray,
-        proofParamsObj.toViem(),
-        registrationTuple.publicKeyInG1,
-        registrationTuple.publicKeyInG2,
-        registrationTuple.proofOfPossession,
-      ],
+      functionName: 'claim',
+      args: [proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
   });
-  dualLog(`Transaction hash: ${receipt.transactionHash}`);
+  dualLog(`Claim transaction hash: ${claimReceipt.transactionHash}`);
+  await l1Client.waitForTransactionReceipt({ hash: claimReceipt.transactionHash });
+
+  // Step 2: Approve the rollup to spend STK tokens
+  const stakingAssetAddress = await stakingAssetHandler.read.STAKING_ASSET();
+  dualLog(`Approving rollup to spend STK tokens`);
+  const { receipt: approveReceipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: stakingAssetAddress,
+    data: encodeFunctionData({
+      abi: TestERC20Abi,
+      functionName: 'approve',
+      args: [rollupAddress, maxUint256],
+    }),
+    abi: TestERC20Abi,
+  });
+  await l1Client.waitForTransactionReceipt({ hash: approveReceipt.transactionHash });
+
+  // Step 3: Deposit into the rollup to register as a validator
+  dualLog(`Depositing into rollup to register validator`);
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress,
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'deposit',
+      args: [
+        attesterAddress.toString(),
+        withdrawerAddress.toString(),
+        registrationTuple.publicKeyInG1,
+        registrationTuple.publicKeyInG2,
+        registrationTuple.proofOfPossession,
+        false, // moveWithLatestRollup
+      ],
+    }),
+    abi: RollupAbi,
+  });
+  dualLog(`Deposit transaction hash: ${receipt.transactionHash}`);
   await l1Client.waitForTransactionReceipt({ hash: receipt.transactionHash });
+
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), debugLogger);

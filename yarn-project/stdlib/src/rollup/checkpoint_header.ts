@@ -1,8 +1,8 @@
-import type { ViemHeader } from '@aztec/ethereum';
+import type { ViemHeader } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { sha256ToField } from '@aztec/foundation/crypto';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -14,17 +14,32 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/index.js';
 import { schemas } from '../schemas/index.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
+import type { GlobalVariables } from '../tx/global_variables.js';
 import type { UInt64 } from '../types/shared.js';
 
+/**
+ * Header of a checkpoint. A checkpoint is a collection of blocks submitted to L1 all within the same slot.
+ * TODO(palla/mbps): Should this include chainId and version as well? Is this used just in circuits?
+ * TODO(palla/mbps): What about CheckpointNumber?
+ */
 export class CheckpointHeader {
   constructor(
     /** Root of the archive tree before this block is added. */
     public lastArchiveRoot: Fr,
     /** Hash of the headers of all blocks in this checkpoint. */
     public blockHeadersHash: Fr,
-    /** Content commitment of the L2 block. */
-    public contentCommitment: ContentCommitment,
+    /** Hash of the blobs in the checkpoint. */
+    public blobsHash: Fr,
+    /** Root of the l1 to l2 messages subtree. */
+    public inHash: Fr,
+    /**
+     * The root of the epoch out hash balanced tree. The out hash of the first checkpoint in the epoch is inserted at
+     * index 0, the second at index 1, and so on.
+     * Note: This is not necessarily the final epoch out hash. It includes only the out hashes of checkpoints up to and
+     * including the current checkpoint. Any subsequent checkpoints added to the same epoch are not reflected in this
+     * value.
+     */
+    public epochOutHash: Fr,
     /** Slot number of the L2 block */
     public slotNumber: SlotNumber,
     /** Timestamp of the L2 block. */
@@ -44,7 +59,9 @@ export class CheckpointHeader {
       .object({
         lastArchiveRoot: schemas.Fr,
         blockHeadersHash: schemas.Fr,
-        contentCommitment: ContentCommitment.schema,
+        blobsHash: schemas.Fr,
+        inHash: schemas.Fr,
+        epochOutHash: schemas.Fr,
         slotNumber: schemas.SlotNumber,
         timestamp: schemas.BigInt,
         coinbase: schemas.EthAddress,
@@ -59,7 +76,9 @@ export class CheckpointHeader {
     return [
       fields.lastArchiveRoot,
       fields.blockHeadersHash,
-      fields.contentCommitment,
+      fields.blobsHash,
+      fields.inHash,
+      fields.epochOutHash,
       fields.slotNumber,
       fields.timestamp,
       fields.coinbase,
@@ -79,7 +98,9 @@ export class CheckpointHeader {
     return new CheckpointHeader(
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(ContentCommitment),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       SlotNumber(Fr.fromBuffer(reader).toNumber()),
       reader.readUInt64(),
       reader.readObject(EthAddress),
@@ -93,7 +114,9 @@ export class CheckpointHeader {
     return (
       this.lastArchiveRoot.equals(other.lastArchiveRoot) &&
       this.blockHeadersHash.equals(other.blockHeadersHash) &&
-      this.contentCommitment.equals(other.contentCommitment) &&
+      this.blobsHash.equals(other.blobsHash) &&
+      this.inHash.equals(other.inHash) &&
+      this.epochOutHash.equals(other.epochOutHash) &&
       this.slotNumber === other.slotNumber &&
       this.timestamp === other.timestamp &&
       this.coinbase.equals(other.coinbase) &&
@@ -103,12 +126,25 @@ export class CheckpointHeader {
     );
   }
 
+  /** Returns true if the global variables match those in the checkpoint header. */
+  matchesGlobalVariables(other: GlobalVariables) {
+    return (
+      this.coinbase.equals(other.coinbase) &&
+      this.feeRecipient.equals(other.feeRecipient) &&
+      this.gasFees.equals(other.gasFees) &&
+      this.slotNumber === other.slotNumber &&
+      this.timestamp === other.timestamp
+    );
+  }
+
   toBuffer() {
     // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer([
       this.lastArchiveRoot,
       this.blockHeadersHash,
-      this.contentCommitment,
+      this.blobsHash,
+      this.inHash,
+      this.epochOutHash,
       new Fr(this.slotNumber),
       bigintToUInt64BE(this.timestamp),
       this.coinbase,
@@ -126,7 +162,9 @@ export class CheckpointHeader {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.ZERO,
       blockHeadersHash: Fr.ZERO,
-      contentCommitment: ContentCommitment.empty(),
+      blobsHash: Fr.ZERO,
+      inHash: Fr.ZERO,
+      epochOutHash: Fr.ZERO,
       slotNumber: SlotNumber.ZERO,
       timestamp: 0n,
       coinbase: EthAddress.ZERO,
@@ -141,7 +179,9 @@ export class CheckpointHeader {
     return CheckpointHeader.from({
       lastArchiveRoot: Fr.random(),
       blockHeadersHash: Fr.random(),
-      contentCommitment: ContentCommitment.random(),
+      blobsHash: Fr.random(),
+      inHash: Fr.random(),
+      epochOutHash: Fr.random(),
       slotNumber: SlotNumber(Math.floor(Math.random() * 1000) + 1),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
       coinbase: EthAddress.random(),
@@ -156,7 +196,9 @@ export class CheckpointHeader {
     return (
       this.lastArchiveRoot.isZero() &&
       this.blockHeadersHash.isZero() &&
-      this.contentCommitment.isEmpty() &&
+      this.blobsHash.isZero() &&
+      this.inHash.isZero() &&
+      this.epochOutHash.isZero() &&
       this.slotNumber === 0 &&
       this.timestamp === 0n &&
       this.coinbase.isZero() &&
@@ -182,7 +224,9 @@ export class CheckpointHeader {
     return new CheckpointHeader(
       Fr.fromString(header.lastArchiveRoot),
       Fr.fromString(header.blockHeadersHash),
-      ContentCommitment.fromViem(header.contentCommitment),
+      Fr.fromString(header.blobsHash),
+      Fr.fromString(header.inHash),
+      Fr.fromString(header.outHash),
       SlotNumber.fromBigInt(header.slotNumber),
       header.timestamp,
       new EthAddress(hexToBuffer(header.coinbase)),
@@ -204,7 +248,9 @@ export class CheckpointHeader {
     return {
       lastArchiveRoot: this.lastArchiveRoot.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      contentCommitment: this.contentCommitment.toViem(),
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
+      outHash: this.epochOutHash.toString(),
       slotNumber: BigInt(this.slotNumber),
       timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
@@ -221,7 +267,9 @@ export class CheckpointHeader {
     return {
       lastArchive: this.lastArchiveRoot.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      contentCommitment: this.contentCommitment.toInspect(),
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
+      epochOutHash: this.epochOutHash.toString(),
       slotNumber: this.slotNumber,
       timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
@@ -232,16 +280,17 @@ export class CheckpointHeader {
   }
 
   [inspect.custom]() {
-    const gasfees = `da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas}`;
     return `Header {
   lastArchiveRoot: ${this.lastArchiveRoot.toString()},
   blockHeadersHash: ${this.blockHeadersHash.toString()},
-  contentCommitment: ${inspect(this.contentCommitment)},
+  blobsHash: ${inspect(this.blobsHash)},
+  inHash: ${inspect(this.inHash)},
+  epochOutHash: ${inspect(this.epochOutHash)},
   slotNumber: ${this.slotNumber},
   timestamp: ${this.timestamp},
   coinbase: ${this.coinbase.toString()},
   feeRecipient: ${this.feeRecipient.toString()},
-  gasFees: ${gasfees},
+  gasFees: { da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas} },
   totalManaUsed: ${this.totalManaUsed.toBigInt()},
 }`;
   }

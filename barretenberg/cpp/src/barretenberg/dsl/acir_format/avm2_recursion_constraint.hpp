@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -12,13 +12,10 @@
 
 namespace acir_format {
 
-using Builder = bb::UltraCircuitBuilder;
-
 using namespace bb;
 
-[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<Builder>
-create_avm2_recursion_constraints_goblin(Builder& builder,
-                                         const RecursionConstraint& input,
-                                         bool has_valid_witness_assignments);
+[[nodiscard(
+    "IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<bb::UltraCircuitBuilder>
+create_avm2_recursion_constraints_goblin(bb::UltraCircuitBuilder& builder, const RecursionConstraint& input);
 
 } // namespace acir_format

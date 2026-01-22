@@ -39,7 +39,7 @@ export class JumpI extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private condOffset: number,
     private loc: number,
   ) {
@@ -48,7 +48,7 @@ export class JumpI extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

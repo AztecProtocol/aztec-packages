@@ -38,7 +38,7 @@ using tx_context = bb::avm2::tx_context<FF>;
 
 TEST(TxExecutionConstrainingTest, NegativeEmptyTrace)
 {
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(testing::empty_trace()), "SEL_ON_FIRST_ROW");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(testing::empty_trace()), "START_WITH_SEL");
 }
 
 TEST(TxExecutionConstrainingTest, NegativeEarlyEnd)
@@ -72,7 +72,7 @@ TEST(TxExecutionConstrainingTest, NegativeNoExtraneousRows)
             { C::tx_sel, 1 },
         },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NO_EXTRANEOUS_ROWS), "NO_EXTRANEOUS_ROWS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 class TxExecutionConstrainingTestHelper : public ::testing::Test {
@@ -96,7 +96,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
                 { C::tx_sel_non_revertible_append_nullifier, 1 },
-                { C::tx_sel_can_emit_nullifier, 1 },
 
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
@@ -116,7 +115,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_is_padded, 1 },
                       { C::tx_is_tree_insert_phase, 1 },
                       { C::tx_sel_non_revertible_append_note_hash, 1 },
-                      { C::tx_sel_can_emit_note_hash, 1 },
                       { C::tx_read_pi_start_offset,
                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                       { C::tx_read_pi_offset,
@@ -135,7 +133,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
                 { C::tx_is_padded, 1 },
                 { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
-                { C::tx_sel_can_emit_l2_l1_msg, 1 },
 
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
@@ -173,11 +170,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_remaining_phase_inv, FF(calls_remaining).invert() },
                           { C::tx_remaining_phase_minus_one_inv,
                             calls_remaining == 1 ? 0 : FF(calls_remaining - 1).invert() },
-                          { C::tx_sel_can_emit_note_hash, 1 },
-                          { C::tx_sel_can_emit_nullifier, 1 },
-                          { C::tx_sel_can_write_public_data, 1 },
-                          { C::tx_sel_can_emit_unencrypted_log, 1 },
-                          { C::tx_sel_can_emit_l2_l1_msg, 1 },
                           // Public Input Loaded Values
                           { C::tx_msg_sender, setup_call.msg_sender },
                           { C::tx_contract_addr, setup_call.contract_address },
@@ -196,7 +188,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
                 { C::tx_sel_revertible_append_nullifier, 1 },
-                { C::tx_sel_can_emit_nullifier, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
@@ -216,7 +207,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
                 { C::tx_sel_revertible_append_note_hash, 1 },
-                { C::tx_sel_can_emit_note_hash, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
@@ -235,7 +225,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
                 { C::tx_is_padded, 1 },
                 { C::tx_sel_revertible_append_l2_l1_msg, 1 },
-                { C::tx_sel_can_emit_l2_l1_msg, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
@@ -272,11 +261,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_remaining_phase_minus_one_inv,
                             calls_remaining == 1 ? 0 : FF(calls_remaining - 1).invert() },
                           { C::tx_is_revertible, 1 },
-                          { C::tx_sel_can_emit_note_hash, 1 },
-                          { C::tx_sel_can_emit_nullifier, 1 },
-                          { C::tx_sel_can_write_public_data, 1 },
-                          { C::tx_sel_can_emit_unencrypted_log, 1 },
-                          { C::tx_sel_can_emit_l2_l1_msg, 1 },
                           { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
                           // Public Input Loaded Values
                           { C::tx_msg_sender, app_logic_call.msg_sender },
@@ -300,11 +284,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX },
                       { C::tx_is_public_call_request, 1 },
                       { C::tx_is_revertible, 1 },
-                      { C::tx_sel_can_emit_note_hash, 1 },
-                      { C::tx_sel_can_emit_nullifier, 1 },
-                      { C::tx_sel_can_write_public_data, 1 },
-                      { C::tx_sel_can_emit_unencrypted_log, 1 },
-                      { C::tx_sel_can_emit_l2_l1_msg, 1 },
                       { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },
@@ -317,12 +296,11 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_remaining_phase_counter, 1 },
                       { C::tx_remaining_phase_inv, 1 },
                       { C::tx_is_collect_fee, 1 },
-                      { C::tx_sel_can_write_public_data, 1 },
                       { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX },
                       { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX },
                       { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX },
                       { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
-                      { C::tx_fee_juice_balances_slot, FEE_JUICE_BALANCES_SLOT },
+                      { C::tx_fee_juice_balances_slot_constant, FEE_JUICE_BALANCES_SLOT },
                       { C::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },
@@ -338,8 +316,6 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_is_tree_padding, 1 },
                       { C::tx_remaining_phase_counter, 1 },
                       { C::tx_remaining_phase_inv, 1 },
-                      { C::tx_sel_can_emit_note_hash, 1 },
-                      { C::tx_sel_can_emit_nullifier, 1 },
                       { C::tx_next_note_hash_tree_size, MAX_NOTE_HASHES_PER_TX },
                       { C::tx_next_nullifier_tree_size, MAX_NULLIFIERS_PER_TX },
                   } });
@@ -602,9 +578,9 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_tree_insert_value_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_l2_l1_msg_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_write_l2_l1_msg_settings>()->process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_tree_insert_value_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_l2_l1_msg_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_write_l2_l1_msg_settings>(trace);
 }
 
 TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
@@ -715,14 +691,14 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_spec_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_length_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_public_call_request_phase_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_effective_fee_public_inputs_settings>()->process(trace);
-    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_fee_payer_public_inputs_settings>()->process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_phase_spec_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_phase_length_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_public_call_request_phase_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_effective_fee_public_inputs_settings>(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_read_fee_payer_public_inputs_settings>(trace);
 }
 
-TEST(TxExecutionConstrainingTest, NegativePaddingChecks)
+TEST(TxExecutionConstrainingTest, NegativeTreePaddingChecks)
 {
     TestTraceContainer trace({
         {
@@ -747,33 +723,35 @@ TEST(TxExecutionConstrainingTest, NegativePaddingChecks)
             { C::tx_next_num_nullifiers_emitted, 7 },
         },
     });
-    check_relation<tx>(trace,
-                       tx::SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING,
-                       tx::SR_PAD_NOTE_HASH_TREE,
-                       tx::SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING,
-                       tx::SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING,
-                       tx::SR_PAD_NULLIFIER_TREE,
-                       tx::SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING);
+    check_relation<tx>(trace, tx::SR_PAD_NOTE_HASH_TREE, tx::SR_PAD_NULLIFIER_TREE);
 
-    // Negative test: change note hash root in padding
+    check_relation<tx_context>(trace,
+                               tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY,
+                               tx_context::SR_NOTE_HASH_SIZE_IMMUTABILITY,
+                               tx_context::SR_NOTE_HASH_COUNT_IMMUTABILITY,
+                               tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY,
+                               tx_context::SR_NULLIFIER_SIZE_IMMUTABILITY,
+                               tx_context::SR_NULLIFIER_COUNT_IMMUTABILITY);
+
+    // Negative test: change note hash root in tree padding
     trace.set(C::tx_next_note_hash_tree_root, 1, 999);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING),
-                              "NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY),
+                              "NOTE_HASH_ROOT_IMMUTABILITY");
 
-    // Negative test: change num emitted note hashes in padding
+    // Negative test: change num emitted note hashes in tree padding
     trace.set(C::tx_next_num_note_hashes_emitted, 1, 999);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING),
-                              "NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_COUNT_IMMUTABILITY),
+                              "NOTE_HASH_COUNT_IMMUTABILITY");
 
-    // Negative test: change nullifier tree root in padding
+    // Negative test: change nullifier tree root in tree padding
     trace.set(C::tx_next_nullifier_tree_root, 1, 999);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING),
-                              "NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY),
+                              "NULLIFIER_ROOT_IMMUTABILITY");
 
-    // Negative test: change num emitted nullifiers in padding
+    // Negative test: change num emitted nullifiers in tree padding
     trace.set(C::tx_next_num_nullifiers_emitted, 1, 999);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING),
-                              "NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_COUNT_IMMUTABILITY),
+                              "NULLIFIER_COUNT_IMMUTABILITY");
 
     // Negative test: wrong note hash padding check
     trace.set(C::tx_next_note_hash_tree_size, 1, MAX_NOTE_HASHES_PER_TX - 1);
@@ -808,27 +786,23 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
 
     std::vector<FF> dummy_setup_calldata = { 1, 2 };
     std::vector<FF> dummy_setup_calldata_preimage = dummy_setup_calldata;
-    dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+    dummy_setup_calldata_preimage.insert(dummy_setup_calldata_preimage.begin(), DOM_SEP__PUBLIC_CALLDATA);
     FF dummy_setup_calldata_hash = poseidon2.hash(dummy_setup_calldata_preimage);
     test_public_inputs.public_setup_call_requests[0].calldata_hash = dummy_setup_calldata_hash;
 
     std::vector<FF> non_empty_calldata = { 2, 3, 4 };
     std::vector<FF> non_empty_calldata_preimage = non_empty_calldata;
-    non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+    non_empty_calldata_preimage.insert(non_empty_calldata_preimage.begin(), DOM_SEP__PUBLIC_CALLDATA);
     FF non_empty_calldata_hash = poseidon2.hash(non_empty_calldata_preimage);
     test_public_inputs.public_app_logic_call_requests[0].calldata_hash = non_empty_calldata_hash;
 
-    FF empty_calldata_hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA });
+    FF empty_calldata_hash = poseidon2.hash({ DOM_SEP__PUBLIC_CALLDATA });
     test_public_inputs.public_app_logic_call_requests[1].calldata_hash = empty_calldata_hash;
 
     std::vector<simulation::CalldataEvent> calldata_events = {
-        { .context_id = 1,
-          .calldata_size = static_cast<uint32_t>(dummy_setup_calldata.size()),
-          .calldata = dummy_setup_calldata },
-        { .context_id = 5,
-          .calldata_size = static_cast<uint32_t>(non_empty_calldata.size()),
-          .calldata = non_empty_calldata },
-        { .context_id = 6, .calldata_size = 0, .calldata = {} }
+        { .context_id = 1, .calldata = dummy_setup_calldata },
+        { .context_id = 5, .calldata = non_empty_calldata },
+        { .context_id = 6, .calldata = {} },
     };
 
     auto setup_call_request = test_public_inputs.public_setup_call_requests[0];
@@ -866,7 +840,7 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
 
     check_relation<tx>(trace);
     check_interaction<TxTraceBuilder,
-                      lookup_tx_read_calldata_hash_settings,
+                      perm_tx_read_calldata_hash_settings,
                       lookup_tx_read_phase_spec_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);

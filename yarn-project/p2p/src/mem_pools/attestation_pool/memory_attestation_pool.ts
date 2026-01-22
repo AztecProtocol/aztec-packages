@@ -1,71 +1,120 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
-import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  CheckpointProposalCore,
+} from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { ProposalSlotCapExceededError } from '../../errors/attestation-pool.error.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
 import { ATTESTATION_CAP_BUFFER, MAX_PROPOSALS_PER_SLOT } from './kv_attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
-  private metrics: PoolInstrumentation<BlockAttestation>;
+  private metrics: PoolInstrumentation<CheckpointAttestation>;
 
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  private attestations: Map<
-    /*slot=*/ SlotNumber,
-    Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>
-  >;
   private proposals: Map<string, BlockProposal>;
+
+  // Checkpoint attestations
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private checkpointAttestations: Map<
+    /*slot=*/ SlotNumber,
+    Map</*proposalId*/ string, Map</*address=*/ string, CheckpointAttestation>>
+  >;
+  private checkpointProposals: Map<string, CheckpointProposalCore>;
 
   constructor(
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p:attestation_pool'),
   ) {
-    this.attestations = new Map();
     this.proposals = new Map();
+    this.checkpointAttestations = new Map();
+    this.checkpointProposals = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
 
   private poolStats: PoolStatsCallback = () => {
     return Promise.resolve({
-      itemCount: this.attestations.size,
+      itemCount: this.checkpointAttestations.size,
     });
   };
 
   public isEmpty(): Promise<boolean> {
-    return Promise.resolve(this.attestations.size === 0);
+    return Promise.resolve(this.checkpointAttestations.size === 0 && this.proposals.size === 0);
   }
 
-  public getAttestationsForSlot(slot: SlotNumber): Promise<BlockAttestation[]> {
-    return Promise.resolve(
-      Array.from(this.attestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>
-        Array.from(proposalAttestationMap.values()),
-      ),
-    );
+  public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+    // Strip signedTxs before storing to avoid holding full tx data in memory
+    this.proposals.set(blockProposal.archive.toString(), blockProposal.withoutSignedTxs());
+    return Promise.resolve();
   }
 
-  public getAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<BlockAttestation[]> {
-    const slotAttestationMap = this.attestations.get(slot);
-    if (slotAttestationMap) {
-      const proposalAttestationMap = slotAttestationMap.get(proposalId);
-      if (proposalAttestationMap) {
-        return Promise.resolve(Array.from(proposalAttestationMap.values()));
-      }
+  public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+    return Promise.resolve(this.proposals.get(id));
+  }
+
+  public hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
+    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
+    return Promise.resolve(this.proposals.has(id));
+  }
+
+  public canAddProposal(_block: BlockProposal): Promise<boolean> {
+    // TODO(palla/mbps): See when to allow
+    return Promise.resolve(true);
+  }
+
+  // Checkpoint attestation methods
+
+  public async addCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
+    if (!(await this.canAddCheckpointProposal(proposal))) {
+      throw new ProposalSlotCapExceededError(
+        `Maximum checkpoint proposals per slot reached: slot=${proposal.slotNumber} cap=${MAX_PROPOSALS_PER_SLOT} proposal=${proposal.archive.toString()}`,
+      );
     }
-    return Promise.resolve([]);
+
+    // Extract and validate the block proposal if present
+    const blockProposal = proposal.getBlockProposal();
+    if (blockProposal && !(await this.canAddProposal(blockProposal))) {
+      throw new ProposalSlotCapExceededError(
+        `Maximum block proposals per slot reached when extracting from checkpoint: slot=${proposal.slotNumber} proposal=${blockProposal.archive.toString()}`,
+      );
+    }
+
+    const slotProposalMapping = getCheckpointSlotOrDefault(this.checkpointAttestations, proposal.slotNumber);
+    slotProposalMapping.set(proposal.archive.toString(), new Map<string, CheckpointAttestation>());
+
+    // Store the checkpoint proposal as core (without lastBlock) to avoid duplication
+    this.checkpointProposals.set(proposal.archive.toString(), proposal.toCore());
+
+    // Store the extracted block proposal separately
+    if (blockProposal) {
+      this.proposals.set(blockProposal.archive.toString(), blockProposal.withoutSignedTxs());
+    }
+
+    return Promise.resolve();
   }
 
-  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
-    for (const attestation of attestations) {
-      // Perf: order and group by slot before insertion
-      const slotNumber = attestation.payload.header.slotNumber;
+  public getCheckpointProposal(id: string): Promise<CheckpointProposalCore | undefined> {
+    return Promise.resolve(this.checkpointProposals.get(id));
+  }
 
+  public hasCheckpointProposal(idOrProposal: string | CheckpointProposal): Promise<boolean> {
+    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
+    return Promise.resolve(this.checkpointProposals.has(id));
+  }
+
+  public addCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
+    for (const attestation of attestations) {
+      const slotNumber = attestation.payload.header.slotNumber;
       const proposalId = attestation.archive.toString();
       const sender = attestation.getSender();
 
       // Skip attestations with invalid signatures
       if (!sender) {
-        this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber}`, {
+        this.log.warn(`Skipping checkpoint attestation with invalid signature for slot ${slotNumber}`, {
           signature: attestation.signature.toString(),
           slotNumber,
           proposalId,
@@ -73,11 +122,11 @@ export class InMemoryAttestationPool implements AttestationPool {
         continue;
       }
 
-      const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber);
-      const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
+      const slotAttestationMap = getCheckpointSlotOrDefault(this.checkpointAttestations, slotNumber);
+      const proposalAttestationMap = getCheckpointProposalOrDefault(slotAttestationMap, proposalId);
       proposalAttestationMap.set(sender.toString(), attestation);
 
-      this.log.verbose(`Added attestation for slot ${slotNumber} from ${sender}`, {
+      this.log.verbose(`Added checkpoint attestation for slot ${slotNumber} from ${sender}`, {
         signature: attestation.signature.toString(),
         slotNumber,
         address: sender,
@@ -88,25 +137,32 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  #getNumberOfAttestationsInSlot(slot: SlotNumber): number {
-    let total = 0;
-    const slotAttestationMap = getSlotOrDefault(this.attestations, slot);
-
-    if (slotAttestationMap) {
-      for (const proposalAttestationMap of slotAttestationMap.values() ?? []) {
-        total += proposalAttestationMap.size;
-      }
-    }
-    return total;
+  public getCheckpointAttestationsForSlot(slot: SlotNumber): Promise<CheckpointAttestation[]> {
+    return Promise.resolve(
+      Array.from(this.checkpointAttestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>
+        Array.from(proposalAttestationMap.values()),
+      ),
+    );
   }
 
-  public async deleteAttestationsOlderThan(oldestSlot: SlotNumber): Promise<void> {
+  public getCheckpointAttestationsForSlotAndProposal(
+    slot: SlotNumber,
+    proposalId: string,
+  ): Promise<CheckpointAttestation[]> {
+    const slotAttestationMap = this.checkpointAttestations.get(slot);
+    if (slotAttestationMap) {
+      const proposalAttestationMap = slotAttestationMap.get(proposalId);
+      if (proposalAttestationMap) {
+        return Promise.resolve(Array.from(proposalAttestationMap.values()));
+      }
+    }
+    return Promise.resolve([]);
+  }
+
+  public deleteCheckpointAttestationsOlderThan(oldestSlot: SlotNumber): Promise<void> {
     const olderThan = [];
 
-    // Entries are iterated in insertion order, so we can break as soon as we find a slot that is older than the oldestSlot.
-    // Note: this will only prune correctly if attestations are added in order of rising slot, it is important that we do not allow
-    // insertion of attestations that are old. #(https://github.com/AztecProtocol/aztec-packages/issues/10322)
-    const slots = this.attestations.keys();
+    const slots = this.checkpointAttestations.keys();
     for (const slot of slots) {
       if (slot < oldestSlot) {
         olderThan.push(slot);
@@ -116,70 +172,51 @@ export class InMemoryAttestationPool implements AttestationPool {
     }
 
     for (const oldSlot of olderThan) {
-      await this.deleteAttestationsForSlot(oldSlot);
+      const proposalIds = this.checkpointAttestations.get(oldSlot)?.keys();
+      proposalIds?.forEach(proposalId => this.checkpointProposals.delete(proposalId));
+      this.checkpointAttestations.delete(oldSlot);
     }
     return Promise.resolve();
   }
 
-  public deleteAttestationsForSlot(slot: SlotNumber): Promise<void> {
-    // We count the number of attestations we are removing
-    const numberOfAttestations = this.#getNumberOfAttestationsInSlot(slot);
-    const proposalIdsToDelete = this.attestations.get(slot)?.keys();
-    let proposalIdsToDeleteCount = 0;
-    proposalIdsToDelete?.forEach(proposalId => {
-      this.proposals.delete(proposalId);
-      proposalIdsToDeleteCount++;
-    });
+  public hasReachedCheckpointProposalCap(slot: SlotNumber): Promise<boolean> {
+    const slotAttestationMap = this.checkpointAttestations.get(slot);
+    const proposalCount = slotAttestationMap?.size ?? 0;
+    return Promise.resolve(proposalCount >= MAX_PROPOSALS_PER_SLOT);
+  }
 
-    this.attestations.delete(slot);
-    this.log.verbose(
-      `Removed ${numberOfAttestations} attestations and ${proposalIdsToDeleteCount} proposals for slot ${slot}`,
+  public hasReachedCheckpointAttestationCap(
+    slot: SlotNumber,
+    proposalId: string,
+    committeeSize: number,
+  ): Promise<boolean> {
+    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
+    const count = this.checkpointAttestations.get(slot)?.get(proposalId)?.size ?? 0;
+    return Promise.resolve(limit <= 0 || count >= limit);
+  }
+
+  public async canAddCheckpointProposal(proposal: CheckpointProposal): Promise<boolean> {
+    return (
+      this.checkpointProposals.has(proposal.archive.toString()) ||
+      !(await this.hasReachedCheckpointProposalCap(proposal.slotNumber))
     );
-
-    return Promise.resolve();
   }
 
-  public deleteAttestationsForSlotAndProposal(slot: SlotNumber, proposalId: string): Promise<void> {
-    const slotAttestationMap = getSlotOrDefault(this.attestations, slot);
-    if (slotAttestationMap) {
-      if (slotAttestationMap.has(proposalId)) {
-        const numberOfAttestations = slotAttestationMap.get(proposalId)?.size ?? 0;
-
-        slotAttestationMap.delete(proposalId);
-
-        this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-      }
-    }
-
-    this.proposals.delete(proposalId);
-    return Promise.resolve();
+  public async canAddCheckpointAttestation(
+    attestation: CheckpointAttestation,
+    committeeSize: number,
+  ): Promise<boolean> {
+    const sender = attestation.getSender();
+    const slot = attestation.payload.header.slotNumber;
+    const pid = attestation.archive.toString();
+    return (
+      !!sender &&
+      ((this.checkpointAttestations.get(slot)?.get(pid)?.has(sender.toString()) ?? false) ||
+        !(await this.hasReachedCheckpointAttestationCap(slot, pid, committeeSize)))
+    );
   }
 
-  public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
-    for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.slotNumber;
-      const slotAttestationMap = this.attestations.get(slotNumber);
-      if (slotAttestationMap) {
-        const proposalId = attestation.archive.toString();
-        const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
-        if (proposalAttestationMap) {
-          const sender = attestation.getSender();
-
-          // Skip attestations with invalid signatures
-          if (!sender) {
-            this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber}`);
-            continue;
-          }
-
-          proposalAttestationMap.delete(sender.toString());
-          this.log.debug(`Deleted attestation for slot ${slotNumber} from ${sender}`);
-        }
-      }
-    }
-    return Promise.resolve();
-  }
-
-  public hasAttestation(attestation: BlockAttestation): Promise<boolean> {
+  public hasCheckpointAttestation(attestation: CheckpointAttestation): Promise<boolean> {
     const slotNumber = attestation.payload.header.slotNumber;
     const proposalId = attestation.archive.toString();
     const sender = attestation.getSender();
@@ -189,7 +226,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       return Promise.resolve(false);
     }
 
-    const slotAttestationMap = this.attestations.get(slotNumber);
+    const slotAttestationMap = this.checkpointAttestations.get(slotNumber);
     if (!slotAttestationMap) {
       return Promise.resolve(false);
     }
@@ -201,87 +238,27 @@ export class InMemoryAttestationPool implements AttestationPool {
 
     return Promise.resolve(proposalAttestationMap.has(sender.toString()));
   }
-
-  public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
-    // We initialize slot-proposal mapping if it does not exist
-    // This is important to ensure we can delete this proposal if there were not attestations for it
-    const slotProposalMapping = getSlotOrDefault(this.attestations, blockProposal.slotNumber);
-    slotProposalMapping.set(blockProposal.payload.archive.toString(), new Map<string, BlockAttestation>());
-
-    this.proposals.set(blockProposal.payload.archive.toString(), blockProposal);
-    return Promise.resolve();
-  }
-
-  public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
-    return Promise.resolve(this.proposals.get(id));
-  }
-
-  public hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
-    return Promise.resolve(this.proposals.has(id));
-  }
-
-  public hasReachedProposalCap(slot: SlotNumber): Promise<boolean> {
-    const slotAttestationMap = this.attestations.get(slot);
-    const proposalCount = slotAttestationMap?.size ?? 0;
-    return Promise.resolve(proposalCount >= MAX_PROPOSALS_PER_SLOT);
-  }
-
-  public hasReachedAttestationCap(slot: SlotNumber, proposalId: string, committeeSize: number): Promise<boolean> {
-    const limit = committeeSize + ATTESTATION_CAP_BUFFER;
-    const count = this.attestations.get(slot)?.get(proposalId)?.size ?? 0;
-    return Promise.resolve(limit <= 0 || count >= limit);
-  }
-
-  public async canAddProposal(block: BlockProposal): Promise<boolean> {
-    return this.proposals.has(block.archive.toString()) || !(await this.hasReachedProposalCap(block.slotNumber));
-  }
-
-  public async canAddAttestation(attestation: BlockAttestation, committeeSize: number): Promise<boolean> {
-    const sender = attestation.getSender();
-    const slot = attestation.payload.header.slotNumber;
-    const pid = attestation.archive.toString();
-    return (
-      !!sender &&
-      ((this.attestations.get(slot)?.get(pid)?.has(sender.toString()) ?? false) ||
-        !(await this.hasReachedAttestationCap(slot, pid, committeeSize)))
-    );
-  }
 }
 
-/**
- * Get Slot or Default
- *
- * Fetch the slot mapping, if it does not exist, then create a mapping and return it
- * @param map - The map to fetch from
- * @param slot - The slot to fetch
- * @returns The slot mapping
- */
-function getSlotOrDefault(
+// Checkpoint attestation helper functions
+
+function getCheckpointSlotOrDefault(
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  map: Map<SlotNumber, Map<string, Map<string, BlockAttestation>>>,
+  map: Map<SlotNumber, Map<string, Map<string, CheckpointAttestation>>>,
   slot: SlotNumber,
-): Map<string, Map<string, BlockAttestation>> {
+): Map<string, Map<string, CheckpointAttestation>> {
   if (!map.has(slot)) {
-    map.set(slot, new Map<string, Map<string, BlockAttestation>>());
+    map.set(slot, new Map<string, Map<string, CheckpointAttestation>>());
   }
   return map.get(slot)!;
 }
 
-/**
- * Get Proposal or Default
- *
- * Fetch the proposal mapping, if it does not exist, then create a mapping and return it
- * @param map - The map to fetch from
- * @param proposalId - The proposal id to fetch
- * @returns The proposal mapping
- */
-function getProposalOrDefault(
-  map: Map<string, Map<string, BlockAttestation>>,
+function getCheckpointProposalOrDefault(
+  map: Map<string, Map<string, CheckpointAttestation>>,
   proposalId: string,
-): Map<string, BlockAttestation> {
+): Map<string, CheckpointAttestation> {
   if (!map.has(proposalId)) {
-    map.set(proposalId, new Map<string, BlockAttestation>());
+    map.set(proposalId, new Map<string, CheckpointAttestation>());
   }
   return map.get(proposalId)!;
 }

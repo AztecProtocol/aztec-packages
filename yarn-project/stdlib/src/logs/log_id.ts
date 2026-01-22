@@ -1,9 +1,11 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
+import { L2BlockHash } from '../block/block_hash.js';
 import { schemas } from '../schemas/index.js';
 
 /** A globally unique log id. */
@@ -16,7 +18,9 @@ export class LogId {
    */
   constructor(
     /** The block number the log was emitted in. */
-    public readonly blockNumber: number,
+    public readonly blockNumber: BlockNumber,
+    /** The hash of the block the log was emitted in. */
+    public readonly blockHash: L2BlockHash,
     /** The index of a tx in a block the log was emitted in. */
     public readonly txIndex: number,
     /** The index of a log the tx was emitted in. */
@@ -35,7 +39,8 @@ export class LogId {
 
   static random() {
     return new LogId(
-      Math.floor(Math.random() * 1000) + 1,
+      BlockNumber(Math.floor(Math.random() * 1000) + 1),
+      L2BlockHash.random(),
       Math.floor(Math.random() * 1000),
       Math.floor(Math.random() * 100),
     );
@@ -44,11 +49,14 @@ export class LogId {
   static get schema() {
     return z
       .object({
-        blockNumber: schemas.Integer,
+        blockNumber: BlockNumberSchema,
+        blockHash: L2BlockHash.schema,
         txIndex: schemas.Integer,
         logIndex: schemas.Integer,
       })
-      .transform(({ blockNumber, txIndex, logIndex }) => new LogId(blockNumber, txIndex, logIndex));
+      .transform(
+        ({ blockNumber, blockHash, txIndex, logIndex }) => new LogId(blockNumber, blockHash, txIndex, logIndex),
+      );
   }
 
   /**
@@ -58,6 +66,7 @@ export class LogId {
   public toBuffer(): Buffer {
     return Buffer.concat([
       toBufferBE(BigInt(this.blockNumber), 4),
+      this.blockHash.toBuffer(),
       toBufferBE(BigInt(this.txIndex), 4),
       toBufferBE(BigInt(this.logIndex), 4),
     ]);
@@ -71,11 +80,12 @@ export class LogId {
   static fromBuffer(buffer: Buffer | BufferReader): LogId {
     const reader = BufferReader.asReader(buffer);
 
-    const blockNumber = reader.readNumber();
+    const blockNumber = BlockNumber(reader.readNumber());
+    const blockHash = reader.readObject(L2BlockHash);
     const txIndex = reader.readNumber();
     const logIndex = reader.readNumber();
 
-    return new LogId(blockNumber, txIndex, logIndex);
+    return new LogId(blockNumber, blockHash, txIndex, logIndex);
   }
 
   /**
@@ -83,7 +93,7 @@ export class LogId {
    * @returns A string representation of the log id.
    */
   public toString(): string {
-    return `${this.blockNumber}-${this.txIndex}-${this.logIndex}`;
+    return `${this.blockNumber}-${this.txIndex}-${this.logIndex}-${this.blockHash.toString()}`;
   }
 
   /**
@@ -92,12 +102,13 @@ export class LogId {
    * @returns A log id.
    */
   static fromString(data: string): LogId {
-    const [rawBlockNumber, rawTxIndex, rawLogIndex] = data.split('-');
-    const blockNumber = Number(rawBlockNumber);
+    const [rawBlockNumber, rawTxIndex, rawLogIndex, rawBlockHash] = data.split('-');
+    const blockNumber = BlockNumber(Number(rawBlockNumber));
+    const blockHash = L2BlockHash.fromString(rawBlockHash);
     const txIndex = Number(rawTxIndex);
     const logIndex = Number(rawLogIndex);
 
-    return new LogId(blockNumber, txIndex, logIndex);
+    return new LogId(blockNumber, blockHash, txIndex, logIndex);
   }
 
   /**
@@ -105,6 +116,6 @@ export class LogId {
    * @returns A human readable representation of the log id.
    */
   public toHumanReadable(): string {
-    return `logId: (blockNumber: ${this.blockNumber}, txIndex: ${this.txIndex}, logIndex: ${this.logIndex})`;
+    return `logId: (blockNumber: ${this.blockNumber}, blockHash: ${this.blockHash.toString()}, txIndex: ${this.txIndex}, logIndex: ${this.logIndex})`;
   }
 }

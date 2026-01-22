@@ -8,16 +8,19 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
+# Enable build instance key features (disk logging, benchmark uploads) by default.
+# Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
+export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
-  export AWS_SHUTDOWN_TIME=90
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
 else
   cores=192,128,64
   if [ "$CI_FULL" -eq 1 ]; then
     # Allow for 75 minutes as ci-full time has crept up.
-    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
   fi
 fi
 
@@ -25,14 +28,15 @@ fi
 cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
-function on_exit {
-  set +e
-  if [ -n "${iid:-}" ]; then
-    aws_terminate_instance $iid $sir
-    iid=""
+function cleanup {
+  if [ -d "$state_dir" ]; then
+    aws_terminate_instance $state_dir
   fi
 }
-trap on_exit SIGINT SIGTERM EXIT
+# It's important that cleanup writes to /dev/null.
+# We run this from parallel, which closes stdout/stderr during it's cleanup.
+# This causes cleanup to die silently, probably from a SIGPIPE.
+trap 'cleanup >/dev/null' SIGINT SIGTERM EXIT
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -50,6 +54,8 @@ else
   # In local or pr's, use the branch name as the instance name.
   instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
+
+state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
 
 if semver check $REF_NAME; then
   # Override the public key that aws will load into ~/.ssh/authorized_keys on the launched instance.
@@ -76,11 +82,13 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
-IFS=':' read -r -a parts <<<"$ip_sir"
-ip="${parts[0]}"
-sir="${parts[1]}"
-iid="${parts[2]}"
+KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch $state_dir
+ip=$(cat $state_dir/ip)
+sir=""
+if [[ -f "$state_dir/sir" ]]; then
+  sir=$(cat $state_dir/sir)
+fi
+iid=$(cat $state_dir/iid)
 
 # If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
@@ -108,7 +116,7 @@ if [ -t 1 ]; then
   fi
 else
   # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
-  run_cmd="run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
+  run_cmd="PARENT_LOG_ID=\$ci_log_id run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
 container_script=$(
@@ -134,7 +142,6 @@ container_script=$(
   source ci3/source_redis
   source ci3/source_cache
   ci_log_id=\$(log_ci_run)
-  export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
   if [ -n "\$DOCKERHUB_PASSWORD" ]; then
     echo \$DOCKERHUB_PASSWORD | docker login -u \$DOCKERHUB_USERNAME --password-stdin
@@ -154,8 +161,12 @@ container_script=$(
     cpu_pid=\$!
 
     # Capture mem load.
-    vmstat -w -S M 2 > >(cache_log memfile) &
+    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
     mem_pid=\$!
+
+    # Dump process tree every 10s.
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
+    pstree_pid=\$!
 
     set +e
     set -x
@@ -164,7 +175,7 @@ container_script=$(
     set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    kill \$cpu_pid \$mem_pid &>/dev/null
+    kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null
 
     return \$code
   }
@@ -208,7 +219,7 @@ function run {
     export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
   fi
   # Only pass SSH keys if disk logging is enabled (internal CI only)
-  if [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ]; then
+  if [ "${CI_USE_BUILD_INSTANCE_KEY:-1}" -eq 1 ]; then
     # if the build instance key exists, load it into a base64 encoded string
     if [ -f ~/.ssh/build_instance_key ]; then
       export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
@@ -276,10 +287,11 @@ function run {
         -e JOB_ID=${JOB_ID:-} \
         -e REF_NAME=${REF_NAME:-} \
         -e TARGET_BRANCH=${TARGET_BRANCH:-} \
-        -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
+        -e CI_DASHBOARD=${CI_DASHBOARD:-} \
+        -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
         -e NO_CACHE=${NO_CACHE:-} \
         -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
-        -e CI_ENABLE_DISK_LOGS=${CI_ENABLE_DISK_LOGS:-} \
+        -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-} \
         -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
         -e SSH_CONNECTION=' ' \
         -e LOCAL_USER_ID=\$(id -u) \
@@ -304,6 +316,7 @@ function run {
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
+        -e NETWORK=${NETWORK:-} \
         --pids-limit=32768 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

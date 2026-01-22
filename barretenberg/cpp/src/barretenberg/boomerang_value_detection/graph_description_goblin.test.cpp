@@ -3,9 +3,9 @@
 #include "barretenberg/common/test.hpp"
 
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -13,13 +13,13 @@
 namespace bb::stdlib::recursion::honk {
 class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
   public:
-    using Builder = GoblinRecursiveVerifier::Builder;
+    using Builder = UltraCircuitBuilder;
     using ECCVMVK = Goblin::ECCVMVerificationKey;
     using TranslatorVK = Goblin::TranslatorVerificationKey;
 
-    using OuterFlavor = UltraFlavor;
+    using OuterFlavor = UltraRollupFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor, bb::RollupIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
@@ -46,7 +46,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, 5);
 
         // Merge the ecc ops from the newly constructed circuit
-        auto goblin_proof = goblin.prove(MergeSettings::APPEND);
+        auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
@@ -83,26 +83,36 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         recursive_merge_commitments.T_prev_commitments[idx].unset_free_witness_tag();
     }
 
-    GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
+    auto transcript = std::make_shared<GoblinRecursiveVerifier::Transcript>();
+    GoblinStdlibProof stdlib_proof(builder, proof);
+    GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND };
+    GoblinRecursiveVerifier::ReductionResult output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
-    stdlib::recursion::honk::DefaultIO<Builder> inputs;
-    inputs.pairing_inputs = output.points_accumulator;
+    // Aggregate merge + translator pairing points
+    output.translator_pairing_points.aggregate(output.merge_pairing_points);
+
+    stdlib::recursion::honk::RollupIO inputs;
+    inputs.pairing_inputs = output.translator_pairing_points;
+    inputs.ipa_claim = output.ipa_claim;
     inputs.set_public();
+
+    builder.ipa_proof = output.ipa_proof.get_value();
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);
         auto verification_key =
             std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
         OuterProver prover(prover_instance, verification_key);
-        OuterVerifier verifier(verification_key);
+        OuterVerifier verifier(vk_and_hash);
         auto proof = prover.construct_proof();
-        bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
+        bool verified = verifier.verify_proof(proof).result;
 
         ASSERT_TRUE(verified);
     }
-    auto translator_pairing_points = output.points_accumulator;
+    // Use the already aggregated pairing points (merge + translator)
+    auto translator_pairing_points = output.translator_pairing_points;
 
     // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
     // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output

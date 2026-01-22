@@ -10,12 +10,16 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/generated/relations/perms_emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
@@ -29,6 +33,8 @@ using simulation::EmitUnencryptedLogWriteEvent;
 using simulation::TrackedSideEffects;
 using testing::PublicInputsBuilder;
 using tracegen::EmitUnencryptedLogTraceBuilder;
+using tracegen::MemoryTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
 using tracegen::PublicInputsTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
@@ -82,6 +88,59 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
     trace_builder.process({ event }, trace);
 
     check_relation<emit_unencrypted_log>(trace);
+}
+
+TEST(EmitUnencryptedLogConstrainingTest, PositiveEmptyLog)
+{
+    // Test created to ensure we do not underflow/fail memory checks for logs with no fields (not including header)
+    AztecAddress address = 0xdeadbeef;
+    MemoryAddress log_address = 0;
+    const std::vector<FF> log_fields = {};
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
+
+    EmitUnencryptedLogWriteEvent event = {
+        .execution_clk = 1,
+        .contract_address = address,
+        .space_id = 57,
+        .log_address = log_address,
+        .log_size = log_size,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
+        .is_static = false,
+        .values = to_memory_values(log_fields),
+        .error_memory_out_of_bounds = false,
+        .error_too_many_log_fields = false,
+        .error_tag_mismatch = false,
+    };
+
+    // As calculated in EmitUnencryptedLog::emit_unencrypted_log gadget:
+    uint64_t end_log_address_upper_bound = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size);
+
+    simulation::GreaterThanEvent gt_event = {
+        .a = end_log_address_upper_bound,
+        .b = AVM_MEMORY_SIZE,
+        .result = end_log_address_upper_bound > AVM_MEMORY_SIZE,
+    };
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    EmitUnencryptedLogTraceBuilder trace_builder;
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process({ gt_event }, trace);
+    trace_builder.process({ event }, trace);
+
+    // Check tracegen fills the values correctly:
+    FF end_log_address_upper_bound_log_trace = trace.get(C::emit_unencrypted_log_end_log_address_upper_bound, 1);
+    FF end_log_address_upper_bound_gt_trace = trace.get(C::gt_input_a, 0);
+    EXPECT_EQ(end_log_address_upper_bound_log_trace, end_log_address_upper_bound_gt_trace);
+
+    check_relation<emit_unencrypted_log>(trace);
+    check_interaction<EmitUnencryptedLogTraceBuilder, lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings>(
+        trace);
 }
 
 TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
@@ -278,8 +337,8 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             { C::execution_discard, 0 },
             // GT - check memory out of bounds
             { C::gt_sel, 1 },
-            { C::gt_input_a, log_address + log_size - 1 },
-            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_input_a, log_address + log_size },
+            { C::gt_input_b, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
             { C::gt_res, 0 },
         },
     });
@@ -582,6 +641,93 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeContractAddressConsistency)
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_CONTRACT_ADDRESS_CONSISTENCY),
         "CONTRACT_ADDRESS_CONSISTENCY");
+}
+
+// =====================================================================
+// Ghost Row Injection Vulnerability Tests
+// =====================================================================
+// These tests verify that ghost rows (sel=0) cannot fire permutations.
+// This is a defensive/sanity check: even though the situation is hard to exploit,
+// we still enforce the selector gating to prevent accidental ghost reads.
+// The vulnerability: is_write_memory_value is only boolean-constrained,
+// not constrained to be 0 when sel=0. This allows ghost rows to fire
+// the #[READ_MEM] permutation via sel_should_read_memory.
+//
+// VULNERABILITY SUMMARY:
+// - is_write_memory_value is only boolean-constrained
+// - When sel=0, is_write_memory_value can still be set to 1
+// - This makes sel_should_read_memory = 1 (via derived constraint)
+// - This fires the #[READ_MEM] permutation from a ghost row
+//
+// REQUIRED FIX:
+// Gate by sel to avoid ghost rows triggering memory reads.
+// sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
+
+// This test verifies that the fix for the ghost row injection vulnerability works.
+// The constraint `is_write_memory_value * (1 - sel) = 0` should prevent ghost rows
+// from setting is_write_memory_value=1 when sel=0.
+TEST(EmitUnencryptedLogConstrainingTest, NegativeGhostRowInjectionBlocked)
+{
+    TestTraceContainer trace;
+    MemoryTraceBuilder memory_trace_builder;
+    PrecomputedTraceBuilder precomputed_trace_builder;
+
+    uint32_t malicious_clk = 42;
+    uint16_t malicious_space_id = 1;
+    MemoryAddress malicious_log_addr = 0xDEAD;
+    FF malicious_value = 0x1337;
+    MemoryTag malicious_tag = MemoryTag::FF;
+
+    std::vector<simulation::MemoryEvent> mem_events = {
+        {
+            .execution_clk = malicious_clk,
+            .mode = simulation::MemoryMode::READ,
+            .addr = malicious_log_addr,
+            .value = MemoryValue::from<FF>(malicious_value),
+            .space_id = malicious_space_id,
+        },
+    };
+
+    precomputed_trace_builder.process_sel_range_8(trace);
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+    precomputed_trace_builder.process_tag_parameters(trace);
+    memory_trace_builder.process(mem_events, trace);
+
+    uint32_t memory_row = 0;
+    for (uint32_t row = 0; row < trace.get_num_rows(); row++) {
+        if (trace.get(C::memory_sel, row) == 1) {
+            memory_row = row;
+            break;
+        }
+    }
+
+    // Attempt ghost row injection: sel=0 but is_write_memory_value=1
+    uint32_t ghost_row = 0;
+    trace.set(ghost_row,
+              std::vector<std::pair<Column, FF>>{
+                  { C::precomputed_first_row, 1 },
+                  { C::precomputed_clk, ghost_row },
+                  { C::precomputed_zero, 0 },
+                  { C::emit_unencrypted_log_sel, 0 },
+                  { C::emit_unencrypted_log_is_write_memory_value, 1 },
+                  { C::emit_unencrypted_log_error_out_of_bounds, 0 },
+                  { C::emit_unencrypted_log_sel_should_read_memory, 1 },
+                  { C::emit_unencrypted_log_execution_clk, malicious_clk },
+                  { C::emit_unencrypted_log_space_id, malicious_space_id },
+                  { C::emit_unencrypted_log_log_address, malicious_log_addr },
+                  { C::emit_unencrypted_log_value, malicious_value },
+                  { C::emit_unencrypted_log_tag, static_cast<uint8_t>(malicious_tag) },
+                  { C::emit_unencrypted_log_public_inputs_value, malicious_value },
+              });
+
+    trace.set(C::memory_sel_unencrypted_log_read, memory_row, 1);
+
+    // The fix: sel_should_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds)
+    // Gating by sel should cause the relation check to fail
+    // because sel_should_read_memory=1 and sel=0 violates this constraint
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_unencrypted_log>(trace),
+                              "SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR");
 }
 
 } // namespace

@@ -1,8 +1,8 @@
 import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
-import { SlotNumber } from '@aztec/foundation/branded-types';
-import { randomInt } from '@aztec/foundation/crypto';
+import { BlockNumber, BlockNumberSchema, SlotNumber } from '@aztec/foundation/branded-types';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import {
   BufferReader,
@@ -19,7 +19,13 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { schemas } from '../schemas/index.js';
-import type { UInt32, UInt64 } from '../types/index.js';
+import type { UInt64 } from '../types/index.js';
+
+/**
+ * Global variables that are constant across the entire slot.
+ * TODO(palla/mbps): Should timestamp be included here as well?
+ */
+export type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, 'blockNumber' | 'timestamp'>;
 
 /**
  * Global variables of the L2 block.
@@ -31,7 +37,7 @@ export class GlobalVariables {
     /** Version for the L2 block. */
     public version: Fr,
     /** Block number of the L2 block. */
-    public blockNumber: UInt32,
+    public blockNumber: BlockNumber,
     /** Slot number of the L2 block */
     public slotNumber: SlotNumber,
     /** Timestamp of the L2 block. */
@@ -49,7 +55,7 @@ export class GlobalVariables {
       .object({
         chainId: schemas.Fr,
         version: schemas.Fr,
-        blockNumber: schemas.UInt32,
+        blockNumber: BlockNumberSchema,
         slotNumber: schemas.SlotNumber,
         timestamp: schemas.BigInt,
         coinbase: schemas.EthAddress,
@@ -89,7 +95,7 @@ export class GlobalVariables {
 
   static empty(fields: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
     return GlobalVariables.from({
-      blockNumber: 0,
+      blockNumber: BlockNumber.ZERO,
       slotNumber: SlotNumber.ZERO,
       timestamp: 0n,
       chainId: Fr.ZERO,
@@ -106,7 +112,7 @@ export class GlobalVariables {
     return new GlobalVariables(
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readNumber(),
+      BlockNumber(reader.readNumber()),
       SlotNumber(reader.readNumber()),
       reader.readUInt64(),
       reader.readObject(EthAddress),
@@ -121,7 +127,7 @@ export class GlobalVariables {
     return new GlobalVariables(
       reader.readField(),
       reader.readField(),
-      reader.readU32(),
+      BlockNumber(reader.readU32()),
       SlotNumber(reader.readU32()),
       reader.readField().toBigInt(),
       EthAddress.fromField(reader.readField()),
@@ -219,7 +225,7 @@ export class GlobalVariables {
     return GlobalVariables.from({
       chainId: new Fr(randomInt(100_000)),
       version: new Fr(randomInt(100_000)),
-      blockNumber: randomInt(100_000),
+      blockNumber: BlockNumber(randomInt(100_000)),
       slotNumber: SlotNumber(randomInt(100_000)),
       coinbase: EthAddress.random(),
       feeRecipient: AztecAddress.fromField(Fr.random()),

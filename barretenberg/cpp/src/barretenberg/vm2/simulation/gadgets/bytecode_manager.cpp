@@ -66,14 +66,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
-    assert(maybe_klass.has_value());
+    BB_ASSERT(maybe_klass.has_value(), "Contract class not found");
     auto& klass = maybe_klass.value();
     retrieval_event.contract_class = klass; // WARNING: this class has the whole bytecode.
 
     // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
     std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
     // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
-    assert(maybe_bytecode_commitment.has_value());
+    BB_ASSERT(maybe_bytecode_commitment.has_value(), "Bytecode commitment not found");
     BytecodeId bytecode_id = maybe_bytecode_commitment.value();
     retrieval_event.bytecode_id = bytecode_id;
     debug("Bytecode for ", address, " successfully retrieved!");
@@ -101,14 +101,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     return bytecode_id;
 }
 
-Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, uint32_t pc)
+Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, PC pc)
 {
     return read_instruction(bytecode_id, get_bytecode_data(bytecode_id), pc);
 }
 
 Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
                                                 std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                                uint32_t pc)
+                                                PC pc)
 {
     BB_BENCH_NAME("TxBytecodeManager::read_instruction");
 
@@ -121,15 +121,18 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
     const auto& bytecode = *bytecode_ptr;
     instr_fetching_event.bytecode = std::move(bytecode_ptr);
 
+    // Keep full error for exception message, but only store enum in event
+    std::optional<InstrDeserializationError> deserialization_error;
+
     try {
         instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
 
         // If the following code is executed, no error was thrown in deserialize_instruction().
         if (!check_tag(instr_fetching_event.instruction)) {
-            instr_fetching_event.error = InstrDeserializationError::TAG_OUT_OF_RANGE;
+            instr_fetching_event.error = InstrDeserializationEventError::TAG_OUT_OF_RANGE;
         };
     } catch (const InstrDeserializationError& error) {
-        instr_fetching_event.error = error;
+        instr_fetching_event.error = error.type;
     }
 
     // We are showing whether bytecode_size > pc or not. If there is no fetching error,
@@ -152,7 +155,9 @@ Instruction TxBytecodeManager::read_instruction(const BytecodeId& bytecode_id,
 
 std::shared_ptr<std::vector<uint8_t>> TxBytecodeManager::get_bytecode_data(const BytecodeId& bytecode_id)
 {
-    return bytecodes.at(bytecode_id);
+    auto it = bytecodes.find(bytecode_id);
+    BB_ASSERT(it != bytecodes.end(), "Bytecode not found for the given bytecode_id");
+    return it->second;
 }
 
 } // namespace bb::avm2::simulation

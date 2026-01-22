@@ -26,48 +26,44 @@ locals {
     ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
     ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
-    ["--create-verification-json", "/tmp/l1-verify"],
-    var.SALT != null ? ["--salt", tostring(var.SALT)] : [],
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
     var.TEST_ACCOUNTS ? ["--test-accounts"] : [],
-    var.REAL_VERIFIER ? ["--real-verifier"] : []
+    var.REAL_VERIFIER ? ["--real-verifier"] : [],
+    var.VERIFY_CONTRACTS ? ["--verify-contracts"] : []
   )
 
 
 
   # Environment variables for the container (omit keys with null values)
-  # if NETWORK is set, ignore the other env vars
-  env_vars = var.NETWORK != null ? {
-    NETWORK         = var.NETWORK
-    LOG_LEVEL       = "debug"
-    BOOTSTRAP_NODES = "asdf"
-    } : { for k, v in {
-      AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
-      AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
-      AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION
-      AZTEC_EPOCH_DURATION                     = var.AZTEC_EPOCH_DURATION
-      AZTEC_TARGET_COMMITTEE_SIZE              = var.AZTEC_TARGET_COMMITTEE_SIZE
-      AZTEC_PROOF_SUBMISSION_EPOCHS            = var.AZTEC_PROOF_SUBMISSION_EPOCHS
-      AZTEC_ACTIVATION_THRESHOLD               = var.AZTEC_ACTIVATION_THRESHOLD
-      AZTEC_EJECTION_THRESHOLD                 = var.AZTEC_EJECTION_THRESHOLD
-      AZTEC_LOCAL_EJECTION_THRESHOLD           = var.AZTEC_LOCAL_EJECTION_THRESHOLD
-      AZTEC_SLASHING_QUORUM                    = var.AZTEC_SLASHING_QUORUM
-      AZTEC_SLASHING_ROUND_SIZE                = var.AZTEC_SLASHING_ROUND_SIZE
-      AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS      = var.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS
-      AZTEC_SLASHING_LIFETIME_IN_ROUNDS        = var.AZTEC_SLASHING_LIFETIME_IN_ROUNDS
-      AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = var.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS
-      AZTEC_SLASHING_VETOER                    = var.AZTEC_SLASHING_VETOER
-      AZTEC_SLASHING_OFFSET_IN_ROUNDS          = var.AZTEC_SLASHING_OFFSET_IN_ROUNDS
-      AZTEC_SLASH_AMOUNT_SMALL                 = var.AZTEC_SLASH_AMOUNT_SMALL
-      AZTEC_SLASH_AMOUNT_MEDIUM                = var.AZTEC_SLASH_AMOUNT_MEDIUM
-      AZTEC_SLASH_AMOUNT_LARGE                 = var.AZTEC_SLASH_AMOUNT_LARGE
-      AZTEC_SLASHER_FLAVOR                     = var.AZTEC_SLASHER_FLAVOR
-      AZTEC_GOVERNANCE_PROPOSER_QUORUM         = var.AZTEC_GOVERNANCE_PROPOSER_QUORUM
-      AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE     = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
-      AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
-      AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
-      AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
-      LOG_LEVEL                                = "debug"
+  env_vars = { for k, v in {
+    NETWORK                                  = var.NETWORK
+    AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
+    AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
+    AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION
+    AZTEC_EPOCH_DURATION                     = var.AZTEC_EPOCH_DURATION
+    AZTEC_TARGET_COMMITTEE_SIZE              = var.AZTEC_TARGET_COMMITTEE_SIZE
+    AZTEC_PROOF_SUBMISSION_EPOCHS            = var.AZTEC_PROOF_SUBMISSION_EPOCHS
+    AZTEC_ACTIVATION_THRESHOLD               = var.AZTEC_ACTIVATION_THRESHOLD
+    AZTEC_EJECTION_THRESHOLD                 = var.AZTEC_EJECTION_THRESHOLD
+    AZTEC_LOCAL_EJECTION_THRESHOLD           = var.AZTEC_LOCAL_EJECTION_THRESHOLD
+    AZTEC_SLASHING_QUORUM                    = var.AZTEC_SLASHING_QUORUM
+    AZTEC_SLASHING_ROUND_SIZE                = var.AZTEC_SLASHING_ROUND_SIZE
+    AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS      = var.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS
+    AZTEC_SLASHING_LIFETIME_IN_ROUNDS        = var.AZTEC_SLASHING_LIFETIME_IN_ROUNDS
+    AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = var.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS
+    AZTEC_SLASHING_VETOER                    = var.AZTEC_SLASHING_VETOER
+    AZTEC_SLASHING_OFFSET_IN_ROUNDS          = var.AZTEC_SLASHING_OFFSET_IN_ROUNDS
+    AZTEC_SLASH_AMOUNT_SMALL                 = var.AZTEC_SLASH_AMOUNT_SMALL
+    AZTEC_SLASH_AMOUNT_MEDIUM                = var.AZTEC_SLASH_AMOUNT_MEDIUM
+    AZTEC_SLASH_AMOUNT_LARGE                 = var.AZTEC_SLASH_AMOUNT_LARGE
+    AZTEC_SLASHER_FLAVOR                     = var.AZTEC_SLASHER_FLAVOR
+    AZTEC_GOVERNANCE_PROPOSER_QUORUM         = var.AZTEC_GOVERNANCE_PROPOSER_QUORUM
+    AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE     = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
+    AZTEC_GOVERNANCE_VOTING_DURATION         = var.AZTEC_GOVERNANCE_VOTING_DURATION
+    AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
+    AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
+    AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
+    LOG_LEVEL                                = "debug"
   } : k => v if v != null }
 
   # Generate a unique job name with timestamp to avoid conflicts
@@ -124,6 +120,11 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
               name  = env.key
               value = env.value
             }
+          }
+
+          env {
+            name  = "ETHERSCAN_API_KEY"
+            value = var.ETHERSCAN_API_KEY
           }
 
           # Resource limits

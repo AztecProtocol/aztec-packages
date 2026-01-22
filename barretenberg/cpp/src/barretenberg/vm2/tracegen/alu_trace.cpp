@@ -18,6 +18,8 @@ namespace bb::avm2::tracegen {
 
 namespace {
 
+using C = Column;
+
 /**
  * @brief Get the tag inverse value from a precomputed array where the index is the tag value.
  *
@@ -61,7 +63,7 @@ FF get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag)
  * @param event The ALU event.
  * @return A vector of column-value pairs for the given ALU operation.
  */
-std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulation::AluEvent& event)
+std::vector<std::pair<C, FF>> get_operation_specific_columns(const simulation::AluEvent& event)
 {
     const MemoryTag a_tag = event.a.get_tag();
     bool is_ff = a_tag == MemoryTag::FF;
@@ -70,29 +72,29 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
 
     switch (event.operation) {
     case simulation::AluOperation::ADD:
-        return { { Column::alu_sel_op_add, 1 },
-                 { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
+        return { { C::alu_sel_op_add, 1 },
+                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
                  // a + b = cf * 2^(max_bits) + c so cf == 1 iff a + b != c over the integers.
                  // For FF, cf is always 0, therefore we can make the comparison over FF as this field is much larger
                  // than 128 bits.
-                 { Column::alu_cf, !has_error && (event.a.as_ff() + event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
+                 { C::alu_cf, !has_error && (event.a.as_ff() + event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
     case simulation::AluOperation::SUB:
-        return { { Column::alu_sel_op_sub, 1 },
-                 { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_SUB },
+        return { { C::alu_sel_op_sub, 1 },
+                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SUB },
                  // a - b + cf * 2^(max_bits) = c so cf == 1 iff a - b != c over the integers.
                  // For FF, cf is always 0, therefore we can make the comparison over FF as this field is much larger
                  // than 128 bits.
-                 { Column::alu_cf, !has_error && (event.a.as_ff() - event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
+                 { C::alu_cf, !has_error && (event.a.as_ff() - event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
     case simulation::AluOperation::MUL: {
         uint256_t a_int = static_cast<uint256_t>(event.a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
 
         // Columns shared for all tags in a MUL:
-        std::vector<std::pair<Column, FF>> res = {
-            { Column::alu_sel_op_mul, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
-            { Column::alu_constant_64, 64 },
-            { Column::alu_sel_mul_no_err_non_ff, (has_error || is_ff) ? 0 : 1 },
+        std::vector<std::pair<C, FF>> res = {
+            { C::alu_sel_op_mul, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
+            { C::alu_constant_64, 64 },
+            { C::alu_sel_mul_no_err_non_ff, (has_error || is_ff) ? 0 : 1 },
         };
 
         if (!has_error) {
@@ -106,22 +108,22 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
                                         static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi));
                 res.insert(res.end(),
                            {
-                               { Column::alu_sel_mul_div_u128, 1 },
-                               { Column::alu_sel_decompose_a, 1 },
-                               { Column::alu_a_lo_bits, 64 },
-                               { Column::alu_a_hi_bits, 64 },
-                               { Column::alu_a_lo, a_decomp.lo },
-                               { Column::alu_a_hi, a_decomp.hi },
-                               { Column::alu_b_lo, b_decomp.lo },
-                               { Column::alu_b_hi, b_decomp.hi },
-                               { Column::alu_c_hi, hi_operand & static_cast<uint256_t>(MASK_64) },
-                               { Column::alu_cf, hi_operand >> 64 },
+                               { C::alu_sel_mul_div_u128, 1 },
+                               { C::alu_sel_decompose_a, 1 },
+                               { C::alu_a_lo_bits, 64 },
+                               { C::alu_a_hi_bits, 64 },
+                               { C::alu_a_lo, a_decomp.lo },
+                               { C::alu_a_hi, a_decomp.hi },
+                               { C::alu_b_lo, b_decomp.lo },
+                               { C::alu_b_hi, b_decomp.hi },
+                               { C::alu_c_hi, hi_operand & static_cast<uint256_t>(MASK_64) },
+                               { C::alu_cf, hi_operand >> 64 },
                            });
             } else {
                 // For non-u128s, we just take the top bits of a*b:
-                res.insert(res.end(),
-                           { { Column::alu_c_hi,
-                               is_ff ? 0 : (a_int * b_int) >> static_cast<uint256_t>(get_tag_bits(a_tag)) } });
+                res.insert(
+                    res.end(),
+                    { { C::alu_c_hi, is_ff ? 0 : (a_int * b_int) >> static_cast<uint256_t>(get_tag_bits(a_tag)) } });
             }
         }
 
@@ -129,23 +131,23 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     }
     case simulation::AluOperation::DIV: {
         // Columns shared for all tags in a DIV:
-        std::vector<std::pair<Column, FF>> res = {
-            { Column::alu_sel_op_div, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_DIV },
-            { Column::alu_constant_64, 64 },
-            { Column::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
+        std::vector<std::pair<C, FF>> res = {
+            { C::alu_sel_op_div, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_DIV },
+            { C::alu_constant_64, 64 },
+            { C::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
         };
 
         if (!has_error) {
             auto remainder = event.a - event.b * event.c;
             res.insert(res.end(),
                        {
-                           { Column::alu_sel_div_no_err, 1 },
-                           { Column::alu_helper1, remainder.as_ff() },
-                           { Column::alu_sel_int_gt, 1 },
-                           { Column::alu_gt_input_a, event.b.as_ff() },
-                           { Column::alu_gt_input_b, remainder.as_ff() },
-                           { Column::alu_gt_result_c, 1 },
+                           { C::alu_sel_div_no_err, 1 },
+                           { C::alu_helper1, remainder.as_ff() },
+                           { C::alu_sel_int_gt, 1 },
+                           { C::alu_gt_input_a, event.b.as_ff() },
+                           { C::alu_gt_input_b, remainder.as_ff() },
+                           { C::alu_gt_result_c, 1 },
                        });
             if (is_u128) {
                 // For u128s, we decompose c and b into 64 bit chunks:
@@ -153,14 +155,14 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
                 auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(event.b.as_ff()));
                 res.insert(res.end(),
                            {
-                               { Column::alu_sel_mul_div_u128, 1 },
-                               { Column::alu_sel_decompose_a, 1 },
-                               { Column::alu_a_lo_bits, 64 },
-                               { Column::alu_a_hi_bits, 64 },
-                               { Column::alu_a_lo, c_decomp.lo },
-                               { Column::alu_a_hi, c_decomp.hi },
-                               { Column::alu_b_lo, b_decomp.lo },
-                               { Column::alu_b_hi, b_decomp.hi },
+                               { C::alu_sel_mul_div_u128, 1 },
+                               { C::alu_sel_decompose_a, 1 },
+                               { C::alu_a_lo_bits, 64 },
+                               { C::alu_a_hi_bits, 64 },
+                               { C::alu_a_lo, c_decomp.lo },
+                               { C::alu_a_hi, c_decomp.hi },
+                               { C::alu_b_lo, b_decomp.lo },
+                               { C::alu_b_hi, b_decomp.hi },
                            });
             }
         }
@@ -168,70 +170,70 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     };
     case simulation::AluOperation::FDIV: {
         return {
-            { Column::alu_sel_op_fdiv, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
-            { Column::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
+            { C::alu_sel_op_fdiv, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
+            { C::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
         };
     }
     case simulation::AluOperation::EQ: {
         const FF diff = event.a.as_ff() - event.b.as_ff();
         return {
-            { Column::alu_sel_op_eq, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_EQ },
-            { Column::alu_ab_diff_inv, has_error ? 0 : diff }, // Will be inverted in batch later
+            { C::alu_sel_op_eq, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_EQ },
+            { C::alu_ab_diff_inv, has_error ? 0 : diff }, // Will be inverted in batch later
         };
     }
     case simulation::AluOperation::LT: {
         // Unconditional columns:
-        std::vector<std::pair<Column, FF>> res = {
-            { Column::alu_sel_op_lt, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_LT },
-            { Column::alu_gt_input_a, event.b },
-            { Column::alu_gt_input_b, event.a },
+        std::vector<std::pair<C, FF>> res = {
+            { C::alu_sel_op_lt, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LT },
+            { C::alu_gt_input_a, event.b },
+            { C::alu_gt_input_b, event.a },
         };
 
         // Columns when there is no error:
         if (!has_error) {
             res.insert(res.end(),
                        {
-                           { Column::alu_gt_result_c, event.c.as_ff() == 1 ? 1 : 0 },
-                           { Column::alu_sel_ff_gt, is_ff ? 1 : 0 },
-                           { Column::alu_sel_int_gt, is_ff ? 0 : 1 },
+                           { C::alu_gt_result_c, event.c.as_ff() == 1 ? 1 : 0 },
+                           { C::alu_sel_ff_gt, is_ff ? 1 : 0 },
+                           { C::alu_sel_int_gt, is_ff ? 0 : 1 },
                        });
         }
         return res;
     }
     case simulation::AluOperation::LTE: {
         // Unconditional columns:
-        std::vector<std::pair<Column, FF>> res = {
-            { Column::alu_sel_op_lte, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_LTE },
-            { Column::alu_gt_input_a, event.a },
-            { Column::alu_gt_input_b, event.b },
+        std::vector<std::pair<C, FF>> res = {
+            { C::alu_sel_op_lte, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LTE },
+            { C::alu_gt_input_a, event.a },
+            { C::alu_gt_input_b, event.b },
         };
 
         // Columns when there is no error:
         if (!has_error) {
             res.insert(res.end(),
                        {
-                           { Column::alu_gt_result_c, event.c.as_ff() == 0 ? 1 : 0 },
-                           { Column::alu_sel_ff_gt, is_ff ? 1 : 0 },
-                           { Column::alu_sel_int_gt, is_ff ? 0 : 1 },
+                           { C::alu_gt_result_c, event.c.as_ff() == 0 ? 1 : 0 },
+                           { C::alu_sel_ff_gt, is_ff ? 1 : 0 },
+                           { C::alu_sel_int_gt, is_ff ? 0 : 1 },
                        });
         }
         return res;
     }
     case simulation::AluOperation::NOT: {
         return {
-            { Column::alu_sel_op_not, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_NOT },
+            { C::alu_sel_op_not, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_NOT },
         };
     }
     case simulation::AluOperation::SHL: {
         // Unconditional columns:
-        std::vector<std::pair<Column, FF>> res = {
-            { Column::alu_sel_op_shl, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_SHL },
+        std::vector<std::pair<C, FF>> res = {
+            { C::alu_sel_op_shl, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SHL },
         };
 
         if (!has_error) {
@@ -245,7 +247,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             uint128_t a_lo_bits = overflow ? max_bits : max_bits - b_num;
             // Cast to uint256_t to be sure that the shift 1 << a_lo_bits is cpp defined behaviour.
             const uint128_t mask =
-                static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
+                static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
             // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
             // prove b > max_bits).
             uint128_t a_lo =
@@ -255,25 +257,25 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             res.insert(
                 res.end(),
                 {
-                    { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
-                    { Column::alu_sel_decompose_a, 1 },
-                    { Column::alu_a_lo, a_lo },
-                    { Column::alu_a_lo_bits, a_lo_bits },
-                    { Column::alu_a_hi, a_hi },
-                    { Column::alu_a_hi_bits, a_hi_bits },
-                    { Column::alu_shift_lo_bits, a_lo_bits },
-                    { Column::alu_two_pow_shift_lo_bits,
-                      overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits) },
-                    { Column::alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(b_num) },
+                    { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+                    { C::alu_sel_decompose_a, 1 },
+                    { C::alu_a_lo, a_lo },
+                    { C::alu_a_lo_bits, a_lo_bits },
+                    { C::alu_a_hi, a_hi },
+                    { C::alu_a_hi_bits, a_hi_bits },
+                    { C::alu_shift_lo_bits, a_lo_bits },
+                    { C::alu_two_pow_shift_lo_bits,
+                      overflow ? 0 : static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits) },
+                    { C::alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << static_cast<uint256_t>(b_num) },
                 });
         }
         return res;
     }
     case simulation::AluOperation::SHR: {
         // Unconditional columns:
-        std::vector<std::pair<Column, FF>> res = {
-            { Column::alu_sel_op_shr, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_SHR },
+        std::vector<std::pair<C, FF>> res = {
+            { C::alu_sel_op_shr, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SHR },
         };
 
         if (!has_error) {
@@ -296,15 +298,15 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             uint128_t a_hi_bits = overflow ? max_bits : max_bits - b_num;
             res.insert(res.end(),
                        {
-                           { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
-                           { Column::alu_sel_decompose_a, 1 },
-                           { Column::alu_a_lo, a_lo },
-                           { Column::alu_a_lo_bits, a_lo_bits },
-                           { Column::alu_a_hi, a_hi },
-                           { Column::alu_a_hi_bits, a_hi_bits },
-                           { Column::alu_shift_lo_bits, a_lo_bits },
-                           { Column::alu_two_pow_shift_lo_bits,
-                             overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits) },
+                           { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+                           { C::alu_sel_decompose_a, 1 },
+                           { C::alu_a_lo, a_lo },
+                           { C::alu_a_lo_bits, a_lo_bits },
+                           { C::alu_a_hi, a_hi },
+                           { C::alu_a_hi_bits, a_hi_bits },
+                           { C::alu_shift_lo_bits, a_lo_bits },
+                           { C::alu_two_pow_shift_lo_bits,
+                             overflow ? 0 : static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits) },
                        });
         }
         return res;
@@ -321,15 +323,15 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         const uint256_t mid = is_trivial ? 0 : lo_128 >> static_cast<uint256_t>(dst_bits);
 
         return {
-            { Column::alu_sel_op_truncate, 1 },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
-            { Column::alu_sel_trunc_trivial, is_trivial ? 1 : 0 },
-            { Column::alu_sel_trunc_lt_128, is_lt_128 ? 1 : 0 },
-            { Column::alu_sel_trunc_gte_128, is_gte_128 ? 1 : 0 },
-            { Column::alu_sel_trunc_non_trivial, is_trivial ? 0 : 1 },
-            { Column::alu_a_lo, lo_128 },
-            { Column::alu_mid, mid },
-            { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
+            { C::alu_sel_op_truncate, 1 },
+            { C::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
+            { C::alu_sel_trunc_trivial, is_trivial ? 1 : 0 },
+            { C::alu_sel_trunc_lt_128, is_lt_128 ? 1 : 0 },
+            { C::alu_sel_trunc_gte_128, is_gte_128 ? 1 : 0 },
+            { C::alu_sel_trunc_non_trivial, is_trivial ? 0 : 1 },
+            { C::alu_a_lo, lo_128 },
+            { C::alu_mid, mid },
+            { C::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
         };
     }
     default:
@@ -350,15 +352,15 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
  * @param event The ALU event.
  * @return A vector of column-value pairs for the error columns.
  */
-std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent& event)
+std::vector<std::pair<C, FF>> get_error_columns(const simulation::AluEvent& event)
 {
     const MemoryTag a_tag = event.a.get_tag();
     const FF a_tag_ff = static_cast<FF>(static_cast<uint8_t>(a_tag));
     const MemoryTag b_tag = event.b.get_tag();
     const FF b_tag_ff = static_cast<FF>(static_cast<uint8_t>(b_tag));
 
-    std::vector<std::pair<Column, FF>> error_columns = {
-        { Column::alu_sel_err, 1 },
+    std::vector<std::pair<C, FF>> error_columns = {
+        { C::alu_sel_err, 1 },
     };
 
     // Case 1:
@@ -377,18 +379,18 @@ std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent&
         event.b.as_ff() == 0;
 
     if (ab_tags_mismatch || ff_tag_err) {
-        error_columns.push_back({ Column::alu_sel_tag_err, 1 });
+        error_columns.push_back({ C::alu_sel_tag_err, 1 });
         // Note: There is no 'alu_sel_ff_tag_err' because we can handle this with existing selectors:
         // (sel_op_div + sel_op_not) * sel_is_ff
     }
 
     if (ab_tags_mismatch) {
-        error_columns.push_back({ Column::alu_sel_ab_tag_mismatch, 1 });
-        error_columns.push_back({ Column::alu_ab_tags_diff_inv, get_tag_diff_inverse(a_tag, b_tag) });
+        error_columns.push_back({ C::alu_sel_ab_tag_mismatch, 1 });
+        error_columns.push_back({ C::alu_ab_tags_diff_inv, get_tag_diff_inverse(a_tag, b_tag) });
     }
 
     if (div_0_error) {
-        error_columns.push_back({ Column::alu_sel_div_0_err, 1 });
+        error_columns.push_back({ C::alu_sel_div_0_err, 1 });
     }
 
     // We shouldn't have emitted an event with an error when one doesn't exist:
@@ -410,8 +412,6 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 {
     // We rely on this for NOT opcode, where b's tag is set to 0 (FF) when a is of FF type.
     static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
-
-    using C = Column;
 
     uint32_t row = 0;
     for (const auto& event : events) {
@@ -446,10 +446,10 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_ic_tag, c_tag },
                       { C::alu_max_bits, get_tag_bits(a_tag) },
                       { C::alu_max_value, get_tag_max_value(a_tag) },
-                      { Column::alu_sel_is_ff, a_tag == MemoryTag::FF ? 1 : 0 },
-                      { Column::alu_tag_ff_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::FF) },
-                      { Column::alu_sel_is_u128, a_tag == MemoryTag::U128 ? 1 : 0 },
-                      { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
+                      { C::alu_sel_is_ff, a_tag == MemoryTag::FF ? 1 : 0 },
+                      { C::alu_tag_ff_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::FF) },
+                      { C::alu_sel_is_u128, a_tag == MemoryTag::U128 ? 1 : 0 },
+                      { C::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
                   } });
 
         row++;
@@ -462,19 +462,15 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 const InteractionDefinition AluTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_alu_range_check_decomposition_a_lo_settings, InteractionType::LookupGeneric>(
-            Column::range_check_sel)
-        .add<lookup_alu_range_check_decomposition_a_hi_settings, InteractionType::LookupGeneric>(
-            Column::range_check_sel)
-        .add<lookup_alu_range_check_decomposition_b_lo_settings, InteractionType::LookupGeneric>(
-            Column::range_check_sel)
-        .add<lookup_alu_range_check_decomposition_b_hi_settings, InteractionType::LookupGeneric>(
-            Column::range_check_sel)
-        .add<lookup_alu_range_check_mul_c_hi_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
+        .add<lookup_alu_range_check_decomposition_a_lo_settings, InteractionType::LookupGeneric>(C::range_check_sel)
+        .add<lookup_alu_range_check_decomposition_a_hi_settings, InteractionType::LookupGeneric>(C::range_check_sel)
+        .add<lookup_alu_range_check_decomposition_b_lo_settings, InteractionType::LookupGeneric>(C::range_check_sel)
+        .add<lookup_alu_range_check_decomposition_b_hi_settings, InteractionType::LookupGeneric>(C::range_check_sel)
+        .add<lookup_alu_range_check_mul_c_hi_settings, InteractionType::LookupGeneric>(C::range_check_sel)
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_alu_shifts_two_pow_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
+        .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>(C::range_check_sel)
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

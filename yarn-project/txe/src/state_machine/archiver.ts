@@ -1,134 +1,33 @@
-import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
+import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, KVArchiverDataStore } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, L2BlockSource, L2Tips, ValidateBlockResult } from '@aztec/stdlib/block';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { CheckpointId, L2BlockId, L2TipId, L2Tips, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import type { BlockHeader } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
-// We are extending the ArchiverDataStoreHelper here because it provides most of the endpoints needed by the
-// node for reading from and writing to state, without needing any of the extra overhead that the Archiver itself
-// requires (i.e. an L1 client)
-export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
+/**
+ * TXE Archiver implementation.
+ * Provides most of the endpoints needed by the node for reading from and writing to state,
+ * without needing any of the extra overhead that the Archiver itself requires (i.e. an L1 client).
+ */
+export class TXEArchiver extends ArchiverDataSourceBase {
+  private readonly updater = new ArchiverDataStoreUpdater(this.store);
+
   constructor(db: AztecAsyncKVStore) {
-    super(new KVArchiverDataStore(db, 9999));
+    const store = new KVArchiverDataStore(db, 9999, { epochDuration: 32 });
+    super(store);
   }
 
-  public override async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
-    const opResults = await Promise.all([
-      this.store.addLogs(blocks.map(block => block.block)),
-      this.store.addBlocks(blocks),
-    ]);
-
-    return opResults.every(Boolean);
+  // TXE-specific method for adding checkpoints
+  public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<boolean> {
+    await this.updater.setNewCheckpointData(checkpoints, result);
+    return true;
   }
 
-  /**
-   * Gets the number of the latest L2 block processed by the block source implementation.
-   * @returns The number of the latest L2 block processed by the block source implementation.
-   */
-  public getBlockNumber(): Promise<number> {
-    return this.store.getSynchedL2BlockNumber();
-  }
-
-  /**
-   * Gets the number of the latest L2 block proven seen by the block source implementation.
-   * @returns The number of the latest L2 block proven seen by the block source implementation.
-   */
-  public getProvenBlockNumber(): Promise<number> {
-    return this.store.getSynchedL2BlockNumber();
-  }
-
-  /**
-   * Gets a published l2 block. If a negative number is passed, the block returned is the most recent.
-   * @param number - The block number to return (inclusive).
-   * @returns The requested L2 block.
-   */
-  public override async getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
-    // If the number provided is -ve, then return the latest block.
-    if (number < 0) {
-      number = await this.store.getSynchedL2BlockNumber();
-    }
-    if (number == 0) {
-      return undefined;
-    }
-    const blocks = await this.store.getPublishedBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0];
-  }
-
-  /**
-   * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
-   * @param number - The block number to return (inclusive).
-   * @returns The requested L2 block.
-   */
-  public getBlock(number: number | 'latest'): Promise<L2Block | undefined> {
-    return this.getPublishedBlock(number != 'latest' ? number : -1).then(block => block?.block);
-  }
-
-  /**
-   * Gets an l2 block header.
-   * @param number - The block number to return or 'latest' for the most recent one.
-   * @returns The requested L2 block header.
-   */
-  public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
-    if (number === 'latest') {
-      number = await this.store.getSynchedL2BlockNumber();
-    }
-    if (number === 0) {
-      return undefined;
-    }
-    const headers = await this.store.getBlockHeaders(number, 1);
-    return headers.length === 0 ? undefined : headers[0];
-  }
-
-  public getBlocks(from: number, limit: number, _proven?: boolean): Promise<L2Block[]> {
-    return this.getPublishedBlocks(from, limit).then(blocks => blocks.map(b => b.block));
-  }
-
-  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
-    throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
-  }
-
-  public getL2EpochNumber(): Promise<EpochNumber> {
-    throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
-  }
-
-  public getBlocksForEpoch(_epochNumber: EpochNumber): Promise<L2Block[]> {
-    throw new Error('TXE Archiver does not implement "getBlocksForEpoch"');
-  }
-
-  public getBlockHeadersForEpoch(_epochNumber: EpochNumber): Promise<BlockHeader[]> {
-    throw new Error('TXE Archiver does not implement "getBlockHeadersForEpoch"');
-  }
-
-  public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
-    throw new Error('TXE Archiver does not implement "isEpochComplete"');
-  }
-
-  public getL2Tips(): Promise<L2Tips> {
-    throw new Error('TXE Archiver does not implement "getL2Tips"');
-  }
-
-  public getL1Constants(): Promise<L1RollupConstants> {
-    throw new Error('TXE Archiver does not implement "getL2Constants"');
-  }
-
-  public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
-    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
-  }
-
-  public syncImmediate(): Promise<void> {
-    throw new Error('TXE Archiver does not implement "syncImmediate"');
-  }
-
-  public getContract(_address: AztecAddress, _timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined> {
-    throw new Error('TXE Archiver does not implement "getContract"');
-  }
+  // Abstract method implementations
 
   public getRollupAddress(): Promise<EthAddress> {
     throw new Error('TXE Archiver does not implement "getRollupAddress"');
@@ -138,15 +37,63 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     throw new Error('TXE Archiver does not implement "getRegistryAddress"');
   }
 
-  public getL1Timestamp(): Promise<bigint> {
+  public getL1Constants(): Promise<L1RollupConstants> {
+    throw new Error('TXE Archiver does not implement "getL1Constants"');
+  }
+
+  public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
+  }
+
+  public getL1Timestamp(): Promise<bigint | undefined> {
     throw new Error('TXE Archiver does not implement "getL1Timestamp"');
   }
 
-  public isPendingChainInvalid(): Promise<boolean> {
-    return Promise.resolve(false);
+  public async getL2Tips(): Promise<L2Tips> {
+    // In TXE there is no possibility of reorgs and no blocks are ever getting proven so we just set 'latest', 'proven'
+    // and 'finalized' to the latest block.
+    const blockHeader = await this.getBlockHeader('latest');
+    if (!blockHeader) {
+      throw new Error('L2Tips requested from TXE Archiver but no block header found');
+    }
+
+    const number = blockHeader.globalVariables.blockNumber;
+    const hash = (await blockHeader.hash()).toString();
+    const checkpointedBlock = await this.getCheckpointedBlock(number);
+    if (!checkpointedBlock) {
+      throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
+    }
+    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
+    if (checkpoint.length === 0) {
+      throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
+    }
+    const blockId: L2BlockId = { number, hash };
+    const checkpointId: CheckpointId = {
+      number: checkpoint[0].checkpointNumber,
+      hash: checkpoint[0].header.hash().toString(),
+    };
+    const tipId: L2TipId = { block: blockId, checkpoint: checkpointId };
+    return {
+      proposed: blockId,
+      proven: tipId,
+      finalized: tipId,
+      checkpointed: tipId,
+    };
   }
 
-  public override getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
-    return Promise.resolve({ valid: true });
+  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
+    throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
+  }
+
+  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
+    throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
+  }
+
+  public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
+    throw new Error('TXE Archiver does not implement "isEpochComplete"');
+  }
+
+  public syncImmediate(): Promise<void> {
+    throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
 }

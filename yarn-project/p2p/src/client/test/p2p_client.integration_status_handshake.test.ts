@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -47,14 +48,17 @@ describe('p2p client integration status handshake', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
+    attestationPool.isEmpty.mockResolvedValue(true);
+
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
-        latestBlockNumber: 0,
+        latestBlockNumber: BlockNumber.ZERO,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalizedBlockNumber: BlockNumber.ZERO,
         treesAreSynched: false,
-        oldestHistoricBlockNumber: 0,
+        oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
     logger.info(`Starting test ${expect.getState().currentTestName}`);
@@ -160,12 +164,8 @@ describe('p2p client integration status handshake', () => {
     const c1PeerManager = (c1 as any).p2pService.peerManager;
     const realSend = c1PeerManager.reqresp.sendRequestToPeer;
 
-    // @ts-expect-error arguments not expected
-    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (
-      peerId: PeerId,
-      protocol: ReqRespSubProtocol,
-      ...rest
-    ) {
+    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (...args: unknown[]) {
+      const [peerId, protocol, ...rest] = args as [PeerId, ReqRespSubProtocol, ...unknown[]];
       if (peerId.toString() === badPeerId.toString() && protocol === ReqRespSubProtocol.STATUS) {
         return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
       }

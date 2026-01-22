@@ -6,7 +6,7 @@ include "../scalar_mul.pil";
 
 namespace address_derivation;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -37,7 +37,7 @@ namespace address_derivation;
     // It's reused between the partial address and salted initialization hash. Weird.
     // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit partial_address_domain_separator;
-    sel * (partial_address_domain_separator - constants.GENERATOR_INDEX__PARTIAL_ADDRESS) = 0;
+    sel * (partial_address_domain_separator - constants.DOM_SEP__PARTIAL_ADDRESS) = 0;
 
     // TODO: We need these temporarily while we dont allow for aliases in the lookup tuple
     pol commit const_two;
@@ -73,7 +73,7 @@ namespace address_derivation;
 
     // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit public_keys_hash_domain_separator;
-    sel * (public_keys_hash_domain_separator - constants.GENERATOR_INDEX__PUBLIC_KEYS_HASH) = 0;
+    sel * (public_keys_hash_domain_separator - constants.DOM_SEP__PUBLIC_KEYS_HASH) = 0;
 
     // Remove all the 0s for is_infinite when removed from public_keys.nr
     // https://github.com/AztecProtocol/aztec-packages/issues/7529
@@ -104,7 +104,7 @@ namespace address_derivation;
 
     // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit preaddress_domain_separator;
-    sel * (preaddress_domain_separator - constants.GENERATOR_INDEX__CONTRACT_ADDRESS_V1) = 0;
+    sel * (preaddress_domain_separator - constants.DOM_SEP__CONTRACT_ADDRESS_V1) = 0;
 
     #[PREADDRESS_POSEIDON2]
     sel { sel /* =1 */, preaddress_domain_separator, public_keys_hash, partial_address, preaddress }

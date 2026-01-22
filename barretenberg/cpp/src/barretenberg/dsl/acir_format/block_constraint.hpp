@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -56,62 +56,22 @@ struct BlockConstraint {
     CallDataType calldata_id;
 };
 
-template <typename Builder>
-void create_block_constraints(Builder& builder,
-                              const BlockConstraint& constraint,
-                              bool has_valid_witness_assignments = true);
+template <typename Builder> void create_block_constraints(Builder& builder, const BlockConstraint& constraint);
 
 template <typename Builder>
 void process_ROM_operations(Builder& builder,
                             const BlockConstraint& constraint,
-                            bool has_valid_witness_assignments,
                             std::vector<bb::stdlib::field_t<Builder>>& init);
 template <typename Builder>
 void process_RAM_operations(Builder& builder,
                             const BlockConstraint& constraint,
-                            bool has_valid_witness_assignments,
                             std::vector<bb::stdlib::field_t<Builder>>& init);
 template <typename Builder>
 void process_call_data_operations(Builder& builder,
                                   const BlockConstraint& constraint,
-                                  bool has_valid_witness_assignments,
                                   std::vector<bb::stdlib::field_t<Builder>>& init);
 template <typename Builder>
 void process_return_data_operations(Builder& builder,
                                     const BlockConstraint& constraint,
                                     std::vector<bb::stdlib::field_t<Builder>>& init);
-
-template <typename B> inline void read(B& buf, MemOp& mem_op)
-{
-    using serialize::read;
-    read(buf, mem_op.access_type);
-    read(buf, mem_op.index);
-    read(buf, mem_op.value);
-}
-
-template <typename B> inline void write(B& buf, MemOp const& mem_op)
-{
-    using serialize::write;
-    write(buf, mem_op.access_type);
-    write(buf, mem_op.index);
-    write(buf, mem_op.value);
-}
-
-template <typename B> inline void read(B& buf, BlockConstraint& constraint)
-{
-    using serialize::read;
-    read(buf, constraint.init);
-    read(buf, constraint.trace);
-    uint8_t type;
-    read(buf, type);
-    constraint.type = static_cast<BlockType>(type);
-}
-
-template <typename B> inline void write(B& buf, BlockConstraint const& constraint)
-{
-    using serialize::write;
-    write(buf, constraint.init);
-    write(buf, constraint.trace);
-    write(buf, static_cast<uint8_t>(constraint.type));
-}
 } // namespace acir_format

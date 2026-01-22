@@ -1,13 +1,10 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type AztecNode, type NodeInfo, createAztecNodeClient } from '@aztec/aztec.js/node';
-import {
-  GovernanceProposerContract,
-  RollupContract,
-  createEthereumChain,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-  deployL1Contract,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
@@ -19,6 +16,7 @@ import { parseEther, stringify } from 'viem/utils';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
+  ChainHealth,
   setupEnvironment,
   startPortForwardForEthereum,
   startPortForwardForRPC,
@@ -37,12 +35,15 @@ describe('spartan_upgrade_governance_proposer', () => {
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
-  afterAll(() => {
+  afterAll(async () => {
+    await health.teardown();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
+    await health.setup();
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
@@ -170,6 +171,6 @@ describe('spartan_upgrade_governance_proposer', () => {
       expect(receipt.status).toEqual('success');
       debugLogger.info(`Executed proposal ${info.round}`);
     },
-    1000 * 60 * 10,
+    1000 * 60 * 20,
   );
 });

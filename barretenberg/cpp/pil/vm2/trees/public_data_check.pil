@@ -46,7 +46,7 @@ include "public_data_squash.pil";
  * };
  *
  * Write usage:
- * sel {
+ * sel_XXX {
  *   value,
  *   address,
  *   slot,
@@ -67,6 +67,8 @@ include "public_data_squash.pil";
  *   public_data_check.tree_size_after_write,
  *   public_data_check.clk
  * };
+ *
+ * where sel_XXX = `protocol_write` or `non_protocol_write`.
  *
 **/
 namespace public_data_check;
@@ -147,7 +149,7 @@ namespace public_data_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit siloing_separator;
-    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
 
     #[SILO_POSEIDON2]
     sel { sel, siloing_separator, address, slot, leaf_slot }

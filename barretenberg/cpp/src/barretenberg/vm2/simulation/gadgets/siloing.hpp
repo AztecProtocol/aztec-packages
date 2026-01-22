@@ -16,7 +16,7 @@ class Siloing : public SiloingInterface {
 
     FF silo_nullifier(const FF& nullifier, const FF& silo_by) override
     {
-        return silo(GENERATOR_INDEX__OUTER_NULLIFIER, nullifier, silo_by, SiloingType::NULLIFIER);
+        return silo(DOM_SEP__OUTER_NULLIFIER, nullifier, silo_by, SiloingType::NULLIFIER);
     }
 
   private:

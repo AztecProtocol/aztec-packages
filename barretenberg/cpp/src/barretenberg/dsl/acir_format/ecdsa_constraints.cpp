@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
@@ -38,9 +38,7 @@ using namespace bb;
  * @param has_valid_witness_assignments
  */
 template <typename Curve>
-void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
-                                     const EcdsaConstraint& input,
-                                     bool has_valid_witness_assignments)
+void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const EcdsaConstraint& input)
 {
     using Builder = Curve::Builder;
 
@@ -61,7 +59,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     field_ct result_field = field_ct::from_witness_index(&builder, input.result);
     bool_ct predicate(to_field_ct(input.predicate, builder)); // Constructor enforces predicate = 0 or 1
 
-    if (!has_valid_witness_assignments) {
+    if (builder.is_write_vk_mode()) {
         // Fill builder variables in case of empty witness assignment
         create_dummy_ecdsa_constraint<Curve>(
             builder, hashed_message_fields, r_fields, s_fields, pub_x_fields, pub_y_fields, result_field);
@@ -165,14 +163,14 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
     builder.set_variable(result_field.get_witness_index(), bb::fr::one());
 }
 
-template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(
-    UltraCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(
-    MegaCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(
-    UltraCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(
-    MegaCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
+template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                                                      const EcdsaConstraint& input);
+template void create_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                                                                     const EcdsaConstraint& input);
+template void create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                                                      const EcdsaConstraint& input);
+template void create_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                                                                     const EcdsaConstraint& input);
 
 template void create_dummy_ecdsa_constraint<stdlib::secp256k1<UltraCircuitBuilder>>(
     UltraCircuitBuilder&,

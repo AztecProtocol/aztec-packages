@@ -43,6 +43,11 @@ variable "VALIDATOR_MNEMONIC_START_INDEX" {
   type        = number
 }
 
+variable "VALIDATOR_HA_REPLICAS" {
+  description = "How many HA copies of validators running"
+  type        = number
+}
+
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic index start for key derivation"
   type        = number
@@ -63,7 +68,7 @@ variable "AZTEC_DOCKER_IMAGE" {
 variable "WEB3SIGNER_DOCKER_IMAGE" {
   description = "The web3signer image to use"
   type        = string
-  default     = "consensys/web3signer:25.3.0"
+  default     = "consensys/web3signer:25.11.0"
 }
 
 variable "KUBECTL_DOCKER_IMAGE" {

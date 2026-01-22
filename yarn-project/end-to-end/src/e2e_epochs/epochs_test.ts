@@ -6,12 +6,14 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EpochCache } from '@aztec/epoch-cache';
-import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -26,7 +28,7 @@ import {
   SequencerState,
 } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { EthAddress, type L2BlockNumber } from '@aztec/stdlib/block';
+import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -95,12 +97,24 @@ export class EpochsTestContext {
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
-    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
+    const l1PublishingTime = opts.l1PublishingTime ?? 1;
+    return {
+      l1PublishingTime,
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+    };
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
-      EpochsTestContext.getSlotDurations(opts);
+    const {
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs,
+      l1PublishingTime,
+    } = EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
@@ -112,8 +126,6 @@ export class EpochsTestContext {
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
       worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
-      skipProtocolContracts: true,
-      salt: 1,
       aztecEpochDuration,
       aztecSlotDuration,
       ethereumSlotDuration,
@@ -130,6 +142,7 @@ export class EpochsTestContext {
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
       slasherFlavor: 'none',
+      l1PublishingTime,
       ...opts,
     });
 
@@ -198,7 +211,7 @@ export class EpochsTestContext {
           ...opts,
         },
         this.context.aztecNode,
-        undefined,
+        this.context.prefilledPublicData ?? [],
         { dateProvider: this.context.dateProvider },
       ),
     );
@@ -292,7 +305,7 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given checkpoint number is mined. */
-  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 60) {
+  public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.checkpointNumber),
       `Wait until checkpoint ${target}`,
@@ -302,7 +315,7 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given checkpoint number is marked as proven. */
-  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 60) {
+  public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(
       () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
       `Wait proven checkpoint ${target}`,
@@ -324,7 +337,7 @@ export class EpochsTestContext {
   }
 
   /** Waits for the aztec node to sync to the target block number. */
-  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalized' | 'historic') {
+  public async waitForNodeToSync(blockNumber: BlockNumber, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
     let synched = false;
     while (!synched) {
@@ -335,7 +348,7 @@ export class EpochsTestContext {
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
-        synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
       } else if (type === 'finalized') {
         synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {
@@ -373,7 +386,7 @@ export class EpochsTestContext {
   }
 
   /** Verifies whether the given block number is found on the aztec node. */
-  public async verifyHistoricBlock(blockNumber: L2BlockNumber, expectedSuccess: boolean) {
+  public async verifyHistoricBlock(blockNumber: BlockParameter, expectedSuccess: boolean) {
     // We use `findLeavesIndexes` here, but could use any function that queries the world-state
     // at a particular block, so we know whether that historic block is available or has been
     // pruned. Note that `getBlock` would not work here, since it only hits the archiver.
@@ -391,11 +404,11 @@ export class EpochsTestContext {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
 
-    // Note we do not include the 'tx-count-check-failed' event here, since it is fine if we dont build
+    // Note we do not include the 'block-tx-count-check-failed' event here, since it is fine if we dont build
     // due to lack of txs available.
     const failEventsKeys: (keyof SequencerEvents)[] = [
       'block-build-failed',
-      'block-publish-failed',
+      'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
     ];
 

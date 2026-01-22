@@ -4,8 +4,9 @@ import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import type {
   Aliased,
   BatchResults,
-  BatchableMethods,
   BatchedMethod,
+  PrivateEvent,
+  PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -19,10 +20,10 @@ import {
 } from '@aztec/constants';
 import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { PXE } from '@aztec/pxe/server';
+import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
   type EventMetadataDefinition,
@@ -32,14 +33,13 @@ import {
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type ContractClassMetadata,
   type ContractInstanceWithAddress,
-  type ContractMetadata,
   computePartialAddress,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type {
   TxExecutionRequest,
@@ -74,7 +74,7 @@ export type FeeOptions = {
 export abstract class BaseWallet implements Wallet {
   protected log = createLogger('wallet-sdk:base_wallet');
 
-  protected baseFeePadding = 0.5;
+  protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
 
   // Protected because we want to force wallets to instantiate their own PXE.
@@ -119,20 +119,25 @@ export abstract class BaseWallet implements Wallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const fromAccount = await this.getAccountFromAddress(from);
-    return fromAccount.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, executionOptions);
+    const chainInfo = await this.getChainInfo();
+    return fromAccount.createTxExecutionRequest(
+      finalExecutionPayload,
+      feeOptions.gasSettings,
+      chainInfo,
+      executionOptions,
+    );
   }
 
   public async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | IntentInnerHash | CallIntent,
+    messageHashOrIntent: IntentInnerHash | CallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
-    return account.createAuthWit(messageHashOrIntent);
+    const chainInfo = await this.getChainInfo();
+    return account.createAuthWit(messageHashOrIntent, chainInfo);
   }
 
-  public async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(
-    methods: T,
-  ): Promise<BatchResults<T>> {
+  public async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;
@@ -163,7 +168,7 @@ export abstract class BaseWallet implements Wallet {
     gasSettings?: Partial<FieldsOf<GasSettings>>,
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+      gasSettings?.maxFeesPerGas ?? (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set the flag
     // for the account to use its fee juice balance
@@ -225,7 +230,7 @@ export abstract class BaseWallet implements Wallet {
     artifact?: ContractArtifact,
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress> {
-    const { contractInstance: existingInstance } = await this.pxe.getContractMetadata(instance.address);
+    const existingInstance = await this.pxe.getContractInstance(instance.address);
 
     if (existingInstance) {
       // Instance already registered in the wallet
@@ -242,13 +247,12 @@ export abstract class BaseWallet implements Wallet {
       // Instance not registered yet
       if (!artifact) {
         // Try to get the artifact from the wallet's contract class storage
-        const classMetadata = await this.pxe.getContractClassMetadata(instance.currentContractClassId, true);
-        if (!classMetadata.artifact) {
+        artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+        if (!artifact) {
           throw new Error(
             `Cannot register contract at ${instance.address.toString()}: artifact is required but not provided, and wallet does not have the artifact for contract class ${instance.currentContractClassId.toString()}`,
           );
         }
-        artifact = classMetadata.artifact;
       }
       await this.pxe.registerContract({ artifact, instance });
     }
@@ -313,30 +317,60 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.simulateUtility(call, authwits);
   }
 
-  getContractClassMetadata(id: Fr, includeArtifact: boolean = false): Promise<ContractClassMetadata> {
-    return this.pxe.getContractClassMetadata(id, includeArtifact);
-  }
-  getContractMetadata(address: AztecAddress): Promise<ContractMetadata> {
-    return this.pxe.getContractMetadata(address);
-  }
-
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.aztecNode.getTxReceipt(txHash);
   }
 
   async getPrivateEvents<T>(
-    contractAddress: AztecAddress,
     eventDef: EventMetadataDefinition,
-    from: number,
-    limit: number,
-    recipients: AztecAddress[] = [],
-  ): Promise<T[]> {
-    const events = await this.pxe.getPrivateEvents(contractAddress, eventDef.eventSelector, from, limit, recipients);
+    eventFilter: PrivateEventFilter,
+  ): Promise<PrivateEvent<T>[]> {
+    const pxeEvents = await this.pxe.getPrivateEvents(eventDef.eventSelector, eventFilter);
 
-    const decodedEvents = events.map(
-      (event: any /** PrivateEvent */): T => decodeFromAbi([eventDef.abiType], event.packedEvent) as T,
-    );
+    const decodedEvents = pxeEvents.map((pxeEvent: PackedPrivateEvent): PrivateEvent<T> => {
+      return {
+        event: decodeFromAbi([eventDef.abiType], pxeEvent.packedEvent) as T,
+        metadata: {
+          l2BlockNumber: pxeEvent.l2BlockNumber,
+          l2BlockHash: pxeEvent.l2BlockHash,
+          txHash: pxeEvent.txHash,
+        },
+      };
+    });
 
     return decodedEvents;
+  }
+
+  async getContractMetadata(address: AztecAddress) {
+    const instance = await this.pxe.getContractInstance(address);
+    const initNullifier = await siloNullifier(address, address.toField());
+    const publiclyRegisteredContract = await this.aztecNode.getContract(address);
+    const [initNullifierMembershipWitness, publiclyRegisteredContractClass] = await Promise.all([
+      this.aztecNode.getNullifierMembershipWitness('latest', initNullifier),
+      publiclyRegisteredContract
+        ? this.aztecNode.getContractClass(
+            publiclyRegisteredContract.currentContractClassId || instance?.currentContractClassId,
+          )
+        : undefined,
+    ]);
+    const isContractUpdated =
+      publiclyRegisteredContract &&
+      !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
+    return {
+      instance: instance ?? undefined,
+      isContractInitialized: !!initNullifierMembershipWitness,
+      isContractPublished: !!publiclyRegisteredContract,
+      isContractClassPubliclyRegistered: !!publiclyRegisteredContractClass,
+      isContractUpdated: !!isContractUpdated,
+      updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,
+    };
+  }
+
+  async getContractClassMetadata(id: Fr) {
+    const publiclyRegisteredContractClass = await this.aztecNode.getContractClass(id);
+    return {
+      isArtifactRegistered: !!(await this.pxe.getContractArtifact(id)),
+      isContractClassPubliclyRegistered: !!publiclyRegisteredContractClass,
+    };
   }
 }

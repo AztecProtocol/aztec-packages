@@ -33,9 +33,13 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       {
         l1Mnemonic: localNetwork.l1Mnemonic,
         l1RpcUrls: options.l1RpcUrls,
-        deployAztecContractsSalt: localNetwork.deployAztecContractsSalt,
         testAccounts: localNetwork.testAccounts,
         realProofs: false,
+        // Setting the epoch duration to 4 by default for local network. This allows the epoch to be "proven" faster, so
+        // the users can consume out hash without having to wait for a long time.
+        // Note: We are not proving anything in the local network (realProofs == false). But in `createLocalNetwork`,
+        // the EpochTestSettler will set the out hash to the outbox when an epoch is complete.
+        aztecEpochDuration: 4,
       },
       userLog,
     );
@@ -53,9 +57,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     } else if (options.proverNode) {
       const { startProverNode } = await import('./cmds/start_prover_node.js');
       ({ config } = await startProverNode(options, signalHandlers, services, userLog));
-    } else if (options.blobSink) {
-      const { startBlobSink } = await import('./cmds/start_blob_sink.js');
-      await startBlobSink(options, signalHandlers, userLog);
     } else if (options.archiver) {
       const { startArchiver } = await import('./cmds/start_archiver.js');
       ({ config } = await startArchiver(options, signalHandlers, services));

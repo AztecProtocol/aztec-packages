@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "polynomial_arithmetic.hpp"
@@ -501,27 +501,28 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n)
 {
-    size_t num_threads = get_num_cpus_pow2();
-    size_t range_per_thread = n / num_threads;
-    size_t leftovers = n - (range_per_thread * num_threads);
-    Fr* evaluations = new Fr[num_threads];
-    parallel_for(num_threads, [&](size_t j) {
-        Fr z_acc = z.pow(static_cast<uint64_t>(j * range_per_thread));
-        size_t offset = j * range_per_thread;
-        evaluations[j] = Fr::zero();
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    const size_t num_threads = get_num_cpus();
+    std::vector<Fr> evaluations(num_threads, Fr::zero());
+    parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
+        auto range = chunk.range(n);
+        if (range.empty()) {
+            return;
+        }
+        size_t start = *range.begin();
+        Fr z_acc = z.pow(static_cast<uint64_t>(start));
+        for (size_t i : range) {
             Fr work_var = z_acc * coeffs[i];
-            evaluations[j] += work_var;
+            evaluations[chunk.thread_index] += work_var;
             z_acc *= z;
         }
     });
 
     Fr r = Fr::zero();
-    for (size_t j = 0; j < num_threads; ++j) {
-        r += evaluations[j];
+    for (const auto& eval : evaluations) {
+        r += eval;
     }
-    delete[] evaluations;
     return r;
 }
 
@@ -531,27 +532,28 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
     const size_t poly_size = large_n / num_polys;
     BB_ASSERT(is_power_of_two(poly_size));
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-    size_t num_threads = get_num_cpus_pow2();
-    size_t range_per_thread = large_n / num_threads;
-    size_t leftovers = large_n - (range_per_thread * num_threads);
-    Fr* evaluations = new Fr[num_threads];
-    parallel_for(num_threads, [&](size_t j) {
-        Fr z_acc = z.pow(static_cast<uint64_t>(j * range_per_thread));
-        size_t offset = j * range_per_thread;
-        evaluations[j] = Fr::zero();
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    const size_t num_threads = get_num_cpus();
+    std::vector<Fr> evaluations(num_threads, Fr::zero());
+    parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
+        auto range = chunk.range(large_n);
+        if (range.empty()) {
+            return;
+        }
+        size_t start = *range.begin();
+        Fr z_acc = z.pow(static_cast<uint64_t>(start));
+        for (size_t i : range) {
             Fr work_var = z_acc * coeffs[i >> log2_poly_size][i & (poly_size - 1)];
-            evaluations[j] += work_var;
+            evaluations[chunk.thread_index] += work_var;
             z_acc *= z;
         }
     });
 
     Fr r = Fr::zero();
-    for (size_t j = 0; j < num_threads; ++j) {
-        r += evaluations[j];
+    for (const auto& eval : evaluations) {
+        r += eval;
     }
-    delete[] evaluations;
     return r;
 }
 

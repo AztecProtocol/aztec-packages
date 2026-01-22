@@ -1,12 +1,12 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { TxHash } from '@aztec/stdlib/tx';
 
+import type { AccountType } from '../utils/constants.js';
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
-import type { AccountType } from '../utils/wallet.js';
 
 export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
 export type AliasType = (typeof Aliases)[number];

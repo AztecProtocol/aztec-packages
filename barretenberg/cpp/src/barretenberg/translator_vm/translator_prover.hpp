@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -39,6 +39,9 @@ class TranslatorProver {
     void commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label);
     HonkProof export_proof();
     HonkProof construct_proof();
+
+    // Extract the accumulated result from the circuit
+    uint256_t get_accumulated_result() const;
 
     std::shared_ptr<Transcript> transcript;
 

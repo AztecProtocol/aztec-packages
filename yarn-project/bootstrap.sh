@@ -13,16 +13,16 @@ function compile_project {
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
 }
 
-# Returns a list of projects to compile/lint/publish.
+# Returns a list of project paths to compile/lint/publish.
 # Ensure exclusions are matching in both cases.
 function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
       --exclude @aztec/scripts \
-      exec 'basename $(pwd)' | cat | grep -v "Done"
+      exec 'echo $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated
+    dirname */src | xargs realpath
   fi
 }
 
@@ -78,6 +78,10 @@ function lint {
   fi
 }
 
+function compile_all_projects {
+  get_projects | compile_project
+}
+
 function compile_all {
   set -euo pipefail
   local hash=$(hash)
@@ -90,6 +94,10 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    aztec.js \
+    cli \
+    ethereum \
+    slasher \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -106,13 +114,9 @@ function compile_all {
   cd pxe && yarn check_oracle_version
   cd ..
 
-  cmds=('format --check')
-  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
-    # Fully type check and lint.
-    cmds+=('yarn tsgo -b --emitDeclarationOnly && lint --check')
-  else
-    # We just need the type declarations required for downstream consumers.
-    cmds+=('cd aztec.js && yarn tsgo -b --emitDeclarationOnly')
+  cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
+  if [ "${CI:-0}" -eq 1 ]; then
+    cmds+=('lint --check')
   fi
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
@@ -127,7 +131,7 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  npm_install_deps
+  npm_install_deps ../noir
   denoise "compile_all"
 }
 
@@ -145,7 +149,7 @@ function test_cmds {
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser) ]]; then
+    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
       prefix+=":ISOLATE=1:NAME=$test"
     fi
 
@@ -187,8 +191,12 @@ function test_cmds {
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
 
+  # Test the tsc.sh build script
+  echo "$hash yarn-project/scripts/tsc.test.sh"
+
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/mainnet_compatibility.test.ts"
   fi
 }
 

@@ -3,7 +3,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   type NULLIFIER_TREE_HEIGHT,
 } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { siloNullifier } from '../../hash/hash.js';
@@ -82,19 +82,31 @@ export async function buildNullifierReadRequestHintsFromResetActions<PENDING ext
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
   });
 
+  // Collect all settled read requests
+  const settledRequests: { index: number; readRequest: ScopedReadRequest }[] = [];
   for (let i = 0; i < resetActions.actions.length; i++) {
     if (resetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
-      const readRequest = nullifierReadRequests.array[i];
-      const siloedValue = siloed
-        ? readRequest.value
-        : await siloNullifier(readRequest.contractAddress, readRequest.value);
-      const membershipWitnessWithPreimage = await oracle.getNullifierMembershipWitness(siloedValue);
-      builder.addSettledReadRequest(
-        i,
-        membershipWitnessWithPreimage.membershipWitness,
-        membershipWitnessWithPreimage.leafPreimage,
-      );
+      settledRequests.push({ index: i, readRequest: nullifierReadRequests.array[i] });
     }
+  }
+
+  // Compute siloed values in parallel (if not already siloed)
+  const siloedValues = siloed
+    ? settledRequests.map(({ readRequest }) => readRequest.value)
+    : await Promise.all(
+        settledRequests.map(({ readRequest }) => siloNullifier(readRequest.contractAddress, readRequest.value)),
+      );
+
+  // Fetch all membership witnesses in parallel
+  const membershipWitnesses = await Promise.all(siloedValues.map(value => oracle.getNullifierMembershipWitness(value)));
+
+  // Add settled read requests to builder
+  for (let i = 0; i < settledRequests.length; i++) {
+    builder.addSettledReadRequest(
+      settledRequests[i].index,
+      membershipWitnesses[i].membershipWitness,
+      membershipWitnesses[i].leafPreimage,
+    );
   }
 
   return builder.toHints();

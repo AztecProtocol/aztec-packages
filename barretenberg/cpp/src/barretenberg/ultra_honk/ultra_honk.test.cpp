@@ -20,9 +20,6 @@ using FlavorTypes =
     testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
 #endif
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
-using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor>;
-template <typename T> using UltraHonkNonZKTests = UltraHonkTests<T>;
-TYPED_TEST_SUITE(UltraHonkNonZKTests, NonZKFlavorTypes);
 /**
  * @brief Check that size of a ultra honk proof matches the corresponding constant
  * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
@@ -108,179 +105,6 @@ TYPED_TEST(UltraHonkTests, PublicInputs)
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, XorConstraint)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-
-    uint32_t left_value = engine.get_random_uint32();
-    uint32_t right_value = engine.get_random_uint32();
-
-    fr left_witness_value = fr{ left_value, 0, 0, 0 }.to_montgomery_form();
-    fr right_witness_value = fr{ right_value, 0, 0, 0 }.to_montgomery_form();
-
-    uint32_t left_witness_index = circuit_builder.add_variable(left_witness_value);
-    uint32_t right_witness_index = circuit_builder.add_variable(right_witness_value);
-
-    uint32_t xor_result_expected = left_value ^ right_value;
-
-    const auto lookup_accumulators = plookup::get_lookup_accumulators(
-        plookup::MultiTableId::UINT32_XOR, left_witness_value, right_witness_value, true);
-    auto xor_result = lookup_accumulators[plookup::ColumnIdx::C3]
-                                         [0]; // The zeroth index in the 3rd column is the fully accumulated xor
-
-    EXPECT_EQ(xor_result, xor_result_expected);
-    circuit_builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::UINT32_XOR, lookup_accumulators, left_witness_index, right_witness_index);
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, CreateGatesFromPlookupAccumulators)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-
-    fr input_value = fr::random_element();
-    const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
-    const auto input_lo_index = circuit_builder.add_variable(input_lo);
-
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
-
-    const auto lookup_witnesses = circuit_builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
-
-    const size_t num_lookups = plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE;
-
-    EXPECT_EQ(num_lookups, lookup_witnesses[plookup::ColumnIdx::C1].size());
-
-    {
-        const auto mask = plookup::fixed_base::table::MAX_TABLE_SIZE - 1;
-
-        grumpkin::g1::affine_element base_point = plookup::fixed_base::table::lhs_generator_point();
-        std::vector<uint8_t> input_buf;
-        write(input_buf, base_point);
-        const auto offset_generators =
-            grumpkin::g1::derive_generators(input_buf, plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE);
-
-        grumpkin::g1::element accumulator = base_point;
-        uint256_t expected_scalar(input_lo);
-        const auto table_bits = plookup::fixed_base::table::BITS_PER_TABLE;
-        const auto num_tables = plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE;
-        for (size_t i = 0; i < num_tables; ++i) {
-
-            auto round_scalar = circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C1][i]);
-            auto round_x = circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C2][i]);
-            auto round_y = circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C3][i]);
-
-            EXPECT_EQ(uint256_t(round_scalar), expected_scalar);
-
-            auto next_scalar = static_cast<uint256_t>(
-                (i == num_tables - 1) ? fr(0)
-                                      : circuit_builder.get_variable(lookup_witnesses[plookup::ColumnIdx::C1][i + 1]));
-
-            uint256_t slice = static_cast<uint256_t>(round_scalar) - (next_scalar << table_bits);
-            EXPECT_EQ(slice, (uint256_t(input_lo) >> (i * table_bits)) & mask);
-
-            grumpkin::g1::affine_element expected_point(accumulator * static_cast<uint256_t>(slice) +
-                                                        offset_generators[i]);
-
-            EXPECT_EQ(round_x, expected_point.x);
-            EXPECT_EQ(round_y, expected_point.y);
-            for (size_t j = 0; j < table_bits; ++j) {
-                accumulator = accumulator.dbl();
-            }
-            expected_scalar >>= table_bits;
-        }
-    }
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-/**
- * @brief Test various failure modes for the lookup relation via bad input polynomials
- *
- */
-TYPED_TEST(UltraHonkTests, LookupFailure)
-{
-    using ProverInstance = typename TestFixture::ProverInstance;
-    // Construct a circuit with lookup and arithmetic gates
-    auto construct_circuit_with_lookups = [this]() {
-        UltraCircuitBuilder builder;
-
-        MockCircuits::add_lookup_gates(builder);
-        MockCircuits::add_arithmetic_gates(builder);
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-
-        return builder;
-    };
-
-    // Ensure the unaltered test circuit is valid
-    {
-        auto builder = construct_circuit_with_lookups();
-
-        TestFixture::prove_and_verify(builder, true);
-    }
-
-    // Failure mode 1: bad read counts/tags
-    {
-        auto builder = construct_circuit_with_lookups();
-
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
-        auto& polynomials = prover_instance->polynomials;
-
-        // Erroneously update the read counts/tags at an arbitrary index
-        // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
-        // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
-        // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
-        // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
-        // expected behavior.
-        polynomials.lookup_inverses = polynomials.lookup_inverses.full();
-        polynomials.lookup_read_counts = polynomials.lookup_read_counts.full();
-        polynomials.lookup_read_counts.at(25) = 1;
-        polynomials.lookup_read_tags = polynomials.lookup_read_tags.full();
-        polynomials.lookup_read_tags.at(25) = 1;
-
-        TestFixture::prove_and_verify(prover_instance, false);
-    }
-
-    // Failure mode 2: bad lookup gate wire value
-    {
-        auto builder = construct_circuit_with_lookups();
-
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
-        auto& polynomials = prover_instance->polynomials;
-
-        bool altered = false;
-        // Find a lookup gate and alter one of the wire values
-        for (auto [i, q_lookup] : polynomials.q_lookup.indexed_values()) {
-            if (!q_lookup.is_zero() && polynomials.q_lookup.is_valid_set_index(i)) {
-                polynomials.w_o.at(i) += 1;
-                altered = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(altered);
-        TestFixture::prove_and_verify(prover_instance, false);
-    }
-
-    // Failure mode 3: erroneous lookup gate
-    {
-        auto builder = construct_circuit_with_lookups();
-
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
-        auto& polynomials = prover_instance->polynomials;
-
-        // Turn the lookup selector on for an arbitrary row where it is not already active
-        polynomials.lookup_inverses = polynomials.lookup_inverses.full();
-        polynomials.q_lookup = polynomials.q_lookup.full();
-        EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        polynomials.q_lookup.at(25) = 1;
-
-        TestFixture::prove_and_verify(prover_instance, false);
-    }
-}
-
 TYPED_TEST(UltraHonkTests, TestNoLookupProof)
 {
     auto circuit_builder = UltraCircuitBuilder();
@@ -333,546 +157,6 @@ TYPED_TEST(UltraHonkTests, TestEllipticGate)
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
     circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, NonTrivialTagPermutation)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    fr a = fr::random_element();
-    fr b = -a;
-
-    auto a_idx = circuit_builder.add_variable(a);
-    auto b_idx = circuit_builder.add_variable(b);
-    auto c_idx = circuit_builder.add_variable(b);
-    auto d_idx = circuit_builder.add_variable(a);
-
-    circuit_builder.create_add_gate(
-        { a_idx, b_idx, circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
-    circuit_builder.create_add_gate(
-        { c_idx, d_idx, circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
-
-    circuit_builder.create_tag(1, 2);
-    circuit_builder.create_tag(2, 1);
-
-    circuit_builder.assign_tag(a_idx, 1);
-    circuit_builder.assign_tag(b_idx, 1);
-    circuit_builder.assign_tag(c_idx, 2);
-    circuit_builder.assign_tag(d_idx, 2);
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, NonTrivialTagPermutationAndCycles)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    fr a = fr::random_element();
-    fr c = -a;
-
-    auto a_idx = circuit_builder.add_variable(a);
-    auto b_idx = circuit_builder.add_variable(a);
-    circuit_builder.assert_equal(a_idx, b_idx);
-    auto c_idx = circuit_builder.add_variable(c);
-    auto d_idx = circuit_builder.add_variable(c);
-    circuit_builder.assert_equal(c_idx, d_idx);
-    auto e_idx = circuit_builder.add_variable(a);
-    auto f_idx = circuit_builder.add_variable(a);
-    circuit_builder.assert_equal(e_idx, f_idx);
-    auto g_idx = circuit_builder.add_variable(c);
-    auto h_idx = circuit_builder.add_variable(c);
-    circuit_builder.assert_equal(g_idx, h_idx);
-
-    circuit_builder.create_tag(1, 2);
-    circuit_builder.create_tag(2, 1);
-
-    circuit_builder.assign_tag(a_idx, 1);
-    circuit_builder.assign_tag(c_idx, 1);
-    circuit_builder.assign_tag(e_idx, 2);
-    circuit_builder.assign_tag(g_idx, 2);
-
-    circuit_builder.create_add_gate(
-        { b_idx, a_idx, circuit_builder.zero_idx(), fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    circuit_builder.create_add_gate(
-        { c_idx, g_idx, circuit_builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
-    circuit_builder.create_add_gate(
-        { e_idx, f_idx, circuit_builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, BadTagPermutation)
-{
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        fr a = fr::random_element();
-        fr b = -a;
-
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(b);
-        auto d_idx = circuit_builder.add_variable(a + 1);
-
-        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx(), 1, 1, 0, 0 });
-        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx(), 1, 1, 0, -1 });
-
-        circuit_builder.create_tag(1, 2);
-        circuit_builder.create_tag(2, 1);
-
-        circuit_builder.assign_tag(a_idx, 1);
-        circuit_builder.assign_tag(b_idx, 1);
-        circuit_builder.assign_tag(c_idx, 2);
-        circuit_builder.assign_tag(d_idx, 2);
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    // Same as above but without tag creation to check reason of failure is really tag mismatch
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        fr a = fr::random_element();
-        fr b = -a;
-
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(b);
-        auto d_idx = circuit_builder.add_variable(a + 1);
-
-        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx(), 1, 1, 0, 0 });
-        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx(), 1, 1, 0, -1 });
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-}
-// The failure tests for `z_perm` explicitly avoid the ZK flavors, as we are manually tampering with `z_perm`.
-TYPED_TEST(UltraHonkNonZKTests, ZPermZeroedOutFailure)
-{
-    using Flavor = TypeParam;
-    using Builder = typename Flavor::CircuitBuilder;
-
-    using ProverInstance = ProverInstance_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    using Prover = TestFixture::Prover;
-
-    Builder builder;
-
-    auto a = fr::random_element();
-    auto b = fr::random_element();
-    auto c = a + b;
-
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t a_copy_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.add_variable(c);
-
-    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
-    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
-    builder.assert_equal(a_copy_idx, a_idx);
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-
-    auto prover_instance = std::make_shared<ProverInstance>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-    Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-    auto& z_perm = prover_instance->polynomials.z_perm;
-
-    // First verify that the Permutation relation holds.
-    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
-        prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
-    EXPECT_TRUE(permutation_relation_failures.empty());
-
-    // Tamper: zero-out z_perm
-    for (size_t i = z_perm.start_index(); i < z_perm.end_index(); ++i) {
-        z_perm.at(i) = fr(0);
-    }
-    prover_instance->polynomials.set_shifted();
-    auto tampered_permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
-        prover_instance->polynomials,
-        prover_instance->relation_parameters,
-        "UltraPermutation - After zeroing out z_perm");
-    // Verify that the Permutation relation now fails
-    EXPECT_FALSE(tampered_permutation_relation_failures.empty());
-}
-
-TYPED_TEST(UltraHonkNonZKTests, ZPermShiftNotZeroAtLagrangeLastFailure)
-{
-    using Flavor = TypeParam;
-    using Builder = typename Flavor::CircuitBuilder;
-
-    using ProverInstance = ProverInstance_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-
-    using Prover = TestFixture::Prover;
-
-    Builder builder;
-
-    auto a = fr::random_element();
-    auto b = fr::random_element();
-    auto c = a + b;
-
-    uint32_t a_idx = builder.add_variable(a);
-    uint32_t a_copy_idx = builder.add_variable(a);
-    uint32_t b_idx = builder.add_variable(b);
-    uint32_t c_idx = builder.add_variable(c);
-
-    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
-    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
-    builder.assert_equal(a_copy_idx, a_idx);
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-
-    auto prover_instance = std::make_shared<ProverInstance>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-    Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-
-    // first verify that the Permutation relation holds.
-    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
-        prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
-    EXPECT_TRUE(permutation_relation_failures.empty());
-    // we make z_perm and z_perm_shift full polynomials to tamper with values that are outside the usual allocated
-    // range. This allows us to failure test for the subrelation `z_perm_shift * lagrange_last == 0`.
-    auto& z_perm = prover_instance->polynomials.z_perm;
-    auto last_valid_index = z_perm.end_index();
-    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;
-    // make the polynomial full to tamper with a last value.
-    prover_instance->polynomials.z_perm = z_perm.full();
-    prover_instance->polynomials.z_perm_shift = z_perm_shift.full();
-
-    ASSERT_EQ(prover_instance->polynomials.lagrange_last.at(last_valid_index - 1), fr(1));
-    ASSERT_EQ(prover_instance->polynomials.z_perm.at(last_valid_index), fr(0));
-    ASSERT_EQ(prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1), fr(0));
-    // Tamper: change `z_perm_shift` to something non-zero when `lagrange_last == 1`.
-    prover_instance->polynomials.z_perm_shift.at(last_valid_index - 1) += fr(1);
-    // Note that `z_perm_shift` and `z_perm` are no longer inextricably linked because we have replaced them by their
-    // full incarnations. Therefore, we still `z_perm.at(last_valid_index) == 0`. This does not effect the test we
-    // wish to check.
-
-    // Verify that the Permutation relation now fails.
-    auto tampered_permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
-        prover_instance->polynomials,
-        prover_instance->relation_parameters,
-        "UltraPermutation - After incrementing z_perm_shift where lagrange_last is 1");
-    EXPECT_FALSE(tampered_permutation_relation_failures.empty());
-    // the first subrelation first fails at `row_idx == last_valid_index - 1`.
-    ASSERT_EQ(tampered_permutation_relation_failures[1], last_valid_index - 1);
-}
-
-TYPED_TEST(UltraHonkTests, SortWidget)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    fr a = fr::one();
-    fr b = fr(2);
-    fr c = fr(3);
-    fr d = fr(4);
-
-    auto a_idx = circuit_builder.add_variable(a);
-    auto b_idx = circuit_builder.add_variable(b);
-    auto c_idx = circuit_builder.add_variable(c);
-    auto d_idx = circuit_builder.add_variable(d);
-    circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, SortWithEdgesGate)
-{
-    fr a = fr::one();
-    fr b = fr(2);
-    fr c = fr(3);
-    fr d = fr(4);
-    fr e = fr(5);
-    fr f = fr(6);
-    fr g = fr(7);
-    fr h = fr(8);
-
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, h);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, g);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto b_idx = circuit_builder.add_variable(b);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto a_idx = circuit_builder.add_variable(a);
-        auto c_idx = circuit_builder.add_variable(c);
-        auto d_idx = circuit_builder.add_variable(d);
-        auto e_idx = circuit_builder.add_variable(e);
-        auto f_idx = circuit_builder.add_variable(f);
-        auto g_idx = circuit_builder.add_variable(g);
-        auto h_idx = circuit_builder.add_variable(h);
-        auto b2_idx = circuit_builder.add_variable(fr(15));
-        circuit_builder.create_sort_constraint_with_edges(
-            { a_idx, b2_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto idx =
-            TestFixture::add_variables(circuit_builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
-                                                          26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
-        circuit_builder.create_sort_constraint_with_edges(idx, 1, 45);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto idx =
-            TestFixture::add_variables(circuit_builder, { 1,  2,  5,  6,  7,  10, 11, 13, 16, 17, 20, 22, 22, 25,
-                                                          26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
-        circuit_builder.create_sort_constraint_with_edges(idx, 1, 29);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-}
-
-TYPED_TEST(UltraHonkTests, RangeConstraint)
-{
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 8);
-        }
-        // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.create_sort_constraint(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(circuit_builder, { 3 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 3);
-        }
-        // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 8, 25 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 8);
-        }
-        circuit_builder.create_sort_constraint(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(
-            circuit_builder, { 1, 2, 3, 4, 5, 6, 10, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 19, 51 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 128);
-        }
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(
-            circuit_builder, { 1, 2, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 79);
-        }
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-    {
-        auto circuit_builder = UltraCircuitBuilder();
-        auto indices = TestFixture::add_variables(
-            circuit_builder, { 1, 0, 3, 80, 5, 6, 29, 8, 15, 11, 32, 21, 42, 79, 16, 10, 3, 26, 13, 14 });
-        for (size_t i = 0; i < indices.size(); i++) {
-            circuit_builder.create_new_range_constraint(indices[i], 79);
-        }
-        circuit_builder.create_unconstrained_gates(indices);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-}
-
-TYPED_TEST(UltraHonkTests, RangeWithGates)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
-    for (size_t i = 0; i < idx.size(); i++) {
-        circuit_builder.create_new_range_constraint(idx[i], 8);
-    }
-
-    circuit_builder.create_add_gate(
-        { idx[0], idx[1], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
-    circuit_builder.create_add_gate(
-        { idx[2], idx[3], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
-    circuit_builder.create_add_gate(
-        { idx[4], idx[5], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
-    circuit_builder.create_add_gate(
-        { idx[6], idx[7], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
-    for (size_t i = 0; i < idx.size(); i++) {
-        circuit_builder.create_new_range_constraint(idx[i], 12);
-    }
-
-    circuit_builder.create_add_gate(
-        { idx[0], idx[1], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
-    circuit_builder.create_add_gate(
-        { idx[2], idx[3], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
-    circuit_builder.create_add_gate(
-        { idx[4], idx[5], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
-    circuit_builder.create_add_gate(
-        { idx[6], idx[7], circuit_builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, SortWidgetComplex)
-{
-    {
-
-        auto circuit_builder = UltraCircuitBuilder();
-        std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
-        std::vector<uint32_t> ind;
-        for (const fr& val : a)
-            ind.emplace_back(circuit_builder.add_variable(val));
-        circuit_builder.create_sort_constraint(ind);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-    }
-    {
-
-        auto circuit_builder = UltraCircuitBuilder();
-        std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
-        std::vector<uint32_t> ind;
-        for (const fr& val : a)
-            ind.emplace_back(circuit_builder.add_variable(val));
-        circuit_builder.create_sort_constraint(ind);
-
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-    }
-}
-
-TYPED_TEST(UltraHonkTests, SortWidgetNeg)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    fr a = fr::one();
-    fr b = fr(2);
-    fr c = fr(3);
-    fr d = fr(8);
-
-    auto a_idx = circuit_builder.add_variable(a);
-    auto b_idx = circuit_builder.add_variable(b);
-    auto c_idx = circuit_builder.add_variable(c);
-    auto d_idx = circuit_builder.add_variable(d);
-    circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-}
-
-TYPED_TEST(UltraHonkTests, ComposedRangeConstraint)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    auto c = fr::random_element();
-    auto d = uint256_t(c).slice(0, 133);
-    auto e = fr(d);
-    auto a_idx = circuit_builder.add_variable(fr(e));
-    circuit_builder.create_add_gate({ a_idx, circuit_builder.zero_idx(), circuit_builder.zero_idx(), 1, 0, 0, -fr(e) });
-    circuit_builder.decompose_into_default_range(a_idx, 134);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -937,8 +221,8 @@ TYPED_TEST(UltraHonkTests, NonNativeFieldMultiplication)
         circuit_builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
     } else {
         // Fallback to default range checks
-        circuit_builder.decompose_into_default_range(lo_1_idx, 72);
-        circuit_builder.decompose_into_default_range(hi_1_idx, 72);
+        circuit_builder.create_limbed_range_constraint(lo_1_idx, 72);
+        circuit_builder.create_limbed_range_constraint(hi_1_idx, 72);
     }
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
@@ -959,10 +243,10 @@ TYPED_TEST(UltraHonkTests, RangeChecksOnDuplicates)
     circuit_builder.assert_equal(a, c);
     circuit_builder.assert_equal(a, d);
 
-    circuit_builder.create_new_range_constraint(a, 1000);
-    circuit_builder.create_new_range_constraint(b, 1001);
-    circuit_builder.create_new_range_constraint(c, 999);
-    circuit_builder.create_new_range_constraint(d, 1000);
+    circuit_builder.create_small_range_constraint(a, 1000);
+    circuit_builder.create_small_range_constraint(b, 1001);
+    circuit_builder.create_small_range_constraint(c, 999);
+    circuit_builder.create_small_range_constraint(d, 1000);
 
     circuit_builder.create_big_add_gate(
         {
@@ -998,12 +282,51 @@ TYPED_TEST(UltraHonkTests, RangeConstraintSmallVariable)
     ASSERT_NE(a_idx, b_idx);
     uint32_t c_idx = circuit_builder.add_variable(fr(a));
     ASSERT_NE(c_idx, b_idx);
-    circuit_builder.create_range_constraint(b_idx, 8, "bad range");
+    circuit_builder.create_dyadic_range_constraint(b_idx, 8, "bad range");
     circuit_builder.assert_equal(a_idx, b_idx);
-    circuit_builder.create_range_constraint(c_idx, 8, "bad range");
+    circuit_builder.create_dyadic_range_constraint(c_idx, 8, "bad range");
     circuit_builder.assert_equal(a_idx, c_idx);
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+/**
+ * @brief Test that native verifier detects VK hash mismatch
+ * @details The VKAndHash stores a precomputed hash of the VK. During verification,
+ * the oink verifier computes a fresh hash and compares it. If they don't match,
+ * a BB_ASSERT_EQ should trigger, catching potential VK tampering or corruption.
+ */
+TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
+{
+    using Flavor = TypeParam;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>, RollupIO, DefaultIO>;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+
+    // Create a simple circuit
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    // Create prover instance and VK
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    // Create prover and prove
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+
+    // Corrupt the stored hash
+    vk_and_hash->hash = fr::random_element();
+
+    // Verification should fail with BB_ASSERT_EQ detecting the mismatch
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
 }

@@ -1,13 +1,12 @@
-import { CHECKPOINT_HEADER_SIZE_IN_BYTES } from '@aztec/constants';
+import { CHECKPOINT_HEADER_SIZE_IN_BYTES, MAX_FIELD_VALUE } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { makeCheckpointHeader } from '../tests/factories.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import { CheckpointHeader } from './checkpoint_header.js';
 
 describe('CheckpointHeader', () => {
@@ -37,7 +36,9 @@ describe('CheckpointHeader', () => {
     const header = CheckpointHeader.from({
       lastArchiveRoot: new Fr(123),
       blockHeadersHash: new Fr(456),
-      contentCommitment: new ContentCommitment(new Fr(77), new Fr(88), new Fr(99)),
+      blobsHash: new Fr(77),
+      inHash: new Fr(88),
+      epochOutHash: new Fr(99),
       slotNumber: SlotNumber(1234),
       timestamp: BigInt(5678),
       coinbase: EthAddress.fromField(new Fr(9090)),
@@ -53,6 +54,35 @@ describe('CheckpointHeader', () => {
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
       'checkpoint_header_hash_from_ts',
+      hash,
+    );
+  });
+
+  it('computes hash of non-empty header with large values', () => {
+    const header = CheckpointHeader.from({
+      lastArchiveRoot: new Fr(MAX_FIELD_VALUE - 123n),
+      blockHeadersHash: new Fr(MAX_FIELD_VALUE - 456n),
+      blobsHash: new Fr(MAX_FIELD_VALUE - 77n),
+      inHash: new Fr(MAX_FIELD_VALUE - 88n),
+      epochOutHash: new Fr(MAX_FIELD_VALUE - 99n),
+      slotNumber: SlotNumber(1234),
+      timestamp: 2n ** 64n - 1n - 5678n,
+      coinbase: EthAddress.fromField(new Fr(2n ** 160n - 1n - 9090n)),
+      feeRecipient: AztecAddress.fromField(new Fr(MAX_FIELD_VALUE - 101010n)),
+      gasFees: new GasFees(2n ** 128n - 1n - 100n, 2n ** 128n - 1n - 200n),
+      totalManaUsed: new Fr(MAX_FIELD_VALUE - 151617n),
+    });
+    // Override the slot number and ignore the type check so it could be the large value same as in the noir test.
+    header.slotNumber = (MAX_FIELD_VALUE - 1234n) as any;
+
+    const hash = header.hash().toString();
+
+    expect(hash).toMatchInlineSnapshot('"0x00f074f614b5872bfea51e9b457ef2bf61e8c8afa842baaae05f77d885852d3c"');
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
+      'checkpoint_header_hash_large_values_from_ts',
       hash,
     );
   });

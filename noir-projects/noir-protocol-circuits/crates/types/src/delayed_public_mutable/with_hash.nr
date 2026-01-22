@@ -6,87 +6,124 @@ use crate::{
         hash::compute_public_data_leaf_slot,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     },
+    delayed_public_mutable::delayed_public_mutable_values::DelayedPublicMutableValues,
     hash::poseidon2_hash,
-    merkle_tree::{membership::MembershipWitness, root::root_from_sibling_path},
-    traits::{Hash, Packable},
+    merkle_tree::{conditionally_check_membership, membership::MembershipWitness},
+    traits::Packable,
 };
 
-pub fn validate_with_hash_hints<T>(
+/// Read the current value of a delayed public mutable state variable, which was written to public storage with the hash
+/// of the packed values.
+/// See `aztec-nr/aztec/src/state_vars/delayed_public_mutable.nr > write` for more details on how the variable and hash
+/// are written.
+///
+/// Parameters:
+/// - `historical_header`: The header of the block whose state we are reading from.
+/// - `storage_slot`: The **starting** storage slot of the delayed public mutable state variable.
+/// - `contract_address`: The address of the contract where the delayed public mutable was written to.
+/// - `delayed_public_mutable`: The delayed public mutable to read.
+///   Note: This can be anything if the variable has not been initialized yet. The caller should only use the returned
+///   value from this function to perform further checks.
+/// - `witness`: A hint to prove that the `leaf_preimage` exists in the tree.
+/// - `leaf_preimage`: The preimage of the leaf containing the hash of the packed values. Or a low leaf if the variable
+///   has not been initialized.
+///
+/// Returns:
+/// - T: The current value of the delayed public mutable at the time of the historical block. Empty if not initialized.
+pub fn read_current_value_of_delayed_public_mutable_with_hash<T, let INITIAL_DELAY: u64>(
     historical_header: BlockHeader,
-    with_hash_storage_slot: Field,
+    storage_slot: Field,
     contract_address: AztecAddress,
-    with_hash_value_hint: T,
+    delayed_public_mutable: DelayedPublicMutableValues<T, INITIAL_DELAY>,
     witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     leaf_preimage: PublicDataTreeLeafPreimage,
-)
+) -> T
 where
     T: Packable + Eq,
 {
-    let storage_hash = public_storage_historical_read(
+    let storage_slot_of_hash = derive_storage_slot_of_packed_values_hash::<DelayedPublicMutableValues<T, INITIAL_DELAY>>(
+        storage_slot,
+    );
+
+    // We attempt to read the storage slot.
+    // If it's never been written to, the returned value will be `0`.
+    // Otherwise, the returned value will be a hash of the delayed_public_mutable wrapper that contains
+    // the `current_value` that we seek.
+    let hash = public_storage_historical_read(
         historical_header,
-        compute_with_hash_hash_storage_slot::<T>(with_hash_storage_slot),
+        storage_slot_of_hash,
         contract_address,
         witness,
         leaf_preimage,
     );
 
-    let hashed_value = poseidon2_hash(with_hash_value_hint.pack());
+    let computed_hash = poseidon2_hash(delayed_public_mutable.pack());
 
-    if storage_hash != 0 {
-        assert_eq(storage_hash, hashed_value, "Hint values do not match hash");
+    let current_value =
+        delayed_public_mutable.svc.get_current_at(historical_header.global_variables.timestamp);
+
+    if hash != 0 {
+        assert_eq(hash, computed_hash, "Hint values do not match hash");
+        current_value
     } else {
-        // The hash slot can only hold a zero if it is uninitialized. Therefore, the hints must then be zero
-        // (i.e. the default value for public storage) as well.
-        assert_eq(
-            with_hash_value_hint,
-            T::unpack(std::mem::zeroed()),
-            "Non-zero hint for zero hash",
-        );
-    };
+        // If the hash is zero, the variable is uninitialized. All values must be zeros.
+        T::unpack(std::mem::zeroed())
+    }
 }
 
-pub fn compute_with_hash_hash_storage_slot<T>(with_hash_storage_slot: Field) -> Field
+/// Compute the storage slot of the hash of the packed values.
+/// See `aztec-nr/aztec/src/utils/with_hash.nr > new` for more details on how the hash is packed with the values.
+pub fn derive_storage_slot_of_packed_values_hash<T>(start_storage_slot: Field) -> Field
 where
     T: Packable,
 {
-    with_hash_storage_slot + <T as Packable>::N as Field
+    // The actual item (of type T, of packed length N fields) is stored in contiguous fields from the `storage_slot`.
+    // The _hash_ of the item is stored at the end, at slot: `storage_slot + N`.
+    start_storage_slot + <T as Packable>::N as Field
 }
 
+/// Read the value from public storage at the given `storage_slot` for the given `contract_address`.
+/// `historical_header` is the header of the block whose state we are reading the value from.
+/// `witness` is a hint to prove that the `leaf_preimage` exists in the tree.
+///
+/// The slot could either exist (has been initialized) in the tree or not:
+/// - If it's in the tree, `leaf_preimage` should be the preimage for the slot.
+/// - If it's not in the tree, `leaf_preimage` should be the preimage for the low leaf of the slot.
+///
+/// TODO: Move this to abis/public_data/storage/read.nr
 fn public_storage_historical_read(
     historical_header: BlockHeader,
     storage_slot: Field,
     contract_address: AztecAddress,
-    witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, // Is this the witness of a "low leaf"? If so, we don't need a low leaf witness to prove _membership_; only to prove non-membership.
+    witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     leaf_preimage: PublicDataTreeLeafPreimage,
 ) -> Field {
-    let public_data_leaf_slot = compute_public_data_leaf_slot(contract_address, storage_slot); // Should this instead be called compute_public_data_tree_slot, and the variable be called `public_data_tree_slot`? This is not an index.
+    let public_data_leaf_slot = compute_public_data_leaf_slot(contract_address, storage_slot);
 
-    assert_eq(
+    // Use the given `leaf_preimage` hint to determine whether we are reading a slot that's been written to the tree or not.
+    let is_slot_in_tree = leaf_preimage.slot == public_data_leaf_slot;
+
+    let (_, is_expected_leaf, is_leaf_in_tree) = conditionally_check_membership(
+        public_data_leaf_slot,
+        is_slot_in_tree,
+        leaf_preimage,
+        witness,
         historical_header.state.partial.public_data_tree.root,
-        root_from_sibling_path(
-            leaf_preimage.hash(),
-            witness.leaf_index,
-            witness.sibling_path,
-        ),
-        "Proving public value inclusion failed",
     );
 
-    // These lt checks cost ~350 gates:
-    let is_less_than_slot = leaf_preimage.slot.lt(public_data_leaf_slot); // Why is this needed for a membership proof?
-    let is_next_greater_than = public_data_leaf_slot.lt(leaf_preimage.next_slot); // Why is this needed for a membership proof?
-    let is_max = ((leaf_preimage.next_index == 0) & (leaf_preimage.next_slot == 0)); // Why is this needed for a membership proof?
-    let is_in_range = is_less_than_slot & (is_next_greater_than | is_max); // Why is this needed for a membership proof?
+    // In the case of the state existing in the tree, `is_leaf_in_tree = true`.
+    // In the case of the state not existing in the tree, the above membership check was done against the _low_ leaf,
+    // so rather confusingly, we still expect `is_leaf_in_tree = true` (because it's a different kind of leaf in this case).
+    assert(is_leaf_in_tree, "Proving public value inclusion failed");
+    assert(
+        is_expected_leaf,
+        "The provided public data tree leaf preimage is not the correct leaf for the requested contract_address and storage slot",
+    );
 
-    if is_in_range {
-        // Why is this needed for a membership proof?
-        0
-    } else {
-        assert_eq(
-            leaf_preimage.slot,
-            public_data_leaf_slot,
-            "The provided public data tree leaf preimage is not the correct leaf for the provided contract_address and storage slot",
-        );
+    if is_slot_in_tree {
         leaf_preimage.value
+    } else {
+        0
     }
 }
 
@@ -94,6 +131,7 @@ mod tests {
     use crate::{
         abis::block_header::BlockHeader,
         address::aztec_address::AztecAddress,
+        constants::PUBLIC_DATA_TREE_HEIGHT,
         contract_class_id::ContractClassId,
         data::{
             hash::compute_public_data_leaf_slot,
@@ -105,273 +143,197 @@ mod tests {
             scheduled_value_change::ScheduledValueChange,
         },
         merkle_tree::MembershipWitness,
-        tests::fixtures::public_data_tree::empty_public_data_tree,
+        tests::merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
         traits::{Empty, FromField, Hash},
     };
-    use super::{compute_with_hash_hash_storage_slot, validate_with_hash_hints};
+    use super::{
+        derive_storage_slot_of_packed_values_hash,
+        read_current_value_of_delayed_public_mutable_with_hash,
+    };
 
-    #[test]
-    fn test_validate_empty_with_hash_hints() {
-        let with_hash_storage_slot = 27;
-        let contract_address = AztecAddress::from_field(42);
+    global TEST_INITIAL_DELAY: u64 = 100;
 
-        let public_data_prefill = 2;
-        let leaf_index = (public_data_prefill - 1) as Field;
+    struct TestBuilder {
+        start_storage_slot: Field,
+        contract_address: AztecAddress,
+        random_contract_address: AztecAddress,
+        historical_header: BlockHeader,
+        delayed_public_mutable: DelayedPublicMutableValues<ContractClassId, TEST_INITIAL_DELAY>,
+        witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
+        leaf_preimage: PublicDataTreeLeafPreimage,
+    }
 
-        let public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
-        let mut historical_header = BlockHeader::empty();
-        historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index = leaf_index + 1;
+    impl TestBuilder {
+        pub fn new() -> Self {
+            let contract_address = AztecAddress::from_field(39);
+            let start_storage_slot = 27;
+            let hash_storage_slot = derive_storage_slot_of_packed_values_hash::<DelayedPublicMutableValues<ContractClassId, TEST_INITIAL_DELAY>>(
+                start_storage_slot,
+            );
+            let hash_leaf_slot = compute_public_data_leaf_slot(contract_address, hash_storage_slot);
 
-        let witness = MembershipWitness {
-            leaf_index,
-            sibling_path: public_data_tree.get_sibling_path(leaf_index),
-        };
+            // Current timestamp has passed the timestamp of change, so the value should be the post value (96).
+            let timestamp_of_change = 456;
+            let current_timestamp = timestamp_of_change + 50;
+            let delayed_public_mutable = DelayedPublicMutableValues::new(
+                ScheduledValueChange::new(
+                    ContractClassId::from_field(0),
+                    ContractClassId::from_field(96),
+                    timestamp_of_change,
+                ),
+                ScheduledDelayChange::<TEST_INITIAL_DELAY>::new(
+                    Option::none(),
+                    Option::some(10),
+                    200,
+                ),
+            );
 
-        let leaf_preimage = PublicDataTreeLeafPreimage {
-            slot: (public_data_prefill - 1) as Field,
-            value: 0,
-            next_slot: 0,
-            next_index: 0,
-        };
+            let random_contract_address = AztecAddress::from_field(42);
+            let random_hash_leaf_slot =
+                compute_public_data_leaf_slot(random_contract_address, hash_storage_slot);
+            assert(
+                hash_leaf_slot.lt(random_hash_leaf_slot),
+                "Find another random contract address with a larger hash leaf slot",
+            );
 
-        let with_hash_hint = DelayedPublicMutableValues::<ContractClassId, 0>::new(
-            ScheduledValueChange::empty(),
-            ScheduledDelayChange::empty(),
-        );
+            let prefilled_leaves = [
+                PublicDataTreeLeafPreimage { slot: 0, value: 0, next_slot: 99, next_index: 3 },
+                // This is the preimage for the hash of the delayed_public_mutable.
+                // This will be the low leaf for the hash at the random contract address.
+                PublicDataTreeLeafPreimage {
+                    slot: hash_leaf_slot,
+                    value: delayed_public_mutable.hash(),
+                    next_slot: hash_leaf_slot + random_hash_leaf_slot * 2,
+                    next_index: 2,
+                },
+                PublicDataTreeLeafPreimage {
+                    slot: hash_leaf_slot + random_hash_leaf_slot * 2,
+                    value: 123456,
+                    next_slot: 0,
+                    next_index: 0,
+                },
+                PublicDataTreeLeafPreimage {
+                    slot: 99,
+                    value: 123,
+                    next_slot: hash_leaf_slot,
+                    next_index: 1,
+                },
+            ];
+            let public_data_tree = SingleSubtreeMerkleTree::<4, 2, PUBLIC_DATA_TREE_HEIGHT>::new(
+                prefilled_leaves.map(|l| l.hash()),
+            );
 
-        validate_with_hash_hints(
-            historical_header,
-            with_hash_storage_slot,
-            contract_address,
-            with_hash_hint,
-            witness,
-            leaf_preimage,
-        );
+            let mut historical_header = BlockHeader::empty();
+            historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
+            historical_header.state.partial.public_data_tree.next_available_leaf_index =
+                public_data_tree.get_next_available_index();
+            historical_header.global_variables.timestamp = current_timestamp;
+
+            let leaf_index = 1;
+            let witness = MembershipWitness {
+                leaf_index,
+                sibling_path: public_data_tree.get_sibling_path(leaf_index),
+            };
+
+            let leaf_preimage = prefilled_leaves[1];
+
+            Self {
+                start_storage_slot,
+                contract_address,
+                random_contract_address,
+                historical_header,
+                delayed_public_mutable,
+                witness,
+                leaf_preimage,
+            }
+        }
+
+        pub fn read_current_value(self) -> ContractClassId {
+            read_current_value_of_delayed_public_mutable_with_hash(
+                self.historical_header,
+                self.start_storage_slot,
+                self.contract_address,
+                self.delayed_public_mutable,
+                self.witness,
+                self.leaf_preimage,
+            )
+        }
     }
 
     #[test]
-    fn test_validate_non_empty_with_hash_hints() {
-        let with_hash_storage_slot = 27;
-        let contract_address = AztecAddress::from_field(42);
+    fn read_updated_value() {
+        let builder = TestBuilder::new();
 
-        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>>(
-            with_hash_storage_slot,
-        );
-        let hash_leaf_slot = compute_public_data_leaf_slot(contract_address, hash_storage_slot);
+        let current_value = builder.read_current_value();
 
-        let with_hash_hint = DelayedPublicMutableValues::new(
-            ScheduledValueChange::new(
-                ContractClassId::from_field(0),
-                ContractClassId::from_field(96),
-                100,
-            ),
-            ScheduledDelayChange::<100>::new(Option::none(), Option::some(10), 200),
-        );
+        assert_eq(current_value, ContractClassId::from_field(96));
+    }
 
-        let public_data_prefill = 2;
-        let last_leaf_index = (public_data_prefill - 1) as Field;
-        let new_leaf_index = last_leaf_index + 1;
+    #[test]
+    fn read_pre_updated_value() {
+        let mut builder = TestBuilder::new();
 
-        let mut public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
-        public_data_tree.update_leaf(
-            last_leaf_index,
-            PublicDataTreeLeafPreimage {
-                slot: (public_data_prefill - 1) as Field,
-                value: 0,
-                next_slot: hash_leaf_slot,
-                next_index: last_leaf_index + 1,
-            }
-                .hash(),
-        );
+        // Change the timestamp in the header to before the timestamp of change.
+        builder.historical_header.global_variables.timestamp =
+            builder.delayed_public_mutable.svc.timestamp_of_change - 1;
 
-        let leaf_preimage = PublicDataTreeLeafPreimage {
-            slot: hash_leaf_slot,
-            value: with_hash_hint.hash(),
-            next_slot: 0,
-            next_index: 0,
-        };
-        public_data_tree.update_leaf(new_leaf_index, leaf_preimage.hash());
+        let current_value = builder.read_current_value();
 
-        let mut historical_header = BlockHeader::empty();
-        historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            new_leaf_index + 1;
+        assert_eq(current_value, ContractClassId::from_field(0));
+    }
 
-        let witness = MembershipWitness {
-            leaf_index: new_leaf_index,
-            sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
-        };
+    #[test]
+    fn read_post_updated_value_at_timestamp_of_change() {
+        let mut builder = TestBuilder::new();
 
-        validate_with_hash_hints(
-            historical_header,
-            with_hash_storage_slot,
-            contract_address,
-            with_hash_hint,
-            witness,
-            leaf_preimage,
-        );
+        // Change the timestamp in the header to match the timestamp of change.
+        builder.historical_header.global_variables.timestamp =
+            builder.delayed_public_mutable.svc.timestamp_of_change;
+
+        let current_value = builder.read_current_value();
+
+        assert_eq(current_value, ContractClassId::from_field(96));
+    }
+
+    #[test]
+    fn read_uninitialized_value() {
+        let mut builder = TestBuilder::new();
+
+        // Read from the random contract address, whose value is uninitialized.
+        builder.contract_address = builder.random_contract_address;
+
+        let current_value = builder.read_current_value();
+
+        assert_eq(current_value, ContractClassId::empty());
     }
 
     #[test(should_fail_with = "Proving public value inclusion failed")]
-    fn test_validate_with_hash_hints_fake_membership_fails() {
-        // Made up data
-        validate_with_hash_hints(
-            BlockHeader::empty(),
-            27,
-            AztecAddress::from_field(42),
-            DelayedPublicMutableValues::<ContractClassId, 0>::new(
-                ScheduledValueChange::empty(),
-                ScheduledDelayChange::empty(),
-            ),
-            MembershipWitness { leaf_index: 80, sibling_path: std::mem::zeroed() },
-            PublicDataTreeLeafPreimage::empty(),
-        );
+    fn incorrect_membership_witness() {
+        let mut builder = TestBuilder::new();
+
+        // Update the witness to have a wrong leaf index.
+        builder.witness.leaf_index += 1;
+
+        let _ = builder.read_current_value();
     }
 
-    #[test(should_fail_with = "The provided public data tree leaf preimage is not the correct leaf for the provided contract_address and storage slot")]
-    fn test_validate_with_hash_hints_different_leaf_fails() {
-        let with_hash_storage_slot = 27;
-        let contract_address = AztecAddress::from_field(42);
+    #[test(should_fail_with = "The provided public data tree leaf preimage is not the correct leaf for the requested contract_address and storage slot")]
+    fn invalid_low_leaf() {
+        let mut builder = TestBuilder::new();
 
-        let public_data_prefill = 2;
+        // Change the slot to a different value, so the leaf preimage is no longer a matching leaf nor a low leaf.
+        builder.start_storage_slot -= 1;
 
-        let public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
-        let mut historical_header = BlockHeader::empty();
-        historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            public_data_prefill as Field;
-
-        let witness =
-            MembershipWitness { leaf_index: 0, sibling_path: public_data_tree.get_sibling_path(0) };
-
-        let leaf_preimage = PublicDataTreeLeafPreimage {
-            slot: 0, // This leaf is invalid for any slot that is not zero
-            value: 0,
-            next_slot: 1,
-            next_index: 1,
-        };
-
-        validate_with_hash_hints(
-            historical_header,
-            with_hash_storage_slot,
-            contract_address,
-            DelayedPublicMutableValues::<ContractClassId, 0>::new(
-                ScheduledValueChange::empty(),
-                ScheduledDelayChange::empty(),
-            ),
-            witness,
-            leaf_preimage,
-        );
-    }
-
-    #[test(should_fail_with = "Non-zero hint for zero hash")]
-    fn test_validate_non_empty_value_with_empty_leaf_fails() {
-        let with_hash_storage_slot = 27;
-        let contract_address = AztecAddress::from_field(42);
-
-        let public_data_prefill = 2;
-        let leaf_index = (public_data_prefill - 1) as Field;
-
-        let public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
-        let mut historical_header = BlockHeader::empty();
-        historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index = leaf_index + 1;
-
-        let witness = MembershipWitness {
-            leaf_index,
-            sibling_path: public_data_tree.get_sibling_path(leaf_index),
-        };
-
-        let leaf_preimage = PublicDataTreeLeafPreimage {
-            slot: (public_data_prefill - 1) as Field,
-            value: 0,
-            next_slot: 0,
-            next_index: 0,
-        };
-        // Expected to be empty, it's not
-        let value_hint = DelayedPublicMutableValues::<ContractClassId, 0>::new(
-            ScheduledValueChange::new(
-                ContractClassId::from_field(0),
-                ContractClassId::from_field(96),
-                100,
-            ),
-            ScheduledDelayChange::empty(),
-        );
-
-        validate_with_hash_hints(
-            historical_header,
-            with_hash_storage_slot,
-            contract_address,
-            value_hint,
-            witness,
-            leaf_preimage,
-        );
+        let _ = builder.read_current_value();
     }
 
     #[test(should_fail_with = "Hint values do not match hash")]
-    fn test_validate_wrong_hash_hints_fails() {
-        let with_hash_storage_slot = 27;
-        let contract_address = AztecAddress::from_field(42);
+    fn random_delayed_public_mutable_value() {
+        let mut builder = TestBuilder::new();
 
-        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>>(
-            with_hash_storage_slot,
-        );
-        let hash_leaf_slot = compute_public_data_leaf_slot(contract_address, hash_storage_slot);
+        builder.delayed_public_mutable.svc.post = ContractClassId::from_field(999);
 
-        let value_hint = DelayedPublicMutableValues::new(
-            ScheduledValueChange::new(
-                ContractClassId::from_field(0),
-                ContractClassId::from_field(96),
-                100,
-            ),
-            ScheduledDelayChange::<100>::new(Option::none(), Option::some(10), 200),
-        );
-
-        let hashed_value = 9000; // Incorrect hash
-
-        let public_data_prefill = 2;
-        let last_leaf_index = (public_data_prefill - 1) as Field;
-        let new_leaf_index = last_leaf_index + 1;
-
-        let mut public_data_tree = empty_public_data_tree::<4, 2>(public_data_prefill);
-        public_data_tree.update_leaf(
-            last_leaf_index,
-            PublicDataTreeLeafPreimage {
-                slot: (public_data_prefill - 1) as Field,
-                value: 0,
-                next_slot: hash_leaf_slot,
-                next_index: last_leaf_index + 1,
-            }
-                .hash(),
-        );
-
-        let leaf_preimage = PublicDataTreeLeafPreimage {
-            slot: hash_leaf_slot,
-            value: hashed_value,
-            next_slot: 0,
-            next_index: 0,
-        };
-        public_data_tree.update_leaf(new_leaf_index, leaf_preimage.hash());
-
-        let mut historical_header = BlockHeader::empty();
-        historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
-        historical_header.state.partial.public_data_tree.next_available_leaf_index =
-            new_leaf_index + 1;
-
-        let witness = MembershipWitness {
-            leaf_index: new_leaf_index,
-            sibling_path: public_data_tree.get_sibling_path(new_leaf_index),
-        };
-
-        validate_with_hash_hints(
-            historical_header,
-            with_hash_storage_slot,
-            contract_address,
-            value_hint,
-            witness,
-            leaf_preimage,
-        );
+        let _ = builder.read_current_value();
     }
 
 }

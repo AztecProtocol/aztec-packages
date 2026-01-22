@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { TXEOracleFunctionName } from './txe_session.js';
 import { TXESession } from './txe_session.js';
@@ -11,14 +11,21 @@ describe('TXESession.processFunction', () => {
       {} as any, // logger
       {} as any, // stateMachine
       {} as any, // oracleHandler
-      {} as any, // contractDataProvider
+      {} as any, // contractStore
+      {} as any, // noteStore
       {} as any, // keyStore
-      {} as any, // addressDataProvider
-      {} as any, // accountDataProvider
+      {} as any, // addressStore
+      {} as any, // accountStore
+      {} as any, // senderTaggingStore
+      {} as any, // recipientTaggingStore
+      {} as any, // senderAddressBook
+      {} as any, // capsuleStore
+      {} as any, // privateEventStore
+      {} as any, // jobCoordinator
+      {} as any, // initialJobId
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp
-      {} as any, // pxeOracleInterface
     );
   });
 

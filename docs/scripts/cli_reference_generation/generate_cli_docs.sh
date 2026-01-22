@@ -1,71 +1,288 @@
 #!/bin/bash
-# Unified convenience script to generate CLI documentation in one step
-# Usage: ./scripts/cli_reference_generation/generate_cli_docs.sh <cli_name> [output_dir]
+# Script to generate auto-generated CLI documentation
+# Usage: ./scripts/cli_reference_generation/generate_cli_docs.sh [OPTIONS] <cli_name> [target_version] [output_dir]
+#
+# Options:
+#   --force, -f              Skip version mismatch confirmation prompt
+#   --workers, -w <N>        Number of parallel workers (default: 1, sequential)
+#   --timeout, -t <seconds>  Timeout per command in seconds (default: 15)
+#
+# Environment Variables:
+#   CLI_SCAN_WORKERS   Override default workers (same as --workers)
+#   CLI_SCAN_TIMEOUT   Override default timeout (same as --timeout)
 #
 # Examples:
-#   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec
-#   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet /tmp
+#   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec                    # Generate for all versions
+#   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet current     # Generate for current only
+#   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec v2.0.2             # Generate for v2.0.2 only
+#   ./scripts/cli_reference_generation/generate_cli_docs.sh aztec v2.0.2 /tmp/       # Output to /tmp/aztec_cli_reference.md
+#   ./scripts/cli_reference_generation/generate_cli_docs.sh --force aztec v2.0.2     # Skip version mismatch prompt
+#   ./scripts/cli_reference_generation/generate_cli_docs.sh --workers 8 aztec        # Parallel scan with 8 workers
 
-set -euo pipefail
+set -euo pipefail  # Added 'u' for undefined variable check, 'o pipefail' for pipe failures
+
+# Get script directory and source shared config (early, for VALID_CLIS in usage text)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/cli_config.sh"
+
+# Parse arguments
+FORCE_MODE=false
+WORKERS="${CLI_SCAN_WORKERS:-1}"
+TIMEOUT="${CLI_SCAN_TIMEOUT:-15}"
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force|-f)
+      FORCE_MODE=true
+      shift
+      ;;
+    --workers|-w)
+      WORKERS="$2"
+      shift 2
+      ;;
+    --timeout|-t)
+      TIMEOUT="$2"
+      shift 2
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Restore positional arguments
+set -- "${POSITIONAL_ARGS[@]}"
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then
   echo "Error: CLI name is required"
-  echo "Usage: $0 <cli_name> [output_dir]"
-  echo "  cli_name: 'aztec' or 'aztec-wallet'"
-  echo "  output_dir: Output directory (default: current directory)"
+  echo "Usage: $0 [--force] [--workers N] [--timeout S] <cli_name> [target_version] [output_dir]"
+  echo "  cli_name: ${VALID_CLIS[*]}"
+  echo "  target_version: 'all' (default), 'current', or version like 'v2.0.2'"
+  echo "  output_dir: Optional custom output directory (skips deployment to docs folders)"
+  echo ""
+  echo "Options:"
+  echo "  --force, -f              Skip version mismatch confirmation prompt"
+  echo "  --workers, -w <N>        Number of parallel workers (default: 1)"
+  echo "  --timeout, -t <seconds>  Timeout per command in seconds (default: 15)"
   exit 1
 fi
 
 CLI_NAME="$1"
-OUTPUT_DIR="${2:-.}"
+TARGET_VERSION="${2:-all}"
+OUTPUT_DIR="${3:-}"
 
-# Validate CLI name
-if [[ "$CLI_NAME" != "aztec" && "$CLI_NAME" != "aztec-wallet" ]]; then
-  echo "Error: Invalid CLI name '$CLI_NAME'. Must be 'aztec' or 'aztec-wallet'"
+# Validate CLI name using shared validation
+validate_cli_name "$CLI_NAME" || exit 1
+
+# Load CLI configuration from shared config (needed for version check)
+get_cli_config "$CLI_NAME"
+
+# Version check: ensure installed CLI version matches target version
+check_cli_version() {
+  local cli_cmd="$1"
+  local target_ver="$2"
+
+  # Skip check for 'all' or 'current' targets
+  if [[ "$target_ver" == "all" || "$target_ver" == "current" ]]; then
+    return 0
+  fi
+
+  # Check if CLI is installed
+  if ! command -v "$cli_cmd" &> /dev/null; then
+    echo "Error: '$cli_cmd' command not found. Please install it first."
+    echo "  $(get_cli_install_instructions "$cli_cmd")"
+    exit 1
+  fi
+
+  # Get installed version (including prerelease suffixes like -devnet.6-patch.1)
+  local installed_ver
+  installed_ver=$("$cli_cmd" --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -n1) || {
+    echo "Warning: Could not determine installed $cli_cmd version"
+    return 0
+  }
+
+  # Normalize target version (remove 'v' prefix if present)
+  local target_ver_normalized="${target_ver#v}"
+
+  if [[ "$installed_ver" != "$target_ver_normalized" ]]; then
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                     VERSION MISMATCH                          ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  Installed $cli_cmd version: $installed_ver"
+    echo "║  Target documentation version: $target_ver_normalized"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  The CLI docs are generated by scanning the installed CLI's   ║"
+    echo "║  help output. To generate accurate docs for $target_ver,     "
+    echo "║  you must have that version installed.                        ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║  To fix: $(get_cli_install_instructions "$cli_cmd")"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+
+    if [[ "$FORCE_MODE" == true ]]; then
+      echo "Force mode enabled, continuing with mismatched version..."
+    elif [[ -t 0 ]]; then
+      # stdin is a terminal, prompt for confirmation
+      read -p "Continue anyway? (y/N): " -n 1 -r
+      echo ""
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Aborted. Please install the correct version and try again."
+        exit 1
+      fi
+      echo "Continuing with mismatched version..."
+    else
+      # Non-interactive (CI), fail by default for safety
+      echo "Error: Version mismatch in non-interactive mode."
+      echo "Use --force to skip this check, or install the correct version."
+      exit 1
+    fi
+  else
+    echo "✓ CLI version check passed: $cli_cmd v$installed_ver"
+  fi
+}
+
+# Use CLI_COMMAND (the actual executable name) for version check
+check_cli_version "$CLI_COMMAND" "$TARGET_VERSION"
+
+# Constants
+DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+readonly SCRIPT_DIR DOCS_ROOT TARGET_VERSION CLI_NAME
+
+# Create temporary directory with automatic cleanup
+TEMP_DIR=$(mktemp -d) || {
+  echo "Error: Failed to create temporary directory"
   exit 1
-fi
+}
+trap 'rm -rf "$TEMP_DIR"' EXIT INT TERM
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly SCRIPT_DIR OUTPUT_DIR CLI_NAME
+readonly TEMP_JSON="$TEMP_DIR/cli_docs.json"
+readonly TEMP_MD="$TEMP_DIR/cli_auto.md"
+readonly TEMP_WITH_FRONTMATTER="$TEMP_DIR/cli_final.md"
 
-# Configuration (compatible with bash 3.2+)
-case "$CLI_NAME" in
-  aztec)
-    DISPLAY_NAME="Aztec CLI"
-    TITLE="Aztec CLI Reference"
-    COMMAND="aztec"
-    JSON_FILE="$OUTPUT_DIR/aztec_cli_docs.json"
-    MD_FILE="$OUTPUT_DIR/aztec_cli_reference.md"
-    ;;
-  aztec-wallet)
-    DISPLAY_NAME="Aztec Wallet CLI"
-    TITLE="Aztec Wallet CLI Reference"
-    COMMAND="aztec-wallet"
-    JSON_FILE="$OUTPUT_DIR/aztec_wallet_cli_docs.json"
-    MD_FILE="$OUTPUT_DIR/aztec_wallet_cli_reference.md"
-    ;;
-esac
-
-echo "=== ${DISPLAY_NAME} Documentation Generator ==="
+echo "=== ${CLI_DISPLAY_NAME} Documentation Update Script ==="
 echo ""
 
-echo "Step 1: Scanning ${COMMAND} CLI commands..."
-python3 "$SCRIPT_DIR/scan_cli.py" --command "$COMMAND" --output "$JSON_FILE"
+# Step 1: Generate JSON from CLI
+echo "Step 1: Scanning ${CLI_COMMAND} CLI commands (format: ${CLI_FORMAT})..."
+python3 "$SCRIPT_DIR/scan_cli.py" \
+  --command "$CLI_COMMAND" \
+  --cli-format "$CLI_FORMAT" \
+  --workers "$WORKERS" \
+  --timeout "$TIMEOUT" \
+  --output "$TEMP_JSON"
 
+# Step 2: Generate markdown
 echo ""
 echo "Step 2: Generating markdown documentation..."
 python3 "$SCRIPT_DIR/transform_to_markdown.py" \
-  --input "$JSON_FILE" \
-  --output "$MD_FILE" \
-  --title "$TITLE"
+  --input "$TEMP_JSON" \
+  --output "$TEMP_MD" \
+  --title "$CLI_TITLE"
 
+# Step 3: Add front-matter
+cat > "$TEMP_WITH_FRONTMATTER" << EOF
+---
+title: ${CLI_TITLE}
+description: Comprehensive auto-generated reference for the ${CLI_DISPLAY_NAME} with all commands and options.
+tags: ${CLI_TAGS}
+sidebar_position: ${CLI_SIDEBAR_POSITION}
+---
+
+# ${CLI_TITLE}
+
+*This documentation is auto-generated from the \`${CLI_COMMAND}\` CLI help output.*
+
+EOF
+
+# Append markdown content (skip first line which is duplicate title)
+tail -n +2 "$TEMP_MD" >> "$TEMP_WITH_FRONTMATTER"
+
+# Step 4: Deploy to target locations
 echo ""
-echo "=== Documentation Generated ==="
-echo "  JSON: $JSON_FILE"
-echo "  Markdown: $MD_FILE"
+echo "Step 3: Deploying documentation..."
+
+# If custom output directory is specified, write there and exit
+if [[ -n "$OUTPUT_DIR" ]]; then
+  # Create directory if it doesn't exist
+  if [[ ! -d "$OUTPUT_DIR" ]]; then
+    mkdir -p "$OUTPUT_DIR"
+  fi
+
+  output_file="$OUTPUT_DIR/$CLI_OUTPUT_FILE"
+  cp "$TEMP_WITH_FRONTMATTER" "$output_file"
+  echo "  ✓ Written to: $output_file"
+  echo ""
+  echo "=== Documentation Generation Complete ==="
+  echo ""
+  echo "Output file: $output_file"
+  exit 0
+fi
+
+update_version() {
+  local version=$1
+  local target_dir=""
+
+  # All CLI docs now go to the unified 'cli' directory
+  if [[ "$version" == "current" ]]; then
+    target_dir="$DOCS_ROOT/docs-developers/docs/cli"
+  else
+    # Versioned docs also use the unified cli directory
+    target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/cli"
+  fi
+
+  if [[ ! -d "$target_dir" ]]; then
+    echo "  Warning: Directory not found: $target_dir"
+    return 1
+  fi
+
+  cp "$TEMP_WITH_FRONTMATTER" "$target_dir/$CLI_OUTPUT_FILE"
+  echo "  ✓ Updated $version"
+  return 0
+}
+
+case "$TARGET_VERSION" in
+  all)
+    # Update main docs
+    update_version "current" || true
+
+    # Update all versioned docs (check both versions.json and developer_versions.json)
+    VERSIONS_FILE=""
+    if [[ -f "$DOCS_ROOT/developer_versions.json" ]]; then
+      VERSIONS_FILE="$DOCS_ROOT/developer_versions.json"
+    elif [[ -f "$DOCS_ROOT/versions.json" ]]; then
+      VERSIONS_FILE="$DOCS_ROOT/versions.json"
+    fi
+
+    if [[ -n "$VERSIONS_FILE" ]]; then
+      # Use jq if available for robust JSON parsing, otherwise fallback to grep
+      if command -v jq &> /dev/null; then
+        versions=$(jq -r '.[]' "$VERSIONS_FILE")
+      else
+        versions=$(grep -o '"v[^"]*"' "$VERSIONS_FILE" | tr -d '"')
+      fi
+
+      for version in $versions; do
+        update_version "$version" || true
+      done
+    else
+      echo "  Warning: No versions.json found, skipping versioned docs"
+    fi
+    ;;
+  current)
+    update_version "current"
+    ;;
+  *)
+    update_version "$TARGET_VERSION"
+    ;;
+esac
+
+# Cleanup handled automatically by trap
 echo ""
-echo "To customize the output, use the scripts directly:"
-echo "  python3 $SCRIPT_DIR/scan_cli.py --help"
-echo "  python3 $SCRIPT_DIR/transform_to_markdown.py --help"
+echo "=== Documentation Update Complete ==="
+echo ""
+echo "Files updated with auto-generated ${CLI_DISPLAY_NAME} reference."
+echo "You can now commit these changes to the repository."

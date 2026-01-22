@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
-import { randomBytes } from '../crypto/index.js';
-import { Fq, Fr } from '../fields/fields.js';
+import { randomBytes } from '../crypto/random/index.js';
+import { Fq, Fr } from '../curves/bn254/field.js';
 import { BufferReader } from './buffer_reader.js';
 import { bigintToUInt64BE, bigintToUInt128BE } from './free_funcs.js';
 import { serializeArrayOfBufferableToVector, serializeBigInt, serializeToBuffer } from './serialize.js';
@@ -293,6 +293,107 @@ describe('buffer reader', () => {
       expect(() => smallBufferReader.readMap({ fromBuffer: () => 1 })).toThrow(
         'Attempted to read beyond buffer length',
       );
+    });
+  });
+
+  describe('maxSize bounds checking', () => {
+    describe('readVector with maxSize', () => {
+      it('should read vector when size is within bounds', () => {
+        const items = [1, 2, 3];
+        const buffer = serializeToBuffer(items.length, items);
+        const reader = new BufferReader(buffer);
+
+        const result = reader.readVector({ fromBuffer: (r: BufferReader) => r.readNumber() }, 10);
+
+        expect(result).toEqual(items);
+      });
+
+      it('should throw when vector size exceeds maxSize', () => {
+        const items = [1, 2, 3, 4, 5];
+        const buffer = serializeToBuffer(items.length, items);
+        const reader = new BufferReader(buffer);
+
+        expect(() => {
+          reader.readVector({ fromBuffer: (r: BufferReader) => r.readNumber() }, 3);
+        }).toThrow('Vector size 5 exceeds maximum allowed 3');
+      });
+
+      it('should allow any size when maxSize is not provided', () => {
+        const items = [1, 2, 3, 4, 5];
+        const buffer = serializeToBuffer(items.length, items);
+        const reader = new BufferReader(buffer);
+
+        const result = reader.readVector({ fromBuffer: (r: BufferReader) => r.readNumber() });
+
+        expect(result).toEqual(items);
+      });
+    });
+
+    describe('readBuffer with maxSize', () => {
+      it('should read buffer when size is within bounds', () => {
+        const data = Buffer.from('hello');
+        // readBuffer expects length prefix + data
+        const buffer = serializeToBuffer(data.length, data);
+        const reader = new BufferReader(buffer);
+
+        const result = reader.readBuffer(10);
+
+        expect(result).toEqual(data);
+      });
+
+      it('should throw when buffer size exceeds maxSize', () => {
+        const data = Buffer.from('hello world');
+        // readBuffer expects length prefix + data
+        const buffer = serializeToBuffer(data.length, data);
+        const reader = new BufferReader(buffer);
+
+        expect(() => {
+          reader.readBuffer(5);
+        }).toThrow('Buffer size 11 exceeds maximum allowed 5');
+      });
+
+      it('should allow any size when maxSize is not provided', () => {
+        const data = Buffer.from('hello world');
+        // readBuffer expects length prefix + data
+        const buffer = serializeToBuffer(data.length, data);
+        const reader = new BufferReader(buffer);
+
+        const result = reader.readBuffer();
+
+        expect(result).toEqual(data);
+      });
+    });
+
+    describe('readString with maxSize', () => {
+      it('should read string when size is within bounds', () => {
+        const str = 'hello';
+        const buffer = serializeToBuffer(str);
+        const reader = new BufferReader(buffer);
+
+        const result = reader.readString(10);
+
+        expect(result).toEqual(str);
+      });
+
+      it('should throw when string size exceeds maxSize', () => {
+        const str = 'hello world';
+        const buffer = serializeToBuffer(str);
+        const reader = new BufferReader(buffer);
+
+        expect(() => {
+          reader.readString(5);
+        }).toThrow('Buffer size 11 exceeds maximum allowed 5');
+      });
+
+      it('should allow any size when maxSize is not provided', () => {
+        const str = 'hello world';
+        const buffer = serializeToBuffer(str);
+        const reader = new BufferReader(buffer);
+
+        const result = reader.readString();
+
+        expect(result).toEqual(str);
+      });
     });
   });
 });

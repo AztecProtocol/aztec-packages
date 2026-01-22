@@ -291,14 +291,6 @@ describe.each([
   });
 
   describe('Consumer API', () => {
-    beforeEach(async () => {
-      await broker.start();
-    });
-
-    afterEach(async () => {
-      await broker.stop();
-    });
-
     it('returns undefined if no jobs are available', async () => {
       const provingJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
       expect(provingJob).toBeUndefined();
@@ -546,6 +538,7 @@ describe.each([
     });
 
     it('returns a new job if job is already in progress elsewhere', async () => {
+      await broker.start();
       // this test simulates the broker crashing and when it comes back online it has two agents working the same job
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
@@ -614,6 +607,7 @@ describe.each([
     });
 
     it('avoids sending the same job to a new agent after a restart', async () => {
+      await broker.start();
       // this test simulates the broker crashing and when it comes back online it has two agents working the same job
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
@@ -669,6 +663,7 @@ describe.each([
     });
 
     it('avoids sending a completed job to a new agent after a restart', async () => {
+      await broker.start();
       // this test simulates the broker crashing and when it comes back online it has two agents working the same job
       const job1: ProvingJob = {
         id: makeRandomProvingJobId(),
@@ -775,6 +770,48 @@ describe.each([
       await assertJobStatus(id, 'not-found');
       await broker.reportProvingJobSuccess(id, makeOutputsUri());
       await assertJobStatus(id, 'not-found');
+    });
+
+    it('cleans up enqueuedAt map after job completion', async () => {
+      // This test verifies that the enqueuedAt map is properly cleaned up
+      // after jobs complete to prevent memory leaks
+
+      const provingJob1: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      const provingJob2: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      // Access the private enqueuedAt map
+      const getEnqueuedAtSize = () => (broker as any).enqueuedAt.size;
+
+      expect(getEnqueuedAtSize()).toBe(0);
+
+      await broker.enqueueProvingJob(provingJob1);
+      await broker.enqueueProvingJob(provingJob2);
+
+      expect(getEnqueuedAtSize()).toBe(2);
+
+      await broker.getProvingJob();
+      await broker.getProvingJob();
+
+      expect(getEnqueuedAtSize()).toBe(0);
+
+      await broker.reportProvingJobSuccess(provingJob1.id, makeOutputsUri());
+      await broker.reportProvingJobSuccess(provingJob2.id, makeOutputsUri());
+
+      await assertJobStatus(provingJob1.id, 'fulfilled');
+      await assertJobStatus(provingJob2.id, 'fulfilled');
+
+      expect(getEnqueuedAtSize()).toBe(0);
     });
   });
 

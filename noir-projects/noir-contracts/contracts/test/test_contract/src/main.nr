@@ -15,22 +15,23 @@ pub contract Test {
         // Note related imports
         note::{
             constants::MAX_NOTES_PER_PAGE,
-            lifecycle::{create_note, destroy_note_unsafe},
+            lifecycle::{create_note, destroy_note},
             note_getter::{get_notes, view_notes},
             note_getter_options::{NoteGetterOptions, NoteStatus},
             note_viewer_options::NoteViewerOptions,
-            retrieved_note::RetrievedNote,
+            ConfirmedNote,
+            HintedNote,
         },
         // State variable types
         state_vars::{
-            DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
+            DelayedPublicMutable, Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet,
             PublicImmutable,
         },
         // Protocol types and constants
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+            constants::PRIVATE_LOG_SIZE_IN_FIELDS,
             traits::{Hash, Packable, Serialize},
         },
         // Event related
@@ -55,9 +56,8 @@ pub contract Test {
 
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
-    use address_note::address_note::AddressNote;
-    use aztec::context::note_hash_read::NoteHashRead;
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use address_note::AddressNote;
+    use uint_note::{PartialUintNote, UintNote};
 
     #[event]
     struct ExampleEvent {
@@ -83,17 +83,17 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
-        note_in_private_immutable: PrivateImmutable<TestNote, Context>,
-        struct_in_private_immutable: PrivateImmutable<ExampleStruct, Context>,
-        note_in_private_mutable: PrivateMutable<TestNote, Context>,
-        struct_in_private_mutable: PrivateMutable<ExampleStruct, Context>,
-        note_in_private_set: PrivateSet<AddressNote, Context>,
-        struct_in_private_set: PrivateSet<ExampleStruct, Context>,
+        note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
+        note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
+        struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
+        note_in_private_set: Owned<PrivateSet<AddressNote, Context>, Context>,
+        struct_in_private_set: Owned<PrivateSet<ExampleStruct, Context>, Context>,
         note_in_public_immutable: PublicImmutable<TestNote, Context>,
         struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-        struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+        struct_in_map: Map<AztecAddress, PublicImmutable<ExampleStruct, Context>, Context>,
         struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
-        dummy_variable: PrivateImmutable<TestNote, Context>,
+        dummy_variable: Owned<PrivateImmutable<TestNote, Context>, Context>,
     }
 
     #[initializer]
@@ -139,10 +139,9 @@ pub contract Test {
         storage_slot: Field,
         make_tx_hybrid: bool,
     ) {
-        let note = UintNote::new(value, owner);
-        create_note(self.context, storage_slot, note).emit(
-            owner,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+        let note = UintNote { value };
+        create_note(self.context, owner, storage_slot, note).deliver(
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
 
         if make_tx_hybrid {
@@ -173,81 +172,97 @@ pub contract Test {
     }
 
     #[external("private")]
-    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
-        let mut options = NoteGetterOptions::new();
+    fn call_get_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool) -> u128 {
+        let mut options = NoteGetterOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
             get_notes(self.context, storage_slot, options);
 
-        retrieved_notes.get(0).note.get_value()
+        confirmed_notes.get(0).note.value
     }
 
     #[external("private")]
-    fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [u128; 2] {
-        let mut options = NoteGetterOptions::new();
+    fn call_get_notes_many(
+        owner: AztecAddress,
+        storage_slot: Field,
+        active_or_nullified: bool,
+    ) -> [u128; 2] {
+        let mut options = NoteGetterOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
             get_notes(self.context, storage_slot, options);
 
-        [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
+        [confirmed_notes.get(0).note.value, confirmed_notes.get(1).note.value]
     }
 
     #[external("utility")]
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
-        let mut options = NoteViewerOptions::new();
+    unconstrained fn call_view_notes(
+        owner: AztecAddress,
+        storage_slot: Field,
+        active_or_nullified: bool,
+    ) -> u128 {
+        let mut options = NoteViewerOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        notes.get(0).get_value()
+        notes.get(0).value
     }
 
     #[external("utility")]
     unconstrained fn call_view_notes_many(
+        owner: AztecAddress,
         storage_slot: Field,
         active_or_nullified: bool,
     ) -> [u128; 2] {
-        let mut options = NoteViewerOptions::new();
+        let mut options = NoteViewerOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        [notes.get(0).get_value(), notes.get(1).get_value()]
+        [notes.get(0).value, notes.get(1).value]
     }
 
     #[external("private")]
-    fn call_destroy_note(storage_slot: Field) {
-        let options = NoteGetterOptions::new();
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+    fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
+        let options = NoteGetterOptions::new().set_owner(owner);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
             get_notes(self.context, storage_slot, options);
 
-        let retrieved_note = retrieved_notes.get(0);
-        let note_hash = note_hashes.get(0);
-
-        destroy_note_unsafe(self.context, retrieved_note, note_hash);
+        destroy_note(self.context, confirmed_notes.get(0));
     }
 
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
-        let mut options = NoteGetterOptions::new();
-        options = options.set_limit(1);
+        let options = NoteGetterOptions::new().set_owner(owner).set_limit(1);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+        // We unfortunately do not currently have a convenient API that returned `HintedNote`, so for this invocation we
+        // instead manually construct the value from a `ConfirmedNote` (which doesn't make sense, since `get_note`
+        // already proves note inclusion).
+        // TODO(F-255).
+        let confirmed_note: ConfirmedNote<UintNote> =
+            get_notes(self.context, storage_slot, options).get(0);
+        let hinted_note = HintedNote {
+            note: confirmed_note.note,
+            contract_address: confirmed_note.contract_address,
+            owner: confirmed_note.owner,
+            randomness: confirmed_note.randomness,
+            storage_slot: confirmed_note.storage_slot,
+            metadata: confirmed_note.metadata,
+        };
 
         let header = self.context.get_anchor_block_header();
-
-        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
+        let _ = header.prove_note_inclusion(hinted_note);
     }
 
     #[external("private")]
@@ -319,7 +334,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event, owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.emit(event).deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs

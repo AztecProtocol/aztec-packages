@@ -1,13 +1,13 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import { EthCheatCodes } from '@aztec/aztec/testing';
-import type { PublisherManager, ViemClient } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
@@ -75,7 +75,7 @@ describe('e2e_multi_eoa', () => {
         ethCheatCodes,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
-        transactionPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
@@ -125,41 +125,45 @@ describe('e2e_multi_eoa', () => {
         `Testing account rotation with blocked sender ${blockedSender} and fallback sender ${fallbackSender}`,
       );
 
-      // NOTE: we only need to spy on a single client because all l1Utils use the same ViemClient instance
-      const originalSendRawTransaction = l1Utils[expectedFirstSender].client.sendRawTransaction;
+      // Get unique clients - they may or may not be the same object
+      const uniqueClients = [...new Set(l1Utils.map(u => u.client))];
+      const originalSendRawTransactions = new Map(uniqueClients.map(client => [client, client.sendRawTransaction]));
 
-      // auto-dispose of this spy at the end of this function
-      using _ = jest
-        .spyOn(l1Utils[expectedFirstSender].client, 'sendRawTransaction')
-        .mockImplementation(async function (this: ViemClient, arg) {
-          const signerAddress = EthAddress.fromString(
-            await recoverTransactionAddress({
-              serializedTransaction: arg.serializedTransaction as TransactionSerialized<'eip1559' | 'eip4844'>,
-            }),
-          );
+      const mockSendRawTransaction = async function (this: ViemClient, arg: { serializedTransaction: `0x${string}` }) {
+        const signerAddress = EthAddress.fromString(
+          await recoverTransactionAddress({
+            serializedTransaction: arg.serializedTransaction as TransactionSerialized<'eip1559' | 'eip4844'>,
+          }),
+        );
 
-          if (blockedSender.equals(signerAddress)) {
-            const txHash = randomEthTxHash(); // block this sender/ Its txs don't actually reach any L1 nodes
-            blockedTxs.push(txHash);
-            logger.warn(`Blocking tx from sender ${signerAddress.toString()} with hash ${txHash}`);
-            return txHash;
+        if (blockedSender.equals(signerAddress)) {
+          const txHash = randomEthTxHash(); // block this sender/ Its txs don't actually reach any L1 nodes
+          blockedTxs.push(txHash);
+          logger.warn(`Blocking tx from sender ${signerAddress.toString()} with hash ${txHash}`);
+          return txHash;
+        } else {
+          const originalFn = originalSendRawTransactions.get(this)!;
+          const txHash = await originalFn.call(this, arg);
+          if (fallbackSender.equals(signerAddress)) {
+            logger.warn(`Found fallback tx from signer ${signerAddress.toString()} with hash ${txHash}`);
+            fallbackTxs.push(txHash);
           } else {
-            const txHash = await originalSendRawTransaction.call(this, arg);
-            if (fallbackSender.equals(signerAddress)) {
-              logger.warn(`Found fallback tx from signer ${signerAddress.toString()} with hash ${txHash}`);
-              fallbackTxs.push(txHash);
-            } else {
-              logger.warn(`Found fallback tx from unexpected sender ${signerAddress.toString()} with hash ${txHash}`);
-            }
-            return txHash;
+            logger.warn(`Found fallback tx from unexpected sender ${signerAddress.toString()} with hash ${txHash}`);
           }
-        });
+          return txHash;
+        }
+      };
+
+      // Spy on all unique clients to ensure we intercept all sendRawTransaction calls
+      const spies = uniqueClients.map(client =>
+        jest.spyOn(client, 'sendRawTransaction').mockImplementation(mockSendRawTransaction),
+      );
 
       const tx = deployMethodTx.send();
       logger.warn(`L2 deploy tx sent with hash ${(await tx.getTxHash()).toString()}`);
 
       const receipt = await tx.wait();
-      expect(receipt.status).toBe(TxStatus.SUCCESS);
+      expect(receipt.isMined() && receipt.hasExecutionSucceeded()).toBe(true);
 
       logger.warn(`Got ${blockedTxs.length} blocked txs for ${blockedSender}`);
       expect(blockedTxs.length).toBeGreaterThan(0);
@@ -175,6 +179,9 @@ describe('e2e_multi_eoa', () => {
       const expectedSenderEthAddress = EthAddress.fromString(sequencerKeysAndAddresses[expectedSecondSender].address);
       const areSame = senderEthAddress.equals(expectedSenderEthAddress);
       expect(areSame).toBeTrue();
+
+      // Dispose of all spies
+      spies.forEach(spy => spy.mockRestore());
     };
 
     it('publishers are rotated by the sequencer', async () => {

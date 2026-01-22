@@ -16,7 +16,7 @@ template <typename FF_> class addressingImpl {
 
     static constexpr std::array<size_t, 62> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5,
-        5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 3
+        5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -40,7 +40,7 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static constexpr const std::string_view NAME = "addressing";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
+    static constexpr size_t SR_ADDRESSING_MODE_RECONSTRUCTION = 16;
     static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 18;
     static constexpr size_t SR_BASE_ADDRESS_CHECK = 20;
     static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0 = 21;
@@ -73,12 +73,13 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 56;
     static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 58;
     static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 60;
+    static constexpr size_t SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING = 61;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_INDIRECT_RECONSTRUCTION:
-            return "INDIRECT_RECONSTRUCTION";
+        case SR_ADDRESSING_MODE_RECONSTRUCTION:
+            return "ADDRESSING_MODE_RECONSTRUCTION";
         case SR_NUM_RELATIVE_INV_CHECK:
             return "NUM_RELATIVE_INV_CHECK";
         case SR_BASE_ADDRESS_CHECK:
@@ -143,6 +144,8 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
             return "BATCHED_TAGS_DIFF_CHECK";
         case SR_ADDRESSING_COLLECTION_INV_CHECK:
             return "ADDRESSING_COLLECTION_INV_CHECK";
+        case SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING:
+            return "NO_ADDRESSING_ERROR_IF_NOT_RESOLVING";
         }
         return std::to_string(index);
     }

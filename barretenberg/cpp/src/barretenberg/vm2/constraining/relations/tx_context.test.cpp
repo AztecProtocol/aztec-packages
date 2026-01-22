@@ -189,11 +189,7 @@ TEST(TxContextConstrainingTest, StateMutability)
     TestTraceContainer trace({
         {
             { C::tx_sel, 1 },
-            { C::tx_sel_can_emit_note_hash, 1 },
-            { C::tx_sel_can_emit_nullifier, 1 },
-            { C::tx_sel_can_write_public_data, 1 },
-            { C::tx_sel_can_emit_unencrypted_log, 1 },
-            { C::tx_sel_can_emit_l2_l1_msg, 1 },
+            { C::tx_is_public_call_request, 1 },
             { C::tx_should_process_call_request, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
@@ -245,7 +241,7 @@ TEST(TxContextConstrainingTest, StateMutability)
                                tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY);
 
     // Negative test: immutability check on note hashes
-    trace.set(C::tx_sel_can_emit_note_hash, 0, 0);
+    trace.set(C::tx_is_public_call_request, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY),
                               "NOTE_HASH_ROOT_IMMUTABILITY");
@@ -255,7 +251,6 @@ TEST(TxContextConstrainingTest, StateMutability)
                               "NOTE_HASH_COUNT_IMMUTABILITY");
 
     // Negative test: immutability check on nullifiers
-    trace.set(C::tx_sel_can_emit_nullifier, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY),
                               "NULLIFIER_ROOT_IMMUTABILITY");
@@ -265,7 +260,6 @@ TEST(TxContextConstrainingTest, StateMutability)
                               "NULLIFIER_COUNT_IMMUTABILITY");
 
     // Negative test: immutability check on public data
-    trace.set(C::tx_sel_can_write_public_data, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_ROOT_IMMUTABILITY),
                               "PUBLIC_DATA_ROOT_IMMUTABILITY");
@@ -279,13 +273,11 @@ TEST(TxContextConstrainingTest, StateMutability)
         "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY");
 
     // Negative test: immutability check on unencrypted logs
-    trace.set(C::tx_sel_can_emit_unencrypted_log, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY),
                               "UNENCRYPTED_LOG_COUNT_IMMUTABILITY");
 
     // Negative test: immutability check on l2 to l1 messages
-    trace.set(C::tx_sel_can_emit_l2_l1_msg, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY),
                               "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY");
@@ -301,10 +293,7 @@ TEST(TxContextConstrainingTest, StateMutability)
         "RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY");
 
     // Negative test: selectors enabled but it's a padded row
-    trace.set(C::tx_sel_can_emit_note_hash, 0, 1);
-    trace.set(C::tx_sel_can_emit_nullifier, 0, 1);
-    trace.set(C::tx_sel_can_write_public_data, 0, 1);
-    trace.set(C::tx_sel_can_emit_unencrypted_log, 0, 1);
+    trace.set(C::tx_is_public_call_request, 0, 1);
     trace.set(C::tx_is_padded, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY),
@@ -376,6 +365,7 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_prev_retrieved_bytecodes_tree_root, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT) },
             { C::tx_prev_retrieved_bytecodes_tree_size, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) },
             { C::tx_l1_l2_tree_root, tree_snapshots.l1_to_l2_message_tree.root },
+            { C::tx_l1_l2_tree_size, tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index },
             { C::tx_prev_l2_gas_used, start_gas_used.l2_gas },
             { C::tx_prev_da_gas_used, start_gas_used.da_gas },
             { C::tx_l2_gas_limit, gas_limit.l2_gas },
@@ -472,6 +462,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_prev_public_data_tree_root, tree_snapshots.public_data_tree.root },
             { C::tx_prev_public_data_tree_size, tree_snapshots.public_data_tree.next_available_leaf_index },
             { C::tx_l1_l2_tree_root, tree_snapshots.l1_to_l2_message_tree.root },
+            { C::tx_l1_l2_tree_size, tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index },
             { C::tx_prev_l2_gas_used, end_gas_used.l2_gas },
             { C::tx_prev_da_gas_used, end_gas_used.da_gas },
             { C::tx_prev_num_unencrypted_log_fields, public_logs.length },

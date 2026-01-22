@@ -1,21 +1,20 @@
 #!/usr/bin/env -S node --no-warnings
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress } from '@aztec/aztec.js/addresses';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node/config';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
+import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import {
-  NULL_KEY,
-  createEthereumChain,
-  deployL1Contracts,
-  deployMulticall3,
-  getL1ContractsConfigEnvVars,
-  waitForPublicClient,
-} from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { waitForPublicClient } from '@aztec/ethereum/client';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { NULL_KEY } from '@aztec/ethereum/constants';
+import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
@@ -28,13 +27,14 @@ import {
 import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
+import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
+import { EpochTestSettler } from '../testing/epoch_test_settler.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -49,42 +49,25 @@ const localAnvil = foundry;
  */
 export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
-  hdAccount: HDAccount | PrivateKeyAccount,
-  contractDeployLogger = logger,
+  privateKey: Hex,
   opts: {
-    assumeProvenThroughBlockNumber?: number;
-    salt?: number;
     genesisArchiveRoot?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
 ) {
-  const chain =
-    aztecNodeConfig.l1RpcUrls.length > 0
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrls, aztecNodeConfig.l1ChainId)
-      : { chainInfo: localAnvil };
-
   await waitForPublicClient(aztecNodeConfig);
 
-  const l1Contracts = await deployL1Contracts(
-    aztecNodeConfig.l1RpcUrls,
-    hdAccount,
-    chain.chainInfo,
-    contractDeployLogger,
-    {
-      ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
-      ...aztecNodeConfig,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      salt: opts.salt,
-      feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
-      aztecTargetCommitteeSize: 0, // no committee in local network
-      slasherFlavor: 'none', // no slashing in local network
-      realVerifier: false,
-    },
-  );
-
-  await deployMulticall3(l1Contracts.l1Client, logger);
+  const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, foundry.id, {
+    ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
+    ...aztecNodeConfig,
+    vkTreeRoot: getVKTreeRoot(),
+    protocolContractsHash,
+    genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+    feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+    aztecTargetCommitteeSize: 0, // no committee in local network
+    slasherFlavor: 'none', // no slashing in local network
+    realVerifier: false,
+  });
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
@@ -96,8 +79,6 @@ export async function deployContractsToL1(
 export type LocalNetworkConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
-  /** Salt used to deploy L1 contracts.*/
-  deployAztecContractsSalt: string;
   /** Whether to deploy test accounts on local network start.*/
   testAccounts: boolean;
 };
@@ -116,7 +97,11 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   if ((config.l1RpcUrls?.length || 0) > 1) {
     logger.warn(`Multiple L1 RPC URLs provided. Local networks will only use the first one: ${l1RpcUrl}`);
   }
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
+
+  const aztecNodeConfig: AztecNodeConfig = {
+    ...getConfigEnvVars(),
+    ...config,
+  };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (
     aztecNodeConfig.publisherPrivateKeys == undefined ||
@@ -153,15 +138,20 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     : [];
   const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
-  let watcher: AnvilTestWatcher | undefined = undefined;
   const dateProvider = new TestDateProvider();
+
+  let cheatcodes: EthCheatCodes | undefined;
+  let rollupAddress: EthAddress | undefined;
+  let watcher: AnvilTestWatcher | undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
-      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
-      genesisArchiveRoot,
-      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
-      feeJuicePortalInitialBalance: fundingNeeded,
-    });
+    ({ rollupAddress } = await deployContractsToL1(
+      aztecNodeConfig,
+      aztecNodeConfig.validatorPrivateKeys.getValue()[0],
+      {
+        genesisArchiveRoot,
+        feeJuicePortalInitialBalance: fundingNeeded,
+      },
+    ));
 
     const chain =
       aztecNodeConfig.l1RpcUrls.length > 0
@@ -173,24 +163,31 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
       transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
     });
 
-    watcher = new AnvilTestWatcher(
-      new EthCheatCodes([l1RpcUrl], dateProvider),
-      l1ContractAddresses.rollupAddress,
-      publicClient,
-      dateProvider,
-    );
+    cheatcodes = new EthCheatCodes([l1RpcUrl], dateProvider);
+
+    watcher = new AnvilTestWatcher(cheatcodes, rollupAddress, publicClient, dateProvider);
     watcher.setisLocalNetwork(true);
+    watcher.setIsMarkingAsProven(false); // Do not mark as proven in the watcher. It's marked in the epochTestSettler after the out hash is set.
+
     await watcher.start();
   }
 
-  const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  // Create a local blob sink client inside the local network, no http connectivity
-  const blobSinkClient = createBlobSinkClient();
-  const node = await createAztecNode(
-    aztecNodeConfig,
-    { telemetry, blobSinkClient, dateProvider },
-    { prefilledPublicData },
-  );
+  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
+  // Create a local blob client client inside the local network, no http connectivity
+  const blobClient = createBlobClient();
+  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { prefilledPublicData });
+
+  let epochTestSettler: EpochTestSettler | undefined;
+  if (!aztecNodeConfig.p2pEnabled) {
+    epochTestSettler = new EpochTestSettler(
+      cheatcodes!,
+      rollupAddress!,
+      node.getBlockSource(),
+      logger.createChild('epoch-settler'),
+      { pollingIntervalMs: 200 },
+    );
+    await epochTestSettler.start();
+  }
 
   if (initialAccounts.length) {
     const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
@@ -216,6 +213,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const stop = async () => {
     await node.stop();
     await watcher?.stop();
+    await epochTestSettler?.stop();
   };
 
   return { node, stop };
@@ -227,7 +225,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
  */
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
-  deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface; dateProvider?: DateProvider } = {},
+  deps: { telemetry?: TelemetryClient; blobClient?: BlobClientInterface; dateProvider?: DateProvider } = {},
   options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.

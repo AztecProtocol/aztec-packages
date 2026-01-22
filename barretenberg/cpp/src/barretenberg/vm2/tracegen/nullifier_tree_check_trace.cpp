@@ -73,7 +73,7 @@ void NullifierTreeCheckTraceBuilder::process(
                       { C::nullifier_check_updated_low_leaf_next_nullifier, updated_low_leaf_next_key },
                       { C::nullifier_check_low_leaf_index, event.low_leaf_index },
                       { C::nullifier_check_siloed_nullifier, siloed_nullifier },
-                      { C::nullifier_check_siloing_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
+                      { C::nullifier_check_siloing_separator, DOM_SEP__OUTER_NULLIFIER },
                       { C::nullifier_check_should_insert, append },
                       { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
                       { C::nullifier_check_intermediate_root, intermediate_root },
@@ -102,8 +102,10 @@ const InteractionDefinition NullifierTreeCheckTraceBuilder::interactions =
         .add<lookup_nullifier_check_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_updated_low_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_low_leaf_merkle_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_low_leaf_nullifier_validation_settings, InteractionType::LookupSequential>()
-        .add<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings, InteractionType::LookupSequential>()
+        .add<lookup_nullifier_check_low_leaf_nullifier_validation_settings,
+             InteractionType::LookupGeneric>() // ff_gt deduplicates
+        .add<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
+             InteractionType::LookupGeneric>() // ff_gt deduplicates
         .add<lookup_nullifier_check_new_leaf_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>()
         .add<lookup_nullifier_check_write_nullifier_to_public_inputs_settings,

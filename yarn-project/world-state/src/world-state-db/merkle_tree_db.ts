@@ -1,8 +1,13 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import type { L2Block, L2BlockNew } from '@aztec/stdlib/block';
-import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { L2Block } from '@aztec/stdlib/block';
+import type {
+  ForkMerkleTreeOperations,
+  MerkleTreeReadOperations,
+  ReadonlyWorldStateAccess,
+} from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
@@ -34,19 +39,13 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
+export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, ReadonlyWorldStateAccess {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
-   * @param isFirstBlock - Whether the block is the first block in a checkpoint. Temporary hack to only insert l1 to l2
-   * messages for the first block in a checkpoint. TODO(#17027) Remove this.
    */
-  handleL2BlockAndMessages(
-    block: L2Block | L2BlockNew,
-    l1ToL2Messages: Fr[],
-    isFirstBlock?: boolean,
-  ): Promise<WorldStateStatusFull>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull>;
 
   /**
    * Gets a handle that allows reading the latest committed state
@@ -58,21 +57,21 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
    * @param toBlockNumber The block number of the new oldest historical block
    * @returns The new WorldStateStatus
    */
-  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
+  removeHistoricalBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusFull>;
 
   /**
    * Removes all pending blocks down to but not including the given block number
    * @param toBlockNumber The block number of the new tip of the pending chain,
    * @returns The new WorldStateStatus
    */
-  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
+  unwindBlocks(toBlockNumber: BlockNumber): Promise<WorldStateStatusFull>;
 
   /**
    * Advances the finalized block number to be the number provided
    * @param toBlockNumber The block number that is now the tip of the finalized chain
    * @returns The new WorldStateStatus
    */
-  setFinalized(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
+  setFinalized(toBlockNumber: BlockNumber): Promise<WorldStateStatusSummary>;
 
   /**
    * Gets the current status summary of the database.

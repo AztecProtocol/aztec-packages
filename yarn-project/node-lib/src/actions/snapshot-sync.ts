@@ -1,6 +1,7 @@
 import { ARCHIVER_DB_VERSION, ARCHIVER_STORE_NAME, type ArchiverConfig, createArchiverStore } from '@aztec/archiver';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum';
+import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum/client';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
@@ -28,6 +29,7 @@ const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
 type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
+  Pick<L1ContractsConfig, 'aztecEpochDuration'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
   Required<DataStoreConfig> &
   EthereumClientConfig & {
@@ -58,13 +60,13 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
   // Create an archiver store to check the current state (do this only once)
   log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config);
+  const archiverStore = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
   try {
     [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
       archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
-      archiverStore.getSynchedL2BlockNumber(),
+      archiverStore.getLatestBlockNumber(),
     ] as const);
   } finally {
     log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });

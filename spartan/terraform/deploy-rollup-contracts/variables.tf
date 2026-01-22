@@ -14,6 +14,14 @@ variable "AZTEC_DOCKER_IMAGE" {
   type        = string
 }
 
+variable "ETHERSCAN_API_KEY" {
+  description = "Etherscan API key"
+  type        = string
+  sensitive   = true
+  nullable    = true
+  default     = null
+}
+
 # Deploy L1 contracts configuration
 variable "L1_RPC_URLS" {
   description = "Comma-separated list of L1 RPC URLs"
@@ -31,13 +39,6 @@ variable "L1_CHAIN_ID" {
   description = "L1 chain ID"
   type        = number
   default     = 31337
-}
-
-variable "SALT" {
-  description = "Salt for deployment"
-  type        = number
-  nullable    = true
-  default     = null
 }
 
 variable "VALIDATORS" {
@@ -193,6 +194,12 @@ variable "AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE" {
   nullable    = true
 }
 
+variable "AZTEC_GOVERNANCE_VOTING_DURATION" {
+  description = "Aztec governance voting duration in seconds"
+  type        = string
+  nullable    = true
+}
+
 variable "AZTEC_MANA_TARGET" {
   description = "Aztec mana target"
   type        = string
@@ -235,3 +242,8 @@ variable "NETWORK" {
   nullable    = true
 }
 
+variable "VERIFY_CONTRACTS" {
+  description = "Verify contracts on Etherscan"
+  type        = bool
+  default     = false
+}

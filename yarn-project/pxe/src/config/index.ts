@@ -19,14 +19,14 @@ export interface KernelProverConfig {
 }
 
 /**
- * Configuration settings for the synchronizer.
+ * Configuration settings for the block synchronizer.
  */
-export interface SynchronizerConfig {
+export interface BlockSynchronizerConfig {
   /** Maximum amount of blocks to pull from the stream in one request when synchronizing */
   l2BlockBatchSize: number;
 }
 
-export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & SynchronizerConfig;
+export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig;
 
 export type CliPXEOptions = {
   /** Custom Aztec Node URL to connect to  */

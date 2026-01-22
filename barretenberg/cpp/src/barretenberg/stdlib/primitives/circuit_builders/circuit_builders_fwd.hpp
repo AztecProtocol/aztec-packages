@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
 /**
  * @brief Defines particular circuit builder types expected to be used for circuit
 construction in stdlib and contains macros for explicit instantiation.
@@ -30,6 +24,7 @@ class UltraFlavor;
 class UltraZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
+class MegaAvmFlavor;
 class UltraKeccakFlavor;
 class UltraKeccakZKFlavor;
 class UltraRollupFlavor;
@@ -39,7 +34,13 @@ class TranslatorRecursiveFlavor;
 class ECCVMRecursiveFlavor;
 class MultilinearBatchingFlavor;
 class MultilinearBatchingRecursiveFlavor;
-class AvmRecursiveFlavor;
+
+// Forward declare SumcheckTestFlavor template and Grumpkin ZK variant
+namespace curve {
+class Grumpkin;
+}
+template <typename CurveType, bool HasZK_, bool UseShortMonomials_> class SumcheckTestFlavor_;
+using SumcheckTestFlavorGrumpkinZK = SumcheckTestFlavor_<curve::Grumpkin, true, true>;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
@@ -47,6 +48,7 @@ template <typename BuilderType> class UltraKeccakRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
+template <typename BuilderType> class MegaAvmRecursiveFlavor_;
 
 namespace avm2 {
 class AvmRecursiveFlavor;

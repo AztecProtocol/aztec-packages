@@ -1,14 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb {
 
@@ -22,7 +22,7 @@ class IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
   public:
     using ClientCircuit = MegaCircuitBuilder;
-    using MegaVerificationKey = MegaFlavor::VerificationKey;
+    using MegaVerificationKey = MegaZKFlavor::VerificationKey;
 
     virtual ~IVCBase() = default;
 

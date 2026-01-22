@@ -50,6 +50,23 @@ export function isWrappedFieldStruct(abiType: AbiType) {
 }
 
 /**
+ * Returns whether the ABI type is a PublicKeys struct from Aztec.nr.
+ * @param abiType - Type to check.
+ * @returns A boolean indicating whether the ABI type is a PublicKeys struct.
+ */
+export function isPublicKeysStruct(abiType: AbiType) {
+  return (
+    abiType.kind === 'struct' &&
+    abiType.path === 'aztec::protocol_types::public_keys::PublicKeys' &&
+    abiType.fields.length === 4 &&
+    abiType.fields[0].name === 'npk_m' &&
+    abiType.fields[1].name === 'ivpk_m' &&
+    abiType.fields[2].name === 'ovpk_m' &&
+    abiType.fields[3].name === 'tpk_m'
+  );
+}
+
+/**
  * Returns whether the ABI type is a BoundedVec struct from Noir's std::collections::bounded_vec.
  * @param abiType - Type to check.
  * @returns A boolean indicating whether the ABI type is a BoundedVec struct.

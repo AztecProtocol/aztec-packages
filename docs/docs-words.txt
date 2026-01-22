@@ -244,6 +244,7 @@ protoocols
 Protostar
 Prviate
 Prysm
+pseudorandomly
 publically
 Quicknode
 ragequit
@@ -318,6 +319,8 @@ timelock
 Timelock
 timelocked
 tonelli
+townhall
+townhalls
 TORADIXLE
 Tpkm
 transactionfee
@@ -366,3 +369,20 @@ nothin
 whoooaa
 flamegraphs
 mycontract
+notegetteroptions
+lookback
+noirfmt
+postprocesses
+blobscan
+fusaka
+healthcheck
+supernode
+supernodes
+Garaga
+satisfiability
+nullptr
+favo
+supermajority
+finalise
+undelegation
+unbonding

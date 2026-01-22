@@ -11,12 +11,16 @@ import {
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_MSGS_PER_BASE_PARITY,
+  OUT_HASH_TREE_HEIGHT,
 } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
   BlockMergeRollupPrivateInputs,
@@ -36,6 +40,11 @@ import { accumulateBlobs, buildBlobHints, toProofData } from './block-building-h
 import { BlockProvingState, type ProofState } from './block-proving-state.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
 
+type OutHashHint = {
+  treeSnapshot: AppendOnlyTreeSnapshot;
+  siblingPath: Tuple<Fr, typeof OUT_HASH_TREE_HEIGHT>;
+};
+
 export class CheckpointProvingState {
   private blockProofs: UnbalancedTreeStore<
     ProofState<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
@@ -44,11 +53,16 @@ export class CheckpointProvingState {
     | ProofState<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
   private blocks: (BlockProvingState | undefined)[] = [];
+  private previousOutHashHint: OutHashHint | undefined;
+  private outHash: Fr | undefined;
+  // The snapshot and sibling path after the checkpoint's out hash is inserted.
+  // Stored here to be retrieved for the next checkpoint when it's added.
+  private newOutHashHint: OutHashHint | undefined;
   private startBlobAccumulator: BatchedBlobAccumulator | undefined;
   private endBlobAccumulator: BatchedBlobAccumulator | undefined;
   private blobFields: Fr[] | undefined;
   private error: string | undefined;
-  public readonly firstBlockNumber: number;
+  public readonly firstBlockNumber: BlockNumber;
 
   constructor(
     public readonly index: number,
@@ -74,7 +88,7 @@ export class CheckpointProvingState {
     private onBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
   ) {
     this.blockProofs = new UnbalancedTreeStore(totalNumBlocks);
-    this.firstBlockNumber = headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1;
+    this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
   }
 
   public get epochNumber(): number {
@@ -82,13 +96,13 @@ export class CheckpointProvingState {
   }
 
   public startNewBlock(
-    blockNumber: number,
+    blockNumber: BlockNumber,
     timestamp: UInt64,
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
   ): BlockProvingState {
-    const index = blockNumber - this.firstBlockNumber;
+    const index = Number(blockNumber) - Number(this.firstBlockNumber);
     if (index >= this.totalNumBlocks) {
       throw new Error(`Unable to start a new block at index ${index}. Expected at most ${this.totalNumBlocks} blocks.`);
     }
@@ -193,6 +207,35 @@ export class CheckpointProvingState {
     return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot);
   }
 
+  public setOutHashHint(hint: OutHashHint) {
+    this.previousOutHashHint = hint;
+  }
+
+  public getOutHashHint() {
+    return this.previousOutHashHint;
+  }
+
+  public accumulateBlockOutHashes() {
+    if (this.isAcceptingBlocks() || this.blocks.some(b => !b?.hasEndState())) {
+      return;
+    }
+
+    if (!this.outHash) {
+      const messagesPerBlock = this.blocks.map(b => b!.getTxEffects().map(tx => tx.l2ToL1Msgs));
+      this.outHash = computeCheckpointOutHash(messagesPerBlock);
+    }
+
+    return this.outHash;
+  }
+
+  public setOutHashHintForNextCheckpoint(hint: OutHashHint) {
+    this.newOutHashHint = hint;
+  }
+
+  public getOutHashHintForNextCheckpoint() {
+    return this.newOutHashHint;
+  }
+
   public async accumulateBlobs(startBlobAccumulator: BatchedBlobAccumulator) {
     if (this.isAcceptingBlocks() || this.blocks.some(b => !b?.hasEndState())) {
       return;
@@ -234,6 +277,9 @@ export class CheckpointProvingState {
     if (proofs.length !== nonEmptyProofs.length) {
       throw new Error('At least one child is not ready for the checkpoint root rollup.');
     }
+    if (!this.previousOutHashHint) {
+      throw new Error('Out hash hint is not set.');
+    }
     if (!this.startBlobAccumulator) {
       throw new Error('Start blob accumulator is not set.');
     }
@@ -246,6 +292,8 @@ export class CheckpointProvingState {
     const hints = CheckpointRootRollupHints.from({
       previousBlockHeader: this.headerOfLastBlockInPreviousCheckpoint,
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
+      previousOutHash: this.previousOutHashHint.treeSnapshot,
+      newOutHashSiblingPath: this.previousOutHashHint.siblingPath,
       startBlobAccumulator: this.startBlobAccumulator.toBlobAccumulator(),
       finalBlobChallenges: this.finalBlobBatchingChallenges,
       blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_CHECKPOINT),
@@ -260,8 +308,8 @@ export class CheckpointProvingState {
       : new CheckpointRootRollupPrivateInputs([left, right], hints);
   }
 
-  public getBlockProvingStateByBlockNumber(blockNumber: number) {
-    const index = blockNumber - this.firstBlockNumber;
+  public getBlockProvingStateByBlockNumber(blockNumber: BlockNumber) {
+    const index = Number(blockNumber) - Number(this.firstBlockNumber);
     return this.blocks[index];
   }
 
@@ -271,7 +319,7 @@ export class CheckpointProvingState {
 
   public isReadyForCheckpointRoot() {
     const allChildProofsReady = this.#getChildProofsForRoot().every(p => !!p);
-    return allChildProofsReady && !!this.startBlobAccumulator;
+    return allChildProofsReady && !!this.previousOutHashHint && !!this.startBlobAccumulator;
   }
 
   public verifyState() {

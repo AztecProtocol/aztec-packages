@@ -10,7 +10,7 @@ import {
   parseFieldFromHexString,
   parsePublicKey,
 } from '@aztec/cli/utils';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
@@ -18,6 +18,7 @@ import inquirer from 'inquirer';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import type { CliWalletAndNodeWrapper } from '../utils/cli_wallet_and_node_wrapper.js';
+import type { AccountType } from '../utils/constants.js';
 import {
   ARTIFACT_DESCRIPTION,
   CLIFeeArgs,
@@ -38,7 +39,6 @@ import {
   createVerboseOption,
   integerArgParser,
 } from '../utils/options/index.js';
-import type { AccountType } from '../utils/wallet.js';
 
 // TODO: This function is only used in 1 place so we could just inline this
 export function injectCommands(

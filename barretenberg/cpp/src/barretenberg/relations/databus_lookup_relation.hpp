@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -257,15 +257,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
 
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t num_threads = bb::calculate_num_threads_pow2(circuit_size, min_iterations_per_thread);
-        size_t iterations_per_thread = circuit_size / num_threads; // actual iterations per thread
+        size_t num_threads = bb::calculate_num_threads(circuit_size, min_iterations_per_thread);
 
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            size_t start = thread_idx * iterations_per_thread;
-            size_t end = (thread_idx + 1) * iterations_per_thread;
+        parallel_for(num_threads, [&](ThreadChunk chunk) {
             bool is_read = false;
             bool nonzero_read_count = false;
-            for (size_t i = start; i < end; ++i) {
+            for (size_t i : chunk.range(circuit_size)) {
                 // Determine if the present row contains a databus operation
                 auto q_busread = polynomials.q_busread[i];
                 if constexpr (bus_idx == 0) { // calldata

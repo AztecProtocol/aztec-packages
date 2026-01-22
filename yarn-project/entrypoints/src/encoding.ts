@@ -1,14 +1,14 @@
 import { GeneratorIndex } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { HashedValues } from '@aztec/stdlib/tx';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
-const APP_MAX_CALLS = 5;
+export const APP_MAX_CALLS = 5;
 
 /** Encoded function call for an Aztec entrypoint */
 export type EncodedFunctionCall = {

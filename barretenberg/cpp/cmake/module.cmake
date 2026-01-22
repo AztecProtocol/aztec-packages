@@ -91,6 +91,13 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 PRIVATE
                 -fsanitize=fuzzer-no-link
             )
+            if(FUZZING_AVM)
+                target_compile_options(
+                    ${MODULE_NAME}_objects
+                    PRIVATE
+                    -fsanitize-coverage-ignorelist=${CMAKE_SOURCE_DIR}/cmake/fuzzing-avm-ignorelist.txt
+                )
+            endif()
         endif()
 
         # enable msgpack downloading via dependency (solves race condition)

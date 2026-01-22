@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { RollupContract } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -57,14 +57,14 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -77,7 +77,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     sentinel = await createNonValidatorNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
       t.bootstrapNodeEnr,
       t.prefilledPublicData,
@@ -134,7 +134,10 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   });
 
   it('collects attestations for validators in proposer node when block is not published', async () => {
-    // Stop the second node, this means the first block won't be able to propose
+    // Ensure all nodes see each other, especially the sentinel
+    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
+
+    // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
     await tryStop(nodes[1]);
 
     await t.monitor.run();
@@ -149,16 +152,21 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       `Waiting until L2 slot ${targetSlot} and proposer is in first node (${firstNodeValidators.join(', ')})`,
       { initialBlock, initialSlot, timeout, firstNodeValidators },
     );
-    await Promise.all([
-      retryUntil(() => t.monitor.l2SlotNumber >= targetSlot, `reached slot ${targetSlot}`, timeout),
-      retryUntil(
-        () => rollup.getCurrentProposer().then(p => firstNodeValidators.some(v => v.equals(EthAddress.fromString(p)))),
-        'proposer is first node',
-        timeout,
-      ),
-    ]);
 
-    const slotForSentinel = t.monitor.l2SlotNumber;
+    // We want to wait until we see a slot where we query the proposer and find it's one of the first node validators
+    let slotForSentinel!: SlotNumber;
+    await retryUntil(
+      async () => {
+        slotForSentinel = (await t.monitor.run()).l2SlotNumber;
+        const timestamp = await rollup.getTimestampForSlot(slotForSentinel);
+        const proposerAtTime = await rollup.getProposerAt(timestamp);
+        t.logger.info(`At slot ${slotForSentinel}, proposer is ${proposerAtTime}`);
+        return firstNodeValidators.some(v => v.equals(proposerAtTime)) && slotForSentinel >= targetSlot;
+      },
+      'proposer is first node',
+      timeout,
+    );
+
     t.logger.info(`Waiting until sentinel processed until slot ${slotForSentinel}`);
     await retryUntil(
       async () => {
@@ -176,7 +184,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // Check that all of the first node validators have attestations recorded
     for (const validator of firstNodeValidators) {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= targetSlot) ?? [];
+      const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for online validator ${validator}`, { history });
       expect(history.filter(h => h.status === 'attestation-missed' || h.status === 'block-missed')).toBeEmpty();
     }
@@ -184,14 +192,14 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // At least one of the first node validators must have been seen as proposer
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
-      .filter(h => h.slot > initialSlot && h.slot <= targetSlot)
+      .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
       .filter(h => h.status === 'block-proposed');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
     // And all of the proposers for the offline node must be seen as missed attestation or proposal
     for (const validator of offlineValidators) {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats.history?.filter(h => h.slot > initialSlot && h.slot <= targetSlot) ?? [];
+      const history = validatorStats.history?.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for offline validator ${validator}`, { history });
       expect(history.filter(h => h.status === 'attestation-missed' || h.status === 'block-missed')).not.toBeEmpty();
     }

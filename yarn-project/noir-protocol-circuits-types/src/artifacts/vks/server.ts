@@ -13,10 +13,10 @@ import {
   HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
   PARITY_BASE_VK_INDEX,
   PARITY_ROOT_VK_INDEX,
-  PRIVATE_KERNEL_INIT_INDEX,
-  PRIVATE_KERNEL_INNER_INDEX,
-  PRIVATE_KERNEL_TAIL_INDEX,
-  PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+  PRIVATE_KERNEL_INIT_VK_INDEX,
+  PRIVATE_KERNEL_INNER_VK_INDEX,
+  PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX,
+  PRIVATE_KERNEL_TAIL_VK_INDEX,
   PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
   PUBLIC_CHONK_VERIFIER_VK_INDEX,
   PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
@@ -26,7 +26,6 @@ import {
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import PublicChonkVerifier from '../../../artifacts/chonk_verifier_public.json' with { type: 'json' };
-import AvmVkJson from '../../../artifacts/keys/avm.vk.json' with { type: 'json' };
 import ParityBase from '../../../artifacts/parity_base.json' with { type: 'json' };
 import ParityRoot from '../../../artifacts/parity_root.json' with { type: 'json' };
 import BlockMergeRollup from '../../../artifacts/rollup_block_merge.json' with { type: 'json' };
@@ -44,7 +43,7 @@ import PrivateTxBaseRollup from '../../../artifacts/rollup_tx_base_private.json'
 import PublicTxBaseRollup from '../../../artifacts/rollup_tx_base_public.json' with { type: 'json' };
 import TxMergeRollup from '../../../artifacts/rollup_tx_merge.json' with { type: 'json' };
 import { PrivateKernelResetVkIndexes } from '../../private_kernel_reset_vks.js';
-import { abiToVKData, jsonToVKData } from '../../utils/vk_json.js';
+import { abiToVKData } from '../../utils/vk_json.js';
 import type { ProtocolCircuitName, ServerProtocolCircuitName } from '../types.js';
 
 export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKeyData> = {
@@ -68,10 +67,10 @@ export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKey
 };
 
 export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
-  PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_INDEX,
-  PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_INDEX,
-  PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_INDEX,
-  PrivateKernelTailToPublicArtifact: PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+  PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_VK_INDEX,
+  PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_VK_INDEX,
+  PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_VK_INDEX,
+  PrivateKernelTailToPublicArtifact: PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX,
   HidingKernelToRollup: HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
   HidingKernelToPublic: HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
   PublicChonkVerifier: PUBLIC_CHONK_VERIFIER_VK_INDEX,
@@ -93,5 +92,3 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   RootRollupArtifact: ROOT_ROLLUP_VK_INDEX,
   ...PrivateKernelResetVkIndexes,
 };
-
-export const AvmVk = jsonToVKData(AvmVkJson);

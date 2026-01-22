@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -34,8 +34,8 @@ template <typename T> struct RelationParameters {
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
     // add per short scalar `mul` is slightly less in the Precomputed table as in the MSM table, so to get the
-    // permutation argument to work out, when `precompute_select == 0`, we must implicitly add (0, 0, 0) as a tuple on
-    // the wNAF side. This corresponds to multiplying by (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²).
+    // permutation argument to work out, when `precompute_select == 0`, we must implicitly _remove_ (0, 0, 0) as a tuple
+    // on the wNAF side. This corresponds to dividing by (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²).
     //
     // We can remove this by modifying the relation, but this would increase the complexity.
     T eccvm_set_permutation_delta = T(0);
@@ -94,7 +94,5 @@ template <typename T> struct RelationParameters {
 
         return result;
     }
-
-    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta);
 };
 } // namespace bb

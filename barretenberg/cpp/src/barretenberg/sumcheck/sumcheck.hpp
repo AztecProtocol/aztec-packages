@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -341,17 +341,6 @@ template <typename Flavor> class SumcheckProver {
 
     RowDisablingPolynomial<FF> row_disabling_polynomial;
 
-    /**
-    *
-    * @brief Container for partially evaluated Prover Polynomials at a current challenge. Upon computing challenge \f$
-    u_i \f$, the first \f$2^{d-1-i}\f$ rows are updated using \ref bb::SumcheckProver< Flavor >::partially_evaluate
-    "partially evaluate" method.
-    *
-    * NOTE: With ~40 columns, prob only want to allocate 256 EdgeGroup's at once to keep stack under 1MB?
-    * TODO(#224)(Cody): might want to just do C-style multidimensional array? for guaranteed adjacency?
-    */
-    PartiallyEvaluatedMultivariates partially_evaluated_polynomials;
-
     // SumcheckProver constructor for MultilinearBatchingFlavor.
     SumcheckProver(size_t multivariate_n,
                    ProverPolynomials& prover_polynomials,
@@ -409,25 +398,18 @@ template <typename Flavor> class SumcheckProver {
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate =
             round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
-        // Initialize the partially evaluated polynomials which will be used in the following rounds.
-        // This will use the information in the structured full polynomials to save memory if possible.
-        partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
 
-        {
-            BB_BENCH_NAME("rest of sumcheck round 1");
+        // Place the evaluations of the round univariate into transcript.
+        transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
+        multivariate_challenge.emplace_back(round_challenge);
 
-            // Place the evaluations of the round univariate into transcript.
-            transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
-            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-            multivariate_challenge.emplace_back(round_challenge);
-            // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, round_challenge);
+        // Populate the book-keeping table
+        PartiallyEvaluatedMultivariates partially_evaluated_polynomials =
+            partially_evaluate_first_round(full_polynomials, round_challenge);
 
-            gate_separators.partially_evaluate(round_challenge);
-            round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
-            // release memory?        // All but final round
-            // We operate on partially_evaluated_polynomials in place.
-        }
+        gate_separators.partially_evaluate(round_challenge);
+        round.round_size = round.round_size >> 1;
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 
@@ -439,7 +421,7 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
-            partially_evaluate(partially_evaluated_polynomials, round_challenge);
+            partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
         }
@@ -456,24 +438,23 @@ template <typename Flavor> class SumcheckProver {
                     index_1_challenge[i] = multivariate_challenge[i];
                 }
                 index_1_challenge[k] = FF(1);
-                if (partially_evaluated_polynomials.w_evaluations_accumulator.size() == 1) {
+                if (partially_evaluated_polynomials.eq_accumulator.size() == 1) {
 
                     // We need to reallocate the polynomials
                     auto new_polynomial =
-                        Polynomial<FF>(2, partially_evaluated_polynomials.w_evaluations_accumulator.virtual_size());
-                    new_polynomial.at(0) = partially_evaluated_polynomials.w_evaluations_accumulator.at(0);
-                    partially_evaluated_polynomials.w_evaluations_accumulator = new_polynomial;
+                        Polynomial<FF>(2, partially_evaluated_polynomials.eq_accumulator.virtual_size());
+                    new_polynomial.at(0) = partially_evaluated_polynomials.eq_accumulator.at(0);
+                    partially_evaluated_polynomials.eq_accumulator = new_polynomial;
                 }
-                if (partially_evaluated_polynomials.w_evaluations_instance.size() == 1) {
+                if (partially_evaluated_polynomials.eq_instance.size() == 1) {
                     // We need to reallocate the polynomials
-                    auto new_polynomial =
-                        Polynomial<FF>(2, partially_evaluated_polynomials.w_evaluations_instance.virtual_size());
-                    new_polynomial.at(0) = partially_evaluated_polynomials.w_evaluations_instance.at(0);
-                    partially_evaluated_polynomials.w_evaluations_instance = new_polynomial;
+                    auto new_polynomial = Polynomial<FF>(2, partially_evaluated_polynomials.eq_instance.virtual_size());
+                    new_polynomial.at(0) = partially_evaluated_polynomials.eq_instance.at(0);
+                    partially_evaluated_polynomials.eq_instance = new_polynomial;
                 }
-                partially_evaluated_polynomials.w_evaluations_accumulator.at(1) =
+                partially_evaluated_polynomials.eq_accumulator.at(1) =
                     VerifierEqPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
-                partially_evaluated_polynomials.w_evaluations_instance.at(1) =
+                partially_evaluated_polynomials.eq_instance.at(1) =
                     VerifierEqPolynomial<FF>::eval(instance_challenge, index_1_challenge);
                 index_1_challenge[k] = FF(0);
             }
@@ -550,28 +531,19 @@ template <typename Flavor> class SumcheckProver {
                 full_polynomials, relation_parameters, gate_separators, alphas, round_idx, row_disabling_polynomial);
         }
 
-        // Initialize the partially evaluated polynomials which will be used in the following rounds.
-        // This will use the information in the structured full polynomials to save memory if possible.
-        partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
+        handler.process_round_univariate(round_idx, round_univariate);
+        const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
+        multivariate_challenge.emplace_back(round_challenge);
 
-        {
-            BB_BENCH_NAME("rest of sumcheck round 1");
+        // Populate the book-keeping table
+        PartiallyEvaluatedMultivariates partially_evaluated_polynomials =
+            partially_evaluate_first_round(full_polynomials, round_challenge);
 
-            handler.process_round_univariate(round_idx, round_univariate);
-
-            const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-
-            multivariate_challenge.emplace_back(round_challenge);
-            // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, round_challenge);
-            // Prepare ZK Sumcheck data for the next round
-            zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
-            row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
-            gate_separators.partially_evaluate(round_challenge);
-            round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
-                                                      // release memory?        // All but final round
-                                                      // We operate on partially_evaluated_polynomials in place.
-        }
+        // Prepare ZK Sumcheck data for the next round
+        zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
+        row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
+        gate_separators.partially_evaluate(round_challenge);
+        round.round_size = round.round_size >> 1;
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 
@@ -600,7 +572,7 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
-            partially_evaluate(partially_evaluated_polynomials, round_challenge);
+            partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -646,84 +618,45 @@ template <typename Flavor> class SumcheckProver {
     };
 
     /**
-     @brief Evaluate Honk polynomials at the round challenge and prepare class for next round.
-     @details At initialization, \ref ProverPolynomials "Prover Polynomials"
-     are submitted by reference into \p full_polynomials, which is a two-dimensional array defined as \f{align}{
-    \texttt{full_polynomials}_{i,j} = P_j(\vec i). \f} Here, \f$ \vec i \in \{0,1\}^d \f$ is identified with the binary
-    representation of the integer \f$ 0 \leq i \leq 2^d-1 \f$.
-
-     * When the first challenge \f$ u_0 \f$ is computed, the method \ref partially_evaluate "partially evaluate" takes
-    as input \p full_polynomials and populates  \ref partially_evaluated_polynomials "a new book-keeping table" denoted
-    \f$\texttt{partially_evaluated_polynomials}\f$. Its \f$ n/2 = 2^{d-1} \f$ rows represent the evaluations  \f$
-    P_i(u_0, X_1, ..., X_{d-1}) \f$, which are multilinear polynomials in \f$ d-1 \f$ variables.
-     * More precisely, it is a table  \f$ 2^{d-1} \f$ rows and \f$ N \f$ columns, such that
-    \f{align}{ \texttt{partially_evaluated_polynomials}_{i,j} = &\ P_j(0, i_1,\ldots, i_{d-1}) + u_0 \cdot (P_j(1,
-    i_1,\ldots, i_{d-1})) - P_j(0, i_1,\ldots, i_{d-1})) \\ = &\ \texttt{full_polynomials}_{2 i,j} + u_0 \cdot
-    (\texttt{full_polynomials}_{2i+1,j} - \texttt{full_polynomials}_{2 i,j}) \f}
-     * We elude copying all of the polynomial-defining data by only populating \ref partially_evaluated_polynomials
-    after the first round.
-
-     * In Round \f$0<i\leq d-1\f$, this method takes the challenge \f$ u_{i} \f$ and rewrites the first \f$ 2^{d-i-1}
-    \f$ rows in the \f$ \texttt{partially_evaluated_polynomials} \f$ table with the values
-     * \f{align}{
-        \texttt{partially_evaluated_polynomials}_{\ell,j} \gets &\
-         P_j\left(u_0,\ldots, u_{i}, \vec \ell \right)    \\
-       = &\ P_j\left(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right) + u_{i} \cdot \left( P_j\left(u_0, \ldots, u_{i-1}, 1,
-    \vec \ell ) - P_j(u_0,\ldots, u_{i-1}, 0,  \vec \ell \right)\right)  \\ =
-    &\ \texttt{partially_evaluated_polynomials}_{2 \ell,j}  + u_{i} \cdot
-    (\texttt{partially_evaluated_polynomials}_{2 \ell+1,j} - \texttt{partially_evaluated_polynomials}_{2\ell,j}) \f}
-    where \f$\vec \ell \in \{0,1\}^{d-1-i}\f$.
-     * After the final update, i.e. when \f$ i = d-1 \f$, the upper row of the table contains the evaluations of Honk
-     * polynomials at the challenge point \f$ (u_0,\ldots, u_{d-1}) \f$.
-     * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
-     * @param round_size \f$2^{d-i}\f$
-     * @param round_challenge \f$u_i\f$
+     * @brief Evaluate at the round challenge and prepare for next round.
+     * @details Reads from source_polynomials and writes to dest_polynomials.
+     * See Sumcheck.md for detailed mathematical documentation of the book-keeping table approach.
      */
-    void partially_evaluate(auto& polynomials, const FF& round_challenge)
+    void partially_evaluate(auto& source_polynomials,
+                            PartiallyEvaluatedMultivariates& dest_polynomials,
+                            const FF& round_challenge)
     {
-        auto pep_view = partially_evaluated_polynomials.get_all();
-        auto poly_view = polynomials.get_all();
-        // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(poly_view.size(), [&](size_t j) {
-            const auto& poly = poly_view[j];
-            // The polynomial is shorter than the round size.
+        auto source_view = source_polynomials.get_all();
+        auto dest_view = dest_polynomials.get_all();
+        parallel_for(source_view.size(), [&](size_t j) {
+            const auto& poly = source_view[j];
             size_t limit = poly.end_index();
             for (size_t i = 0; i < limit; i += 2) {
-                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+                dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
-
-            // We resize pep_view[j] to have the exact size required for the next round which is
-            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
-            // virtually zeroize any leftover values beyond the limit (in-place computation).
-            // This is important to zeroize leftover values to not mess up with compute_univariate().
-            // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
+            dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
     /**
-     * @brief Evaluate at the round challenge and prepare class for next round.
-     * Specialization for array, see \ref bb::SumcheckProver<Flavor>::partially_evaluate "generic version".
+     * @brief Initialize partially evaluated polynomials and perform first round of partial evaluation.
+     * @details Creates PartiallyEvaluatedMultivariates from full polynomials and evaluates at the first round
+     * challenge.
+     * @return PartiallyEvaluatedMultivariates for use in subsequent rounds
      */
-    template <typename PolynomialT, std::size_t N>
-    void partially_evaluate(std::array<PolynomialT, N>& polynomials, const FF& round_challenge)
+    PartiallyEvaluatedMultivariates partially_evaluate_first_round(ProverPolynomials& full_polynomials,
+                                                                   const FF& round_challenge)
     {
-        auto pep_view = partially_evaluated_polynomials.get_all();
-        // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(polynomials.size(), [&](size_t j) {
-            const auto& poly = polynomials[j];
-            // The polynomial is shorter than the round size.
-            size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
-            }
+        PartiallyEvaluatedMultivariates partially_evaluated_polynomials(full_polynomials, multivariate_n);
+        partially_evaluate(full_polynomials, partially_evaluated_polynomials, round_challenge);
+        return partially_evaluated_polynomials;
+    }
 
-            // We resize pep_view[j] to have the exact size required for the next round which is
-            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
-            // virtually zeroize any leftover values beyond the limit (in-place computation).
-            // This is important to zeroize leftover values to not mess up with compute_univariate().
-            // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
-        });
+    /**
+     * @brief Evaluate at the round challenge in-place.
+     */
+    void partially_evaluate_in_place(PartiallyEvaluatedMultivariates& polynomials, const FF& round_challenge)
+    {
+        partially_evaluate(polynomials, polynomials, round_challenge);
     };
 
     /**

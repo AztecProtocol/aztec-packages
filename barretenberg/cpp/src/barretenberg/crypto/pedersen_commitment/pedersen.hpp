@@ -1,11 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
-// TODO(@zac-wiliamson #2341 delete this file once we migrate to new hash standard
-
 #pragma once
 #include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"

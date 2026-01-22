@@ -26,3 +26,9 @@ VERSION=1.2.3 aztec-up
 ```
 
 This will install the tagged release version 1.2.3.
+
+## Testing
+
+```
+INSTALL_URI=file://$(git rev-parse --show-toplevel)/aztec-up/bin $(git rev-parse --show-toplevel)/aztec-up/bin/aztec-install
+```

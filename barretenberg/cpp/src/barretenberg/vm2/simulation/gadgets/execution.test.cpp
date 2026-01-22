@@ -16,11 +16,13 @@
 #include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/lib/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bitwise.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
@@ -69,7 +71,7 @@ class ExecutionSimulationTest : public ::testing::Test {
   protected:
     ExecutionSimulationTest()
     {
-        ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory));
+        ON_CALL(context, get_memory()).WillByDefault(ReturnRef(memory));
         ON_CALL(context, get_bytecode_manager).WillByDefault(ReturnRef(bytecode_manager));
         ON_CALL(context, get_side_effect_tracker).WillByDefault(ReturnRef(side_effect_tracker));
         execution.set_gas_tracker(gas_tracker);
@@ -100,6 +102,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockSha256> sha256;
     StrictMock<MockDebugLog> debug_log;
     StrictMock<MockSideEffectTracker> side_effect_tracker;
+    StrictMock<MockCallStackMetadataCollector> call_stack_metadata_collector;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -118,7 +121,8 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   get_contract_instance,
                                                   emit_unencrypted_log,
                                                   debug_log,
-                                                  merkle_db);
+                                                  merkle_db,
+                                                  call_stack_metadata_collector);
 };
 
 // NOTE: MemoryAddresses x, y used in the below tests like: execution.fn(context, x, y, ..) are just unchecked arbitrary
@@ -129,7 +133,7 @@ TEST_F(ExecutionSimulationTest, Add)
     MemoryValue a = MemoryValue::from<uint32_t>(4);
     MemoryValue b = MemoryValue::from<uint32_t>(5);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, add(a, b)).WillOnce(Return(MemoryValue::from<uint32_t>(9)));
     EXPECT_CALL(memory, set(6, MemoryValue::from<uint32_t>(9)));
@@ -143,7 +147,7 @@ TEST_F(ExecutionSimulationTest, Sub)
     MemoryValue a = MemoryValue::from<uint64_t>(5);
     MemoryValue b = MemoryValue::from<uint64_t>(3);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, sub(a, b)).WillOnce(Return(MemoryValue::from<uint64_t>(2)));
     EXPECT_CALL(memory, set(3, MemoryValue::from<uint64_t>(2)));
@@ -158,7 +162,7 @@ TEST_F(ExecutionSimulationTest, Mul)
     auto a = MemoryValue::from<uint128_t>(max);
     auto b = MemoryValue::from<uint128_t>(max - 3);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, mul(a, b)).WillOnce(Return(MemoryValue::from<uint128_t>(4)));
     EXPECT_CALL(memory, set(3, MemoryValue::from<uint128_t>(4)));
@@ -172,7 +176,7 @@ TEST_F(ExecutionSimulationTest, Div)
     auto a = MemoryValue::from<uint128_t>(6);
     auto b = MemoryValue::from<uint128_t>(3);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, div(a, b)).WillOnce(Return(MemoryValue::from<uint128_t>(2)));
     EXPECT_CALL(memory, set(3, MemoryValue::from<uint128_t>(2)));
@@ -186,7 +190,7 @@ TEST_F(ExecutionSimulationTest, FDiv)
     auto a = MemoryValue::from<FF>(FF::modulus - 4);
     auto b = MemoryValue::from<FF>(2);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, fdiv(a, b)).WillOnce(Return(MemoryValue::from<FF>(FF::modulus - 2)));
     EXPECT_CALL(memory, set(3, MemoryValue::from<FF>(FF::modulus - 2)));
@@ -200,7 +204,7 @@ TEST_F(ExecutionSimulationTest, Shl)
     auto a = MemoryValue::from<uint32_t>(64);
     auto b = MemoryValue::from<uint32_t>(2);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, shl(a, b)).WillOnce(Return(MemoryValue::from<uint32_t>(256)));
     EXPECT_CALL(memory, set(3, MemoryValue::from<uint32_t>(256)));
@@ -214,7 +218,7 @@ TEST_F(ExecutionSimulationTest, Shr)
     auto a = MemoryValue::from<uint64_t>(64);
     auto b = MemoryValue::from<uint64_t>(2);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, shr(a, b)).WillOnce(Return(MemoryValue::from<uint64_t>(16)));
     EXPECT_CALL(memory, set(3, MemoryValue::from<uint64_t>(16)));
@@ -230,6 +234,7 @@ TEST_F(ExecutionSimulationTest, Call)
     FF zero = 0;
     AztecAddress parent_address = 0xdeadbeef;
     AztecAddress nested_address = 0xc0ffee;
+    uint32_t parent_pc = 100;
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
@@ -283,6 +288,10 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
+    // Call stack metadata collector
+    EXPECT_CALL(context, get_pc).WillOnce(Return(parent_pc));
+    EXPECT_CALL(call_stack_metadata_collector, notify_enter_call(nested_address, parent_pc, _, false, Gas{ 2, 3 }));
+
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_parent_id);
@@ -296,6 +305,10 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_parent_cd_size);
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
+    EXPECT_CALL(context, get_internal_call_stack_manager).WillRepeatedly(ReturnRef(internal_call_stack_manager));
+    EXPECT_CALL(internal_call_stack_manager, get_call_id);
+    EXPECT_CALL(internal_call_stack_manager, get_return_call_id);
+    EXPECT_CALL(internal_call_stack_manager, get_next_call_id);
     EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
         .WillOnce(Return(written_public_data_slots_tree_snapshot));
     EXPECT_CALL(context, get_side_effect_tracker);
@@ -305,7 +318,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
     EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));     // l2_gas_offset
     EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));     // da_gas_offset
@@ -315,6 +328,10 @@ TEST_F(ExecutionSimulationTest, Call)
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
+    // Call stack metadata collector
+    EXPECT_CALL(*nested_context, get_address).WillOnce(ReturnRef(nested_address));
+    EXPECT_CALL(*nested_context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(*nested_context, get_gas_limit).WillOnce(Return(Gas{ 2, 3 }));
 
     EXPECT_CALL(
         context_provider,
@@ -362,8 +379,10 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
     };
 
     auto setup_context_expectations = [&](bool parent_is_static) {
+        EXPECT_CALL(call_stack_metadata_collector, notify_enter_call);
         EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
         EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+        EXPECT_CALL(context, get_pc).WillOnce(Return(100));
         EXPECT_CALL(context, get_context_id);
         EXPECT_CALL(context, get_parent_id);
         EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
@@ -376,13 +395,17 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(context, get_parent_cd_size);
         EXPECT_CALL(context, get_parent_gas_used);
         EXPECT_CALL(context, get_parent_gas_limit);
+        EXPECT_CALL(context, get_internal_call_stack_manager).WillRepeatedly(ReturnRef(internal_call_stack_manager));
+        EXPECT_CALL(internal_call_stack_manager, get_call_id);
+        EXPECT_CALL(internal_call_stack_manager, get_return_call_id);
+        EXPECT_CALL(internal_call_stack_manager, get_next_call_id);
         EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
             .WillOnce(Return(written_public_data_slots_tree_snapshot));
         EXPECT_CALL(context, get_side_effect_tracker);
         EXPECT_CALL(side_effect_tracker, get_side_effects()).WillRepeatedly(ReturnRef(side_effect_states));
         EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
         EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
-        EXPECT_CALL(context, get_memory);
+        EXPECT_CALL(context, get_memory());
         EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
         EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));
         EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));
@@ -390,9 +413,13 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(memory, get(4)).WillOnce(ReturnRef(cd_size));
     };
 
-    auto create_nested_context = []() {
+    auto create_nested_context = [&]() {
         auto nested = std::make_unique<NiceMock<MockContext>>();
         ON_CALL(*nested, halted()).WillByDefault(Return(true));
+        // Call stack metadata collector
+        EXPECT_CALL(*nested, get_address).WillOnce(ReturnRef(nested_address));
+        EXPECT_CALL(*nested, get_is_static).WillOnce(Return(false));
+        EXPECT_CALL(*nested, get_gas_limit).WillOnce(Return(Gas{ 2, 3 }));
         return nested;
     };
 
@@ -459,8 +486,9 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
 
 TEST_F(ExecutionSimulationTest, InternalCall)
 {
-    uint32_t return_pc = 500; // This is next pc that we should return to after the internal call.
-    uint32_t pc_loc = 11;     // This is the pc of the internal call
+    PC pc = 100;        // This is the pc of the current call.
+    PC return_pc = 500; // This is next pc that we should return to after the internal call.
+    PC pc_loc = 11;     // This is the pc of the internal call
 
     NiceMock<MockInternalCallStackManager> internal_call_stack_manager;
     ON_CALL(context, get_internal_call_stack_manager).WillByDefault(ReturnRef(internal_call_stack_manager));
@@ -469,8 +497,9 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     // Get manager
     EXPECT_CALL(context, get_internal_call_stack_manager());
     // Store the return pc (i.e. context.get_next_pc())
+    EXPECT_CALL(context, get_pc()).WillOnce(Return(pc));
     EXPECT_CALL(context, get_next_pc()).WillOnce(Return(return_pc));
-    EXPECT_CALL(internal_call_stack_manager, push(return_pc));
+    EXPECT_CALL(internal_call_stack_manager, push(pc, return_pc));
     // Set next pc to the parameter pc_loc
     EXPECT_CALL(context, set_next_pc(pc_loc));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -493,7 +522,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
 {
     AztecAddress addr = 0xdeadbeef;
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(addr));
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(addr)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
@@ -505,7 +534,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
     GlobalVariables globals;
     globals.chain_id = 1;
     EXPECT_CALL(context, get_globals).WillOnce(ReturnRef(globals));
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
@@ -515,7 +544,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
 TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
 {
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, set(1, MemoryValue::from<uint1_t>(1)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
@@ -524,7 +553,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
 
 TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
 {
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
@@ -543,7 +572,7 @@ TEST_F(ExecutionSimulationTest, Jump)
 
 TEST_F(ExecutionSimulationTest, SuccessCopyTrue)
 {
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_last_success).WillOnce(Return(true));
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(1)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -553,7 +582,7 @@ TEST_F(ExecutionSimulationTest, SuccessCopyTrue)
 
 TEST_F(ExecutionSimulationTest, SuccessCopyFalse)
 {
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_last_success).WillOnce(Return(false));
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(0)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -563,7 +592,7 @@ TEST_F(ExecutionSimulationTest, SuccessCopyFalse)
 
 TEST_F(ExecutionSimulationTest, RdSize)
 {
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_last_rd_size).WillOnce(Return(42));
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint32_t>(42)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -581,7 +610,7 @@ TEST_F(ExecutionSimulationTest, DebugLog)
     uint16_t message_size = 5;
     AztecAddress address = 0xdeadbeef;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
     EXPECT_CALL(debug_log,
@@ -597,7 +626,7 @@ TEST_F(ExecutionSimulationTest, Sload)
     AztecAddress address = 0xdeadbeef;
     auto slot = MemoryValue::from<FF>(42);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
@@ -617,7 +646,7 @@ TEST_F(ExecutionSimulationTest, SStore)
     auto slot = MemoryValue::from<FF>(42);
     auto value = MemoryValue::from<FF>(7);
     TreeStates tree_state = {};
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
     EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
@@ -640,7 +669,7 @@ TEST_F(ExecutionSimulationTest, SStoreDuringStaticCall)
     AztecAddress address = 0xdeadbeef;
     auto slot = MemoryValue::from<FF>(42);
     auto value = MemoryValue::from<FF>(7);
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
     EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
@@ -649,8 +678,7 @@ TEST_F(ExecutionSimulationTest, SStoreDuringStaticCall)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr),
-                              "SSTORE: Cannot write to storage in static context");
+    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr), "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, SStoreLimitReached)
@@ -662,7 +690,7 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReached)
     auto value = MemoryValue::from<FF>(7);
     TreeStates tree_state = {};
     tree_state.public_data_tree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
     EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
@@ -686,7 +714,7 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
     auto value = MemoryValue::from<FF>(7);
     TreeStates tree_state = {};
     tree_state.public_data_tree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
     EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
@@ -711,7 +739,7 @@ TEST_F(ExecutionSimulationTest, NoteHashExists)
     auto unique_note_hash = MemoryValue::from<FF>(42);
     auto leaf_index = MemoryValue::from<uint64_t>(7);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(unique_note_hash_addr)).WillOnce(ReturnRef(unique_note_hash));
     EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
 
@@ -736,7 +764,7 @@ TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
     auto unique_note_hash = MemoryValue::from<FF>(42);
     auto leaf_index = MemoryValue::from<uint64_t>(NOTE_HASH_TREE_LEAF_COUNT + 1);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(unique_note_hash_addr)).WillOnce(ReturnRef(unique_note_hash));
     EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
 
@@ -757,7 +785,7 @@ TEST_F(ExecutionSimulationTest, EmitNoteHash)
     AztecAddress address = 0xdeadbeef;
     TreeStates tree_state = {};
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
@@ -777,15 +805,14 @@ TEST_F(ExecutionSimulationTest, EmitNoteHashDuringStaticCall)
     auto note_hash = MemoryValue::from<FF>(42);
     AztecAddress address = 0xdeadbeef;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr),
-                              "EMITNOTEHASH: Cannot emit note hash in static context");
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr), "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
@@ -797,7 +824,7 @@ TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
     TreeStates tree_state = {};
     tree_state.note_hash_tree.counter = MAX_NOTE_HASHES_PER_TX;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
@@ -819,7 +846,7 @@ TEST_F(ExecutionSimulationTest, L1ToL2MessageExists)
     auto msg_hash = MemoryValue::from<FF>(42);
     auto leaf_index = MemoryValue::from<uint64_t>(7);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
     EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
 
@@ -843,7 +870,7 @@ TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
     auto msg_hash = MemoryValue::from<FF>(42);
     auto leaf_index = MemoryValue::from<uint64_t>(L1_TO_L2_MSG_TREE_LEAF_COUNT + 1);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
     EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
 
@@ -865,7 +892,7 @@ TEST_F(ExecutionSimulationTest, NullifierExists)
     auto nullifier = MemoryValue::from<FF>(42);
     auto address = MemoryValue::from<FF>(7);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(nullifier_offset)).WillOnce(ReturnRef(nullifier));
     EXPECT_CALL(memory, get(address_offset)).WillOnce(ReturnRef(address));
 
@@ -886,7 +913,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifier)
     AztecAddress address = 0xdeadbeef;
     TreeStates tree_state = {};
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
@@ -906,15 +933,14 @@ TEST_F(ExecutionSimulationTest, EmitNullifierDuringStaticCall)
     auto nullifier = MemoryValue::from<FF>(42);
     AztecAddress address = 0xdeadbeef;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
-    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr),
-                              "EMITNULLIFIER: Cannot emit nullifier in static context");
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr), "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, EmitNullifierLimitReached)
@@ -926,7 +952,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifierLimitReached)
     TreeStates tree_state = {};
     tree_state.nullifier_tree.counter = MAX_NULLIFIERS_PER_TX;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
@@ -947,7 +973,7 @@ TEST_F(ExecutionSimulationTest, EmitNullifierCollision)
     AztecAddress address = 0xdeadbeef;
     TreeStates tree_state = {};
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
 
@@ -964,10 +990,10 @@ TEST_F(ExecutionSimulationTest, EmitNullifierCollision)
 TEST_F(ExecutionSimulationTest, Set)
 {
     MemoryAddress dst_addr = 10;
-    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U8);
+    MemoryTag dst_tag = MemoryTag::U8;
     FF value = 7;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(alu, truncate(value, static_cast<MemoryTag>(dst_tag))).WillOnce(Return(MemoryValue::from<uint8_t>(7)));
     EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint8_t>(7)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -979,10 +1005,10 @@ TEST_F(ExecutionSimulationTest, Cast)
 {
     MemoryAddress src_addr = 9;
     MemoryAddress dst_addr = 10;
-    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U1);
+    MemoryTag dst_tag = MemoryTag::U1;
     MemoryValue value = MemoryValue::from<uint64_t>(7);
 
-    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(context, get_memory()).WillOnce(ReturnRef(memory));
     EXPECT_CALL(memory, get(src_addr)).WillOnce(ReturnRef(value));
 
     EXPECT_CALL(alu, truncate(value.as_ff(), static_cast<MemoryTag>(dst_tag)))
@@ -998,7 +1024,7 @@ TEST_F(ExecutionSimulationTest, Poseidon2Perm)
     MemoryAddress src_address = 10;
     MemoryAddress dst_address = 20;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(gas_tracker, consume_gas);
     EXPECT_CALL(poseidon2, permutation(_, src_address, dst_address));
 
@@ -1025,7 +1051,7 @@ TEST_F(ExecutionSimulationTest, EccAdd)
 
     // Mock the context and memory interactions
     MemoryValue zero = MemoryValue::from<uint1_t>(0);
-    EXPECT_CALL(context, get_memory).WillRepeatedly(ReturnRef(memory));
+    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory));
     EXPECT_CALL(Const(memory), get(p_x_addr)).WillOnce(ReturnRef(p_x));
     EXPECT_CALL(memory, get(p_y_addr)).WillOnce(ReturnRef(p_y));
     EXPECT_CALL(memory, get(p_is_inf_addr)).WillOnce(ReturnRef(zero)); // p is not infinity
@@ -1059,7 +1085,7 @@ TEST_F(ExecutionSimulationTest, ToRadixBE)
     MemoryValue is_output_bits = MemoryValue::from<uint1_t>(false);
     uint32_t num_p_limbs = 64;
 
-    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(context, get_memory()).WillOnce(ReturnRef(memory));
     EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
     EXPECT_CALL(memory, get(radix_addr)).WillOnce(ReturnRef(radix));
     EXPECT_CALL(memory, get(num_limbs_addr)).WillOnce(ReturnRef(num_limbs));
@@ -1081,7 +1107,7 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
     MemoryValue log_size = MemoryValue::from<uint32_t>(10);
     AztecAddress address = 0xdeadbeef;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(memory, get(log_size_offset)).WillOnce(ReturnRef(log_size));
 
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
@@ -1113,7 +1139,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
     TrackedSideEffects side_effects_states_after = side_effects_states;
     side_effects_states_after.l2_to_l1_messages.push_back(dummy_msg);
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(contract_address));
     EXPECT_CALL(context, get_side_effect_tracker);
 
@@ -1141,7 +1167,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
 
     TrackedSideEffects side_effects_states;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
     EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
@@ -1151,7 +1177,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
 
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
-                              "SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+                              "Static call cannot update the state");
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
@@ -1169,7 +1195,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
                                  .contract_address = 0x12345678 });
     }
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(context, get_side_effect_tracker);
 
     EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
@@ -1191,7 +1217,7 @@ TEST_F(ExecutionSimulationTest, Sha256Compression)
     MemoryAddress input_address = 20;
     MemoryAddress dst_address = 50;
 
-    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_memory());
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
     EXPECT_CALL(sha256, compression(_, state_address, input_address, dst_address));
 

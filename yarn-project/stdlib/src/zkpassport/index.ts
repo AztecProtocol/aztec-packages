@@ -1,18 +1,17 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { withoutHexPrefix } from '@aztec/foundation/string';
 
 export type ViemZkPassportProofParams = {
+  version: `0x${string}`;
   proofVerificationData: {
     vkeyHash: `0x${string}`;
     proof: `0x${string}`;
     publicInputs: `0x${string}`[];
   };
-  commitments: {
-    committedInputs: `0x${string}`;
-  };
+  committedInputs: `0x${string}`;
   serviceConfig: {
     validityPeriodInSeconds: bigint;
     domain: string;
@@ -91,7 +90,7 @@ export class ZkPassportProofParams {
       Buffer32.fromString(params.proofVerificationData.vkeyHash),
       Buffer.from(withoutHexPrefix(params.proofVerificationData.proof), 'hex'),
       params.proofVerificationData.publicInputs.map(input => Fr.fromString(input)),
-      Buffer.from(withoutHexPrefix(params.commitments.committedInputs), 'hex'),
+      Buffer.from(withoutHexPrefix(params.committedInputs), 'hex'),
       params.serviceConfig.validityPeriodInSeconds,
       params.serviceConfig.domain,
       params.serviceConfig.scope,
@@ -99,20 +98,20 @@ export class ZkPassportProofParams {
   }
 
   toViem(): ViemZkPassportProofParams {
+    // Version is set to bytes32(0) as per zkpassport library convention
     return {
-      serviceConfig: {
-        devMode: this.devMode,
-        validityPeriodInSeconds: this.validityPeriodInSeconds,
-        domain: this.domain,
-        scope: this.scope,
-      },
+      version: '0x0000000000000000000000000000000000000000000000000000000000000000',
       proofVerificationData: {
         vkeyHash: this.vkeyHash.toString(),
         proof: `0x${this.proof.toString('hex')}`,
         publicInputs: this.publicInputs.map(input => input.toString()),
       },
-      commitments: {
-        committedInputs: `0x${this.committedInputs.toString('hex')}`,
+      committedInputs: `0x${this.committedInputs.toString('hex')}`,
+      serviceConfig: {
+        devMode: this.devMode,
+        validityPeriodInSeconds: this.validityPeriodInSeconds,
+        domain: this.domain,
+        scope: this.scope,
       },
     };
   }

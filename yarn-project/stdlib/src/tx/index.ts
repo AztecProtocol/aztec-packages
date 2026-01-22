@@ -1,7 +1,6 @@
 export * from './block_header.js';
 export * from './call_context.js';
 export * from './global_variables.js';
-export * from './content_commitment.js';
 export * from './state_reference.js';
 export * from './partial_state_reference.js';
 export * from './function_data.js';
@@ -32,3 +31,4 @@ export * from './offchain_effect.js';
 export * from './profiling.js';
 export * from './protocol_contracts.js';
 export * from './execution_payload.js';
+export * from './in_tx.js';

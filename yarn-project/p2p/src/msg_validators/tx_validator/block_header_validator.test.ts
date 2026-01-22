@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { mockTxForRollup } from '@aztec/stdlib/testing';
 import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult } from '@aztec/stdlib/tx';
 
@@ -21,7 +22,9 @@ describe('BlockHeaderTxValidator', () => {
 
   it('rejects tx with invalid block header', async () => {
     const badTx = await mockTxForRollup();
-    badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber += 1;
+    badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(
+      badTx.data.constants.anchorBlockHeader.globalVariables.blockNumber + 1,
+    );
 
     const goodTx = await mockTxForRollup();
     archiveSource.getArchiveIndices.mockImplementation(async (archives: Fr[]) => {

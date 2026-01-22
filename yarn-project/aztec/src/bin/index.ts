@@ -2,7 +2,8 @@
 //
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectAztecNodeCommands } from '@aztec/cli/aztec_node';
-import { enrichEnvironmentWithChainName, enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config';
+import { enrichEnvironmentWithChainName } from '@aztec/cli/config/chain';
+import { enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config/network';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
@@ -13,9 +14,11 @@ import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
-import { NETWORK_FLAG } from '../cli/aztec_start_options.js';
+import { injectMigrateCommand } from '../cli/cmds/migrate_ha_db.js';
 import { injectAztecCommands } from '../cli/index.js';
 import { getCliVersion } from '../cli/release_version.js';
+
+const NETWORK_FLAG = 'network';
 
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('cli');
@@ -53,6 +56,7 @@ async function main() {
   program = injectAztecNodeCommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
   program = injectValidatorKeysCommands(program, userLog);
+  program = injectMigrateCommand(program, userLog);
 
   await program.parseAsync(process.argv);
 }

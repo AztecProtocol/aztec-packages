@@ -23,14 +23,15 @@ export function getTopicFromString(topicStr: string): TopicType | undefined {
 export enum TopicType {
   tx = 'tx',
   block_proposal = 'block_proposal',
-  block_attestation = 'block_attestation',
+  checkpoint_proposal = 'checkpoint_proposal',
+  checkpoint_attestation = 'checkpoint_attestation',
 }
 
 export function getTopicTypeForClientType(clientType: P2PClientType) {
   if (clientType === P2PClientType.Full) {
-    return Object.values(TopicType);
+    return [TopicType.tx, TopicType.block_proposal, TopicType.checkpoint_proposal, TopicType.checkpoint_attestation];
   } else if (clientType === P2PClientType.Prover) {
-    return [TopicType.tx, TopicType.block_proposal];
+    return [TopicType.tx, TopicType.block_proposal, TopicType.checkpoint_proposal];
   } else {
     const _: never = clientType;
     return [TopicType.tx];

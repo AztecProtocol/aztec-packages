@@ -1,7 +1,8 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 72f52e7bad0fc1e36da575fbc2e6bfa1b1104aec}
+// external_1:  { status: Complete, auditors: [@ed25519, @JakubHeba (Spearbit)], commit:
+// b463d7c1c52fec2f4e39acfd21219464b00a39d8}
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "bool.hpp"
@@ -51,7 +52,7 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_c
 
     if (use_range_constraint) {
         // Create a range constraint gate
-        context->create_new_range_constraint(witness_index, 1, "bool_t: witness value is not 0 or 1");
+        context->create_small_range_constraint(witness_index, 1, "bool_t: witness value is not 0 or 1");
     } else {
         // Create an arithmetic gate to enforce the relation x^2 = x
         context->create_bool_gate(witness_index);
@@ -152,7 +153,8 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
  */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
 {
-    BB_ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()));
+    BB_ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()),
+              "bool_t: witness value is not 0 or 1");
     context = other.context;
     witness_bool = other.witness == bb::fr::one();
     witness_index = other.witness_index;
@@ -434,7 +436,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     Builder* ctx = validate_context<Builder>(rhs.get_context(), lhs.get_context());
 
     if (lhs.is_constant() && rhs.is_constant()) {
-        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
+        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value(), "bool_t::assert_equal: constants are not equal");
     } else if (lhs.is_constant()) {
         BB_ASSERT(!lhs.witness_inverted);
         // if rhs is inverted, flip the value of the lhs constant

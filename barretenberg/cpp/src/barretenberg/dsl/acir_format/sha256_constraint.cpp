@@ -1,13 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "sha256_constraint.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "round.hpp"
 
 namespace acir_format {
 
@@ -16,30 +15,26 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
 {
     using field_ct = bb::stdlib::field_t<Builder>;
 
-    std::array<field_ct, 16> inputs;
-    std::array<field_ct, 8> hash_inputs;
+    std::array<field_ct, 8> hash_inputs; // previous  (or initial) hash state
+    std::array<field_ct, 16> inputs;     // message block to compress
 
-    // Get the witness assignment for each witness index
-    // Note that we do not range-check the inputs, which should be 32 bits,
-    // because of the lookup-tables.
-    size_t i = 0;
-    for (const auto& witness_index_num_bits : constraint.inputs) {
-        inputs[i] = to_field_ct(witness_index_num_bits, builder);
-        ++i;
+    // Get the witness assignment for each witness index.
+    // It is assumed that the caller (Noir) separately constrains all 24 inputs (8 hash state + 16 message words) to 32
+    // bits, e.g. via instantiating them as u32 types.
+    for (auto [input, witness_or_constant] : zip_view(inputs, constraint.inputs)) {
+        input = to_field_ct(witness_or_constant, builder);
     }
-    i = 0;
-    for (const auto& witness_index_num_bits : constraint.hash_values) {
-        hash_inputs[i] = to_field_ct(witness_index_num_bits, builder);
-        ++i;
+    for (auto [hash_input, witness_or_constant] : zip_view(hash_inputs, constraint.hash_values)) {
+        hash_input = to_field_ct(witness_or_constant, builder);
     }
 
     // Compute sha256 compression
-    auto output_bytes = bb::stdlib::SHA256<Builder>::sha256_block(hash_inputs, inputs);
+    std::array<field_ct, 8> output_state = bb::stdlib::SHA256<Builder>::sha256_block(hash_inputs, inputs);
 
     // Constrain outputs to match expected witness indices
-    for (size_t i = 0; i < 8; ++i) {
-        field_ct result_witness = field_ct::from_witness_index(&builder, constraint.result[i]);
-        output_bytes[i].assert_equal(result_witness);
+    for (auto [output, result_idx] : zip_view(output_state, constraint.result)) {
+        field_ct result_witness = field_ct::from_witness_index(&builder, result_idx);
+        output.assert_equal(result_witness);
     }
 }
 

@@ -1,15 +1,11 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
-import {
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CHONK_PROOF_LENGTH,
-  CHONK_VK_LENGTH_IN_FIELDS,
-} from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -38,20 +34,23 @@ jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:avm-integration');
 
+const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
+  skipFeeEnforcement: false,
+  collectCallMetadata: true, // For results.
+  collectDebugLogs: false,
+  collectHints: true, // Required for proving!
+  collectPublicInputs: true, // Required for proving!
+  collectStatistics: false,
+});
+
 async function proveMockPublicBaseRollup(
   avmCircuitInputs: AvmCircuitInputs,
   bbWorkingDirectory: string,
   bbBinaryPath: string,
   chonkPublicInputs: KernelPublicInputs,
   chonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>,
-  skipPublicInputsValidation: boolean = false,
 ) {
-  const { vk, proof, publicInputs } = await proveAvm(
-    avmCircuitInputs,
-    bbWorkingDirectory,
-    logger,
-    skipPublicInputsValidation,
-  );
+  const { proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
 
   // Use the pre-generated standalone vk to verify the proof recursively.
   const chonkVk = await VerificationKeyAsFields.fromKey(
@@ -63,7 +62,6 @@ async function proveMockPublicBaseRollup(
       proof: mapRecursiveProofToNoir(chonkProof),
       vk_data: mapVerificationKeyToNoir(chonkVk, CHONK_VK_LENGTH_IN_FIELDS),
     },
-    verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),
     public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
   });
@@ -112,7 +110,13 @@ describe('AVM Integration', () => {
     bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
 
     worldStateService = await NativeWorldStateService.tmp();
-    simTester = await PublicTxSimulationTester.create(worldStateService);
+    simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined, // default
+      /*metrics=*/ undefined,
+      /*useCppSimulator=*/ true,
+      simConfig,
+    );
   });
 
   afterEach(async () => {
@@ -122,7 +126,7 @@ describe('AVM Integration', () => {
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
-    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs);
+    const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
 
     await proveMockPublicBaseRollup(avmCircuitInputs, bbWorkingDirectory, bbBinaryPath, chonkPublicInputs, chonkProof);
   }, 240_000);
@@ -132,12 +136,11 @@ describe('AVM Integration', () => {
     expect(result.revertCode.isOK()).toBe(true);
 
     await proveMockPublicBaseRollup(
-      new AvmCircuitInputs(result.hints!, result.publicInputs),
+      new AvmCircuitInputs(result.hints!, result.publicInputs!),
       bbWorkingDirectory,
       bbBinaryPath,
       chonkPublicInputs,
       chonkProof,
-      true,
     );
   }, 240_000);
 });

@@ -67,40 +67,60 @@ python transform_to_markdown.py --input cli_docs.json --output aztec-cli-referen
 
 For easy generation and deployment, use the provided shell scripts:
 
-#### Generate Documentation (without deployment)
-
 ```bash
-# Generate Aztec CLI docs (run from repo root)
-./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec
+# Generate for a specific CLI (run from repo root)
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec [target_version] [output_dir]
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet [target_version] [output_dir]
 
-# Generate Aztec Wallet CLI docs (run from repo root)
-./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet [output_dir]
-```
-
-#### Update Documentation (with deployment)
-
-These scripts generate the documentation and deploy it to the docs directories:
-
-```bash
-# Update specific CLI (run from repo root)
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec [target_version]
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet [target_version]
-
-# Update both CLIs at once (run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh [target_version]
+# Generate for all CLIs at once (run from repo root)
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh [target_version] [output_dir]
 ```
 
 **Examples:**
+
 ```bash
-# Update all versions (current + all versioned docs, run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh
+# Generate for all versions (current + all versioned docs)
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh
 
-# Update only the main docs folder (run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh current
+# Generate only for the main docs folder
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh current
 
-# Update a specific version (run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh v2.0.2
+# Generate for a specific version
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh v2.0.2
+
+# Output to a custom directory instead of deploying to docs folders
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh v2.0.2 /tmp/
+
+# Output a single CLI to a custom directory
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec v2.0.2 /tmp/
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet v2.0.2 /tmp/
+
+# Parallel scanning for faster generation (use --workers or -w)
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh --workers 8 aztec
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh --workers 8
+
+# Skip version mismatch prompt in CI (use --force or -f)
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh --force aztec v2.0.2
 ```
+
+#### Version Check
+
+When generating docs for a specific version (e.g., `v2.1.9`), the script verifies that your installed CLI version matches. If there's a mismatch, you'll see a warning:
+
+```text
+╔════════════════════════════════════════════════════════════════╗
+║                     VERSION MISMATCH                          ║
+╠════════════════════════════════════════════════════════════════╣
+║  Installed aztec version: 2.1.8
+║  Target documentation version: 2.1.9
+╠════════════════════════════════════════════════════════════════╣
+║  To fix, run:  aztec-up 2.1.9
+╚════════════════════════════════════════════════════════════════╝
+
+Continue anyway? (y/N):
+```
+
+This ensures the generated documentation accurately reflects the target version's CLI.
 
 ## Customization
 
@@ -146,11 +166,40 @@ python transform_to_markdown.py \
 
 ```
 usage: scan_cli.py [-h] --output OUTPUT [--format {json,yaml}] [--command COMMAND]
+                   [--cli-format {auto,commander,cli11,custom}]
+                   [--workers WORKERS] [--timeout TIMEOUT]
 
 options:
   -o, --output OUTPUT       Output file path
   -f, --format FORMAT       Output format: json or yaml (default: json)
   -c, --command COMMAND     Base command to scan (default: aztec)
+  --cli-format CLI_FORMAT   CLI help format: commander (Node.js), cli11 (C++),
+                            custom, or auto-detect (default: auto)
+  -w, --workers WORKERS     Number of parallel workers (default: 1, sequential)
+  -t, --timeout TIMEOUT     Timeout in seconds per command (default: 15)
+```
+
+### Parallel Scanning
+
+For large CLI trees, parallel scanning can significantly speed up documentation generation:
+
+```bash
+# Sequential scan (default)
+python scan_cli.py --output docs.json
+
+# Parallel scan with 8 workers
+python scan_cli.py --output docs.json --workers 8
+
+# Parallel scan with custom timeout
+python scan_cli.py --output docs.json --workers 8 --timeout 30
+```
+
+You can also use environment variables:
+
+```bash
+export CLI_SCAN_WORKERS=8
+export CLI_SCAN_TIMEOUT=30
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec
 ```
 
 ### transform_to_markdown.py
@@ -248,37 +297,50 @@ python scan_cli.py --command "npm" --output npm_docs.json
 
 ```bash
 # Generate for current version only (run from repo root)
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec current
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec current
 
 # Generate for all versions (current + versioned, run from repo root)
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec
 ```
 
 #### Generate and Deploy Aztec Wallet CLI Docs
 
 ```bash
 # Generate for current version only (run from repo root)
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet current
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet current
 
 # Generate for all versions (current + versioned, run from repo root)
-./docs/scripts/cli_reference_generation/update_cli_docs.sh aztec-wallet
+./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec-wallet
 ```
 
 #### Update Both CLIs
 
 ```bash
 # Update both Aztec CLI and Aztec Wallet CLI for all versions (run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh
 
 # Update both for current version only (run from repo root)
-./docs/scripts/cli_reference_generation/update_all_cli_docs.sh current
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh current
+
+# Update both for a specific version to a custom directory (run from repo root)
+./docs/scripts/cli_reference_generation/generate_all_cli_docs.sh v2.1.9 docs/versioned_docs/version-v2.1.9-ignition/developers/docs/reference/
 ```
 
 ## Troubleshooting
 
 ### Command Times Out
 
-If scanning hangs on certain commands, the scanner has a 10-second timeout per command. Check the output for warnings.
+If scanning hangs on certain commands, the scanner has a configurable timeout (default: 15 seconds). You can adjust it with the `--timeout` option:
+
+```bash
+# Increase timeout for slow commands
+python scan_cli.py --output docs.json --timeout 60
+
+# Or use environment variable
+CLI_SCAN_TIMEOUT=60 ./docs/scripts/cli_reference_generation/generate_cli_docs.sh aztec
+```
+
+Check the output for timeout warnings.
 
 ### Formatting Issues
 
@@ -316,15 +378,14 @@ The documentation system uses a **unified script architecture** to reduce code d
 **Core Scripts:**
 - `scan_cli.py` - Python scanner (CLI-agnostic)
 - `transform_to_markdown.py` - Python transformer (CLI-agnostic)
-- `update_cli_docs.sh` - Update script that deploys documentation (accepts CLI name as parameter)
-- `generate_cli_docs.sh` - Generation script for testing/development (accepts CLI name as parameter)
-- `update_all_cli_docs.sh` - Convenience script to update both CLIs at once
+- `cli_config.sh` - Shared CLI configuration (display names, output files, etc.)
+- `generate_cli_docs.sh` - Generates and deploys documentation (accepts CLI name as parameter)
+- `generate_all_cli_docs.sh` - Convenience script to generate docs for all CLIs at once
 
 **Adding a New CLI:**
 To add support for a new CLI (e.g., `aztec-prover`):
-1. Add configuration case to `update_cli_docs.sh`
-2. Add configuration case to `generate_cli_docs.sh`
-3. Add to `CLIS` array in `update_all_cli_docs.sh`
+1. Add configuration case to `cli_config.sh`
+2. Add to `VALID_CLIS` array in `cli_config.sh`
 
 ## License
 

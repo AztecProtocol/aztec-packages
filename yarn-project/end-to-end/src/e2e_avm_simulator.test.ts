@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -155,7 +155,7 @@ describe('e2e_avm_simulator', () => {
           )
           .send({ from: defaultAccountAddress })
           .wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
     });
 
@@ -166,17 +166,17 @@ describe('e2e_avm_simulator', () => {
           .emit_nullifier_and_check(123456)
           .send({ from: defaultAccountAddress })
           .wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
       // Nullifier will have been siloed by the kernel, but we check against the unsiloed one.
       it('Emit and check in separate tx', async () => {
         const nullifier = new Fr(123456);
         let tx = await avmContract.methods.new_nullifier(nullifier).send({ from: defaultAccountAddress }).wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
 
         tx = await avmContract.methods.assert_nullifier_exists(nullifier).send({ from: defaultAccountAddress }).wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
       it('Emit and check in separate enqueued calls but same tx', async () => {
@@ -197,7 +197,7 @@ describe('e2e_avm_simulator', () => {
         // The nested call reverts and by default caller rethrows
         await expect(
           avmContract.methods.nested_call_to_nothing().simulate({ from: defaultAccountAddress }),
-        ).rejects.toThrow(/No bytecode/);
+        ).rejects.toThrow(/not deployed/);
       });
 
       it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
@@ -206,7 +206,7 @@ describe('e2e_avm_simulator', () => {
           .nested_call_to_nothing_recovers()
           .send({ from: defaultAccountAddress })
           .wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
       it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
         const nullifier = new Fr(1);
@@ -224,7 +224,7 @@ describe('e2e_avm_simulator', () => {
           .create_different_nullifier_in_nested_call(avmContract.address, nullifier)
           .send({ from: defaultAccountAddress })
           .wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
       it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
@@ -233,7 +233,7 @@ describe('e2e_avm_simulator', () => {
           .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)
           .send({ from: defaultAccountAddress })
           .wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
 
       it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
@@ -242,7 +242,7 @@ describe('e2e_avm_simulator', () => {
           .create_different_nullifier_in_nested_call(secondAvmContract.address, nullifier)
           .send({ from: defaultAccountAddress })
           .wait();
-        expect(tx.status).toEqual(TxStatus.SUCCESS);
+        expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
     });
   });

@@ -5,34 +5,12 @@ use protocol_types::{point::Point, utils::field::sqrt};
 global BN254_FR_MODULUS_DIV_2: Field =
     10944121435919637611123202872628637544274182200208017171849102093287904247808;
 
-/// Converts a point to a byte array.
-///
-/// We don't serialize the point at infinity flag because this function is used in situations where we do not want
-/// to waste the extra byte (encrypted log).
-pub fn point_to_bytes(p: Point) -> [u8; 32] {
-    // Note that there is 1 more free bit in the 32 bytes (254 bits currently occupied by the x coordinate, 1 bit for
-    // the "sign") so it's possible to use that last bit as an "is_infinite" flag if desired in the future.
-    assert(!p.is_infinite, "Cannot serialize point at infinity as bytes.");
-
-    let mut result: [u8; 32] = p.x.to_be_bytes();
-
-    if get_sign_of_point(p) {
-        // y is <= (modulus - 1) / 2 so we set the sign bit to 1
-        // Here we leverage that field fits into 254 bits (log2(Fr.MODULUS) < 254) and given that we serialize Fr to 32
-        // bytes and we use big-endian the 2 most significant bits are never populated. Hence we can use one of
-        // the bits as a sign bit.
-        result[0] += 128;
-    }
-
-    result
-}
-
 /**
  * Returns: true if p.y <= MOD_DIV_2, else false.
  */
 pub fn get_sign_of_point(p: Point) -> bool {
     // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get
-    // the sign we check if the y coordinate is less or equal than the curve's order minus 1 divided by 2.
+    // the sign we check if the y coordinate is less or equal than the field's modulus minus 1 divided by 2.
     // Ideally we'd do `y <= MOD_DIV_2`, but there's no `lte` function, so instead we do `!(y > MOD_DIV_2)`, which is
     // equivalent, and then rewrite that as `!(MOD_DIV_2 < y)`, since we also have no `gt` function.
     !BN254_FR_MODULUS_DIV_2.lt(p.y)
@@ -70,44 +48,10 @@ pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
 }
 
 mod test {
-    use crate::utils::point::{point_from_x_coord, point_from_x_coord_and_sign, point_to_bytes};
+    use crate::utils::point::{
+        BN254_FR_MODULUS_DIV_2, get_sign_of_point, point_from_x_coord, point_from_x_coord_and_sign,
+    };
     use dep::protocol_types::point::Point;
-    use dep::protocol_types::utils::field::pow;
-
-    #[test]
-    unconstrained fn test_point_to_bytes_positive_sign() {
-        let p = Point {
-            x: 0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73,
-            y: 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a,
-            is_infinite: false,
-        };
-
-        let compressed_point = point_to_bytes(p);
-
-        let expected_compressed_point_positive_sign = [
-            154, 244, 31, 93, 233, 100, 70, 220, 55, 118, 161, 235, 45, 152, 187, 149, 107, 122,
-            205, 153, 121, 166, 120, 84, 190, 198, 250, 124, 41, 115, 189, 115,
-        ];
-        assert_eq(expected_compressed_point_positive_sign, compressed_point);
-    }
-
-    #[test]
-    unconstrained fn test_point_to_bytes_negative_sign() {
-        let p = Point {
-            x: 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5,
-            y: 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0,
-            is_infinite: false,
-        };
-
-        let compressed_point = point_to_bytes(p);
-
-        let expected_compressed_point_negative_sign = [
-            36, 115, 113, 101, 46, 85, 221, 116, 201, 175, 141, 190, 159, 180, 73, 49, 186, 41, 169,
-            34, 153, 148, 56, 75, 215, 7, 119, 150, 193, 78, 226, 181,
-        ];
-
-        assert_eq(expected_compressed_point_negative_sign, compressed_point);
-    }
 
     #[test]
     unconstrained fn test_point_from_x_coord_and_sign() {
@@ -139,7 +83,7 @@ mod test {
         let point = result.unwrap();
         assert_eq(point.x, Field::from(8));
         // Check curve equation y^2 = x^3 - 17
-        assert_eq(pow(point.y, 2), pow(point.x, 3) - 17);
+        assert_eq(point.y * point.y, point.x * point.x * point.x - 17);
     }
 
     #[test]
@@ -148,6 +92,72 @@ mod test {
         let x = Field::from(3);
         let maybe_point = point_from_x_coord(x);
         assert(maybe_point.is_none());
+    }
+
+    #[test]
+    unconstrained fn test_both_roots_satisfy_curve() {
+        // Derive a point from x = 8 (known to be valid from test_point_from_x_coord_valid)
+        let x: Field = 8;
+        let point = point_from_x_coord(x).unwrap();
+
+        // Check y satisfies curve equation
+        assert_eq(point.y * point.y, x * x * x - 17);
+
+        // Check -y also satisfies curve equation
+        let neg_y = 0 - point.y;
+        assert_eq(neg_y * neg_y, x * x * x - 17);
+
+        // Verify they are different (unless y = 0)
+        assert(point.y != neg_y);
+    }
+
+    #[test]
+    unconstrained fn test_point_from_x_coord_and_sign_invalid() {
+        // x = 3 has no valid point on the curve (from test_point_from_x_coord_invalid)
+        let x = Field::from(3);
+        let result_positive = point_from_x_coord_and_sign(x, true);
+        let result_negative = point_from_x_coord_and_sign(x, false);
+
+        assert(result_positive.is_none());
+        assert(result_negative.is_none());
+    }
+
+    #[test]
+    unconstrained fn test_get_sign_of_point() {
+        // Derive a point from x = 8, then test both possible y values
+        let point = point_from_x_coord(8).unwrap();
+        let neg_point = Point { x: point.x, y: 0 - point.y, is_infinite: false };
+
+        // One should be "positive" (y <= MOD_DIV_2) and one "negative"
+        let sign1 = get_sign_of_point(point);
+        let sign2 = get_sign_of_point(neg_point);
+        assert(sign1 != sign2);
+
+        // y = 0 should return true (0 <= MOD_DIV_2)
+        let zero_y_point = Point { x: 0, y: 0, is_infinite: false };
+        assert(get_sign_of_point(zero_y_point) == true);
+
+        // y = MOD_DIV_2 should return true (exactly at boundary)
+        let boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2, is_infinite: false };
+        assert(get_sign_of_point(boundary_point) == true);
+
+        // y = MOD_DIV_2 + 1 should return false (just over boundary)
+        let over_boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2 + 1, is_infinite: false };
+        assert(get_sign_of_point(over_boundary_point) == false);
+    }
+
+    #[test]
+    unconstrained fn test_point_from_x_coord_zero() {
+        // x = 0: y^2 = 0^3 - 17 = -17, which is not a quadratic residue in BN254 scalar field
+        let result = point_from_x_coord(0);
+        assert(result.is_none());
+    }
+
+    #[test]
+    unconstrained fn test_bn254_fr_modulus_div_2() {
+        // Verify that BN254_FR_MODULUS_DIV_2 == (p - 1) / 2
+        // This means: 2 * BN254_FR_MODULUS_DIV_2 + 1 == p == 0 (in the field)
+        assert_eq(2 * BN254_FR_MODULUS_DIV_2 + 1, 0);
     }
 
 }

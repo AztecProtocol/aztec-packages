@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
@@ -189,7 +188,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         // Ensure the polynomial copy is fully-formed
         auto a_vec = polynomial.full();
-        std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
+        std::span<Commitment> srs_elements = ck.get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
         if (poly_length > srs_elements.size()) {
@@ -699,12 +698,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         const auto& scalars = batch_opening_claim.scalars;
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
-        GroupElement shplonk_output_commitment;
-        if constexpr (Curve::is_stdlib_type) {
-            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
-        } else {
-            shplonk_output_commitment = batch_mul_native(commitments, scalars);
-        }
+        GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
         // Output an opening claim, which in practice will be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
     }

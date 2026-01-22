@@ -1,8 +1,9 @@
-use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
+use crate::abis::{
+    BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs,
+};
 use bigcurve::BigCurve;
 use bignum::BigNum;
 use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
-use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
@@ -16,14 +17,18 @@ use types::{
     address::{AztecAddress, EthAddress},
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_TREE_HEIGHT,
+        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT, EMPTY_EPOCH_OUT_HASH,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, OUT_HASH_TREE_HEIGHT,
+        OUT_HASH_TREE_LEAF_COUNT,
     },
     hash::poseidon2_hash,
-    merkle_tree::calculate_empty_tree_root,
-    proof::proof_data::ProofData,
+    merkle_tree::{compute_empty_tree_root, MerkleTree},
+    proof::proof_data::{AvmV2ProofData, ProofData},
     tests::{
-        fixtures::{proof_data::make_proof_data, vk_tree::vk_tree_root},
+        fixtures::{
+            proof_data::{make_proof_data, make_proof_data_for_fixed_vk},
+            vk_tree::vk_tree_root,
+        },
         merkle_tree_utils::SingleSubtreeMerkleTree,
         utils::make_fixture,
     },
@@ -67,6 +72,10 @@ impl RollupFixtureBuilder {
         vk_index: u32,
     ) -> ProofData<T, ProofLen, VkLen> {
         make_proof_data(public_inputs, vk_index)
+    }
+
+    pub fn make_avm_proof_data<T>(public_inputs: T) -> AvmV2ProofData<T> {
+        make_proof_data_for_fixed_vk(public_inputs, 42)
     }
 
     pub fn build_archive_tree(
@@ -139,7 +148,7 @@ impl RollupFixtureBuilder {
             subtree_roots[i % 4] =
                 self.get_l1_to_l2_message_subtree_root(slot_number - 4 + i as Field);
         }
-        let empty_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
+        let empty_subtree_root = compute_empty_tree_root::<L1_TO_L2_MSG_SUBTREE_HEIGHT>();
         subtree_roots[new_slot_index % 4] = empty_subtree_root;
 
         let mut tree = SingleSubtreeMerkleTree::<4, 2, L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT>::new_tree_roots_at_index::<L1_TO_L2_MSG_SUBTREE_HEIGHT>(
@@ -169,6 +178,28 @@ impl RollupFixtureBuilder {
         };
 
         (previous_snapshot, sibling_path_for_insertion, new_snapshot)
+    }
+
+    pub fn build_out_hash_tree_for_insertion(
+        self,
+        slot_number: Field,
+    ) -> (AppendOnlyTreeSnapshot, [Field; OUT_HASH_TREE_HEIGHT]) {
+        let mut out_hashes = [0; OUT_HASH_TREE_LEAF_COUNT];
+        let checkpoint_index = (slot_number - self.start_slot_number) as u32;
+        for i in 0..checkpoint_index {
+            out_hashes[i] = self.get_out_hash(i + self.start_slot_number as u32);
+        }
+        let tree = MerkleTree::new_sha(out_hashes);
+
+        let previous_snapshot = AppendOnlyTreeSnapshot {
+            root: tree.get_root(),
+            next_available_leaf_index: checkpoint_index as Field,
+        };
+
+        // Get the sibling path for inserting the current checkpoint's out hash.
+        let sibling_path_for_insertion = tree.get_sibling_path(checkpoint_index);
+
+        (previous_snapshot, sibling_path_for_insertion)
     }
 
     pub fn get_epoch_constant_data(self) -> EpochConstantData {
@@ -202,7 +233,7 @@ impl RollupFixtureBuilder {
             version: self.version,
             block_number,
             slot_number,
-            timestamp: self.get_timestamp(block_number),
+            timestamp: self.get_timestamp(slot_number),
             coinbase: self.get_coinbase(slot_number),
             fee_recipient: self.get_fee_recipient(slot_number),
             gas_fees: self.get_gas_fees(slot_number),
@@ -302,8 +333,7 @@ impl RollupFixtureBuilder {
             end_state: self.get_state_reference(end_block_number),
             start_sponge_blob: self.get_sponge_blob(start_block_number - 1),
             end_sponge_blob: self.get_sponge_blob(end_block_number),
-            start_timestamp: self.get_timestamp(start_block_number),
-            end_timestamp: self.get_timestamp(end_block_number),
+            timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
             in_hash,
             out_hash: self.get_out_hash(end_block_number),
@@ -324,9 +354,12 @@ impl RollupFixtureBuilder {
         start_slot_number: Field,
         end_slot_number: Field,
     ) -> CheckpointRollupPublicInputs {
+        let start_checkpoint_index = (start_slot_number - self.start_slot_number) as u32;
+        let end_checkpoint_index = (end_slot_number - self.start_slot_number) as u32;
+
         let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
-        let num_checkpoints = (end_slot_number - start_slot_number) as u32 + 1;
+        let num_checkpoints = end_checkpoint_index - start_checkpoint_index + 1;
         for i in 0..num_checkpoints {
             let slot_number = i as Field + start_slot_number;
             checkpoint_header_hashes[i] = self.get_checkpoint_header_hash(slot_number);
@@ -340,6 +373,8 @@ impl RollupFixtureBuilder {
             previous_archive: self.get_archive(start_slot_number as u32 - 1),
             new_archive: self.get_archive(end_slot_number as u32),
             checkpoint_header_hashes,
+            previous_out_hash: self.get_out_hash_snapshot(start_checkpoint_index),
+            new_out_hash: self.get_out_hash_snapshot(end_checkpoint_index + 1),
             fees,
             start_blob_accumulator: self.get_blob_accumulator(start_slot_number - 1),
             end_blob_accumulator: self.get_blob_accumulator(end_slot_number),
@@ -367,7 +402,9 @@ impl RollupFixtureBuilder {
             // The first checkpoint in an epoch should start with an empty blob accumulator.
             BlobAccumulator::empty()
         } else {
-            self.make_fixture(slot_number, 0, 1)
+            let mut accumulator: BlobAccumulator = self.make_fixture(slot_number, 0, 1);
+            accumulator.c_acc.is_infinity = false;
+            accumulator
         }
     }
 
@@ -401,16 +438,27 @@ impl RollupFixtureBuilder {
         block_number as Field * 429317
     }
 
-    fn get_out_hash(_self: Self, tx_or_block_number: u32) -> Field {
-        tx_or_block_number as Field * 60415
+    fn get_out_hash_snapshot(_self: Self, checkpoint_index: u32) -> AppendOnlyTreeSnapshot {
+        AppendOnlyTreeSnapshot {
+            root: if checkpoint_index == 0 {
+                EMPTY_EPOCH_OUT_HASH
+            } else {
+                (checkpoint_index as Field) * 847362
+            },
+            next_available_leaf_index: checkpoint_index as Field,
+        }
+    }
+
+    pub fn get_out_hash(_self: Self, tx_or_block_or_slot_number: u32) -> Field {
+        tx_or_block_or_slot_number as Field * 60415
     }
 
     fn get_in_hash(_self: Self, slot_number: Field) -> Field {
         slot_number * 94297
     }
 
-    fn get_timestamp(_self: Self, block_number: u32) -> u64 {
-        block_number as u64 + 507124
+    fn get_timestamp(_self: Self, slot_number: Field) -> u64 {
+        slot_number as u64 + 507124
     }
 
     fn get_fee_recipient(self, slot_number: Field) -> AztecAddress {

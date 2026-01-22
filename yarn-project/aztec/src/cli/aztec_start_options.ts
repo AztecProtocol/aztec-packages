@@ -1,8 +1,9 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
-import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
+import { blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { botConfigMappings } from '@aztec/bot/config';
-import { l1ContractAddressesMapping, l1ContractsConfigMappings, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { getKeys } from '@aztec/foundation/collection';
 import {
   type ConfigMapping,
@@ -14,12 +15,13 @@ import {
 import { dataConfigMappings } from '@aztec/kv-store/config';
 import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
-import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker';
+import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker/config';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
-import { chainConfigMappings } from '@aztec/stdlib/config';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
-import { worldStateConfigMappings } from '@aztec/world-state';
+import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
+import { chainConfigMappings, nodeRpcConfigMappings } from '@aztec/stdlib/config';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
+import { worldStateConfigMappings } from '@aztec/world-state/config';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 
@@ -124,14 +126,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },
-    {
-      flag: '--local-network.deployAztecContractsSalt <value>',
-      description:
-        'Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.',
-      env: 'DEPLOY_AZTEC_CONTRACTS_SALT',
-      defaultValue: undefined,
-      parseVal: (val: string) => (val ? parseInt(val) : undefined),
-    },
   ],
   API: [
     {
@@ -154,14 +148,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: '',
       env: 'API_PREFIX',
     },
+    configToFlag('--rpcMaxBatchSize', nodeRpcConfigMappings.rpcMaxBatchSize),
+    configToFlag('--rpcMaxBodySize', nodeRpcConfigMappings.rpcMaxBodySize),
   ],
   ETHEREUM: [
     configToFlag('--l1-chain-id', l1ReaderConfigMappings.l1ChainId),
     // Do not set default for CLI: keep undefined unless provided via flag or env
     configToFlag('--l1-rpc-urls', { ...l1ReaderConfigMappings.l1RpcUrls, defaultValue: undefined }),
-    configToFlag('--l1-consensus-host-urls', blobSinkConfigMappings.l1ConsensusHostUrls),
-    configToFlag('--l1-consensus-host-api-keys', blobSinkConfigMappings.l1ConsensusHostApiKeys),
-    configToFlag('--l1-consensus-host-api-key-headers', blobSinkConfigMappings.l1ConsensusHostApiKeyHeaders),
+    configToFlag('--l1-consensus-host-urls', blobClientConfigMapping.l1ConsensusHostUrls),
+    configToFlag('--l1-consensus-host-api-keys', blobClientConfigMapping.l1ConsensusHostApiKeys),
+    configToFlag('--l1-consensus-host-api-key-headers', blobClientConfigMapping.l1ConsensusHostApiKeyHeaders),
   ],
   'L1 CONTRACTS': [
     configToFlag('--registry-address', l1ContractAddressesMapping.registryAddress),
@@ -208,20 +204,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       'sequencer',
       omitConfigMappings(sequencerClientConfigMappings, [
         'fakeProcessingDelayPerTxMs',
+        'fakeThrowAfterProcessingTxCount',
         'skipCollectingAttestations',
         'skipInvalidateBlockAsProposer',
         'blobSinkMapSizeKb',
       ]),
     ),
-  ],
-  'BLOB SINK': [
-    {
-      flag: '--blob-sink',
-      description: 'Starts Aztec Blob Sink with options',
-      defaultValue: undefined,
-      env: undefined,
-    },
-    ...getOptions('blobSink', blobSinkConfigMappings),
   ],
   'PROVER NODE': [
     {

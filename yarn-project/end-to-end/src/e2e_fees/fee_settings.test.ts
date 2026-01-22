@@ -1,7 +1,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -20,17 +20,15 @@ describe('e2e_fees fee settings', () => {
   let wallet: TestWallet;
   let gasSettings: Partial<GasSettings>;
   let testContract: TestContract;
-
   const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-
-    ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
+    await t.setup();
+    ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = t);
 
     testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
-  }, 60_000);
+  });
 
   afterAll(async () => {
     await t.teardown();
@@ -38,27 +36,27 @@ describe('e2e_fees fee settings', () => {
 
   describe('setting max fee per gas', () => {
     const bumpL2Fees = async () => {
-      const before = await aztecNode.getCurrentBaseFees();
-      t.logger.info(`Initial L2 base fees are ${inspect(before)}`, { baseFees: before.toInspect() });
+      const before = await aztecNode.getCurrentMinFees();
+      t.logger.info(`Initial L2 min fees are ${inspect(before)}`, { minFees: before.toInspect() });
       await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
       await retryUntil(
         async () => {
-          const after = await aztecNode.getCurrentBaseFees();
-          t.logger.info(`L2 base fees are now ${inspect(after)}`, {
-            baseFeesBefore: before.toInspect(),
-            baseFeesAfter: after.toInspect(),
+          const after = await aztecNode.getCurrentMinFees();
+          t.logger.info(`L2 min fees are now ${inspect(after)}`, {
+            minFeesBefore: before.toInspect(),
+            minFeesAfter: after.toInspect(),
           });
           return after.feePerL2Gas > before.feePerL2Gas;
         },
-        'L2 base fee increase',
+        'L2 min fee increase',
         5,
         1,
       );
     };
 
-    const proveTx = async (baseFeePadding: number | undefined) => {
-      t.logger.info(`Preparing tx to be sent with base fee padding ${baseFeePadding}`);
-      wallet.setBaseFeePadding(baseFeePadding);
+    const proveTx = async (minFeePadding: number | undefined) => {
+      t.logger.info(`Preparing tx to be sent with min fee padding ${minFeePadding}`);
+      wallet.setMinFeePadding(minFeePadding);
       const tx = await proveInteraction(wallet, testContract.methods.emit_nullifier_public(Fr.random()), {
         from: aliceAddress,
         fee: { gasSettings },
@@ -68,8 +66,8 @@ describe('e2e_fees fee settings', () => {
       return tx;
     };
 
-    it('handles base fee spikes with default padding', async () => {
-      // Prepare two txs using the current L2 base fees: one with no padding and one with default padding
+    it('handles min fee spikes with default padding', async () => {
+      // Prepare two txs using the current L2 min fees: one with no padding and one with default padding
       const txWithNoPadding = await proveTx(0);
       const txWithDefaultPadding = await proveTx(undefined);
 

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "eccvm_prover.hpp"
@@ -19,11 +19,8 @@
 
 namespace bb {
 
-ECCVMProver::ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript,
-                         const std::shared_ptr<Transcript>& ipa_transcript)
+ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
-    , ipa_transcript(ipa_transcript)
 {
     BB_BENCH_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -46,7 +43,7 @@ void ECCVMProver::execute_preamble_round()
 
     // Fiat-Shamir the vk hash
     VerificationKey vk;
-    typename Flavor::BF vk_hash = vk.hash();
+    typename Flavor::BF vk_hash = vk.get_hash();
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("ECCVM vk hash in prover: ", vk_hash);
 }
@@ -91,6 +88,11 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     relation_parameters.beta = beta;
     relation_parameters.beta_sqr = beta_sqr;
     relation_parameters.beta_cube = beta_sqr * beta;
+    // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
+    // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
+    // add per short scalar `mul` is slightly less in the Precomputed table as in the MSM table, so to get the
+    // permutation argument to work out, when `precompute_select == 0`, we must implicitly _remove_ (0, 0, 0) as a tuple
+    // on the wNAF side. This corresponds to dividing by (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²).
     relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
@@ -188,18 +190,16 @@ void ECCVMProver::execute_pcs_rounds()
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
-
-    // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
+    // IPA proving is performed externally
+    batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 }
 
-ECCVMProof ECCVMProver::export_proof()
+ECCVMProver::Proof ECCVMProver::export_proof()
 {
-    return { transcript->export_proof(), ipa_transcript->export_proof() };
+    return { transcript->export_proof() };
 }
 
-ECCVMProof ECCVMProver::construct_proof()
+std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_proof()
 {
     BB_BENCH_NAME("ECCVMProver::construct_proof");
 
@@ -210,7 +210,7 @@ ECCVMProof ECCVMProver::construct_proof()
     execute_relation_check_rounds();
     execute_pcs_rounds();
 
-    return export_proof();
+    return { export_proof(), batch_opening_claim };
 }
 
 /**

@@ -1,10 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 
 namespace bb {
 
@@ -12,6 +14,10 @@ template <typename Flavor>
 HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>::verify_proof(
     Accumulator& accumulator, const HypernovaDeciderVerifier::Proof& proof)
 {
+    using ShpleminiVerifier = bb::ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
+
     vinfo("HypernovaDeciderVerifier: verifying PCS proof...");
     transcript->load_proof(proof);
 
@@ -29,14 +35,15 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
                                 .shifted = ClaimBatch{ RefVector(accumulator.shifted_commitment),
                                                        RefVector(accumulator.shifted_evaluation) } };
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
-    const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript);
+    auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+                             padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript)
+                             .batch_opening_claim;
 
     if constexpr (IsRecursiveFlavor<Flavor>) {
-        PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
+        PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
         return pairing_points;
     } else {
-        auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+        auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
         // Native pairing points contain affine elements
         return { typename Curve::AffineElement(pairing_points[0]), typename Curve::AffineElement(pairing_points[1]) };
     }

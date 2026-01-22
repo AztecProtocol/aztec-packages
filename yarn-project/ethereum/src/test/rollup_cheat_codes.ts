@@ -1,6 +1,7 @@
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -31,7 +32,7 @@ export class RollupCheatCodes {
   ) {
     this.client = createPublicClient({
       chain: ethCheatCodes.chain,
-      transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
+      transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url, { batch: false }))),
     });
     this.rollup = getContract({
       abi: RollupAbi,
@@ -66,10 +67,14 @@ export class RollupCheatCodes {
    * @returns The pending and proven chain tips
    */
   public async getTips(): Promise<{
-    /** The pending chain tip */ pending: bigint;
-    /** The proven chain tip */ proven: bigint;
+    /** The pending chain tip */ pending: CheckpointNumber;
+    /** The proven chain tip */ proven: CheckpointNumber;
   }> {
-    return await this.rollup.read.getTips();
+    const { pending, proven } = await this.rollup.read.getTips();
+    return {
+      pending: CheckpointNumber.fromBigInt(pending),
+      proven: CheckpointNumber.fromBigInt(proven),
+    };
   }
 
   /**
@@ -119,11 +124,11 @@ export class RollupCheatCodes {
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const slotNumber = SlotNumber(epoch * Number(slotsInEpoch));
+    const slotNumber = SlotNumber(Number(epoch) * Number(slotsInEpoch));
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
-      this.logger.warn(`Warped to epoch ${epoch}`);
+      this.logger.warn(`Warped to epoch ${epoch}`, { offset: opts.offset, timestamp });
     } catch (err) {
       this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
     }
@@ -171,7 +176,7 @@ export class RollupCheatCodes {
    * Marks the specified checkpoint (or latest if none) as proven
    * @param maybeCheckpointNumber - The checkpoint number to mark as proven (defaults to latest pending)
    */
-  public markAsProven(maybeCheckpointNumber?: number | bigint) {
+  public markAsProven(maybeCheckpointNumber?: CheckpointNumber) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const tipsBefore = await this.getTips();
       const { pending, proven } = tipsBefore;
@@ -242,6 +247,15 @@ export class RollupCheatCodes {
       });
 
       return newInProgress;
+    });
+  }
+
+  public insertOutbox(epoch: EpochNumber, outHash: bigint) {
+    return this.ethCheatCodes.execWithPausedAnvil(async () => {
+      const outboxAddress = await this.rollup.read.getOutbox();
+      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch);
+      await this.ethCheatCodes.store(EthAddress.fromString(outboxAddress), epochRootSlot, outHash);
+      this.logger.warn(`Advanced outbox to epoch ${epoch} with out hash ${outHash}`);
     });
   }
 

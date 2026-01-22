@@ -7,23 +7,33 @@ export class P2PMessage {
   constructor(
     public readonly payload: Buffer,
     public readonly timestamp?: Date,
+    public readonly traceContext?: string,
   ) {}
 
-  static fromGossipable(message: Gossipable, instrumentMessages = false): P2PMessage {
-    return new P2PMessage(message.toBuffer(), instrumentMessages ? new Date() : undefined);
+  static fromGossipable(message: Gossipable, instrumentMessages = false, traceContext?: string): P2PMessage {
+    if (!instrumentMessages) {
+      return new P2PMessage(message.toBuffer());
+    }
+    return new P2PMessage(message.toBuffer(), new Date(), traceContext);
   }
 
   static fromMessageData(messageData: Buffer, instrumentMessages = false): P2PMessage {
     const reader = new BufferReader(messageData);
-    const timestamp = instrumentMessages ? new Date(Number(reader.readUInt64())) : undefined;
+    let timestamp: Date | undefined;
+    let traceContext: string | undefined;
+    if (instrumentMessages) {
+      timestamp = new Date(Number(reader.readUInt64()));
+      traceContext = reader.readString();
+    }
     const payload = reader.readBuffer();
-    return new P2PMessage(payload, timestamp);
+    return new P2PMessage(payload, timestamp, traceContext);
   }
 
   toMessageData(): Buffer {
     const arr: Buffer[] = [];
     if (this.timestamp) {
       arr.push(bigintToUInt64BE(BigInt(this.timestamp.getTime())));
+      arr.push(serializeToBuffer(this.traceContext ?? ''));
     }
     arr.push(serializeToBuffer(this.payload.length, this.payload));
     return serializeToBuffer(arr);

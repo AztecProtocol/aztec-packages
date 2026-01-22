@@ -6,7 +6,7 @@ export type UserTx = {
   txHash?: TxHash;
   receipt?: TxReceipt;
   date?: number;
-  status: 'error' | 'simulating' | 'proving' | 'sending' | TxStatus;
+  status: 'error' | 'simulating' | 'proving' | 'sending' | 'success' | TxStatus;
   name: string;
   error?: string;
   contractAddress: AztecAddress;

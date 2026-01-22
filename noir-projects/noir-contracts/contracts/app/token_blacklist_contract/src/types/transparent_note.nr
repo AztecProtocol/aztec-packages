@@ -3,7 +3,8 @@ use dep::aztec::{
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol_types::{
-        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        address::AztecAddress,
+        constants::{DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,
         traits::Packable,
     },
@@ -17,14 +18,19 @@ use dep::std::mem::zeroed;
 #[derive(Eq, Packable)]
 #[custom_note]
 pub struct TransparentNote {
-    amount: u128,
-    secret_hash: Field,
+    pub amount: u128,
+    pub secret_hash: Field,
 }
 
 impl NoteHash for TransparentNote {
-    fn compute_note_hash(self, storage_slot: Field, randomness: Field) -> Field {
+    fn compute_note_hash(
+        self,
+        _owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+    ) -> Field {
         let inputs = self.pack().concat([storage_slot, randomness]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
     }
 
     // Computing a nullifier in a transparent note is not guarded by making secret a part of the nullifier preimage (as
@@ -38,26 +44,21 @@ impl NoteHash for TransparentNote {
     fn compute_nullifier(
         self,
         _context: &mut PrivateContext,
+        _owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
         poseidon2_hash_with_separator(
             [note_hash_for_nullification],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            DOM_SEP__NOTE_NULLIFIER as Field,
         )
     }
 
     unconstrained fn compute_nullifier_unconstrained(
         self,
+        owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
         // compute_nullifier ignores context so we can reuse it here
-        self.compute_nullifier(zeroed(), note_hash_for_nullification)
-    }
-}
-
-impl TransparentNote {
-    // CONSTRUCTORS
-    pub fn new(amount: u128, secret_hash: Field) -> Self {
-        TransparentNote { amount, secret_hash }
+        self.compute_nullifier(zeroed(), owner, note_hash_for_nullification)
     }
 }

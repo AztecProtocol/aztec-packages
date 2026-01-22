@@ -11,11 +11,11 @@ pub mod public_keys;
 pub mod point;
 pub mod scalar;
 pub mod constants;
+mod domain_separators;
 pub mod contract_class_id;
 pub mod merkle_tree;
 pub mod contract_instance;
 pub mod messaging;
-pub mod content_commitment;
 pub mod poseidon2;
 pub mod abis;
 

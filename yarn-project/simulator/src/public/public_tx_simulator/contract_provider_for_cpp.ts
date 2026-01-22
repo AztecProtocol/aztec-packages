@@ -1,11 +1,10 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { ContractProvider } from '@aztec/native';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { deserializeFromMessagePack, serializeWithMessagePack } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractDeploymentData } from '@aztec/stdlib/contract';
-import { ContractClassLog, ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import type { PublicContractsDB } from '../public_db_sources.js';
@@ -19,7 +18,7 @@ export class ContractProviderForCpp implements ContractProvider {
   ) {}
 
   public getContractInstance = async (address: string): Promise<Buffer | undefined> => {
-    this.log.debug(`Contract provider callback: getContractInstance(${address})`);
+    this.log.trace(`Contract provider callback: getContractInstance(${address})`);
 
     const aztecAddr = AztecAddress.fromString(address);
 
@@ -34,7 +33,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getContractClass = async (classId: string): Promise<Buffer | undefined> => {
-    this.log.debug(`Contract provider callback: getContractClass(${classId})`);
+    this.log.trace(`Contract provider callback: getContractClass(${classId})`);
 
     // Parse classId string to Fr
     const classIdFr = Fr.fromString(classId);
@@ -51,20 +50,20 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public addContracts = async (contractDeploymentDataBuffer: Buffer): Promise<void> => {
-    this.log.debug(`Contract provider callback: addContracts`);
+    this.log.trace(`Contract provider callback: addContracts`);
 
     const rawData: any = deserializeFromMessagePack(contractDeploymentDataBuffer);
 
-    // Construct class instances using the from method
-    const contractDeploymentData = this.reconstructContractDeploymentData(rawData);
+    // Construct ContractDeploymentData from plain object.
+    const contractDeploymentData = ContractDeploymentData.fromPlainObject(rawData);
 
     // Add contracts to the contracts DB
-    this.log.debug(`Calling contractsDB.addContracts`);
+    this.log.trace(`Calling contractsDB.addContracts`);
     await this.contractsDB.addContracts(contractDeploymentData);
   };
 
   public getBytecodeCommitment = async (classId: string): Promise<Buffer | undefined> => {
-    this.log.debug(`Contract provider callback: getBytecodeCommitment(${classId})`);
+    this.log.trace(`Contract provider callback: getBytecodeCommitment(${classId})`);
 
     // Parse classId string to Fr
     const classIdFr = Fr.fromString(classId);
@@ -82,18 +81,23 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getDebugFunctionName = async (address: string, selector: string): Promise<string | undefined> => {
-    this.log.debug(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
+    this.log.trace(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
 
     // Parse address and selector strings
     const aztecAddr = AztecAddress.fromString(address);
     const selectorFr = Fr.fromString(selector);
-    const functionSelector = FunctionSelector.fromField(selectorFr);
+    const functionSelector = FunctionSelector.fromFieldOrUndefined(selectorFr);
+
+    if (!functionSelector) {
+      this.log.trace(`calldata[0] is not a function selector: ${selector}`);
+      return undefined;
+    }
 
     // Fetch debug function name from the contracts DB
     const name = await this.contractsDB.getDebugFunctionName(aztecAddr, functionSelector);
 
     if (!name) {
-      this.log.debug(`Debug function name not found for ${address}:${selector}`);
+      this.log.trace(`Debug function name not found for ${address}:${selector}`);
       return undefined;
     }
 
@@ -101,62 +105,17 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public createCheckpoint = (): Promise<void> => {
-    this.log.debug(`Contract provider callback: createCheckpoint`);
+    this.log.trace(`Contract provider callback: createCheckpoint`);
     return Promise.resolve(this.contractsDB.createCheckpoint());
   };
 
   public commitCheckpoint = (): Promise<void> => {
-    this.log.debug(`Contract provider callback: commitCheckpoint`);
+    this.log.trace(`Contract provider callback: commitCheckpoint`);
     return Promise.resolve(this.contractsDB.commitCheckpoint());
   };
 
   public revertCheckpoint = (): Promise<void> => {
-    this.log.debug(`Contract provider callback: revertCheckpoint`);
+    this.log.trace(`Contract provider callback: revertCheckpoint`);
     return Promise.resolve(this.contractsDB.revertCheckpoint());
   };
-
-  /**
-   * Reconstruct ContractDeploymentData from plain msgpack-deserialized objects.
-   *
-   * msgpackr does not automatically apply extensions to nested fields, so we need to
-   * manually reconstruct ContractClassLog and PrivateLog instances with proper types.
-   *
-   * TODO(dbanks12): we really shouldn't have to do this.... We need to for now because
-   * msgpack deserialization doesn't give us actual typed objects, but rather just JSON.
-   * It would be easier if all types matched between languages (like AztecAddress which is just
-   * FF in C++).
-   */
-  private reconstructContractDeploymentData(rawData: any): ContractDeploymentData {
-    // Helper to ensure a value is an Fr instance
-    const toFr = (value: any): Fr => {
-      if (value instanceof Fr) {
-        return value;
-      }
-      if (Buffer.isBuffer(value)) {
-        return Fr.fromBuffer(value);
-      }
-      return new Fr(value);
-    };
-
-    // Reconstruct ContractClassLogs
-    const contractClassLogs = (rawData.contractClassLogs || []).map((log: any) => {
-      // Convert contractAddress to TS AztecAddress
-      const addressFr = toFr(log.contractAddress);
-      const address = AztecAddress.fromField(addressFr);
-
-      // Ensure all fields are Fr instances
-      const fields = (log.fields.fields || []).map((field: any) => toFr(field));
-
-      // Create proper ContractClassLog instance
-      return new ContractClassLog(address, new ContractClassLogFields(fields), log.emittedLength);
-    });
-
-    // Reconstruct PrivateLogs - ensure fields are Fr instances
-    const privateLogs = (rawData.privateLogs || []).map((log: any) => {
-      const fields = (log.fields || []).map((field: any) => toFr(field));
-      return new PrivateLog(fields as any, log.emittedLength);
-    });
-
-    return new ContractDeploymentData(contractClassLogs, privateLogs);
-  }
 }

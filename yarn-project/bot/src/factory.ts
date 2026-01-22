@@ -11,14 +11,17 @@ import {
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
+import { deriveKeys } from '@aztec/aztec.js/keys';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -53,8 +56,8 @@ export class BotFactory {
     node: AztecNode;
     recipient: AztecAddress;
   }> {
-    const recipient = (await this.wallet.createAccount()).address;
     const defaultAccountAddress = await this.setupAccount();
+    const recipient = (await this.wallet.createAccount()).address;
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
     return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };
@@ -115,8 +118,8 @@ export class BotFactory {
       contract: new SchnorrAccountContract(signingKey!),
     };
     const accountManager = await this.wallet.createAccount(accountData);
-    const isInit = (await this.wallet.getContractMetadata(accountManager.address)).isContractInitialized;
-    if (isInit) {
+    const metadata = await this.wallet.getContractMetadata(accountManager.address);
+    if (metadata.isContractInitialized) {
       this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
       const timer = new Timer();
       const address = accountManager.address;
@@ -131,7 +134,7 @@ export class BotFactory {
 
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.address, claim);
       const deployMethod = await accountManager.getDeployMethod();
-      const maxFeesPerGas = (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.config.baseFeePadding);
+      const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1 + this.config.minFeePadding);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const sentTx = deployMethod.send({ from: AztecAddress.ZERO, fee: { gasSettings, paymentMethod } });
       const txHash = await sentTx.getTxHash();
@@ -164,6 +167,7 @@ export class BotFactory {
    */
   private async setupToken(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
+    let tokenInstance: ContractInstanceWithAddress | undefined;
     const deployOpts: DeployOptions = {
       from: sender,
       contractAddressSalt: this.config.tokenSalt,
@@ -172,16 +176,24 @@ export class BotFactory {
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
       deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
-      deploy = PrivateTokenContract.deploy(this.wallet, MINT_BALANCE, sender);
+      // Generate keys for the contract since PrivateToken uses SinglePrivateMutable which requires keys
+      const tokenSecretKey = Fr.random();
+      const tokenPublicKeys = (await deriveKeys(tokenSecretKey)).publicKeys;
+      deploy = PrivateTokenContract.deployWithPublicKeys(tokenPublicKeys, this.wallet, MINT_BALANCE, sender);
       deployOpts.skipInstancePublication = true;
       deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
+
+      // Register the contract with the secret key before deployment
+      tokenInstance = await deploy.getInstance(deployOpts);
+      await this.wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.wallet.getContractMetadata(address)).isContractPublished) {
+    const address = tokenInstance?.address ?? (await deploy.getInstance(deployOpts)).address;
+    const metadata = await this.wallet.getContractMetadata(address);
+    if (metadata.isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -314,7 +326,8 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.wallet.getContractMetadata(address)).isContractPublished) {
+    const metadata = await this.wallet.getContractMetadata(address);
+    if (metadata.isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {

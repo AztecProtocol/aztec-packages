@@ -21,7 +21,7 @@ pub contract NFT {
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
         protocol_types::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, PrivateSet, PublicImmutable, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
@@ -49,7 +49,7 @@ pub contract NFT {
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // Contains the NFTs owned by each address in private.
-        private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
+        private_nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.
@@ -71,14 +71,14 @@ pub contract NFT {
 
     #[external("public")]
     fn set_admin(new_admin: AztecAddress) {
-        assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "caller is not an admin");
+        assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not an admin");
         self.storage.admin.write(new_admin);
     }
 
     // docs:start:set_minter
     #[external("public")]
     fn set_minter(minter: AztecAddress, approve: bool) {
-        assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "caller is not an admin");
+        assert(self.storage.admin.read().eq(self.msg_sender()), "caller is not an admin");
         self.storage.minters.at(minter).write(approve);
     }
     // docs:end:set_minter
@@ -86,10 +86,7 @@ pub contract NFT {
     #[external("public")]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(token_id != 0, "zero token ID not supported");
-        assert(
-            self.storage.minters.at(self.msg_sender().unwrap()).read(),
-            "caller is not a minter",
-        );
+        assert(self.storage.minters.at(self.msg_sender()).read(), "caller is not a minter");
         assert(self.storage.nft_exists.at(token_id).read() == false, "token already exists");
 
         self.storage.nft_exists.at(token_id).write(true);
@@ -150,7 +147,7 @@ pub contract NFT {
     // Transfers token with `token_id` from public balance of message sender to a private balance of `to`.
     #[external("private")]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
-        let from = self.msg_sender().unwrap();
+        let from = self.msg_sender();
 
         // We prepare the private balance increase.
         let partial_note = self.internal._prepare_private_balance_increase(to);
@@ -175,7 +172,7 @@ pub contract NFT {
             self.storage.private_nfts.at(to).storage_slot,
             self.context,
             to,
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
         );
 
         partial_note
@@ -193,7 +190,7 @@ pub contract NFT {
     fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose account the token is being transferred.
-        let from_and_completer = self.msg_sender().unwrap();
+        let from_and_completer = self.msg_sender();
         self.internal._finalize_transfer_to_private(from_and_completer, token_id, partial_note);
     }
 
@@ -234,7 +231,7 @@ pub contract NFT {
      */
     #[external("private")]
     fn cancel_authwit(inner_hash: Field) {
-        let on_behalf_of = self.msg_sender().unwrap();
+        let on_behalf_of = self.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         self.context.push_nullifier(nullifier);
     }
@@ -249,14 +246,16 @@ pub contract NFT {
     ) {
         let nfts = self.storage.private_nfts;
 
+        // docs:start:pop_notes
         let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
             .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
+        // docs:end:pop_notes
 
-        let new_note = NFTNote::new(token_id, to);
+        let new_note = NFTNote { token_id };
 
-        nfts.at(to).insert(new_note).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        nfts.at(to).insert(new_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -292,23 +291,25 @@ pub contract NFT {
     /// Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was
     /// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
     /// values for non-existing notes.
+    // docs:start:view_notes
     #[external("utility")]
     unconstrained fn get_private_nfts(
         owner: AztecAddress,
         page_index: u32,
     ) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
         let offset = page_index * MAX_NOTES_PER_PAGE;
-        let mut options = NoteViewerOptions::new();
-        let notes = self.storage.private_nfts.at(owner).view_notes(options.set_offset(offset));
+        let options = NoteViewerOptions::new().set_offset(offset);
+        let notes = self.storage.private_nfts.at(owner).view_notes(options);
 
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {
             if i < notes.len() {
-                owned_nft_ids[i] = notes.get_unchecked(i).get_token_id();
+                owned_nft_ids[i] = notes.get_unchecked(i).token_id;
             }
         }
 
         let page_limit_reached = notes.len() == options.limit;
         (owned_nft_ids, page_limit_reached)
     }
+    // docs:end:view_notes
 }

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -69,7 +69,7 @@ template <class Params_> struct alignas(32) field {
     }
 
     constexpr field(const uint128_t& input) noexcept
-        : field(uint256_t::from_uint128(input))
+        : field(static_cast<uint256_t>(input))
     {}
 
     // NOLINTNEXTLINE (unsigned long is platform dependent, which we want in this case)
@@ -140,7 +140,9 @@ template <class Params_> struct alignas(32) field {
     constexpr explicit operator bool() const
     {
         field out = from_montgomery_form();
-        BB_ASSERT(out.data[0] == 0 || out.data[0] == 1);
+        if (out.data[0] != 0 && out.data[0] != 1) {
+            bb::assert_failure("Cannot convert field element to bool unless it is 0 or 1");
+        }
         return static_cast<bool>(out.data[0]);
     }
 

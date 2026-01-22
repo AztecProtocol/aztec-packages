@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /*
@@ -72,7 +72,6 @@ typedef struct blake2s_param__ blake2s_param;
 enum { BLAKE2_DUMMY_1 = 1 / (sizeof(blake2s_param) == BLAKE2S_OUTBYTES) };
 
 int blake2s_init(blake2s_state* S, size_t outlen);
-int blake2s_init_key(blake2s_state* S, size_t outlen, const void* key, size_t keylen);
 int blake2s_init_param(blake2s_state* S, const blake2s_param* P);
 int blake2s_update(blake2s_state* S, const void* in, size_t inlen);
 int blake2s_final(blake2s_state* S, void* out, size_t outlen);

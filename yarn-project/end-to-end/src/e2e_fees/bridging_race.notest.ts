@@ -1,7 +1,7 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { Fq } from '@aztec/foundation/fields';
+import { Fq } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { TestWallet } from '@aztec/test-wallet/server';
@@ -26,11 +26,8 @@ describe('e2e_fees bridging_race', () => {
   });
 
   beforeAll(async () => {
-    await t.applyInitialAccountsSnapshot();
-    await t.applyPublicDeployAccountsSnapshot();
-    await t.applySetupFeeJuiceSnapshot();
-
-    ({ wallet, logger } = await t.setup());
+    await t.setup();
+    ({ wallet, logger } = t);
   });
 
   afterAll(async () => {

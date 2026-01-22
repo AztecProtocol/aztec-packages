@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 #pragma once
 
 #include <array>
@@ -16,6 +21,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor_macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
@@ -93,16 +99,19 @@ class AvmFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr bool has_zero_row = true;
-
     static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
+    // This formula must match the serialization in Transcript::serialize_full_transcript().
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
-        (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
-        MAX_AVM_TRACE_LOG_SIZE * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
+        NUM_WITNESS_ENTITIES * NUM_FRS_COM +                                    // witness commitments
+        NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations
+        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH + // sumcheck univariates
+        (MAX_AVM_TRACE_LOG_SIZE - 1) * NUM_FRS_COM +                            // gemini fold comms
+        MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR +                                   // gemini fold evals
+        2 * NUM_FRS_COM;                                                        // shplonk + kzg
 
     static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
                   "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
@@ -116,12 +125,9 @@ class AvmFlavor {
     //               "in constants.nr accordingly.");
 
     // VK is composed of
-    // - circuit size encoded as a fr field element
-    // - num of inputs encoded as a fr field element
     // - NUM_PRECOMPUTED_ENTITIES commitments
     // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES *
-    // NUM_FRS_COM,
+    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
     //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
     //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
     //               "in constants.nr accordingly.");
@@ -221,39 +227,12 @@ class AvmFlavor {
         std::vector<FF> public_inputs;
     };
 
-    class VerificationKey
-        : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript, VKSerializationMode::NO_METADATA> {
-      public:
-        static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
-
-        VerificationKey() = default;
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-        {
-            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
-            }
-        }
-
-        VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-        {
-            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
-                vk_cmt = cmt;
-            }
-        }
-
-        /**
-         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
-         * the provided VK hash directly to the transcript.
-         */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-    };
+    /**
+     * @brief Verification key of the AVM. It is fixed and reconstructed from precomputed values.
+     *
+     */
+    using VerificationKey =
+        FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash>;
 
     // Used by sumcheck.
     using AllValues = AllEntities<FF>;

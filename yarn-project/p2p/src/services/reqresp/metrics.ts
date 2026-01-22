@@ -1,5 +1,5 @@
 // Request response metrics
-import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import { Attributes, Metrics } from '@aztec/telemetry-client';
 import type { TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
 export class ReqRespMetrics {
@@ -18,28 +18,12 @@ export class ReqRespMetrics {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);
-    this.sentRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_SENT_REQUESTS, {
-      description: 'Number of requests sent to peers',
-      unit: 'requests',
-      valueType: ValueType.INT,
-    });
-    this.receivedRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_RECEIVED_REQUESTS, {
-      description: 'Number of requests received from peers',
-      unit: 'requests',
-      valueType: ValueType.INT,
-    });
+    this.sentRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_SENT_REQUESTS);
+    this.receivedRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_RECEIVED_REQUESTS);
 
-    this.failedOutboundRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_FAILED_OUTBOUND_REQUESTS, {
-      description: 'Number of failed outbound requests - nodes not getting valid responses',
-      unit: 'requests',
-      valueType: ValueType.INT,
-    });
+    this.failedOutboundRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_FAILED_OUTBOUND_REQUESTS);
 
-    this.failedInboundRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_FAILED_INBOUND_REQUESTS, {
-      description: 'Number of failed inbound requests - node failing to respond to requests',
-      unit: 'requests',
-      valueType: ValueType.INT,
-    });
+    this.failedInboundRequests = meter.createUpDownCounter(Metrics.P2P_REQ_RESP_FAILED_INBOUND_REQUESTS);
   }
 
   public recordRequestSent(protocol: string) {

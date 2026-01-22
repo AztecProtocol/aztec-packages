@@ -25,24 +25,9 @@ pub(crate) comptime fn get_abi_relevant_attributes(f: FunctionDefinition) -> Quo
     attributes
 }
 
-/// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
-/// available for the current execution.
-pub(crate) comptime fn create_message_discovery_call() -> Quoted {
-    quote {
-        /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
-        /// always safe to call.
-        unsafe {
-            dep::aztec::messages::discovery::discover_new_messages(
-                self.address,
-                _compute_note_hash_and_nullifier,
-            );
-        };
-    }
-}
-
 /// Injects an authwit verification check of the form:
 /// ```
-///   if (!from.eq(context.msg_sender().unwrap())) {
+///   if (!from.eq(context.maybe_msg_sender().unwrap())) {
 ///         assert_current_call_valid_authwit::<N>(&mut context, from);
 ///     } else {
 ///         assert(authwit_nonce, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
@@ -119,7 +104,7 @@ pub(crate) comptime fn create_authorize_once_check(
         .as_ctstring()
         .as_quoted_str();
     quote {         
-        if (!$from_arg_name_quoted.eq(self.msg_sender().unwrap())) {
+        if (!$from_arg_name_quoted.eq(self.msg_sender())) {
             $fn_call(self.context, $from_arg_name_quoted);
         } else {
             assert($nonce_check_quote, $invalid_nonce_message);

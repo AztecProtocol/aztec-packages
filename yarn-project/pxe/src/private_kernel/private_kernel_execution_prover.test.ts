@@ -6,7 +6,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
@@ -84,7 +84,6 @@ describe('Private Kernel Sequencer', () => {
       VerificationKey.makeFakeMegaHonk(),
       new Map(),
       publicInputs,
-      new Map(),
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
@@ -159,9 +158,14 @@ describe('Private Kernel Sequencer', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
+      version: 1 as const,
+      salt: Fr.random(),
+      deployer: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
+      initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
+      address: await AztecAddress.random(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({

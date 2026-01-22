@@ -1,6 +1,15 @@
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
+  AZTEC_INITIALIZER_ATTRIBUTE,
+  AZTEC_ONLY_SELF_ATTRIBUTE,
+  AZTEC_PRIVATE_ATTRIBUTE,
+  AZTEC_PUBLIC_ATTRIBUTE,
+  AZTEC_UTILITY_ATTRIBUTE,
+  AZTEC_VIEW_ATTRIBUTE,
+  type NoirCompiledContract,
+} from '../noir/index.js';
+import {
   type ABIParameter,
   type ABIParameterVisibility,
   type AbiType,
@@ -14,16 +23,7 @@ import {
   type IntegerValue,
   type StructValue,
   type TypedStructFieldValue,
-} from '../abi/index.js';
-import {
-  AZTEC_INITIALIZER_ATTRIBUTE,
-  AZTEC_ONLY_SELF_ATTRIBUTE,
-  AZTEC_PRIVATE_ATTRIBUTE,
-  AZTEC_PUBLIC_ATTRIBUTE,
-  AZTEC_UTILITY_ATTRIBUTE,
-  AZTEC_VIEW_ATTRIBUTE,
-  type NoirCompiledContract,
-} from '../noir/index.js';
+} from './abi.js';
 
 /**
  * Serializes a contract artifact to a buffer for storage.

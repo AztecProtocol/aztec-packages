@@ -45,7 +45,7 @@ struct L1GasOracleValuesModel {
   uint256 slot_of_change;
 }
 
-struct ManaBaseFeeComponentsModel {
+struct ManaMinFeeComponentsModel {
   uint256 congestion_cost;
   uint256 congestion_multiplier;
   uint256 prover_cost;
@@ -66,8 +66,8 @@ struct TestPointOutputs {
   uint256 fee_asset_price_at_execution;
   L1FeesModel l1_fee_oracle_output;
   L1GasOracleValuesModel l1_gas_oracle_values;
-  ManaBaseFeeComponentsModel mana_base_fee_components_in_fee_asset;
-  ManaBaseFeeComponentsModel mana_base_fee_components_in_wei;
+  ManaMinFeeComponentsModel mana_min_fee_components_in_fee_asset;
+  ManaMinFeeComponentsModel mana_min_fee_components_in_wei;
 }
 
 struct TestPoint {
@@ -133,7 +133,7 @@ contract FeeModelTestPoints is TestBase {
     assertEq(a.mana_used, b.mana_used, "mana_used mismatch");
   }
 
-  function assertEq(ManaBaseFeeComponentsModel memory a, ManaBaseFeeComponentsModel memory b, string memory _message)
+  function assertEq(ManaMinFeeComponentsModel memory a, ManaMinFeeComponentsModel memory b, string memory _message)
     internal
     pure
   {

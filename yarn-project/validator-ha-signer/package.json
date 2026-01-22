@@ -1,0 +1,105 @@
+{
+  "name": "@aztec/validator-ha-signer",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./config": "./dest/config.js",
+    "./db": "./dest/db/index.js",
+    "./errors": "./dest/errors.js",
+    "./factory": "./dest/factory.js",
+    "./migrations": "./dest/migrations.js",
+    "./slashing-protection-service": "./dest/slashing_protection_service.js",
+    "./types": "./dest/types.js",
+    "./validator-ha-signer": "./dest/validator_ha_signer.js",
+    "./test": "./dest/test/pglite_pool.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/config.ts",
+      "./src/db/index.ts",
+      "./src/errors.ts",
+      "./src/factory.ts",
+      "./src/migrations.ts",
+      "./src/slashing_protection_service.ts",
+      "./src/types.ts",
+      "./src/validator_ha_signer.ts"
+    ],
+    "name": "Validator High-Availability Signer",
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "inherits": [
+    "../package.common.json"
+  ],
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/foundation": "workspace:^",
+    "node-pg-migrate": "^8.0.4",
+    "pg": "^8.11.3",
+    "tslib": "^2.4.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@types/node-pg-migrate": "^2.3.1",
+    "@types/pg": "^8.10.9",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "types": "./dest/types.d.ts",
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  }
+}

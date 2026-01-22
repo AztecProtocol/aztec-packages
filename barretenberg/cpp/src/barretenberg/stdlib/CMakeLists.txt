@@ -1,8 +1,6 @@
 add_subdirectory(hash)
-add_subdirectory(chonk_verifier)
 add_subdirectory(encryption)
 add_subdirectory(eccvm_verifier)
-add_subdirectory(goblin_verifier)
 add_subdirectory(primitives)
 add_subdirectory(honk_verifier)
 add_subdirectory(proof)

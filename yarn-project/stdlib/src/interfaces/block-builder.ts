@@ -1,16 +1,16 @@
-import type { Fr } from '@aztec/foundation/fields';
-import type { Timer } from '@aztec/foundation/timer';
+import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
-import type { MerkleTreeWriteOperations } from '../trees/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
-import type { GlobalVariables } from '../tx/global_variables.js';
+import type { CheckpointGlobalVariables, GlobalVariables } from '../tx/global_variables.js';
 import type { FailedTx, ProcessedTx } from '../tx/processed_tx.js';
 import { Tx } from '../tx/tx.js';
 import type { TxValidator } from '../tx/validator/tx_validator.js';
+import type { MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 import type { ProcessedTxHandler } from './processed-tx-handler.js';
 
 /** The interface to a block builder. Generates an L2 block out of a set of processed txs. */
@@ -46,33 +46,51 @@ export interface PublicProcessorValidator {
   preprocessValidator?: TxValidator<Tx>;
   nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
 }
-export interface BuildBlockResult {
-  block: L2Block;
-  publicGas: Gas;
-  publicProcessorDuration: number;
-  numMsgs: number;
-  numTxs: number;
-  failedTxs: FailedTx[];
-  blockBuildingTimer: Timer;
-  usedTxs: Tx[];
-}
 
 export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'>;
 
-export interface IFullNodeBlockBuilder {
-  getConfig(): FullNodeBlockBuilderConfig;
+export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
+  'l1GenesisTime',
+  'slotDuration',
+  'l1ChainId',
+  'rollupVersion',
+  'txPublicSetupAllowList',
+  'fakeProcessingDelayPerTxMs',
+  'fakeThrowAfterProcessingTxCount',
+] as const;
 
-  updateConfig(config: Partial<FullNodeBlockBuilderConfig>): void;
+/** Result of building a block within a checkpoint. */
+export interface BuildBlockInCheckpointResult {
+  block: L2Block;
+  publicGas: Gas;
+  publicProcessorDuration: number;
+  numTxs: number;
+  failedTxs: FailedTx[];
+  usedTxs: Tx[];
+  usedTxBlobFields: number;
+}
 
+/** Interface for building blocks within a checkpoint context. */
+export interface ICheckpointBlockBuilder {
   buildBlock(
-    txs: Iterable<Tx> | AsyncIterable<Tx>,
-    l1ToL2Messages: Fr[],
-    globalVariables: GlobalVariables,
-    options: PublicProcessorLimits,
-    fork?: MerkleTreeWriteOperations,
-  ): Promise<BuildBlockResult>;
+    pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+    blockNumber: BlockNumber,
+    timestamp: bigint,
+    opts: PublicProcessorLimits,
+  ): Promise<BuildBlockInCheckpointResult>;
+}
 
-  getFork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
+/** Interface for creating checkpoint builders. */
+export interface ICheckpointsBuilder {
+  getFork(blockNumber: BlockNumber): Promise<MerkleTreeWriteOperations>;
+
+  startCheckpoint(
+    checkpointNumber: CheckpointNumber,
+    constants: CheckpointGlobalVariables,
+    l1ToL2Messages: Fr[],
+    previousCheckpointOutHashes: Fr[],
+    fork: MerkleTreeWriteOperations,
+  ): Promise<ICheckpointBlockBuilder>;
 }

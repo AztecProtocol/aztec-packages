@@ -1,19 +1,20 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
+import {
+  EmpireSlashingProposerContract,
+  RollupContract,
+  TallySlashingProposerContract,
+} from '@aztec/ethereum/contracts';
+import { L1Deployer } from '@aztec/ethereum/deploy-l1-contract';
 import {
   EmpireSlashingProposerArtifact,
-  EmpireSlashingProposerContract,
-  type ExtendedViemWalletClient,
-  L1Deployer,
-  L1TxUtils,
-  RollupContract,
   SlasherArtifact,
   TallySlashingProposerArtifact,
-  TallySlashingProposerContract,
-  createExtendedL1Client,
-  createL1TxUtilsFromViemWallet,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/l1-artifacts';
+import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -96,12 +97,12 @@ describe('veto slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
       BOOT_NODE_UDP_PORT,
@@ -116,7 +117,7 @@ describe('veto slash', () => {
     );
     vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
       logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
+      dateProvider: t.ctx.dateProvider!,
     });
 
     ({ rollup } = await t.getContracts());
@@ -200,7 +201,7 @@ describe('veto slash', () => {
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
     const txUtils = createL1TxUtilsFromViemWallet(deployerClient, {
       logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
+      dateProvider: t.ctx.dateProvider!,
     });
     await txUtils.sendAndMonitorTransaction({
       to: slasher.toString(),
@@ -293,10 +294,10 @@ describe('veto slash', () => {
       await t.ctx.cheatCodes.eth.stopImpersonating(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress);
 
       const slasherAddress = await rollup.getSlasherAddress();
-      expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
+      expect(slasherAddress.toString().toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
       debugLogger.info(`\n\nnew slasher address: ${slasherAddress}\n\n`);
       const slasher = getContract({
-        address: slasherAddress,
+        address: slasherAddress.toString() as `0x${string}`,
         abi: SlasherAbi,
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
@@ -343,7 +344,7 @@ describe('veto slash', () => {
       const attester = privateKeyToAccount(attesterPrivateKey);
       const gseAddress = await rollup.getGSE();
       const gse = getContract({
-        address: gseAddress,
+        address: gseAddress.toString() as `0x${string}`,
         abi: GSEAbi,
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
@@ -362,7 +363,7 @@ describe('veto slash', () => {
       if (shouldVeto) {
         const slasherAddress = await rollup.getSlasherAddress();
         const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
-          to: slasherAddress,
+          to: slasherAddress.toString() as `0x${string}`,
           data: encodeFunctionData({
             abi: SlasherAbi,
             functionName: 'vetoPayload',

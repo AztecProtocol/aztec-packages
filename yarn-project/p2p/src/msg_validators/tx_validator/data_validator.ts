@@ -31,7 +31,9 @@ export class DataTxValidator implements TxValidator<Tx> {
     if (!tx.getTxHash().equals(expected)) {
       const reason = TX_ERROR_INCORRECT_HASH;
       this.#log.verbose(
-        `Rejecting tx ${tx.getTxHash().toString()}. Reason: ${reason}. Expected hash ${expected.toString()}. Got ${tx.getTxHash().toString()}.`,
+        `Rejecting tx ${tx.getTxHash().toString()}. Reason: ${reason}. Expected hash ${expected.toString()}. Got ${tx
+          .getTxHash()
+          .toString()}.`,
       );
       return reason;
     }
@@ -52,7 +54,9 @@ export class DataTxValidator implements TxValidator<Tx> {
     if (tx.getTotalPublicCalldataCount() > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
       const reason = TX_ERROR_CALLDATA_COUNT_TOO_LARGE;
       this.#log.verbose(
-        `Rejecting tx ${tx.getTxHash().toString()}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS} fields. Got ${tx.getTotalPublicCalldataCount()}.`,
+        `Rejecting tx ${tx
+          .getTxHash()
+          .toString()}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS} fields. Got ${tx.getTotalPublicCalldataCount()}.`,
       );
       return reason;
     }
@@ -89,7 +93,9 @@ export class DataTxValidator implements TxValidator<Tx> {
         if (expectedHashes.some(h => logHash.value.equals(h))) {
           const matchingLogIndex = expectedHashes.findIndex(l => logHash.value.equals(l));
           this.#log.verbose(
-            `Rejecting tx ${tx.getTxHash().toString()} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
+            `Rejecting tx ${tx
+              .getTxHash()
+              .toString()} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
           );
           return TX_ERROR_CONTRACT_CLASS_LOG_SORTING;
         } else {
@@ -105,7 +111,9 @@ export class DataTxValidator implements TxValidator<Tx> {
       const expectedMinLength = 1 + tx.contractClassLogFields[i].fields.findLastIndex(f => !f.isZero());
       if (logHash.logHash.length < expectedMinLength) {
         this.#log.verbose(
-          `Rejecting tx ${tx.getTxHash().toString()} because of incorrect contract class log length. Expected the length to be at least ${expectedMinLength}. Got ${
+          `Rejecting tx ${tx
+            .getTxHash()
+            .toString()} because of incorrect contract class log length. Expected the length to be at least ${expectedMinLength}. Got ${
             logHash.logHash.length
           }.`,
         );

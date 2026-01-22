@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -31,6 +31,8 @@ void aes128_encrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key,
 void aes128_decrypt_buffer_cbc(uint8_t* buf, uint8_t* iv, const uint8_t* key, const size_t length);
 
 constexpr uint64_t aes128_sparse_base = 9;
+
+// The AES S-box lookup table according to the FIPS 197 standard
 static constexpr uint8_t aes128_sbox[256] = {
     // 0     1    2      3     4    5     6     7      8    9     A      B    C     D     E     F
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76, 0xca, 0x82, 0xc9,

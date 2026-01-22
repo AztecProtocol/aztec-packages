@@ -80,14 +80,13 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
             uint32_t index = 0;
             auto calldata_fields = all_calldata_fields[j];
             auto context_id = context_ids[j];
-            calldata_fields.insert(calldata_fields.begin(), GENERATOR_INDEX__PUBLIC_CALLDATA);
+            calldata_fields.insert(calldata_fields.begin(), DOM_SEP__PUBLIC_CALLDATA);
             auto hash = poseidon2.hash(calldata_fields);
             auto calldata_field_at = [&calldata_fields](size_t i) -> FF {
                 return i < calldata_fields.size() ? calldata_fields[i] : 0;
             };
             events.push_back({
                 .context_id = context_id,
-                .calldata_size = static_cast<uint32_t>(all_calldata_fields[j].size()),
                 .calldata = all_calldata_fields[j],
             });
             auto padding_amount = (3 - (calldata_fields.size() % 3)) % 3;
@@ -137,14 +136,14 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneRow)
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     std::vector<FF> calldata_fields = { 1, 2 };
 
-    auto hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA, 1, 2 });
+    auto hash = poseidon2.hash({ DOM_SEP__PUBLIC_CALLDATA, 1, 2 });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::calldata_hashing_index_1_, 1 },
             { C::calldata_hashing_index_2_, 2 },
-            { C::calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA },
+            { C::calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA },
             { C::calldata_hashing_input_1_, 1 },
             { C::calldata_hashing_input_2_, 2 },
             { C::calldata_hashing_input_len, 3 },
@@ -175,14 +174,14 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneElt)
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     std::vector<FF> calldata_fields = { 2 };
 
-    auto hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA, 2 });
+    auto hash = poseidon2.hash({ DOM_SEP__PUBLIC_CALLDATA, 2 });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::calldata_hashing_index_1_, 1 },
             { C::calldata_hashing_index_2_, 2 },
-            { C::calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA },
+            { C::calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA },
             { C::calldata_hashing_input_1_, 2 },
             { C::calldata_hashing_input_2_, 0 },
             { C::calldata_hashing_input_len, 2 },
@@ -213,14 +212,14 @@ TEST_F(CalldataHashingConstrainingTest, EmptyCalldataHash)
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     std::vector<FF> calldata_fields = {};
 
-    auto hash = poseidon2.hash({ GENERATOR_INDEX__PUBLIC_CALLDATA });
+    auto hash = poseidon2.hash({ DOM_SEP__PUBLIC_CALLDATA });
 
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
             { C::calldata_hashing_index_1_, 1 },
             { C::calldata_hashing_index_2_, 2 },
-            { C::calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA },
+            { C::calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA },
             { C::calldata_hashing_input_1_, 0 },
             { C::calldata_hashing_input_2_, 0 },
             { C::calldata_hashing_input_len, 1 },
@@ -598,7 +597,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
         {
             { C::calldata_hashing_index_1_, 1 },
             { C::calldata_hashing_index_2_, 2 },
-            { C::calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA },
+            { C::calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA },
             { C::calldata_hashing_input_1_, calldata_fields[0] },
             { C::calldata_hashing_input_2_, calldata_fields[1] },
             { C::calldata_hashing_input_len, 6 },
@@ -635,7 +634,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
     builder.process_retrieval({ { .context_id = 1, .calldata = calldata_fields } }, trace);
     // Set the correct hash...
     auto good_hash = poseidon2_int.hash({
-        GENERATOR_INDEX__PUBLIC_CALLDATA,
+        DOM_SEP__PUBLIC_CALLDATA,
         calldata_fields[0],
         calldata_fields[1],
         calldata_fields[2],
@@ -674,7 +673,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
         {
             { C::calldata_hashing_index_1_, 1 },
             { C::calldata_hashing_index_2_, 2 },
-            { C::calldata_hashing_input_0_, GENERATOR_INDEX__PUBLIC_CALLDATA },
+            { C::calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA },
             { C::calldata_hashing_input_1_, calldata_fields[0] },
             { C::calldata_hashing_input_2_, calldata_fields[1] },
             { C::calldata_hashing_input_len, 11 },
@@ -748,7 +747,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
         0xa,
         0xb,
         0xc,
-        GENERATOR_INDEX__PUBLIC_CALLDATA,
+        DOM_SEP__PUBLIC_CALLDATA,
         calldata_fields[0],
         calldata_fields[1],
         calldata_fields[2],
@@ -761,7 +760,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
         calldata_fields[9],
     });
     auto bad_hash_misordered = poseidon2_int.hash({
-        GENERATOR_INDEX__PUBLIC_CALLDATA,
+        DOM_SEP__PUBLIC_CALLDATA,
         calldata_fields[0],
         calldata_fields[1],
         calldata_fields[5],

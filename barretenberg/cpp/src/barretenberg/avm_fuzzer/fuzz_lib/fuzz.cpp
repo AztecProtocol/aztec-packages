@@ -1,61 +1,80 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 
+#include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
-void log_result(const SimulatorResult& result)
-{
-    info("Reverted: ", result.reverted);
-    info("Output: ", result.output);
-}
+using namespace bb::avm2::fuzzer;
 
-SimulatorResult fuzz(FuzzerData& fuzzer_data)
+SimulatorResult fuzz_against_ts_simulator(FuzzerData& fuzzer_data, FuzzerContext& context)
 {
-    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
     auto control_flow = ControlFlow(fuzzer_data.instruction_blocks);
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
         control_flow.process_cfg_instruction(cfg_instruction);
     }
-    if (logging_enabled) {
-        info("Fuzzer data: ", fuzzer_data);
-    }
+    fuzz_info("Instructions: ", fuzzer_data.instruction_blocks);
+    fuzz_info("Calldata: ", fuzzer_data.calldata);
+
     auto bytecode = control_flow.build_bytecode(fuzzer_data.return_options);
-    if (logging_enabled) {
-        info("Bytecode: ", bytecode);
-    }
+    fuzz_info("Bytecode: ", bytecode);
 
     auto cpp_simulator = CppSimulator();
     JsSimulator* js_simulator = JsSimulator::getInstance();
     SimulatorResult cpp_result;
+
+    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+
+    auto contract_address = context.register_contract_from_bytecode(bytecode);
+    FuzzerContractDB contract_db = context.get_contract_db();
+
+    // Create the transaction
+    auto tx = create_default_tx(
+        contract_address, MSG_SENDER, fuzzer_data.calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
+
+    FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
+    FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
+    ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
+
+    auto globals = create_default_globals();
+
     try {
-        cpp_result = cpp_simulator.simulate(bytecode, fuzzer_data.calldata);
+        ws_mgr->checkpoint();
+        cpp_result = cpp_simulator.simulate(*ws_mgr,
+                                            contract_db,
+                                            tx,
+                                            globals,
+                                            /*public_data_writes=*/{},
+                                            /*note_hashes=*/{},
+                                            /*protocol_contracts=*/{});
+        ws_mgr->revert();
     } catch (const std::exception& e) {
-        std::cout << "Error simulating with CppSimulator: " << e.what() << std::endl;
-        throw std::runtime_error("Error simulating with CppSimulator");
+        throw std::runtime_error(std::string("CppSimulator threw an exception: ") + e.what());
     }
 
-    auto js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
+    ws_mgr->checkpoint();
+    auto js_result = js_simulator->simulate(*ws_mgr,
+                                            contract_db,
+                                            tx,
+                                            globals,
+                                            /*public_data_writes=*/{},
+                                            /*note_hashes=*/{},
+                                            /*protocol_contracts=*/{});
+
+    context.reset();
 
     // If the results does not match
     if (!compare_simulator_results(cpp_result, js_result)) {
-        // we restart the js simulator, becuase it works on the same worldstate for every run
-        // while cpp simulator works on a new worldstate for every run
-        JsSimulator::restart_simulator();
-        js_simulator = JsSimulator::getInstance();
-        js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
-        // if the bug is persistent on "cleared" worldstate, we throw an error
-        if (!compare_simulator_results(cpp_result, js_result)) {
-            info("CppSimulator result: ");
-            log_result(cpp_result);
-            info("JsSimulator result: ");
-            log_result(js_result);
-            throw std::runtime_error("Simulator results are different");
-        }
+        fuzz_info("CppSimulator ", cpp_result);
+        fuzz_info("JsSimulator  ", js_result);
+        throw std::runtime_error("Simulator results are different");
     }
-    if (logging_enabled) {
-        info("Simulator results match successfully");
-        log_result(cpp_result);
-    }
+    fuzz_info("Simulator results match successfully");
+    fuzz_info("CppSimulator ", cpp_result);
+    fuzz_info("JsSimulator  ", js_result);
     return cpp_result;
 }

@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/bb_bench.hpp"
@@ -18,7 +12,7 @@ namespace bb {
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_with_precomputed_vks(
+std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_with_precomputed_vks(
     size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
@@ -36,7 +30,7 @@ std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_with_precom
 
         ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
     }
-    return { ivc.prove(), ivc.get_vk() };
+    return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
 }
 
 std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(const size_t num_app_circuits,

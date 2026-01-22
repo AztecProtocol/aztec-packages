@@ -1,8 +1,7 @@
 use crate::{
-    abis::TxRollupPublicInputs,
+    abis::{ParityPublicInputs, TxRollupPublicInputs},
     tx_merge::utils::validate_consecutive_tx_rollups::validate_consecutive_tx_rollups,
 };
-use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
@@ -39,6 +38,7 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
 
     // Check that the block number matches the next available leaf index in the archive, ensuring the hash of the block
     // header will be inserted at the correct position.
+    // We convert with `as Field` instead of converting the other `as u32` to avoid truncating the next_available_leaf_index.
     let constants = previous_rollups[0].public_inputs.constants;
     assert_eq(
         constants.global_variables.block_number as Field,

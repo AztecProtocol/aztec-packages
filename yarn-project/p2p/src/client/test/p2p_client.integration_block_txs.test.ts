@@ -1,12 +1,13 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -57,6 +58,7 @@ describe('p2p client integration block txs protocol ', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
 
+    txPool.isEmpty.mockResolvedValue(true);
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
@@ -66,14 +68,16 @@ describe('p2p client integration block txs protocol ', () => {
       return Promise.resolve([] as Tx[]);
     });
 
+    attestationPool.isEmpty.mockResolvedValue(true);
+
     worldState.status.mockResolvedValue({
       state: mock(),
       syncSummary: {
-        latestBlockNumber: 0,
+        latestBlockNumber: BlockNumber.ZERO,
         latestBlockHash: '',
-        finalizedBlockNumber: 0,
+        finalizedBlockNumber: BlockNumber.ZERO,
         treesAreSynched: false,
-        oldestHistoricBlockNumber: 0,
+        oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
     logger.info(`Starting test ${expect.getState().currentTestName}`);
@@ -95,7 +99,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     txs = await Promise.all(times(5, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const blockProposal = createBlockProposal(blockNumber, blockHash, txHashes);
+    const blockProposal = await createBlockProposal(BlockNumber(blockNumber), blockHash, txHashes);
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
   });
 
@@ -117,11 +121,11 @@ describe('p2p client integration block txs protocol ', () => {
     await sleep(1000);
   };
 
-  const createBlockProposal = (blockNumber: number, blockHash: any, txHashes: any[]) => {
+  const createBlockProposal = (blockNumber: BlockNumber, blockHash: any, txHashes: any[]) => {
     return makeBlockProposal({
       signer: Secp256k1Signer.random(),
-      header: makeL2BlockHeader(1, blockNumber),
-      archive: blockHash,
+      blockHeader: makeBlockHeader(1, { blockNumber }),
+      archiveRoot: blockHash,
       txHashes,
     });
   };

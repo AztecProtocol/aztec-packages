@@ -14,8 +14,8 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
-import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -28,7 +28,6 @@ import { RevertCode } from '../avm/revert_code.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
-import { computeTxOutHash } from '../messaging/out_hash.js';
 import { TxHash } from './tx_hash.js';
 
 export class TxEffect {
@@ -184,14 +183,6 @@ export class TxEffect {
     );
   }
 
-  /**
-   * Computes txOutHash of this tx effect.
-   * @dev Follows new_sha in unbalanced_merkle_tree.nr
-   */
-  txOutHash(): Fr {
-    return computeTxOutHash(this.l2ToL1Msgs);
-  }
-
   static async random({
     numNoteHashes,
     numNullifiers,
@@ -214,12 +205,14 @@ export class TxEffect {
     maxEffects?: number;
   } = {}): Promise<TxEffect> {
     const count = (max: number, num?: number) => num ?? Math.min(maxEffects ?? randomInt(max), max);
+    // Every tx effect must have at least 1 nullifier (the first nullifier is used for log indexing)
+    const countNullifiers = (max: number, num?: number) => Math.max(1, count(max, num));
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
       makeTuple(count(MAX_NOTE_HASHES_PER_TX, numNoteHashes), Fr.random),
-      makeTuple(count(MAX_NULLIFIERS_PER_TX, numNullifiers), Fr.random),
+      makeTuple(countNullifiers(MAX_NULLIFIERS_PER_TX, numNullifiers), Fr.random),
       makeTuple(count(MAX_L2_TO_L1_MSGS_PER_TX, numL2ToL1Msgs), Fr.random),
       makeTuple(count(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, numPublicDataWrites), PublicDataWrite.random),
       makeTuple(count(MAX_PRIVATE_LOGS_PER_TX, numPrivateLogs), () => PrivateLog.random()),

@@ -1,9 +1,9 @@
 import type { BBProverConfig } from '@aztec/bb-prover';
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -44,7 +44,9 @@ import { getEnvironmentConfig, getSimulator, makeCheckpointConstants, makeGlobal
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
   private checkpoints: Checkpoint[] = [];
+  private checkpointOutHashes: Fr[] = [];
   private nextCheckpointIndex = 0;
+  private nextCheckpointNumber = CheckpointNumber(1);
   private nextBlockNumber = 1;
   private epochNumber = 1;
   private feePayerBalance: Fr;
@@ -150,6 +152,7 @@ export class TestContext {
 
   public startNewEpoch() {
     this.checkpoints = [];
+    this.checkpointOutHashes = [];
     this.nextCheckpointIndex = 0;
     this.epochNumber++;
   }
@@ -187,7 +190,8 @@ export class TestContext {
     }
 
     const checkpointIndex = this.nextCheckpointIndex++;
-    const checkpointNumber = CheckpointNumber(checkpointIndex + 1);
+    const checkpointNumber = this.nextCheckpointNumber;
+    this.nextCheckpointNumber++;
     const slotNumber = checkpointNumber * 15; // times an arbitrary number to make it different to the checkpoint number
 
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
@@ -203,7 +207,9 @@ export class TestContext {
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, fork);
 
     const startBlockNumber = this.nextBlockNumber;
-    const previousBlockHeader = this.getBlockHeader(startBlockNumber - 1);
+    const previousBlockHeader = this.getBlockHeader(BlockNumber(startBlockNumber - 1));
+    // All blocks in the same slot/checkpoint share the same timestamp.
+    const timestamp = BigInt(slotNumber * 26);
 
     // Build global variables.
     const blockGlobalVariables = times(numBlocks, i =>
@@ -211,6 +217,7 @@ export class TestContext {
         coinbase: constants.coinbase,
         feeRecipient: constants.feeRecipient,
         gasFees: constants.gasFees,
+        timestamp,
       }),
     );
     this.nextBlockNumber += numBlocks;
@@ -240,33 +247,38 @@ export class TestContext {
     });
 
     const cleanFork = await this.worldState.fork();
+    const previousCheckpointOutHashes = this.checkpointOutHashes;
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       constants,
       l1ToL2Messages,
+      previousCheckpointOutHashes,
       cleanFork,
     );
 
     // Add tx effects to db and build block headers.
     const blocks = [];
     for (let i = 0; i < numBlocks; i++) {
-      const isFirstBlock = i === 0;
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const block = await builder.addBlock(blockGlobalVariables[i], state, txs);
+      const block = await builder.addBlock(blockGlobalVariables[i], txs, {
+        expectedEndState: state,
+        insertTxsEffects: true,
+      });
 
       const header = block.header;
       this.headers.set(block.number, header);
 
-      const blockMsgs = isFirstBlock ? l1ToL2Messages : [];
-      await this.worldState.handleL2BlockAndMessages(block, blockMsgs, isFirstBlock);
+      const blockMsgs = block.indexWithinCheckpoint === 0 ? l1ToL2Messages : [];
+      await this.worldState.handleL2BlockAndMessages(block, blockMsgs);
 
       blocks.push({ header, txs });
     }
 
     const checkpoint = await builder.completeCheckpoint();
     this.checkpoints.push(checkpoint);
+    this.checkpointOutHashes.push(checkpoint.getCheckpointOutHash());
 
     return {
       constants,
@@ -297,11 +309,13 @@ export class TestContext {
     return tx;
   }
 
-  private getBlockHeader(blockNumber: number): BlockHeader {
-    if (blockNumber > 0 && blockNumber >= this.nextBlockNumber) {
+  private getBlockHeader(blockNumber: BlockNumber): BlockHeader {
+    if (Number(blockNumber) > 0 && Number(blockNumber) >= this.nextBlockNumber) {
       throw new Error(`Block header not built for block number ${blockNumber}.`);
     }
-    return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber)!;
+    return Number(blockNumber) === 0
+      ? this.worldState.getCommitted().getInitialHeader()
+      : this.headers.get(Number(blockNumber))!;
   }
 
   private async updateTrees(txs: ProcessedTx[], fork: MerkleTreeWriteOperations) {

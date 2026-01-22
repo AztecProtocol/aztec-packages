@@ -61,8 +61,7 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bc_retrieval_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::bc_retrieval_instance_exists))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::bc_retrieval_instance_exists))) *
                    static_cast<View>(in.get(C::bc_retrieval_is_new_class));
         std::get<5>(evals) += (tmp * scaling_factor);
     }

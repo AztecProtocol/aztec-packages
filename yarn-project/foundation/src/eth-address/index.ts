@@ -2,7 +2,7 @@ import { inspect } from 'util';
 
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
-import { Fr } from '../fields/index.js';
+import { Fr } from '../curves/bn254/index.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
@@ -249,7 +249,7 @@ export class EthAddress {
   /** Converts a number into an address. Useful for testing. */
   static fromNumber(num: bigint | number): EthAddress {
     const buffer = Buffer.alloc(EthAddress.SIZE_IN_BYTES);
-    buffer.writeBigUInt64BE(BigInt(num), 0);
+    buffer.writeBigUInt64BE(BigInt(num), EthAddress.SIZE_IN_BYTES - 8);
     return new EthAddress(buffer);
   }
 
@@ -260,6 +260,12 @@ export class EthAddress {
   static get schema() {
     // Serialization from hex string.
     return hexSchemaFor(EthAddress, EthAddress.isAddress);
+  }
+
+  static areEqual(a: EthAddress | string, b: EthAddress | string) {
+    const addrA = typeof a === 'string' ? EthAddress.fromString(a) : a;
+    const addrB = typeof b === 'string' ? EthAddress.fromString(b) : b;
+    return addrA.equals(addrB);
   }
 }
 

@@ -9,9 +9,9 @@ contract OffchainEffect {
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
         protocol_types::{address::AztecAddress, traits::Serialize},
-        state_vars::{Map, PrivateSet},
+        state_vars::{Owned, PrivateSet},
     };
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[event]
     struct TestEvent {
@@ -28,7 +28,7 @@ contract OffchainEffect {
 
     #[storage]
     struct Storage<Context> {
-        balances: Map<AztecAddress, PrivateSet<UintNote, Context>, Context>,
+        balances: Owned<PrivateSet<UintNote, Context>, Context>,
     }
 
     #[external("private")]
@@ -50,20 +50,16 @@ contract OffchainEffect {
 
     #[external("private")]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        self.emit(
-            TestEvent { a, b, c },
-            self.msg_sender().unwrap(),
-            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
-        );
+        self.emit(TestEvent { a, b, c }).deliver_to(self.msg_sender(), MessageDelivery.OFFCHAIN);
     }
 
     #[external("private")]
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
-        let note = UintNote::new(value, owner);
+        let note = UintNote { value };
 
-        self.storage.balances.at(owner).insert(note).emit(
-            self.msg_sender().unwrap(),
-            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
+        self.storage.balances.at(owner).insert(note).deliver_to(
+            self.msg_sender(),
+            MessageDelivery.OFFCHAIN,
         );
     }
 
@@ -76,6 +72,6 @@ contract OffchainEffect {
     unconstrained fn get_note_value(owner: AztecAddress) -> u128 {
         let notes = self.storage.balances.at(owner).view_notes(NoteViewerOptions::new());
         assert(notes.len() == 1, "No note found");
-        notes.get(0).get_value()
+        notes.get(0).value
     }
 }

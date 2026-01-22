@@ -14,10 +14,10 @@ template <typename FF_> class keccak_memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 46> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 4, 3, 5, 3, 4, 3,
-                                                                            3, 3, 3, 4, 3, 3, 3, 5, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 3, 5, 3, 3,
+                                                                            3, 4, 3, 3, 3, 3, 4, 3, 3, 3, 5, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,50 +38,55 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
     static constexpr const std::string_view NAME = "keccak_memory";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_CTR_INIT = 3;
-    static constexpr size_t SR_RW_READ_INIT = 4;
-    static constexpr size_t SR_RW_WRITE_INIT = 5;
-    static constexpr size_t SR_SEL_CTR_NON_ZERO = 6;
-    static constexpr size_t SR_CTR_END = 8;
-    static constexpr size_t SR_LAST = 9;
-    static constexpr size_t SR_CTR_INCREMENT = 10;
-    static constexpr size_t SR_NO_TAG_ERROR_ON_WRITE = 12;
-    static constexpr size_t SR_TAG_ERROR_INIT = 13;
-    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 14;
-    static constexpr size_t SR_MEM_ADDR_INCREMENT = 15;
-    static constexpr size_t SR_SPACEID_PROPAGATION = 16;
-    static constexpr size_t SR_CLK_PROPAGATION = 17;
-    static constexpr size_t SR_RW_PROPAGATION = 18;
-    static constexpr size_t SR_SINGLE_TAG_ERROR = 19;
-    static constexpr size_t SR_SINGLE_TAG_ERROR_BOOLEAN = 20;
-    static constexpr size_t SR_VAL01 = 21;
-    static constexpr size_t SR_VAL02 = 22;
-    static constexpr size_t SR_VAL03 = 23;
-    static constexpr size_t SR_VAL04 = 24;
-    static constexpr size_t SR_VAL05 = 25;
-    static constexpr size_t SR_VAL06 = 26;
-    static constexpr size_t SR_VAL07 = 27;
-    static constexpr size_t SR_VAL8 = 28;
-    static constexpr size_t SR_VAL09 = 29;
-    static constexpr size_t SR_VAL10 = 30;
-    static constexpr size_t SR_VAL11 = 31;
-    static constexpr size_t SR_VAL12 = 32;
-    static constexpr size_t SR_VAL13 = 33;
-    static constexpr size_t SR_VAL14 = 34;
-    static constexpr size_t SR_VAL15 = 35;
-    static constexpr size_t SR_VAL41 = 36;
-    static constexpr size_t SR_VAL17 = 37;
-    static constexpr size_t SR_VAL18 = 38;
-    static constexpr size_t SR_VAL19 = 39;
-    static constexpr size_t SR_VAL20 = 40;
-    static constexpr size_t SR_VAL21 = 41;
-    static constexpr size_t SR_VAL22 = 42;
-    static constexpr size_t SR_VAL23 = 43;
-    static constexpr size_t SR_VAL24 = 44;
+    static constexpr size_t SR_TRACE_CONTINUITY = 1;
+    static constexpr size_t SR_CTR_INIT = 4;
+    static constexpr size_t SR_RW_READ_INIT = 5;
+    static constexpr size_t SR_RW_WRITE_INIT = 6;
+    static constexpr size_t SR_SEL_CTR_NON_ZERO = 7;
+    static constexpr size_t SR_CTR_END = 9;
+    static constexpr size_t SR_LAST = 10;
+    static constexpr size_t SR_LAST_HAS_SEL_ON = 11;
+    static constexpr size_t SR_START_AFTER_LATCH = 12;
+    static constexpr size_t SR_CTR_INCREMENT = 13;
+    static constexpr size_t SR_SINGLE_TAG_ERROR_BOOLEAN = 14;
+    static constexpr size_t SR_NO_TAG_ERROR_ON_WRITE = 15;
+    static constexpr size_t SR_TAG_ERROR_INIT = 16;
+    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 17;
+    static constexpr size_t SR_MEM_ADDR_INCREMENT = 18;
+    static constexpr size_t SR_SPACEID_PROPAGATION = 19;
+    static constexpr size_t SR_CLK_PROPAGATION = 20;
+    static constexpr size_t SR_RW_PROPAGATION = 21;
+    static constexpr size_t SR_SINGLE_TAG_ERROR = 22;
+    static constexpr size_t SR_VAL01 = 23;
+    static constexpr size_t SR_VAL02 = 24;
+    static constexpr size_t SR_VAL03 = 25;
+    static constexpr size_t SR_VAL04 = 26;
+    static constexpr size_t SR_VAL05 = 27;
+    static constexpr size_t SR_VAL06 = 28;
+    static constexpr size_t SR_VAL07 = 29;
+    static constexpr size_t SR_VAL8 = 30;
+    static constexpr size_t SR_VAL09 = 31;
+    static constexpr size_t SR_VAL10 = 32;
+    static constexpr size_t SR_VAL11 = 33;
+    static constexpr size_t SR_VAL12 = 34;
+    static constexpr size_t SR_VAL13 = 35;
+    static constexpr size_t SR_VAL14 = 36;
+    static constexpr size_t SR_VAL15 = 37;
+    static constexpr size_t SR_VAL16 = 38;
+    static constexpr size_t SR_VAL17 = 39;
+    static constexpr size_t SR_VAL18 = 40;
+    static constexpr size_t SR_VAL19 = 41;
+    static constexpr size_t SR_VAL20 = 42;
+    static constexpr size_t SR_VAL21 = 43;
+    static constexpr size_t SR_VAL22 = 44;
+    static constexpr size_t SR_VAL23 = 45;
+    static constexpr size_t SR_VAL24 = 46;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_CTR_INIT:
             return "CTR_INIT";
         case SR_RW_READ_INIT:
@@ -94,8 +99,14 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "CTR_END";
         case SR_LAST:
             return "LAST";
+        case SR_LAST_HAS_SEL_ON:
+            return "LAST_HAS_SEL_ON";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_CTR_INCREMENT:
             return "CTR_INCREMENT";
+        case SR_SINGLE_TAG_ERROR_BOOLEAN:
+            return "SINGLE_TAG_ERROR_BOOLEAN";
         case SR_NO_TAG_ERROR_ON_WRITE:
             return "NO_TAG_ERROR_ON_WRITE";
         case SR_TAG_ERROR_INIT:
@@ -112,8 +123,6 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "RW_PROPAGATION";
         case SR_SINGLE_TAG_ERROR:
             return "SINGLE_TAG_ERROR";
-        case SR_SINGLE_TAG_ERROR_BOOLEAN:
-            return "SINGLE_TAG_ERROR_BOOLEAN";
         case SR_VAL01:
             return "VAL01";
         case SR_VAL02:
@@ -144,8 +153,8 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "VAL14";
         case SR_VAL15:
             return "VAL15";
-        case SR_VAL41:
-            return "VAL41";
+        case SR_VAL16:
+            return "VAL16";
         case SR_VAL17:
             return "VAL17";
         case SR_VAL18:

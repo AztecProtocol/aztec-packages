@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -42,14 +42,13 @@ polynomials to \f$ T^i(X_i)\f$
  */
 
 template <typename Flavor> class SumcheckProverRound {
-
-    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
+
+  public:
+    using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
-
-  public:
     using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
@@ -232,7 +231,8 @@ template <typename Flavor> class SumcheckProverRound {
         // in range starting at index: chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size
         // up to index (not included): chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size
         //
-        // Pattern over edges is now:
+        // Pattern over edges is now (note that horizontal direction here is edge direction, i.e., vertical direction in
+        // the trace):
         //
         //          chunk_0             |           chunk_1             |         chunk_2 ....
         //  thread_0 | thread_1 ...     | thread_0 | thread_1 ...       | thread_0 | thread_1 ...
@@ -248,35 +248,36 @@ template <typename Flavor> class SumcheckProverRound {
         // not at least 2, we fallback to using a single chunk. Note that chunk_size and num_of_chunks are not constant
         // but are derived by round_size, num_threads and the chunk_thread_portion_size which needs to satisfy: 1) 2 <=
         // chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE 2) chunk_thread_portion_size * num_threads <=
-        // round_size For the non-AVM flavors, we use a single chunk.
+        // round_size.
 
-        // Non AVM flavors
         size_t num_of_chunks = 1;
-        size_t chunk_thread_portion_size = round_size / num_threads;
+        size_t chunk_size = round_size / num_of_chunks;
+        size_t chunk_thread_portion_size = chunk_size / num_threads;
 
         // This constant is assumed to be a power of 2 greater or equal to 2.
         static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
         static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
 
-        // When the number of edges is so small that the chunk portion size per thread is lower than 2,
-        // we fall back to a single chunk, i.e., we keep the "non-AVM" values.
-        if (round_size / num_threads >= 2) {
-            chunk_thread_portion_size = std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
+        // If chunk_thread_portion_size is at least 2, we update its value based on
+        // Flavor::MAX_CHUNK_THREAD_PORTION_SIZE
+        if (chunk_thread_portion_size >= 2) {
+            chunk_thread_portion_size = std::min(chunk_thread_portion_size, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
             num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
+            chunk_size = round_size / num_of_chunks;
             // We show that chunk_thread_portion_size satisfies 1) and 2) defined above.
-            // From "std::min()": chunk_thread_portion_size <= round_size/num_threads implying 2)
-            // From static_assert above, and "if condition", we know that both values in "std::min()"
-            // are >= 2 and therefore: chunk_thread_portion_size >= 2
-            // Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
-            // which completes 1).
+            // - From "std::min()": chunk_thread_portion_size <= round_size/num_threads (where we used that the initial
+            //   value of chunk_thread_portion_size is round_size/num_threads) implying 2)
+            // - From static_assert above, and the "if condition", we know that both values in "std::min()" are >= 2 and
+            //   therefore: chunk_thread_portion_size >= 2
+            // - Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE which
+            //   completes 1).
         }
 
-        size_t chunk_size = round_size / num_of_chunks;
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
-        // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
+        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
             // Construct extended univariates containers; one per thread
             ExtendedEdges lazy_extended_edges(polynomials);
@@ -375,7 +376,6 @@ template <typename Flavor> class SumcheckProverRound {
 
         const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
         const size_t num_threads = bb::calculate_num_threads_pow2(effective_round_size, min_iterations_per_thread);
-        const size_t iterations_per_thread = effective_round_size / num_threads; // actual iterations per thread
 
         std::vector<BlockOfContiguousRows> result;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
@@ -383,9 +383,14 @@ template <typename Flavor> class SumcheckProverRound {
         if constexpr (can_skip_rows) {
             std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(num_threads);
             parallel_for(num_threads, [&](size_t thread_idx) {
+                ThreadChunk chunk{ .thread_index = thread_idx, .total_threads = num_threads };
+                auto range = chunk.range(effective_round_size);
+                if (range.empty()) {
+                    return;
+                }
                 size_t current_block_size = 0;
-                size_t start = thread_idx * iterations_per_thread;
-                size_t end = (thread_idx + 1) * iterations_per_thread;
+                size_t start = *range.begin();
+                size_t end = start + range.size();
                 std::vector<BlockOfContiguousRows> thread_blocks;
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
@@ -686,6 +691,15 @@ template <typename Flavor> class SumcheckProverRound {
         } else {
             return libra_round_univariate.template extend_to<SumcheckRoundUnivariate::LENGTH>();
         }
+    }
+
+    // Methods made accessible for testing
+    void accumulate_relation_univariates_public(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                const auto& extended_edges,
+                                                const bb::RelationParameters<FF>& relation_parameters,
+                                                const FF& scaling_factor)
+    {
+        accumulate_relation_univariates(univariate_accumulators, extended_edges, relation_parameters, scaling_factor);
     }
 
   private:

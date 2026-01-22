@@ -81,8 +81,7 @@ TEST(SStoreConstrainingTest, NegativeDynamicL2GasIsZero)
         { C::execution_sel_execute_sstore, 1 },
         { C::execution_dynamic_l2_gas_factor, 1 },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SSTORE_DYN_L2_GAS_IS_ZERO),
-                              "SSTORE_DYN_L2_GAS_IS_ZERO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_DYN_L2_GAS_IS_ZERO), "DYN_L2_GAS_IS_ZERO");
 }
 
 TEST(SStoreConstrainingTest, MaxDataWritesReached)
@@ -182,6 +181,27 @@ TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
     trace.set(C::execution_public_data_tree_size, 0, 7);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED),
                               "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED");
+}
+
+// Test that ghost rows (sel_execute_sstore=0) cannot set sel_write_public_data=1
+// This verifies the fix: sel_write_public_data * (1 - sel_execute_sstore) = 0
+TEST(SStoreConstrainingTest, NegativeGhostRowStorageWrite_RelationsOnly)
+{
+    // Try to create a ghost row (sel_execute_sstore=0) with sel_write_public_data=1
+    TestTraceContainer trace({
+        {
+            { C::execution_sel_execute_sstore, 0 },        // Ghost row: sstore not executing
+            { C::execution_sel_write_public_data, 1 },     // Try to fire storage write anyway
+            { C::execution_register_0_, /*value=*/999 },   // Arbitrary value
+            { C::execution_register_1_, /*slot=*/666 },    // Arbitrary slot
+            { C::execution_contract_address, 0xDEADBEEF }, // Arbitrary address
+            { C::execution_sel_opcode_error, 0 },
+        },
+    });
+
+    // The fix: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
+    // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * (1-0) = 1 != 0 -> FAILS
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
 }
 
 TEST(SStoreConstrainingTest, Interactions)
@@ -284,6 +304,114 @@ TEST(SStoreConstrainingTest, Interactions)
     check_multipermutation_interaction<PublicDataTreeTraceBuilder,
                                        perm_sstore_storage_write_settings,
                                        perm_tx_balance_update_settings>(trace);
+}
+
+// Ghost row injection attack test.
+// Verifies that the fix (sel_write_public_data * (1 - sel_execute_sstore) = 0) prevents
+// a malicious prover from injecting arbitrary storage writes via ghost sstore rows.
+//
+// Attack vector (now blocked):
+// 1. Create ghost sstore row (sel_execute_sstore=0, sel_write_public_data=1)
+// 2. Populate public_data_check trace with legitimate rows via simulation
+// 3. Align clk values so the STORAGE_WRITE permutation matches
+// 4. Without the fix, the permutation would pass and arbitrary writes would be possible
+TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
+{
+    NiceMock<MockPoseidon2> poseidon2;
+    NiceMock<MockFieldGreaterThan> field_gt;
+    NiceMock<MockMerkleCheck> merkle_check;
+    NiceMock<MockExecutionIdManager> execution_id_manager;
+
+    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_emitter;
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
+        poseidon2, merkle_check, field_gt, build_public_data_slots_tree(), written_public_data_slots_emitter);
+
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
+
+    // Attacker-controlled values
+    FF slot = 666;
+    AztecAddress contract_address = 0xDEADBEEF;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    FF value = 999;
+
+    PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 1), 0, 0);
+    uint64_t low_leaf_index = 30;
+    std::vector<FF> low_leaf_sibling_path = { 1, 2, 3, 4, 5 };
+
+    AppendOnlyTreeSnapshot public_data_tree_before = AppendOnlyTreeSnapshot{
+        .root = 42,
+        .next_available_leaf_index = 128,
+    };
+    AppendOnlyTreeSnapshot written_slots_tree_before = written_public_data_slots_tree_check.get_snapshot();
+
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& inputs) {
+        return RawPoseidon2::hash(inputs);
+    });
+    EXPECT_CALL(field_gt, ff_gt(_, _)).WillRepeatedly([](const FF& a, const FF& b) {
+        return static_cast<uint256_t>(a) > static_cast<uint256_t>(b);
+    });
+    EXPECT_CALL(merkle_check, write)
+        .WillRepeatedly([]([[maybe_unused]] FF current_leaf,
+                           FF new_leaf,
+                           uint64_t leaf_index,
+                           std::span<const FF> sibling_path,
+                           [[maybe_unused]] FF prev_root) {
+            return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
+        });
+
+    // Generate cryptographically valid events via simulation (same as legitimate operation)
+    written_public_data_slots_tree_check.contains(contract_address, slot);
+    auto public_data_tree_after = public_data_tree_check.write(slot,
+                                                               contract_address,
+                                                               value,
+                                                               low_leaf,
+                                                               low_leaf_index,
+                                                               low_leaf_sibling_path,
+                                                               public_data_tree_before,
+                                                               {},
+                                                               false);
+    written_public_data_slots_tree_check.insert(contract_address, slot);
+    auto written_slots_tree_after = written_public_data_slots_tree_check.get_snapshot();
+
+    // Build trace with legitimate public_data_check rows
+    TestTraceContainer trace;
+    PublicDataTreeTraceBuilder public_data_tree_trace_builder;
+    public_data_tree_trace_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
+
+    WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
+    written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
+
+    // Inject ghost sstore at row 0 where precomputed_clk matches public_data_check.clk.
+    // The mock execution_id_manager returns 0, so public_data_check.clk=0.
+    // Ghost row: sel_execute_sstore=0 but sel_write_public_data=1
+    trace.set(
+        0,
+        std::vector<std::pair<Column, FF>>{
+            { C::precomputed_clk, 0 },
+            { C::precomputed_first_row, 1 },
+            { C::execution_sel_execute_sstore, 0 },
+            { C::execution_sel_write_public_data, 1 },
+            { C::execution_contract_address, contract_address },
+            { C::execution_register_0_, value },
+            { C::execution_register_1_, slot },
+            { C::execution_sel_opcode_error, 0 },
+            { C::execution_discard, 0 },
+            { C::execution_prev_public_data_tree_root, public_data_tree_before.root },
+            { C::execution_prev_public_data_tree_size, public_data_tree_before.next_available_leaf_index },
+            { C::execution_public_data_tree_root, public_data_tree_after.root },
+            { C::execution_public_data_tree_size, public_data_tree_after.next_available_leaf_index },
+            { C::execution_prev_written_public_data_slots_tree_root, written_slots_tree_before.root },
+            { C::execution_prev_written_public_data_slots_tree_size,
+              written_slots_tree_before.next_available_leaf_index },
+            { C::execution_written_public_data_slots_tree_root, written_slots_tree_after.root },
+            { C::execution_written_public_data_slots_tree_size, written_slots_tree_after.next_available_leaf_index },
+        });
+
+    // The fix blocks ghost rows: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
+    // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * 1 = 1 != 0
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
 }
 
 } // namespace

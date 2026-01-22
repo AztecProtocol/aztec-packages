@@ -2,7 +2,8 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
@@ -19,7 +20,7 @@ describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
 
   let logger: Logger;
   let teardown: () => Promise<void>;

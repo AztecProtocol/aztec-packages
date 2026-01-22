@@ -1,12 +1,13 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { L2Block } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   computeAppNullifierSecretKey,
@@ -81,14 +82,17 @@ describe('Keys', () => {
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.methods.call_destroy_note(noteStorageSlot).send({ from: defaultAccountAddress }).wait();
+      await testContract.methods
+        .call_destroy_note(defaultAccountAddress, noteStorageSlot)
+        .send({ from: defaultAccountAddress })
+        .wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });
 
     const getNumNullifiedNotes = async (nskApp: Fr, contractAddress: AztecAddress) => {
       // 1. Get all the note hashes
-      const blocks = await aztecNode.getBlocks(INITIAL_L2_BLOCK_NUM, 1000);
+      const blocks = await aztecNode.getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 1000);
       const noteHashes = blocks.flatMap((block: L2Block) =>
         block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
       );

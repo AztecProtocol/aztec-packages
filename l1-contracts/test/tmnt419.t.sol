@@ -170,7 +170,7 @@ contract Tmnt419Test is RollupBase {
     header.timestamp = ts;
     header.coinbase = address(bytes20("coinbase"));
     header.feeRecipient = bytes32(0);
-    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     if (MANA_TARGET > 0) {
       header.totalManaUsed = MANA_TARGET;
     } else {

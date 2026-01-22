@@ -1,43 +1,37 @@
 #!/usr/bin/env bash
+# Main CI3 entry point. Sets up the environment and forwards to ci.sh.
+# CI mode is passed as first argument.
 set -euo pipefail
 
 : "${AWS_ACCESS_KEY_ID:?required}"
 : "${AWS_SECRET_ACCESS_KEY:?required}"
 : "${GITHUB_TOKEN:?required}"
 
+CI_MODE="${1:?CI_MODE must be provided as first argument}"
+shift
+
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function setup_environment {
   echo_header "Setup"
   # Store GCP key
-  if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+  if [ -n "${GCP_SA_KEY:-}" ]; then
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
     set +x
     umask 077
     printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
     jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
     echo "GCP key stored"
   fi
-  # Compute target branch
-  local target_branch
-  if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ]; then
-    target_branch="${MERGE_GROUP_BASE_REF:-}"
-  elif [ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]; then
-    target_branch="${PR_BASE_REF:-}"
-  else
-    target_branch="${GITHUB_REF_NAME:-}"
-  fi
-  target_branch="${target_branch#refs/heads/}"
-  export TARGET_BRANCH=$target_branch
-  echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
-  echo "Target branch: $TARGET_BRANCH"
   # To allow full concurrency, we set instance postfix for merge-train PRs
   if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
     export INSTANCE_POSTFIX=${PR_COMMITS:-}
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
-  # Setup SSH key (internal only)
-  if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  # Setup SSH key for connecting to EC2 instances
+  # Note: The key is used to SSH into instances but is only copied INTO instances when CI_USE_BUILD_INSTANCE_KEY=1 (internal CI only)
+  if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
@@ -45,69 +39,32 @@ function setup_environment {
   fi
 }
 
-function has_label {
-  local label="$1"
-  if [[ ",$LABELS," == *",$label,"* ]]; then
-    echo "Label '$label' found" >&2
-    return 0
-  fi
-  return 1
-}
-
-function determine_ci_mode {
-  echo_header "CI Mode Determination"
-  echo "Labels: ${LABELS}"
-  # Handle fail-fast override
-  if has_label "ci-no-fail-fast"; then
-    export NO_FAIL_FAST=1
-    echo "NO_FAIL_FAST=$NO_FAIL_FAST" >> $GITHUB_ENV
-  fi
-  # Determine CI mode based on event, labels, and target branch
-  if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
-    CI_MODE="merge-queue"
-  elif has_label "ci-release-pr"; then
-    CI_MODE="release-pr"
-  elif has_label "ci-full"; then
-    CI_MODE="full"
-  elif has_label "ci-full-no-test-cache"; then
-    CI_MODE="full-no-test-cache"
-  elif has_label "ci-docs" || [ "${TARGET_BRANCH:-}" == "merge-train/docs" ]; then
-    CI_MODE="docs"
-  elif has_label "ci-barretenberg" || [ "${TARGET_BRANCH:-}" == "merge-train/barretenberg" ]; then
-    CI_MODE="barretenberg"
-  # We don't distinguish nightlies currently.
-  # elif [[ "${GITHUB_REF:-}" == *"-nightly."* ]] || [[ "${GITHUB_REF:-}" == *"-rc."* ]]; then
-  #   CI_MODE="nightly"
-  elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-    CI_MODE="release"
-  else
-    CI_MODE="fast"
-  fi
-  echo "CI_MODE=$CI_MODE" >> $GITHUB_ENV
-  echo "CI mode: $CI_MODE"
-  # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
-  if [[ "$CI_MODE" == "merge-queue" || "$CI_MODE" == "full" || "$CI_MODE" == "full-no-test-cache" ]]; then
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
-  fi
-}
-
 function check_cache {
   echo_header "Cache Check"
   local tree_hash=$(git rev-parse HEAD^{tree})
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
-  # Export for use by ci3-post.sh
+  # Export for use by ci3_success.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
-  if has_label "no-cache"; then
-    export NO_CACHE=1
-    echo "NO_CACHE=$NO_CACHE" >> $GITHUB_ENV
-    echo "Cache disabled by label"
-    return
+  # Only whitelist some ci modes for cache.
+  # E.g. we skip cache for release builds - they must always produce versioned images
+  cached_ci_modes=(
+    "fast"
+    "full"
+    "full-no-test-cache"
+    "docs"
+    "barretenberg"
+    "ci-release-pr"
+  )
+  # Check if CI_MODE is in cached_ci_modes
+  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " ]]; then
+    if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
+      echo "Cache hit in .github/ci3.sh! Previous run: $(cat ".ci-success.txt")"
+      exit 0
+    fi
+    echo "Cache miss in .github/ci3.sh, running CI in ${CI_MODE} mode..."
+  else
+    echo "Not using the .github/ci3.sh CI cache for mode $CI_MODE."
   fi
-  if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
-    echo "Cache hit! Previous run: $(cat ".ci-success.txt")"
-    exit 0
-  fi
-  echo "Cache miss, running CI in ${CI_MODE} mode..."
 }
 
 function handle_release_pr {
@@ -120,21 +77,26 @@ function handle_release_pr {
   git tag "${tag_name}"
   git push origin "${tag_name}"
   echo "Created and pushed tag: ${tag_name}"
+  gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
 }
 
 function main {
-  LABELS="${1:-}"
   echo_header "CI3 Main Script"
+  echo "CI mode: $CI_MODE"
   setup_environment
-  determine_ci_mode
   # Handle release-pr mode separately (creates tag instead of running CI)
+
+  if [ "${CI_MODE}" == "skip" ]; then
+    echo_stderr "WARNING: CI is being skipped in this PR."
+    exit 0
+  fi
   if [ "${CI_MODE}" == "release-pr" ]; then
     handle_release_pr
     exit 0
   fi
   check_cache
-  echo_header "Run CI"
-  exec ./ci.sh "${CI_MODE}"
+  echo_header "Run ${CI_MODE} CI"
+  exec ./ci.sh "${CI_MODE}" "$@"
 }
 
 main "$@"

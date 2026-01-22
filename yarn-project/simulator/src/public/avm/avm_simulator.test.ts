@@ -1,14 +1,12 @@
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
-import {
-  Grumpkin,
-  keccak256,
-  keccakf1600,
-  pedersenCommit,
-  pedersenHash,
-  poseidon2Hash,
-  sha256,
-} from '@aztec/foundation/crypto';
-import { Fq, Fr, Point } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { keccak256, keccakf1600 } from '@aztec/foundation/crypto/keccak';
+import { pedersenCommit, pedersenHash } from '@aztec/foundation/crypto/pedersen';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -106,10 +104,13 @@ describe('AVM simulator: injected bytecode', () => {
     bytecode = encodeToBytecode([
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
-      new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
-      new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+      new CalldataCopy(/*addressing_mode=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
+      new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
-      new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
+      new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
     ]);
   });
 
@@ -140,7 +141,10 @@ describe('AVM simulator: injected bytecode', () => {
 
     // should halt with tag mismatch
     const badBytecode = encodeToBytecode([
-      new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 0).as(Opcode.DIV_8, Div.wireFormat8),
+      new Div(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 0).as(
+        Opcode.DIV_8,
+        Div.wireFormat8,
+      ),
     ]);
     const results = await new AvmSimulator(context).executeBytecode(badBytecode);
     expect(results.reverted).toBe(true);
@@ -487,7 +491,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
-    const blockNumber = randomInt(20000);
+    const blockNumber = BlockNumber(randomInt(20000));
     const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
     const gasFees = GasFees.random();
 
@@ -1079,13 +1083,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const persistableState = initPersistableStateManager({ treesDB, trace });
 
       it.each([
-        ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
-        ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0)],
+        ['Public storage writes', () => new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
+        ['New note hashes', () => new EmitNoteHash(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0)],
+        ['New nullifiers', () => new EmitNullifier(/*addressing_mode=*/ 0, /*noteHashOffset=*/ 0)],
+        [
+          'New unencrypted logs',
+          () => new EmitUnencryptedLog(/*addressing_mode=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0),
+        ],
         [
           'New L1 to L2 messages',
-          () => new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),
+          () => new SendL2ToL1Message(/*addressing_mode=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),
         ],
       ])(`Overrun of %s`, async (_sideEffectType: string, createInstr: () => Instruction) => {
         const bytecode = encodeToBytecode([
@@ -1094,7 +1101,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           createInstr(),
           // change value at memory offset 0 so each instr operates on a different value (important for nullifier emission)
-          new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(
+          new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 100, /*dstOffset=*/ 0).as(
             Opcode.ADD_8,
             Add.wireFormat8,
           ),
@@ -1368,20 +1375,23 @@ describe('AVM simulator: shift operations with huge amounts', () => {
   describe('SHL (Shift Left)', () => {
     it('Should handle shift amount greater than bit size (Uint32)', async () => {
       const bytecode = encodeToBytecode([
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
           Opcode.SET_8,
           Set.wireFormat8,
         ), // set a constant specifying the "returnSize" (1) to be used by Return
-        new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHL_8, Shl.wireFormat8),
-        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+        new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(
+          Opcode.SHL_8,
+          Shl.wireFormat8,
+        ),
+        new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
       ]);
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1392,20 +1402,23 @@ describe('AVM simulator: shift operations with huge amounts', () => {
 
     it('Should handle shift amount equal to bit size (Uint128)', async () => {
       const bytecode = encodeToBytecode([
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ (1n << 127n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ (1n << 127n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT128, /*value=*/ 128n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT128, /*value=*/ 128n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
           Opcode.SET_8,
           Set.wireFormat8,
         ), // set a constant specifying the "returnSize" (1) to be used by Return
-        new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHL_8, Shl.wireFormat8),
-        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+        new Shl(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(
+          Opcode.SHL_8,
+          Shl.wireFormat8,
+        ),
+        new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
       ]);
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1418,20 +1431,23 @@ describe('AVM simulator: shift operations with huge amounts', () => {
   describe('SHR (Shift Right)', () => {
     it('Should handle shift amount greater than bit size (Uint32)', async () => {
       const bytecode = encodeToBytecode([
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
           Opcode.SET_8,
           Set.wireFormat8,
         ), // set a constant specifying the "returnSize" (1) to be used by Return
-        new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHR_8, Shr.wireFormat8),
-        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+        new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(
+          Opcode.SHR_8,
+          Shr.wireFormat8,
+        ),
+        new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
       ]);
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1442,20 +1458,23 @@ describe('AVM simulator: shift operations with huge amounts', () => {
 
     it('Should handle shift amount equal to bit size (Uint128)', async () => {
       const bytecode = encodeToBytecode([
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ (1n << 127n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT128, /*value=*/ (1n << 127n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT128, /*value=*/ 128n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT128, /*value=*/ 128n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
           Opcode.SET_8,
           Set.wireFormat8,
         ), // set a constant specifying the "returnSize" (1) to be used by Return
-        new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHR_8, Shr.wireFormat8),
-        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+        new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(
+          Opcode.SHR_8,
+          Shr.wireFormat8,
+        ),
+        new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
       ]);
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1466,20 +1485,23 @@ describe('AVM simulator: shift operations with huge amounts', () => {
 
     it('Should handle shift amount equal to bit size (Uint32)', async () => {
       const bytecode = encodeToBytecode([
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*inTag=*/ TypeTag.UINT32, /*value=*/ (1n << 32n) - 1n).as(
           Opcode.SET_128,
           Set.wireFormat128,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ 32).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*inTag=*/ TypeTag.UINT32, /*value=*/ 32).as(
           Opcode.SET_32,
           Set.wireFormat32,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, /*inTag=*/ TypeTag.UINT32, /*value=*/ 1).as(
           Opcode.SET_8,
           Set.wireFormat8,
         ), // set a constant specifying the "returnSize" (1) to be used by Return
-        new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(Opcode.SHR_8, Shr.wireFormat8),
-        new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
+        new Shr(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 3).as(
+          Opcode.SHR_8,
+          Shr.wireFormat8,
+        ),
+        new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 2, /*returnOffset=*/ 3),
       ]);
 
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1497,7 +1519,7 @@ describe('AVM simulator: "unchecked" errors should NOT be caught', () => {
 
   it('Unchecked error during instruction execution NOT be caught', async () => {
     const context = initContext();
-    const instruction = new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+    const instruction = new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
       Opcode.ADD_8,
       Add.wireFormat8,
     );

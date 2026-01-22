@@ -26,10 +26,10 @@
       "path": "../bb-prover"
     },
     {
-      "path": "../blob-lib"
+      "path": "../blob-client"
     },
     {
-      "path": "../blob-sink"
+      "path": "../blob-lib"
     },
     {
       "path": "../bot"
@@ -108,6 +108,9 @@
     },
     {
       "path": "../validator-client"
+    },
+    {
+      "path": "../validator-ha-signer"
     },
     {
       "path": "../world-state"

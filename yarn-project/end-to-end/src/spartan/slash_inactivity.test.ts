@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -14,6 +15,7 @@ import assert from 'assert';
 import type { ChildProcess } from 'child_process';
 
 import {
+  ChainHealth,
   getL1DeploymentAddresses,
   getPublicViemClient,
   getSequencersConfig,
@@ -40,8 +42,10 @@ describe('slash inactivity test', () => {
   let constants: Omit<L1RollupConstants, 'ethereumSlotDuration'>;
   let monitor: ChainMonitor;
   let offlineValidator: EthAddress;
+  const health = new ChainHealth(config.NAMESPACE, logger);
 
   beforeAll(async () => {
+    await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
@@ -51,6 +55,7 @@ describe('slash inactivity test', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     // Clear out the disabled validators so we don't affect other tests
     await updateSequencersConfig(config, { disabledValidators: [] });
     monitor.removeAllListeners();
@@ -129,7 +134,7 @@ describe('slash inactivity test', () => {
 
     // Choose the first committee member for the next epoch as the validator to disable
     const { committee, epoch } = await getNextEpochCommittee();
-    offlineValidator = EthAddress.fromString(committee[0]);
+    offlineValidator = committee[0];
 
     // Wait until we're near the end of the previous epoch
     const lastSlotBeforeEpoch = SlotNumber(getSlotRangeForEpoch(epoch, constants)[0] - 1);

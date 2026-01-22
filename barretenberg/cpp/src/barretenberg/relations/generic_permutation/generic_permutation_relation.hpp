@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /**
@@ -26,8 +26,7 @@ namespace bb {
  *
  */
 enum GenericPermutationSettingIndices {
-    INVERSE_POLYNOMIAL_INDEX,                          /* The index of the inverse polynomial*/
-    ENABLE_INVERSE_CORRECTNESS_CHECK_POLYNOMIAL_INDEX, /* The index of the polynomial enabling first subrelation*/
+    INVERSE_POLYNOMIAL_INDEX,                       /* The index of the inverse polynomial*/
     FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX,  /* The index of the polynomial that adds an element from the first
                                                        set to the sum*/
     SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX, /* The index of the polynomial that adds an element from the second

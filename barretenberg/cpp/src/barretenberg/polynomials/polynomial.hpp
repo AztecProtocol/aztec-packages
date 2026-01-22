@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -106,14 +106,15 @@ template <typename Fr> class Polynomial {
      */
     static Polynomial shiftable(size_t virtual_size)
     {
-        return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
+        return Polynomial(
+            /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
     /**
      * @brief Utility to create a shiftable polynomial of given size and virtual size.
      */
     static Polynomial shiftable(size_t size, size_t virtual_size)
     {
-        return Polynomial(/*actual size*/ size - 1, virtual_size, /*shiftable offset*/ 1);
+        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
@@ -232,9 +233,9 @@ template <typename Fr> class Polynomial {
      * @param other q(X)
      * @param scaling_factor scaling factor by which all coefficients of q(X) are multiplied
      */
-    void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+    void add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor);
 
-    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, const Fr& scaling_factor);
 
     /**
      * @brief adds the polynomial q(X) 'other'.
@@ -255,9 +256,9 @@ template <typename Fr> class Polynomial {
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(Fr scaling_factor);
+    Polynomial& operator*=(const Fr& scaling_factor);
 
-    void multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
+    void multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
@@ -339,6 +340,7 @@ template <typename Fr> class Polynomial {
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }
     size_t end_index() const { return coefficients_.end_; }
+    bool is_shiftable() const { return start_index() == NUM_ZERO_ROWS; }
 
     /**
      * @brief Strictly iterates the defined region of the polynomial.
@@ -374,7 +376,7 @@ template <typename Fr> class Polynomial {
      */
     void set_if_valid_index(size_t index, const Fr& value)
     {
-        BB_ASSERT(value.is_zero() || is_valid_set_index(index));
+        BB_ASSERT_NO_WASM(value.is_zero() || is_valid_set_index(index));
         if (is_valid_set_index(index)) {
             at(index) = value;
         }

@@ -6,23 +6,23 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { AbortError } from '@aztec/foundation/error';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
-import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
 import { EthAddress } from '@aztec/stdlib/block';
 import type {
   EpochProver,
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
   PublicInputsAndRecursiveProof,
+  ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
@@ -73,6 +73,11 @@ import { TxProvingState } from './tx-proving-state.js';
 
 const logger = createLogger('prover-client:orchestrator');
 
+type WorldStateFork = {
+  fork: MerkleTreeWriteOperations;
+  cleanupPromise: Promise<void> | undefined;
+};
+
 /**
  * Implements an event driven proving scheduler to build the recursive proof tree. The idea being:
  * 1. Transactions are provided to the scheduler post simulation.
@@ -93,12 +98,14 @@ export class ProvingOrchestrator implements EpochProver {
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
-  private dbs: Map<number, MerkleTreeWriteOperations> = new Map();
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  private dbs: Map<BlockNumber, WorldStateFork> = new Map();
 
   constructor(
-    private dbProvider: ForkMerkleTreeOperations,
+    private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
+    private readonly cancelJobsOnStop: boolean = false,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -110,6 +117,10 @@ export class ProvingOrchestrator implements EpochProver {
 
   public getProverId(): EthAddress {
     return this.proverId;
+  }
+
+  public getNumActiveForks() {
+    return this.dbs.size;
   }
 
   public stop(): Promise<void> {
@@ -142,6 +153,14 @@ export class ProvingOrchestrator implements EpochProver {
     this.provingPromise = promise;
   }
 
+  /**
+   * Starts a new checkpoint.
+   * @param checkpointIndex - The index of the checkpoint in the epoch.
+   * @param constants - The constants for this checkpoint.
+   * @param l1ToL2Messages - The set of L1 to L2 messages to be inserted at the beginning of this checkpoint.
+   * @param totalNumBlocks - The total number of blocks expected in the checkpoint (must be at least one).
+   * @param headerOfLastBlockInPreviousCheckpoint - The header of the last block in the previous checkpoint.
+   */
   public async startNewCheckpoint(
     checkpointIndex: number,
     constants: CheckpointConstantData,
@@ -161,8 +180,8 @@ export class ProvingOrchestrator implements EpochProver {
     const lastBlockNumber = headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber;
     const db = await this.dbProvider.fork(lastBlockNumber);
 
-    const firstBlockNumber = lastBlockNumber + 1;
-    this.dbs.set(firstBlockNumber, db);
+    const firstBlockNumber = BlockNumber(lastBlockNumber + 1);
+    this.dbs.set(firstBlockNumber, { fork: db, cleanupPromise: undefined });
 
     // Get archive sibling path before any block in this checkpoint lands.
     const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
@@ -199,7 +218,7 @@ export class ProvingOrchestrator implements EpochProver {
   @trackSpan('ProvingOrchestrator.startNewBlock', blockNumber => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number) {
+  public async startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number) {
     if (!this.provingState) {
       throw new Error('Empty epoch proving state. Call startNewEpoch before starting a block.');
     }
@@ -219,10 +238,10 @@ export class ProvingOrchestrator implements EpochProver {
     // Fork the db only when it's not already set. The db for the first block is set in `startNewCheckpoint`.
     if (!this.dbs.has(blockNumber)) {
       // Fork world state at the end of the immediately previous block
-      const db = await this.dbProvider.fork(blockNumber - 1);
-      this.dbs.set(blockNumber, db);
+      const db = await this.dbProvider.fork(BlockNumber(blockNumber - 1));
+      this.dbs.set(blockNumber, { fork: db, cleanupPromise: undefined });
     }
-    const db = this.dbs.get(blockNumber)!;
+    const db = this.dbs.get(blockNumber)!.fork;
 
     // Get archive snapshot and sibling path before any txs in this block lands.
     const lastArchiveTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
@@ -254,7 +273,8 @@ export class ProvingOrchestrator implements EpochProver {
       await endSpongeBlob.absorb(blockEndBlobFields);
       blockProvingState.setEndSpongeBlob(endSpongeBlob);
 
-      // And also try to accumulate the blobs as far as we can:
+      // Try to accumulate the out hashes and blobs as far as we can:
+      await this.provingState.accumulateCheckpointOutHashes();
       await this.provingState.setBlobAccumulators();
     }
   }
@@ -278,7 +298,7 @@ export class ProvingOrchestrator implements EpochProver {
       return;
     }
 
-    const blockNumber = txs[0].globalVariables.blockNumber;
+    const blockNumber = BlockNumber(txs[0].globalVariables.blockNumber);
     const provingState = this.provingState.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Proving state for block ${blockNumber} not found. Call startNewBlock first.`);
@@ -296,7 +316,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.info(`Adding ${txs.length} transactions to block ${blockNumber}`);
 
-    const db = this.dbs.get(blockNumber)!;
+    const db = this.dbs.get(blockNumber)!.fork;
     const lastArchive = provingState.lastArchiveTreeSnapshot;
     const newL1ToL2MessageTreeSnapshot = provingState.newL1ToL2MessageTreeSnapshot;
     const spongeBlobState = provingState.getStartSpongeBlob().clone();
@@ -309,7 +329,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         validateTx(tx);
 
-        logger.info(`Received transaction: ${tx.hash}`);
+        logger.debug(`Received transaction: ${tx.hash}`);
 
         const startSpongeBlob = spongeBlobState.clone();
         const [hints, treeSnapshots] = await this.prepareBaseRollupInputs(
@@ -351,7 +371,8 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.setEndSpongeBlob(spongeBlobState);
 
-    // Txs have been added to the block. Now try to accumulate the blobs as far as we can:
+    // Txs have been added to the block. Now try to accumulate the out hashes and blobs as far as we can:
+    await this.provingState.accumulateCheckpointOutHashes();
     await this.provingState.setBlobAccumulators();
   }
 
@@ -388,10 +409,10 @@ export class ProvingOrchestrator implements EpochProver {
    * Marks the block as completed.
    * Computes the block header and updates the archive tree.
    */
-  @trackSpan('ProvingOrchestrator.setBlockCompleted', (blockNumber: number) => ({
+  @trackSpan('ProvingOrchestrator.setBlockCompleted', (blockNumber: BlockNumber) => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async setBlockCompleted(blockNumber: number, expectedHeader?: BlockHeader): Promise<BlockHeader> {
+  public async setBlockCompleted(blockNumber: BlockNumber, expectedHeader?: BlockHeader): Promise<BlockHeader> {
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -424,7 +445,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // Get db for this block
-    const db = this.dbs.get(provingState.blockNumber)!;
+    const db = this.dbs.get(provingState.blockNumber)!.fork;
 
     // Update the archive tree, so we're ready to start processing the next block:
     logger.verbose(
@@ -460,7 +481,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Get db for this block
     const blockNumber = provingState.blockNumber;
-    const db = this.dbs.get(blockNumber)!;
+    const db = this.dbs.get(blockNumber)!.fork;
 
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const syncedArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.dbProvider.getSnapshot(blockNumber));
@@ -485,20 +506,19 @@ export class ProvingOrchestrator implements EpochProver {
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
     // but have to make sure it only runs once all operations are completed, otherwise some function here
     // will attempt to access the fork after it was closed.
-    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
-    void this.dbs
-      .get(blockNumber)
-      ?.close()
-      .then(() => this.dbs.delete(blockNumber))
-      .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
+    void this.cleanupDBFork(blockNumber);
   }
 
   /**
-   * Cancel any further proving
+   * Cancel any further proving.
+   * If cancelJobsOnStop is true, aborts all pending jobs with the broker (which marks them as 'Aborted').
+   * If cancelJobsOnStop is false (default), jobs remain in the broker queue and can be reused on restart/reorg.
    */
   public cancel() {
-    for (const controller of this.pendingProvingJobs) {
-      controller.abort();
+    if (this.cancelJobsOnStop) {
+      for (const controller of this.pendingProvingJobs) {
+        controller.abort();
+      }
     }
 
     this.provingState?.cancel();
@@ -531,6 +551,24 @@ export class ProvingOrchestrator implements EpochProver {
     });
 
     return epochProofResult;
+  }
+
+  private async cleanupDBFork(blockNumber: BlockNumber): Promise<void> {
+    logger.debug(`Cleaning up world state fork for ${blockNumber}`);
+    const fork = this.dbs.get(blockNumber);
+    if (!fork) {
+      return;
+    }
+
+    try {
+      if (!fork.cleanupPromise) {
+        fork.cleanupPromise = fork.fork.close();
+      }
+      await fork.cleanupPromise;
+      this.dbs.delete(blockNumber);
+    } catch (err) {
+      logger.error(`Error closing db for block ${blockNumber}`, err);
+    }
   }
 
   /**
@@ -850,19 +888,22 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
-        await this.verifyBuiltBlockAgainstSyncedState(provingState);
-
         logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
 
         const leafLocation = provingState.setBlockRootRollupProof(result);
         const checkpointProvingState = provingState.parentCheckpoint;
+
+        // If the proofs were slower than the block header building, then we need to try validating the block header hashes here.
+        await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
         if (checkpointProvingState.totalNumBlocks === 1) {
           this.checkAndEnqueueCheckpointRootRollup(checkpointProvingState);
         } else {
           this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
         }
+
+        // We are finished with the block at this point, ensure the fork is cleaned up
+        void this.cleanupDBFork(provingState.blockNumber);
       },
     );
   }
@@ -1206,8 +1247,6 @@ export class ProvingOrchestrator implements EpochProver {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
 
-    // This function tries to do AVM proving. If there is a failure, it fakes the proof unless AVM_PROVING_STRICT is defined.
-    // Nothing downstream depends on the AVM proof yet. So having this mode lets us incrementally build the AVM circuit.
     const doAvmProving = wrapCallbackInSpan(
       this.tracer,
       'ProvingOrchestrator.prover.getAvmProof',
@@ -1216,36 +1255,13 @@ export class ProvingOrchestrator implements EpochProver {
       },
       async (signal: AbortSignal) => {
         const inputs = txProvingState.getAvmInputs();
-        try {
-          // TODO(#14234)[Unconditional PIs validation]: Remove the whole try-catch logic and
-          // just keep the next line but removing the second argument (false).
-          return await this.prover.getAvmProof(inputs, false, signal, provingState.epochNumber);
-        } catch (err) {
-          if (process.env.AVM_PROVING_STRICT) {
-            logger.error(`Error thrown when proving AVM circuit with AVM_PROVING_STRICT on`, err);
-            throw err;
-          } else {
-            logger.warn(
-              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Use snapshotted
-               AVM inputs and carrying on. ${inspect(err)}.`,
-            );
-
-            try {
-              this.metrics.incAvmFallback();
-              const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
-              return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
-            } catch (err) {
-              logger.error(`Error thrown when proving snapshotted AVM inputs.`, err);
-              throw err;
-            }
-          }
-        }
+        return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
       },
     );
 
-    this.deferredProving(provingState, doAvmProving, proofAndVk => {
+    this.deferredProving(provingState, doAvmProving, proof => {
       logger.debug(`Proven VM for tx index: ${txIndex}`);
-      txProvingState.setAvmProof(proofAndVk);
+      txProvingState.setAvmProof(proof);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
   }

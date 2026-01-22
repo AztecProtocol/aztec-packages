@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -15,6 +15,7 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -38,7 +39,6 @@ class ECCVMFlavor {
     using CycleGroup = bb::g1;
     using Curve = curve::Grumpkin;
     using G1 = typename Curve::Group;
-    using PCS = IPA<Curve>;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
@@ -47,7 +47,10 @@ class ECCVMFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using MSM = bb::eccvm::MSM<CycleGroup>;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
+    using Proof = HonkProof;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -69,11 +72,11 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 116 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 117;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 118;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
     // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
@@ -150,8 +153,7 @@ class ECCVMFlavor {
         /* 24 Translator grand sum shift eval */ (num_frs_fq) +
         /* 25 Translator grand sum eval */ (num_frs_fq) +
         /* 26 Translator quotient eval */ (num_frs_fq) +
-        /* 27 Shplonk Q commitment */ (num_frs_comm) +
-        /* 28 IPA proof */ IPA_PROOF_LENGTH;
+        /* 27 Shplonk Q commitment */ (num_frs_comm);
 
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
@@ -170,8 +172,9 @@ class ECCVMFlavor {
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
-                              lagrange_second, // column 1
-                              lagrange_last);  // column 2
+                              lagrange_second, // column 1 - hiding op row
+                              lagrange_third,  // column 2 - first real op row
+                              lagrange_last);  // column 3
 
         DataType get_selectors() { return get_all(); };
     };
@@ -494,7 +497,8 @@ class ECCVMFlavor {
          *          For full details see `eccvm/eccvm_flavor.hpp`
          *
          *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
-         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
+         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere (hiding op row)
+         *          lagrange_third: lagrange_third[2] = 1, 0 elsewhere (first real op row)
          *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
          trigger
@@ -586,6 +590,7 @@ class ECCVMFlavor {
 #endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
+            // Note: the first operation (index 0) is always a hiding op with random Px, Py values
             const auto transcript_rows =
                 ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
             const std::vector<MSM> msms = builder.get_msms();
@@ -631,6 +636,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
+            lagrange_third.at(2) = 1;
             lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
@@ -760,26 +766,8 @@ class ECCVMFlavor {
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
-        {
-            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                // After the initial sumcheck round, the new size is CEIL(size/2).
-                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    using PartiallyEvaluatedMultivariates =
+        PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
 
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
@@ -804,65 +792,10 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
+     * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
+     * @details ECCVM has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        bool operator==(const VerificationKey&) const = default;
-
-        // IPA verification key requires one more point.
-        VerifierCommitmentKey pcs_verification_key = VerifierCommitmentKey(ECCVM_FIXED_SIZE + 1);
-
-        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
-        VerificationKey()
-            : NativeVerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
-        {
-            this->pub_inputs_offset = 0;
-
-            // Populate the commitments of the precomputed polynomials using the fixed VK data
-            for (auto [vk_commitment, fixed_commitment] :
-                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
-                vk_commitment = fixed_commitment;
-            }
-        }
-
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-        {
-            this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = 0;
-            this->pub_inputs_offset = 0;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
-            }
-        }
-
-        /**
-         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
-         */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from the verification key.
-    };
+    using VerificationKey = FixedVKAndHash_<PrecomputedEntities<Commitment>, BF, ECCVMHardcodedVKAndHash>;
 
     /**
      * @brief A container for commitment labels.
@@ -969,6 +902,7 @@ class ECCVMFlavor {
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
             Base::lagrange_second = "__LAGRANGE_SECOND";
+            Base::lagrange_third = "__LAGRANGE_THIRD";
             Base::lagrange_last = "__LAGRANGE_LAST";
         };
     };
@@ -980,6 +914,7 @@ class ECCVMFlavor {
         {
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_second = verification_key->lagrange_second;
+            this->lagrange_third = verification_key->lagrange_third;
             this->lagrange_last = verification_key->lagrange_last;
         }
     };

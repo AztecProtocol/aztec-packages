@@ -90,10 +90,9 @@ function compile {
     trap "rm -rf $outdir" EXIT
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-        $BB write_vk --scheme chonk --verifier_type standalone_hiding -b - -o $outdir
+        $BB write_vk --scheme chonk -b - -o $outdir
       elif echo "$name" | grep -qE "${ivc_regex}"; then
-        $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir
+        $BB write_vk --scheme chonk -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
         $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir
       elif echo "$name" | grep -qE "rollup_root"; then
@@ -130,24 +129,6 @@ function compile {
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
-    elif echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-      # If we are a tail kernel circuit, we also need to generate the ivc vk.
-      SECONDS=0
-      local ivc_vk_path="$key_dir/${name}.ivc.vk"
-      echo_stderr "Generating ivc vk for function: $name..."
-      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type ivc -b - -o $outdir
-      mv $outdir/vk $ivc_vk_path
-      echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
-      cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
-    elif echo "$name" | grep -qE "rollup_tx_base_public"; then
-      # If we are the public tx base rollup, we also need to generate the avm vk.
-      SECONDS=0
-      local avm_vk_path="$key_dir/avm.vk"
-      echo_stderr "Generating avm vk..."
-      $BB avm_write_vk -o $outdir
-      mv $outdir/vk $avm_vk_path
-      echo_stderr "AVM key output at: $avm_vk_path (${SECONDS}s)"
-      cache_upload vk-$hash.tar.gz $key_path $avm_vk_path &> /dev/null
     else
       cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
@@ -166,7 +147,6 @@ function build {
   echo_stderr "Checking libraries for warnings..."
   parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
     ./crates/blob \
-    ./crates/parity-lib \
     ./crates/private-kernel-lib \
     ./crates/rollup-lib \
     ./crates/types \
@@ -223,7 +203,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --pedantic-solving --skip-brillig-constraints-check"
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
   done
 }
 

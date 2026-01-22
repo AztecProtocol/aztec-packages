@@ -95,13 +95,13 @@ impl AsStrQuote for Quoted {
     // Used to convert an arbitrary quoted type into a quoted string, removing whitespace between tokens
     comptime fn as_str_quote(self) -> (Quoted, u32) {
         let tokens = self.tokens();
-        let mut acc: [u8] = &[];
+        let mut acc: [u8] = @[];
         let mut total_len: u32 = 0;
         for token in tokens {
             let token_as_fmt_str = f"{token}";
             let token_as_str = unquote!(quote {$token_as_fmt_str});
             let token_len = unquote!(quote { $token_as_str.as_bytes().len() });
-            let token_as_bytes = unquote!(quote { $token_as_str.as_bytes().as_slice() });
+            let token_as_bytes = unquote!(quote { $token_as_str.as_bytes().as_vector() });
             total_len += token_len;
             acc = acc.append(token_as_bytes);
         }
@@ -162,21 +162,6 @@ pub(crate) comptime fn compute_struct_selector(
         protocol_types::traits::ToField::to_field($from_signature_fn($signature_str_quote))
     };
     unquote!(computation_quote)
-}
-
-/// Returns how many storage slots a type needs to reserve for itself. State variables must implement the Storage trait
-/// for slots to be allocated for them.
-pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
-    // We create a type variable for the storage size. We can't simply read the value used in the implementation because
-    // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
-    let storage_size = std::meta::typ::fresh_type_variable();
-    assert(
-        typ.implements(quote { crate::state_vars::HasStorageSlot<$storage_size> }
-            .as_trait_constraint()),
-        f"Attempted to fetch storage size, but {typ} does not implement the HasStorageSlot trait",
-    );
-
-    storage_size.as_constant().unwrap()
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {

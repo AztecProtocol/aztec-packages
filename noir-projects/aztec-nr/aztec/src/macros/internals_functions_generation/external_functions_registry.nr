@@ -26,7 +26,7 @@ comptime fn add_to_registry(
     let functions_to_insert = if current_functions.is_some() {
         current_functions.unwrap().push_back(f)
     } else {
-        &[f]
+        @[f]
     };
     registry.insert(module, functions_to_insert);
 }
@@ -44,13 +44,13 @@ pub(crate) comptime fn add_utility(f: FunctionDefinition) {
 }
 
 pub(crate) comptime fn get_private_functions(m: Module) -> [FunctionDefinition] {
-    PRIVATE_REGISTRY.get(m).unwrap_or(&[])
+    PRIVATE_REGISTRY.get(m).unwrap_or(@[])
 }
 
 pub(crate) comptime fn get_public_functions(m: Module) -> [FunctionDefinition] {
-    PUBLIC_REGISTRY.get(m).unwrap_or(&[])
+    PUBLIC_REGISTRY.get(m).unwrap_or(@[])
 }
 
 pub(crate) comptime fn get_utility_functions(m: Module) -> [FunctionDefinition] {
-    UTILITY_REGISTRY.get(m).unwrap_or(&[])
+    UTILITY_REGISTRY.get(m).unwrap_or(@[])
 }

@@ -130,12 +130,32 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return;
     }
 
-    // Convert loaded states (which have id) to the txs format
-    this.txs = loadedStates;
-    this.logger.info(`Rehydrated ${loadedStates.length} tx states for account ${account}`);
+    // Clean up excess states if we have more than MAX_L1_TX_STATES
+    if (loadedStates.length > MAX_L1_TX_STATES) {
+      this.logger.warn(
+        `Found ${loadedStates.length} tx states for account ${account}, pruning to most recent ${MAX_L1_TX_STATES}`,
+      );
+
+      // Keep only the most recent MAX_L1_TX_STATES
+      const statesToKeep = loadedStates.slice(-MAX_L1_TX_STATES);
+      const statesToDelete = loadedStates.slice(0, -MAX_L1_TX_STATES);
+
+      // Batch delete old states in a transaction for efficiency
+      const idsToDelete = statesToDelete.map(s => s.id);
+      await this.store.deleteState(account, ...idsToDelete);
+
+      this.txs = statesToKeep;
+      this.logger.info(
+        `Cleaned up ${statesToDelete.length} old tx states, kept ${statesToKeep.length} for account ${account}`,
+      );
+    } else {
+      // Convert loaded states (which have id) to the txs format
+      this.txs = loadedStates;
+      this.logger.info(`Rehydrated ${loadedStates.length} tx states for account ${account}`);
+    }
 
     // Find all pending states and resume monitoring
-    const pendingStates = loadedStates.filter(state => !TerminalTxUtilsState.includes(state.status));
+    const pendingStates = this.txs.filter(state => !TerminalTxUtilsState.includes(state.status));
     if (pendingStates.length === 0) {
       return;
     }

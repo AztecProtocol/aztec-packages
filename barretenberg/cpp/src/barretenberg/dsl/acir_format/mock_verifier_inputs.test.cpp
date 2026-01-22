@@ -1,7 +1,7 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
@@ -10,13 +10,11 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
-#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "honk_recursion_constraint.hpp"
-#include "proof_surgeon.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
@@ -50,12 +48,12 @@ TEST(MockVerifierInputsTest, MockMergeProofSize)
  */
 TEST(MockVerifierInputsTest, MockPreIpaProofSize)
 {
-    size_t CURRENT_PRE_IPA_PROOF_SIZE = 606;
-    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH, CURRENT_PRE_IPA_PROOF_SIZE)
+    size_t CURRENT_ECCVM_PROOF_SIZE = 608;
+    EXPECT_EQ(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_ECCVM_PROOF_SIZE)
         << "The length of the Pre-IPA proof changed.";
 
-    HonkProof pre_ipa_proof = create_mock_pre_ipa_proof();
-    EXPECT_EQ(pre_ipa_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    HonkProof eccvm_proof = create_mock_eccvm_proof();
+    EXPECT_EQ(eccvm_proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
 /**
@@ -75,7 +73,7 @@ TEST(MockVerifierInputsTest, MockIPAProofSize)
  */
 TEST(MockVerifierInputsTest, MockTranslatorProofSize)
 {
-    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 804;
+    size_t CURRENT_TRANSLATOR_PROOF_SIZE = 786;
     EXPECT_EQ(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS, CURRENT_TRANSLATOR_PROOF_SIZE)
         << "The length of the Translator proof changed.";
 
@@ -235,6 +233,30 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
 }
 
 /**
+ * @brief Check that the size of a mock AVM proof matches expectation
+ *
+ */
+// TODO(@fcarreiro): Re-enable this test once proof size is fixed.
+TEST(MockVerifierInputsTest, DISABLED_MockAVMProofSize)
+{
+    size_t CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16040;
+    const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/false);
+    EXPECT_EQ(avm_proof.size(), CURRENT_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS) << "The length of the AVM proof changed.";
+}
+
+/**
+ * @brief Check that the size of a padded mock AVM proof matches expectation
+ *
+ */
+TEST(MockVerifierInputsTest, MockAVMProofSizePadded)
+{
+    size_t CURRENT_PADDED_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS = 16200;
+    const HonkProof padded_avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true);
+    EXPECT_EQ(padded_avm_proof.size(), CURRENT_PADDED_AVM_PROOF_SIZE_WITHOUT_PUB_INPUTS)
+        << "The length of the padded AVM proof changed.";
+}
+
+/**
  * @brief Check that the size of a mock Chonk proof matches expectation
  *
  */
@@ -244,9 +266,9 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
 
     // If this value changes, we need to update the corresponding constants in noir and in yarn-project. Also, we need
     // to update the Prover.toml file for rollup-tx-private to reflect the new length of the Chonk proof.
-    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1993;
+    size_t CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS = 1907;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
-    EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
+    EXPECT_EQ(chonk_proof.size(), ChonkProof::PROOF_LENGTH);
     EXPECT_EQ(chonk_proof.size(),
               CURRENT_CHONK_PROOF_SIZE_WITHOUT_PUB_INPUTS +
                   stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE)

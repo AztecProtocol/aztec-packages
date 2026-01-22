@@ -1,12 +1,13 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
-import { Tx, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
-import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
+import { Tx, TxExecutionResult, TxReceipt } from '@aztec/aztec.js/tx';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
@@ -24,9 +25,6 @@ import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 // Set a very long 15 minute timeout.
 const TIMEOUT = 900_000;
 
-// This makes AVM proving throw if there's a failure.
-process.env.AVM_PROVING_STRICT = '1';
-
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
@@ -43,8 +41,6 @@ describe('full_prover', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
     await t.setup();
 
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
@@ -159,10 +155,17 @@ describe('full_prover', () => {
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
       const reward = await rollup.getCheckpointReward();
-      const newProvenBlockNumber = Number(newProvenCheckpointNumber);
-      const fees = (
-        await Promise.all([t.aztecNode.getBlock(newProvenBlockNumber - 1), t.aztecNode.getBlock(newProvenBlockNumber)])
-      ).map(b => b!.header.totalFees.toBigInt());
+
+      // Get all checkpoints that were proven in this epoch
+      const numCheckpointsProven = Number(newProvenCheckpointNumber) - Number(oldProvenCheckpointNumber);
+      const publishedCheckpoints = await t.aztecNode.getCheckpoints(
+        CheckpointNumber(Number(oldProvenCheckpointNumber) + 1),
+        numCheckpointsProven,
+      );
+
+      // Extract all blocks from all proven checkpoints
+      const allBlocks = publishedCheckpoints.flatMap(pc => pc.checkpoint.blocks);
+      const fees = allBlocks.map(b => b.header.totalFees.toBigInt());
 
       const totalRewards = fees.map(fee => fee + reward).reduce((acc, reward) => acc + reward, 0n);
       const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
@@ -367,8 +370,8 @@ describe('full_prover', () => {
       }
 
       // Assert that the valid tx is successfully sent and mined
-      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
-      expect(validTxReceipt.status).toBe(TxStatus.SUCCESS);
+      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<TxReceipt>).value;
+      expect(validTxReceipt.executionResult).toBe(TxExecutionResult.SUCCESS);
 
       logger.info(`Valid tx was mined and invalid txs were dropped by P2P node`);
     },

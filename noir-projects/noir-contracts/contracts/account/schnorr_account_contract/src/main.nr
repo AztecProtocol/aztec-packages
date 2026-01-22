@@ -25,7 +25,7 @@ pub contract SchnorrAccount {
             notes::{get_sender_for_tags, set_sender_for_tags},
         },
         protocol_types::address::AztecAddress,
-        state_vars::PrivateImmutable,
+        state_vars::SinglePrivateImmutable,
     };
 
     use crate::public_key_note::PublicKeyNote;
@@ -33,7 +33,7 @@ pub contract SchnorrAccount {
     #[storage]
     struct Storage<Context> {
         // docs:start:public_key
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        signing_public_key: SinglePrivateImmutable<PublicKeyNote, Context>,
         // docs:end:public_key
     }
 
@@ -41,7 +41,7 @@ pub contract SchnorrAccount {
     #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
-        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, self.address);
+        let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -56,9 +56,10 @@ pub contract SchnorrAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(self.address) };
-        self.storage.signing_public_key.initialize(pub_key_note).emit(
-            self.address,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
+        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
+        // contract.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(
+            MessageDelivery.ONCHAIN_CONSTRAINED,
         );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
@@ -149,7 +150,7 @@ pub contract SchnorrAccount {
         let nullifier = compute_authwit_nullifier(self.address, inner_hash);
         let siloed_nullifier = compute_siloed_nullifier(consumer, nullifier);
         let lower_wit =
-            get_low_nullifier_membership_witness(self.context.block_number(), siloed_nullifier);
+            get_low_nullifier_membership_witness(self.context.block_header(), siloed_nullifier);
         let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
 
         !is_spent & valid_in_private

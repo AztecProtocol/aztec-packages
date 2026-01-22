@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -7,11 +7,12 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
-import type { L2Block } from '../block/l2_block.js';
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import type { CheckpointProposal, CheckpointProposalCore } from './checkpoint_proposal.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
+/** Checkpoint consensus payload as signed by validators and verified on L1. */
 export class ConsensusPayload implements Signable {
   private size: number | undefined;
 
@@ -59,8 +60,9 @@ export class ConsensusPayload implements Signable {
     return serializeToBuffer([this.header, this.archive]);
   }
 
-  public equals(other: ConsensusPayload): boolean {
-    return this.header.equals(other.header) && this.archive.equals(other.archive);
+  public equals(other: ConsensusPayload | CheckpointProposal | CheckpointProposalCore): boolean {
+    const otherHeader = 'checkpointHeader' in other ? other.checkpointHeader : other.header;
+    return this.header.equals(otherHeader) && this.archive.equals(other.archive);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
@@ -71,10 +73,6 @@ export class ConsensusPayload implements Signable {
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
     return new ConsensusPayload(fields.header, fields.archive);
-  }
-
-  static fromBlock(block: L2Block): ConsensusPayload {
-    return new ConsensusPayload(block.header.toCheckpointHeader(), block.archive.root);
   }
 
   static fromCheckpoint(checkpoint: Checkpoint): ConsensusPayload {

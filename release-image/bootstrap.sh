@@ -40,6 +40,11 @@ function build {
   denoise "build_image"
 }
 
+function test_cmds {
+  # Very simple sanity test.
+  echo "$hash docker run --rm aztecprotocol/aztec --version"
+}
+
 function release {
   echo_header "release-image release"
 
@@ -63,16 +68,14 @@ function release {
     done
 
     # We release with our tag, e.g. 1.0.0
-    docker manifest create aztecprotocol/aztec:$tag \
-      --amend aztecprotocol/aztec:$tag-amd64 \
-      --amend aztecprotocol/aztec:$tag-arm64
-    docker manifest push aztecprotocol/aztec:$tag
+    docker buildx imagetools create -t aztecprotocol/aztec:$tag \
+      aztecprotocol/aztec:$tag-amd64 \
+      aztecprotocol/aztec:$tag-arm64
 
     # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
-    docker manifest create aztecprotocol/aztec:$(dist_tag) \
-      --amend aztecprotocol/aztec:$tag-amd64 \
-      --amend aztecprotocol/aztec:$tag-arm64
-    docker manifest push aztecprotocol/aztec:$(dist_tag)
+    # docker buildx imagetools create -t aztecprotocol/aztec:$(dist_tag) \
+    #   aztecprotocol/aztec:$tag-amd64 \
+    #   aztecprotocol/aztec:$tag-arm64
   fi
 }
 
@@ -85,6 +88,18 @@ function push {
   fi
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
   do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH
+}
+
+function push_pr {
+  echo_header "release-image push_pr"
+
+  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+    echo "Missing DOCKERHUB_PASSWORD."
+    exit 1
+  fi
+  echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
+  docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$COMMIT_HASH
+  do_or_dryrun docker push aztecprotocol/aztecdev:$COMMIT_HASH
 }
 
 case "$cmd" in

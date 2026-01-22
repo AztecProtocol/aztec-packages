@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct ContractSelf documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ContractSelf</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ContractSelf</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.address">address</a></li>
+<li><a href="#structfield.call_self">call_self</a></li>
+<li><a href="#structfield.call_self_static">call_self_static</a></li>
+<li><a href="#structfield.context">context</a></li>
+<li><a href="#structfield.enqueue_self">enqueue_self</a></li>
+<li><a href="#structfield.enqueue_self_static">enqueue_self_static</a></li>
+<li><a href="#structfield.internal">internal</a></li>
+<li><a href="#structfield.storage">storage</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#call">call</a></li>
+<li><a href="#call">call</a></li>
+<li><a href="#emit">emit</a></li>
+<li><a href="#emit">emit</a></li>
+<li><a href="#enqueue">enqueue</a></li>
+<li><a href="#enqueue_incognito">enqueue_incognito</a></li>
+<li><a href="#enqueue_view">enqueue_view</a></li>
+<li><a href="#enqueue_view_incognito">enqueue_view_incognito</a></li>
+<li><a href="#msg_sender">msg_sender</a></li>
+<li><a href="#msg_sender">msg_sender</a></li>
+<li><a href="#new_private">new_private</a></li>
+<li><a href="#new_public">new_public</a></li>
+<li><a href="#new_utility">new_utility</a></li>
+<li><a href="#set_as_teardown">set_as_teardown</a></li>
+<li><a href="#set_as_teardown_incognito">set_as_teardown_incognito</a></li>
+<li><a href="#view">view</a></li>
+<li><a href="#view">view</a></li>
+</ul>
+<h2>In module contract_self</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractSelf.html">ContractSelf</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">contract_self</a></div>
+<h1>Struct <span id="struct" class="struct">ContractSelf</span></h1>
+<pre><code>pub struct ContractSelf&lt;Context, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal&gt; {
+    pub address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub storage: Storage,
+    pub context: Context,
+    pub call_self: CallSelf,
+    pub enqueue_self: EnqueueSelf,
+    pub call_self_static: CallSelfStatic,
+    pub enqueue_self_static: EnqueueSelfStatic,
+    pub internal: CallInternal,
+}
+</code></pre>
+<div class="comments">
+<p>Core interface for interacting with aztec-nr contract features.</p>
+<p>This struct is automatically injected into every <a href="../../noir_aztec/macros/functions/fn.external.html">external</a> and
+<a href="../../noir_aztec/macros/functions/fn.internal.html">internal</a> contract function by the Aztec macro system and is accessible through
+the <code>self</code> variable.</p>
+<h2>Usage in Contract Functions</h2>
+<p>Once injected, you can use <code>self</code> to:</p>
+<ul>
+<li>Access storage: <code>self.storage.balances.at(owner).read()</code></li>
+<li>Call contracts: <code>self.call(Token::at(address).transfer(recipient, amount))</code></li>
+<li>Emit events: <code>self.emit(event).deliver_to(recipient, delivery_mode)</code> (private) or <code>self.emit(event)</code> (public)</li>
+<li>Get the contract address: <code>self.address</code></li>
+<li>Get the caller: <code>self.msg_sender()</code></li>
+<li>Access low-level Aztec.nr APIs through the context: <code>self.context</code></li>
+</ul>
+<h2>Example</h2>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> withdraw(amount: u128, recipient: AztecAddress) {
+    <span class="comment">// Get the caller of this function</span>
+    <span class="kw">let</span> sender = self.msg_sender();
+
+    <span class="comment">// Access storage</span>
+    <span class="kw">let</span> token = self.storage.donation_token.get_note().get_address();
+
+    <span class="comment">// Call contracts</span>
+    self.call(Token::at(token).transfer(recipient, amount));
+}</code></pre>
+<h2>Type Parameters</h2>
+<ul>
+<li><code>Context</code>: The execution context type - either <code>&amp;mut PrivateContext</code>, <code>PublicContext</code>, or <code>UtilityContext</code></li>
+<li><code>Storage</code>: The contract's storage struct (defined with <a href="../../noir_aztec/macros/storage/fn.storage.html">storage</a>, or <code>()</code> if the
+contract has no storage</li>
+<li><code>CallSelf</code>: Macro-generated type for calling contract's own non-view functions</li>
+<li><code>EnqueueSelf</code>: Macro-generated type for enqueuing calls to the contract's own non-view functions</li>
+<li><code>CallSelfStatic</code>: Macro-generated type for calling contract's own view functions</li>
+<li><code>EnqueueSelfStatic</code>: Macro-generated type for enqueuing calls to the contract's own view functions</li>
+</ul></div>
+<h2>Fields</h2>
+<div id="structfield.address" class="struct-field"><code class="code-header">address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The address of this contract</p>
+</div>
+</div><div id="structfield.storage" class="struct-field"><code class="code-header">storage: Storage</code></div>
+<div class="padded-description"><div class="comments">
+<p>The contract's storage instance, representing the struct to which the <a href="../../noir_aztec/macros/storage/fn.storage.html">storage</a>
+macro was applied in your contract. If the contract has no storage, the type of this will be <code>()</code>.</p>
+<p>This storage instance is specialized for the current execution context (private, public, or utility) and
+provides access to the contract's state variables. Each state variable accepts the context as a generic
+parameter, which determines its available functionality. For example, a PublicImmutable variable can be read
+from any context (public, private, or utility) but can only be written to from public contexts.</p>
+<h4>Developer Note</h4>
+<p>If you've arrived here while trying to access your contract's storage while the <code>Storage</code> generic type is set to
+unit type <code>()</code>, it means you haven't yet defined a Storage struct using the
+<a href="../../noir_aztec/macros/storage/fn.storage.html">storage</a> macro in your contract.
+For guidance on setting this up, please refer to our docs:
+https://docs.aztec.network/developers/docs/guides/smart_contracts/storage</p></div>
+</div><div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
+<div class="padded-description"><div class="comments">
+<p>The execution context whose type is determined by the <a href="../../noir_aztec/macros/functions/fn.external.html">external</a> attribute
+of the contract function based on the external function type (private, public, or utility).</p></div>
+</div><div id="structfield.call_self" class="struct-field"><code class="code-header">call_self: CallSelf</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own non-view functions.</p>
+<p>In private and public contexts this will be a struct with appropriate methods;
+in utility context it will be the unit type <code>()</code>.</p>
+<p>Example API:</p>
+<pre><code>self.call_self.some_private_function(args)</code></pre></div>
+</div><div id="structfield.enqueue_self" class="struct-field"><code class="code-header">enqueue_self: EnqueueSelf</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for enqueuing calls to this contract's own non-view functions.</p>
+<p>In private context this will be a struct with appropriate methods;
+in public and utility contexts it will be the unit type <code>()</code>.</p>
+<p>Example API:</p>
+<pre><code>self.enqueue_self.some_public_function(args)</code></pre></div>
+</div><div id="structfield.call_self_static" class="struct-field"><code class="code-header">call_self_static: CallSelfStatic</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own view functions.</p>
+<p>In private and public contexts this will be a struct with appropriate methods;
+in utility context it will be the unit type <code>()</code>.</p>
+<p>Example API:</p>
+<pre><code>self.call_self_static.some_view_function(args)</code></pre></div>
+</div><div id="structfield.enqueue_self_static" class="struct-field"><code class="code-header">enqueue_self_static: EnqueueSelfStatic</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for enqueuing calls to this contract's own view functions.</p>
+<p>In private context this will be a struct with appropriate methods;
+in public and utility contexts it will be the unit type <code>()</code>.</p>
+<p>Example API:</p>
+<pre><code>self.enqueue_self_static.some_public_view_function(args)</code></pre></div>
+</div><div id="structfield.internal" class="struct-field"><code class="code-header">internal: CallInternal</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling internal functions.</p>
+<p>In private and public contexts this will be a struct with appropriate methods;
+in utility context it will be the unit type <code>()</code>.</p>
+<p>Example API:</p>
+<pre><code>self.internal.some_internal_function(args)</code></pre></div>
+</div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, Storage&gt; <a href="../../noir_aztec/contract_self/struct.ContractSelf.html" class="struct">ContractSelf</a>&lt;<a href="../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>, Storage, CallSelf, (), CallSelfStatic, (), CallInternal&gt;</code></h3>
+
+<div class="padded-methods"><code id="new_public" class="code-header">pub fn <a href="#new_public"><span class="fn">new_public</span></a>(
+    context: <a href="../../noir_aztec/context/public_context/struct.PublicContext.html" class="struct">PublicContext</a>,
+    storage: Storage,
+    call_self: CallSelf,
+    call_self_static: CallSelfStatic,
+    internal: CallInternal,
+) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>ContractSelf</code> instance for a public function.</p>
+<p>This constructor is called automatically by the macro system and should not be called directly.</p>
+</div>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The address of the contract address that made this function call.</p>
+<p>This is similar to Solidity's <code>msg.sender</code> value.</p>
+<h4>Incognito Calls</h4>
+<p>Contracts can call public functions from private ones hiding their identity (see
+<a href="../../noir_aztec/contract_self/struct.ContractSelf.html#enqueue_incognito">enqueue_incognito</a>). This function reverts when executed in such a context.</p>
+<p>If you need to handle these cases, use <a href="../../noir_aztec/context/public_context/struct.PublicContext.html#maybe_msg_sender">PublicContext::maybe_msg_sender</a>.</p></div>
+</div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
+<div class="where-clause">where
+    Event: <a href="../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
+    Event: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Emits an event publicly.</p>
+<p>Public events are emitted as plaintext and are therefore visible to everyone. This is is the same as Solidity
+events on EVM chains.</p>
+<p>Unlike private events, they don't require delivery of an event message.</p>
+<h4>Example</h4>
+<pre><code>#[event]
+<span class="kw">struct</span> Update { value: Field }
+
+#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> publish_update(value: Field) {
+    self.emit(Update { value });
+}</code></pre>
+<h4>Cost</h4>
+<p>Public event emission is achieved by emitting public transaction logs. A total of <code>N+1</code> fields are emitted,
+where <code>N</code> is the serialization length of the event.</p></div>
+</div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
+    call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a public contract call.</p>
+<p>Will revert if the called function reverts or runs out of gas.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the public function to invoke.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - Whatever data the called function has returned.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.call(Token::at(address).transfer_in_public(recipient, amount));</code></pre></div>
+</div><code id="view" class="code-header">pub unconstrained fn <a href="#view"><span class="fn">view</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
+    call: <a href="../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a public read-only contract call.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function
+cannot modify state or emit events. Any nested calls are constrained to
+also be static calls.</p>
+<p>Will revert if the called function reverts or runs out of gas.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the read-only public function to invoke.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - Whatever data the called function has returned.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.view(Token::at(address).balance_of_public(recipient));</code></pre></div>
+</div></div><h3><code class="code-header">impl&lt;Storage&gt; <a href="../../noir_aztec/contract_self/struct.ContractSelf.html" class="struct">ContractSelf</a>&lt;<a href="../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>, Storage, (), (), (), (), ()&gt;</code></h3>
+
+<div class="padded-methods"><code id="new_utility" class="code-header">pub fn <a href="#new_utility"><span class="fn">new_utility</span></a>(context: <a href="../../noir_aztec/context/utility_context/struct.UtilityContext.html" class="struct">UtilityContext</a>, storage: Storage) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>ContractSelf</code> instance for a utility function.</p>
+<p>This constructor is called automatically by the macro system and should not be called directly.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, EnqueueSelf, EnqueueSelfStatic, Storage&gt; <a href="../../noir_aztec/contract_self/struct.ContractSelf.html" class="struct">ContractSelf</a>&lt;&mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>, Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal&gt;</code></h3>
+
+<div class="padded-methods"><code id="new_private" class="code-header">pub fn <a href="#new_private"><span class="fn">new_private</span></a>(
+    context: &mut <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    storage: Storage,
+    call_self: CallSelf,
+    enqueue_self: EnqueueSelf,
+    call_self_static: CallSelfStatic,
+    enqueue_self_static: EnqueueSelfStatic,
+    internal: CallInternal,
+) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>ContractSelf</code> instance for a private function.</p>
+<p>This constructor is called automatically by the macro system and should not be called directly.</p>
+</div>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The address of the contract address that made this function call.</p>
+<p>This is similar to Solidity's <code>msg.sender</code> value.</p>
+<h4>Transaction Entrypoints</h4>
+<p>As there are no EOAs (externally owned accounts) in Aztec, unlike on Ethereum, the first contract function
+executed in a transaction (i.e. transaction entrypoint) does <strong>not</strong> have a caller. This function panics when
+executed in such a context.</p>
+<p>If you need to handle these cases, use <a href="../../noir_aztec/context/private_context/struct.PrivateContext.html#maybe_msg_sender">PrivateContext::maybe_msg_sender</a>.</p></div>
+</div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event) -> <a href="../../noir_aztec/event/event_message/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;
+<div class="where-clause">where
+    Event: <a href="../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
+    Event: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Emits an event privately.</p>
+<p>Unlike public events, private events do not reveal their contents publicly. They instead create an
+<a href="../../noir_aztec/event/event_message/struct.EventMessage.html">EventMessage</a> containing the private event information, which <strong>MUST</strong> be delivered to a recipient via
+<a href="../../noir_aztec/event/event_message/struct.EventMessage.html#deliver_to">EventMessage::deliver_to</a> in order for them to learn about the event. Multiple recipients can have the same
+message be delivered to them.</p>
+<h4>Example</h4>
+<pre><code>#[event]
+<span class="kw">struct</span> Transfer { from: AztecAddress, to: AztecAddress, amount: u128 }
+
+#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> transfer(to: AztecAddress, amount: u128) {
+    <span class="kw">let</span> from = self.msg_sender();
+
+    <span class="kw">let</span> message: EventMessage = self.emit(Transfer { from, to, amount });
+    message.deliver_to(from, MessageDelivery.OFFCHAIN);
+    message.deliver_to(to, MessageDelivery.ONCHAIN_CONSTRAINED);
+}</code></pre>
+<h4>Cost</h4>
+<p>Private event emission always results in the creation of a nullifer, which acts as a commitment to the event and
+is used by third parties to verify its authenticity. See <a href="../../noir_aztec/event/event_message/struct.EventMessage.html#deliver_to">EventMessage::deliver_to</a> for the costs associated to
+delivery.</p>
+<h4>Privacy</h4>
+<p>The nullifier created when emitting a private event leaks nothing about the content of the event - it's a
+commitment that includes a random value, so even with full knowledge of the event preimage determining if an
+event was emitted or not requires brute-forcing the entire <code>Field</code> space.</p></div>
+</div><code id="call" class="code-header">pub fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a private contract call.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the private function to invoke.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - Whatever data the called function has returned.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.call(Token::at(address).transfer_in_private(recipient, amount));</code></pre>
+<p>This enables contracts to interact with each other while maintaining
+privacy. This &quot;composability&quot; of private contract functions is a key
+feature of the Aztec network.</p>
+<p>If a user's transaction includes multiple private function calls, then
+by the design of Aztec, the following information will remain private[1]:</p>
+<ul>
+<li>The function selectors and contract addresses of all private function
+calls will remain private, so an observer of the public mempool will
+not be able to look at a tx and deduce which private functions have
+been executed.</li>
+<li>The arguments and return values of all private function calls will
+remain private.</li>
+<li>The person who initiated the tx will remain private.</li>
+<li>The notes and nullifiers and private logs that are emitted by all
+private function calls will (if designed well) not leak any user
+secrets, nor leak which functions have been executed.</li>
+</ul>
+<p>[1] Caveats: Some of these privacy guarantees depend on how app
+developers design their smart contracts. Some actions <em>can</em> leak
+information, such as:</p>
+<ul>
+<li>Calling an internal public function.</li>
+<li>Calling a public function and not setting msg_sender to Option::none
+(see https://github.com/AztecProtocol/aztec-packages/pull/16433)</li>
+<li>Calling any public function will always leak details about the nature
+of the transaction, so devs should be careful in their contract
+designs. If it can be done in a private function, then that will give
+the best privacy.</li>
+<li>Not padding the side-effects of a tx to some standardized, uniform
+size. The kernel circuits can take hints to pad side-effects, so a
+wallet should be able to request for a particular amount of padding.
+Wallets should ideally agree on some standard.
+<ul>
+<li>Padding should include:
+<ul>
+<li>Padding the lengths of note &amp; nullifier arrays</li>
+<li>Padding private logs with random fields, up to some standardized
+size.
+See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h4>Advanced</h4>
+<ul>
+<li>The call is added to the private call stack and executed by kernel
+circuits after this function completes</li>
+<li>The called function can modify its own contract's private state</li>
+<li>Side effects from the called function are included in this transaction</li>
+<li>The call inherits the current transaction's context and gas limits</li>
+</ul></div>
+</div><code id="view" class="code-header">pub fn <a href="#view"><span class="fn">view</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a read-only private contract call.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function
+cannot modify state, emit L2-&gt;L1 messages, nor emit events. Any nested
+calls are constrained to also be static calls.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the read-only private function to invoke.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - Whatever data the called function has returned.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.view(Token::at(address).balance_of_private(recipient));</code></pre></div>
+</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue"><span class="fn">enqueue</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Enqueues a public contract call function.</p>
+<p>Unlike private functions which execute immediately on the user's device,
+public function calls are &quot;enqueued&quot; and executed some time later by a
+block proposer.</p>
+<p>This means a public function cannot return any values back to a private
+function, because by the time the public function is being executed,
+the private function which called it has already completed execution.
+(In fact, the private function has been executed and proven, along with
+all other private function calls of the user's tx. A single proof of the
+tx has been submitted to the Aztec network, and some time later a
+proposer has picked the tx up from the mempool and begun executing all
+of the enqueued public functions).</p>
+<h4>Privacy warning</h4>
+<p>Enqueueing a public function call is an inherently leaky action.
+Many interesting applications will require some interaction with public
+state, but smart contract developers should try to use public function
+calls sparingly, and carefully.
+<em>Internal</em> public function calls are especially leaky, because they
+completely leak which private contract made the call.
+See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The interface representing the public function to enqueue.</li>
+</ul>
+</div>
+</div><code id="enqueue_view" class="code-header">pub fn <a href="#enqueue_view"><span class="fn">enqueue_view</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    &mut self,
+    call: <a href="../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Enqueues a read-only public contract call function.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function
+cannot modify state, emit L2-&gt;L1 messages, nor emit events. Any nested
+calls are constrained to also be static calls.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the read-only public function to enqueue.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.enqueue_view(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre></div>
+</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito"><span class="fn">enqueue_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Enqueues a privacy-preserving public contract call function.</p>
+<p>This is the same as <a href="../../noir_aztec/contract_self/struct.ContractSelf.html#enqueue">ContractSelf::enqueue</a>, except it hides this calling contract's address from the target
+public function (i.e. <a href="../../noir_aztec/contract_self/struct.ContractSelf.html#msg_sender">ContractSelf::msg_sender</a> will panic).</p>
+<p>This means the origin of the call (msg_sender) will not be publicly
+visible to any blockchain observers, nor to the target public function.
+If the target public function reads <code>self.msg_sender()</code> the call will
+revert.</p>
+<p>NOTES:</p>
+<ul>
+<li>Not all public functions will accept a msg_sender of &quot;none&quot;. Many
+public functions will require that msg_sender is &quot;some&quot; and will
+revert otherwise. Therefore, if using <code>enqueue_incognito</code>, you must
+understand whether the function you're calling will accept a
+msg_sender of &quot;none&quot;.
+Lots of public bookkeeping patterns rely on knowing which address made
+the call, so as to ascribe state against the caller's address.
+(There are patterns whereby bookkeeping could instead be done in
+private-land).</li>
+<li>If you are enqueueing a call to an <em>internal</em> public function (i.e.
+a public function that will only accept calls from other functions
+of its own contract), then by definition a call to it cannot possibly
+be &quot;incognito&quot;: the msg_sender must be its own address, and indeed the
+called public function will assert this. Tl;dr this is not usable for
+enqueued internal public calls.</li>
+</ul>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the public function to enqueue.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.enqueue_incognito(Token::at(address).increase_total_supply_by(amount));</code></pre>
+<p>Advanced:</p>
+<ul>
+<li>The kernel circuits will permit <em>any</em> private function to set the
+msg_sender field of any enqueued public function call to
+NULL_MSG_SENDER_CONTRACT_ADDRESS.</li>
+<li>When the called public function calls <code>PublicContext::msg_sender()</code>,
+aztec-nr will translate NULL_MSG_SENDER_CONTRACT_ADDRESS into
+<code>Option&lt;AztecAddress&gt;::none</code> for familiarity to devs.</li>
+</ul></div>
+</div><code id="enqueue_view_incognito" class="code-header">pub fn <a href="#enqueue_view_incognito"><span class="fn">enqueue_view_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    &mut self,
+    call: <a href="../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Enqueues a privacy-preserving read-only public contract call function.</p>
+<p>As per <code>enqueue_view</code>, but hides this calling contract's address from
+the target public function.</p>
+<p>See <code>enqueue_incognito</code> for more details relating to hiding msg_sender.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the read-only public function to enqueue.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.enqueue_view_incognito(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre></div>
+</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown"><span class="fn">set_as_teardown</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Enqueues a call to the public function defined by the <code>call</code> parameter,
+and designates it to be the teardown function for this tx. Only one teardown
+function call can be made by a tx.</p>
+<p>Niche function: Only wallet developers and paymaster contract developers
+(aka Fee-payment contracts) will need to make use of this function.</p>
+<p>Aztec supports a three-phase execution model: setup, app logic, teardown.
+The phases exist to enable a fee payer to take on the risk of paying
+a transaction fee, safe in the knowledge that their payment (in whatever
+token or method the user chooses) will succeed, regardless of whether
+the app logic will succeed. The &quot;setup&quot; phase ensures the fee payer
+has sufficient balance to pay the proposer their fees.
+The teardown phase is primarily intended to: calculate exactly
+how much the user owes, based on gas consumption, and refund the user
+any change.</p>
+<p>Note: in some cases, the cost of refunding the user (i.e. DA costs of
+tx side-effects) might exceed the refund amount. For app logic with
+fairly stable and predictable gas consumption, a material refund amount
+is unlikely. For app logic with unpredictable gas consumption, a
+refund might be important to the user (e.g. if a hefty function reverts
+very early). Wallet/FPC/Paymaster developers should be mindful of this.</p>
+<p>See <code>enqueue</code> for more information about enqueuing public function calls.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the public function to designate as teardown.</li>
+</ul>
+</div>
+</div><code id="set_as_teardown_incognito" class="code-header">pub fn <a href="#set_as_teardown_incognito"><span class="fn">set_as_teardown_incognito</span></a>&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    &mut self,
+    call: <a href="../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p>Enqueues a call to the public function defined by the <code>call</code> parameter,
+and designates it to be the teardown function for this tx. Only one teardown
+function call can be made by a tx.</p>
+<p>As per <code>set_as_teardown</code>, but hides this calling contract's address from
+the target public function.</p>
+<p>See <code>enqueue_incognito</code> for more details relating to hiding msg_sender.</p>
+</div>
+</div></div></main>
+</span>
+</body>
+</html>

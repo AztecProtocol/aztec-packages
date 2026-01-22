@@ -1,7 +1,21 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+//
+// === CODE ROLE: Builder-agnostic native computation ===
+// This file performs pure computation without modifying any circuit builder. All functions here
+// operate on native field elements (bb::fr) and return computed values. No witnesses or gates are created.
+//
+// Key functions:
+//   - get_lookup_accumulators(): Slices inputs, computes table values, builds accumulator arrays.
+//     This is the core native lookup logic. Returns ReadData<bb::fr> with computed values.
+//   - get_multitable(): Returns a MultiTable by ID (lazy initialization of all tables)
+//   - create_basic_table(): Factory function for BasicTable creation by ID
+//
+// The output of get_lookup_accumulators() is passed to ultra_circuit_builder::create_gates_from_plookup_accumulators()
+// which actually creates the lookup gates in the circuit.
 // =====================
 
 #include "plookup_tables.hpp"
@@ -127,7 +141,7 @@ const MultiTable& get_multitable(const MultiTableId id)
  * interest. The way to do this is to populate the wires with 'accumulator' values such that the first gate in the
  * series contains the full accumulated values, and successive gates contain prior stages of the accumulator such that
  * wire_i - r*wire_{i-1} = v_i, where r = num limb bits and v_i is a limb that explicitly appears in one of the lookup
- * tables. See the detailed comment block below for more explanation.
+ * tables. See the detailed comment block below and also ./README.md for more explanation.
  *
  * @param id
  * @param key_a
@@ -192,20 +206,20 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
      * | 5 | a5 + p.a4 + ...... + p^4.a1       | b5 + q.b4 + ...... + q^4.b1      | s5 + r.s4 + ...... + r^4.s1       |
      * | 4 | a4 + p.a3 + ... + p^3.a1          | b4 + q.b3 + ... + q^3.b1         | s4 + r.s3 + ... + r^3.s1          |
      * | 3 | a3 + p.a2 + p^2.a1                | b3 + q.b2 + q^2.b1               | s3 + r.s2 + r^2.s1                |
-     * | 2 | a2 + p.a1                         | b2 + q.b1                        | s2 + r.a1                         |
+     * | 2 | a2 + p.a1                         | b2 + q.b1                        | s2 + r.s1                         |
      * | 1 | a1                                | b1                               | s1                                |
      * +---+-----------------------------------+----------------------------------+-----------------------------------+
      *
      * Note that we compute the accumulating sums of the slices so as to avoid using additonal gates for the purpose of
      * reconstructing the original inputs/outputs. I.e. the output value at the 0th index in the above table is the
      * actual value we were interested in computing in the first place. Importantly, the structure of the remaining rows
-     * is such that row_i - r*row_{i+1} produces an entry {a_j, b_j, s_j} that exactly corresponds to an entry in a
-     * BasicTable. This is what gives rise to the wire_i - scalar*wire_i_shift structure in the lookup relation. Here,
-     * (p, q, r) are referred to as column coefficients/step sizes. In the next few lines, we compute these accumulating
-     * sums from raw column values (a1, ..., a6), (b1, ..., b6), (s1, ..., s6) and column coefficients (p, q, r).
+     * is such that row_i - (p, q, r)*row_{i+1} produces an entry {a_j, b_j, s_j} that exactly corresponds to an entry
+     * in a BasicTable. This is what gives rise to the wire_i - scalar*wire_i_shift structure in the lookup relation.
+     * Here, (p, q, r) are referred to as column coefficients/step sizes. In the next few lines, we compute these
+     * accumulating sums from raw column values (a1, ..., a6), (b1, ..., b6), (s1, ..., s6) and column coefficients (p,
+     * q, r).
      *
-     * For more details: see
-     * https://app.gitbook.com/o/-LgCgJ8TCO7eGlBr34fj/s/-MEwtqp3H6YhHUTQ_pVJ/plookup-gates-for-ultraplonk/lookup-table-structures
+     * For more details: see ./README.md
      *
      */
     lookup[C1][num_lookups - 1] = column_1_raw_values[num_lookups - 1];

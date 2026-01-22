@@ -1,9 +1,10 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
-import { GSEContract, createEthereumChain } from '@aztec/ethereum';
-import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { GSEContract } from '@aztec/ethereum/contracts';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
+import { computeBn254G1PublicKey, computeBn254G2PublicKey } from '@aztec/foundation/crypto/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type {
@@ -272,7 +273,7 @@ export async function generateStakerJson(options: StakerOptions, log: LogFn): Pr
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
-    transport: fallback(l1RpcUrls.map(url => http(url))),
+    transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
   });
   const gse = new GSEContract(publicClient, gseAddress);
 

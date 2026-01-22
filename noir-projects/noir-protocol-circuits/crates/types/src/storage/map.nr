@@ -1,5 +1,6 @@
 use crate::{hash::poseidon2_hash, traits::ToField};
 
+// TODO: Move this to abis/public_data/storage/map.nr
 pub fn derive_storage_slot_in_map<K>(storage_slot: Field, key: K) -> Field
 where
     K: ToField,

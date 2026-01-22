@@ -1,18 +1,21 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import {
+  ChainHealth,
   applyBootNodeFailure,
   applyNetworkShaping,
   applyValidatorKill,
-  awaitL2BlockNumber,
+  awaitCheckpointNumber,
+  deleteResourceByLabel,
   getGitProjectRoot,
   installTransferBot,
   restartBot,
@@ -49,11 +52,15 @@ describe('a test that passively observes the network in the presence of network 
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
   let ETHEREUM_HOST: string;
-  let alertChecker: AlertChecker;
+  let alertChecker: GrafanaClient;
   let spartanDir: string;
   const forwardProcesses: ChildProcess[] = [];
+  const podChaosInstances: string[] = [];
+  const networkShapingInstance = `${NAMESPACE}-network-shaping`;
+  const health = new ChainHealth(NAMESPACE, debugLogger);
 
   beforeAll(async () => {
+    await health.setup();
     // Try Prometheus in a dedicated metrics namespace first; if not present, fall back to the network namespace
     let promPort = 0;
     let promProc: ChildProcess | undefined;
@@ -85,7 +92,7 @@ describe('a test that passively observes the network in the presence of network 
       forwardProcesses.push(promProc);
       const grafanaEndpoint = `http://127.0.0.1:${promPort}/api/v1`;
       const grafanaCredentials = '';
-      alertChecker = new AlertChecker(debugLogger, { grafanaEndpoint, grafanaCredentials });
+      alertChecker = new GrafanaClient(debugLogger, { grafanaEndpoint, grafanaCredentials });
     } else {
       debugLogger.warn('Prometheus not reachable; skipping QoS alert checks for this run.');
     }
@@ -104,9 +111,19 @@ describe('a test that passively observes the network in the presence of network 
   });
 
   afterAll(async () => {
+    await health.teardown();
     if (alertChecker) {
       await alertChecker.runAlertCheck(qosAlerts);
     }
+
+    // Teardown chaos experiments created during the test
+    for (const instanceName of podChaosInstances) {
+      const label = `app.kubernetes.io/instance=${instanceName}`;
+      await deleteResourceByLabel({ resource: 'podchaos', namespace: NAMESPACE, label }).catch(() => undefined);
+    }
+    const label = `app.kubernetes.io/instance=${networkShapingInstance}`;
+    await deleteResourceByLabel({ resource: 'workflows', namespace: NAMESPACE, label }).catch(() => undefined);
+
     // Teardown transfer bot installed for this test
     await uninstallTransferBot(NAMESPACE, debugLogger);
     forwardProcesses.forEach(p => p.kill());
@@ -131,25 +148,33 @@ describe('a test that passively observes the network in the presence of network 
 
     await restartBot(NAMESPACE, debugLogger);
 
-    // wait for the chain to build at least 1 epoch's worth of blocks
-    // note, don't forget that normally an epoch doesn't need epochDuration worth of blocks,
+    // wait for the chain to build at least 1 epoch's worth of checkpoints
+    // note, don't forget that normally an epoch doesn't need epochDuration worth of checkpoints,
     // but here we do double duty:
-    // we want a handful of blocks, and we want to pass the epoch boundary
-    await awaitL2BlockNumber(rollupCheatCodes, BigInt(epochDuration) * BigInt(slotDuration), 60 * 6, debugLogger);
+    // we want a handful of checkpoints, and we want to pass the epoch boundary
+    const initialTips = await rollupCheatCodes.getTips();
+    const checkpointWaitTarget = CheckpointNumber(initialTips.pending + Number(epochDuration));
+    const epochDurationSeconds = Number(BigInt(epochDuration) * BigInt(slotDuration));
+    await awaitCheckpointNumber(rollupCheatCodes, checkpointWaitTarget, epochDurationSeconds * 2, debugLogger);
 
     let deploymentOutput: string = '';
     deploymentOutput = await applyNetworkShaping({
+      instanceName: `${NAMESPACE}-network-shaping`,
       valuesFile: 'network-requirements.yaml',
       namespace: NAMESPACE,
       spartanDir,
       logger: debugLogger,
     });
     debugLogger.info(deploymentOutput);
+    const bootNodeFailureInstance = `${NAMESPACE}-boot-node-failure`;
+    podChaosInstances.push(bootNodeFailureInstance);
     deploymentOutput = await applyBootNodeFailure({
+      instanceName: bootNodeFailureInstance,
       durationSeconds: 60 * 60 * 24,
       namespace: NAMESPACE,
       spartanDir,
       logger: debugLogger,
+      values: { 'global.chaosResourceNamespace': NAMESPACE },
     });
     debugLogger.info(deploymentOutput);
     await restartBot(NAMESPACE, debugLogger);
@@ -157,21 +182,30 @@ describe('a test that passively observes the network in the presence of network 
     const rounds = 3;
     for (let i = 0; i < rounds; i++) {
       debugLogger.info(`Round ${i + 1}/${rounds}`);
+      const validatorKillInstance = `${NAMESPACE}-validator-kill-${i + 1}`;
+      podChaosInstances.push(validatorKillInstance);
       deploymentOutput = await applyValidatorKill({
+        instanceName: validatorKillInstance,
         namespace: NAMESPACE,
         spartanDir,
         logger: debugLogger,
+        values: { 'global.chaosResourceNamespace': NAMESPACE },
       });
       debugLogger.info(deploymentOutput);
-      debugLogger.info(`Waiting for chain to progress by at least 1 block`);
+      debugLogger.info(`Waiting for chain to progress by at least 1 checkpoint`);
       const controlTips = await rollupCheatCodes.getTips();
       const timeoutSeconds = Math.ceil(Number(BigInt(epochDuration) * BigInt(slotDuration)) * 2);
-      await awaitL2BlockNumber(rollupCheatCodes, controlTips.pending + 1n, timeoutSeconds, debugLogger);
+      await awaitCheckpointNumber(
+        rollupCheatCodes,
+        CheckpointNumber(controlTips.pending + 1),
+        timeoutSeconds,
+        debugLogger,
+      );
       const newTips = await rollupCheatCodes.getTips();
 
       // calculate the percentage of slots missed for debugging purposes
-      const perfectPending = controlTips.pending + BigInt(Math.floor(Number(epochDuration)));
-      const missedSlots = Number(perfectPending) - Number(newTips.pending);
+      const perfectPending = CheckpointNumber(controlTips.pending + Math.floor(Number(epochDuration)));
+      const missedSlots = perfectPending - newTips.pending;
       const missedSlotsPercentage = (missedSlots / Number(epochDuration)) * 100;
       debugLogger.info(`Missed ${missedSlots} slots, ${missedSlotsPercentage.toFixed(2)}%`);
 

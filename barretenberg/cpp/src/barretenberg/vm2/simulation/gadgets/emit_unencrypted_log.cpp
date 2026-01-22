@@ -12,14 +12,14 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
                                               MemoryAddress log_address,
                                               uint32_t log_size)
 {
-    uint64_t end_log_address = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size) - 1;
-    bool error_memory_out_of_bounds = greater_than.gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS);
+    uint64_t end_log_address_upper_bound = static_cast<uint64_t>(log_address) + static_cast<uint64_t>(log_size);
+    bool error_memory_out_of_bounds = greater_than.gt(end_log_address_upper_bound, AVM_MEMORY_SIZE);
 
     auto& side_effect_tracker = context.get_side_effect_tracker();
     uint32_t prev_emitted_log_fields = side_effect_tracker.get_side_effects().get_num_unencrypted_log_fields();
 
-    uint32_t total_log_fields_size = PUBLIC_LOG_HEADER_LENGTH + log_size;
-    uint32_t expected_next_emitted_log_fields = prev_emitted_log_fields + total_log_fields_size;
+    uint64_t total_log_fields_size = PUBLIC_LOG_HEADER_LENGTH + log_size;
+    uint64_t expected_next_emitted_log_fields = prev_emitted_log_fields + total_log_fields_size;
 
     bool error_too_many_log_fields = greater_than.gt(expected_next_emitted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
 
@@ -71,7 +71,7 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
         throw EmitUnencryptedLogException("Tag mismatch");
     }
     if (error_is_static) {
-        throw EmitUnencryptedLogException("Static context");
+        throw EmitUnencryptedLogException("Static call cannot update the state.");
     }
 }
 

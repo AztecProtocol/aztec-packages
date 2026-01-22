@@ -16,13 +16,7 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
@@ -302,6 +296,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.resultsCache.delete(id);
       this.inProgress.delete(id);
       this.retries.delete(id);
+      this.enqueuedAt.delete(id);
     }
   }
 
@@ -354,6 +349,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
           const enqueuedAt = this.enqueuedAt.get(job.id);
           if (enqueuedAt) {
             this.instrumentation.recordJobWait(job.type, enqueuedAt);
+            // we can clear this flag now.
+            this.enqueuedAt.delete(job.id);
           }
 
           return { job, time };
@@ -562,7 +559,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return this.#getProvingJob(filter);
   }
 
-  @trackSpan('ProvingBroker.cleanupPass')
   private async cleanupPass() {
     this.cleanupStaleJobs();
     this.reEnqueueExpiredJobs();

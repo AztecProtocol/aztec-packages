@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Raju], commit: 2a49eb6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -129,7 +129,10 @@ class ECCVMTranscriptBuilder {
      * elliptic curve operations in Jacobian (a.k.a projective) coordinates, and then normalizes these points to affine
      * coordinates. Batch inversion is used to optimize expensive finite field inversions.
      *
-     * @param vm_operations ECCOpQueue
+     * The first operation (index 0) is always a hiding op with random (possibly non-curve) Px, Py values
+     * that should not undergo EC computation. This is required for ZK in production.
+     *
+     * @param vm_operations ECCOpQueue (first op must be the hiding op)
      * @param total_number_of_muls The total number of multiplications in the series of operations.
      *
      * @return A vector of TranscriptRows
@@ -172,12 +175,34 @@ class ECCVMTranscriptBuilder {
         // add an empty row: first row is all zeroes because of our shiftable polynomials.
         transcript_state[0] = (TranscriptRow{});
 
+        // Handle hiding op (index 0) separately before the main loop.
+        // The hiding op has random (non-curve) Px, Py values for ZK purposes - we skip EC computation
+        // and just record the raw field elements. Uses opcode 3 (q_eq=1, q_reset=1).
+        {
+            const ECCVMOperation& hiding_entry = vm_operations[0];
+            TranscriptRow& hiding_row = transcript_state[1];
+
+            hiding_row.base_x = hiding_entry.base_point.x;
+            hiding_row.base_y = hiding_entry.base_point.y;
+            hiding_row.q_eq = hiding_entry.op_code.eq;
+            hiding_row.q_reset_accumulator = hiding_entry.op_code.reset;
+            hiding_row.opcode = hiding_entry.op_code.value();
+            hiding_row.pc = state.pc;
+
+            // Initialize trace arrays to avoid uninitialized values in batch operations
+            accumulator_trace[0] = state.accumulator;
+            msm_accumulator_trace[0] = Element::infinity();
+            intermediate_accumulator_trace[0] = Element::infinity();
+            msm_count_at_transition_inverse_trace[0] = 0;
+        }
+
         // during the first iteration over the ECCOpQueue, the operations are being performed using Jacobian (a.k.a.
         // projective) coordinates and the base point coordinates are recorded in the transcript. at the same time, the
-        // transcript logic is being populated
-        for (size_t i = 0; i < num_vm_entries; i++) {
+        // transcript logic is being populated (starting from index 1, since index 0 is the hiding op handled above)
+        for (size_t i = 1; i < num_vm_entries; i++) {
             TranscriptRow& row = transcript_state[i + 1];
             const ECCVMOperation& entry = vm_operations[i];
+
             updated_state = state;
 
             const bool is_mul = entry.op_code.mul;

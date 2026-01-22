@@ -7,16 +7,26 @@ source $ci3/source_color
 status=${1:-RUNNING}
 key=${2:-}
 
-# CI runs are grouped by:
-# - The 'release' group if tagged with a semver.
-# - Or by the target branch of the merge queue they enter.
-# - Or in the 'prs' group.
-if semver check "$REF_NAME"; then
-  range_key="ci-run-releases"
-elif [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-  range_key="ci-run-$TARGET_BRANCH"
+if [ -z "${RUN_ID:-}" ]; then
+  echo_stderr "No RUN_ID set in log_ci_run. This ci run won't be seen on the dashboards."
+  exit
+fi
+
+if [ -z "$CI_DASHBOARD:-}" ]; then
+  # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
+  # CI runs are grouped by:
+  # - The 'release' group if tagged with a semver.
+  # - Or by the target branch of the merge queue they enter.
+  # - Or in the 'prs' group.
+  if semver check "$REF_NAME"; then
+    range_key="ci-run-releases"
+  elif [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+    range_key="ci-run-$TARGET_BRANCH"
+  else
+    range_key="ci-run-prs"
+  fi
 else
-  range_key="ci-run-prs"
+  range_key="ci-run-$CI_DASHBOARD"
 fi
 
 if [ -z "$key" ]; then

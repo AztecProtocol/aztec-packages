@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "aes128_constraint.hpp"
@@ -48,7 +48,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         return converted;
     };
 
-    const size_t padding_size = 16 - constraint.inputs.size() % 16;
+    const size_t padding_size = 16 - (constraint.inputs.size() % 16);
 
     // Perform the conversions from array of bytes to field elements
     std::vector<field_ct> converted_inputs;

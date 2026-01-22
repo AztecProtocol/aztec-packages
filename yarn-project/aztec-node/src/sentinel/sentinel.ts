@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -19,7 +19,7 @@ import {
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
-  getAttestationInfoFromPublishedL2Block,
+  getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
@@ -44,8 +44,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
-  protected slotNumberToBlock: Map<SlotNumber, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
-    new Map();
+  protected slotNumberToCheckpoint: Map<
+    SlotNumber,
+    { checkpointNumber: CheckpointNumber; archive: string; attestors: EthAddress[] }
+  > = new Map();
 
   constructor(
     protected epochCache: EpochCache,
@@ -76,7 +78,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   /** Loads initial slot and initializes blockstream. We will not process anything at or before the initial slot. */
   protected async init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
-    const startingBlock = await this.archiver.getBlockNumber();
+    const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
     this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
   }
@@ -87,30 +89,37 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
-    if (event.type === 'blocks-added') {
-      // Store mapping from slot to archive, block number, and attestors
-      for (const block of event.blocks) {
-        this.slotNumberToBlock.set(block.block.header.getSlot(), {
-          blockNumber: block.block.number,
-          archive: block.block.archive.root.toString(),
-          attestors: getAttestationInfoFromPublishedL2Block(block)
-            .filter(a => a.status === 'recovered-from-signature')
-            .map(a => a.address!),
-        });
-      }
-
-      // Prune the archive map to only keep at most N entries
-      const historyLength = this.store.getHistoryLength();
-      if (this.slotNumberToBlock.size > historyLength) {
-        const toDelete = Array.from(this.slotNumberToBlock.keys())
-          .sort((a, b) => Number(a - b))
-          .slice(0, this.slotNumberToBlock.size - historyLength);
-        for (const key of toDelete) {
-          this.slotNumberToBlock.delete(key);
-        }
-      }
+    if (event.type === 'chain-checkpointed') {
+      this.handleCheckpoint(event);
     } else if (event.type === 'chain-proven') {
       await this.handleChainProven(event);
+    }
+  }
+
+  protected handleCheckpoint(event: L2BlockStreamEvent) {
+    if (event.type !== 'chain-checkpointed') {
+      return;
+    }
+    const checkpoint = event.checkpoint;
+
+    // Store mapping from slot to archive, checkpoint number, and attestors
+    this.slotNumberToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, {
+      checkpointNumber: checkpoint.checkpoint.number,
+      archive: checkpoint.checkpoint.archive.root.toString(),
+      attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint)
+        .filter(a => a.status === 'recovered-from-signature')
+        .map(a => a.address!),
+    });
+
+    // Prune the archive map to only keep at most N entries
+    const historyLength = this.store.getHistoryLength();
+    if (this.slotNumberToCheckpoint.size > historyLength) {
+      const toDelete = Array.from(this.slotNumberToCheckpoint.keys())
+        .sort((a, b) => Number(a - b))
+        .slice(0, this.slotNumberToCheckpoint.size - historyLength);
+      for (const key of toDelete) {
+        this.slotNumberToCheckpoint.delete(key);
+      }
     }
   }
 
@@ -119,7 +128,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return;
     }
     const blockNumber = event.block.number;
-    const block = await this.archiver.getBlock(blockNumber);
+    const block = await this.archiver.getL2Block(blockNumber);
     if (!block) {
       this.logger.error(`Failed to get block ${blockNumber}`, { block });
       return;
@@ -291,8 +300,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return false;
     }
 
-    const archiverLastBlockHash = await this.l2TipsStore.getL2Tips().then(tip => tip.latest.hash);
-    const p2pLastBlockHash = await this.p2p.getL2Tips().then(tips => tips.latest.hash);
+    const archiverLastBlockHash = await this.l2TipsStore.getL2Tips().then(tip => tip.proposed.hash);
+    const p2pLastBlockHash = await this.p2p.getL2Tips().then(tips => tips.proposed.hash);
     const isP2pSynced = archiverLastBlockHash === p2pLastBlockHash;
     if (!isP2pSynced) {
       this.logger.debug(`Waiting for P2P client to sync with archiver`, { archiverLastBlockHash, p2pLastBlockHash });
@@ -331,8 +340,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // or all attestations for all proposals in the slot if no block was mined.
     // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
     // (contains the ones synced from mined blocks, which we may have missed from p2p).
-    const block = this.slotNumberToBlock.get(slot);
-    const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
+    const block = this.slotNumberToCheckpoint.get(slot);
+    const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, block?.archive);
     // Filter out attestations with invalid signatures
     const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(

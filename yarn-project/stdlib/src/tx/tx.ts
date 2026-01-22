@@ -1,6 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -24,13 +23,18 @@ import { TxHash } from './tx_hash.js';
 /**
  * The interface of an L2 transaction.
  */
+// docs:start:tx_class
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
 
   private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
-    /** Identifier of the tx */
+    /**
+     * Identifier of the tx.
+     * It's a hash of the public inputs of the tx's proof.
+     * This claimed hash is reconciled against the tx's public inputs (`this.data`) in data_validator.ts.
+     */
     public readonly txHash: TxHash,
     /**
      * Output of the private kernel circuit for this tx.
@@ -43,16 +47,20 @@ export class Tx extends Gossipable {
     /**
      * Contract class log fields emitted from the tx.
      * Their order should match the order of the log hashes returned from `this.data.getNonEmptyContractClassLogsHashes`.
-     * It's checked in data_validator.ts
+     * This claimed data is reconciled against a hash of this data (that is contained within
+     * the tx's public inputs (`this.data`)), in data_validator.ts.
      */
     public readonly contractClassLogFields: ContractClassLogFields[],
     /**
      * An array of calldata for the enqueued public function calls and the teardown function call.
+     * This claimed data is reconciled against hashes of this data (that are contained within
+     * the tx's public inputs (`this.data`)), in data_validator.ts.
      */
     public readonly publicFunctionCalldata: HashedValues[],
   ) {
     super();
   }
+  // docs:end:tx_class
 
   // Gossipable method
   override generateP2PMessageIdentifier(): Promise<Buffer32> {
@@ -238,7 +246,7 @@ export class Tx extends Gossipable {
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.chonkProof.fields.length,
-      size: this.toBuffer().length,
+      size: this.getSize(),
 
       feePaymentMethod:
         // needsSetup? then we pay through a fee payment contract
@@ -246,13 +254,13 @@ export class Tx extends Gossipable {
     };
   }
 
-  getSize() {
-    return (
-      this.data.getSize() +
-      this.chonkProof.fields.length * Fr.SIZE_IN_BYTES +
-      arraySerializedSizeOfNonEmpty(this.contractClassLogFields) +
-      this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
-    );
+  private sizeCache: number | undefined;
+
+  getSize(): number {
+    if (this.sizeCache == undefined) {
+      this.sizeCache = this.toBuffer().length;
+    }
+    return this.sizeCache;
   }
 
   /**

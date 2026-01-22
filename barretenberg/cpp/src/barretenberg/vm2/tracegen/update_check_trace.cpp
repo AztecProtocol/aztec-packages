@@ -47,7 +47,6 @@ void UpdateCheckTraceBuilder::process(
                 { C::update_check_delayed_public_mutable_slot, event.delayed_public_mutable_slot },
                 { C::update_check_delayed_public_mutable_hash_slot,
                   event.delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN },
-                { C::update_check_public_leaf_index_domain_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                 { C::update_check_deployer_protocol_contract_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
                 { C::update_check_timestamp_of_change, timestamp_of_change },
                 { C::update_check_update_hi_metadata, update_metadata_hi },

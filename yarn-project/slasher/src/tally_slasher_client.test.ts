@@ -4,7 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { retryFastUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -127,7 +127,9 @@ describe('TallySlasherClient', () => {
 
     // Create mock EpochCache
     mockEpochCache = mockDeep<EpochCache>();
-    mockEpochCache.getCommitteeForEpoch.mockImplementation(epoch => Promise.resolve({ committee, seed: 0n, epoch }));
+    mockEpochCache.getCommitteeForEpoch.mockImplementation(epoch =>
+      Promise.resolve({ committee, seed: 0n, epoch, isEscapeHatchOpen: false }),
+    );
     mockEpochCache.getL1Constants.mockReturnValue({
       l1StartBlock: 0n,
       l1GenesisTime: 0n,
@@ -258,6 +260,7 @@ describe('TallySlasherClient', () => {
           committee: undefined,
           seed: 0n,
           epoch: EpochNumber(0),
+          isEscapeHatchOpen: false,
         });
 
         const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
@@ -642,15 +645,10 @@ describe('TallySlasherClient', () => {
 
   describe('integration', () => {
     const waitForOffenses = (count: number) =>
-      retryUntil(
-        async () => {
-          const pendingOffenses = await offensesStore.getPendingOffenses();
-          return pendingOffenses.length >= count ? true : undefined;
-        },
-        'offense to be processed',
-        5,
-        0.1,
-      );
+      retryFastUntil(async () => {
+        const pendingOffenses = await offensesStore.getPendingOffenses();
+        return pendingOffenses.length >= count ? true : undefined;
+      }, 'offense to be processed');
 
     it('should handle from offense detection to execution', async () => {
       // Round 3: Offense occurs

@@ -1,5 +1,8 @@
 pub(crate) mod event_validation_request;
-pub mod message_context;
+
+mod message_context;
+pub use message_context::MessageContext;
+
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
 pub(crate) mod log_retrieval_response;
@@ -7,12 +10,10 @@ pub(crate) mod pending_tagged_log;
 
 use crate::{
     capsules::CapsuleArray,
-    event::event_selector::EventSelector,
+    event::EventSelector,
     messages::{
-        discovery::{
-            partial_notes::DeliveredPendingPartialNote, private_events::MAX_EVENT_SERIALIZED_LEN,
-            private_notes::MAX_NOTE_PACKED_LEN,
-        },
+        discovery::partial_notes::DeliveredPendingPartialNote,
+        logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest,
             log_retrieval_response::LogRetrievalResponse,
@@ -70,10 +71,16 @@ pub(crate) unconstrained fn get_private_logs(
 /// `NoteHash::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
 /// at `tx_hash`, and will store the nullifier to later check for nullification.
 ///
-/// `recipient` is the account to which the note was sent to. Other accounts will not be able to access this note (e.g.
-/// other accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized.
+/// `owner` is the address used in note hash and nullifier computation, often requiring knowledge of their
+/// nullifier secret key.
+///
+/// `recipient` is the account to which the note message was delivered (i.e. the address the message was encrypted to).
+/// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
+/// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In most
+/// cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
 pub(crate) unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
+    owner: AztecAddress,
     storage_slot: Field,
     randomness: Field,
     note_nonce: Field,
@@ -88,6 +95,7 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
     CapsuleArray::at(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
         NoteValidationRequest {
             contract_address,
+            owner,
             storage_slot,
             randomness,
             note_nonce,
@@ -109,6 +117,7 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
 pub(crate) unconstrained fn enqueue_event_for_validation(
     contract_address: AztecAddress,
     event_type_id: EventSelector,
+    randomness: Field,
     serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
     event_commitment: Field,
     tx_hash: Field,
@@ -120,6 +129,7 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
         EventValidationRequest {
             contract_address,
             event_type_id,
+            randomness,
             serialized_event,
             event_commitment,
             tx_hash,

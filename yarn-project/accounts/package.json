@@ -32,11 +32,11 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsgo -b",
+    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
     "generate": "yarn generate:noir-contracts",
     "generate:noir-contracts": "./scripts/copy-contracts.sh",
-    "build:dev": "tsgo -b --watch",
-    "build:ts": "tsgo -b",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "build:ts": "../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -93,7 +93,7 @@
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-loader": "^9.5.4",

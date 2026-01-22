@@ -26,7 +26,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
   'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
-  'ROUTER_ADDRESS',
+  'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN',
@@ -116,7 +116,7 @@ const CPP_CONSTANTS = [
 const CPP_GENERATORS: string[] = [
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
-  'CONTRACT_LEAF',
+  'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
@@ -163,7 +163,7 @@ const PIL_CONSTANTS = [
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
   'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
-  'ROUTER_ADDRESS',
+  'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'TIMESTAMP_OF_CHANGE_BIT_SIZE',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE',
@@ -302,7 +302,7 @@ const PIL_CONSTANTS = [
 const PIL_GENERATORS: string[] = [
   'PARTIAL_ADDRESS',
   'CONTRACT_ADDRESS_V1',
-  'CONTRACT_LEAF',
+  'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
@@ -316,6 +316,7 @@ const PIL_GENERATORS: string[] = [
 const SOLIDITY_CONSTANTS = [
   'MAX_FIELD_VALUE',
   'MAX_L2_TO_L1_MSGS_PER_TX',
+  'EMPTY_EPOCH_OUT_HASH',
   'L1_TO_L2_MSG_SUBTREE_HEIGHT',
   'NUM_MSGS_PER_BASE_PARITY',
   'NUM_BASE_PARITY_PER_ROOT_PARITY',
@@ -368,7 +369,7 @@ function processConstantsCpp(
 ): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
+    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
       if (BigInt(value) <= 2n ** 31n - 1n) {
         code.push(`#define ${key} ${value}`);
       } else if (BigInt(value) <= 2n ** 64n - 1n) {
@@ -380,7 +381,7 @@ function processConstantsCpp(
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {
     if (CPP_GENERATORS.includes(key)) {
-      code.push(`#define GENERATOR_INDEX__${key} ${value}`);
+      code.push(`#define DOM_SEP__${key} ${value}`);
     }
   });
   return code.join('\n');
@@ -405,7 +406,7 @@ function processConstantsPil(
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {
     if (PIL_GENERATORS.includes(key)) {
-      code.push(`    pol GENERATOR_INDEX__${key} = ${value};`);
+      code.push(`    pol DOM_SEP__${key} = ${value};`);
     }
   });
 
@@ -537,7 +538,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
     {
       const [, name, _type, value, end] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*([^;]*)(;)?/) || [];
       if (name && value) {
-        const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
+        const [, indexName] = name.match(/DOM_SEP__(\w+)/) || [];
         if (indexName) {
           // Generator index.
           generatorIndexEnum[indexName] = +value;

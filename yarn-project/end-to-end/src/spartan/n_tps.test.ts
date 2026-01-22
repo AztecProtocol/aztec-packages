@@ -1,265 +1,331 @@
 import type { SentTx } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { times, timesAsync } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { GasFees } from '@aztec/stdlib/gas';
+import { TopicType } from '@aztec/stdlib/p2p';
+import { Tx } from '@aztec/stdlib/tx';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
-import { createHistogram } from 'perf_hooks';
+import { mkdir, writeFile } from 'fs/promises';
+import { dirname } from 'path';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
 import {
-  type TestAccountsWithoutTokens,
+  type WalletWrapper,
   createWalletAndAztecNodeClient,
   deploySponsoredTestAccounts,
 } from './setup_test_wallets.js';
+import { TxInclusionMetrics } from './tx_metrics.js';
 import {
-  cleanHelm,
   getChartDir,
   getExternalIP,
   getGitProjectRoot,
   installChaosMeshChart,
   setupEnvironment,
+  startPortForwardForPrometeheus,
+  uninstallChaosMesh,
 } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 
-type BenchmarkWallet = {
-  testAccounts: TestAccountsWithoutTokens;
-  cleanup: undefined | (() => Promise<void>);
-};
+const lowValueTps = parseFloat(process.env.LOW_VALUE_TPS ?? '');
+if (!Number.isFinite(lowValueTps)) {
+  throw new Error(`Environment variable BACKGROUND_TPS is required`);
+}
+
+const lowValueAccounts = Math.ceil(lowValueTps);
+
+const highValueTps = parseFloat(process.env.HIGH_VALUE_TPS ?? '');
+if (!Number.isFinite(highValueTps)) {
+  throw new Error(`Environment variable TARGET_TPS is required`);
+}
+
+const highValueAccounts = Math.ceil(highValueTps);
+
+if (lowValueAccounts + highValueAccounts <= 0) {
+  throw new Error('Total TPS is 0');
+}
+
+const CHAOS_MESH_NAME = 'network-shaping';
+
+const p2pLatencyQuery = (perc: string, topicName: TopicType) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_p2p_gossip_message_latency_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}", aztec_gossip_topic_name="${topicName}"}[1m])) by (le))`;
+
+const attestationLatencyQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_sequencer_checkpoint_attestation_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const attestationSuccessCountQuery = () =>
+  `sum(aztec_validator_attestation_success_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const attestationFailedBadProposalCountQuery = () =>
+  `sum(aztec_validator_attestation_failed_bad_proposal_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const attestationFailedNodeIssueCountQuery = () =>
+  `sum(aztec_validator_attestation_failed_node_issue_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const reqRespTxsFractionQuery = () =>
+  `sum(rate(aztec_tx_collector_txs_requested_fraction_sum{k8s_namespace_name="${config.NAMESPACE}"}[1m])) / ` +
+  `sum(rate(aztec_tx_collector_txs_requested_fraction_count{k8s_namespace_name="${config.NAMESPACE}"}[1m]))`;
+
+const reqRespTxsDelayQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_tx_collector_txs_requested_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const mempoolTxMinedDelayQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_mempool_tx_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const mempoolAttestationMinedDelayQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_mempool_attestations_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+
+const peerCountQuery = () => `avg(aztec_peer_manager_peer_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+
+const peerConnectionDurationQuery = (perc: string) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
 
 describe('sustained N TPS test', () => {
-  jest.setTimeout(60 * 60 * 1000 * 3); // 3 hours
+  jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
 
-  const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
+  const logger = createLogger(`e2e:spartan-test:sustained-tps`);
   const TEST_DURATION_SECONDS = parseInt(process.env.TEST_DURATION_SECONDS || '600', 10);
-  const TARGET_TPS = parseInt(process.env.TARGET_TPS || '10', 10);
-  const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
-  const NUM_WALLETS = TARGET_TPS;
-  const NUM_AVAILABLE_RPCS = parseInt(process.env.RPC_REPLICAS || '1', 10);
 
-  const testAccounts: BenchmarkWallet[] = [];
+  let testWallets: WalletWrapper[];
+  let lowValueWallets: TestWallet[];
+  let highValueWallets: TestWallet[];
+
   let aztecNode: AztecNode;
-  let benchmarkContracts: BenchmarkingContract[] = [];
-  const workers: SerialQueue = new SerialQueue();
+  let benchmarkContract: BenchmarkingContract;
 
-  const forwardProcesses: ChildProcess[] = [];
+  let metrics: TxInclusionMetrics;
+  let prometheusClient: PrometheusClient;
+  let childProcesses: ChildProcess[];
 
   afterAll(async () => {
-    for (const account of testAccounts) {
-      if (!account.cleanup) {
-        continue;
+    if (process.env.BENCH_OUTPUT) {
+      for (const topic of Object.values(TopicType)) {
+        try {
+          const [p50, p95] = await Promise.all([
+            prometheusClient.querySingleValue(p2pLatencyQuery('0.50', topic)),
+            prometheusClient.querySingleValue(p2pLatencyQuery('0.95', topic)),
+          ]);
+
+          metrics.recordP2PGossipLatency(topic, p50, p95);
+        } catch (err) {
+          logger.warn(`Failed to scrape P2P gossip latency: ${err}`, { err });
+        }
       }
-      await account?.cleanup();
+
+      try {
+        const [p50, p95] = await Promise.all([
+          prometheusClient.querySingleValue(attestationLatencyQuery('0.50')),
+          prometheusClient.querySingleValue(attestationLatencyQuery('0.95')),
+        ]);
+        metrics.recordAttestationLatency(p50, p95);
+      } catch (err) {
+        logger.warn(`Failed to scrape attestation latency: ${err}`, { err });
+      }
+
+      try {
+        const [success, failedBad, failedNode] = await Promise.all([
+          prometheusClient.querySingleValue(attestationSuccessCountQuery()),
+          prometheusClient.querySingleValue(attestationFailedBadProposalCountQuery()),
+          prometheusClient.querySingleValue(attestationFailedNodeIssueCountQuery()),
+        ]);
+        metrics.recordAttestationCounts(success, failedBad, failedNode);
+      } catch (err) {
+        logger.warn(`Failed to scrape attestation counts: ${err}`, { err });
+      }
+
+      try {
+        const [fraction, delayP50, delayP95] = await Promise.all([
+          prometheusClient.querySingleValue(reqRespTxsFractionQuery()),
+          prometheusClient.querySingleValue(reqRespTxsDelayQuery('0.50')),
+          prometheusClient.querySingleValue(reqRespTxsDelayQuery('0.95')),
+        ]);
+        metrics.recordReqRespStats(fraction, delayP50, delayP95);
+      } catch (err) {
+        logger.warn(`Failed to scrape req/resp stats: ${err}`, { err });
+      }
+
+      try {
+        const [avgCount, durationP50, durationP95] = await Promise.all([
+          prometheusClient.querySingleValue(peerCountQuery()),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50')),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95')),
+        ]);
+        metrics.recordPeerStats(avgCount, durationP50, durationP95);
+      } catch (err) {
+        logger.warn(`Failed to scrape peer stats: ${err}`, { err });
+      }
+
+      try {
+        const [txP50, txP95, attestationP50, attestationP95] = await Promise.all([
+          prometheusClient.querySingleValue(mempoolTxMinedDelayQuery('0.50')),
+          prometheusClient.querySingleValue(mempoolTxMinedDelayQuery('0.95')),
+          prometheusClient.querySingleValue(mempoolAttestationMinedDelayQuery('0.50')),
+          prometheusClient.querySingleValue(mempoolAttestationMinedDelayQuery('0.95')),
+        ]);
+        metrics.recordMempoolMinedDelay(txP50, txP95, attestationP50, attestationP95);
+      } catch (err) {
+        logger.warn(`Failed to scrape mempool mined delay stats: ${err}`, { err });
+      }
+
+      await mkdir(dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
     }
-    forwardProcesses.forEach(p => p.kill());
-    await workers.end();
+
+    for (const { cleanup } of testWallets!) {
+      await cleanup();
+    }
+
+    for (const proc of childProcesses) {
+      proc.kill();
+    }
+
+    await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
   });
 
   beforeAll(async () => {
-    logger.info(`Starting test setup for sustained ${TARGET_TPS} TPS over ${TEST_DURATION_SECONDS} seconds...`);
+    logger.info(`Starting test setup for sustained TPS tests over ${TEST_DURATION_SECONDS} seconds...`);
+    childProcesses = [];
 
     const spartanDir = `${getGitProjectRoot()}/spartan`;
     const chaosMeshInstallation = installChaosMeshChart({
       logger,
       targetNamespace: config.NAMESPACE,
-      instanceName: 'network-shaping',
+      instanceName: CHAOS_MESH_NAME,
       valuesFile: 'network-requirements.yaml',
       helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
     });
 
-    workers.start(NUM_WALLETS);
-    const localWallets: TestWallet[] = [];
-    const cleanupFunctions = [];
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     const rpcUrl = `http://${rpcIP}:8080`;
     aztecNode = createAztecNodeClient(rpcUrl);
 
-    for (let i = 0; i < NUM_WALLETS; i++) {
-      logger.info(
-        `Starting port forward for PXE for wallet ${i + 1}/${NUM_WALLETS} to RPC index ${i % NUM_AVAILABLE_RPCS}`,
-      );
+    const promPortForward = await startPortForwardForPrometeheus('metrics');
+    childProcesses.push(promPortForward.process);
 
-      logger.info(`Creating wallet and pxe for wallet ${i + 1}/${NUM_WALLETS}`);
-      const { wallet, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
-      localWallets.push(wallet);
-      cleanupFunctions.push(cleanup);
-    }
+    prometheusClient = new PrometheusClient({
+      server: new URL(`http://127.0.0.1:${promPortForward.port}`),
+    });
 
-    const localTestAccounts = await Promise.all(
-      localWallets.map(lw => deploySponsoredTestAccounts(lw, aztecNode, logger)),
+    metrics = new TxInclusionMetrics(aztecNode);
+
+    await retryUntil(
+      async () => {
+        const blockNumber = await aztecNode.getBlockNumber();
+        if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+          return true;
+        }
+        logger.info('Waiting for the first block to mine...');
+        return false;
+      },
+      'get block number',
+      60 * 60 * 3, // wait up to 3 hours
+      60,
     );
 
-    for (let i = 0; i < NUM_WALLETS; i++) {
-      testAccounts.push({
-        testAccounts: localTestAccounts[i],
-        cleanup: cleanupFunctions[i],
-      });
-    }
+    testWallets = await timesAsync(lowValueAccounts + highValueAccounts, i => {
+      logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
+      return createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
+    });
 
-    logger.info('Deploying Benchmarking contract/s...');
+    // this function creates n + 1 accounts. We only want one for each wallet
+    const localTestAccounts = await Promise.all(
+      testWallets.map(lw => deploySponsoredTestAccounts(lw.wallet, aztecNode, logger, 0)),
+    );
 
+    lowValueWallets = localTestAccounts.slice(0, lowValueAccounts).map(({ wallet }) => wallet);
+    highValueWallets = localTestAccounts.slice(lowValueAccounts).map(({ wallet }) => wallet);
+
+    logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-
-    // Deploy first contract to register the contract class
-    logger.info('Deploying first contract to register contract class...');
-    const firstContract = await BenchmarkingContract.deploy(testAccounts[0].testAccounts.wallet)
-      .send({ from: testAccounts[0].testAccounts.accounts[0], fee: { paymentMethod: sponsor } })
+    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet)
+      .send({ from: localTestAccounts[0].recipientAddress, fee: { paymentMethod: sponsor } })
       .deployed();
 
-    logger.info('Contract class registered. Deploying remaining contracts in parallel...');
-
-    // Deploy remaining contracts in parallel (contract class already registered)
-    const remainingContractPromises = Array(NUM_WALLETS - 1)
-      .fill(0)
-      .map((_, index) =>
-        BenchmarkingContract.deploy(testAccounts[index + 1].testAccounts.wallet)
-          .send({ from: testAccounts[index + 1].testAccounts.accounts[0], fee: { paymentMethod: sponsor } })
-          .deployed(),
-      );
-    const remainingContracts = await Promise.all(remainingContractPromises);
-
-    benchmarkContracts = [firstContract, ...remainingContracts];
-
-    logger.info(
-      `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
-    );
-
+    logger.info(`Awaiting chaos mesh installation`);
     await chaosMeshInstallation;
-    cleanupFunctions.push(() => cleanHelm('network-shaping', config.NAMESPACE, logger));
+
+    logger.info(`Test setup complete`);
   });
 
-  const submitProven = async (): Promise<[txs: SentTx[], txSendTimes: Map<string, number>]> => {
+  const submitProven = async (
+    wallet: TestWallet,
+    maxPriorityFeesPerGas: GasFees = GasFees.empty(),
+  ): Promise<ProvenTx> => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    const txs: ProvenTx[] = [];
-    const txPromises = [];
-    for (let i = 0; i < TOTAL_TXS; i++) {
-      const workerIndex = i % NUM_WALLETS;
-      const from = testAccounts[workerIndex].testAccounts.accounts[0];
-      const wallet = testAccounts[workerIndex].testAccounts.wallet;
-      const benchmarkContract = benchmarkContracts[workerIndex];
+    const tx = await proveInteraction(wallet, benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)), {
+      from: (await wallet.getAccounts())[0].item,
+      fee: { paymentMethod: sponsor, gasSettings: { maxPriorityFeesPerGas } },
+    });
 
-      const txPromise = workers.put(async () => {
-        const tx = await proveInteraction(wallet, benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)), {
-          from,
-          fee: { paymentMethod: sponsor },
-        });
-        return tx;
-      });
-      txPromises.push(txPromise);
-    }
-    const provedTxs = await Promise.all(txPromises);
-    txs.push(...provedTxs);
-
-    const allSentTxs: SentTx[] = [];
-    let sentSoFar = 0;
-    const txSendTimes = new Map<string, number>();
-    for (let sec = 0; sec < TEST_DURATION_SECONDS; sec++) {
-      const secondStart = Date.now();
-      const chunk = txs.splice(0, TARGET_TPS);
-      chunk.forEach((tx, idx) => {
-        const sentTx = tx.send();
-        txSendTimes.set(tx.txHash.toString(), Date.now());
-        allSentTxs.push(sentTx);
-        logger.info(`sec ${sec + 1}: sent tx ${sentSoFar + idx + 1}`);
-      });
-
-      sentSoFar += chunk.length;
-      const elapsed = Date.now() - secondStart;
-      if (elapsed < 1000) {
-        await sleep(1000 - elapsed);
-      }
-    }
-
-    return [allSentTxs, txSendTimes];
+    return tx;
   };
 
-  const submitUnproven = async (): Promise<[txs: SentTx[], txSendTime: Map<string, number>]> => {
-    logger.info(`Creating base tx for wallets to clone...`);
-    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    const baseTxPromises = [];
-    for (let i = 0; i < NUM_WALLETS; i++) {
-      const wallet = testAccounts[i].testAccounts.wallet;
-      const from = testAccounts[i].testAccounts.accounts[0];
-      const benchmarkContract = benchmarkContracts[i];
-
-      const baseTxPromise = workers.put(async () => {
-        const tx = await proveInteraction(wallet, benchmarkContract.methods.create_note(from, 10), {
-          from,
-          fee: { paymentMethod: sponsor },
-        });
-        return tx;
-      });
-      baseTxPromises.push(baseTxPromise);
+  const prototypeTxs = new Map<string, ProvenTx>();
+  const submitUnproven = async (wallet: TestWallet, priorytFee: GasFees = GasFees.empty()) => {
+    const from = (await wallet.getAccounts())[0].item;
+    let prototypeTx = prototypeTxs.get(from.toString());
+    if (!prototypeTx) {
+      prototypeTx = await submitProven(wallet);
+      prototypeTxs.set(from.toString(), prototypeTx);
     }
-    const baseTxs = await Promise.all(baseTxPromises);
 
-    logger.info(`Cloning and sending benchmark transactions...`);
-
-    const cloneAndSend = async (tx: ProvenTx, _index: number): Promise<[TxHash, SentTx]> => {
-      // Clone the transaction
-      const clonedTxData = Tx.clone(tx, false);
-
-      if (clonedTxData.data.forRollup) {
-        for (let i = 0; i < clonedTxData.data.forRollup?.end.nullifiers.length; i++) {
-          if (clonedTxData.data.forRollup?.end.nullifiers[i].isZero()) {
-            continue;
-          }
-          clonedTxData.data.forRollup.end.nullifiers[i] = Fr.random();
-        }
-      } else if (clonedTxData.data.forPublic) {
-        for (let i = 0; i < clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers.length; i++) {
-          if (clonedTxData.data.forPublic?.nonRevertibleAccumulatedData.nullifiers[i].isZero()) {
-            continue;
-          }
-          clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i] = Fr.random();
-        }
-      }
-      const clonedTx = new ProvenTx(aztecNode, clonedTxData, tx.offchainEffects, tx.stats);
-      const txHash = await clonedTx.recomputeHash();
-      return [txHash, clonedTx.send()];
-    };
-    const interval = 1000 / TARGET_TPS;
-    const sentTxPromises: Promise<SentTx>[] = [];
-    const txSendTimes = new Map<string, number>();
-    for (let i = 0; i < TOTAL_TXS; i++) {
-      const workerIndex = i % NUM_WALLETS;
-      const baseTx = baseTxs[workerIndex];
-      const prom = workers.put(async () => {
-        const [txHash, sentTx] = await cloneAndSend(baseTx, workerIndex);
-        logger.info(`sent tx ${i + 1}`);
-        txSendTimes.set(txHash.toString(), Date.now());
-        return sentTx;
-      });
-      sentTxPromises.push(prom);
-      await sleep(interval);
-    }
-    return [await Promise.all(sentTxPromises), txSendTimes];
+    const tx = await cloneTx(prototypeTx, priorytFee);
+    return tx;
   };
 
-  it('can send n_tps', async () => {
-    const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
+  it(`can send ${highValueTps}TPS of high-value txs`, async () => {
     logger.info(`Proving benchmark transactions...`);
 
-    const [sentTxs, txSendTimes] = await (config.REAL_VERIFIER ? submitProven() : submitUnproven());
+    const backgroundTxPriorityFee = new GasFees(0, 1);
+    let lowValueTxs = 0;
+    const lowValueSendTx = async (wallet: TestWallet) => {
+      lowValueTxs++;
+      logger.info('Sending low value tx ' + lowValueTxs);
 
-    logger.info(`Sending benchmark transactions at target TPS...`);
+      const tx = await (config.REAL_VERIFIER
+        ? submitProven(wallet, backgroundTxPriorityFee)
+        : submitUnproven(wallet, backgroundTxPriorityFee));
 
-    // Now wait for all transactions to be included
-    logger.info(`All ${TOTAL_TXS} transactions sent. Waiting for inclusion...`);
+      return tx.send();
+    };
+
+    let highValueTxs = 0;
+    const highValueTxPriorityFee = new GasFees(0, 10);
+    const highValueSendTx = async (wallet: TestWallet) => {
+      highValueTxs++;
+      logger.info('Sending high value tx ' + highValueTxs);
+
+      const tx = await (config.REAL_VERIFIER
+        ? submitProven(wallet, highValueTxPriorityFee)
+        : submitUnproven(wallet, highValueTxPriorityFee));
+
+      metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
+
+      return tx.send();
+    };
+
+    const abortController = new AbortController();
+
+    sendTxsAtTps(logger, abortController.signal, lowValueWallets, lowValueTps, lowValueSendTx);
+    const sentTxs = sendTxsAtTps(logger, abortController.signal, highValueWallets, highValueTps, highValueSendTx);
+
+    await sleep(TEST_DURATION_SECONDS * 1000);
+    abortController.abort();
 
     const results: { success: boolean; tx: SentTx; error?: any }[] = [];
-
-    const blockHeaders = new Map<number, Promise<BlockHeader>>();
-    const txMinedInBlock = new Map<string, number>();
-    const waitForTx = async (sentTx: SentTx, index: number) => {
+    const waitForTx = async (sentTx: SentTx, txName: string) => {
       try {
         const receipt = await sentTx.wait({
           timeout: 1200,
@@ -267,21 +333,14 @@ describe('sustained N TPS test', () => {
           ignoreDroppedReceiptsFor: 2,
         });
         if (receipt.blockNumber) {
-          if (!blockHeaders.has(receipt.blockNumber)) {
-            blockHeaders.set(
-              receipt.blockNumber,
-              aztecNode.getBlockHeader(receipt.blockNumber) as Promise<BlockHeader>,
-            );
-          }
-
-          txMinedInBlock.set(receipt.txHash.toString(), receipt.blockNumber);
-          logger.info(`tx ${index + 1} included in block ${receipt.blockNumber}`);
+          logger.info(`${txName} included in block ${receipt.blockNumber}`);
+          await metrics.recordMinedTx(receipt);
         } else {
           throw new Error('Invalid txReceipt: ' + JSON.stringify(receipt));
         }
         results.push({ success: true, tx: sentTx });
       } catch (error) {
-        logger.error(`tx ${index + 1} was not included: ${error}`);
+        logger.error(`${txName} was not included: ${error}`);
         results.push({ success: false, tx: sentTx, error });
       }
     };
@@ -289,28 +348,13 @@ describe('sustained N TPS test', () => {
     let index = 0;
     while (sentTxs.length > 0) {
       const chunk = sentTxs.splice(0, 10);
-      await Promise.all(chunk.map((tx, idx) => waitForTx(tx, idx + index)));
+      await Promise.all(chunk.map((tx, idx) => waitForTx(tx, `highValueTx_${idx + 1 + index}`)));
       index += chunk.length;
     }
 
     // Count successes and failures
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
-
-    expect(results.length).toBe(TOTAL_TXS);
-
-    const histogram = createHistogram({
-      figures: 2,
-      min: 1,
-      max: 10 * 72 * 1000,
-    });
-
-    for (const [txHash, sendEpoch] of txSendTimes.entries()) {
-      const blockNumber = txMinedInBlock.get(txHash);
-      expect(blockNumber).toBeGreaterThan(0);
-      const blockMineTimestamp = (await blockHeaders.get(blockNumber!)!).globalVariables.timestamp * 1000n;
-      histogram.record(Number(blockMineTimestamp) - sendEpoch);
-    }
 
     // Log failed transactions for debugging
     results
@@ -319,8 +363,83 @@ describe('sustained N TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
-    logger.info(
-      `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
-    );
+    logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
   });
 });
+
+function sendTxsAtTps(
+  logger: Logger,
+  signal: AbortSignal,
+  wallets: TestWallet[],
+  targetTps: number,
+  sendTx: (wallet: TestWallet) => Promise<SentTx>,
+): SentTx[] {
+  const promiseCount = Math.ceil(targetTps);
+  if (wallets.length < promiseCount) {
+    throw new Error('Not enough wallets to achieve desired TPS');
+  }
+
+  const txs: SentTx[] = [];
+  const targetTpsPerPromise = targetTps / promiseCount;
+  // start N "threads", where N is the target TPS rounded up
+  // each wallet is responsible for N/targetTps txs per sec
+  const promises = times(
+    promiseCount,
+    i =>
+      new RunningPromise(
+        async () => {
+          const wallet = wallets[i];
+
+          const start = performance.now(); // ms
+          const tx = await sendTx(wallet);
+          txs.push(tx);
+          const dt = performance.now() - start; // ms
+
+          const tps = 1000 / dt; // We just sent one tx. Calculate TPS. Note: we have to convert ms to s
+
+          if (tps > targetTpsPerPromise) {
+            await sleep(1000 / targetTpsPerPromise - dt);
+          }
+        },
+        logger,
+        0,
+      ),
+  );
+
+  for (const p of promises) {
+    p.start();
+  }
+
+  signal.onabort = () => {
+    for (const p of promises) {
+      void p.stop();
+    }
+  };
+
+  return txs;
+}
+
+async function cloneTx(tx: ProvenTx, priorityFee: GasFees): Promise<ProvenTx> {
+  // Clone the transaction
+  const clonedTxData = Tx.clone(tx, false);
+  (clonedTxData.data.constants.txContext.gasSettings as any).maxPriorityFeesPerGas = priorityFee;
+
+  if (clonedTxData.data.forRollup) {
+    for (let i = 0; i < clonedTxData.data.forRollup?.end.nullifiers.length; i++) {
+      if (clonedTxData.data.forRollup?.end.nullifiers[i].isZero()) {
+        continue;
+      }
+      clonedTxData.data.forRollup.end.nullifiers[i] = Fr.random();
+    }
+  } else if (clonedTxData.data.forPublic) {
+    for (let i = 0; i < clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers.length; i++) {
+      if (clonedTxData.data.forPublic?.nonRevertibleAccumulatedData.nullifiers[i].isZero()) {
+        continue;
+      }
+      clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i] = Fr.random();
+    }
+  }
+  const clonedTx = new ProvenTx((tx as any).node, clonedTxData, tx.offchainEffects, tx.stats);
+  await clonedTx.recomputeHash();
+  return clonedTx;
+}

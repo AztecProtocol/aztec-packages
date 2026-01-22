@@ -1,11 +1,10 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "serde/index.hpp"
 #include "witness_constant.hpp"
@@ -26,14 +25,9 @@ struct MultiScalarMul {
     uint32_t out_point_y;
     uint32_t out_point_is_infinite;
 
-    // for serialization, update with any new fields
-    MSGPACK_FIELDS(points, scalars, predicate, out_point_x, out_point_y, out_point_is_infinite);
     friend bool operator==(MultiScalarMul const& lhs, MultiScalarMul const& rhs) = default;
 };
 
-template <typename Builder>
-void create_multi_scalar_mul_constraint(Builder& builder,
-                                        const MultiScalarMul& input,
-                                        bool has_valid_witness_assignments);
+template <typename Builder> void create_multi_scalar_mul_constraint(Builder& builder, const MultiScalarMul& input);
 
 } // namespace acir_format

@@ -1,19 +1,45 @@
-use crate::context::{note_hash_read::NoteHashRead, PrivateContext};
-use crate::note::{
-    note_emission::NoteEmission,
-    note_interface::{NoteHash, NoteType},
-    retrieved_note::RetrievedNote,
-    utils::{compute_note_hash_for_nullification_from_note_hash_read, compute_note_hash_read},
+use crate::{
+    context::PrivateContext,
+    note::{
+        ConfirmedNote,
+        note_interface::{NoteHash, NoteType},
+        NoteMessage,
+        utils::compute_confirmed_note_hash_for_nullification,
+    },
+    oracle::{notes::notify_created_note, random::random},
 };
-use crate::oracle::notes::notify_created_note;
-use crate::oracle::random::random;
-use protocol_types::traits::Packable;
+use protocol_types::{address::AztecAddress, traits::Packable};
+
+/// A note that was created in the current contract call.
+pub struct NewNote<Note> {
+    pub(crate) note: Note,
+    pub(crate) owner: AztecAddress,
+    pub(crate) storage_slot: Field,
+    pub(crate) randomness: Field,
+    /// The [PrivateContext] side-effect counter associated with the creation of this note.
+    pub(crate) note_hash_counter: u32,
+}
+
+impl<Note> NewNote<Note> {
+    fn new(
+        note: Note,
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+        note_hash_counter: u32,
+    ) -> Self {
+        // A counter of value zero indicates a settled note, which a NewNote by definition cannot be.
+        assert(note_hash_counter != 0, "A NewNote cannot have a zero note hash counter");
+        Self { note, owner, storage_slot, randomness, note_hash_counter }
+    }
+}
 
 pub fn create_note<Note>(
     context: &mut PrivateContext,
+    owner: AztecAddress,
     storage_slot: Field,
     note: Note,
-) -> NoteEmission<Note>
+) -> NoteMessage<Note>
 where
     Note: NoteType + NoteHash + Packable,
 {
@@ -25,50 +51,38 @@ where
     // information. We can therefore assume that the sender will cooperate in the random value generation.
     let randomness = unsafe { random() };
 
-    let note_hash = note.compute_note_hash(storage_slot, randomness);
+    let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
-    let packed_note = Note::pack(note);
     notify_created_note(
+        owner,
         storage_slot,
         randomness,
         Note::get_id(),
-        packed_note,
+        note.pack(),
         note_hash,
         note_hash_counter,
     );
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(note, storage_slot, randomness, note_hash_counter, context)
+    NoteMessage::new(
+        NewNote::new(note, owner, storage_slot, randomness, note_hash_counter),
+        context,
+    )
 }
 
-// Note: This function is currently totally unused.
-pub fn destroy_note<Note>(
-    context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
-)
+pub fn destroy_note<Note>(context: &mut PrivateContext, confirmed_note: ConfirmedNote<Note>)
 where
     Note: NoteHash,
 {
-    let note_hash_read = compute_note_hash_read(retrieved_note, storage_slot);
+    let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
+    let nullifier = confirmed_note.note.compute_nullifier(
+        context,
+        confirmed_note.owner,
+        note_hash_for_nullification,
+    );
 
-    destroy_note_unsafe(context, retrieved_note, note_hash_read)
-}
-
-pub fn destroy_note_unsafe<Note>(
-    context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
-    note_hash_read: NoteHashRead,
-)
-where
-    Note: NoteHash,
-{
-    let note_hash_for_nullification =
-        compute_note_hash_for_nullification_from_note_hash_read(retrieved_note, note_hash_read);
-    let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullification);
-
-    let note_hash = if retrieved_note.metadata.is_settled() {
+    let note_hash = if confirmed_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
         0
     } else {

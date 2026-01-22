@@ -1,331 +1,247 @@
 # Aztec TypeScript Monorepo Development Guide
 
+## Overview
+
+Aztec is a privacy-first Layer 2 zk-rollup on Ethereum that supports smart contracts with both private and public state and execution.
+
+Private execution happens on the user device. A **transaction** sent by the user contains a set of note commitments, nullifiers, logs, and public function calls, along with a zk-proof that proves correct execution. These transactions are added to **blocks** by a **sequencer**, who also executes any public calls from the transaction. Blocks are grouped into **checkpoints** and submitted to L1. Checkpoints are grouped into **epochs** and proven via a rollup validity proof, which gets verified on L1.
+
+An Aztec **node** syncs L2 state and serves RPC requests. A node may also act as a **validator** by staking, in which case it may be selected as a **proposer** to assemble transactions into blocks, and as part of a **validation committee** to participate in consensus by signing attestations. A **prover** node generates validity proofs for epochs and submits them to L1.
+
 ## Project Structure
+
 - **TypeScript monorepo** with each folder being a package
 - **Working directory**: `yarn-project`
 - **Main branch**: `master`
 - **Development branch**: `next` (most changes go here first)
 
-## 🚀 Essential Workflow
+## Essential Workflow
 
 ### When to Run Bootstrap
-**ONLY** run `./bootstrap.sh` in the git project root when:
+
+**ALWAYS** run `./bootstrap.sh` from the git root when:
+
 - Pulling new changes that have modifications outside `yarn-project`
 - Switching branches with changes from outside `yarn-project`
+- Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
+(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
 ```
 
-**DO NOT** run bootstrap in any other circumstance - it takes several minutes.
+Bootstrap takes several minutes to run. Be patient.
 
-### Before Running Tests - ALWAYS COMPILE
+### Compile Before Testing
+
 ```bash
-yarn tsgo -b  # Full compilation
-# OR for specific package:
-cd <package-name> && yarn tsgo -b
+./scripts/tsc.sh                      # Full project (from yarn-project)
+cd <package-name> && yarn build       # Specific package
 ```
 
-### Before Committing - Quality Checklist
-1. **Build**: Ensure project compiles (`yarn tsgo -b`)
-2. **Format/Lint**: Run on modified packages (see Format & Lint section)
-3. **Test**: Run unit tests for modified files and ensure they pass
-4. **Breaking Changes**: Update migration notes if applicable (see Git & PR section)
+### Before Committing (Quality Checklist)
 
-## 📦 Compilation
+Run from `yarn-project`:
 
-### Full Project
-```bash
-yarn tsgo -b
-```
+1. **Build**: Ensure entire project compiles (`tsgo -b --emitDeclarationOnly`)
+2. **Format**: Run on modified packages (`./bootstrap.sh format <package-name>`)
+3. **Lint**: Run on modified packages (`./bootstrap.sh lint <package-name>`)
+4. **Test**: Run unit tests for modified packages
+5. **Document**: Update changelog/release notes (see .claude/skills/update-changelog/SKILL.md)
 
-### Specific Package
-```bash
-cd <package-name>
-yarn tsgo -b
-```
+## Testing
 
-## 🧪 Testing
-
-**⚠️ NEVER run `yarn test` from the project root - ALWAYS cd into a specific package first!**
+**NEVER run `yarn test` from the project root** - always cd into a specific package first.
 
 ### Standard Tests
-```bash
-# WRONG: yarn test from yarn-project root ❌
-# RIGHT: Always cd into package first ✅
 
+```bash
 cd <package-name>
-yarn test FILENAME                    # Run test file
-yarn test FILENAME -t 'test-name'     # Run specific test
+yarn test src/subdir/file.test.ts                 # Run test file
+yarn test src/subdir/file.test.ts -t 'test name'  # Run specific test
 ```
 
-### End-to-End Tests (Special Handling)
-**⚠️ IMPORTANT**:
+### End-to-End Tests
+
 - Never run multiple e2e tests in parallel
 - E2e tests take significant time
 - Tests log "Running test TEST NAME" to track progress
 
 ```bash
 cd end-to-end
-yarn test:e2e FILENAME
+yarn test:e2e e2e_something.test.ts
 ```
 
 ### Sequential Testing (Port Conflicts)
+
 Some packages (e.g., `ethereum`) require sequential execution:
+
 ```bash
 cd <package-name>
 yarn test --runInBand
 ```
 
 ### Test Logging
-```bash
-# Basic logging
-env LOG_LEVEL=verbose yarn test FILENAME
-env LOG_LEVEL=debug yarn test FILENAME
 
+```bash
+env LOG_LEVEL=verbose yarn test src/file.test.ts  # Recommended level
+env LOG_LEVEL=debug yarn test src/file.test.ts    # More detail
 # Available levels: trace, debug, verbose, info, warn
-# Recommended: verbose
 
 # Module-specific logging
-env LOG_LEVEL='info; debug:sequencer,archiver' yarn test FILENAME
+env LOG_LEVEL='info; debug:sequencer,archiver' yarn test src/file.test.ts
 ```
 
-## 🎨 Format & Lint
+## Format & Lint
 
-### Single Package (PREFERRED for speed)
-When modifying a single package, always use single-package commands:
+**IMPORTANT**: These commands are run from the root of `yarn-project`, NOT the git root.
+
+### Format
+
 ```bash
-./bootstrap.sh format <package-name>
-./bootstrap.sh lint <package-name>
-
-# Examples:
-./bootstrap.sh format aztec-node
-./bootstrap.sh lint ethereum
+./bootstrap.sh format                  # All packages
+./bootstrap.sh format <package-name>   # Single package (faster)
+./bootstrap.sh format <package-name> --check  # Check only, no changes
 ```
 
-### All Packages
-Only when multiple packages are modified:
+### Lint
+
 ```bash
-./bootstrap.sh format
-./bootstrap.sh lint
+yarn lint                              # Same command CI uses - run this before pushing
 ```
 
-### Check Mode (No Changes)
+For faster iteration during development:
+
 ```bash
-# Single package
-./bootstrap.sh format <package-name> --check
-./bootstrap.sh lint --check <package-name>
-
-# All packages
-./bootstrap.sh format --check
-./bootstrap.sh lint --check
+./bootstrap.sh lint <package-name>     # Single package (faster)
+./bootstrap.sh lint                    # All packages
 ```
 
-## 📦 Dependency Management
+## Dependency Management
+
 After modifying any `package.json`:
+
 ```bash
 yarn && yarn prepare
 ```
 
-## 🔀 Git & PR Guidelines
+## Key Packages
 
-### Working in Parallel with Git Worktrees
+### Server (Node)
 
-When Claude needs to work on a task independently in a separate worktree:
+Packages that run on Aztec network nodes:
 
-**Command Template:**
-```bash
-cd $(git rev-parse --show-toplevel) && \
-git worktree add -b <author>/<branch-name> ../<worktree-dir-name> && \
-cd ../<worktree-dir-name>/yarn-project && \
-claude "$(cat <<'EOF'
-Task: [Brief task description]
+- **aztec-node**: Main entrypoint for running an Aztec node, integrates all server components
+- **sequencer-client**: Builds blocks from pending transactions and coordinates with validators
+- **validator-client**: Handles block validation and attestation signing for consensus
+- **prover-node**: Standalone prover node that generates proofs for epoch proving
+- **prover-client**: Orchestrates proof generation, manages proving broker and queues
+- **archiver**: Indexes and stores L2 block data fetched from L1 for historical queries
+- **world-state**: Maintains the global Merkle tree state (note hashes, nullifiers, public data)
+- **p2p**: Peer-to-peer networking layer using libp2p for transaction and block propagation
+- **slasher**: Subsystem for detecting and collecting slashable offenses
 
-Steps:
-1. [Step 1]
-2. [Step 2]
-...
+### Client (Wallet/PXE)
 
-IMPORTANT: Read CLAUDE.md first to understand the project structure and workflow.
+Packages that run on user devices:
 
-[Any additional context or requirements]
-- Working directory: yarn-project in the worktree
-- Branch: <author>/<branch-name>
-- PR target: next (unless specified otherwise)
-EOF
-)"
-```
+- **pxe**: Main client-side library for orchestrating private tx execution and proving
+- **aztec.js**: JavaScript SDK for building dApps, interacting with contracts and accounts
+- **accounts**: Sample account contract implementations (ECDSA, Schnorr, etc.)
+- **key-store**: Manages user's private keys and key derivation for the PXE
+- **entrypoints**: Transaction entrypoint implementations for account abstraction
 
-**Example:**
-```bash
-cd $(git rev-parse --show-toplevel) && \
-git worktree add -b jd/fix-bug-123 ../aztec-fix-bug && \
-cd ../aztec-fix-bug/yarn-project && \
-claude "$(cat <<'EOF'
-Task: Fix bug #123 in the sequencer
+### Shared
 
-Steps:
-1. Investigate the issue in sequencer package
-2. Implement fix
-3. Add tests
-4. Compile and run tests
-5. Commit and create PR
+Core libraries used by both server and client:
 
-IMPORTANT: Read CLAUDE.md first to understand the project structure and workflow.
-EOF
-)"
-```
+- **stdlib**: Protocol-level types (transactions, blocks, proofs) and domain interfaces
+- **foundation**: Low-level utilities (crypto primitives, logging, serialization, async helpers)
+- **constants**: Protocol constants shared between TypeScript and Noir circuits
+- **simulator**: ACIR/AVM circuit simulation for both private and public execution
+- **protocol-contracts**: Canonical protocol contracts (registries, fee contracts, etc.)
+- **noir-protocol-circuits-types**: TypeScript bindings for Noir protocol circuits
+- **bb-prover**: Barretenberg prover integration for generating ZK proofs
+- **ethereum**: L1 contract interactions, deployment, and rollup publishing
+- **kv-store**: Key-value storage abstraction (LMDB for server, IndexedDB for browser)
 
-**Key Points:**
-- Always go to git root first before creating worktree
-- Use `-b` flag to create new branch
-- Navigate to `yarn-project` within the worktree
-- Always include "Read CLAUDE.md first" in the prompt
-- Worktree directories are typically named `../aztec-<feature-name>`
-- The spawned Claude instance works independently from your current session
+## Git & PR Guidelines
 
 ### Branch Naming
-Prefix branches with author initials:
+
+Prefix branches with author initials (derived from `git config user.initials` or `git config user.name`):
+
 ```
 ab/feature-name
 jd/fix-something
 ```
 
-**Setting Author Initials:**
-Configure your git initials for automatic branch naming:
-```bash
-# Local repository only
-git config user.initials "jd"
+### Commit Messages
 
-# Global (all repositories)
-git config --global user.initials "jd"
-```
+Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
-**How Claude Determines Author Initials:**
-1. First checks `git config user.initials`
-2. If not set, derives from `git config user.name` (e.g., "John Doe" → "jd")
-3. Uses lowercase initials for branch names
+**Supported types**: `fix`, `feat`, `chore`, `refactor`, `docs`, `test`
 
-### Commit Messages - Conventional Commits
-Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
-
-**Supported types** (from `.github/workflows/pull-request-title.yml`):
-- `fix`: Bug fixes
-- `feat`: New features
-- `chore`: Maintenance tasks
-- `refactor`: Code restructuring
-- `docs`: Documentation changes
-- `test`: Test additions/modifications
-
-**Format**:
 ```
 <type>(<scope>): <description>
 
 [optional body]
-
-[optional footer(s)]
 ```
 
 ### Branch Strategy
+
 - **Primary development**: `next` branch (default PR target)
 - **Production**: `master` branch
-- **Default PR target**: `next` (unless specified otherwise)
-- **Backport**: Fix in release branch → forward-port to `next`
-- **Forward-port**: Fix in `next` → backport if needed
+- **Backport**: Fix in release branch -> forward-port to `next`
+- **Forward-port**: Fix in `next` -> backport if needed
 
-### Port Commits (Forward/Backport)
-When porting PRs between branches:
-1. Include reference to original PR(s) in PR body
-2. For single PR: Use exact same commit message + PR number
-   ```
-   chore: Foo bar (#1234)
-   ```
-3. For multiple PRs: Reference all in PR body
+### Determining the Base Branch
 
-### PR Merging & Squashing
-**⚠️ IMPORTANT**: By default, every PR is squashed to a single commit when merged.
+**Never assume the base branch is `master`**. Most branches are based on `next`, not `master`. When you need to compare commits or understand changes on a branch:
+
+```bash
+# If there's an open PR, check its base branch
+gh pr view --json baseRefName -q '.baseRefName'
+
+# Compare against the correct base
+git log origin/<base-branch>..HEAD   # commits on this branch
+git diff origin/<base-branch>...HEAD  # changes on this branch
+```
+
+### Port Commits
+
+When porting PRs between branches, include reference to original PR(s) in the PR body. Use the exact same commit message with the original PR number.
+
+### PR Merging
+
+Every PR is required by CI to consist of a single commit in order to be merged.
 
 For PRs with multiple commits that should be preserved (e.g., porting multiple PRs):
-1. Ensure each individual commit follows conventional commit format
-2. Add label `ci-no-squash` to the PR on GitHub
-3. If no GitHub MCP access, notify user to add label manually
+
+1. Ensure each commit follows conventional commit format
+2. Add label `ci-no-squash` to the PR
+
+### Fixing PRs
+
+When fixing an existing PR (CI failures, review feedback, etc.), always amend the existing commit - never create new commits.
+
+```bash
+git add .
+git commit --amend --no-edit
+git push --force-with-lease
+```
+
+This keeps the PR as a single commit. CI enforces PRs have a single commit.
 
 ### Breaking Changes
-When introducing breaking changes:
 
-1. **Update migration notes**:
-   ```
-   docs/docs/developers/migration_notes.md
-   ```
-   (Note: Path from git root)
+1. Update `docs/docs/developers/migration_notes.md` (path from git root)
+2. Document breaking changes in PR description
 
-2. **Include in PR description**: Clearly document the breaking changes
+### PR Descriptions
+
+Do not use checklists (`- [ ]`) in PR descriptions unless explicitly requested—use regular bullet points instead.
 
 ### CI Labels
-Special labels to control CI behavior:
 
 - **`ci-no-squash`**: Preserve individual commits (don't squash on merge)
-  - Use when porting multiple PRs that should remain separate commits
-  - Each commit must follow conventional commit format
-
-- **`ci-no-fail-fast`**: Run all tests even if some fail
-  - Use when changes may affect multiple e2e tests not caught by unit tests
-  - Helps survey all failing tests at once
-
-### Marking Tests as Flaky
-When a test intermittently fails but shouldn't block CI:
-
-1. **Edit `.test_patterns.yml`** (at git root, not in yarn-project)
-2. **Add entry under `tests:`** section with:
-   - `regex`: Pattern to match the test file/name
-   - `error_regex`: (Optional) Specific error message to match
-   - `owners`: List of Slack IDs (use existing names from `names:` section or add new ones)
-   - `skip`: (Optional) Set to `true` to completely skip the test (use sparingly!)
-
-**Example entry:**
-```yaml
-- regex: "src/e2e_new_feature/feature.test.ts"
-  error_regex: "specific error message"  # Optional: only flag if this error occurs
-  owners:
-    - *charlie  # Reference existing name
-    - *adam     # Can have multiple owners
-```
-
-**To add a new owner:**
-1. Add to `names:` section: `- newperson: &newperson "SLACK_ID"`
-2. Reference in test: `- *newperson`
-
-**Important notes:**
-- Without `error_regex`: Test is always flagged as flaky when it fails
-- With `error_regex`: Only flagged when output matches the regex
-- `skip: true`: Test won't run at all (avoid unless constantly failing)
-- Flaky tests alert owners in #aztec3-ci Slack channel but don't fail CI
-
-## 📚 Quick Reference
-
-### Common Package Commands
-```bash
-# Compile
-yarn tsgo -b
-
-# Test (MUST cd into package first!)
-cd package-name
-yarn test filename.test.ts
-yarn test filename.test.ts -t 'specific test'
-
-# Format/Lint single package (preferred)
-./bootstrap.sh format package-name
-./bootstrap.sh lint package-name
-
-# E2E test (never parallel)
-cd end-to-end && yarn test:e2e filename.test.ts
-```
-
-### Workflow Reminders
-- ✅ Always compile before testing
-- ✅ Format/lint modified packages before committing
-- ✅ Run tests for modified code
-- ✅ Use single-package commands when possible (faster)
-- ❌ Never run `yarn test` from project root - always cd into package first
-- ❌ Never run multiple e2e tests in parallel
-- ❌ Don't run bootstrap unless pulling external changes
+- **`ci-no-fail-fast`**: Run all tests even if some fail (useful for surveying multiple failures)

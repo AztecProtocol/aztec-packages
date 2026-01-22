@@ -1,7 +1,6 @@
 use dep::protocol_types::{
-    abis::block_header::BlockHeader, address::AztecAddress,
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, hash::poseidon2_hash_with_separator,
-    utils::field::full_field_less_than,
+    abis::block_header::BlockHeader, address::AztecAddress, constants::DOM_SEP__PUBLIC_LEAF_INDEX,
+    hash::poseidon2_hash_with_separator, utils::field::full_field_less_than,
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
@@ -27,14 +26,12 @@ impl PublicStorageHistoricalRead for BlockHeader {
         // 1) Compute the leaf index by siloing the storage slot with the contract address
         let public_data_tree_index = poseidon2_hash_with_separator(
             [contract_address.to_field(), storage_slot],
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+            DOM_SEP__PUBLIC_LEAF_INDEX,
         );
 
         // 2) Get the membership witness for the tree index.
         // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
-        let witness = unsafe {
-            get_public_data_witness(self.global_variables.block_number, public_data_tree_index)
-        };
+        let witness = unsafe { get_public_data_witness(self, public_data_tree_index) };
 
         // 3) The witness is made up of two parts: the preimage of the leaf and the proof that it exists in the tree.
         // We first prove that the witness is indeed valid for the public data tree, i.e. that the preimage is of a

@@ -102,10 +102,6 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
 
       // Block below is almost copy-pasted from verifyProofForCircuit
       const operation = async (bbWorkingDirectory: string) => {
-        const logFunction = (message: string) => {
-          this.logger.debug(`${proofType} BB out - ${message}`);
-        };
-
         const proofPath = path.join(bbWorkingDirectory, PROOF_FILENAME);
         await writeChonkProofToPath(tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields()), proofPath);
 
@@ -118,7 +114,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           this.config.bbBinaryPath,
           proofPath,
           verificationKeyPath,
-          logFunction,
+          this.logger,
           this.config.bbIVCConcurrency,
         );
         verificationDuration = timer.ms();

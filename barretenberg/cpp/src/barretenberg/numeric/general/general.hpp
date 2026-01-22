@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -22,7 +22,10 @@ namespace bb::numeric {
  */
 template <typename T> constexpr T ceil_div(const T& numerator, const T& denominator)
 {
-    BB_ASSERT(denominator > 0, "Denominator must be greater than zero.");
+    if (denominator <= 0) {
+        bb::assert_failure("Denominator must be greater than zero.");
+    }
+
     static_assert(std::is_integral_v<T>, "Type must be an integral type.");
     return (numerator + denominator - 1) / denominator;
 }

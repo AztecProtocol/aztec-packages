@@ -48,16 +48,16 @@ pub contract AppSubscription {
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::address::AztecAddress,
-        state_vars::{Map, PrivateMutable, PublicImmutable},
+        state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
-    use router::utils::privately_check_block_number;
+    use public_checks::utils::privately_check_block_number;
     use token::Token;
 
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
+        subscriptions: Owned<PrivateMutable<SubscriptionNote, Context>, Context>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
@@ -78,12 +78,21 @@ pub contract AppSubscription {
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(self.context, user_address);
 
-        let emission = self.storage.subscriptions.at(user_address).replace(|mut note| {
-            assert(note.remaining_txs > 0, "you're out of txs");
-            note.remaining_txs -= 1;
-            note
-        });
-        emission.emit(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
+        let user_expiry_block_number = &mut 0;
+        self
+            .storage
+            .subscriptions
+            .at(user_address)
+            .replace(|note| {
+                assert(note.remaining_txs > 0, "you're out of txs");
+                *user_expiry_block_number = note.expiry_block_number;
+
+                SubscriptionNote {
+                    expiry_block_number: note.expiry_block_number,
+                    remaining_txs: note.remaining_txs - 1,
+                }
+            })
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
         self.context.set_as_fee_payer();
 
@@ -94,13 +103,9 @@ pub contract AppSubscription {
 
         self.context.end_setup();
 
-        // We check that the note is not expired. We do that via the router contract to conceal which contract
+        // We check that the note is not expired. We do that via the public checks contract to conceal which contract
         // is performing the check.
-        privately_check_block_number(
-            Comparator.LT,
-            emission.content.note.expiry_block_number,
-            self.context,
-        );
+        privately_check_block_number(Comparator.LT, *user_expiry_block_number, self.context);
 
         payload.execute_calls(self.context, config.target_address);
     }
@@ -137,14 +142,14 @@ pub contract AppSubscription {
         let config = self.storage.config.read();
 
         self.call(Token::at(config.subscription_token_address).transfer_in_private(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             config.subscription_recipient_address,
             config.subscription_price,
             authwit_nonce,
         ));
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
-        // --> We do that via the router contract to conceal which contract is performing the check.
+        // --> We do that via the public checks contract to conceal which contract is performing the check.
         privately_check_block_number(
             Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
@@ -156,9 +161,9 @@ pub contract AppSubscription {
             .subscriptions
             .at(subscriber)
             .initialize_or_replace(|_| {
-                SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
+                SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
             })
-            .emit(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
+            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("utility")]

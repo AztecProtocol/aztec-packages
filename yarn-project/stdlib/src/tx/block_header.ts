@@ -1,7 +1,8 @@
 import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
-import { SlotNumber } from '@aztec/foundation/branded-types';
-import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -16,22 +17,24 @@ import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
 export class BlockHeader {
+  private _cachedHash?: Promise<Fr>;
+
   constructor(
     /** Snapshot of archive before the block is applied. */
-    public lastArchive: AppendOnlyTreeSnapshot,
+    public readonly lastArchive: AppendOnlyTreeSnapshot,
     /** State reference. */
-    public state: StateReference,
+    public readonly state: StateReference,
     /**
      * Hash of the sponge blob after the tx effects of this block has been applied.
      * May contain tx effects from the previous blocks in the same checkpoint.
      */
-    public spongeBlobHash: Fr,
+    public readonly spongeBlobHash: Fr,
     /** Global variables of an L2 block. */
-    public globalVariables: GlobalVariables,
+    public readonly globalVariables: GlobalVariables,
     /** Total fees in the block, computed by the root rollup circuit */
-    public totalFees: Fr,
+    public readonly totalFees: Fr,
     /** Total mana used in the block, computed by the root rollup circuit */
-    public totalManaUsed: Fr,
+    public readonly totalManaUsed: Fr,
   ) {}
 
   static get schema(): ZodFor<BlockHeader> {
@@ -66,7 +69,7 @@ export class BlockHeader {
     return this.globalVariables.slotNumber;
   }
 
-  getBlockNumber() {
+  getBlockNumber(): BlockNumber {
     return this.globalVariables.blockNumber;
   }
 
@@ -159,7 +162,15 @@ export class BlockHeader {
   }
 
   hash(): Promise<Fr> {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+    if (!this._cachedHash) {
+      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+    }
+    return this._cachedHash;
+  }
+
+  /** Manually set the hash for this block header if already computed */
+  setHash(hashed: Fr) {
+    this._cachedHash = Promise.resolve(hashed);
   }
 
   static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {

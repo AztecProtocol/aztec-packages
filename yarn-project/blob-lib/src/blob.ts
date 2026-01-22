@@ -1,10 +1,11 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { BLS12Fr, Fr } from '@aztec/foundation/fields';
+import { BLS12Fr } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computeBlobCommitment, computeChallengeZ, computeEthVersionedBlobHash } from './hash.js';
 import type { BlobJson } from './interface.js';
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
+import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
 
 export { FIELDS_PER_BLOB };
 
@@ -80,7 +81,7 @@ export class Blob {
   /**
    * Create a Blob from a JSON object.
    *
-   * Blobs will be in this form when requested from the blob sink, or from
+   * Blobs will be in this form when requested from the blob client, or from
    * the beacon chain via `getBlobSidecars`
    * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
    *
@@ -101,13 +102,11 @@ export class Blob {
   /**
    * Get the JSON representation of the blob.
    *
-   * @param index - optional - The index of the blob in the block.
    * @returns The JSON representation of the blob.
    */
-  toJson(index: number): BlobJson {
+  toJSON(): BlobJson {
     return {
       blob: `0x${Buffer.from(this.data).toString('hex')}`,
-      index: index.toString(),
       // eslint-disable-next-line camelcase
       kzg_commitment: `0x${this.commitment.toString('hex')}`,
     };
@@ -136,6 +135,7 @@ export class Blob {
    *  proof: Buffer - KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes).
    */
   evaluate(challengeZ: Fr, verifyProof = false) {
+    const kzg = getKzg();
     const res = kzg.computeKzgProof(this.data, challengeZ.toBuffer());
     if (verifyProof && !kzg.verifyKzgProof(this.commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
@@ -178,6 +178,7 @@ export class Blob {
   }
 
   static getViemKzgInstance() {
+    const kzg = getKzg();
     return {
       blobToKzgCommitment: kzg.blobToKzgCommitment.bind(kzg),
       computeBlobKzgProof: kzg.computeBlobKzgProof.bind(kzg),

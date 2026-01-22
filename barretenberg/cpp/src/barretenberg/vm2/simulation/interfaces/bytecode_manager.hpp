@@ -21,10 +21,12 @@ class TxBytecodeManagerInterface {
     virtual BytecodeId get_bytecode(const AztecAddress& address) = 0;
     virtual std::shared_ptr<std::vector<uint8_t>> get_bytecode_data(const BytecodeId& bytecode_id) = 0;
     // Retrieves an instruction and decomposes it if needed.
-    virtual Instruction read_instruction(const BytecodeId& bytecode_id, uint32_t pc) = 0;
+    // This version of read_instruction might retrieve the bytecode (and generate an event) if not already done.
+    virtual Instruction read_instruction(const BytecodeId& bytecode_id, PC pc) = 0;
+    // This version of read_instruction does not retrieve the bytecode.
     virtual Instruction read_instruction(const BytecodeId& bytecode_id,
                                          std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
-                                         uint32_t pc) = 0;
+                                         PC pc) = 0;
 };
 
 // Manages the bytecode of a single nested call. Therefore always the same bytecode.
@@ -33,7 +35,7 @@ class BytecodeManagerInterface {
   public:
     virtual ~BytecodeManagerInterface() = default;
 
-    virtual Instruction read_instruction(uint32_t pc) = 0;
+    virtual Instruction read_instruction(PC pc) = 0;
 
     // Returns the id of the current bytecode. Tries to fetch it if not already done.
     // Throws BytecodeNotFoundError if contract does not exist.

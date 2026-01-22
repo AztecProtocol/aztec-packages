@@ -18,8 +18,8 @@
     "../package.common.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
@@ -28,8 +28,8 @@
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-client": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/blob-sink": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -49,6 +49,7 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/validator-client": "workspace:^",
+    "@aztec/validator-ha-signer": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "lodash.chunk": "^4.2.0",
     "tslib": "^2.4.0",
@@ -57,12 +58,13 @@
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@electric-sql/pglite": "^0.3.14",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.7",
     "@types/lodash.pick": "^4.4.7",
     "@types/node": "^22.15.17",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "concurrently": "^7.6.0",
     "eslint": "^9.26.0",
     "express": "^4.21.2",

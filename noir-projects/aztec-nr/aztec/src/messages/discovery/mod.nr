@@ -8,9 +8,8 @@ pub mod process_message;
 
 use crate::{
     messages::{
-        discovery::{
-            private_notes::MAX_NOTE_PACKED_LEN, process_message::process_message_ciphertext,
-        },
+        discovery::process_message::process_message_ciphertext,
+        logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
             get_private_logs, pending_tagged_log::PendingTaggedLog,
             validate_enqueued_notes_and_events,
@@ -35,19 +34,19 @@ pub struct NoteHashAndNullifier {
 /// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
 /// ```
-/// |packed_note, contract_address, note_nonce, storage_slot, note_type_id| {
+/// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
 ///     if note_type_id == MyNoteType::get_id() {
 ///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
 ///
 ///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
-///         let note_hash = note.compute_note_hash(storage_slot);
+///         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 ///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
+///             HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
 ///             storage_slot
 ///         );
 ///
-///         let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
+///         let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 ///
 ///         Option::some(
 ///             aztec::messages::discovery::NoteHashAndNullifier {
@@ -61,7 +60,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
+pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the message discovery process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.

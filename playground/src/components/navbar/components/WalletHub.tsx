@@ -1,11 +1,11 @@
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { CircularProgress, FormControl, IconButton, MenuItem, Select, Typography, Box } from '@mui/material';
+import { CircularProgress, FormControl, IconButton, MenuItem, Select, Typography, Box, Tooltip } from '@mui/material';
 
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useRef } from 'react';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
@@ -13,7 +13,8 @@ import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
 import { type WalletProvider, WalletManager } from '@aztec/wallet-sdk/manager';
-import { Fr } from '@aztec/foundation/fields';
+import { hashToEmoji } from '@aztec/wallet-sdk/crypto';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 // Extend WalletProvider locally for UI properties
 type ExtendedWalletProvider = WalletProvider & {
@@ -29,11 +30,21 @@ export function WalletHub() {
   const { setWallet, network, wallet, setIsEmbeddedWalletSelected, setFrom } = useContext(AztecContext);
   const { sendTx } = useTransaction();
 
+  const disconnectUnsubscribeRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (network) {
       discoverWallets();
     }
   }, [network]);
+
+  useEffect(() => {
+    return () => {
+      if (disconnectUnsubscribeRef.current) {
+        disconnectUnsubscribeRef.current();
+      }
+    };
+  }, []);
 
   async function discoverWallets() {
     if (!network) return;
@@ -79,13 +90,37 @@ export function WalletHub() {
     try {
       setLoading(true);
       setOpen(false);
+
+      if (selectedProvider && selectedProvider.disconnect) {
+        if (disconnectUnsubscribeRef.current) {
+          disconnectUnsubscribeRef.current();
+          disconnectUnsubscribeRef.current = null;
+        }
+        try {
+          await selectedProvider.disconnect();
+        } catch (error) {
+          console.warn('Error disconnecting previous wallet:', error);
+        }
+      }
+
       setSelectedProvider(provider);
       setIsEmbeddedWalletSelected(provider.type === 'embedded');
 
-      // Reset the selected account when changing wallet/network
       setFrom(null);
 
       const wallet = await provider.connect('play.aztec.network');
+
+      if (provider.onDisconnect) {
+        disconnectUnsubscribeRef.current = provider.onDisconnect(() => {
+          setWallet(null);
+          setSelectedProvider(null);
+          setFrom(null);
+          disconnectUnsubscribeRef.current = null;
+          // Re-run discovery to get fresh providers
+          discoverWallets();
+        });
+      }
+
       setWallet(wallet);
     } catch (error) {
       console.error('Failed to connect wallet:', error);
@@ -141,7 +176,18 @@ export function WalletHub() {
               return `Loading ${selectedProvider?.name}...`;
             }
             if (selected && selectedProvider?.name) {
-              return `${selectedProvider.name}`;
+              const verificationHash = selectedProvider.metadata?.verificationHash as string | undefined;
+              const emoji = verificationHash ? hashToEmoji(verificationHash) : null;
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <span>{selectedProvider.name}</span>
+                  {emoji && (
+                    <Tooltip title="Verification code - verify this matches your wallet" arrow>
+                      <span style={{ fontSize: '0.9em', letterSpacing: '0.1em' }}>{emoji}</span>
+                    </Tooltip>
+                  )}
+                </Box>
+              );
             }
             return 'Select Wallet';
           }}

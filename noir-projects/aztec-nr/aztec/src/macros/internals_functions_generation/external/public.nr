@@ -47,17 +47,17 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = {
-            let context = dep::aztec::context::public_context::PublicContext::new(|| {
+            let context = dep::aztec::context::PublicContext::new(|| {
             // We start from 1 because we skip the selector for the dispatch function.
-            let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
+            let serialized_args : [Field; $args_len_quote] = dep::aztec::oracle::avm::calldata_copy(1, $args_len_quote);
             dep::aztec::hash::hash_args(serialized_args)
             });
             $storage_init
             let self_address = context.this_address();
-            let call_self: CallSelf<aztec::context::public_context::PublicContext> = CallSelf { address: self_address, context };
-            let call_self_static: CallSelfStatic<aztec::context::public_context::PublicContext> = CallSelfStatic { address: self_address, context };
-            let internal: CallInternal<aztec::context::public_context::PublicContext> = CallInternal { context };
-            aztec::contract_self::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
+            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
+            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
+            let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
+            aztec::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
         };
     };
 
@@ -67,7 +67,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let internal_check = if is_fn_only_self(f) {
         let assertion_message =
             f"Function {original_function_name} can only be called by the same contract";
-        quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
+        quote { assert(self.msg_sender() == self.address, $assertion_message); }
     } else {
         quote {}
     };

@@ -1,7 +1,7 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
-import { TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
+import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
@@ -52,13 +52,14 @@ export function getMsgIdFn(message: Message) {
 }
 
 const DefaultMaxSizesKb: Record<TopicType, number> = {
-  // Tx effects should not exceed 128kb, so 512kb for the full tx obj should be sufficient
-  [TopicType.tx]: 512,
+  [TopicType.tx]: MAX_TX_SIZE_KB,
   // An attestation has roughly 30 fields, which is 1kb, so 5x is plenty
-  [TopicType.block_attestation]: 5,
+  [TopicType.checkpoint_attestation]: 5,
   // Proposals may carry some tx objects, so we allow a larger size capped at 10mb
   // Note this may not be enough for carrying all tx objects in a block
   [TopicType.block_proposal]: 1024 * 10,
+  // TODO(palla/mbps): Check size for checkpoint proposal
+  [TopicType.checkpoint_proposal]: 1024 * 10,
 };
 
 /**

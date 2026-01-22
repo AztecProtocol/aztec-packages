@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "polynomial.hpp"
@@ -74,16 +74,15 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
     BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
     allocate_backing_memory(size, virtual_size, start_index);
 
-    size_t num_threads = calculate_num_threads(size);
-    size_t range_per_thread = size / num_threads;
-    size_t leftovers = size - (range_per_thread * num_threads);
-
-    parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread;
-        size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-        BB_ASSERT(offset < size || size == 0);
-        BB_ASSERT_LTE((offset + range), size);
-        memset(static_cast<void*>(coefficients_.data() + offset), 0, sizeof(Fr) * range);
+    parallel_for([&](const ThreadChunk& chunk) {
+        auto range = chunk.range(size);
+        if (!range.empty()) {
+            size_t start = *range.begin();
+            size_t range_size = range.size();
+            BB_ASSERT(start < size || size == 0);
+            BB_ASSERT_LTE((start + range_size), size);
+            memset(static_cast<void*>(coefficients_.data() + start), 0, sizeof(Fr) * range_size);
+        }
     });
 }
 
@@ -176,13 +175,9 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    size_t num_threads = calculate_num_threads(other.size());
-    size_t range_per_thread = other.size() / num_threads;
-    size_t leftovers = other.size() - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread + other.start_index;
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    parallel_for([&](const ThreadChunk& chunk) {
+        for (size_t offset : chunk.range(other.size())) {
+            size_t i = offset + other.start_index;
             at(i) += other[i];
         }
     });
@@ -217,26 +212,22 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    const size_t num_threads = calculate_num_threads(other.size());
-    const size_t range_per_thread = other.size() / num_threads;
-    const size_t leftovers = other.size() - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        const size_t offset = j * range_per_thread + other.start_index;
-        const size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
+    parallel_for([&](const ThreadChunk& chunk) {
+        for (size_t offset : chunk.range(other.size())) {
+            size_t i = offset + other.start_index;
             at(i) -= other[i];
         }
     });
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scaling_factor)
 {
     parallel_for([scaling_factor, this](const ThreadChunk& chunk) { multiply_chunk(chunk, scaling_factor); });
     return *this;
 }
 
-template <typename Fr> void Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr scaling_factor)
+template <typename Fr> void Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor)
 {
     for (size_t i : chunk.range(size())) {
         data()[i] *= scaling_factor;
@@ -264,7 +255,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
     return result;
 }
 
-template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
+template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor)
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
@@ -273,7 +264,9 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
 }
 
 template <typename Fr>
-void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &
+void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
+                                      PolynomialSpan<const Fr> other,
+                                      const Fr& scaling_factor)
 {
     // Iterate over the chunk of the other polynomial's range
     for (size_t offset : chunk.range(other.size())) {

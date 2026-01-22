@@ -1,6 +1,5 @@
 #include "block_constraint.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -97,6 +96,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
         };
     };
 
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
     static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
         // Create initial memory values "natively"
@@ -143,9 +144,10 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = trace, .type = BlockType::ROM };
     }
 
-    static void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
@@ -161,6 +163,8 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 template <typename Params>
@@ -177,9 +181,14 @@ using ROMTestConfigs = testing::Types<ROMTestParams<UltraCircuitBuilder, 0, 0, f
                                       ROMTestParams<UltraCircuitBuilder, 10, 0, false>,
                                       ROMTestParams<UltraCircuitBuilder, 10, 0, true>, // Test the case in which there
                                                                                        // are only constant operations
-                                      ROMTestParams<MegaCircuitBuilder, 10, 10, true>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 20, false>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 20, true>,
+                                      ROMTestParams<MegaCircuitBuilder, 0, 0, false>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 0, false>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 0, true>, // Test the case in which there
+                                                                                      // are only constant operations
+                                      ROMTestParams<MegaCircuitBuilder, 10, 20, false>,
                                       ROMTestParams<MegaCircuitBuilder, 10, 20, true>>;
-
 TYPED_TEST_SUITE(ROMTest, ROMTestConfigs);
 
 TYPED_TEST(ROMTest, GenerateVKFromConstraints)
@@ -215,9 +224,6 @@ class RAMTestingFunctions {
         uint32_t witness_index;
     };
 
-    // Instance member to track reads for invalidating witnesses.
-    std::vector<WitnessValue> read_values;
-
     class InvalidWitness {
       public:
         enum class Target : uint8_t { None, ReadValueIncremented };
@@ -239,11 +245,10 @@ class RAMTestingFunctions {
         };
     };
 
-    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
-    {
-        // Clear any previous state
-        read_values.clear();
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
 
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    {
         // Create initial memory values "natively". RAM tables always start out initialized.
         std::vector<bb::fr> table_values;
         table_values.reserve(table_size);
@@ -294,9 +299,6 @@ class RAMTestingFunctions {
                     bb::fr read_value = table_values[ram_index_to_read];
                     const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-                    // Record this read value and its witness index
-                    read_values.push_back({ .value = read_value, .witness_index = value_for_read });
-
                     mem_op = { .access_type = AccessType::Read,
                                .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
                                .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
@@ -325,31 +327,35 @@ class RAMTestingFunctions {
                 add_constant_ops<AccessType::Read>(table_size, table_values, witness_values, trace);
                 add_constant_ops<AccessType::Write>(table_size, table_values, witness_values, trace);
             }
-
-            BB_ASSERT_EQ(read_values.size(), num_reads); // sanity check to make sure the number of reads is correct.
-            // Create the MemoryConstraint
         }
+
+        // Create the MemoryConstraint
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = trace, .type = BlockType::RAM };
     }
 
-    void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
         case InvalidWitness::Target::ReadValueIncremented:
             if constexpr (num_reads > 0 && table_size > 0) {
-                // Tamper with a random read value using the recorded witness index
-                if (!read_values.empty()) {
-                    const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % read_values.size());
-                    const uint32_t witness_idx = read_values[random_read_idx].witness_index;
-                    witness_values[witness_idx] += bb::fr(1);
+                // Tamper with a random read value
+                size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % (num_reads + num_writes));
+                while (memory_constraint.trace[random_read_idx].access_type != AccessType::Read) {
+                    // Find a read operation
+                    random_read_idx = static_cast<size_t>(engine.get_random_uint32() % (num_reads + num_writes));
                 }
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value.index;
+                witness_values[witness_idx] += bb::fr(1);
             }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
@@ -417,12 +423,26 @@ class CallDataTestingFunctions {
       public:
         enum class Target : uint8_t { None, ReadValueIncremented };
 
-        static std::vector<Target> get_all() { return { Target::None, Target::ReadValueIncremented }; };
+        static std::vector<Target> get_all()
+        {
+            if constexpr (num_reads > 0) {
+                return { Target::None, Target::ReadValueIncremented };
+            }
+            return { Target::None };
+        }
 
-        static std::vector<std::string> get_labels() { return { "None", "ReadValueIncremented" }; };
+        static std::vector<std::string> get_labels()
+        {
+            if constexpr (num_reads > 0) {
+                return { "None", "ReadValueIncremented" };
+            }
+            return { "None" };
+        }
     };
 
-    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
 
         // Create initial memory values "natively". Memory tables always start out initialized.
@@ -442,18 +462,20 @@ class CallDataTestingFunctions {
         std::vector<MemOp> trace;
 
         // Add read operations
-        for (size_t idx = 0; idx < num_reads; ++idx) {
-            MemOp mem_op;
-            const size_t calldata_idx_to_read = static_cast<size_t>(engine.get_random_uint32() % calldata_size);
-            const uint32_t index_for_read =
-                add_to_witness_and_track_indices(witness_values, bb::fr(calldata_idx_to_read));
-            bb::fr read_value = calldata_values[calldata_idx_to_read];
-            const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
+        if constexpr (calldata_size > 0) {
+            for (size_t idx = 0; idx < num_reads; ++idx) {
+                MemOp mem_op;
+                const size_t calldata_idx_to_read = static_cast<size_t>(engine.get_random_uint32() % calldata_size);
+                const uint32_t index_for_read =
+                    add_to_witness_and_track_indices(witness_values, bb::fr(calldata_idx_to_read));
+                bb::fr read_value = calldata_values[calldata_idx_to_read];
+                const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-            mem_op = { .access_type = AccessType::Read,
-                       .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
-                       .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
-            trace.push_back(mem_op);
+                mem_op = { .access_type = AccessType::Read,
+                           .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
+                           .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
+                trace.push_back(mem_op);
+            }
         }
         if constexpr (perform_constant_ops) {
             add_constant_ops<AccessType::Read>(calldata_size, calldata_values, witness_values, trace);
@@ -465,25 +487,34 @@ class CallDataTestingFunctions {
         };
     }
 
-    void invalidate_witness(AcirConstraint& memory_constraint,
-                            WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint memory_constraint,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
         case InvalidWitness::Target::ReadValueIncremented:
             // Tamper with a random read value using the recorded witness index
-            const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
-            const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
-            witness_values[witness_idx] += bb::fr(1);
+            if constexpr (num_reads > 0) {
+                const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
+                witness_values[witness_idx] += bb::fr(1);
+            }
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
-using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Primary, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::Primary, 10, 5, true>>;
+using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Primary, 0, 0, false>,
+                                           CallDataTestParams<CallDataType::Primary, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::Primary, 10, 5, true>,
+                                           CallDataTestParams<CallDataType::Secondary, 0, 0, false>,
+                                           CallDataTestParams<CallDataType::Secondary, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::Secondary, 10, 5, true>>;
 
 template <typename Params>
 class CallDataTests : public ::testing::Test,
@@ -526,7 +557,9 @@ class ReturnDataTestingFunctions {
         static std::vector<std::string> get_labels() { return { "None" }; };
     };
 
-    void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& memory_constraint, WitnessVector& witness_values)
     {
         // Create initial memory values "natively". Memory tables always start out initialized.
         std::vector<bb::fr> returndata_values;
@@ -546,73 +579,36 @@ class ReturnDataTestingFunctions {
         memory_constraint = AcirConstraint{ .init = init_indices, .trace = {}, .type = BlockType::ReturnData };
     }
 
-    void invalidate_witness([[maybe_unused]] AcirConstraint& memory_constraint,
-                            [[maybe_unused]] WitnessVector& witness_values,
-                            const InvalidWitness::Target& invalid_witness_target)
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        [[maybe_unused]] AcirConstraint memory_constraint,
+        [[maybe_unused]] WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         switch (invalid_witness_target) {
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { memory_constraint, witness_values };
     }
 };
 
-static constexpr size_t RETURNDATA_SIZE = 10;
-class ReturnDataTests : public ::testing::Test, public TestClass<ReturnDataTestingFunctions<RETURNDATA_SIZE>> {
+template <size_t ReturnDataSize_> class ReturnDataTestsParams {
+  public:
+    static constexpr size_t returndata_size = ReturnDataSize_;
+};
+
+template <typename Params>
+class ReturnDataTests : public ::testing::Test, public TestClass<ReturnDataTestingFunctions<Params::returndata_size>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-TEST_F(ReturnDataTests, GenerateVKFromConstraints)
+using ReturnDataTestConfigs = testing::Types<ReturnDataTestsParams<0>, ReturnDataTestsParams<10>>;
+
+TYPED_TEST_SUITE(ReturnDataTests, ReturnDataTestConfigs);
+
+TYPED_TEST(ReturnDataTests, GenerateVKFromConstraints)
 {
-    test_vk_independence<MegaFlavor>();
-}
-
-template <typename Builder> class EmptyBlockConstraintTests : public ::testing::Test {};
-
-using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
-TYPED_TEST_SUITE(EmptyBlockConstraintTests, BuilderTypes);
-
-// Test that all block constraint types handle empty initialization gracefully
-TYPED_TEST(EmptyBlockConstraintTests, EmptyBlockConstraints)
-{
-    using Builder = TypeParam;
-
-    std::vector<std::pair<BlockType, CallDataType>> types_to_test;
-
-    // Test each block constraint type
-    if constexpr (IsUltraBuilder<Builder>) {
-        types_to_test = { { BlockType::ROM, CallDataType::None }, { BlockType::RAM, CallDataType::None } };
-    } else {
-        types_to_test = { { BlockType::ROM, CallDataType::None },
-                          { BlockType::RAM, CallDataType::None },
-                          { BlockType::CallData, CallDataType::Primary },
-                          { BlockType::CallData, CallDataType::Secondary },
-                          { BlockType::ReturnData, CallDataType::None } };
-    }
-
-    // Create empty block constraint
-    for (auto type : types_to_test) {
-        BlockConstraint block{
-            .init = {},  // Empty initialization data
-            .trace = {}, // Empty trace
-            .type = type.first,
-            .calldata_id = type.second,
-        };
-
-        AcirProgram program;
-        program.constraints = {
-            .varnum = 0, // No variables needed for empty block constraints
-            .num_acir_opcodes = 1,
-            .public_inputs = {},
-            .block_constraints = { block },
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-
-        mock_opcode_indices(program.constraints);
-
-        // Circuit construction should succeed without errors
-        auto circuit = create_circuit<Builder>(program);
-        EXPECT_TRUE(CircuitChecker::check(circuit));
-    }
+    TestFixture::template test_vk_independence<MegaFlavor>();
 }

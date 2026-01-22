@@ -1,7 +1,7 @@
 import { PRIVATE_LOG_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
@@ -59,7 +59,8 @@ export class PrivateLog {
   }
 
   isEmpty() {
-    return this.fields.every(f => f.isZero());
+    // Faster to check emittedLength than compare all fields against zero
+    return this.emittedLength === 0;
   }
 
   static empty() {

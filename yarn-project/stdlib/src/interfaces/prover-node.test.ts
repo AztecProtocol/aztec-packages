@@ -1,3 +1,4 @@
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import type { L2Tips } from '../block/l2_block_source.js';
@@ -32,15 +33,20 @@ describe('ProvingNodeApiSchema', () => {
   });
 
   it('startProof', async () => {
-    await context.client.startProof(1);
+    await context.client.startProof(BlockNumber(1));
   });
 
   it('getL2Tips', async () => {
     const result = await context.client.getL2Tips();
+    const expectedTipId = {
+      block: { number: 1, hash: `0x01` },
+      checkpoint: { number: 1, hash: `0x01` },
+    };
     expect(result).toEqual({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      proposed: { number: 1, hash: `0x01` },
+      checkpointed: expectedTipId,
+      proven: expectedTipId,
+      finalized: expectedTipId,
     });
   });
 
@@ -53,19 +59,24 @@ describe('ProvingNodeApiSchema', () => {
 class MockProverNode implements ProverNodeApi {
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     return Promise.resolve({
-      finalizedBlockNumber: 1,
+      finalizedBlockNumber: BlockNumber(1),
       latestBlockHash: '0x',
-      latestBlockNumber: 1,
-      oldestHistoricBlockNumber: 1,
+      latestBlockNumber: BlockNumber(1),
+      oldestHistoricBlockNumber: BlockNumber(1),
       treesAreSynched: true,
     });
   }
 
   getL2Tips(): Promise<L2Tips> {
+    const tipId = {
+      block: { number: BlockNumber(1), hash: `0x01` },
+      checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
+    };
     return Promise.resolve({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      proposed: { number: BlockNumber(1), hash: `0x01` },
+      checkpointed: tipId,
+      proven: tipId,
+      finalized: tipId,
     });
   }
 

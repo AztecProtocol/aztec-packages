@@ -2,10 +2,10 @@ import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
-import { RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { logger, withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -39,8 +39,6 @@ describe('e2e_snapshot_sync', () => {
       aztecEpochDuration: 64,
       startProverNode: false,
       realProofs: false,
-      skipProtocolContracts: true,
-      salt: 1,
     });
 
     log = context.logger;
@@ -77,23 +75,21 @@ describe('e2e_snapshot_sync', () => {
       context.config,
       { ...config, realProofs: false, dataDirectory },
       context.aztecNode,
+      context.prefilledPublicData ?? [],
     );
   };
 
   const expectNodeSyncedToL2Block = async (node: AztecNode | ProverNode, blockNumber: number) => {
     const tips = await node.getL2Tips();
-    expect(tips.latest.number).toBeGreaterThanOrEqual(blockNumber);
+    expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
     const worldState = await node.getWorldStateSyncStatus();
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
   };
 
-  it('waits until a few checkpoints have been mined and purges blobs', async () => {
+  it('waits until a few checkpoints have been mined', async () => {
     log.warn(`Waiting for checkpoints to be mined`);
     await retryUntil(() => monitor.checkpointNumber > TARGET_CHECKPOINT_NUMBER, 'checkpoints-mined', 90, 1);
-    log.warn(
-      `Checkpoint height is now ${monitor.checkpointNumber}. Purging all blobs from sink so snapshot is required.`,
-    );
-    await context.blobSink!.clear();
+    log.warn(`Checkpoint height is now ${monitor.checkpointNumber}.`);
   });
 
   it('creates a snapshot', async () => {
@@ -110,13 +106,13 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`New node synced`);
     await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
-    const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
+    const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(L2_TARGET_BLOCK_NUM, MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
@@ -225,13 +221,13 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`New node synced with fallback logic`);
     await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
-    const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
+    const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
-      node.findLeavesIndexes(L2_TARGET_BLOCK_NUM, MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
+      node.findLeavesIndexes(BlockNumber(L2_TARGET_BLOCK_NUM), MerkleTreeId.ARCHIVE, [blockHash]).then(([i]) => i);
     expect(await getBlockHashLeafIndex(context.aztecNode)).toBeDefined();
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 

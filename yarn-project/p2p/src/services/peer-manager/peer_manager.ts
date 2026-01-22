@@ -1,13 +1,13 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto';
+import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { Connection, PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
@@ -161,7 +161,6 @@ export class PeerManager implements PeerManagerInterface {
     return this.metrics.tracer;
   }
 
-  @trackSpan('PeerManager.heartbeat')
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
@@ -278,6 +277,7 @@ export class PeerManager implements PeerManagerInterface {
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
     this.logger.verbose(`Connected to peer ${peerId.toString()}`);
+    this.metrics.peerConnected(peerId);
     if (this.config.p2pDisableStatusHandshake) {
       return;
     }
@@ -303,6 +303,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
+    this.metrics.peerDisconnected(peerId);
     this.logger.verbose(`Disconnected from peer ${peerId.toString()}`);
     const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerId.toString());
     if (validatorAddress !== undefined) {

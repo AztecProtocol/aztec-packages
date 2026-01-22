@@ -1,48 +1,42 @@
 use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{
-        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, PROOF_TYPE_HN,
-        PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
-    },
+    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
     proof::verification_key::ChonkVerificationKey,
     public_keys::PublicKeys,
-    traits::Empty,
 };
 
 pub struct PrivateCallData {
     pub public_inputs: PrivateCircuitPublicInputs,
     pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
-    pub side_effect_uniqueness_hints: SideEffectUniquenessHints,
 }
 
 impl PrivateCallData {
     /// Verifies the proof against the verification key and public inputs.
     /// The vk hash is also checked in the backend to match the key.
-    pub fn verify(self, is_first_app: bool) {
-        let proof_type = if is_first_app {
+    pub fn verify(self, is_first_function_call: bool) {
+        let proof_type = if is_first_function_call {
             PROOF_TYPE_OINK
         } else {
             PROOF_TYPE_HN
         };
 
-        // CHONK public inputs are linked in the backend via the databus.
+        // verify_proof_with_type sends the verification data to barretenberg, which adds to the circuit the required
+        // constraints to recursively verify the proof. For recursive verification happening inside the kernels, barretenberg
+        // only needs the vk, the proof type, and the purported vk hash. Then, barretenberg adds to the circuit:
+        // 1. Witnesses for the proofs. These are added based on the proofs generated during the accumulation steps.
+        //    The function in barretenberg that generates these proofs is `accumulate`.
+        // 2. Constraints that enforce self.vk.hash = Hash(self.vk.key)
+        // 3. Constraints that recursively verify the proofs.
         //
-        // Seeing empty args being passed to verify_proof is quite jarring, so I think it could do with more explanation about exactly what's happening behind the scenes, so that a reader can gain confidence in what's being done "magically" by bberg.
-        // How does bb know the locations of the proof and public inputs in the databus?
-        // How does bb know how many public inputs to extract from the databus?
-        // What if we change the public inputs; how does bb adjust to that?
-        // There's a comment in the bberg acir code that the recursive verifier expects a single public input. Are the public inputs being hashed behind the scenes? Where?
-        // How does bb hash the vk?
-        // Where does `get_public_inputs_witness_indices_from_proof` (in acir_format.cpp) get the size of the public inputs from?
-        //
-        // Does bberg compute a key_hash (aka vk_hash)? If so, we'd have duplicate vk_hash constraints, because it also gets computed within this Noir code. That would be a waste. BB appears to say "not used" next to `key_hash` values, but I just want to make sure I'm not misreading their code.
+        // Note: We talk about proofs because if proof_type = PROOF_TYPE_OINK, then there is only one proof (the accumulation of the first app)
+        //       If proof_type = PROOF_TYPE_HN, then there are two proofs (the accumulation of the previous kernel and that of the new app).
+        // Note 2: There are no public inputs because CHONK uses that databus to propagate public inputs. This means that the public inputs of the kernel
+        //         are not represented as single field elements, but rather as commitments (points on BN254). Barretenberg handles these public inputs internally
+        //         and requires no input from Noir.
         std::verify_proof_with_type(self.vk.key, [], [], self.vk.hash, proof_type);
     }
 }
@@ -61,7 +55,6 @@ pub struct PrivateVerificationKeyHints {
 pub struct PrivateCallDataWithoutPublicInputs {
     pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
-    pub side_effect_uniqueness_hints: SideEffectUniquenessHints,
 }
 
 impl PrivateCallDataWithoutPublicInputs {
@@ -73,54 +66,6 @@ impl PrivateCallDataWithoutPublicInputs {
             public_inputs,
             vk: self.vk,
             verification_key_hints: self.verification_key_hints,
-            side_effect_uniqueness_hints: self.side_effect_uniqueness_hints,
-        }
-    }
-}
-
-#[derive(Eq)]
-pub struct SideEffectCounterRange {
-    pub start: u32,
-    pub end: u32,
-    pub side_effect_global_index: u32,
-}
-
-impl Empty for SideEffectCounterRange {
-    fn empty() -> Self {
-        SideEffectCounterRange { start: 0, end: 0, side_effect_global_index: 0 }
-    }
-}
-
-#[derive(Eq)]
-pub struct SideEffectUniquenessHints {
-    pub side_effect_ranges: [SideEffectCounterRange; TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
-
-    pub note_hash_read_request_indices: [u32; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    pub nullifier_read_request_indices: [u32; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-    pub note_hashes_indices: [u32; MAX_NOTE_HASHES_PER_CALL],
-    pub nullifiers_indices: [u32; MAX_NULLIFIERS_PER_CALL],
-    pub private_call_requests_indices: [u32; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-    pub public_call_requests_indices: [u32; MAX_ENQUEUED_CALLS_PER_CALL],
-    pub l2_to_l1_msgs_indices: [u32; MAX_L2_TO_L1_MSGS_PER_CALL],
-    pub private_logs_indices: [u32; MAX_PRIVATE_LOGS_PER_CALL],
-    pub contract_class_logs_hashes_indices: [u32; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
-}
-
-impl Empty for SideEffectUniquenessHints {
-    fn empty() -> Self {
-        SideEffectUniquenessHints {
-            side_effect_ranges: [
-                SideEffectCounterRange::empty(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL
-            ],
-            note_hash_read_request_indices: [0; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-            nullifier_read_request_indices: [0; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-            note_hashes_indices: [0; MAX_NOTE_HASHES_PER_CALL],
-            nullifiers_indices: [0; MAX_NULLIFIERS_PER_CALL],
-            private_call_requests_indices: [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-            public_call_requests_indices: [0; MAX_ENQUEUED_CALLS_PER_CALL],
-            l2_to_l1_msgs_indices: [0; MAX_L2_TO_L1_MSGS_PER_CALL],
-            private_logs_indices: [0; MAX_PRIVATE_LOGS_PER_CALL],
-            contract_class_logs_hashes_indices: [0; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
         }
     }
 }

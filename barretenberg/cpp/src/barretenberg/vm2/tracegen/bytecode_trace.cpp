@@ -161,7 +161,8 @@ void BytecodeTraceBuilder::process_hashing(
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
-        std::vector<FF> fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+        std::vector<FF> fields = { DOM_SEP__PUBLIC_BYTECODE };
+        fields.reserve(1 + event.bytecode_fields.size());
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
         FF output_hash = Poseidon2::hash(fields);
@@ -270,10 +271,10 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 {
     using C = Column;
     using simulation::InstructionFetchingEvent;
-    using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::PC_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::TAG_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::OPCODE_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::PC_OUT_OF_RANGE;
+    using simulation::InstrDeserializationEventError::TAG_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -306,8 +307,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 
             if (wire_instr_spec.tag_operand_idx.has_value()) {
                 const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
-                assert((tag_value_idx == 2 || tag_value_idx == 3) &&
-                       "Current constraints support only tag for operand index equal to 2 or 3");
+                BB_ASSERT((tag_value_idx == 2 || tag_value_idx == 3),
+                          "Current constraints support only tag for operand index equal to 2 or 3");
                 has_tag = 1;
 
                 if (tag_value_idx == 2) {
@@ -340,7 +341,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bytecode_id, bytecode_id },
                       { C::instr_fetching_pc, event.pc },
                       // indirect + operands.
-                      { C::instr_fetching_indirect, event.instruction.indirect },
+                      { C::instr_fetching_addressing_mode, event.instruction.addressing_mode },
                       { C::instr_fetching_op1, get_operand(0) },
                       { C::instr_fetching_op2, get_operand(1) },
                       { C::instr_fetching_op3, get_operand(2) },

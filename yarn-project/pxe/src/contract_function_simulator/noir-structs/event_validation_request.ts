@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -15,6 +15,7 @@ export class EventValidationRequest {
   constructor(
     public contractAddress: AztecAddress,
     public eventTypeId: EventSelector,
+    public randomness: Fr,
     public serializedEvent: Fr[],
     public eventCommitment: Fr,
     public txHash: TxHash,
@@ -27,6 +28,8 @@ export class EventValidationRequest {
     const contractAddress = AztecAddress.fromField(reader.readField());
     const eventTypeId = EventSelector.fromField(reader.readField());
 
+    const randomness = reader.readField();
+
     const eventStorage = reader.readFieldArray(MAX_EVENT_SERIALIZED_LEN);
     const eventLen = reader.readField().toNumber();
     const serializedEvent = eventStorage.slice(0, eventLen);
@@ -38,6 +41,7 @@ export class EventValidationRequest {
     return new EventValidationRequest(
       contractAddress,
       eventTypeId,
+      randomness,
       serializedEvent,
       eventCommitment,
       txHash,

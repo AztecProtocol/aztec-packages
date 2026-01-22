@@ -109,8 +109,7 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 
     // Generate new VK
     info("Generating verification key: ", hash_str);
-    auto response =
-        bbapi::ChonkComputeStandaloneVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
 
     // Cache the VK
     write_file(vk_cache_path, response.bytes);
@@ -324,7 +323,7 @@ bool process_all_artifacts(const std::string& search_path, bool force)
     auto artifacts = find_contract_artifacts(search_path);
 
     if (artifacts.empty()) {
-        info("No contract artifacts found. Please compile your contracts first with 'nargo compile'.");
+        info("No contract artifacts found in '", search_path, "'.");
         return false;
     }
 

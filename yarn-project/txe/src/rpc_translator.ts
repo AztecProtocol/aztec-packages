@@ -1,14 +1,16 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
-  packAsRetrievedNote,
+  packAsHintedNote,
 } from '@aztec/pxe/simulator';
-import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
@@ -28,6 +30,9 @@ import {
   toForeignCallResult,
   toSingle,
 } from './util/encoding.js';
+
+const MAX_EVENT_LEN = 12; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_RESERVED_FIELDS
+const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -117,7 +122,7 @@ export class RPCTranslator {
       : undefined;
 
     const anchorBlockNumber = fromSingle(foreignAnchorBlockNumberIsSome).toBool()
-      ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
+      ? BlockNumber(fromSingle(foreignAnchorBlockNumberValue).toNumber())
       : undefined;
 
     const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
@@ -154,6 +159,12 @@ export class RPCTranslator {
   // Other oracles - these get handled by the oracle handler
 
   // TXE-specific oracles
+
+  txeGetDefaultAddress() {
+    const defaultAddress = this.handlerAsTxe().txeGetDefaultAddress();
+
+    return toForeignCallResult([toSingle(defaultAddress)]);
+  }
 
   async txeGetNextBlockNumber() {
     const nextBlockNumber = await this.handlerAsTxe().txeGetNextBlockNumber();
@@ -266,6 +277,39 @@ export class RPCTranslator {
     ]);
   }
 
+  async txeGetPrivateEvents(
+    foreignSelector: ForeignCallSingle,
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
+    const selector = EventSelector.fromField(fromSingle(foreignSelector));
+    const contractAddress = addressFromSingle(foreignContractAddress);
+    const scope = addressFromSingle(foreignScope);
+
+    const events = await this.handlerAsTxe().txeGetPrivateEvents(selector, contractAddress, scope);
+
+    if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
+      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PRIVATE_EVENTS_PER_TXE_QUERY}`);
+    }
+
+    if (events.some(e => e.length > MAX_EVENT_LEN)) {
+      throw new Error(`Some private event has length larger than maxLen ${MAX_EVENT_LEN}`);
+    }
+
+    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a raw
+    // multidimensional array in get_private_events_oracle and create the BoundedVecs here.
+    const rawArrayStorage = events
+      .map(e => e.concat(Array(MAX_EVENT_LEN - e.length).fill(new Fr(0))))
+      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_EVENT_LEN).fill(new Fr(0))))
+      .flat();
+    const eventLengths = events
+      .map(e => new Fr(e.length))
+      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(new Fr(0)));
+    const queryLength = new Fr(events.length);
+
+    return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);
+  }
+
   privateStoreInExecutionCache(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {
     const values = fromArray(foreignValues);
     const hash = fromSingle(foreignHash);
@@ -303,39 +347,41 @@ export class RPCTranslator {
   }
 
   async utilityStorageRead(
+    foreignBlockHash: ForeignCallSingle,
     foreignContractAddress: ForeignCallSingle,
     foreignStartStorageSlot: ForeignCallSingle,
-    foreignBlockNumber: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
+    const blockHash = L2BlockHash.fromString(foreignBlockHash);
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
 
     const values = await this.handlerAsUtility().utilityStorageRead(
+      blockHash,
       contractAddress,
       startStorageSlot,
-      blockNumber,
       numberOfElements,
     );
 
     return toForeignCallResult([toArray(values)]);
   }
 
-  async utilityGetPublicDataWitness(foreignBlockNumber: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+  async utilityGetPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
+    const blockHash = L2BlockHash.fromString(foreignBlockHash);
     const leafSlot = fromSingle(foreignLeafSlot);
 
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockNumber, leafSlot);
+    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockHash, leafSlot);
 
     if (!witness) {
-      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockNumber}.`);
+      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockHash.toString()}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async utilityGetNotes(
+    foreignOwnerIsSome: ForeignCallSingle,
+    foreignOwnerValue: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
     foreignNumSelects: ForeignCallSingle,
     foreignSelectByIndexes: ForeignCallArray,
@@ -351,8 +397,12 @@ export class RPCTranslator {
     foreignOffset: ForeignCallSingle,
     foreignStatus: ForeignCallSingle,
     foreignMaxNotes: ForeignCallSingle,
-    foreignPackedRetrievedNoteLength: ForeignCallSingle,
+    foreignPackedHintedNoteLength: ForeignCallSingle,
   ) {
+    // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
+    const owner = fromSingle(foreignOwnerIsSome).toBool()
+      ? AztecAddress.fromField(fromSingle(foreignOwnerValue))
+      : undefined;
     const storageSlot = fromSingle(foreignStorageSlot);
     const numSelects = fromSingle(foreignNumSelects).toNumber();
     const selectByIndexes = fromArray(foreignSelectByIndexes).map(fr => fr.toNumber());
@@ -368,9 +418,10 @@ export class RPCTranslator {
     const offset = fromSingle(foreignOffset).toNumber();
     const status = fromSingle(foreignStatus).toNumber();
     const maxNotes = fromSingle(foreignMaxNotes).toNumber();
-    const packedRetrievedNoteLength = fromSingle(foreignPackedRetrievedNoteLength).toNumber();
+    const packedHintedNoteLength = fromSingle(foreignPackedHintedNoteLength).toNumber();
 
     const noteDatas = await this.handlerAsUtility().utilityGetNotes(
+      owner,
       storageSlot,
       numSelects,
       selectByIndexes,
@@ -387,7 +438,17 @@ export class RPCTranslator {
       status,
     );
 
-    const returnDataAsArrayOfArrays = noteDatas.map(packAsRetrievedNote);
+    const returnDataAsArrayOfArrays = noteDatas.map(noteData =>
+      packAsHintedNote({
+        contractAddress: noteData.contractAddress,
+        owner: noteData.owner,
+        randomness: noteData.randomness,
+        storageSlot: noteData.storageSlot,
+        noteNonce: noteData.noteNonce,
+        isPending: noteData.isPending,
+        note: noteData.note,
+      }),
+    );
 
     // Now we convert each sub-array to an array of ForeignCallSingles
     const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
@@ -396,15 +457,12 @@ export class RPCTranslator {
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(
-        returnDataAsArrayOfForeignCallSingleArrays,
-        maxNotes,
-        packedRetrievedNoteLength,
-      ),
+      arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, maxNotes, packedHintedNoteLength),
     );
   }
 
   privateNotifyCreatedNote(
+    foreignOwner: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
     foreignRandomness: ForeignCallSingle,
     foreignNoteTypeId: ForeignCallSingle,
@@ -412,6 +470,7 @@ export class RPCTranslator {
     foreignNoteHash: ForeignCallSingle,
     foreignCounter: ForeignCallSingle,
   ) {
+    const owner = addressFromSingle(foreignOwner);
     const storageSlot = fromSingle(foreignStorageSlot);
     const randomness = fromSingle(foreignRandomness);
     const noteTypeId = NoteSelector.fromField(fromSingle(foreignNoteTypeId));
@@ -419,7 +478,15 @@ export class RPCTranslator {
     const noteHash = fromSingle(foreignNoteHash);
     const counter = fromSingle(foreignCounter).toNumber();
 
-    this.handlerAsPrivate().privateNotifyCreatedNote(storageSlot, randomness, noteTypeId, note, noteHash, counter);
+    this.handlerAsPrivate().privateNotifyCreatedNote(
+      owner,
+      storageSlot,
+      randomness,
+      noteTypeId,
+      note,
+      noteHash,
+      counter,
+    );
 
     return toForeignCallResult([]);
   }
@@ -498,17 +565,14 @@ export class RPCTranslator {
     );
   }
 
-  async utilityGetNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
-    foreignNullifier: ForeignCallSingle,
-  ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+  async utilityGetNullifierMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignNullifier: ForeignCallSingle) {
+    const blockHash = L2BlockHash.fromString(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockHash, nullifier);
 
     if (!witness) {
-      throw new Error(`Nullifier membership witness not found at block ${blockNumber}.`);
+      throw new Error(`Nullifier membership witness not found at block ${blockHash}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
@@ -552,14 +616,14 @@ export class RPCTranslator {
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
   }
 
-  async utilityGetUtilityContext() {
-    const context = await this.handlerAsUtility().utilityGetUtilityContext();
+  utilityGetUtilityContext() {
+    const context = this.handlerAsUtility().utilityGetUtilityContext();
 
     return toForeignCallResult(context.toNoirRepresentation());
   }
 
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
 
     const header = await this.handlerAsUtility().utilityGetBlockHeader(blockNumber);
 
@@ -570,35 +634,35 @@ export class RPCTranslator {
   }
 
   async utilityGetMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
     foreignTreeId: ForeignCallSingle,
     foreignLeafValue: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockHash = L2BlockHash.fromString(foreignBlockHash);
     const treeId = fromSingle(foreignTreeId).toNumber();
     const leafValue = fromSingle(foreignLeafValue);
 
-    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockNumber, treeId, leafValue);
+    const witness = await this.handlerAsUtility().utilityGetMembershipWitness(blockHash, treeId, leafValue);
 
     if (!witness) {
       throw new Error(
-        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockNumber}.`,
+        `Membership witness in tree ${MerkleTreeId[treeId]} not found for value ${leafValue} at block ${blockHash}.`,
       );
     }
     return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
   }
 
   async utilityGetLowNullifierMembershipWitness(
-    foreignBlockNumber: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockNumber = fromSingle(foreignBlockNumber).toNumber();
+    const blockHash = L2BlockHash.fromString(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockNumber, nullifier);
+    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockHash, nullifier);
 
     if (!witness) {
-      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockNumber}.`);
+      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockHash}.`);
     }
     return toForeignCallResult(witness.toNoirRepresentation());
   }

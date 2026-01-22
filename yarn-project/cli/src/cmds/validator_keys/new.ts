@@ -1,5 +1,6 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
-import { GSEContract, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { GSEContract } from '@aztec/ethereum/contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -134,7 +135,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback(l1RpcUrls.map(url => http(url))),
+      transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
     });
     const gse = new GSEContract(publicClient, gseAddress);
 

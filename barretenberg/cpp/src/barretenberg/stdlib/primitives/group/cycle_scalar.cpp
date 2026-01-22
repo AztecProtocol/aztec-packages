@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "./cycle_scalar.hpp"
@@ -9,6 +9,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field_utils.hpp"
+
+#include <tuple>
 
 namespace bb::stdlib {
 
@@ -171,10 +173,20 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     BB_ASSERT_GT(NUM_LIMB_BITS * 2, LO_BITS);
     BB_ASSERT_LT(NUM_LIMB_BITS, LO_BITS);
 
-    // Step 3: limb1 contributes to both *this._lo and *this._hi. Compute the values of the two limb1 slices
+    // Step 3: limb1 may contribute to both *this._lo and *this._hi. Compute the values of the two limb1 slices
     const size_t lo_bits_in_limb_1 = LO_BITS - NUM_LIMB_BITS;
-    const auto limb1_max_bits = static_cast<size_t>(limb1_max.get_msb() + 1);
-    auto [limb1_lo, limb1_hi] = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
+
+    field_t limb1_lo;
+    field_t limb1_hi;
+
+    // Edge case: If limb1's maximum value fits entirely in the low bits, no split is needed.
+    if (limb1_max < (uint256_t(1) << lo_bits_in_limb_1)) {
+        limb1_lo = limb1;
+        limb1_hi = field_t(0);
+    } else { // Otherwise, split limb1 into lo and hi parts
+        const auto limb1_max_bits = static_cast<size_t>(limb1_max.get_msb() + 1);
+        std::tie(limb1_lo, limb1_hi) = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
+    }
 
     // Propagate the origin tag to the chunks of limb1
     limb1_lo.set_origin_tag(limb1.get_origin_tag());

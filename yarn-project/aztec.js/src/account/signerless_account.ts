@@ -1,6 +1,6 @@
 import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
@@ -15,20 +15,25 @@ import type { Account } from './account.js';
  */
 export class SignerlessAccount implements Account {
   private entrypoint: EntrypointInterface;
-  constructor(chainInfo: ChainInfo) {
-    this.entrypoint = new DefaultMultiCallEntrypoint(chainInfo.chainId.toNumber(), chainInfo.version.toNumber());
+
+  constructor() {
+    this.entrypoint = new DefaultMultiCallEntrypoint();
   }
 
-  createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(exec, gasSettings);
+  createTxExecutionRequest(
+    exec: ExecutionPayload,
+    gasSettings: GasSettings,
+    chainInfo: ChainInfo,
+  ): Promise<TxExecutionRequest> {
+    return this.entrypoint.createTxExecutionRequest(exec, gasSettings, chainInfo);
   }
 
-  getChainId(): Fr {
-    throw new Error('SignerlessAccount: Method getChainId not implemented.');
+  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload> {
+    return this.entrypoint.wrapExecutionPayload(exec, options);
   }
 
-  getVersion(): Fr {
-    throw new Error('SignerlessAccount: Method getVersion not implemented.');
+  createAuthWit(_intent: Fr | Buffer | IntentInnerHash | CallIntent): Promise<AuthWitness> {
+    throw new Error('SignerlessAccount: Method createAuthWit not implemented.');
   }
 
   getCompleteAddress(): CompleteAddress {
@@ -37,9 +42,5 @@ export class SignerlessAccount implements Account {
 
   getAddress(): AztecAddress {
     throw new Error('SignerlessAccount: Method getAddress not implemented.');
-  }
-
-  createAuthWit(_intent: Fr | Buffer | IntentInnerHash | CallIntent): Promise<AuthWitness> {
-    throw new Error('SignerlessAccount: Method createAuthWit not implemented.');
   }
 }

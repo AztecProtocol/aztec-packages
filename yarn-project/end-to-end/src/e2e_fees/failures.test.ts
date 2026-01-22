@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
 import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
@@ -28,13 +28,13 @@ describe('e2e_fees failures', () => {
   const t = new FeesTest('failures', 3, { coinbase });
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyFPCSetupSnapshot();
-    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+    await t.setup();
+    await t.applyFPCSetup();
+    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
-    await t.context.watcher.trigger();
+    await t.context.watcher!.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
     t.setIsMarkingAsProven(false);
@@ -78,7 +78,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
-    await t.context.watcher.trigger();
+    await t.context.watcher!.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -94,13 +94,13 @@ describe('e2e_fees failures', () => {
       })
       .wait({ dontThrowOnRevert: true });
 
-    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
     const { sequencerBlockRewards } = await t.getBlockRewards();
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
-    await t.context.watcher.trigger();
+    await t.context.watcher!.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -200,7 +200,7 @@ describe('e2e_fees failures', () => {
       })
       .wait({ dontThrowOnRevert: true });
 
-    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
@@ -234,7 +234,7 @@ describe('e2e_fees failures', () => {
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
           },
         }),
-    ).rejects.toThrow(/Setup phase reverted/);
+    ).rejects.toThrow(/\[SETUP\] UNRECOVERABLE ERROR/);
 
     // so does the sequencer
     await expect(
@@ -247,7 +247,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped\. Reason: Tx dropped by P2P node\./);
+    ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped/i);
   });
 
   it('includes transaction that error in teardown', async () => {
@@ -303,7 +303,7 @@ describe('e2e_fees failures', () => {
       .wait({
         dontThrowOnRevert: true,
       });
-    expect(receipt.status).toEqual(TxStatus.TEARDOWN_REVERTED);
+    expect(receipt.executionResult).toEqual(TxExecutionResult.TEARDOWN_REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await expectMapping(

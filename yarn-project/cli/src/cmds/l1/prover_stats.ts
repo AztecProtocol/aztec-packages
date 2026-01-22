@@ -1,5 +1,6 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
-import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
@@ -46,7 +47,10 @@ export async function proverStats(opts: {
         .then(a => a.rollupAddress);
 
   const chain = createEthereumChain(l1RpcUrls, chainId).chainInfo;
-  const publicClient = createPublicClient({ chain, transport: fallback(l1RpcUrls.map(url => http(url))) });
+  const publicClient = createPublicClient({
+    chain,
+    transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
+  });
   const lastBlockNum = endBlock ?? (await publicClient.getBlockNumber());
   debugLog.verbose(`Querying events on rollup at ${rollup.toString()} from ${startBlock} up to ${lastBlockNum}`);
 

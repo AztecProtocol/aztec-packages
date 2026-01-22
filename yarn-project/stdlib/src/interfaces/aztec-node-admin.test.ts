@@ -33,7 +33,7 @@ describe('AztecNodeAdminApiSchema', () => {
     const config = await context.client.getConfig();
     expect(config).toMatchObject({
       coinbase: expect.any(EthAddress),
-      maxTxPoolSize: expect.any(Number),
+      maxPendingTxCount: expect.any(Number),
     });
   });
 
@@ -126,16 +126,17 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     ]);
   }
   getConfig(): Promise<
-    ValidatorClientFullConfig & SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }
+    ValidatorClientFullConfig & SequencerConfig & ProverConfig & SlasherConfig & { maxPendingTxCount: number }
   > {
     return Promise.resolve({
       realProofs: false,
       proverTestDelayType: 'fixed',
       proverTestDelayMs: 100,
       proverTestDelayFactor: 1,
+      cancelJobsOnStop: false,
       proverAgentCount: 1,
       coinbase: EthAddress.random(),
-      maxTxPoolSize: 1000,
+      maxPendingTxCount: 1000,
       slashAmountSmall: 500n,
       slashAmountMedium: 1000n,
       slashAmountLarge: 2000n,
@@ -163,8 +164,12 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,
       validatorReexecute: true,
-      validatorReexecuteDeadlineMs: 1000,
       disableTransactions: false,
+      haSigningEnabled: false,
+      nodeId: 'test-node-id',
+      pollingIntervalMs: 50,
+      signingTimeoutMs: 3000,
+      maxStuckDutiesAgeMs: 72000,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

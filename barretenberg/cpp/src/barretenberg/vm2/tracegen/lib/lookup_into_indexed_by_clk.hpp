@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
 namespace bb::avm2::tracegen {
@@ -16,11 +17,9 @@ namespace bb::avm2::tracegen {
  */
 template <typename LookupSettings> class LookupIntoIndexedByClk : public IndexedLookupTraceBuilder<LookupSettings> {
   protected:
+    using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
     // This is an efficient implementation of indexing into the precomputed table.
-    uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
-    {
-        return static_cast<uint32_t>(tup[0]);
-    }
+    uint32_t find_in_dst(const TupleType& tup) const override { return static_cast<uint32_t>(flat_tuple::get<0>(tup)); }
 };
 
 } // namespace bb::avm2::tracegen

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 # Resolve repo root and script directory for reliable relative paths
@@ -13,6 +12,17 @@ log() { echo "[INFO]  $(date -Is) - $*"; }
 err() { echo "[ERROR] $(date -Is) - $*" >&2; }
 die() { err "$*"; exit 1; }
 
+# Cleanup function for traps
+cleanup() {
+  if [[ -n "${K8S_LOG_WATCHER_PID:-}" ]]; then
+    log "Cleaning up K8s log watcher (PID: ${K8S_LOG_WATCHER_PID})"
+    kill "${K8S_LOG_WATCHER_PID}" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+# We want to separate out these logs.
+export DENOISE=1
 ########################
 # TIMING INSTRUMENTATION
 ########################
@@ -25,8 +35,7 @@ declare -A STAGE_TIMINGS
 ########################
 NAMESPACE=${NAMESPACE} # required
 CLUSTER=${CLUSTER:-kind}
-SALT=${SALT:-$(date +%s)}
-RESOURCE_PROFILE=$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")
+RESOURCE_PROFILE=${RESOURCE_PROFILE:-$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")}
 BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
 
 # Don't try and retrieve contract addresses, instead allow deployed infra to read from network config
@@ -50,7 +59,7 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-DESTROY_ROLLUP_CONTRACTS=${DESTROY_ROLLUP_CONTRACTS:-false}
+REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
 CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
@@ -73,6 +82,7 @@ VALIDATORS_PER_NODE=${VALIDATORS_PER_NODE:-12}
 VALIDATOR_REPLICAS=${VALIDATOR_REPLICAS:-4}
 VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX=${VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX:-5000}
 PUBLISHERS_PER_VALIDATOR_KEY=${PUBLISHERS_PER_VALIDATOR_KEY:-2}
+VALIDATOR_HA_REPLICAS=${VALIDATOR_HA_REPLICAS:-0}
 PROVER_PUBLISHER_MNEMONIC_START_INDEX=${PROVER_PUBLISHER_MNEMONIC_START_INDEX:-8000}
 PUBLISHERS_PER_PROVER=${PUBLISHERS_PER_PROVER:-1}
 PROVER_REAL_PROOFS=${REAL_VERIFIER:-true}
@@ -109,9 +119,9 @@ BOT_TRANSFERS_FOLLOW_CHAIN=${BOT_TRANSFERS_FOLLOW_CHAIN:-NONE}
 BOT_SWAPS_FOLLOW_CHAIN=${BOT_SWAPS_FOLLOW_CHAIN:-NONE}
 
 RPC_INGRESS_ENABLED=${RPC_INGRESS_ENABLED:-false}
-RPC_INGRESS_HOST=${RPC_INGRESS_HOST:-}
+RPC_INGRESS_HOSTS=${RPC_INGRESS_HOSTS:-[]}
 RPC_INGRESS_STATIC_IP_NAME=${RPC_INGRESS_STATIC_IP_NAME:-}
-RPC_INGRESS_SSL_CERT_NAME=${RPC_INGRESS_SSL_CERT_NAME:-}
+RPC_INGRESS_SSL_CERT_NAMES=${RPC_INGRESS_SSL_CERT_NAMES:-[]}
 RPC_REPLICAS=${RPC_REPLICAS:-1}
 FULL_NODE_REPLICAS=${FULL_NODE_REPLICAS:-0}
 FISHERMAN_MNEMONIC_START_INDEX=${FISHERMAN_MNEMONIC_START_INDEX:-1}
@@ -123,6 +133,8 @@ FULL_NODE_RESOURCE_PROFILE=${FULL_NODE_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
 P2P_BOOTSTRAP_RESOURCE_PROFILE=${P2P_BOOTSTRAP_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
 VALIDATOR_RESOURCE_PROFILE=${VALIDATOR_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
 PROVER_RESOURCE_PROFILE=${PROVER_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
+ARCHIVE_RESOURCE_PROFILE=${ARCHIVE_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
+BLOB_SINK_RESOURCE_PROFILE=${BLOB_SINK_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
 
 PROVER_NODE_DISABLE_PROOF_PUBLISH=${PROVER_NODE_DISABLE_PROOF_PUBLISH:-false}
 P2P_TX_POOL_DELETE_TXS_AFTER_REORG=${P2P_TX_POOL_DELETE_TXS_AFTER_REORG:-false}
@@ -142,13 +154,20 @@ FISHERMAN_LOG_LEVEL=${FISHERMAN_LOG_LEVEL:-${LOG_LEVEL}}
 
 BLOB_ALLOW_EMPTY_SOURCES=${BLOB_ALLOW_EMPTY_SOURCES:-false}
 
+# Blob filestore configuration
+BLOB_FILE_STORE_UPLOAD_URL_TF=""
+if [[ -n "${BLOB_FILE_STORE_UPLOAD_URL:-}" ]]; then
+  BLOB_FILE_STORE_UPLOAD_URL_TF="\"$BLOB_FILE_STORE_UPLOAD_URL\""
+else
+  BLOB_FILE_STORE_UPLOAD_URL_TF="null"
+fi
+
 P2P_GOSSIPSUB_D=${P2P_GOSSIPSUB_D:-6}
 P2P_GOSSIPSUB_DLO=${P2P_GOSSIPSUB_DLO:-4}
 P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 
 P2P_DROP_TX=${P2P_DROP_TX:-false}
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
-
 
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
@@ -162,7 +181,8 @@ fi
 # Compute and include publisher indices in prefunding list
 # Uses env overrides when provided, otherwise falls back to values.yaml defaults
 TOTAL_VALIDATOR_KEYS=$((VALIDATOR_REPLICAS * VALIDATORS_PER_NODE))
-TOTAL_VALIDATOR_PUBLISHERS=$((TOTAL_VALIDATOR_KEYS * PUBLISHERS_PER_VALIDATOR_KEY))
+# Total publishers = keys * publishers_per_key * (1 + HA_REPLICAS)
+TOTAL_VALIDATOR_PUBLISHERS=$((TOTAL_VALIDATOR_KEYS * PUBLISHERS_PER_VALIDATOR_KEY * (1 + VALIDATOR_HA_REPLICAS)))
 
 if (( TOTAL_VALIDATOR_PUBLISHERS > 0 )); then
   VALIDATOR_PUBLISHER_RANGE=$(seq "$VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" $((VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + TOTAL_VALIDATOR_PUBLISHERS - 1)) | tr '\n' ',' | sed 's/,$//')
@@ -179,19 +199,37 @@ if (( TOTAL_PROVER_PUBLISHERS > 0 )); then
   LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${PROVER_PUBLISHER_RANGE}"
 fi
 
-# Ensure docker image provided
-if [[ -z "${AZTEC_DOCKER_IMAGE:-}" ]]; then
+# Ensure docker image provided (not needed for pure teardowns)
+if [[ -z "${AZTEC_DOCKER_IMAGE:-}" && ("${CREATE_AZTEC_INFRA:-}" == "true" || "${CREATE_ROLLUP_CONTRACTS:-}" == "true") ]]; then
   die "AZTEC_DOCKER_IMAGE is not set"
 fi
 
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 
 if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then
-  kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true
+  "${SCRIPT_DIR}/network_teardown.sh"
 fi
 
 # Create the namespace if it doesn't exist
 kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
+
+# Start K8s log watcher in background (GKE only)
+K8S_LOG_WATCHER_PID=""
+if [[ "${CLUSTER}" != "kind" && "${K8S_CLUSTER_CONTEXT}" == gke_* ]]; then
+  # Parse GKE context: gke_{project}_{location}_{cluster_name}
+  GKE_CLUSTER_NAME=$(echo "${K8S_CLUSTER_CONTEXT}" | cut -d'_' -f4)
+  GKE_LOCATION=$(echo "${K8S_CLUSTER_CONTEXT}" | cut -d'_' -f3)
+  # Convert epoch start time to ISO format for log filtering
+  DEPLOY_START_ISO=$(date -u -d "@${DEPLOY_START_TIME}" +"%Y-%m-%dT%H:%M:%SZ")
+  log "Starting K8s log watcher for namespace ${NAMESPACE}"
+  python3 "${SCRIPT_DIR}/watch_k8s_logs.py" "${NAMESPACE}" \
+    --project "${GCP_PROJECT_ID}" \
+    --cluster "${GKE_CLUSTER_NAME}" \
+    --location "${GKE_LOCATION}" \
+    --start-time "${DEPLOY_START_ISO}" &
+  K8S_LOG_WATCHER_PID=$!
+  log "K8s log watcher started (PID: ${K8S_LOG_WATCHER_PID})"
+fi
 
 # DRY helper to init/plan/apply/destroy a terraform module
 tf_run() {
@@ -208,6 +246,7 @@ tf_run() {
     terraform -chdir="${dir}" apply tfplan
   fi
 }
+export -f tf_run
 
 # -------------------------------------------------------
 # Optionally deploy Ethereum devnet; otherwise use env URLs
@@ -239,7 +278,7 @@ RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
 EOF
 
   "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ETH_DEVNET_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-eth-devnet"
-  tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}"
+  denoise "tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}""
 
   L1_RPC_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_execution_rpc_url)
   L1_CONSENSUS_HOST_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_beacon_api_url)
@@ -273,15 +312,34 @@ fi
 # -------------------------------
 # Deploy rollup contracts
 # -------------------------------
+
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${ETHEREUM_CHAIN_ID}" == "1337" ]]; then
+  die "Cannot verify contracts deployed to eth-devnet"
+fi
+
+# Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
+# Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
+# and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+  die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
+fi
+
 ROLLUP_CONTRACTS_START=$(date +%s)
 DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
-"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts/${SALT}"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
 # Handle NETWORK variable - needs quotes for string values, null for unset
 if [[ -n "${NETWORK:-}" ]]; then
   NETWORK_TF="\"${NETWORK}\""
 else
   NETWORK_TF=null
+fi
+
+# Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
+  ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
+else
+  ETHERSCAN_API_KEY_TF=null
 fi
 
 cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
@@ -291,7 +349,6 @@ AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
 L1_RPC_URLS = "${CSV_RPC_URLS}"
 PRIVATE_KEY = "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}"
 L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
-SALT = "${SALT}"
 VALIDATORS = "${VALIDATOR_ADDRESSES}"
 SPONSORED_FPC = ${SPONSORED_FPC}
 TEST_ACCOUNTS = ${TEST_ACCOUNTS}
@@ -318,32 +375,47 @@ AZTEC_SLASH_AMOUNT_LARGE = ${AZTEC_SLASH_AMOUNT_LARGE:-null}
 AZTEC_SLASHER_FLAVOR = ${AZTEC_SLASHER_FLAVOR:-null}
 AZTEC_GOVERNANCE_PROPOSER_QUORUM = ${AZTEC_GOVERNANCE_PROPOSER_QUORUM:-null}
 AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-null}
+AZTEC_GOVERNANCE_VOTING_DURATION = ${AZTEC_GOVERNANCE_VOTING_DURATION:-null}
 AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
 AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
+ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
 NETWORK = ${NETWORK_TF}
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
 EOF
 
-tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
+# Check terraform state for existing contract addresses
+# This avoids redeploying contracts when the k8s job has been cleaned up by TTL
+denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} init -reconfigure >/dev/null"
+EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address 2>/dev/null | grep -E '^0x[a-fA-F0-9]{40}$' || true)
 
-# Print logs from any failed pods (useful if job succeeded after retries)
-JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
-for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
-  --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-  echo "=== Failed pod: $pod ==="
-  kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
-done
+if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
+    log "Using network configuration, skipping contracts deployment"
+else
+  if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+    log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
+  else
+    if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
+      log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+      denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
+    fi
+    denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
+    denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} apply tfplan"
+
+    # Print logs from any failed pods (useful if job succeeded after retries)
+    JOB_NAME=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw job_name)
+    for pod in $(kubectl get pods -n "${NAMESPACE}" -l "job-name=${JOB_NAME}" \
+      --field-selector=status.phase=Failed -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+      echo "=== Failed pod: $pod ==="
+      kubectl logs -n "${NAMESPACE}" "$pod" 2>/dev/null || true
+    done
+  fi
+fi
 
 STAGE_TIMINGS[rollup_contracts]=$(($(date +%s) - ROLLUP_CONTRACTS_START))
-log "Deployed rollup contracts"
-
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
-  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw verification_json_b64 | base64 -d > $HOME/l1-verify.json
-  ${REPO_ROOT}/l1-contracts/scripts/verify-from-json.sh $HOME/l1-verify.json --api-key $ETHERSCAN_API_KEY
-fi
+log "Rollup contracts ready"
 
 if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
   REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
@@ -353,7 +425,7 @@ if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
   [[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
   [[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
   [[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
-  log "Got rollup contract addresses"
+  log "Contract addresses: registry=${REGISTRY_ADDRESS}, slash_factory=${SLASH_FACTORY_ADDRESS}, fee_asset_handler=${FEE_ASSET_HANDLER_ADDRESS}"
 else
   REGISTRY_ADDRESS="${REGISTRY_ADDRESS:-}"
   SLASH_FACTORY_ADDRESS="${SLASH_FACTORY_ADDRESS:-}"
@@ -366,7 +438,16 @@ fi
 # -------------------------------
 AZTEC_INFRA_START=$(date +%s)
 DEPLOY_AZTEC_INFRA_DIR="${SCRIPT_DIR}/../terraform/deploy-aztec-infra"
-"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra/${SALT}"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra"
+
+# Gate NodePort based on cluster (true for kind, false for GKE)
+if [[ "${CLUSTER}" == "kind" ]]; then
+  P2P_NODEPORT_ENABLED=true
+  P2P_PUBLIC_IP=false
+else
+  P2P_NODEPORT_ENABLED=false
+  P2P_PUBLIC_IP=true
+fi
 
 cat > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" << EOF
 K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
@@ -381,6 +462,8 @@ VALIDATOR_RESOURCE_PROFILE = "${VALIDATOR_RESOURCE_PROFILE}"
 PROVER_RESOURCE_PROFILE = "${PROVER_RESOURCE_PROFILE}"
 RPC_RESOURCE_PROFILE = "${RPC_RESOURCE_PROFILE}"
 FULL_NODE_RESOURCE_PROFILE = "${FULL_NODE_RESOURCE_PROFILE}"
+ARCHIVE_RESOURCE_PROFILE = "${ARCHIVE_RESOURCE_PROFILE}"
+BLOB_SINK_RESOURCE_PROFILE = "${BLOB_SINK_RESOURCE_PROFILE}"
 AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
 SPONSORED_FPC = ${SPONSORED_FPC}
 TEST_ACCOUNTS = ${TEST_ACCOUNTS}
@@ -397,6 +480,7 @@ VALIDATOR_MNEMONIC_START_INDEX = ${VALIDATOR_MNEMONIC_START_INDEX}
 VALIDATORS_PER_NODE = ${VALIDATORS_PER_NODE}
 VALIDATOR_REPLICAS = ${VALIDATOR_REPLICAS}
 VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY = ${PUBLISHERS_PER_VALIDATOR_KEY}
+VALIDATOR_HA_REPLICAS = ${VALIDATOR_HA_REPLICAS}
 SEQ_MIN_TX_PER_BLOCK = ${SEQ_MIN_TX_PER_BLOCK}
 SEQ_MAX_TX_PER_BLOCK = ${SEQ_MAX_TX_PER_BLOCK}
 PROVER_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
@@ -438,9 +522,9 @@ PROVER_AGENTS_PER_PROVER = ${PROVER_AGENTS_PER_PROVER}
 PROVER_AGENT_POLL_INTERVAL_MS = ${PROVER_AGENT_POLL_INTERVAL_MS}
 
 RPC_INGRESS_ENABLED = ${RPC_INGRESS_ENABLED}
-RPC_INGRESS_HOST = "${RPC_INGRESS_HOST}"
+RPC_INGRESS_HOSTS = ${RPC_INGRESS_HOSTS}
 RPC_INGRESS_STATIC_IP_NAME = "${RPC_INGRESS_STATIC_IP_NAME}"
-RPC_INGRESS_SSL_CERT_NAME = "${RPC_INGRESS_SSL_CERT_NAME}"
+RPC_INGRESS_SSL_CERT_NAMES = ${RPC_INGRESS_SSL_CERT_NAMES}
 RPC_REPLICAS = ${RPC_REPLICAS:-1}
 FISHERMAN_MODE = ${FISHERMAN_MODE}
 FISHERMAN_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
@@ -463,6 +547,7 @@ VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE = ${VALIDATOR_L1_PRIORITY_FEE_RE
 PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE = ${PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE:-null}
 PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE = ${PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE:-null}
 BLOB_ALLOW_EMPTY_SOURCES = ${BLOB_ALLOW_EMPTY_SOURCES:-false}
+BLOB_FILE_STORE_UPLOAD_URL = ${BLOB_FILE_STORE_UPLOAD_URL_TF}
 DEBUG_P2P_INSTRUMENT_MESSAGES = ${DEBUG_P2P_INSTRUMENT_MESSAGES:-false}
 
 PROVER_AGENT_INCLUDE_METRICS = "${PROVER_AGENT_INCLUDE_METRICS-null}"
@@ -470,9 +555,19 @@ FULL_NODE_INCLUDE_METRICS = "${FULL_NODE_INCLUDE_METRICS-null}"
 
 LOG_LEVEL = "${LOG_LEVEL}"
 FISHERMAN_LOG_LEVEL = "${FISHERMAN_LOG_LEVEL}"
+
+WS_NUM_HISTORIC_BLOCKS = ${WS_NUM_HISTORIC_BLOCKS:-null}
+
+P2P_PUBLIC_IP = ${P2P_PUBLIC_IP}
+P2P_NODEPORT_ENABLED = ${P2P_NODEPORT_ENABLED}
+
+PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
+DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
+
+WAIT_FOR_PROVER_DEPLOY = ${WAIT_FOR_PROVER_DEPLOY:-null}
 EOF
 
-tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
+denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
 STAGE_TIMINGS[aztec_infra]=$(($(date +%s) - AZTEC_INFRA_START))
 log "Deployed aztec infra"
 

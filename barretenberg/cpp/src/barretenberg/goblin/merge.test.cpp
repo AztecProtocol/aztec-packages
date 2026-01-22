@@ -156,7 +156,8 @@ template <typename Curve> class MergeTests : public testing::Test {
                                        const bool expected = true)
     {
         // Create native merge proof
-        MergeProver merge_prover{ op_queue, settings };
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ op_queue, prover_transcript, settings };
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
@@ -194,20 +195,19 @@ template <typename Curve> class MergeTests : public testing::Test {
         // Verify the proof
         auto transcript = std::make_shared<Transcript>();
         MergeVerifierType verifier{ settings, transcript };
-        auto [pairing_points, merged_table_commitments, degree_check_passed, concatenation_check_passed] =
-            verifier.verify_proof(proof, input_commitments);
+        auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
         VerifierCommitmentKey pcs_verification_key;
-        bool pairing_verified =
-            pcs_verification_key.pairing_check(to_native(pairing_points.P0), to_native(pairing_points.P1));
-        bool verified = pairing_verified && degree_check_passed && concatenation_check_passed;
+        bool pairing_verified = pcs_verification_key.pairing_check(to_native(result.pairing_points.P0),
+                                                                   to_native(result.pairing_points.P1));
+        bool verified = pairing_verified && result.reduction_succeeded;
         EXPECT_EQ(verified, expected);
 
         // If verification is expected to succeed, also check that the merged table commitments match
         if (expected) {
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                EXPECT_EQ(to_native(merged_table_commitments[idx]), expected_merged_commitments[idx])
+                EXPECT_EQ(to_native(result.merged_commitments[idx]), expected_merged_commitments[idx])
                     << "Merged table commitment mismatch at index " << idx;
             }
         }
@@ -232,7 +232,8 @@ template <typename Curve> class MergeTests : public testing::Test {
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct a merge proof and ensure its size matches expectation
-        MergeProver merge_prover{ builder.op_queue };
+        auto transcript = std::make_shared<NativeTranscript>();
+        MergeProver merge_prover{ builder.op_queue, transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
@@ -441,13 +442,15 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     auto op_queue_1 = std::make_shared<ECCOpQueue>();
     InnerBuilder circuit_1{ op_queue_1 };
     GoblinMockCircuits::construct_simple_circuit(circuit_1);
-    MergeProver prover_1{ op_queue_1 };
+    auto prover_transcript_1 = std::make_shared<NativeTranscript>();
+    MergeProver prover_1{ op_queue_1, prover_transcript_1 };
     auto proof_1 = prover_1.construct_proof();
 
     auto op_queue_2 = std::make_shared<ECCOpQueue>();
     InnerBuilder circuit_2{ op_queue_2 };
     GoblinMockCircuits::construct_simple_circuit(circuit_2);
-    MergeProver prover_2{ op_queue_2 };
+    auto prover_transcript_2 = std::make_shared<NativeTranscript>();
+    MergeProver prover_2{ op_queue_2, prover_transcript_2 };
     auto proof_2 = prover_2.construct_proof();
 
     // Get native commitments for proof 1 (will be used with verifier 1's transcript)
@@ -511,9 +514,9 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
 
     // Catch the exception and verify it's the expected cross-transcript error
 #ifndef NDEBUG
-    EXPECT_THROW_OR_ABORT([[maybe_unused]] auto result =
-                              verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
-                          "Tags from different transcripts were involved in the same computation");
+    EXPECT_THROW_WITH_MESSAGE([[maybe_unused]] auto result =
+                                  verifier_2.verify_proof(proof_2_recursive, input_commitments_1),
+                              "Tags from different transcripts were involved in the same computation");
 #endif
 }
 
@@ -605,13 +608,12 @@ TEST_F(MergeTranscriptTests, ProverManifestConsistency)
     // Construct merge proof with manifest enabled
     auto transcript = std::make_shared<NativeTranscript>();
     transcript->enable_manifest();
-    CommitmentKey<curve::BN254> commitment_key;
-    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Check prover manifest matches expected manifest
     auto manifest_expected = construct_merge_manifest();
-    auto prover_manifest = merge_prover.transcript->get_manifest();
+    auto prover_manifest = transcript->get_manifest();
 
     ASSERT_GT(manifest_expected.size(), 0);
     ASSERT_EQ(prover_manifest.size(), manifest_expected.size())
@@ -638,8 +640,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     // Generate merge proof with prover manifest enabled
     auto prover_transcript = std::make_shared<NativeTranscript>();
     prover_transcript->enable_manifest();
-    CommitmentKey<curve::BN254> commitment_key;
-    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, prover_transcript };
+    MergeProver merge_prover{ op_queue, prover_transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Construct commitments for verifier
@@ -655,14 +656,13 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     auto verifier_transcript = std::make_shared<NativeTranscript>();
     verifier_transcript->enable_manifest();
     MergeVerifier merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
-    auto [pairing_points, _, degree_check_passed, concatenation_check_passed] =
-        merge_verifier.verify_proof(merge_proof, merge_commitments);
+    auto result = merge_verifier.reduce_to_pairing_check(merge_proof, merge_commitments);
 
     // Verification should succeed
-    ASSERT_TRUE(pairing_points.check() && degree_check_passed && concatenation_check_passed);
+    ASSERT_TRUE(result.pairing_points.check() && result.reduction_succeeded);
 
     // Check prover and verifier manifests match
-    auto prover_manifest = merge_prover.transcript->get_manifest();
+    auto prover_manifest = prover_transcript->get_manifest();
     auto verifier_manifest = verifier_transcript->get_manifest();
 
     ASSERT_GT(prover_manifest.size(), 0);

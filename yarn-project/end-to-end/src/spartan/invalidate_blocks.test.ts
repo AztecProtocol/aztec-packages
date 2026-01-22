@@ -1,5 +1,6 @@
-import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -12,6 +13,7 @@ import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import {
+  ChainHealth,
   getL1DeploymentAddresses,
   getNodeClient,
   getPublicViemClient,
@@ -42,8 +44,20 @@ describe('invalidate blocks test', () => {
   let origMinTxsPerBlock: number | undefined;
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
   let origSlashAttestDescendantOfInvalidPenalty: bigint | undefined;
+  const health = new ChainHealth(config.NAMESPACE, logger);
+
+  const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
+    const keys = Object.keys(expected) as (keyof AztecNodeAdminConfig)[];
+    await retryUntil(async () => {
+      const configs = await getSequencersConfig(config);
+      return configs.every(c =>
+        keys.every(k => expected[k] === undefined || (c as AztecNodeAdminConfig)[k] === expected[k]),
+      );
+    }, `sequencers to apply config (${description})`);
+  };
 
   beforeAll(async () => {
+    await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
     rollup = new RollupContract(client, deployAddresses.rollupAddress);
@@ -57,6 +71,7 @@ describe('invalidate blocks test', () => {
   });
 
   afterAll(async () => {
+    await health.teardown();
     const restoreConfig: Partial<AztecNodeAdminConfig> = {
       skipCollectingAttestations: false,
       minTxsPerBlock: origMinTxsPerBlock,
@@ -64,6 +79,8 @@ describe('invalidate blocks test', () => {
       slashAttestDescendantOfInvalidPenalty: origSlashAttestDescendantOfInvalidPenalty,
     };
     await updateSequencersConfig(config, restoreConfig);
+    // Ensure config has actually propagated before the next scenario test starts
+    await waitForSequencersToApplyConfig(restoreConfig, 'restore after invalidate-blocks');
     monitor.removeAllListeners();
     await monitor.stop();
     forwardProcesses.forEach(p => p.kill());
@@ -106,6 +123,8 @@ describe('invalidate blocks test', () => {
 
     // Restore sequencer configs to normal
     await updateSequencersConfig(config, { skipCollectingAttestations: false });
+    // Ensure we don't leak `skipCollectingAttestations=true` into subsequent tests
+    await waitForSequencersToApplyConfig({ skipCollectingAttestations: false }, 'disable skipCollectingAttestations');
 
     // Wait until a few more checkpoints have been mined to ensure the chain can progress after the invalid checkpoint
     // Note that we should expect more invalidations depending on when the patched config hits

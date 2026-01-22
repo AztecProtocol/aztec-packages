@@ -4,7 +4,7 @@ import {
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/stdlib/abi';
 import {
@@ -16,7 +16,7 @@ import {
 import { Capsule } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { getClassRegistryContract } from '../contract/protocol_contracts.js';
+import { ContractClassRegistryContract } from '../contract/protocol_contracts/contract-class-registry.js';
 import type { Wallet } from '../wallet/index.js';
 
 /**
@@ -58,7 +58,7 @@ export async function broadcastPrivateFunction(
 
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
 
-  const classRegistry = await getClassRegistryContract(wallet);
+  const classRegistry = ContractClassRegistryContract.at(wallet);
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -121,7 +121,7 @@ export async function broadcastUtilityFunction(
     privateFunctionsArtifactTreeRoot,
   } = await createUtilityFunctionMembershipProof(selector, artifact);
 
-  const classRegistry = await getClassRegistryContract(wallet);
+  const classRegistry = ContractClassRegistryContract.at(wallet);
   const bytecode = bufferAsFields(
     utilityFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,

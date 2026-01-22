@@ -1,12 +1,13 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "prover_instance.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -30,10 +31,10 @@ template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyad
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
 
-    // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
-    // to allow for shifts.
+    // The number of gates is the maximum required by the lookup argument or everything else, plus a zero row to allow
+    // for shifts.
     size_t total_num_gates =
-        NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(tables_size, min_size_of_execution_trace);
+        NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS + std::max(tables_size, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -262,5 +263,6 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<UltraRollupFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
+template class ProverInstance_<MegaAvmFlavor>;
 
 } // namespace bb

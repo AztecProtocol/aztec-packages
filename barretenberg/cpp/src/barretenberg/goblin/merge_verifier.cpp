@@ -1,11 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: d1307bdee7f2ee0e737c19b77a26204a8dbafafc}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "merge_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 
@@ -41,8 +42,8 @@ bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
     }
     degree_check_diff -= evals.back() * pow_kappa_minus_one;
     if constexpr (IsRecursive) {
-        degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
         degree_check_verified &= degree_check_diff.get_value() == 0;
+        degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
     } else {
         degree_check_verified &= degree_check_diff == 0;
     }
@@ -110,7 +111,7 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
  * @return VerificationResult containing pairing points, merged table commitments, and check results
  */
 template <typename Curve>
-typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify_proof(
+typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
     transcript->load_proof(proof);
@@ -207,9 +208,12 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     BB_ASSERT(batch_opening_claim.scalars.size() == MERGE_BATCHED_CLAIM_SIZE);
 
     // KZG verifier - returns PairingPoints directly
-    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
+    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), transcript);
 
-    return { pairing_points, merged_table_commitments, degree_check_verified, concatenation_verified };
+    vinfo("Merge Verifier: degree check passed: ", degree_check_verified ? "true" : "false");
+    vinfo("Merge Verifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
+
+    return { pairing_points, merged_table_commitments, degree_check_verified && concatenation_verified };
 }
 
 // Explicit template instantiations

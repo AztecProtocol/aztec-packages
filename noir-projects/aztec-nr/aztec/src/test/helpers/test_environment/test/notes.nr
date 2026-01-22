@@ -1,5 +1,5 @@
 use crate::note::{
-    lifecycle::{create_note, destroy_note_unsafe},
+    lifecycle::{create_note, destroy_note},
     note_getter::{get_note, get_notes, view_note, view_notes},
     note_getter_options::NoteGetterOptions,
     note_viewer_options::NoteViewerOptions,
@@ -9,20 +9,23 @@ use protocol_types::{address::AztecAddress, traits::FromField};
 
 global VALUE: Field = 7;
 global CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(12);
+global OWNER: AztecAddress = AztecAddress::from_field(50);
 global STORAGE_SLOT: Field = 13;
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn get_nonexistent_note_fails() {
     let env = TestEnvironment::new();
 
-    env.private_context(|context| { let _ = get_note::<MockNote>(context, STORAGE_SLOT); });
+    env.private_context(|context| {
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn view_nonexistent_note_fails() {
     let env = TestEnvironment::new();
 
-    env.private_context(|_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.private_context(|_| { let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT); });
 }
 
 #[test]
@@ -31,10 +34,10 @@ unconstrained fn get_transient_note() {
 
     env.private_context(|context| {
         let note = MockNote::new(VALUE).build_note();
-        let _ = create_note(context, STORAGE_SLOT, note);
-        let (retrieved_note, _) = get_note::<MockNote>(context, STORAGE_SLOT);
+        let _ = create_note(context, OWNER, STORAGE_SLOT, note);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
 
-        assert_eq(retrieved_note.note, note);
+        assert_eq(confirmed_note.note, note);
     });
 }
 
@@ -44,9 +47,11 @@ unconstrained fn get_undiscovered_settled_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    env.private_context(|context| { let _ = create_note(context, STORAGE_SLOT, note); });
+    env.private_context(|context| { let _ = create_note(context, OWNER, STORAGE_SLOT, note); });
 
-    env.private_context(|context| { let _ = get_note::<MockNote>(context, STORAGE_SLOT); });
+    env.private_context(|context| {
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -55,9 +60,9 @@ unconstrained fn view_undiscovered_settled_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    env.private_context(|context| { let _ = create_note(context, STORAGE_SLOT, note); });
+    env.private_context(|context| { let _ = create_note(context, OWNER, STORAGE_SLOT, note); });
 
-    env.utility_context(|_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.utility_context(|_| { let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT); });
 }
 
 #[test]
@@ -66,14 +71,15 @@ unconstrained fn get_discovered_settled_note() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
-        let (retrieved_note, _) = get_note::<MockNote>(context, STORAGE_SLOT);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
 
-        assert_eq(retrieved_note.note, note);
+        assert_eq(confirmed_note.note, note);
     });
 }
 
@@ -83,14 +89,15 @@ unconstrained fn view_discovered_settled_note() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.utility_context(|_| {
-        let retrieved_note = view_note::<MockNote>(STORAGE_SLOT);
+        let confirmed_note = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT);
 
-        assert_eq(retrieved_note.note, note);
+        assert_eq(confirmed_note.note, note);
     });
 }
 
@@ -101,15 +108,19 @@ unconstrained fn get_multiple_discovered_settled_notes() {
     let note = MockNote::new(VALUE).build_note();
     let other_note = MockNote::new(VALUE + 1).build_note();
 
-    let (emission, other_emission) = env.private_context(|context| {
-        (create_note(context, STORAGE_SLOT, note), create_note(context, STORAGE_SLOT, other_note))
+    let (note_message, other_note_message) = env.private_context(|context| {
+        (
+            create_note(context, OWNER, STORAGE_SLOT, note),
+            create_note(context, OWNER, STORAGE_SLOT, other_note),
+        )
     });
 
-    env.discover_note(emission);
-    env.discover_note(other_emission);
+    env.discover_note(note_message);
+    env.discover_note(other_note_message);
 
     env.private_context(|context| {
-        let (notes, _) = get_notes(context, STORAGE_SLOT, NoteGetterOptions::new());
+        let options = NoteGetterOptions::new().set_owner(OWNER);
+        let notes = get_notes(context, STORAGE_SLOT, options);
 
         assert_eq(notes.len(), 2);
         assert_eq(notes.get(0).note, note);
@@ -124,15 +135,19 @@ unconstrained fn view_multiple_discovered_settled_notes() {
     let note = MockNote::new(VALUE).build_note();
     let other_note = MockNote::new(VALUE + 1).build_note();
 
-    let (emission, other_emission) = env.private_context(|context| {
-        (create_note(context, STORAGE_SLOT, note), create_note(context, STORAGE_SLOT, other_note))
+    let (note_message, other_note_message) = env.private_context(|context| {
+        (
+            create_note(context, OWNER, STORAGE_SLOT, note),
+            create_note(context, OWNER, STORAGE_SLOT, other_note),
+        )
     });
 
-    env.discover_note(emission);
-    env.discover_note(other_emission);
+    env.discover_note(note_message);
+    env.discover_note(other_note_message);
 
     env.utility_context(|_| {
-        let notes = view_notes(STORAGE_SLOT, NoteViewerOptions::new());
+        let options = NoteViewerOptions::new().set_owner(OWNER);
+        let notes = view_notes(STORAGE_SLOT, options);
 
         assert_eq(notes.len(), 2);
         assert_eq(notes.get(0), note);
@@ -146,12 +161,13 @@ unconstrained fn get_at_other_contract_discovered_settled_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context_at(CONTRACT_ADDRESS, |context| {
-        let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT);
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
     });
 }
 
@@ -161,11 +177,14 @@ unconstrained fn view_at_other_contract_discovered_settled_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
-    env.utility_context_at(CONTRACT_ADDRESS, |_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.utility_context_at(CONTRACT_ADDRESS, |_| {
+        let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -174,11 +193,14 @@ unconstrained fn get_discovered_at_other_contract_settled_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note_at(CONTRACT_ADDRESS, emission);
+    env.discover_note_at(CONTRACT_ADDRESS, note_message);
 
-    env.private_context(|context| { let _ = get_note::<MockNote>(context, STORAGE_SLOT); });
+    env.private_context(|context| {
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -187,11 +209,12 @@ unconstrained fn view_discovered_at_other_contract_settled_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note_at(CONTRACT_ADDRESS, emission);
+    env.discover_note_at(CONTRACT_ADDRESS, note_message);
 
-    env.utility_context(|_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.utility_context(|_| { let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT); });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -200,14 +223,14 @@ unconstrained fn get_discovered_settled_note_at_other_contract_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context_at(CONTRACT_ADDRESS, |context| {
-        create_note(context, STORAGE_SLOT, note)
+    let note_message = env.private_context_at(CONTRACT_ADDRESS, |context| {
+        create_note(context, OWNER, STORAGE_SLOT, note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context_at(CONTRACT_ADDRESS, |context| {
-        let _ = get_note::<MockNote>(context, STORAGE_SLOT);
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
     });
 }
 
@@ -217,13 +240,15 @@ unconstrained fn view_discovered_settled_note_at_other_contract_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context_at(CONTRACT_ADDRESS, |context| {
-        create_note(context, STORAGE_SLOT, note)
+    let note_message = env.private_context_at(CONTRACT_ADDRESS, |context| {
+        create_note(context, OWNER, STORAGE_SLOT, note)
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
-    env.utility_context_at(CONTRACT_ADDRESS, |_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.utility_context_at(CONTRACT_ADDRESS, |_| {
+        let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test]
@@ -232,16 +257,16 @@ unconstrained fn get_discovered_at_other_contract_settled_note_at_other_contract
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context_at(CONTRACT_ADDRESS, |context| {
-        create_note(context, STORAGE_SLOT, note)
+    let note_message = env.private_context_at(CONTRACT_ADDRESS, |context| {
+        create_note(context, OWNER, STORAGE_SLOT, note)
     });
 
-    env.discover_note_at(CONTRACT_ADDRESS, emission);
+    env.discover_note_at(CONTRACT_ADDRESS, note_message);
 
     env.private_context_at(CONTRACT_ADDRESS, |context| {
-        let (retrieved_note, _) = get_note::<MockNote>(context, STORAGE_SLOT);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
 
-        assert_eq(retrieved_note.note, note);
+        assert_eq(confirmed_note.note, note);
     });
 }
 
@@ -251,16 +276,16 @@ unconstrained fn view_discovered_at_other_contract_settled_note_at_other_contrac
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context_at(CONTRACT_ADDRESS, |context| {
-        create_note(context, STORAGE_SLOT, note)
+    let note_message = env.private_context_at(CONTRACT_ADDRESS, |context| {
+        create_note(context, OWNER, STORAGE_SLOT, note)
     });
 
-    env.discover_note_at(CONTRACT_ADDRESS, emission);
+    env.discover_note_at(CONTRACT_ADDRESS, note_message);
 
     env.utility_context_at(CONTRACT_ADDRESS, |_| {
-        let retrieved_note = view_note::<MockNote>(STORAGE_SLOT);
+        let confirmed_note = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT);
 
-        assert_eq(retrieved_note.note, note);
+        assert_eq(confirmed_note.note, note);
     });
 }
 
@@ -271,15 +296,15 @@ unconstrained fn get_squashed_note_fails() {
     let note = MockNote::new(VALUE).build_note();
 
     env.private_context(|context| {
-        let _ = create_note(context, STORAGE_SLOT, note);
+        let _ = create_note(context, OWNER, STORAGE_SLOT, note);
 
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_read);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+        destroy_note(context, confirmed_note);
 
-        let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT);
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
     });
 }
 
@@ -289,21 +314,23 @@ unconstrained fn get_settled_squashed_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
-        let emission = create_note(context, STORAGE_SLOT, note);
+    let note_message = env.private_context(|context| {
+        let note_message = create_note(context, OWNER, STORAGE_SLOT, note);
 
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_read);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+        destroy_note(context, confirmed_note);
 
-        emission
+        note_message
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
-    env.private_context(|context| { let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT); });
+    env.private_context(|context| {
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -312,21 +339,21 @@ unconstrained fn view_settled_squashed_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| {
-        let emission = create_note(context, STORAGE_SLOT, note);
+    let note_message = env.private_context(|context| {
+        let note_message = create_note(context, OWNER, STORAGE_SLOT, note);
 
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_read);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+        destroy_note(context, confirmed_note);
 
-        emission
+        note_message
     });
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
-    env.utility_context(|_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.utility_context(|_| { let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT); });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -335,18 +362,19 @@ unconstrained fn get_settled_note_with_transient_nullifier_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_read);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+        destroy_note(context, confirmed_note);
 
-        let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT);
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
     });
 }
 
@@ -356,19 +384,22 @@ unconstrained fn get_settled_note_with_settled_nullifier_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_read);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+        destroy_note(context, confirmed_note);
     });
 
-    env.private_context(|context| { let (_, _) = get_note::<MockNote>(context, STORAGE_SLOT); });
+    env.private_context(|context| {
+        let _ = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+    });
 }
 
 #[test(should_fail_with = "Failed to get a note")]
@@ -377,17 +408,18 @@ unconstrained fn view_settled_note_with_settled_nullifier_note_fails() {
 
     let note = MockNote::new(VALUE).build_note();
 
-    let emission = env.private_context(|context| create_note(context, STORAGE_SLOT, note));
+    let note_message =
+        env.private_context(|context| create_note(context, OWNER, STORAGE_SLOT, note));
 
-    env.discover_note(emission);
+    env.discover_note(note_message);
 
     env.private_context(|context| {
         // The aztec-nr API makes it so that in order to destroy the note we need to read it, because we need to know
         // its note hash (either transient or settled). Conceptually this also forces the application to prove that the
         // note does exist, and that it's not simply emitting a random nullifier.
-        let (retrieved_note, note_hash_read) = get_note::<MockNote>(context, STORAGE_SLOT);
-        destroy_note_unsafe(context, retrieved_note, note_hash_read);
+        let confirmed_note = get_note::<MockNote>(context, Option::some(OWNER), STORAGE_SLOT);
+        destroy_note(context, confirmed_note);
     });
 
-    env.utility_context(|_| { let _ = view_note::<MockNote>(STORAGE_SLOT); });
+    env.utility_context(|_| { let _ = view_note::<MockNote>(Option::some(OWNER), STORAGE_SLOT); });
 }

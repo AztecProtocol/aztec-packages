@@ -11,6 +11,20 @@
 using namespace bb;
 using namespace bb::stdlib;
 
+#ifdef FUZZING_SHOW_INFORMATION
+#define PRINT_STATE(header, bs)                                                                                        \
+    {                                                                                                                  \
+        std::cout << header;                                                                                           \
+        for (const uint64_t& x : bs) {                                                                                 \
+            std::cout << "0x" << std::hex << std::uppercase << std::setw(16) << std::setfill('0') << x << " "          \
+                      << std::dec;                                                                                     \
+        }                                                                                                              \
+        std::cout << std::endl;                                                                                        \
+    }
+#else
+#define PRINT_STATE(header, bs)
+#endif
+
 /**
  * @brief Fuzzer for Keccak-f1600 permutation (permutation_opcode)
  *
@@ -37,6 +51,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     std::array<uint64_t, 25> native_state;
     std::memcpy(native_state.data(), Data, KECCAK_STATE_SIZE);
 
+    PRINT_STATE("Input: ", native_state);
+
     // Run native permutation
     std::array<uint64_t, 25> expected_state = native_state;
     ethash_keccakf1600(expected_state.data());
@@ -53,14 +69,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     // Run circuit permutation
     auto circuit_output = keccak<UltraCircuitBuilder>::permutation_opcode(circuit_state, &builder);
 
-    // Verify circuit correctness
-    assert(CircuitChecker::check(builder));
-
-    // Compare outputs
+    std::array<uint64_t, 25> circuit_output_u;
     for (size_t i = 0; i < 25; i++) {
-        uint64_t circuit_value = static_cast<uint64_t>(circuit_output[i].get_value());
-        assert(circuit_value == expected_state[i]);
+        circuit_output_u[i] = static_cast<uint64_t>(circuit_output[i].get_value());
     }
 
+    PRINT_STATE("Circuit output: ", circuit_output_u);
+    PRINT_STATE("Expected:       ", expected_state);
+
+    // Compare outputs
+    assert(circuit_output_u == expected_state);
+
+    // Verify circuit correctness
+    assert(!CircuitChecker::check(builder));
     return 0;
 }

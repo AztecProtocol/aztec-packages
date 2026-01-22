@@ -1,5 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -55,8 +57,8 @@ describe('e2e_p2p_governance_proposer', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
@@ -112,7 +114,7 @@ describe('e2e_p2p_governance_proposer', () => {
       t.ctx.deployL1ContractsValues.l1Client,
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
-      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress],
+      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress.toString()],
     );
 
     t.logger.info(`Deployed new payload at ${newPayloadAddress}`);
@@ -146,7 +148,7 @@ describe('e2e_p2p_governance_proposer', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,

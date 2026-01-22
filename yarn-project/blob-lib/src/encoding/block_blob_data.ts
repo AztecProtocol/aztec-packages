@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 
 import { BlobDeserializationError } from '../errors.js';
@@ -16,6 +16,18 @@ import {
 import { type TxBlobData, decodeTxBlobData, encodeTxBlobData } from './tx_blob_data.js';
 
 // Must match the implementation in `noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr`.
+
+export const NUM_BLOCK_END_BLOB_FIELDS = 6;
+export const NUM_FIRST_BLOCK_END_BLOB_FIELDS = 7;
+export const NUM_CHECKPOINT_END_MARKER_FIELDS = 1;
+
+/**
+ * Returns the number of blob fields used for block end data.
+ * @param isFirstBlockInCheckpoint - Whether this is the first block in a checkpoint.
+ */
+export function getNumBlockEndBlobFields(isFirstBlockInCheckpoint: boolean): number {
+  return isFirstBlockInCheckpoint ? NUM_FIRST_BLOCK_END_BLOB_FIELDS : NUM_BLOCK_END_BLOB_FIELDS;
+}
 
 export interface BlockEndBlobData {
   blockEndMarker: BlockEndMarker;
@@ -46,7 +58,7 @@ export function encodeBlockEndBlobData(blockEndBlobData: BlockEndBlobData): Fr[]
 export function decodeBlockEndBlobData(fields: Fr[] | FieldReader, isFirstBlock: boolean): BlockEndBlobData {
   const reader = FieldReader.asReader(fields);
 
-  const numBlockEndData = isFirstBlock ? 7 : 6;
+  const numBlockEndData = getNumBlockEndBlobFields(isFirstBlock);
   if (numBlockEndData > reader.remainingFields()) {
     throw new BlobDeserializationError(
       `Incorrect encoding of blob fields: not enough fields for block end data. Expected ${numBlockEndData} fields, only ${reader.remainingFields()} remaining.`,

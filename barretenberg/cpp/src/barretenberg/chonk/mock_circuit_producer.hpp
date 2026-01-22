@@ -1,9 +1,3 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
 #pragma once
 
 #include "barretenberg/chonk/chonk.hpp"
@@ -130,9 +124,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
                              NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
     {
         // Set flags indicating which circuits are kernels vs apps
-        is_kernel_flags.resize(total_num_circuits, true);
         for (size_t i = 0; i < num_app_circuits; ++i) {
-            is_kernel_flags[2 * i] = false; // every other circuit is an app
+            is_kernel_flags.emplace_back(false); // every other circuit is an app
+            is_kernel_flags.emplace_back(true);  // every other circuit is a kernel
+        }
+        for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
+            is_kernel_flags.emplace_back(true);
         }
     }
 

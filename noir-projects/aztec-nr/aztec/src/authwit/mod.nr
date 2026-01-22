@@ -1,5 +1,8 @@
+//! Authorization.
+
 pub mod account;
 pub mod authorization_interface;
-pub mod authorization_selector;
+mod authorization_selector;
+pub use authorization_selector::AuthorizationSelector;
 pub mod auth;
 pub mod entrypoint;

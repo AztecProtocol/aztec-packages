@@ -29,8 +29,14 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
                    (FF(1) - static_cast<View>(in.get(C::get_contract_instance_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // WRITE_OUT_OF_BOUNDS_CHECK
+    {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *
+                   (FF(1) - static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    { // WRITE_OUT_OF_BOUNDS_CHECK
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::get_contract_instance_sel)) *
                    ((CView(get_contract_instance_DST_OFFSET_DIFF_MAX) *
                          (CView(get_contract_instance_WRITES_OUT_OF_BOUNDS) *
@@ -38,24 +44,30 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
                           static_cast<View>(in.get(C::get_contract_instance_dst_offset_diff_max_inv))) -
                      FF(1)) +
                     CView(get_contract_instance_WRITES_OUT_OF_BOUNDS));
-        std::get<1>(evals) += (tmp * scaling_factor);
-    }
-    { // IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = CView(get_contract_instance_WRITES_OUT_OF_BOUNDS) *
-                   static_cast<View>(in.get(C::get_contract_instance_is_valid_member_enum));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    { // ERROR_AGGREGATION
+    { // IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        auto tmp = CView(get_contract_instance_WRITES_OUT_OF_BOUNDS) *
+                   static_cast<View>(in.get(C::get_contract_instance_is_valid_member_enum));
+        std::get<3>(evals) += (tmp * scaling_factor);
+    }
+    { // IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *
+                   (FF(1) - static_cast<View>(in.get(C::get_contract_instance_sel)));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    { // ERROR_AGGREGATION
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::get_contract_instance_sel_error)) -
                     static_cast<View>(in.get(C::get_contract_instance_sel)) *
                         (FF(1) - static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *
                                      static_cast<View>(in.get(C::get_contract_instance_is_valid_member_enum))));
-        std::get<3>(evals) += (tmp * scaling_factor);
+        std::get<5>(evals) += (tmp * scaling_factor);
     }
     { // SELECTED_MEMBER
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::get_contract_instance_selected_member)) -
                     (static_cast<View>(in.get(C::get_contract_instance_is_deployer)) *
                          static_cast<View>(in.get(C::get_contract_instance_retrieved_deployer_addr)) +
@@ -63,28 +75,28 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
                          static_cast<View>(in.get(C::get_contract_instance_retrieved_class_id)) +
                      static_cast<View>(in.get(C::get_contract_instance_is_init_hash)) *
                          static_cast<View>(in.get(C::get_contract_instance_retrieved_init_hash))));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<6>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+    { // MEMBER_WRITE_OFFSET
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::get_contract_instance_member_write_offset)) -
                     static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *
                         (static_cast<View>(in.get(C::get_contract_instance_dst_offset)) + FF(1)));
-        std::get<5>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::get_contract_instance_exists_tag)) -
                     static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *
                         CView(constants_MEM_TAG_U1));
-        std::get<6>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::get_contract_instance_member_tag)) -
                     static_cast<View>(in.get(C::get_contract_instance_is_valid_writes_in_bounds)) *
                         CView(constants_MEM_TAG_FF));
-        std::get<7>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
 }
 

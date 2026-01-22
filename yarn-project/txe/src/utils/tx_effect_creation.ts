@@ -1,18 +1,15 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ExecutionNoteCache } from '@aztec/pxe/simulator';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-export async function makeTxEffect(
-  noteCache: ExecutionNoteCache,
-  protocolNullifier: Fr,
-  txBlockNumber: number,
-): Promise<TxEffect> {
+export async function makeTxEffect(noteCache: ExecutionNoteCache, txBlockNumber: BlockNumber): Promise<TxEffect> {
   const txEffect = TxEffect.empty();
 
-  const { usedProtocolNullifierForNonces } = noteCache.finish();
-  const nonceGenerator = usedProtocolNullifierForNonces ? protocolNullifier : noteCache.getAllNullifiers()[0];
+  noteCache.finish();
 
+  const nonceGenerator = noteCache.getNonceGenerator();
   txEffect.noteHashes = await Promise.all(
     noteCache
       .getAllNotes()
@@ -26,10 +23,6 @@ export async function makeTxEffect(
 
   // Nullifiers are already siloed
   txEffect.nullifiers = noteCache.getAllNullifiers();
-
-  if (usedProtocolNullifierForNonces) {
-    txEffect.nullifiers.unshift(protocolNullifier);
-  }
 
   txEffect.txHash = new TxHash(new Fr(txBlockNumber));
 

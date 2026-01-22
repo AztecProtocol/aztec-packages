@@ -2,10 +2,11 @@ import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
-import type { Fr } from '@aztec/foundation/fields';
-import type { FunctionSelector } from '@aztec/stdlib/abi';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { UInt32, UInt64 } from '@aztec/stdlib/types';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 // These interfaces complement the ones defined in PXE, and combined with those contain the full list of oracles used by
 // aztec-nr. In particular, these include the ones needed to run Brillig code associated to #[external("public")] functions that has
@@ -25,7 +26,7 @@ export interface IAvmExecutionOracle {
 
   avmOpcodeAddress(): Promise<AztecAddress>;
   avmOpcodeSender(): Promise<AztecAddress>;
-  avmOpcodeBlockNumber(): Promise<UInt32>;
+  avmOpcodeBlockNumber(): Promise<BlockNumber>;
   avmOpcodeTimestamp(): Promise<bigint>;
   avmOpcodeIsStaticCall(): Promise<boolean>;
   avmOpcodeChainId(): Promise<Fr>;
@@ -43,7 +44,8 @@ export interface IAvmExecutionOracle {
 export interface ITxeExecutionOracle {
   isTxe: true;
 
-  txeGetNextBlockNumber(): Promise<number>;
+  txeGetDefaultAddress(): AztecAddress;
+  txeGetNextBlockNumber(): Promise<BlockNumber>;
   txeGetNextBlockTimestamp(): Promise<UInt64>;
   txeAdvanceBlocksBy(blocks: number): Promise<void>;
   txeAdvanceTimestampBy(duration: UInt64): void;
@@ -61,6 +63,7 @@ export interface ITxeExecutionOracle {
     noteHashes: Fr[];
     nullifiers: Fr[];
   }>;
+  txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
   txePrivateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,

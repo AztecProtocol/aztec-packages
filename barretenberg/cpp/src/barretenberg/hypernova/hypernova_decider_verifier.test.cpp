@@ -4,6 +4,7 @@
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/transcript/transcript_manifest.hpp"
 #include "gtest/gtest.h"
 
 using namespace bb;
@@ -47,6 +48,50 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
     enum class TamperingMode : uint8_t { None, Accumulator, Instance, FoldedAccumulator };
 
+    /**
+     * @brief Build the expected transcript manifest for HyperNova decider
+     * @details Manifest tracking is enabled after folding (which uses 50 rounds), so only
+     * decider rounds are tracked. Round numbers continue from folding:
+     * - Round 50: rho challenge (batching for Gemini)
+     * - Round 51: Gemini FOLD commitments -> Gemini:r challenge
+     * - Round 52: Gemini evaluations -> Shplonk:nu challenge
+     * - Round 53: Shplonk:Q commitment -> Shplonk:z challenge
+     * - Round 54: KZG:W commitment -> KZG:masking_challenge
+     */
+    static TranscriptManifest build_expected_decider_manifest()
+    {
+        TranscriptManifest manifest;
+        constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
+        constexpr size_t NUM_GEMINI_FOLDS = NativeFlavor::VIRTUAL_LOG_N - 1; // 20
+        constexpr size_t NUM_GEMINI_EVALS = NativeFlavor::VIRTUAL_LOG_N;     // 21
+        constexpr size_t FOLDING_ROUNDS = 50;                                // Rounds used by folding verifier
+
+        // Round 50: rho challenge
+        manifest.add_challenge(FOLDING_ROUNDS, "rho");
+
+        // Round 51: Gemini FOLD commitments -> Gemini:r
+        for (size_t i = 1; i <= NUM_GEMINI_FOLDS; ++i) {
+            manifest.add_entry(FOLDING_ROUNDS + 1, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+        }
+        manifest.add_challenge(FOLDING_ROUNDS + 1, "Gemini:r");
+
+        // Round 52: Gemini evaluations -> Shplonk:nu
+        for (size_t i = 1; i <= NUM_GEMINI_EVALS; ++i) {
+            manifest.add_entry(FOLDING_ROUNDS + 2, "Gemini:a_" + std::to_string(i), 1);
+        }
+        manifest.add_challenge(FOLDING_ROUNDS + 2, "Shplonk:nu");
+
+        // Round 53: Shplonk:Q -> Shplonk:z
+        manifest.add_entry(FOLDING_ROUNDS + 3, "Shplonk:Q", frs_per_G);
+        manifest.add_challenge(FOLDING_ROUNDS + 3, "Shplonk:z");
+
+        // Round 54: KZG:W -> KZG:masking_challenge
+        manifest.add_entry(FOLDING_ROUNDS + 4, "KZG:W", frs_per_G);
+        manifest.add_challenge(FOLDING_ROUNDS + 4, "KZG:masking_challenge");
+
+        return manifest;
+    }
+
     static std::shared_ptr<ProverInstance> generate_new_instance(size_t log_num_gates = 4)
     {
         Builder builder;
@@ -86,6 +131,66 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
             return false;
         }
         return true;
+    }
+
+    /**
+     * @brief Test helper to create a recursive verifier instance from a native one
+     * @details Converts all fields from native to stdlib types for recursive verification testing
+     */
+    static std::shared_ptr<RecursiveVerifierInstance> create_recursive_verifier_instance(
+        Builder* builder, const std::shared_ptr<NativeVerifierInstance>& native_instance)
+    {
+        using FF = RecursiveFlavor::FF;
+        using Commitment = RecursiveFlavor::Commitment;
+        using VerificationKey = RecursiveFlavor::VerificationKey;
+        using VKAndHash = RecursiveFlavor::VKAndHash;
+
+        // Create recursive VK from native VK
+        auto recursive_vk =
+            std::make_shared<VKAndHash>(std::make_shared<VerificationKey>(builder, native_instance->get_vk()),
+                                        FF::from_witness(builder, native_instance->get_vk()->hash()));
+
+        // Create recursive instance with the recursive VK
+        auto recursive_instance = std::make_shared<RecursiveVerifierInstance>(recursive_vk);
+
+        // Convert alpha
+        recursive_instance->alpha = FF::from_witness(builder, native_instance->alpha);
+
+        // Convert witness commitments
+        auto native_comms = native_instance->witness_commitments.get_all();
+        for (auto [native_comm, recursive_comm] :
+             zip_view(native_comms, recursive_instance->witness_commitments.get_all())) {
+            recursive_comm = Commitment::from_witness(builder, native_comm);
+        }
+
+        // Convert gate challenges
+        recursive_instance->gate_challenges = std::vector<FF>(native_instance->gate_challenges.size());
+        for (auto [native_challenge, recursive_challenge] :
+             zip_view(native_instance->gate_challenges, recursive_instance->gate_challenges)) {
+            recursive_challenge = FF::from_witness(builder, native_challenge);
+        }
+
+        // Convert relation parameters
+        recursive_instance->relation_parameters.eta =
+            FF::from_witness(builder, native_instance->relation_parameters.eta);
+        recursive_instance->relation_parameters.eta_two =
+            FF::from_witness(builder, native_instance->relation_parameters.eta_two);
+        recursive_instance->relation_parameters.eta_three =
+            FF::from_witness(builder, native_instance->relation_parameters.eta_three);
+        recursive_instance->relation_parameters.beta =
+            FF::from_witness(builder, native_instance->relation_parameters.beta);
+        recursive_instance->relation_parameters.gamma =
+            FF::from_witness(builder, native_instance->relation_parameters.gamma);
+        recursive_instance->relation_parameters.public_input_delta =
+            FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
+
+        // For ZK flavors: convert gemini_masking_commitment
+        if constexpr (NativeFlavor::HasZK) {
+            recursive_instance->gemini_masking_commitment =
+                Commitment::from_witness(builder, native_instance->gemini_masking_commitment);
+        }
+
+        return recursive_instance;
     }
 
     static void tamper_with_accumulator(NativeProverAccumulator& accumulator, const TamperingMode& mode)
@@ -137,11 +242,12 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         tamper_with_instance(incoming_instance, mode);
 
         auto incoming_vk = std::make_shared<NativeVerificationKey>(incoming_instance->get_precomputed());
-        auto incoming_verifier_instance = std::make_shared<NativeVerifierInstance>(incoming_vk);
+        auto incoming_verifier_instance =
+            std::make_shared<NativeVerifierInstance>(std::make_shared<NativeFlavor::VKAndHash>(incoming_vk));
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
         HypernovaFoldingProver folding_prover(prover_transcript);
-        auto [folding_proof, folded_accumulator] = folding_prover.fold(accumulator, incoming_instance);
+        auto [folding_proof, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
         tamper_with_accumulator(folded_accumulator, mode);
 
         // Construct Decider proof
@@ -155,6 +261,9 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
             native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
 
+        // Enable manifest tracking before decider verification
+        native_transcript->enable_manifest();
+
         // Natively verify the decider proof
         NativeHypernovaDeciderVerifier decider_verifier(native_transcript);
         auto native_pairing_points = decider_verifier.verify_proof(folded_verifier_accumulator_native, decider_proof);
@@ -163,8 +272,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         // Recursively verify the folding
         Builder builder;
 
-        auto stdlib_incoming_instance =
-            std::make_shared<RecursiveVerifierInstance>(&builder, incoming_verifier_instance);
+        auto stdlib_incoming_instance = create_recursive_verifier_instance(&builder, incoming_verifier_instance);
         auto recursive_verifier_transcript = std::make_shared<RecursiveTranscript>();
         RecursiveHypernovaVerifier recursive_verifier(recursive_verifier_transcript);
         RecursiveProof proof(builder, folding_proof);
@@ -196,6 +304,13 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         // Second sumcheck fails if the accumulator has been tampered with
         EXPECT_EQ(second_sumcheck_recursive, mode != TamperingMode::Accumulator);
         EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
+
+        // Pin the decider transcript manifest (only check when not tampering)
+        if (mode == TamperingMode::None) {
+            auto expected_manifest = build_expected_decider_manifest();
+            auto verifier_manifest = native_transcript->get_manifest();
+            EXPECT_EQ(verifier_manifest, expected_manifest);
+        }
     }
 };
 

@@ -1,6 +1,5 @@
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "acir_format.hpp"
-#include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -52,9 +51,12 @@ template <class Curve> class EcdsaTestingFunctions {
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
-    static void invalidate_witness(EcdsaConstraint& ecdsa_constraints,
-                                   WitnessVector& witness_values,
-                                   const InvalidWitness::Target& invalid_witness_target)
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
+        AcirConstraint ecdsa_constraints,
+        WitnessVector witness_values,
+        const InvalidWitness::Target& invalid_witness_target)
     {
         // For most ECDSA invalidation cases, we set result=0 to ensure that the failure mode caught by the test is
         // specific to the particular case being tested, not just simple verification failure.
@@ -101,6 +103,8 @@ template <class Curve> class EcdsaTestingFunctions {
         case InvalidWitness::Target::None:
             break;
         }
+
+        return { ecdsa_constraints, witness_values };
     }
 
     /**

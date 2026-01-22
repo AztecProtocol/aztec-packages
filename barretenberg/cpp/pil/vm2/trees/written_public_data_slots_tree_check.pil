@@ -52,7 +52,6 @@ namespace written_public_data_slots_tree_check;
     // Inputs to the gadget
     pol commit write;
     write * (1 - write) = 0;
-    pol READ = 1 - write;
 
     pol commit slot;
     pol commit root;
@@ -82,7 +81,7 @@ namespace written_public_data_slots_tree_check;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit siloing_separator;
-    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
+    sel * (constants.DOM_SEP__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
 
     #[SILO_POSEIDON2]
     sel { sel, siloing_separator, address, slot, leaf_slot }

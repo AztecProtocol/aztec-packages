@@ -1,4 +1,5 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { FunctionSelector } from '../../abi/index.js';
 import type { AztecAddress } from '../../aztec-address/index.js';
@@ -11,7 +12,7 @@ export interface ContractDataSource {
    * Gets the number of the latest L2 block processed by the implementation.
    * @returns The number of the latest L2 block processed by the implementation.
    */
-  getBlockNumber(): Promise<number>;
+  getBlockNumber(): Promise<BlockNumber>;
 
   /**
    * Returns the contract class for a given contract class id, or undefined if not found.

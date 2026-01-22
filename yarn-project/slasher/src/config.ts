@@ -1,4 +1,3 @@
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,
@@ -9,27 +8,29 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
+import { slasherDefaultEnv } from './generated/slasher-defaults.js';
+
 export type { SlasherConfig };
 
 export const DefaultSlasherConfig: SlasherConfig = {
   slashOverridePayload: undefined,
-  slashMinPenaltyPercentage: 0.5, // 50% of penalty
-  slashMaxPenaltyPercentage: 2.0, //2x of penalty
+  slashMinPenaltyPercentage: slasherDefaultEnv.SLASH_MIN_PENALTY_PERCENTAGE,
+  slashMaxPenaltyPercentage: slasherDefaultEnv.SLASH_MAX_PENALTY_PERCENTAGE,
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
-  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashInactivityTargetPercentage: 0.9,
-  slashInactivityConsecutiveEpochThreshold: 1, // Default to 1 for backward compatibility
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashOffenseExpirationRounds: 4,
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 0,
-  slashExecuteRoundsLookBack: 4,
+  slashPrunePenalty: BigInt(slasherDefaultEnv.SLASH_PRUNE_PENALTY),
+  slashDataWithholdingPenalty: BigInt(slasherDefaultEnv.SLASH_DATA_WITHHOLDING_PENALTY),
+  slashInactivityTargetPercentage: slasherDefaultEnv.SLASH_INACTIVITY_TARGET_PERCENTAGE,
+  slashInactivityConsecutiveEpochThreshold: slasherDefaultEnv.SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD,
+  slashBroadcastedInvalidBlockPenalty: BigInt(slasherDefaultEnv.SLASH_INVALID_BLOCK_PENALTY),
+  slashInactivityPenalty: BigInt(slasherDefaultEnv.SLASH_INACTIVITY_PENALTY),
+  slashProposeInvalidAttestationsPenalty: BigInt(slasherDefaultEnv.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY),
+  slashAttestDescendantOfInvalidPenalty: BigInt(slasherDefaultEnv.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY),
+  slashUnknownPenalty: BigInt(slasherDefaultEnv.SLASH_UNKNOWN_PENALTY),
+  slashOffenseExpirationRounds: slasherDefaultEnv.SLASH_OFFENSE_EXPIRATION_ROUNDS,
+  slashMaxPayloadSize: slasherDefaultEnv.SLASH_MAX_PAYLOAD_SIZE,
+  slashGracePeriodL2Slots: slasherDefaultEnv.SLASH_GRACE_PERIOD_L2_SLOTS,
+  slashExecuteRoundsLookBack: slasherDefaultEnv.SLASH_EXECUTE_ROUNDS_LOOK_BACK,
   slashSelfAllowed: false,
 };
 

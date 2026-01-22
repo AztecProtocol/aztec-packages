@@ -71,7 +71,8 @@ jobs:
           echo "GitHub release for $NIGHTLY_TAG is published."
 
           # Check if we already have docs for this nightly version
-          DOCS_VERSION_DIR="docs/versioned_docs/version-$NIGHTLY_TAG"
+          # For multi-instance docs, check the developer-specific versioned docs directory
+          DOCS_VERSION_DIR="docs/developer_versioned_docs/version-$NIGHTLY_TAG"
           BB_DOCS_VERSION_DIR="barretenberg/docs/versioned_docs/version-$NIGHTLY_TAG"
 
           if [ -d "$DOCS_VERSION_DIR" ] || [ -d "$BB_DOCS_VERSION_DIR" ]; then
@@ -114,27 +115,41 @@ jobs:
         run: |
           ./scripts/cleanup_nightly_versions.sh
 
-      - name: Create Aztec nightly docs version
+      - name: Install Noir toolchain
+        uses: noir-lang/noirup@v0.1.4
+        with:
+          toolchain: nightly
+
+      - name: Generate Aztec.nr API documentation
         working-directory: ./docs
         run: |
-          # Set the commit tag for version macros
+          # Generate aztec-nr API docs for this version
+          ./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh ${{ env.NIGHTLY_TAG }}
+          echo "Generated Aztec.nr API docs for: ${{ env.NIGHTLY_TAG }}"
+
+      - name: Create Aztec nightly docs version (Developer docs only)
+        working-directory: ./docs
+        run: |
+          # Set the commit tag and release type for version macros
           export COMMIT_TAG=${{ env.NIGHTLY_TAG }}
+          export RELEASE_TYPE=nightly
 
           # Install dependencies
           yarn install
 
           # Build docs to ensure everything works
-          COMMIT_TAG=${{ env.NIGHTLY_TAG }} yarn build
+          COMMIT_TAG=${{ env.NIGHTLY_TAG }} RELEASE_TYPE=nightly yarn build
 
-          # Create the versioned docs
-          yarn docusaurus docs:version ${{ env.NIGHTLY_TAG }}
+          # Create the versioned docs for Developer docs only
+          # Network docs have separate versions for testnet/ignition releases
+          yarn docusaurus docs:version:developer ${{ env.NIGHTLY_TAG }}
 
-          echo "Created Aztec docs version: ${{ env.NIGHTLY_TAG }}"
+          echo "Created Aztec Developer docs version: ${{ env.NIGHTLY_TAG }}"
 
-      - name: Update Aztec Docs versions.json with new version
+      - name: Update Aztec Docs developer_versions.json with new version
         working-directory: ./docs/scripts
         run: |
-          ./update_versions.sh
+          ./update_docs_versions.sh developer
 
       - name: Cleanup Barretenberg docs nightly versions
         working-directory: ./barretenberg/docs

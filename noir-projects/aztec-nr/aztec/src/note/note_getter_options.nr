@@ -1,5 +1,6 @@
-use crate::note::{note_interface::NoteType, retrieved_note::RetrievedNote};
+use crate::note::{HintedNote, note_interface::NoteType};
 use dep::protocol_types::{
+    address::AztecAddress,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::{Packable, ToField},
 };
@@ -56,9 +57,9 @@ pub global NoteStatus: NoteStatusEnum = NoteStatusEnum {
 
 // This is the default filter and preprocessor, which does nothing
 fn return_all_notes<Note>(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     _p: Field,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     notes
 }
 
@@ -67,11 +68,12 @@ pub struct NoteGetterOptions<Note, let N: u32, PreprocessorArgs, FilterArgs> {
     pub sorts: BoundedVec<Option<Sort>, N>,
     pub limit: u32,
     pub offset: u32,
+    pub owner: Option<AztecAddress>,
     // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
     // unlike filter it is applied in an unconstrained context.
-    pub preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub preprocessor: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub preprocessor_args: PreprocessorArgs,
-    pub filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub filter: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub filter_args: FilterArgs,
     pub status: u8,
 }
@@ -131,6 +133,13 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
         self.status = status;
         *self
     }
+
+    // This method sets the owner value, which determines which owner's notes to retrieve.
+    // If None, notes from all owners will be retrieved.
+    pub fn set_owner(&mut self, owner: AztecAddress) -> Self {
+        self.owner = Option::some(owner);
+        *self
+    }
 }
 
 impl<Note, let M: u32> NoteGetterOptions<Note, M, Field, Field>
@@ -144,6 +153,7 @@ where
             sorts: BoundedVec::<_, <Note as Packable>::N>::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
+            owner: Option::none(),
             preprocessor: return_all_notes,
             preprocessor_args: 0,
             filter: return_all_notes,
@@ -161,7 +171,7 @@ where
     // the database and preprocessor_args as its parameters.
     // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
     pub fn with_preprocessor(
-        preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        preprocessor: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         preprocessor_args: PreprocessorArgs,
     ) -> Self {
         Self {
@@ -169,6 +179,7 @@ where
             sorts: BoundedVec::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
+            owner: Option::none(),
             preprocessor,
             preprocessor_args,
             filter: return_all_notes,
@@ -186,7 +197,7 @@ where
     // the notes returned from the database and filter_args as its parameters.
     // `filter_args` allows you to provide additional data or context to the custom filter.
     pub fn with_filter(
-        filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        filter: fn([Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FilterArgs) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         filter_args: FilterArgs,
     ) -> Self {
         Self {
@@ -194,6 +205,7 @@ where
             sorts: BoundedVec::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
+            owner: Option::none(),
             preprocessor: return_all_notes,
             preprocessor_args: 0,
             filter,

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -6,6 +12,9 @@
 
 namespace bb {
 
+/**
+ * @brief Save modified ivc-inputs.msgpack when VKs are rewritten.
+ */
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 {
     auto compressor =
@@ -27,6 +36,9 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
     return compressed;
 }
 
+/**
+ * @brief Decompress bytecode and witness fields from ivc-inputs.msgpack.
+ */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
     std::vector<uint8_t> content;
@@ -53,6 +65,9 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
     return content;
 }
 
+/**
+ * @brief Deserialize msgpack data from file.
+ */
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 {
     std::ifstream fin;

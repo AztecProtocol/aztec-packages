@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -96,9 +96,6 @@ template <typename Builder> class cycle_group {
     {
         return _is_infinity.is_constant() && _is_infinity.get_value();
     }
-#ifdef FUZZING
-    void set_point_at_infinity(const bool_t& is_infinity);
-#endif
     void standardize();
     void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;

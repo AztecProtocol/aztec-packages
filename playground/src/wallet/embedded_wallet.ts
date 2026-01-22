@@ -4,14 +4,13 @@ import { getStubAccountContractArtifact, createStubAccount } from '@aztec/accoun
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
 import type { Aliased } from '@aztec/aztec.js/wallet';
 import { type Account, type AccountContract, type ChainInfo, SignerlessAccount } from '@aztec/aztec.js/account';
-import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
 import { createPXE, PXE } from '@aztec/pxe/client/lazy';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { Fq, Fr } from '@aztec/foundation/fields';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -22,6 +21,7 @@ import { WebLogger } from '../utils/web_logger';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { NETWORKS } from '../utils/networks';
+import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 
 /**
  * Data for generating an account.
@@ -94,8 +94,7 @@ export class EmbeddedWallet extends BaseWallet {
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else {
       const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
       const parsedType = convertFromUTF8BufferAsString(type) as AccountType;
@@ -164,10 +163,8 @@ export class EmbeddedWallet extends BaseWallet {
     let i = 0;
     // Assume we're in a network with test accounts (local network) if the first of them
     // is initialized
-    if (
-      !aliasedAccounts.find(aliased => aliased.item.equals(sampleAccount.address)) &&
-      (await this.pxe.getContractMetadata(sampleAccount.address)).isContractInitialized
-    ) {
+    const { isContractInitialized } = await this.getContractMetadata(sampleAccount.address);
+    if (!aliasedAccounts.find(aliased => aliased.item.equals(sampleAccount.address)) && isContractInitialized) {
       for (const accountData of testAccountData) {
         const accountManager = await this.createAccountInternal(
           'schnorr',
@@ -213,15 +210,26 @@ export class EmbeddedWallet extends BaseWallet {
     return storedSenders;
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = await originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
@@ -250,9 +258,11 @@ export class EmbeddedWallet extends BaseWallet {
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
     const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
+    const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
       feeOptions.gasSettings,
+      chainInfo,
       executionOptions,
     );
     const contractOverrides = {

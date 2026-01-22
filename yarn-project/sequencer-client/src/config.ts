@@ -1,9 +1,5 @@
-import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  l1ContractsConfigMappings,
-  l1ReaderConfigMappings,
-} from '@aztec/ethereum';
+import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -12,11 +8,12 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore';
-import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
+import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
+import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
 import {
   type PublisherConfig,
@@ -29,6 +26,33 @@ export * from './publisher/config.js';
 export type { SequencerConfig };
 
 export const DEFAULT_ATTESTATION_PROPAGATION_TIME = 2;
+
+/**
+ * Default values for SequencerConfig.
+ * Centralized location for all sequencer configuration defaults.
+ */
+export const DefaultSequencerConfig: ResolvedSequencerConfig = {
+  sequencerPollingIntervalMS: 500,
+  maxTxsPerBlock: 32,
+  minTxsPerBlock: 1,
+  buildCheckpointIfEmpty: false,
+  publishTxsWithProposals: false,
+  maxL2BlockGas: 10e9,
+  maxDABlockGas: 10e9,
+  maxBlockSizeInBytes: 1024 * 1024,
+  enforceTimeTable: true,
+  attestationPropagationTime: DEFAULT_ATTESTATION_PROPAGATION_TIME,
+  secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
+  secondsBeforeInvalidatingBlockAsNonCommitteeMember: 432, // 36 L1 blocks
+  skipCollectingAttestations: false,
+  skipInvalidateBlockAsProposer: false,
+  broadcastInvalidBlockProposal: false,
+  injectFakeAttestation: false,
+  fishermanMode: false,
+  shuffleAttestationOrdering: false,
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  skipPushProposedBlocksToArchiver: true,
+};
 
 /**
  * Configuration settings for the SequencerClient.
@@ -44,35 +68,39 @@ export type SequencerClientConfig = PublisherConfig &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
-  transactionPollingIntervalMS: {
-    env: 'SEQ_TX_POLLING_INTERVAL_MS',
-    description: 'The number of ms to wait between polling for pending txs.',
-    ...numberConfigHelper(500),
+  sequencerPollingIntervalMS: {
+    env: 'SEQ_POLLING_INTERVAL_MS',
+    description: 'The number of ms to wait between polling for checking to build on the next slot.',
+    ...numberConfigHelper(DefaultSequencerConfig.sequencerPollingIntervalMS),
   },
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
     description: 'The maximum number of txs to include in a block.',
-    ...numberConfigHelper(32),
+    ...numberConfigHelper(DefaultSequencerConfig.maxTxsPerBlock),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
     description: 'The minimum number of txs to include in a block.',
-    ...numberConfigHelper(1),
+    ...numberConfigHelper(DefaultSequencerConfig.minTxsPerBlock),
+  },
+  minValidTxsPerBlock: {
+    description:
+      'The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock.',
   },
   publishTxsWithProposals: {
     env: 'SEQ_PUBLISH_TXS_WITH_PROPOSALS',
     description: 'Whether to publish txs with proposals.',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.publishTxsWithProposals),
   },
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
     description: 'The maximum L2 block gas.',
-    ...numberConfigHelper(10e9),
+    ...numberConfigHelper(DefaultSequencerConfig.maxL2BlockGas),
   },
   maxDABlockGas: {
     env: 'SEQ_MAX_DA_BLOCK_GAS',
     description: 'The maximum DA block gas.',
-    ...numberConfigHelper(10e9),
+    ...numberConfigHelper(DefaultSequencerConfig.maxDABlockGas),
   },
   coinbase: {
     env: 'COINBASE',
@@ -95,73 +123,91 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
     description: 'Max block size',
-    ...numberConfigHelper(1024 * 1024),
+    ...numberConfigHelper(DefaultSequencerConfig.maxBlockSizeInBytes),
   },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
-    ...booleanConfigHelper(),
-    defaultValue: true,
+    ...booleanConfigHelper(DefaultSequencerConfig.enforceTimeTable),
   },
   governanceProposerPayload: {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
-    defaultValue: EthAddress.ZERO,
   },
-  maxL1TxInclusionTimeIntoSlot: {
-    env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
-    description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
+  l1PublishingTime: {
+    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
+    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   attestationPropagationTime: {
     env: 'SEQ_ATTESTATION_PROPAGATION_TIME',
     description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)',
-    ...numberConfigHelper(DEFAULT_ATTESTATION_PROPAGATION_TIME),
+    ...numberConfigHelper(DefaultSequencerConfig.attestationPropagationTime),
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
+  },
+  fakeThrowAfterProcessingTxCount: {
+    description: 'Used for testing to throw an error after processing N txs',
   },
   secondsBeforeInvalidatingBlockAsCommitteeMember: {
     env: 'SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER',
     description:
       'How many seconds to wait before trying to invalidate a block from the pending chain as a committee member (zero to never invalidate).' +
       ' The next proposer is expected to invalidate, so the committee acts as a fallback.',
-    ...numberConfigHelper(144), // 12 L1 blocks
+    ...numberConfigHelper(DefaultSequencerConfig.secondsBeforeInvalidatingBlockAsCommitteeMember),
   },
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: {
     env: 'SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER',
     description:
       'How many seconds to wait before trying to invalidate a block from the pending chain as a non-committee member (zero to never invalidate).' +
       ' The next proposer is expected to invalidate, then the committee, so other sequencers act as a fallback.',
-    ...numberConfigHelper(432), // 36 L1 blocks
+    ...numberConfigHelper(DefaultSequencerConfig.secondsBeforeInvalidatingBlockAsNonCommitteeMember),
   },
   skipCollectingAttestations: {
     description:
       'Whether to skip collecting attestations from validators and only use self-attestations (for testing only)',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.skipCollectingAttestations),
   },
   skipInvalidateBlockAsProposer: {
     description: 'Do not invalidate the previous block if invalid when we are the proposer (for testing only)',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.skipInvalidateBlockAsProposer),
   },
   broadcastInvalidBlockProposal: {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidBlockProposal),
   },
   injectFakeAttestation: {
     description: 'Inject a fake attestation (for testing only)',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.injectFakeAttestation),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
     description:
       'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.fishermanMode),
   },
   shuffleAttestationOrdering: {
     description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(DefaultSequencerConfig.shuffleAttestationOrdering),
+  },
+  blockDurationMs: {
+    env: 'SEQ_BLOCK_DURATION_MS',
+    description:
+      'Duration per block in milliseconds when building multiple blocks per slot. ' +
+      'If undefined (default), builds a single block per slot using the full slot duration.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  buildCheckpointIfEmpty: {
+    env: 'SEQ_BUILD_CHECKPOINT_IF_EMPTY',
+    description: 'Have sequencer build and publish an empty checkpoint if there are no txs',
+    ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
+  },
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  skipPushProposedBlocksToArchiver: {
+    description: 'Skip pushing proposed blocks to archiver (default: true)',
+    ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };

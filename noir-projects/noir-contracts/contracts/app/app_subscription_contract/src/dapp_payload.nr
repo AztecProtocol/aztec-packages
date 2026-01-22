@@ -1,9 +1,9 @@
 use dep::aztec::{
-    authwit::entrypoint::function_call::FunctionCall,
+    authwit::entrypoint::FunctionCall,
     context::PrivateContext,
     protocol_types::{
         address::AztecAddress,
-        constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+        constants::DOM_SEP__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,
         traits::{Hash, Serialize},
     },
@@ -26,7 +26,7 @@ pub struct DAppPayload {
 
 impl Hash for DAppPayload {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__SIGNATURE_PAYLOAD)
+        poseidon2_hash_with_separator(self.serialize(), DOM_SEP__SIGNATURE_PAYLOAD)
     }
 }
 

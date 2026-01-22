@@ -1,11 +1,22 @@
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import type { TypedDataDefinition } from 'viem';
 
 import { NodeKeystoreAdapter } from './node_keystore_adapter.js';
+
+// Helper to create a mock signing context for testing
+function createMockContext(): SigningContext {
+  return {
+    slot: SlotNumber(1),
+    blockNumber: BlockNumber(1),
+    dutyType: DutyType.ATTESTATION,
+  };
+}
 
 // ---- Test data --------------------------------------------------------------
 
@@ -29,9 +40,9 @@ const A = {
   COINBASE_1: EthAddress.fromString('0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc'),
   COINBASE_2: EthAddress.fromString('0x90f79bf6eb2c4f870365e785982e1f101e93b906'),
   COINBASE_3: EthAddress.fromString('0x71be63f3384f5fb98995898a86b02fb2426c5788'),
-  FEE_1: AztecAddress.fromString('0xbcd4042de499d14e55001ccbb24a551f3b954096000000000000000000000000'),
-  FEE_2: AztecAddress.fromString('0x71be63f3384f5fb98995898a86b02fb2426c5788000000000000000000000000'),
-  FEE_3: AztecAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000'),
+  FEE_1: AztecAddress.fromString('0x0bcd4042de499d14e55001ccbb24a551f3b95409600000000000000000000000'),
+  FEE_2: AztecAddress.fromString('0x071be63f3384f5fb98995898a86b02fb2426c578800000000000000000000000'),
+  FEE_3: AztecAddress.fromString('0x0f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000'),
   UNKNOWN: '0x9999999999999999999999999999999999999999',
 } as const;
 
@@ -277,7 +288,7 @@ describe('NodeKeystoreAdapter', () => {
 
     it('signTypedData across attesters', async () => {
       const ad = NodeKeystoreAdapter.fromKeystoreConfig(pkOnlyCfg);
-      const sigs = await ad.signTypedData(mkTypedData());
+      const sigs = await ad.signTypedData(mkTypedData(), createMockContext());
       expect(sigs).toHaveLength(2);
       expect(new Set(sigs.map(s => s.toString())).size).toBe(2);
     });
@@ -285,26 +296,29 @@ describe('NodeKeystoreAdapter', () => {
     it('signTypedDataWithAddress (different keys -> different sigs)', async () => {
       const adaptor = NodeKeystoreAdapter.fromKeystoreConfig(pkOnlyCfg);
       const td = mkTypedData();
-      const s1 = await adaptor.signTypedDataWithAddress(addr(A.ATTESTER_1), td);
-      const s3 = await adaptor.signTypedDataWithAddress(addr(A.ATTESTER_3), td);
+      const context = createMockContext();
+      const s1 = await adaptor.signTypedDataWithAddress(addr(A.ATTESTER_1), td, context);
+      const s3 = await adaptor.signTypedDataWithAddress(addr(A.ATTESTER_3), td, context);
       expect(s1.toString()).not.toBe(s3.toString());
     });
 
     it('signMessage + signMessageWithAddress', async () => {
       const adaptor = NodeKeystoreAdapter.fromKeystoreConfig(pkOnlyCfg);
       const msg = fixedBuffer32();
-      const sigs = await adaptor.signMessage(msg);
+      const context = createMockContext();
+      const sigs = await adaptor.signMessage(msg, context);
       expect(sigs).toHaveLength(2);
-      const s1 = await adaptor.signMessageWithAddress(addr(A.ATTESTER_1), msg);
+      const s1 = await adaptor.signMessageWithAddress(addr(A.ATTESTER_1), msg, context);
       expect(s1).toBeDefined();
     });
 
     it('unknown address -> rejects', async () => {
       const adaptor = NodeKeystoreAdapter.fromKeystoreConfig(pkOnlyCfg);
-      await expect(adaptor.signTypedDataWithAddress(addr(A.UNKNOWN), mkTypedData())).rejects.toThrow(
+      const context = createMockContext();
+      await expect(adaptor.signTypedDataWithAddress(addr(A.UNKNOWN), mkTypedData(), context)).rejects.toThrow(
         `No signer found for address ${lower(A.UNKNOWN)}`,
       );
-      await expect(adaptor.signMessageWithAddress(addr(A.UNKNOWN), fixedBuffer32())).rejects.toThrow(
+      await expect(adaptor.signMessageWithAddress(addr(A.UNKNOWN), fixedBuffer32(), context)).rejects.toThrow(
         `No signer found for address ${lower(A.UNKNOWN)}`,
       );
     });

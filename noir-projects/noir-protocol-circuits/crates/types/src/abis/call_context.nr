@@ -8,9 +8,13 @@ use std::meta::derive;
 // docs:start:call-context
 #[derive(Deserialize, Eq, Serialize)]
 pub struct CallContext {
+    // The address of the contract that is making the call.
     pub msg_sender: AztecAddress,
+    // The address of the contract being called.
     pub contract_address: AztecAddress,
+    // The selector of the function being called.
     pub function_selector: FunctionSelector,
+    // Whether the call will modify the state of the contract.
     pub is_static_call: bool,
 }
 // docs:end:call-context

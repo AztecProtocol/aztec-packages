@@ -1,4 +1,4 @@
-use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
+use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 use protocol_types::{
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN},
     traits::Deserialize,

@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { strict as assert } from 'assert';
 
@@ -15,49 +15,49 @@ export class Set extends Instruction {
 
   public static readonly wireFormat8: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT8, // dstOffset
     OperandType.TAG, // tag
     OperandType.UINT8, // const (value)
   ];
   public static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
     OperandType.UINT16, // const (value)
   ];
   public static readonly wireFormat32: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
     OperandType.UINT32, // const (value)
   ];
   public static readonly wireFormat64: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
     OperandType.UINT64, // const (value)
   ];
   public static readonly wireFormat128: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
     OperandType.UINT128, // const (value)
   ];
   public static readonly wireFormatFF: OperandType[] = [
     OperandType.UINT8, // opcode
-    OperandType.UINT8, // indirect
+    OperandType.UINT8, // addressing_mode
     OperandType.UINT16, // dstOffset
     OperandType.TAG, // tag
     OperandType.FF, // const (value)
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
     private inTag: number,
     private value: bigint | number,
@@ -72,7 +72,7 @@ export class Set extends Instruction {
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
 
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -104,7 +104,7 @@ export class Cast extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private srcOffset: number,
     private dstOffset: number,
     private dstTag: number,
@@ -114,7 +114,7 @@ export class Cast extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -150,7 +150,7 @@ export class Mov extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private srcOffset: number,
     private dstOffset: number,
   ) {
@@ -159,7 +159,7 @@ export class Mov extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -185,7 +185,7 @@ export class CalldataCopy extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private copySizeOffset: number,
     private cdStartOffset: number,
     private dstOffset: number,
@@ -195,7 +195,7 @@ export class CalldataCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -225,7 +225,7 @@ export class ReturndataSize extends Instruction {
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private dstOffset: number,
   ) {
     super();
@@ -233,7 +233,7 @@ export class ReturndataSize extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
@@ -259,7 +259,7 @@ export class ReturndataCopy extends Instruction {
   ];
 
   constructor(
-    private indirect: number,
+    private addressingMode: number,
     private copySizeOffset: number,
     private rdStartOffset: number,
     private dstOffset: number,
@@ -269,7 +269,7 @@ export class ReturndataCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    const addressing = Addressing.fromWire(this.indirect);
+    const addressing = Addressing.fromWire(this.addressingMode);
 
     context.machineState.consumeGas(
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),

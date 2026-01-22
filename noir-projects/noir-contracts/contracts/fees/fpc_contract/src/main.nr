@@ -12,7 +12,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
-    use dep::uint_note::uint_note::PartialUintNote;
+    use dep::uint_note::PartialUintNote;
     use aztec::{
         macros::{functions::{external, initializer, nophasecheck, only_self}, storage::storage},
         protocol_types::address::AztecAddress,
@@ -81,7 +81,7 @@ pub contract FPC {
     fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
         let accepted_asset = self.storage.config.read().accepted_asset;
 
-        let user = self.msg_sender().unwrap();
+        let user = self.msg_sender();
         let token = Token::at(accepted_asset);
 
         // TODO(#10805): Here we should check that `max_fee` converted to fee juice is enough to cover the tx
@@ -161,7 +161,7 @@ pub contract FPC {
         // We pull the max fee from the user's balance of the accepted asset to this contract.
         // docs:start:public_call
         self.enqueue(Token::at(config.accepted_asset).transfer_in_public(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             self.address,
             max_fee,
             authwit_nonce,
@@ -169,7 +169,7 @@ pub contract FPC {
         // docs:end:public_call
 
         self.set_as_teardown(FPC::at(self.address)._pay_refund(
-            self.msg_sender().unwrap(),
+            self.msg_sender(),
             max_fee,
             config.accepted_asset,
         ));
@@ -206,7 +206,7 @@ pub contract FPC {
     fn pull_funds(to: AztecAddress) {
         let config = self.storage.config.read();
 
-        assert(self.msg_sender().unwrap() == config.admin, "Only admin can pull funds");
+        assert(self.msg_sender() == config.admin, "Only admin can pull funds");
 
         let token = Token::at(config.accepted_asset);
 

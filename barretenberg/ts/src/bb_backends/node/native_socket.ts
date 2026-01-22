@@ -4,8 +4,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../interface.js';
-import { findPackageRoot } from './platform.js';
 import readline from 'readline';
+import { threadId } from 'worker_threads';
+
+let instanceCounter = 0;
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -43,7 +45,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
   constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void) {
     // Create a unique socket path in temp directory
-    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${Date.now()}.sock`);
+    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
     // Ensure socket path doesn't already exist (cleanup from previous crashes)
     if (fs.existsSync(this.socketPath)) {
@@ -58,9 +60,9 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       connectionReject = reject;
     });
 
-    // If threads not set use num cpu cores, max 32.
-    const hwc = threads ? threads.toString() : Math.min(32, os.cpus.length).toString();
-    const env = { ...process.env, HARDWARE_CONCURRENCY: '1' };
+    // If threads not set use num cpu cores, max 16.
+    const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
+    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Spawn bb process - it will create the socket server
     const args = ['msgpack', 'run', '--input', this.socketPath];

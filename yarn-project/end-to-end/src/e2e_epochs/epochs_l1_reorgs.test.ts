@@ -4,10 +4,10 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { createBlobClient } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
@@ -244,7 +244,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Manually update the archiver's L1 syncpoint to ensure we look back when needed
       // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
-      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
+      await archiver.dataStore.setCheckpointSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
 
       // Now trigger the reorg. Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with
       // blob txs (now fixed, we can just update its version), so we reorg, then replay the tx, and then mine.
@@ -266,10 +266,10 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       expect(await monitor.run(true).then(m => m.checkpointNumber)).toEqual(CHECKPOINT_NUMBER);
 
       // We also need to send the blob to the sink, so the node can get it
-      logger.warn(`Sending blobs to blob sink`);
+      logger.warn(`Sending blobs to blob client`);
       const blobs = getBlobs(l2BlockTx);
-      const blobSinkClient = createBlobSinkClient(context.config);
-      await blobSinkClient.sendBlobsToBlobSink(blobs);
+      const blobClient = createBlobClient(context.config);
+      await blobClient.sendBlobsToFilestore(blobs);
 
       // And wait for the node to see the new block
       const expectedBlockNumber = Number(CHECKPOINT_NUMBER);

@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { inflate } from 'pako';
 import { z } from 'zod';
@@ -154,11 +154,13 @@ export type AbiErrorType =
   | { error_kind: 'fmtstring'; length: number; item_types: AbiType[] }
   | ({ error_kind: 'custom' } & AbiType);
 
-const AbiErrorTypeSchema = z.union([
-  z.object({ error_kind: z.literal('string'), string: z.string() }),
-  z.object({ error_kind: z.literal('fmtstring'), length: z.number(), item_types: z.array(AbiTypeSchema) }),
-  z.object({ error_kind: z.literal('custom') }).and(AbiTypeSchema),
-]) satisfies ZodFor<AbiErrorType>;
+const AbiErrorTypeSchema = zodFor<AbiErrorType>()(
+  z.union([
+    z.object({ error_kind: z.literal('string'), string: z.string() }),
+    z.object({ error_kind: z.literal('fmtstring'), length: z.number(), item_types: z.array(AbiTypeSchema) }),
+    z.object({ error_kind: z.literal('custom') }).and(AbiTypeSchema),
+  ]),
+);
 
 /** Aztec.nr function types. */
 export enum FunctionType {
@@ -242,14 +244,16 @@ export interface FunctionArtifactWithContractName extends FunctionArtifact {
   contractName: string;
 }
 
-export const FunctionArtifactSchema = FunctionAbiSchema.and(
-  z.object({
-    bytecode: schemas.Buffer,
-    verificationKey: z.string().optional(),
-    debugSymbols: z.string(),
-    debug: FunctionDebugMetadataSchema.optional(),
-  }),
-) satisfies ZodFor<FunctionArtifact>;
+export const FunctionArtifactSchema = zodFor<FunctionArtifact>()(
+  FunctionAbiSchema.and(
+    z.object({
+      bytecode: schemas.Buffer,
+      verificationKey: z.string().optional(),
+      debugSymbols: z.string(),
+      debug: FunctionDebugMetadataSchema.optional(),
+    }),
+  ),
+);
 
 /** A file ID. It's assigned during compilation. */
 type FileId = number;
@@ -342,28 +346,30 @@ export interface ContractArtifact {
   fileMap: DebugFileMap;
 }
 
-export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
-  name: z.string(),
-  functions: z.array(FunctionArtifactSchema),
-  nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
-  outputs: z.object({
-    structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
-      for (const [key, value] of Object.entries(structs)) {
-        // We are manually ordering events and functions in the abi by path.
-        // The path ordering is arbitrary, and only needed to ensure deterministic order.
-        // These are the only arrays in the artifact with arbitrary order, and hence the only ones
-        // we need to sort.
-        if (key === 'events' || key === 'functions') {
-          structs[key] = (value as StructType[]).sort((a, b) => (a.path > b.path ? -1 : 1));
+export const ContractArtifactSchema = zodFor<ContractArtifact>()(
+  z.object({
+    name: z.string(),
+    functions: z.array(FunctionArtifactSchema),
+    nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
+    outputs: z.object({
+      structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
+        for (const [key, value] of Object.entries(structs)) {
+          // We are manually ordering events and functions in the abi by path.
+          // The path ordering is arbitrary, and only needed to ensure deterministic order.
+          // These are the only arrays in the artifact with arbitrary order, and hence the only ones
+          // we need to sort.
+          if (key === 'events' || key === 'functions') {
+            structs[key] = (value as StructType[]).sort((a, b) => (a.path > b.path ? -1 : 1));
+          }
         }
-      }
-      return structs;
+        return structs;
+      }),
+      globals: z.record(z.array(AbiValueSchema)),
     }),
-    globals: z.record(z.array(AbiValueSchema)),
+    storageLayout: z.record(z.object({ slot: schemas.Fr })),
+    fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
   }),
-  storageLayout: z.record(z.object({ slot: schemas.Fr })),
-  fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
-});
+);
 
 export function getFunctionArtifactByName(artifact: ContractArtifact, functionName: string): FunctionArtifact {
   const functionArtifact = artifact.functions.find(f => f.name === functionName);

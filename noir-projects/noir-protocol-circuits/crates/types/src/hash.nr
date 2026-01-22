@@ -11,9 +11,9 @@ use crate::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
-        GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__OUTER_NULLIFIER,
+        DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -26,6 +26,8 @@ use crate::{
 pub use poseidon2_chunks::poseidon2_absorb_in_chunks_existing_sponge;
 use poseidon2_chunks::poseidon2_absorb_in_chunks;
 use std::embedded_curve_ops::EmbeddedCurveScalar;
+
+// TODO: refactor these into their own files: sha256, poseidon2, some protocol-specific hash computations, some merkle computations.
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -54,13 +56,13 @@ pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u
     // unique).
     poseidon2_hash_with_separator(
         [first_nullifier_in_tx, note_index_in_tx as Field],
-        GENERATOR_INDEX__NOTE_HASH_NONCE,
+        DOM_SEP__NOTE_HASH_NONCE,
     )
 }
 
 pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
     let inputs = [note_nonce, siloed_note_hash];
-    poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+    poseidon2_hash_with_separator(inputs, DOM_SEP__UNIQUE_NOTE_HASH)
 }
 
 pub fn compute_nonce_and_unique_note_hash(
@@ -73,10 +75,7 @@ pub fn compute_nonce_and_unique_note_hash(
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
-    poseidon2_hash_with_separator(
-        [app.to_field(), note_hash],
-        GENERATOR_INDEX__SILOED_NOTE_HASH,
-    )
+    poseidon2_hash_with_separator([app.to_field(), note_hash], DOM_SEP__SILOED_NOTE_HASH)
 }
 
 /// Computes unique note hashes from siloed note hashes
@@ -102,17 +101,17 @@ pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Field {
     }
 }
 
-pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
+pub fn compute_siloed_nullifier(contract_address: AztecAddress, nullifier: Field) -> Field {
     poseidon2_hash_with_separator(
-        [app.to_field(), nullifier],
-        GENERATOR_INDEX__OUTER_NULLIFIER,
+        [contract_address.to_field(), nullifier],
+        DOM_SEP__OUTER_NULLIFIER,
     )
 }
 
 pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     let value = nullifier.innermost().value;
-    // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
-    // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
+    // Q: shouldn't we be checking whether the _whole_ scoped, counted, nullifier struct is empty?
+    // A: We don't have to. The init and inner circuits add a contract address only to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
         value // Return `value` instead of 0 because an already-siloed nullifier's contract address is zero.
@@ -122,6 +121,8 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
 }
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    // The protocol nullifier is ascribed a special side-effect counter of 1. No other side-effect
+    // can have counter 1 (see `validate_as_first_call` for that assertion).
     Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
         NULL_MSG_SENDER_CONTRACT_ADDRESS,
     )
@@ -149,16 +150,12 @@ pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_F
 pub fn compute_app_secret_key(
     master_secret_key: EmbeddedCurveScalar,
     app_address: AztecAddress,
-    app_secret_generator: Field,
+    app_secret_key_domain_separator: Field,
 ) -> Field {
     poseidon2_hash_with_separator(
         [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
-        app_secret_generator,
+        app_secret_key_domain_separator,
     )
-}
-
-pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
 }
 
 pub fn compute_l2_to_l1_hash(
@@ -208,6 +205,7 @@ pub fn silo_l2_to_l1_message(
     }
 }
 
+// TODO: consider a variant that enables domain separation with a u32 (we seem to have standardised u32s for domain separators)
 /// Computes sha256 hash of 2 input fields.
 ///
 /// @returns A truncated field (i.e., the first byte is always 0).
@@ -220,6 +218,7 @@ pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
+// TODO: remove this. The protocol doesn't need it.
 #[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
@@ -252,12 +251,6 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
     let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
-    // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-    // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-    // fixed-length and variable-length hashes do not collide)
-    if in_len != N {
-        sponge.absorb(1);
-    }
     sponge.squeeze()
 }
 

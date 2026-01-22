@@ -3,6 +3,9 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
+        logs::partial_note::{
+            decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
+        },
         processing::{
             enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
             log_retrieval_response::LogRetrievalResponse,
@@ -18,17 +21,6 @@ use protocol_types::{
     traits::{Deserialize, Serialize},
 };
 
-/// storage slot, randomness, note_completion_log_tag
-global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 3;
-global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_STORAGE_SLOT_INDEX: u32 = 0;
-global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_RANDOMNESS_INDEX: u32 = 1;
-global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NOTE_COMPLETION_LOG_TAG_INDEX: u32 = 2;
-
-/// Partial notes have a maximum packed length of their private fields bound by extra content in their private message
-/// (e.g. the storage slot, note completion log tag, etc.).
-pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
-    MAX_MESSAGE_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN;
-
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
@@ -38,9 +30,10 @@ pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sh
 /// log that will complete it and lead to a note being discovered and delivered.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DeliveredPendingPartialNote {
-    pub(crate) note_completion_log_tag: Field,
+    pub(crate) owner: AztecAddress,
     pub(crate) storage_slot: Field,
     pub(crate) randomness: Field,
+    pub(crate) note_completion_log_tag: Field,
     pub(crate) note_type_id: Field,
     pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
     pub(crate) recipient: AztecAddress,
@@ -54,7 +47,18 @@ pub unconstrained fn process_partial_note_private_msg(
 ) {
     // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later search
     // for the public log that will complete it.
-    let pending = decode_partial_note_private_msg(msg_metadata, msg_content, recipient);
+    let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
+        decode_partial_note_private_message(msg_metadata, msg_content);
+
+    let pending = DeliveredPendingPartialNote {
+        owner,
+        storage_slot,
+        randomness,
+        note_completion_log_tag,
+        note_type_id,
+        packed_private_note_content,
+        recipient,
+    };
 
     CapsuleArray::at(
         contract_address,
@@ -126,6 +130,7 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 log.first_nullifier_in_tx,
                 compute_note_hash_and_nullifier,
                 contract_address,
+                pending_partial_note.owner,
                 pending_partial_note.storage_slot,
                 pending_partial_note.randomness,
                 pending_partial_note.note_type_id,
@@ -148,6 +153,7 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
             discovered_notes.for_each(|discovered_note| {
                 enqueue_note_for_validation(
                     contract_address,
+                    pending_partial_note.owner,
                     pending_partial_note.storage_slot,
                     pending_partial_note.randomness,
                     discovered_note.note_nonce,
@@ -164,45 +170,4 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
             pending_partial_notes.remove(i);
         }
     });
-}
-
-fn decode_partial_note_private_msg(
-    msg_metadata: u64,
-    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-    recipient: AztecAddress,
-) -> DeliveredPendingPartialNote {
-    let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
-
-    assert(
-        msg_content.len() > PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN,
-        f"Invalid private note message: all partial note private messages must have at least {PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
-    );
-
-    // If PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the
-    // destructuring of the partial note private message encoding below must be updated as well.
-    std::static_assert(
-        PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN == 3,
-        "unexpected value for PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN",
-    );
-
-    // We currently have three fields that are not the partial note's packed representation,
-    // which are the storage slot, the randomness, and the note completion log tag.
-    let storage_slot = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_CONTENT_STORAGE_SLOT_INDEX);
-    let randomness = msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_CONTENT_RANDOMNESS_INDEX);
-    let note_completion_log_tag =
-        msg_content.get(PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NOTE_COMPLETION_LOG_TAG_INDEX);
-
-    let packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN> = array::subbvec(
-        msg_content,
-        PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN,
-    );
-
-    DeliveredPendingPartialNote {
-        note_completion_log_tag,
-        storage_slot,
-        randomness,
-        note_type_id,
-        packed_private_note_content,
-        recipient,
-    }
 }

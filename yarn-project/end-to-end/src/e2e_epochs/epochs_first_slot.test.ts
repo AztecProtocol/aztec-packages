@@ -4,9 +4,9 @@ import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
-import type { Operator } from '@aztec/ethereum';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -63,7 +63,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       attestationPropagationTime: 0.5,
-      maxL1TxInclusionTimeIntoSlot: 0,
       archiverPollingIntervalMS: 200,
     });
 
@@ -125,7 +124,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${secondSlot}`);
     await retryUntil(
       async () => {
-        const blocks = await nodes[0].getBlocks(INITIAL_L2_BLOCK_NUM, 10);
+        const blocks = await nodes[0].getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 10);
         const slots = blocks.map(block => block.header.getSlot());
         logger.info(`Fetched blocks ${blocks.map(b => b.number).join(', ')} with slots ${slots.join(', ')}`);
         return slots.includes(firstSlot) && slots.includes(secondSlot);

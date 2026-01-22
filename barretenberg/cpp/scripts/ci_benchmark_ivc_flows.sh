@@ -24,13 +24,24 @@ function verify_ivc_flow {
   # NOTE: This is effectively a test.
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
+
+  # Extract VK bytes from JSON artifacts and convert to binary
+  local circuits_target="../../noir-projects/noir-protocol-circuits/target"
+  local rollup_vk=$(mktemp)
+  local public_vk=$(mktemp)
+  jq -r '.verificationKey.bytes' "$circuits_target/hiding_kernel_to_rollup.json" | xxd -r -p > "$rollup_vk"
+  jq -r '.verificationKey.bytes' "$circuits_target/hiding_kernel_to_public.json" | xxd -r -p > "$public_vk"
+
   echo_stderr "Private verify."
-  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_rollup.ivc.vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k "$rollup_vk" 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_public.ivc.vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k "$public_vk" 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
+
+  rm -f "$rollup_vk" "$public_vk"
+
   if [[ $private_result -eq $public_result ]]; then
     echo_stderr "Verification failed for $flow. Both keys returned $private_result - only one should."
     exit 1
@@ -120,7 +131,7 @@ chonk_flow $1 $2
 runtime="$1"
 flow_name="$(basename $2)"
 
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -42,6 +42,11 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecu
         UltraRecursiveFlavor_<BuilderType>::NUM_ALL_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = UltraRecursiveFlavor_<BuilderType>::VIRTUAL_LOG_N)
+    {
+        return NativeFlavor::FINAL_PCS_MSM_SIZE(log_n);
+    }
 
     // Override to include ZK entities
     class AllValues : public UltraFlavor::AllEntities_<FF, HasZK> {

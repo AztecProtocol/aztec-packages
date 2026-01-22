@@ -11,6 +11,7 @@ services:
     cpus: 4
     cpuset: ${CPU_LIST:-}
     mem_limit: 8G
+    stop_grace_period: 60s
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
@@ -23,7 +24,7 @@ services:
       FORCE_COLOR: ${FORCE_COLOR:-1}
       ARCHIVER_POLLING_INTERVAL_MS: 500
       P2P_BLOCK_CHECK_INTERVAL_MS: 500
-      SEQ_TX_POLLING_INTERVAL_MS: 500
+      SEQ_POLLING_INTERVAL_MS: 500
       WS_BLOCK_CHECK_INTERVAL_MS: 500
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}

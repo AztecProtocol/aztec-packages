@@ -6,7 +6,8 @@ import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.j
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -314,11 +315,17 @@ export async function performTransfers({
   }
 }
 
+export type WalletWrapper = {
+  wallet: TestWallet;
+  aztecNode: AztecNode;
+  cleanup: () => Promise<void>;
+};
+
 export async function createWalletAndAztecNodeClient(
   nodeUrl: string,
   proverEnabled: boolean,
   logger: Logger,
-): Promise<{ wallet: TestWallet; aztecNode: AztecNode; cleanup: () => Promise<void> }> {
+): Promise<WalletWrapper> {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
   const pxeConfig = {

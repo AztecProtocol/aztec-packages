@@ -1,7 +1,4 @@
-use crate::macros::{
-    internals_functions_generation::external::helpers::create_message_discovery_call,
-    utils::module_has_storage,
-};
+use crate::macros::utils::module_has_storage;
 
 pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quoted {
     // Initialize Storage if module has storage
@@ -22,22 +19,16 @@ pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quote
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = {
-            let context = dep::aztec::context::utility_context::UtilityContext::new();
+            let context = dep::aztec::context::UtilityContext::new();
             $storage_init
-            aztec::contract_self::ContractSelf::new_utility(context, storage)
+            aztec::ContractSelf::new_utility(context, storage)
         };
     };
-
-    // All utility functions perform message discovery, since they may need to access private notes that would be
-    // found during this process or they may be used to sync private events from TypeScript
-    // (`sync_private_state` function gets invoked by PXE::getPrivateEvents function).
-    let message_discovery_call = create_message_discovery_call();
 
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
         $contract_self_creation
-        $message_discovery_call
     };
 
     let original_function_name = f.name();

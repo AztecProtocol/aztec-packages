@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Sergei], commit: 777717f6af324188ecd6bb68c3c86ee7befef94d}
+// external_1:  { status: Complete, auditors: [@ed25519 (Spearbit)], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "./field_utils.hpp"
@@ -29,11 +29,11 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
             ? need_borrow
             : field_t<Builder>::from_witness(lo.get_context(), typename field_t<Builder>::native(need_borrow));
 
-    // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
+    // directly call `create_small_range_constraint` to avoid creating an arithmetic gate
     if (!lo.is_constant()) {
         // We need to manually propagate the origin tag
         borrow.set_origin_tag(lo.get_origin_tag());
-        lo.get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
+        lo.get_context()->create_small_range_constraint(borrow.get_witness_index(), 1, "borrow");
     }
 
     // Hi range check = r_hi - hi - borrow

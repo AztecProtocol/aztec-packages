@@ -1,4 +1,4 @@
-import type { RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { L1PublishProofStats, L1PublishStats } from '@aztec/stdlib/stats';
@@ -13,7 +13,6 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
-  ValueType,
 } from '@aztec/telemetry-client';
 
 import { formatEther, formatUnits } from 'viem';
@@ -21,6 +20,7 @@ import { formatEther, formatUnits } from 'viem';
 export class ProverNodeJobMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
+  provingJobCheckpoints: Gauge;
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
@@ -29,29 +29,23 @@ export class ProverNodeJobMetrics {
     public readonly tracer: Tracer,
     private logger = createLogger('prover-node:publisher:metrics'),
   ) {
-    this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION, {
-      description: 'Duration of execution of an epoch by the prover',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
-    this.provingJobDuration = this.meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
-      description: 'Duration of proving job',
-      unit: 's',
-      valueType: ValueType.DOUBLE,
-    });
-    this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
-      description: 'Number of blocks in a proven epoch',
-      valueType: ValueType.INT,
-    });
-    this.provingJobTransactions = this.meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
-      description: 'Number of transactions in a proven epoch',
-      valueType: ValueType.INT,
-    });
+    this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION);
+    this.provingJobDuration = this.meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION);
+    this.provingJobCheckpoints = this.meter.createGauge(Metrics.PROVER_NODE_JOB_CHECKPOINTS);
+    this.provingJobBlocks = this.meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS);
+    this.provingJobTransactions = this.meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS);
   }
 
-  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
+  public recordProvingJob(
+    executionTimeMs: number,
+    totalTimeMs: number,
+    numCheckpoints: number,
+    numBlocks: number,
+    numTxs: number,
+  ) {
     this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
     this.provingJobDuration.record(totalTimeMs / 1000);
+    this.provingJobCheckpoints.record(Math.floor(numCheckpoints));
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
   }
@@ -69,15 +63,9 @@ export class ProverNodeRewardsMetrics {
     private rollup: RollupContract,
     private logger = createLogger('prover-node:publisher:metrics'),
   ) {
-    this.rewards = this.meter.createObservableGauge(Metrics.PROVER_NODE_REWARDS_PER_EPOCH, {
-      valueType: ValueType.DOUBLE,
-      description: 'The rewards earned',
-    });
+    this.rewards = this.meter.createObservableGauge(Metrics.PROVER_NODE_REWARDS_PER_EPOCH);
 
-    this.accumulatedRewards = this.meter.createUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL, {
-      valueType: ValueType.DOUBLE,
-      description: 'The rewards earned (total)',
-    });
+    this.accumulatedRewards = this.meter.createUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL);
   }
 
   public async start() {
@@ -138,68 +126,25 @@ export class ProverNodePublisherMetrics {
   ) {
     this.meter = client.getMeter(name);
 
-    this.gasPrice = this.meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
-      description: 'The gas price used for transactions',
-      unit: 'gwei',
-      valueType: ValueType.DOUBLE,
-    });
+    this.gasPrice = this.meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE);
 
-    this.txCount = this.meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT, {
-      description: 'The number of transactions processed',
-    });
+    this.txCount = this.meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT);
 
-    this.txDuration = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION, {
-      description: 'The duration of transaction processing',
-      unit: 'ms',
-      valueType: ValueType.INT,
-    });
+    this.txDuration = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION);
 
-    this.txGas = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
-      description: 'The gas consumed by transactions',
-      unit: 'gas',
-      valueType: ValueType.INT,
-    });
+    this.txGas = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS);
 
-    this.txCalldataSize = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
-      description: 'The size of the calldata in transactions',
-      unit: 'By',
-      valueType: ValueType.INT,
-    });
+    this.txCalldataSize = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE);
 
-    this.txCalldataGas = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
-      description: 'The gas consumed by the calldata in transactions',
-      unit: 'gas',
-      valueType: ValueType.INT,
-    });
+    this.txCalldataGas = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS);
 
-    this.txBlobDataGasUsed = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED, {
-      description: 'The amount of blob gas used in transactions',
-      unit: 'gas',
-      valueType: ValueType.INT,
-    });
+    this.txBlobDataGasUsed = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_USED);
 
-    this.txBlobDataGasCost = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST, {
-      description: 'The gas cost of blobs in transactions',
-      unit: 'gwei',
-      valueType: ValueType.INT,
-    });
+    this.txBlobDataGasCost = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_BLOBDATA_GAS_COST);
 
-    this.txTotalFee = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE, {
-      description: 'How much L1 tx costs',
-      unit: 'gwei',
-      valueType: ValueType.DOUBLE,
-      advice: {
-        explicitBucketBoundaries: [
-          0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1, 1.2, 1.4, 1.8, 2,
-        ],
-      },
-    });
+    this.txTotalFee = this.meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE);
 
-    this.senderBalance = this.meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
-      unit: 'eth',
-      description: 'The balance of the sender address',
-      valueType: ValueType.DOUBLE,
-    });
+    this.senderBalance = this.meter.createGauge(Metrics.L1_PUBLISHER_BALANCE);
   }
 
   recordFailedTx() {

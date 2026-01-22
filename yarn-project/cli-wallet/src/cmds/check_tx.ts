@@ -32,7 +32,10 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
-  log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
+  log(` Status: ${receipt.status}`);
+  if (receipt.executionResult) {
+    log(` Execution result: ${receipt.executionResult}`);
+  }
   if (receipt.error) {
     log(` Error: ${receipt.error}`);
   }
@@ -164,15 +167,11 @@ async function getKnownArtifacts(wallet: CLIWallet): Promise<ArtifactMap> {
   const knownContractAddresses = await wallet.getContracts();
   const knownContracts = (
     await Promise.all(knownContractAddresses.map(contractAddress => wallet.getContractMetadata(contractAddress)))
-  ).map(contractMetadata => contractMetadata.contractInstance);
+  ).map(contractMetadata => contractMetadata.instance);
   const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
   const knownArtifacts = (
-    await Promise.all(classIds.map(classId => (classId ? wallet.getContractClassMetadata(classId) : undefined)))
-  ).map(contractClassMetadata =>
-    contractClassMetadata
-      ? { ...contractClassMetadata.artifact, classId: contractClassMetadata.contractClass?.id }
-      : undefined,
-  );
+    await Promise.all(classIds.map(classId => (classId ? wallet.getContractArtifact(classId) : undefined)))
+  ).map((artifact, index) => (artifact ? { ...artifact, classId: classIds[index] } : undefined));
   const map: Record<string, ContractArtifactWithClassId> = {};
   for (const instance of knownContracts) {
     if (instance) {

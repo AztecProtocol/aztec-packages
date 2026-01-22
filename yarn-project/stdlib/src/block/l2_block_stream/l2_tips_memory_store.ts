@@ -1,75 +1,84 @@
-import type { L2Block } from '../l2_block.js';
-import type { L2BlockId, L2BlockTag, L2Tips } from '../l2_block_source.js';
-import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+
+import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
+import type { L2BlockTag } from '../l2_block_source.js';
+import { L2TipsStoreBase } from './l2_tips_store_base.js';
 
 /**
- * Stores currently synced L2 tips and unfinalized block hashes.
- * @dev tests in kv-store/src/stores/l2_tips_memory_store.test.ts
+ * In-memory implementation of L2 tips store. Useful for testing and lightweight clients.
+ * @dev Tests in kv-store/src/stores/l2_tips_memory_store.test.ts
  */
-export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
-  protected readonly l2TipsStore: Map<L2BlockTag, number> = new Map();
-  protected readonly l2BlockHashesStore: Map<number, string> = new Map();
+export class L2TipsMemoryStore extends L2TipsStoreBase {
+  private readonly tips = new Map<L2BlockTag, BlockNumber>();
+  private readonly blockHashes = new Map<number, string>();
+  private readonly blockToCheckpoint = new Map<number, CheckpointNumber>();
+  private readonly checkpoints = new Map<number, PublishedCheckpoint>();
 
-  public getL2BlockHash(number: number): Promise<string | undefined> {
-    return Promise.resolve(this.l2BlockHashesStore.get(number));
+  protected getTip(tag: L2BlockTag): Promise<BlockNumber | undefined> {
+    return Promise.resolve(this.tips.get(tag));
   }
 
-  public getL2Tips(): Promise<L2Tips> {
-    return Promise.resolve({
-      latest: this.getL2Tip('latest'),
-      finalized: this.getL2Tip('finalized'),
-      proven: this.getL2Tip('proven'),
-    });
+  protected setTip(tag: L2BlockTag, blockNumber: BlockNumber): Promise<void> {
+    this.tips.set(tag, blockNumber);
+    return Promise.resolve();
   }
 
-  private getL2Tip(tag: L2BlockTag): L2BlockId {
-    const blockNumber = this.l2TipsStore.get(tag);
-    if (blockNumber === undefined || blockNumber === 0) {
-      return { number: 0, hash: undefined };
-    }
-    const blockHash = this.l2BlockHashesStore.get(blockNumber);
-    if (!blockHash) {
-      throw new Error(`Block hash not found for block number ${blockNumber}`);
-    }
-
-    return { number: blockNumber, hash: blockHash };
+  protected getStoredBlockHash(blockNumber: BlockNumber): Promise<string | undefined> {
+    return Promise.resolve(this.blockHashes.get(blockNumber));
   }
 
-  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    switch (event.type) {
-      case 'blocks-added': {
-        const blocks = event.blocks.map(b => b.block);
-        for (const block of blocks) {
-          this.l2BlockHashesStore.set(block.number, await this.computeBlockHash(block));
-        }
-        this.l2TipsStore.set('latest', blocks.at(-1)!.number);
-        break;
+  protected setBlockHash(blockNumber: BlockNumber, hash: string): Promise<void> {
+    this.blockHashes.set(blockNumber, hash);
+    return Promise.resolve();
+  }
+
+  protected deleteBlockHashesBefore(blockNumber: BlockNumber): Promise<void> {
+    for (const key of this.blockHashes.keys()) {
+      if (key < blockNumber) {
+        this.blockHashes.delete(key);
       }
-      case 'chain-pruned':
-        this.saveTag('latest', event.block);
-        break;
-      case 'chain-proven':
-        this.saveTag('proven', event.block);
-        break;
-      case 'chain-finalized':
-        this.saveTag('finalized', event.block);
-        for (const key of this.l2BlockHashesStore.keys()) {
-          if (key < event.block.number) {
-            this.l2BlockHashesStore.delete(key);
-          }
-        }
-        break;
     }
+    return Promise.resolve();
   }
 
-  protected saveTag(name: L2BlockTag, block: L2BlockId) {
-    this.l2TipsStore.set(name, block.number);
-    if (block.hash) {
-      this.l2BlockHashesStore.set(block.number, block.hash);
-    }
+  protected getCheckpointNumberForBlock(blockNumber: BlockNumber): Promise<CheckpointNumber | undefined> {
+    return Promise.resolve(this.blockToCheckpoint.get(blockNumber));
   }
 
-  protected computeBlockHash(block: L2Block) {
-    return block.hash().then(hash => hash.toString());
+  protected setCheckpointNumberForBlock(blockNumber: BlockNumber, checkpointNumber: CheckpointNumber): Promise<void> {
+    this.blockToCheckpoint.set(blockNumber, checkpointNumber);
+    return Promise.resolve();
+  }
+
+  protected deleteBlockToCheckpointBefore(blockNumber: BlockNumber): Promise<void> {
+    for (const key of this.blockToCheckpoint.keys()) {
+      if (key < blockNumber) {
+        this.blockToCheckpoint.delete(key);
+      }
+    }
+    return Promise.resolve();
+  }
+
+  protected getCheckpoint(checkpointNumber: CheckpointNumber): Promise<PublishedCheckpoint | undefined> {
+    return Promise.resolve(this.checkpoints.get(checkpointNumber));
+  }
+
+  protected saveCheckpointData(checkpoint: PublishedCheckpoint): Promise<void> {
+    this.checkpoints.set(checkpoint.checkpoint.number, checkpoint);
+    return Promise.resolve();
+  }
+
+  protected deleteCheckpointsBefore(checkpointNumber: CheckpointNumber): Promise<void> {
+    for (const key of this.checkpoints.keys()) {
+      if (key < checkpointNumber) {
+        this.checkpoints.delete(key);
+      }
+    }
+    return Promise.resolve();
+  }
+
+  protected runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    // Memory store doesn't need transactions - just execute immediately
+    return fn();
   }
 }

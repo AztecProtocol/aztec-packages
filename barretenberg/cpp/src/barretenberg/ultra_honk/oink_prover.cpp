@@ -1,11 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -43,8 +44,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Free the commitment key
     prover_instance->commitment_key = CommitmentKey();
     // #endif
-
-    prover_instance->is_complete = true;
 }
 
 /**
@@ -63,7 +62,7 @@ template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProve
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     BB_BENCH_NAME("OinkProver::execute_preamble_round");
-    fr vk_hash = honk_vk->hash_with_origin_tagging(domain_separator, *transcript);
+    fr vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink prover: ", vk_hash);
 
@@ -296,5 +295,6 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
+template class OinkProver<MegaAvmFlavor>;
 
 } // namespace bb

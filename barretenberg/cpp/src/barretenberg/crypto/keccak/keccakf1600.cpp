@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Nishat], commit: 89a12920681072efff1eed881589aad16347e0d6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /* ethash: C/C++ implementation of Ethash, the Ethereum Proof of Work algorithm.
@@ -14,10 +14,10 @@
 
 static uint64_t rol(uint64_t x, unsigned s)
 {
-    return (x << s) | (x >> (64 - s));
+    return (s == 0) ? x : ((x << s) | (x >> (64 - s)));
 }
 
-static const uint64_t round_constants[24] = {
+static const uint64_t round_constants[KECCAKF1600_ROUNDS] = {
     0x0000000000000001, 0x0000000000008082, 0x800000000000808a, 0x8000000080008000, 0x000000000000808b,
     0x0000000080000001, 0x8000000080008081, 0x8000000000008009, 0x000000000000008a, 0x0000000000000088,
     0x0000000080008009, 0x000000008000000a, 0x000000008000808b, 0x800000000000008b, 0x8000000000008089,
@@ -25,12 +25,23 @@ static const uint64_t round_constants[24] = {
     0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
 };
 
-void ethash_keccakf1600(uint64_t state[25]) NOEXCEPT
+// Keccak-f[1600] permutation (24 rounds), i.e. KECCAK-p[1600,24] in FIPS 202. State is 25 lanes of 64 bits, indexed as
+// state[x + 5*y]. Lane byte order is little-endian (per Keccak conventions).
+// The following are the Rho rotation offsets for each lane:
+// {0,  1, 62, 28, 27,
+// 36, 44,  6, 55, 20,
+//  3, 10, 43, 25, 39,
+// 41, 45, 15, 21,  8,
+// 18,  2, 61, 56, 14}
+void ethash_keccakf1600(uint64_t state[KECCAKF1600_LANES]) NOEXCEPT
 {
     /* The implementation based on the "simple" implementation by Ronny Van Keer. */
 
     int round;
 
+    // A[x,y] = state[x + 5*y].
+    // Lane naming convention: Matrix A. Rows are {b,g,k,m,s} (i.e., y in {0,1,2,3,4}) and columns are {a,e,i,o,u}
+    // (i.e., x in {0,1,2,3,4}). For example, Aba = A[x=0,y=0], Abe = A[x=1,y=0].
     uint64_t Aba, Abe, Abi, Abo, Abu;
     uint64_t Aga, Age, Agi, Ago, Agu;
     uint64_t Aka, Ake, Aki, Ako, Aku;
@@ -73,7 +84,7 @@ void ethash_keccakf1600(uint64_t state[25]) NOEXCEPT
     Aso = state[23];
     Asu = state[24];
 
-    for (round = 0; round < 24; round += 2) {
+    for (round = 0; round < KECCAKF1600_ROUNDS; round += 2) {
         /* Round (round + 0): Axx -> Exx */
 
         Ba = Aba ^ Aga ^ Aka ^ Ama ^ Asa;

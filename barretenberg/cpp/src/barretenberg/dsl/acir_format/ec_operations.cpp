@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], date: 2025-11-03 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "ec_operations.hpp"
@@ -35,8 +35,7 @@ namespace acir_format {
  * @param input
  * @param has_valid_witness_assignments
  */
-template <typename Builder>
-void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
+template <typename Builder> void create_ec_add_constraint(Builder& builder, const EcAdd& input)
 {
     using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
@@ -49,16 +48,16 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
     bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
 
-    if (!has_valid_witness_assignments) {
+    if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
         builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));
     }
 
-    cycle_group_ct input1_point = to_grumpkin_point(
-        input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, predicate, builder);
-    cycle_group_ct input2_point = to_grumpkin_point(
-        input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, predicate, builder);
+    cycle_group_ct input1_point =
+        to_grumpkin_point(input.input1_x, input.input1_y, input.input1_infinite, predicate, builder);
+    cycle_group_ct input2_point =
+        to_grumpkin_point(input.input2_x, input.input2_y, input.input2_infinite, predicate, builder);
     // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on
     // Grumpkin.
     cycle_group_ct input_result(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false);
@@ -75,11 +74,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     result.assert_equal(to_be_asserted_equal);
 }
 
-template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
-                                                                const EcAdd& input,
-                                                                bool has_valid_witness_assignments);
-template void create_ec_add_constraint<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                               const EcAdd& input,
-                                                               bool has_valid_witness_assignments);
+template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder, const EcAdd& input);
+template void create_ec_add_constraint<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder, const EcAdd& input);
 
 } // namespace acir_format

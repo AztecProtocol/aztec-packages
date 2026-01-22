@@ -6,6 +6,7 @@ import {
   SpongeBlob,
 } from '@aztec/blob-lib/types';
 import {
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
@@ -15,7 +16,8 @@ import {
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { BLS12Fq, BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import {
@@ -31,7 +33,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import type { FlatPublicLogs } from '@aztec/stdlib/logs';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
+import type { ProofData, ProofDataForFixedVk, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   BlockConstantData,
   BlockMergeRollupPrivateInputs,
@@ -97,6 +99,7 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
+  ProofDataForFixedVk as ProofDataForFixedVkNoir,
   ProofData as ProofDataNoir,
   PublicChonkVerifierPrivateInputs as PublicChonkVerifierPrivateInputsNoir,
   PublicChonkVerifierPublicInputs as PublicChonkVerifierPublicInputsNoir,
@@ -452,6 +455,16 @@ function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends numbe
   };
 }
 
+// Not generic since only one type exists on noir.
+export function mapAvmProofDataToNoir(
+  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
+): ProofDataForFixedVkNoir {
+  return {
+    public_inputs: mapAvmCircuitPublicInputsToNoir(proofData.publicInputs),
+    proof: mapFieldArrayToNoir(proofData.proof.proof),
+  };
+}
+
 function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
@@ -471,6 +484,7 @@ export function mapRootRollupPublicInputsFromNoir(
   return new RootRollupPublicInputs(
     mapFieldFromNoir(rootRollupPublicInputs.previous_archive_root),
     mapFieldFromNoir(rootRollupPublicInputs.new_archive_root),
+    mapFieldFromNoir(rootRollupPublicInputs.out_hash),
     mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapEpochConstantDataFromNoir(rootRollupPublicInputs.constants),
@@ -590,8 +604,7 @@ export function mapBlockRollupPublicInputsFromNoir(inputs: BlockRollupPublicInpu
     mapStateReferenceFromNoir(inputs.end_state),
     mapSpongeBlobFromNoir(inputs.start_sponge_blob),
     mapSpongeBlobFromNoir(inputs.end_sponge_blob),
-    mapU64FromNoir(inputs.start_timestamp),
-    mapU64FromNoir(inputs.end_timestamp),
+    mapU64FromNoir(inputs.timestamp),
     mapFieldFromNoir(inputs.block_headers_hash),
     mapFieldFromNoir(inputs.in_hash),
     mapFieldFromNoir(inputs.out_hash),
@@ -609,8 +622,7 @@ export function mapBlockRollupPublicInputsToNoir(inputs: BlockRollupPublicInputs
     end_state: mapStateReferenceToNoir(inputs.endState),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
     end_sponge_blob: mapSpongeBlobToNoir(inputs.endSpongeBlob),
-    start_timestamp: mapU64ToNoir(inputs.startTimestamp),
-    end_timestamp: mapU64ToNoir(inputs.endTimestamp),
+    timestamp: mapU64ToNoir(inputs.timestamp),
     block_headers_hash: mapFieldToNoir(inputs.blockHeadersHash),
     in_hash: mapFieldToNoir(inputs.inHash),
     out_hash: mapFieldToNoir(inputs.outHash),
@@ -624,6 +636,8 @@ export function mapCheckpointRollupPublicInputsFromNoir(inputs: CheckpointRollup
     mapEpochConstantDataFromNoir(inputs.constants),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.previous_archive),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_archive),
+    mapAppendOnlyTreeSnapshotFromNoir(inputs.previous_out_hash),
+    mapAppendOnlyTreeSnapshotFromNoir(inputs.new_out_hash),
     mapTupleFromNoir(inputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(inputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapBlobAccumulatorFromNoir(inputs.start_blob_accumulator),
@@ -639,6 +653,8 @@ export function mapCheckpointRollupPublicInputsToNoir(
     constants: mapEpochConstantDataToNoir(inputs.constants),
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     new_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.newArchive),
+    previous_out_hash: mapAppendOnlyTreeSnapshotToNoir(inputs.previousOutHash),
+    new_out_hash: mapAppendOnlyTreeSnapshotToNoir(inputs.newOutHash),
     checkpoint_header_hashes: mapTuple(inputs.checkpointHeaderHashes, mapFieldToNoir),
     fees: mapTuple(inputs.fees, mapFeeRecipientToNoir),
     start_blob_accumulator: mapBlobAccumulatorToNoir(inputs.startBlobAccumulator),
@@ -752,7 +768,7 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
       inputs.publicChonkVerifierProofData,
       mapPublicChonkVerifierPublicInputsToNoir,
     ),
-    avm_proof_data: mapProofDataToNoir(inputs.avmProofData, mapAvmCircuitPublicInputsToNoir),
+    avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),
     anchor_block_archive_sibling_path: mapFieldArrayToNoir(inputs.hints.anchorBlockArchiveSiblingPath),
@@ -867,6 +883,8 @@ function mapCheckpointRootRollupHintsToNoir(hints: CheckpointRootRollupHints): C
   return {
     previous_block_header: mapBlockHeaderToNoir(hints.previousBlockHeader),
     previous_archive_sibling_path: mapTuple(hints.previousArchiveSiblingPath, mapFieldToNoir),
+    previous_out_hash: mapAppendOnlyTreeSnapshotToNoir(hints.previousOutHash),
+    new_out_hash_sibling_path: mapTuple(hints.newOutHashSiblingPath, mapFieldToNoir),
     start_blob_accumulator: mapBlobAccumulatorToNoir(hints.startBlobAccumulator),
     final_blob_challenges: mapFinalBlobBatchingChallengesToNoir(hints.finalBlobChallenges),
     blobs_fields: mapFieldArrayToNoir(hints.blobFields),

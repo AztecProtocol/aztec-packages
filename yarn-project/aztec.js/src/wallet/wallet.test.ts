@@ -1,11 +1,13 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
 import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractClassMetadata, ContractInstanceWithAddress, ContractMetadata } from '@aztec/stdlib/contract';
+import { L2BlockHash } from '@aztec/stdlib/block';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
@@ -19,8 +21,11 @@ import {
 import type {
   Aliased,
   BatchResults,
-  BatchableMethods,
   BatchedMethod,
+  ContractClassMetadata,
+  ContractMetadata,
+  PrivateEvent,
+  PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
@@ -57,32 +62,6 @@ describe('WalletSchema', () => {
     });
   });
 
-  it('getContractClassMetadata', async () => {
-    const result = await context.client.getContractClassMetadata(Fr.random(), true);
-    expect(result.contractClass).toBeDefined();
-    expect(result.contractClass?.id).toBeInstanceOf(Fr);
-    expect(result.isContractClassPubliclyRegistered).toBe(true);
-    expect(result.artifact).toBeDefined();
-  });
-
-  it('getContractMetadata', async () => {
-    const result = await context.client.getContractMetadata(await AztecAddress.random());
-    expect(result).toEqual({
-      contractInstance: {
-        address: expect.any(AztecAddress),
-        currentContractClassId: expect.any(Fr),
-        deployer: expect.any(AztecAddress),
-        initializationHash: expect.any(Fr),
-        originalContractClassId: expect.any(Fr),
-        publicKeys: expect.any(PublicKeys),
-        salt: expect.any(Fr),
-        version: 1,
-      },
-      isContractInitialized: true,
-      isContractPublished: true,
-    });
-  });
-
   it('getTxReceipt', async () => {
     const result = await context.client.getTxReceipt(TxHash.random());
     expect(result).toBeInstanceOf(TxReceipt);
@@ -94,9 +73,14 @@ describe('WalletSchema', () => {
       abiType: { kind: 'field' },
       fieldNames: ['field1'],
     };
-    const result = await context.client.getPrivateEvents(await AztecAddress.random(), eventMetadata, 0, 10, [
-      await AztecAddress.random(),
-    ]);
+
+    const result = await context.client.getPrivateEvents(eventMetadata, {
+      contractAddress: await AztecAddress.random(),
+      fromBlock: BlockNumber(1),
+      toBlock: BlockNumber(10),
+      scopes: [await AztecAddress.random()],
+    });
+
     expect(result).toHaveLength(1);
     expect(result[0]).toBeDefined();
   });
@@ -114,6 +98,25 @@ describe('WalletSchema', () => {
   it('getAccounts', async () => {
     const result = await context.client.getAccounts();
     expect(result).toEqual([{ alias: 'account1', item: expect.any(AztecAddress) }]);
+  });
+
+  it('getContractMetadata', async () => {
+    const result = await context.client.getContractMetadata(await AztecAddress.random());
+    expect(result).toEqual({
+      instance: undefined,
+      isContractInitialized: expect.any(Boolean),
+      isContractPublished: expect.any(Boolean),
+      isContractUpdated: expect.any(Boolean),
+      updatedContractClassId: undefined,
+    });
+  });
+
+  it('getContractClassMetadata', async () => {
+    const result = await context.client.getContractClassMetadata(Fr.random());
+    expect(result).toEqual({
+      isArtifactRegistered: expect.any(Boolean),
+      isContractClassPubliclyRegistered: expect.any(Boolean),
+    });
   });
 
   it('registerContract', async () => {
@@ -210,7 +213,10 @@ describe('WalletSchema', () => {
   });
 
   it('createAuthWit', async () => {
-    const result = await context.client.createAuthWit(await AztecAddress.random(), Fr.random());
+    const result = await context.client.createAuthWit(await AztecAddress.random(), {
+      innerHash: Fr.random(),
+      consumer: await AztecAddress.random(),
+    });
     expect(result).toBeInstanceOf(AuthWitness);
   });
 
@@ -230,6 +236,10 @@ describe('WalletSchema', () => {
     };
     const simulateOpts: SimulateOptions = {
       from: await AztecAddress.random(),
+    };
+    const profileOpts: ProfileOptions = {
+      from: await AztecAddress.random(),
+      profileMode: 'gates',
     };
 
     const call = {
@@ -263,24 +273,57 @@ describe('WalletSchema', () => {
       storageLayout: {},
     };
 
-    const methods: BatchedMethod<keyof BatchableMethods>[] = [
+    const eventMetadata: EventMetadataDefinition = {
+      eventSelector: EventSelector.fromField(new Fr(1)),
+      abiType: { kind: 'field' },
+      fieldNames: ['field1'],
+    };
+
+    const methods: BatchedMethod[] = [
+      { name: 'getChainInfo', args: [] },
+      { name: 'getTxReceipt', args: [TxHash.random()] },
+      { name: 'getContractMetadata', args: [address1] },
+      { name: 'getContractClassMetadata', args: [Fr.random()] },
+      {
+        name: 'getPrivateEvents',
+        args: [eventMetadata, { contractAddress: address1, scopes: [address2], fromBlock: BlockNumber(1) }],
+      },
       { name: 'registerSender', args: [address1, 'alias1'] },
+      { name: 'getAddressBook', args: [] },
+      { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
-      { name: 'sendTx', args: [exec, opts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
+      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
+      { name: 'profileTx', args: [exec, profileOpts] },
+      { name: 'sendTx', args: [exec, opts] },
+      { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
     ];
 
     const results = await context.client.batch(methods);
-    expect(results).toHaveLength(5);
-    expect(results[0]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
-    expect(results[1]).toEqual({
+    expect(results).toHaveLength(14);
+    expect(results[0]).toEqual({ name: 'getChainInfo', result: { chainId: expect.any(Fr), version: expect.any(Fr) } });
+    expect(results[1]).toEqual({ name: 'getTxReceipt', result: expect.any(TxReceipt) });
+    expect(results[2]).toEqual({
+      name: 'getContractMetadata',
+      result: expect.objectContaining({ isContractInitialized: expect.any(Boolean) }),
+    });
+    expect(results[3]).toEqual({
+      name: 'getContractClassMetadata',
+      result: expect.objectContaining({ isArtifactRegistered: expect.any(Boolean) }),
+    });
+    expect(results[4]).toEqual({ name: 'getPrivateEvents', result: expect.any(Array) });
+    expect(results[5]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
+    expect(results[6]).toEqual({ name: 'getAddressBook', result: expect.any(Array) });
+    expect(results[7]).toEqual({ name: 'getAccounts', result: expect.any(Array) });
+    expect(results[8]).toEqual({
       name: 'registerContract',
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
-    expect(results[2]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
-    expect(results[3]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
-    expect(results[4]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[9]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
+    expect(results[10]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[11]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
+    expect(results[12]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
+    expect(results[13]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
 
@@ -293,58 +336,43 @@ class MockWallet implements Wallet {
     });
   }
 
-  getContractClassMetadata(_id: Fr, _includeArtifact?: boolean): Promise<ContractClassMetadata> {
-    return Promise.resolve({
-      contractClass: {
-        version: 1,
-        id: Fr.random(),
-        artifactHash: Fr.random(),
-        privateFunctions: [],
-        publicBytecodeCommitment: Fr.random(),
-        unconstrainedFunctionsArtifactTreeRoot: Fr.random(),
-        packedBytecode: Buffer.from('1234', 'hex'),
-      },
-      isContractClassPubliclyRegistered: true,
-      artifact: {
-        name: 'MockContract',
-        functions: [],
-        nonDispatchPublicFunctions: [],
-        outputs: { structs: {}, globals: {} },
-        fileMap: {},
-        storageLayout: {},
-      },
-    });
-  }
-
-  async getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
-    return {
-      contractInstance: {
-        version: 1,
-        address: await AztecAddress.random(),
-        currentContractClassId: Fr.random(),
-        deployer: await AztecAddress.random(),
-        initializationHash: Fr.random(),
-        originalContractClassId: Fr.random(),
-        publicKeys: await PublicKeys.random(),
-        salt: Fr.random(),
-      },
-      isContractInitialized: true,
-      isContractPublished: true,
-    };
-  }
-
   getPrivateEvents<T>(
-    _contractAddress: AztecAddress,
     _eventMetadata: EventMetadataDefinition,
-    _from: number,
-    _numBlocks: number,
-    _recipients: AztecAddress[],
-  ): Promise<T[]> {
-    return Promise.resolve([{ field1: Fr.random() }] as T[]);
+    _filter: PrivateEventFilter,
+  ): Promise<PrivateEvent<T>[]> {
+    return Promise.resolve([
+      {
+        event: {
+          field1: Fr.random(),
+        },
+        metadata: {
+          l2BlockNumber: BlockNumber(1),
+          l2BlockHash: L2BlockHash.random(),
+          txHash: TxHash.random(),
+        },
+      },
+    ] as PrivateEvent<T>[]);
   }
 
   getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {
     return Promise.resolve(TxReceipt.empty());
+  }
+
+  getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
+    return Promise.resolve({
+      instance: undefined,
+      isContractInitialized: false,
+      isContractPublished: false,
+      isContractUpdated: false,
+      updatedContractClassId: undefined,
+    });
+  }
+
+  getContractClassMetadata(_id: Fr): Promise<ContractClassMetadata> {
+    return Promise.resolve({
+      isArtifactRegistered: false,
+      isContractClassPubliclyRegistered: false,
+    });
   }
 
   registerSender(address: AztecAddress, _alias?: string): Promise<AztecAddress> {
@@ -392,7 +420,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(AuthWitness.random());
   }
 
-  async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>> {
+  async batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;
@@ -401,7 +429,7 @@ class MockWallet implements Wallet {
       // 2. `args` matches the parameter types of that specific method
       // 3. The return type is correctly mapped in BatchResults<T>
       // We use dynamic dispatch here for simplicity, but the types are enforced at the call site.
-      const fn = this[name] as (...args: any[]) => Promise<any>;
+      const fn = (this as any)[name] as (...args: any[]) => Promise<any>;
       const result = await fn.apply(this, args);
       // Wrap result with method name for discriminated union deserialization
       results.push({ name, result });

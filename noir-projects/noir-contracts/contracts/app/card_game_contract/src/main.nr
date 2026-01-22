@@ -18,8 +18,8 @@ pub contract CardGame {
 
     #[storage]
     struct Storage<Context> {
-        collections: Map<AztecAddress, Deck<Context>, Context>,
-        game_decks: Map<Field, Map<AztecAddress, Deck<Context>, Context>, Context>,
+        collections: Deck<Context>,
+        game_decks: Map<Field, Deck<Context>, Context>,
         games: Map<Field, PublicMutable<Game, Context>, Context>,
     }
 
@@ -27,10 +27,10 @@ pub contract CardGame {
     fn buy_pack(
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     ) {
-        let buyer = self.msg_sender().unwrap();
+        let buyer = self.msg_sender();
         let mut cards = get_pack_cards(seed, buyer, self.context);
 
-        let mut collection = self.storage.collections.at(buyer);
+        let mut collection = self.storage.collections;
         let _inserted_cards = collection.add_cards(cards, buyer);
     }
 
@@ -38,11 +38,11 @@ pub contract CardGame {
     fn join_game(game: u32, cards_fields: [Field; 2]) {
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
-        let player = self.msg_sender().unwrap();
+        let player = self.msg_sender();
 
-        let mut collection = self.storage.collections.at(player);
-        collection.remove_cards(cards);
-        let mut game_deck = self.storage.game_decks.at(game as Field).at(player);
+        let mut collection = self.storage.collections;
+        collection.remove_cards(cards, player);
+        let mut game_deck = self.storage.game_decks.at(game as Field);
         let _added_to_game_deck = game_deck.add_cards(cards, player);
         let strength = compute_deck_strength(cards);
         self.enqueue_self.on_game_joined(game, player, strength as u32);
@@ -73,10 +73,10 @@ pub contract CardGame {
 
     #[external("private")]
     fn play_card(game: u32, card: Card) {
-        let player = self.msg_sender().unwrap();
+        let player = self.msg_sender();
 
-        let mut game_deck = self.storage.game_decks.at(game as Field).at(player);
-        game_deck.remove_cards([card]);
+        let mut game_deck = self.storage.game_decks.at(game as Field);
+        game_deck.remove_cards([card], player);
 
         self.enqueue_self.on_card_played(game, player, card.to_field());
     }
@@ -98,10 +98,10 @@ pub contract CardGame {
 
     #[external("private")]
     fn claim_cards(game: u32, cards_fields: [Field; PLAYABLE_CARDS]) {
-        let player = self.msg_sender().unwrap();
+        let player = self.msg_sender();
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
-        let mut collection = self.storage.collections.at(player);
+        let mut collection = self.storage.collections;
         let _inserted_cards = collection.add_cards(cards, player);
         self.enqueue_self.on_cards_claimed(game, player, pedersen_hash(cards_fields, 0));
     }
@@ -131,8 +131,8 @@ pub contract CardGame {
         owner: AztecAddress,
         offset: u32,
     ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
-        let collection = self.storage.collections.at(owner);
-        collection.view_cards(offset)
+        let collection = self.storage.collections;
+        collection.view_cards(owner, offset)
     }
 
     #[external("utility")]
@@ -141,9 +141,9 @@ pub contract CardGame {
         player: AztecAddress,
         offset: u32,
     ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
-        let game_deck = self.storage.game_decks.at(game as Field).at(player);
+        let game_deck = self.storage.game_decks.at(game as Field);
 
-        game_deck.view_cards(offset)
+        game_deck.view_cards(player, offset)
     }
 
     #[external("utility")]

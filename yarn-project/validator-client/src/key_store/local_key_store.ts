@@ -1,7 +1,8 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import type { SigningContext } from '@aztec/validator-ha-signer/types';
 
 import { type TypedDataDefinition, hashTypedData } from 'viem';
 
@@ -46,9 +47,10 @@ export class LocalKeyStore implements ValidatorKeyStore {
   /**
    * Sign a message with all keystore private keys
    * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
    * @return signature
    */
-  public signTypedData(typedData: TypedDataDefinition): Promise<Signature[]> {
+  public signTypedData(typedData: TypedDataDefinition, _context: SigningContext): Promise<Signature[]> {
     const digest = hashTypedData(typedData);
     return Promise.all(this.signers.map(signer => signer.sign(Buffer32.fromString(digest))));
   }
@@ -57,10 +59,15 @@ export class LocalKeyStore implements ValidatorKeyStore {
    * Sign a message with a specific address's private key
    * @param address - The address of the signer to use
    * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
    * @returns signature for the specified address
    * @throws Error if the address is not found in the keystore
    */
-  public signTypedDataWithAddress(address: EthAddress, typedData: TypedDataDefinition): Promise<Signature> {
+  public signTypedDataWithAddress(
+    address: EthAddress,
+    typedData: TypedDataDefinition,
+    _context: SigningContext,
+  ): Promise<Signature> {
     const signer = this.signersByAddress.get(address.toString());
     if (!signer) {
       throw new Error(`No signer found for address ${address.toString()}`);
@@ -73,9 +80,10 @@ export class LocalKeyStore implements ValidatorKeyStore {
    * Sign a message using eth_sign with all keystore private keys
    *
    * @param message - The message to sign
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
    * @return signatures
    */
-  public signMessage(message: Buffer32): Promise<Signature[]> {
+  public signMessage(message: Buffer32, _context: SigningContext): Promise<Signature[]> {
     return Promise.all(this.signers.map(signer => signer.signMessage(message)));
   }
 
@@ -83,10 +91,11 @@ export class LocalKeyStore implements ValidatorKeyStore {
    * Sign a message using eth_sign with a specific address's private key
    * @param address - The address of the signer to use
    * @param message - The message to sign
+   * @param _context - Signing context (ignored by LocalKeyStore, used for HA protection)
    * @returns signature for the specified address
    * @throws Error if the address is not found in the keystore
    */
-  public signMessageWithAddress(address: EthAddress, message: Buffer32): Promise<Signature> {
+  public signMessageWithAddress(address: EthAddress, message: Buffer32, _context: SigningContext): Promise<Signature> {
     const signer = this.signersByAddress.get(address.toString());
     if (!signer) {
       throw new Error(`No signer found for address ${address.toString()}`);

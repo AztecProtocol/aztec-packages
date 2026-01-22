@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -352,7 +352,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         }
         // The probability of this event is negligible but it has to be processed correctly
         if (evaluation_challenge_in_small_subgroup) {
-            throw_or_abort("Evaluation challenge is in the SmallSubgroup.");
+            throw_or_abort("SmallSubgroupIPA: Evaluation challenge is in the SmallSubgroup. This would cancel out the "
+                           "hiding property of the commitment.");
         }
     }
     /**

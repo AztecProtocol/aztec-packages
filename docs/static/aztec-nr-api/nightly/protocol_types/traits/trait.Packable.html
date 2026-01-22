@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Trait Packable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">Packable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#trait">Trait Packable</a></h2>
+<h3>Required methods</h3>
+<ul class="sidebar-list">
+<li><a href="#pack">pack</a></li>
+<li><a href="#unpack">unpack</a></li>
+</ul>
+<h3>Implementors</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Packable-for-AddressNote">AddressNote</a></li>
+<li><a href="#impl-Packable-for-AztecAddress">AztecAddress</a></li>
+<li><a href="#impl-Packable-for-CompressedString<N, M>">CompressedString<N, M></a></li>
+<li><a href="#impl-Packable-for-ContractClassId">ContractClassId</a></li>
+<li><a href="#impl-Packable-for-DelayedPublicMutableValues<T, INITIAL_DELAY>">DelayedPublicMutableValues<T, INITIAL_DELAY></a></li>
+<li><a href="#impl-Packable-for-EmbeddedCurvePoint">EmbeddedCurvePoint</a></li>
+<li><a href="#impl-Packable-for-Empty">Empty</a></li>
+<li><a href="#impl-Packable-for-EthAddress">EthAddress</a></li>
+<li><a href="#impl-Packable-for-Field">Field</a></li>
+<li><a href="#impl-Packable-for-FieldCompressedString">FieldCompressedString</a></li>
+<li><a href="#impl-Packable-for-FieldNote">FieldNote</a></li>
+<li><a href="#impl-Packable-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
+<li><a href="#impl-Packable-for-HintedNote<Note>">HintedNote<Note></a></li>
+<li><a href="#impl-Packable-for-MockStruct">MockStruct</a></li>
+<li><a href="#impl-Packable-for-MockStruct">MockStruct</a></li>
+<li><a href="#impl-Packable-for-NoteMetadata">NoteMetadata</a></li>
+<li><a href="#impl-Packable-for-PartialUintNote">PartialUintNote</a></li>
+<li><a href="#impl-Packable-for-Smol">Smol</a></li>
+<li><a href="#impl-Packable-for-UintNote">UintNote</a></li>
+<li><a href="#impl-Packable-for-WithHash<T, M>">WithHash<T, M></a></li>
+<li><a href="#impl-Packable-for-[T; M]">[T; M]</a></li>
+<li><a href="#impl-Packable-for-bool">bool</a></li>
+<li><a href="#impl-Packable-for-i16">i16</a></li>
+<li><a href="#impl-Packable-for-i32">i32</a></li>
+<li><a href="#impl-Packable-for-i64">i64</a></li>
+<li><a href="#impl-Packable-for-i8">i8</a></li>
+<li><a href="#impl-Packable-for-u128">u128</a></li>
+<li><a href="#impl-Packable-for-u16">u16</a></li>
+<li><a href="#impl-Packable-for-u32">u32</a></li>
+<li><a href="#impl-Packable-for-u64">u64</a></li>
+<li><a href="#impl-Packable-for-u8">u8</a></li>
+</ul>
+<h2>In module traits</h2>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.Deserialize.html">Deserialize</a></div></li>
+<li><a href="trait.Empty.html">Empty</a></div></li>
+<li><a href="trait.FromField.html">FromField</a></div></li>
+<li><a href="trait.Hash.html">Hash</a></div></li>
+<li><a href="trait.Packable.html">Packable</a></div></li>
+<li><a href="trait.Serialize.html">Serialize</a></div></li>
+<li><a href="trait.ToField.html">ToField</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">traits</a></div>
+<h1>Trait <span id="trait" class="trait">Packable</span></h1>
+<pre><code>pub trait Packable {
+    let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
+
+    <span class="comment">// Required methods</span>
+    pub fn <a href="#pack"><span class="fn">pack</span></a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N];
+    pub fn <a href="#unpack"><span class="fn">unpack</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self;
+}</code></pre>
+
+<div class="comments">
+<p>Trait for efficiently packing and unpacking Noir types into and from arrays of Fields.</p>
+<p>The <code>Packable</code> trait allows types to be serialized and deserialized with a focus on minimizing the size of
+the resulting Field array. This trait is used when storage efficiency is critical (e.g. when storing data
+in the contract's public storage).</p>
+<h2>Associated Constants</h2>
+<ul>
+<li><code>N</code> - The length of the Field array, known at compile time</li>
+</ul>
+</div>
+<h2>Required methods</h2>
+<div class="padded-methods"><code id="pack" class="code-header">pub fn <a href="#pack"><span class="fn">pack</span></a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
+
+<div class="padded-description"><div class="comments">
+<p>Packs the current value into a compact array of <code>Field</code> elements.</p>
+</div>
+</div><code id="unpack" class="code-header">pub fn <a href="#unpack"><span class="fn">unpack</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Unpacks a compact array of <code>Field</code> elements into the original value.</p>
+</div>
+</div></div><h2>Implementors</h2>
+<h3 id="impl-Packable-for-AddressNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../address_note/address_note/struct.AddressNote.html" class="struct">AddressNote</a></code></h3>
+
+<h3 id="impl-Packable-for-AztecAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></h3>
+
+<h3 id="impl-Packable-for-CompressedString<N, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../compressed_string/struct.CompressedString.html" class="struct">CompressedString</a>&lt;N, M&gt;</code></h3>
+
+<h3 id="impl-Packable-for-ContractClassId"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></h3>
+
+<h3 id="impl-Packable-for-DelayedPublicMutableValues<T, INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, INITIAL_DELAY&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<h3 id="impl-Packable-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+
+<h3 id="impl-Packable-for-Empty"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for Empty</code></h3>
+
+<h3 id="impl-Packable-for-EthAddress"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a></code></h3>
+
+<h3 id="impl-Packable-for-Field"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
+
+<h3 id="impl-Packable-for-FieldCompressedString"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../compressed_string/struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></code></h3>
+
+<h3 id="impl-Packable-for-FieldNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../field_note/field_note/struct.FieldNote.html" class="struct">FieldNote</a></code></h3>
+
+<h3 id="impl-Packable-for-HasArrayWithGenerics<T, N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for HasArrayWithGenerics&lt;T, N&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<h3 id="impl-Packable-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<h3 id="impl-Packable-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/test/mocks/mock_struct/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
+
+<h3 id="impl-Packable-for-MockStruct"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for MockStruct</code></h3>
+
+<h3 id="impl-Packable-for-NoteMetadata"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
+
+<h3 id="impl-Packable-for-PartialUintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../uint_note/uint_note/struct.PartialUintNote.html" class="struct">PartialUintNote</a></code></h3>
+
+<h3 id="impl-Packable-for-Smol"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for Smol</code></h3>
+
+<h3 id="impl-Packable-for-UintNote"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../uint_note/uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
+
+<h3 id="impl-Packable-for-WithHash<T, M>"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../noir_aztec/utils/with_hash/struct.WithHash.html" class="struct">WithHash</a>&lt;T, M&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<h3 id="impl-Packable-for-[T; M]"><code class="code-header">impl&lt;let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for [T; M]
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code></h3>
+
+<h3 id="impl-Packable-for-bool"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.bool.html" class="primitive">bool</a></code></h3>
+
+<h3 id="impl-Packable-for-i16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.i16.html" class="primitive">i16</a></code></h3>
+
+<h3 id="impl-Packable-for-i32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.i32.html" class="primitive">i32</a></code></h3>
+
+<h3 id="impl-Packable-for-i64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.i64.html" class="primitive">i64</a></code></h3>
+
+<h3 id="impl-Packable-for-i8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.i8.html" class="primitive">i8</a></code></h3>
+
+<h3 id="impl-Packable-for-u128"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.u128.html" class="primitive">u128</a></code></h3>
+
+<h3 id="impl-Packable-for-u16"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.u16.html" class="primitive">u16</a></code></h3>
+
+<h3 id="impl-Packable-for-u32"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.u32.html" class="primitive">u32</a></code></h3>
+
+<h3 id="impl-Packable-for-u64"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.u64.html" class="primitive">u64</a></code></h3>
+
+<h3 id="impl-Packable-for-u8"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
+
+</main>
+</span>
+</body>
+</html>

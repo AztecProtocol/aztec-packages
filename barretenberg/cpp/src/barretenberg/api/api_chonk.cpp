@@ -1,8 +1,10 @@
 #include "api_chonk.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/json_output.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
@@ -14,43 +16,34 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
-#include <sstream>
 #include <stdexcept>
 
 namespace bb {
 namespace { // anonymous namespace
 
 /**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
  * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
- *
- * @param bytecode_path
- * @param witness_path
- */
-void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
-{
-    auto response = bbapi::ChonkComputeStandaloneVk{
-        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
 
-    bool is_stdout = output_path == "-";
+ *
+ * @param bytecode ACIR bytecode of the circuit
+ * @param output_path Directory to write the VK (or "-" for stdout)
+ * @param flags API flags including output_format
+ */
+void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
+{
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
+
+    const bool is_stdout = output_path == "-";
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
+    } else if (flags.output_format == "json") {
+        std::string json_content = build_json_output(response.fields, "vk", flags);
+        write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+        info("VK (JSON) saved to ", output_path / "vk.json");
     } else {
         write_file(output_path / "vk", response.bytes);
-    }
-}
-void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
-{
-    // compute the hiding kernel's vk
-    info("Chonk: computing IVC vk for hiding kernel circuit");
-    auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
-    const bool output_to_stdout = output_dir == "-";
-    if (output_to_stdout) {
-        write_bytes_to_stdout(response.bytes);
-    } else {
-        write_file(output_dir / "vk", response.bytes);
     }
 }
 } // anonymous namespace
@@ -78,18 +71,21 @@ void ChonkAPI::prove(const Flags& flags,
 
     auto proof = bbapi::ChonkProve{}.execute(request).proof;
 
-    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
-    // std::string representations of vks that don't feel worth implementing
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
-        const auto buf = to_buffer(proof.to_field_elements());
+        const auto proof_fields = proof.to_field_elements();
         if (output_to_stdout) {
             vinfo("writing Chonk proof to stdout");
-            write_bytes_to_stdout(buf);
+            write_bytes_to_stdout(to_buffer(proof_fields));
+        } else if (flags.output_format == "json") {
+            vinfo("writing Chonk proof (JSON) in directory ", output_dir);
+            std::string json_content = build_json_output(proof_fields, "proof", flags);
+            write_file(output_dir / "proof.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
+            info("Proof (JSON) saved to ", output_dir / "proof.json");
         } else {
             vinfo("writing Chonk proof in directory ", output_dir);
-            write_file(output_dir / "proof", buf);
+            write_file(output_dir / "proof", to_buffer(proof_fields));
         }
     };
 
@@ -97,8 +93,8 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the hiding circuit (the last step of the execution)
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
+        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
+        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, flags);
     }
 }
 
@@ -109,9 +105,9 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 {
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
-    auto proof = Chonk::Proof::from_field_elements(proof_fields);
+    auto proof = ChonkProof::from_field_elements(proof_fields);
 
-    auto vk_buffer = read_file(vk_path);
+    auto vk_buffer = read_vk_file(vk_path);
 
     auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
@@ -127,7 +123,9 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    const bool verified = Chonk::verify(proof, ivc->get_vk());
+    auto vk_and_hash = ivc->get_hiding_kernel_vk_and_hash();
+    ChonkNativeVerifier verifier(vk_and_hash);
+    const bool verified = verifier.verify(proof);
     return verified;
 }
 
@@ -185,18 +183,7 @@ void ChonkAPI::write_vk(const Flags& flags,
                         const std::filesystem::path& output_path)
 {
     BB_BENCH_NAME("ChonkAPI::write_vk");
-    auto bytecode = get_bytecode(bytecode_path);
-    if (flags.verifier_type == "ivc") {
-        write_chonk_vk(bytecode, output_path);
-    } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(bytecode, output_path);
-    } else if (flags.verifier_type == "standalone_hiding") {
-        // write the VK for the hiding kernel which DOES NOT utilize a structured trace
-        write_standalone_vk(bytecode, output_path);
-    } else {
-        const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
-        throw_or_abort(msg);
-    }
+    write_chonk_vk(get_bytecode(bytecode_path), output_path, flags);
 }
 
 bool ChonkAPI::check([[maybe_unused]] const Flags& flags,

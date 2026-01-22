@@ -83,17 +83,20 @@ namespace keccak_memory;
 // Note that we need a separate column because `single_tag_error` defines `last` which
 // controls when the computation or propagation stops.
 
-pol commit sel;
+pol commit sel; // @boolean
 sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
 sel = 0;
 
-pol commit start_read;
+#[TRACE_CONTINUITY]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+pol commit start_read; // @boolean
 start_read * (1 - start_read) = 0;
 
-pol commit start_write;
+pol commit start_write; // @boolean
 start_write * (1 - start_write) = 0;
 
 pol commit clk;
@@ -101,8 +104,7 @@ pol commit ctr;
 pol commit addr;
 pol commit tag;
 pol commit space_id;
-pol commit tag_error;
-pol commit single_tag_error;
+pol commit tag_error; // @boolean (by definition)
 
 // Values for memory slice
 pol commit val[25];
@@ -110,11 +112,13 @@ pol commit val[25];
 // We enforce the initial ctr to be set to 1.
 #[CTR_INIT]
 (start_read + start_write) * (ctr - 1) = 0;
+// It follows that: `start_read == 1 ==> sel == 1` and `start_write == 1 ==> sel == 1`.
 
 #[RW_READ_INIT]
 start_read * rw = 0;
 #[RW_WRITE_INIT]
 start_write * (1 - rw) = 0;
+// It follows that `start_read` and `start_write` are mutually exclusive.
 
 // sel == 1 <==> ctr != 0
 pol commit ctr_inv;
@@ -122,7 +126,7 @@ pol commit ctr_inv;
 ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
 
 // ctr_end is toggled when all slice rows have been processed.
-pol commit ctr_end;
+pol commit ctr_end; // @boolean
 ctr_end * (1 - ctr_end) = 0;
 
 // We define ctr_end == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
@@ -131,20 +135,31 @@ pol commit state_size_min_ctr_inv;
 sel * ((constants.AVM_KECCAKF1600_STATE_SIZE - ctr) * (ctr_end * (1 - state_size_min_ctr_inv) + state_size_min_ctr_inv) + ctr_end - 1) = 0;
 
 // Last ctr of a multi-rows processing of a slice
-pol commit last;
+pol commit last; // @boolean (by definition)
 
 // last == ctr_end || single_tag_error
 // `last` is boolean by definition
 #[LAST]
 last = 1 - (1 - ctr_end) * (1 - single_tag_error);
 
+#[LAST_HAS_SEL_ON]
+last * (1 - sel) = 0;
+
+// Latch condition is boolean because `last` cannot be activated at first row due to #[LAST_HAS_SEL_ON].
+pol LATCH_CONDITION = last + precomputed.first_row;
+
+#[START_AFTER_LATCH]
+sel' * (start_read' + start_write' - LATCH_CONDITION) = 0;
+
 #[CTR_INCREMENT]
 // Note: sel factor is required for an empty row to satisfy this relation
-sel * (1 - last) * (ctr' - ctr - 1) = 0;
+sel * (1 - LATCH_CONDITION) * (ctr' - ctr - 1) = 0;
 
 // Copied from memory.pil through lookup and constrained to be boolean in memory.pil.
-pol commit rw;
+pol commit rw; // @boolean (constrained by memory.pil)
 
+pol commit single_tag_error; // @boolean
+#[SINGLE_TAG_ERROR_BOOLEAN]
 single_tag_error * (1 - single_tag_error) = 0;
 
 #[NO_TAG_ERROR_ON_WRITE]
@@ -154,21 +169,21 @@ rw * single_tag_error = 0;
 last * (tag_error - single_tag_error) = 0;
 
 #[TAG_ERROR_PROPAGATION]
-(1 - last) * (tag_error - tag_error') = 0;
+(1 - LATCH_CONDITION) * (tag_error - tag_error') = 0;
 
 // No need to enforce a boolean constraint for tag_error as it follows from the above constraints.
 
 #[MEM_ADDR_INCREMENT]
-sel * (1 - last) * (addr + 1 - addr') = 0;
+sel * (1 - LATCH_CONDITION) * (addr + 1 - addr') = 0;
 
 #[SPACEID_PROPAGATION]
-(1 - last) * (space_id - space_id') = 0;
+(1 - LATCH_CONDITION) * (space_id - space_id') = 0;
 
 #[CLK_PROPAGATION]
-(1 - last) * (clk' - clk) = 0;
+(1 - LATCH_CONDITION) * (clk' - clk) = 0;
 
 #[RW_PROPAGATION]
-(1 - last) * (rw' - rw) = 0;
+(1 - LATCH_CONDITION) * (rw' - rw) = 0;
 
 // Check if the tag is U64
 // We constrain single_tag_error == 1 <==> tag is not U64.
@@ -177,57 +192,54 @@ pol TAG_MIN_U64 = tag - constants.MEM_TAG_U64;
 #[SINGLE_TAG_ERROR]
 sel * (TAG_MIN_U64 * ((1 - single_tag_error) * (1 - tag_min_u64_inv) + tag_min_u64_inv) - single_tag_error) = 0;
 
-#[SINGLE_TAG_ERROR_BOOLEAN]
-single_tag_error * (1 - single_tag_error) = 0;
-
 #[VAL01]
-val[1] = (1 - last) * val[0]';
+val[1] = (1 - LATCH_CONDITION) * val[0]';
 #[VAL02]
-val[2] = (1 - last) * val[1]';
+val[2] = (1 - LATCH_CONDITION) * val[1]';
 #[VAL03]
-val[3] = (1 - last) * val[2]';
+val[3] = (1 - LATCH_CONDITION) * val[2]';
 #[VAL04]
-val[4] = (1 - last) * val[3]';
+val[4] = (1 - LATCH_CONDITION) * val[3]';
 #[VAL05]
-val[5] = (1 - last) * val[4]';
+val[5] = (1 - LATCH_CONDITION) * val[4]';
 #[VAL06]
-val[6] = (1 - last) * val[5]';
+val[6] = (1 - LATCH_CONDITION) * val[5]';
 #[VAL07]
-val[7] = (1 - last) * val[6]';
+val[7] = (1 - LATCH_CONDITION) * val[6]';
 #[VAL8]
-val[8] = (1 - last) * val[7]';
+val[8] = (1 - LATCH_CONDITION) * val[7]';
 #[VAL09]
-val[9] = (1 - last) * val[8]';
+val[9] = (1 - LATCH_CONDITION) * val[8]';
 #[VAL10]
-val[10] = (1 - last) * val[9]';
+val[10] = (1 - LATCH_CONDITION) * val[9]';
 #[VAL11]
-val[11] = (1 - last) * val[10]';
+val[11] = (1 - LATCH_CONDITION) * val[10]';
 #[VAL12]
-val[12] = (1 - last) * val[11]';
+val[12] = (1 - LATCH_CONDITION) * val[11]';
 #[VAL13]
-val[13] = (1 - last) * val[12]';
+val[13] = (1 - LATCH_CONDITION) * val[12]';
 #[VAL14]
-val[14] = (1 - last) * val[13]';
+val[14] = (1 - LATCH_CONDITION) * val[13]';
 #[VAL15]
-val[15] = (1 - last) * val[14]';
-#[VAL41]
-val[16] = (1 - last) * val[15]';
+val[15] = (1 - LATCH_CONDITION) * val[14]';
+#[VAL16]
+val[16] = (1 - LATCH_CONDITION) * val[15]';
 #[VAL17]
-val[17] = (1 - last) * val[16]';
+val[17] = (1 - LATCH_CONDITION) * val[16]';
 #[VAL18]
-val[18] = (1 - last) * val[17]';
+val[18] = (1 - LATCH_CONDITION) * val[17]';
 #[VAL19]
-val[19] = (1 - last) * val[18]';
+val[19] = (1 - LATCH_CONDITION) * val[18]';
 #[VAL20]
-val[20] = (1 - last) * val[19]';
+val[20] = (1 - LATCH_CONDITION) * val[19]';
 #[VAL21]
-val[21] = (1 - last) * val[20]';
+val[21] = (1 - LATCH_CONDITION) * val[20]';
 #[VAL22]
-val[22] = (1 - last) * val[21]';
+val[22] = (1 - LATCH_CONDITION) * val[21]';
 #[VAL23]
-val[23] = (1 - last) * val[22]';
+val[23] = (1 - LATCH_CONDITION) * val[22]';
 #[VAL24]
-val[24] = (1 - last) * val[23]';
+val[24] = (1 - LATCH_CONDITION) * val[23]';
 
 #[SLICE_TO_MEM]
 sel { clk, space_id, addr, val[0], tag, rw }
@@ -236,3 +248,22 @@ is memory.sel_keccak { memory.clk, memory.space_id, memory.address, memory.value
 // Used to constrain the number of rounds in keccakf1600.pil through the slice_write lookup.
 pol commit num_rounds;
 sel * (num_rounds - constants.AVM_KECCAKF1600_NUM_ROUNDS) = 0; // TODO: Remove once we support constants in lookups
+
+/* Prevention of illegal memory operations:
+ *
+ * If `sel == 1` (required to trigger a memory operation) we have `ctr != 0` by #[SEL_CTR_NON_ZERO].
+ * We consider two cases for the previous row above:
+ * 1) LATCH_CONDITION == 1: By #[START_AFTER_LATCH] we have `start_read == 1` or `start_write` == 1 and implies that
+ *                          `ctr == 1` which is legitimate.
+ * 2) LATCH_CONDITION == 0: By #[CTR_INCREMENT] and #[TRACE_CONTINUITY], we have ctr - 1 on the previous row.
+ *                          We can continue this propagation bottom-up until we reach a row whose previous row
+ *                          has `LATCH_CONDITION == 1`. We know that this exists because at the latest it
+ *                          happens at the very first row of the trace (precomputed.first_row == 1). When this happens,
+ *                          by #[START_AFTER_LATCH] we have `start_read == 1` or `start_write` == 1 and we must have
+ *                          `ctr == 1`. This shows that this is a legitimate memory operation.
+ *                          Note that if we were to start with a counter larger than AVM_KECCAKF1600_STATE_SIZE, then
+ *                          in a bottom-up propagation, we would reach a row with `ctr == AVM_KECCAKF1600_STATE_SIZE`
+ *                          and `last` and `LATCH_CONDITION` equal to 1. However, this would contradict that on the
+ *                          below row `ctr == AVM_KECCAKF1600_STATE_SIZE + 1` and `start_read == 1` or `start_write == 1`.
+ *                          Namely, #[CTR_INIT] enforces `ctr == 1`.
+ */

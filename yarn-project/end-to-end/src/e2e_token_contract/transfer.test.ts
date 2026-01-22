@@ -1,4 +1,5 @@
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { TokenContractTest } from './token_contract_test.js';
@@ -8,8 +9,8 @@ describe('e2e_token_contract transfer private', () => {
   let { asset, adminAddress, wallet, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyMintSnapshot();
+    t.applyBaseSnapshots();
+    t.applyMintSnapshot();
     await t.setup();
     ({ asset, adminAddress, wallet, account1Address, tokenSim } = t);
   });
@@ -30,18 +31,24 @@ describe('e2e_token_contract transfer private', () => {
     const tx = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress }).wait();
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
-    const events = await wallet.getPrivateEvents<Transfer>(
-      asset.address,
-      TokenContract.events.Transfer,
-      tx.blockNumber!,
-      1,
-      [account1Address],
-    );
+    const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
+      contractAddress: asset.address,
+      fromBlock: tx.blockNumber!,
+      toBlock: BlockNumber(tx.blockNumber! + 1),
+      scopes: [account1Address],
+    });
 
     expect(events[0]).toEqual({
-      from: adminAddress,
-      to: account1Address,
-      amount: amount,
+      event: {
+        from: adminAddress,
+        to: account1Address,
+        amount: amount,
+      },
+      metadata: {
+        l2BlockNumber: tx.blockNumber,
+        l2BlockHash: tx.blockHash,
+        txHash: tx.txHash,
+      },
     });
   });
 

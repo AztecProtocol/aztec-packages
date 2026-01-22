@@ -6,7 +6,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -56,6 +56,7 @@ function mockTxPool(): TxPool {
     hasTx: () => Promise.resolve(false),
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
+    clearNonEvictableTxs: () => Promise.resolve(),
     cleanupDeletedMinedTxs: () => Promise.resolve(0),
   };
   return Object.assign(new EventEmitter(), pool);
@@ -64,35 +65,37 @@ function mockTxPool(): TxPool {
 function mockAttestationPool(): AttestationPool {
   return {
     isEmpty: () => Promise.resolve(false),
-    addAttestations: () => Promise.resolve(),
-    deleteAttestations: () => Promise.resolve(),
-    deleteAttestationsOlderThan: () => Promise.resolve(),
-    deleteAttestationsForSlot: () => Promise.resolve(),
-    deleteAttestationsForSlotAndProposal: () => Promise.resolve(),
-    getAttestationsForSlot: () => Promise.resolve([]),
-    getAttestationsForSlotAndProposal: () => Promise.resolve([]),
     addBlockProposal: () => Promise.resolve(),
     getBlockProposal: () => Promise.resolve(undefined),
     hasBlockProposal: () => Promise.resolve(false),
-    hasAttestation: () => Promise.resolve(false),
     canAddProposal: () => Promise.resolve(true),
-    canAddAttestation: () => Promise.resolve(true),
+    // Checkpoint attestation methods
+    addCheckpointProposal: () => Promise.resolve(),
+    getCheckpointProposal: () => Promise.resolve(undefined),
+    hasCheckpointProposal: () => Promise.resolve(false),
+    addCheckpointAttestations: () => Promise.resolve(),
+    getCheckpointAttestationsForSlot: () => Promise.resolve([]),
+    getCheckpointAttestationsForSlotAndProposal: () => Promise.resolve([]),
+    deleteCheckpointAttestationsOlderThan: () => Promise.resolve(),
+    hasReachedCheckpointProposalCap: () => Promise.resolve(false),
+    hasReachedCheckpointAttestationCap: () => Promise.resolve(false),
+    canAddCheckpointProposal: () => Promise.resolve(true),
+    canAddCheckpointAttestation: () => Promise.resolve(true),
+    hasCheckpointAttestation: () => Promise.resolve(false),
   };
 }
 
 function mockEpochCache(): EpochCacheInterface {
   return {
-    getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO }),
+    getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n }),
     computeProposerIndex: () => 0n,
-    getProposerAttesterAddressInCurrentOrNextSlot: () =>
-      Promise.resolve({
-        currentProposer: EthAddress.ZERO,
-        nextProposer: EthAddress.ZERO,
-        currentSlot: SlotNumber.ZERO,
-        nextSlot: SlotNumber.ZERO,
-      }),
+    getCurrentAndNextSlot: () => ({
+      currentSlot: SlotNumber.ZERO,
+      nextSlot: SlotNumber.ZERO,
+    }),
+    getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
     getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
@@ -126,7 +129,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     peerDiscoveryService: PeerDiscoveryService,
     reqresp: ReqResp,
     peerManager: PeerManager,
-    mempools: MemPools<T>,
+    mempools: MemPools,
     archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,
@@ -188,9 +191,25 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
-  const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
+  // Note: peerIdPrivateKey comes as a raw string (not SecretValue) because
+  // SecretValue's private fields can't be serialized via IPC
+  const {
+    type,
+    config: rawConfig,
+    clientIndex,
+  } = msg as {
+    type: string;
+    config: Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey?: string };
+    clientIndex: number;
+  };
   try {
     if (type === 'START') {
+      // Re-wrap the peerIdPrivateKey with SecretValue
+      const config: P2PConfig = {
+        ...rawConfig,
+        peerIdPrivateKey: rawConfig.peerIdPrivateKey ? new SecretValue(rawConfig.peerIdPrivateKey) : undefined,
+      } as P2PConfig;
+
       const txPool = mockTxPool();
       const attestationPool = mockAttestationPool();
       const epochCache = mockEpochCache();
@@ -223,14 +242,15 @@ process.on('message', async msg => {
       );
 
       // Create test service with validation disabled
+      // Note: Parameter order must match LibP2PService constructor
       const testService = new TestLibP2PService(
         P2PClientType.Full,
         config,
         (client as any).p2pService.node,
         (client as any).p2pService.peerDiscoveryService,
-        (client as any).p2pService.mempools,
         (client as any).p2pService.reqresp,
         (client as any).p2pService.peerManager,
+        (client as any).p2pService.mempools,
         (client as any).p2pService.archiver,
         epochCache,
         proofVerifier,

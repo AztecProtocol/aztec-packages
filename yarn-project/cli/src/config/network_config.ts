@@ -111,7 +111,7 @@ async function fetchNetworkConfigFromUrl(
 /**
  * Enriches environment variables with remote network configuration.
  * This function is called before node config initialization to set env vars
- * from the remote config, following the same pattern as enrichEnvironmentWithChainConfig().
+ * from the remote config.
  *
  * @param networkName - The network name to fetch remote config for
  * @throws Error if network config fetch fails (network errors, parse errors, etc.)
@@ -136,5 +136,12 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', networkConfig.registryAddress.toString());
   if (networkConfig.feeAssetHandlerAddress) {
     enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', networkConfig.feeAssetHandlerAddress.toString());
+  }
+
+  if (networkConfig.blobFileStoreUrls?.length) {
+    enrichVar('BLOB_FILE_STORE_URLS', networkConfig.blobFileStoreUrls.join(','));
+  }
+  if (networkConfig.blockDurationMs !== undefined) {
+    enrichVar('SEQ_BLOCK_DURATION_MS', String(networkConfig.blockDurationMs));
   }
 }

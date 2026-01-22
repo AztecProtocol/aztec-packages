@@ -106,7 +106,7 @@ struct ChonkProve {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
-        Chonk::Proof proof;
+        ChonkProof proof;
         MSGPACK_FIELDS(proof);
         bool operator==(const Response&) const = default;
     };
@@ -136,7 +136,7 @@ struct ChonkVerify {
     };
 
     /** @brief The Chonk proof to verify */
-    Chonk::Proof proof;
+    ChonkProof proof;
     /** @brief The verification key */
     std::vector<uint8_t> vk;
     Response execute(const BBApiRequest& request = {}) &&;
@@ -145,20 +145,24 @@ struct ChonkVerify {
 };
 
 /**
- * @struct ChonkComputeStandaloneVk
- * @brief Compute standalone verification key for a circuit
+ * @struct ChonkComputeVk
+ * @brief Compute MegaHonk verification key for a circuit to be accumulated in Chonk
+ *
+ * @details This unified command replaces the former ChonkComputeStandaloneVk and ChonkComputeIvcVk.
+ * Both standalone circuits (to be accumulated) and the IVC hiding kernel use the same MegaVerificationKey,
+ * so a single implementation suffices for all Chonk VK computation needs.
  */
-struct ChonkComputeStandaloneVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeStandaloneVk";
+struct ChonkComputeVk {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeVk";
 
     /**
      * @struct Response
      * @brief Contains the computed verification key in multiple formats
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeStandaloneVkResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeVkResponse";
 
-        /** @brief Serialized verification key in binary format */
+        /** @brief Serialized MegaVerificationKey in binary format */
         std::vector<uint8_t> bytes;
         /** @brief Verification key as array of field elements */
         std::vector<bb::fr> fields;
@@ -169,33 +173,7 @@ struct ChonkComputeStandaloneVk {
     CircuitInputNoVK circuit;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
     MSGPACK_FIELDS(circuit);
-    bool operator==(const ChonkComputeStandaloneVk&) const = default;
-};
-
-/**
- * @struct ChonkComputeIvcVk
- * @brief Compute IVC verification key for the complete proof
- */
-struct ChonkComputeIvcVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeIvcVk";
-
-    /**
-     * @struct Response
-     * @brief Contains the computed IVC verification key
-     */
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeIvcVkResponse";
-
-        /** @brief Serialized IVC verification key in binary format */
-        std::vector<uint8_t> bytes;
-        MSGPACK_FIELDS(bytes);
-        bool operator==(const Response&) const = default;
-    };
-
-    CircuitInputNoVK circuit;
-    Response execute(const BBApiRequest& request = {}) &&;
-    MSGPACK_FIELDS(circuit);
-    bool operator==(const ChonkComputeIvcVk&) const = default;
+    bool operator==(const ChonkComputeVk&) const = default;
 };
 
 /**

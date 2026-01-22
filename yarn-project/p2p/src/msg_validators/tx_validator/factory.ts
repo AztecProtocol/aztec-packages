@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -33,7 +34,7 @@ export interface MessageValidator {
 
 export function createTxMessageValidators(
   timestamp: UInt64,
-  blockNumber: number,
+  blockNumber: BlockNumber,
   worldStateSynchronizer: WorldStateSynchronizer,
   gasFees: GasFees,
   l1ChainId: number,

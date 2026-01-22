@@ -7,6 +7,12 @@
   },
   "references": [
     {
+      "path": "../blob-client"
+    },
+    {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../constants"
     },
     {
@@ -22,7 +28,19 @@
       "path": "../node-keystore"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../slasher"
@@ -32,6 +50,9 @@
     },
     {
       "path": "../telemetry-client"
+    },
+    {
+      "path": "../validator-ha-signer"
     }
   ],
   "include": ["src"]

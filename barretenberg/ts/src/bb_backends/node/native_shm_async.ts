@@ -3,21 +3,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
 import { IMsgpackBackendAsync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
-
-// Import the NAPI module
-// The addon is built to the nodejs_module directory
-const addonPath = findNapiBinary();
-// Try loading, but don't throw if it doesn't exist (will be caught in constructor)
-let addon: any = null;
-try {
-  if (addonPath) {
-    const require = createRequire(findPackageRoot()!);
-    addon = require(addonPath);
-  }
-} catch (err) {
-  // Addon not built yet or not available
-  addon = null;
-}
+import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
 
@@ -86,18 +72,28 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
    */
   static async new(
     bbBinaryPath: string,
+    napiPath: string,
     threads?: number,
     logger?: (msg: string) => void,
   ): Promise<BarretenbergNativeShmAsyncBackend> {
-    if (!addon || !addon.MsgpackClientAsync) {
+    // Import the NAPI module
+    // The addon is built to the nodejs_module directory
+    const addonPath = findNapiBinary(napiPath);
+    // Try loading
+    let addon: any = null;
+    try {
+      const require = createRequire(findPackageRoot()!);
+      addon = require(addonPath!);
+    } catch (err) {
+      // Addon not built yet or not available
       throw new Error('Shared memory async NAPI not available.');
     }
 
     // Create a unique shared memory name
-    const shmName = `bb-async-${process.pid}-${instanceCounter++}`;
+    const shmName = `bb-async-${process.pid}-${threadId}-${instanceCounter++}`;
 
-    // If threads not set use num cpu cores, max 32 (same as socket backend)
-    const hwc = threads ? threads.toString() : '1';
+    // If threads not set use num cpu cores, max 16 (same as socket backend)
+    const hwc = threads ? threads.toString() : '16';
     const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Set up file logging if logger is provided

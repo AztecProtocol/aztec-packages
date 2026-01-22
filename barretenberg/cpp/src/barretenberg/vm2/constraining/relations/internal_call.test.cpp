@@ -37,8 +37,8 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                    // Internal Call Stack Cols
                                    { C::internal_call_stack_sel, 1 },
                                    { C::internal_call_stack_entered_call_id, 2 },
-                                   { C::internal_call_stack_id, 1 },
-                                   { C::internal_call_stack_return_id, 0 },
+                                   { C::internal_call_stack_call_id, 1 },
+                                   { C::internal_call_stack_return_call_id, 0 },
                                    { C::internal_call_stack_return_pc, 10 },
                                },
                                // First Row of execution (Internal Call)
@@ -70,6 +70,7 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 100000 },
                                    { C::execution_sel_execute_internal_return, 1 },
+                                   { C::execution_sel_read_unwind_call_stack, 1 },
                                    // Internal Call Cols
                                    { C::execution_next_internal_call_id, 3 },
                                    { C::execution_internal_call_id, 2 },
@@ -100,13 +101,12 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                // Last Row
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<internal_call>(trace);
 
     check_interaction<ExecutionTraceBuilder,
-                      lookup_internal_call_push_call_stack_settings,
+                      perm_internal_call_push_call_stack_settings,
                       lookup_internal_call_unwind_call_stack_settings>(trace);
 }
 
@@ -132,6 +132,7 @@ TEST(InternalCallStackConstrainingTest, ReturnError)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 10 },
                                    { C::execution_sel_execute_internal_return, 1 },
+                                   { C::execution_sel_read_unwind_call_stack, 0 },
                                    // Internal Call Cols
                                    { C::execution_next_internal_call_id, 2 },
                                    { C::execution_internal_call_id, 1 },
@@ -143,10 +144,13 @@ TEST(InternalCallStackConstrainingTest, ReturnError)
                                // Last Row
                                {
                                    { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
                                } });
 
     check_relation<internal_call>(trace);
+
+    check_interaction<ExecutionTraceBuilder,
+                      perm_internal_call_push_call_stack_settings,
+                      lookup_internal_call_unwind_call_stack_settings>(trace);
 }
 
 } // namespace

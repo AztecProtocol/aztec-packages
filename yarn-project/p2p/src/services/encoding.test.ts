@@ -1,4 +1,4 @@
-import { TopicType } from '@aztec/stdlib/p2p';
+import { MAX_TX_SIZE_KB, TopicType } from '@aztec/stdlib/p2p';
 
 import { compressSync, uncompressSync } from 'snappy';
 
@@ -225,8 +225,8 @@ describe('SnappyTransform', () => {
         transform = new SnappyTransform();
       });
 
-      it('should accept tx payload within 512kb limit', () => {
-        const size = 400 * 1024; // 400kb
+      it('should accept tx payload within size limit', () => {
+        const size = MAX_TX_SIZE_KB * 1024 - 1;
         const data = Buffer.alloc(size, 'a');
         const compressed = compressSync(data);
 
@@ -234,31 +234,40 @@ describe('SnappyTransform', () => {
         expect(result.length).toBe(size);
       });
 
-      it('should reject tx payload exceeding 512kb limit', () => {
-        const size = 600 * 1024; // 600kb (exceeds 512kb limit)
+      it('should accept tx payload exactly at size limit', () => {
+        const size = MAX_TX_SIZE_KB * 1024;
+        const data = Buffer.alloc(size, 'a');
+        const compressed = compressSync(data);
+
+        const result = transform.inboundTransformData(compressed, TopicType.tx);
+        expect(result.length).toBe(size);
+      });
+
+      it('should reject tx payload exceeding size limit', () => {
+        const size = MAX_TX_SIZE_KB * 1024 + 1;
         const data = Buffer.alloc(size, 'a');
         const compressed = compressSync(data);
 
         expect(() => transform.inboundTransformData(compressed, TopicType.tx)).toThrow(
-          'Decompressed size 614400 exceeds maximum allowed size of 512kb',
+          `Decompressed size ${size} exceeds maximum allowed size of ${MAX_TX_SIZE_KB}kb`,
         );
       });
 
-      it('should accept block_attestation payload within 5kb limit', () => {
+      it('should accept checkpoint_attestation payload within 5kb limit', () => {
         const size = 4 * 1024; // 4kb
         const data = Buffer.alloc(size, 'b');
         const compressed = compressSync(data);
 
-        const result = transform.inboundTransformData(compressed, TopicType.block_attestation);
+        const result = transform.inboundTransformData(compressed, TopicType.checkpoint_attestation);
         expect(result.length).toBe(size);
       });
 
-      it('should reject block_attestation payload exceeding 5kb limit', () => {
+      it('should reject checkpoint_attestation payload exceeding 5kb limit', () => {
         const size = 6 * 1024; // 6kb (exceeds 5kb limit)
         const data = Buffer.alloc(size, 'b');
         const compressed = compressSync(data);
 
-        expect(() => transform.inboundTransformData(compressed, TopicType.block_attestation)).toThrow(
+        expect(() => transform.inboundTransformData(compressed, TopicType.checkpoint_attestation)).toThrow(
           'Decompressed size 6144 exceeds maximum allowed size of 5kb',
         );
       });
@@ -306,8 +315,9 @@ describe('SnappyTransform', () => {
       it('should respect custom max sizes for each topic', () => {
         const customMaxSizes = {
           [TopicType.tx]: 100, // 100kb
-          [TopicType.block_attestation]: 10, // 10kb
+          [TopicType.checkpoint_attestation]: 10, // 10kb
           [TopicType.block_proposal]: 500, // 500kb
+          [TopicType.checkpoint_proposal]: 500, // 500kb
         };
         const transform = new SnappyTransform(customMaxSizes);
 
@@ -327,8 +337,9 @@ describe('SnappyTransform', () => {
       it('should respect custom default max size', () => {
         const customMaxSizes = {
           [TopicType.tx]: 100,
-          [TopicType.block_attestation]: 10,
+          [TopicType.checkpoint_attestation]: 10,
           [TopicType.block_proposal]: 500,
+          [TopicType.checkpoint_proposal]: 500,
         };
         const customDefaultMaxSize = 200; // 200kb
         const transform = new SnappyTransform(customMaxSizes, customDefaultMaxSize);
@@ -452,11 +463,11 @@ describe('SnappyTransform', () => {
     });
 
     it('should reject payload when topic string indicates size limit exceeded', () => {
-      const size = 6 * 1024; // 6kb (exceeds block_attestation limit of 5kb)
+      const size = 6 * 1024; // 6kb (exceeds checkpoint_attestation limit of 5kb)
       const data = Buffer.alloc(size, 'a');
       const compressed = compressSync(data);
 
-      expect(() => transform.inboundTransform('/aztec/block_attestation/0.1.0', compressed)).toThrow(
+      expect(() => transform.inboundTransform('/aztec/checkpoint_attestation/0.1.0', compressed)).toThrow(
         'exceeds maximum allowed size of 5kb',
       );
     });

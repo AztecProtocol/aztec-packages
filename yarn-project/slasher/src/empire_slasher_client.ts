@@ -1,4 +1,4 @@
-import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum/contracts';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';

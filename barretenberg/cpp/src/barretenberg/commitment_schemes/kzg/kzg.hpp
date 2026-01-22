@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Khashayar], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
-#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -121,13 +120,16 @@ template <typename Curve_> class KZG {
      *
      * @param batch_opening_claim \f$(\text{commitments}, \text{scalars}, \text{shplonk_evaluation_challenge})\f$
      *        A struct containing the commitments, scalars, and the Shplonk evaluation challenge.
+     * @param expected_final_msm_size Optional expected size of the final MSM (after adding quotient commitment).
+     *        If non-zero, asserts that the finalized claim has this exact size. Use Flavor::FINAL_PCS_MSM_SIZE.
      * @return PairingPoints \f$ \{P_0, P_1\}\f$ where:
      *         - \f$ P_0 = C + [W(x)]_1 \cdot z \f$
      *         - \f$ P_1 = - [W(x)]_1 \f$
      */
     template <typename Transcript>
-    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
-                                                               const std::shared_ptr<Transcript>& transcript)
+    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve>&& batch_opening_claim,
+                                                               const std::shared_ptr<Transcript>& transcript,
+                                                               const size_t expected_final_msm_size = 0)
     {
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
@@ -141,16 +143,18 @@ template <typename Curve_> class KZG {
         batch_opening_claim.commitments.emplace_back(quotient_commitment);
         // Update the scalars by adding the Shplonk evaluation challenge z
         batch_opening_claim.scalars.emplace_back(batch_opening_claim.evaluation_point);
-        // Compute C + [W]₁ ⋅ z
-        if constexpr (Curve::is_stdlib_type) {
-            P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
-                                          batch_opening_claim.scalars,
-                                          /*max_num_bits=*/0,
-                                          /*with_edgecases=*/true,
-                                          /*masking_scalar=*/masking_challenge);
-        } else {
-            P_0 = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
+
+        // Validate the final MSM size if expected size is provided
+        if (expected_final_msm_size != 0) {
+            BB_ASSERT_EQ(batch_opening_claim.commitments.size(), expected_final_msm_size);
         }
+
+        // Compute C + [W]₁ ⋅ z
+        P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
+                                      batch_opening_claim.scalars,
+                                      /*max_num_bits=*/0,
+                                      /*with_edgecases=*/true,
+                                      /*masking_scalar=*/masking_challenge);
         auto P_1 = -quotient_commitment;
 
         return PairingPointsType(P_0, P_1);

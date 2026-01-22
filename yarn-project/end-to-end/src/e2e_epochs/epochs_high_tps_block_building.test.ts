@@ -2,8 +2,9 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { Operator } from '@aztec/ethereum';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -20,8 +21,8 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 
-// We send 10 txs total, each taking 1s to process (see sequencerFakeDelayPerTxMs), with a total
-// L2 slot time of 16s, with maxL1TxInclusionTimeIntoSlot set to 0 and attestationPropagationTime of 0.5.
+// We send 8 txs total, each taking 1s to process (see sequencerFakeDelayPerTxMs), with a total
+// L2 slot time of 16s, with l1PublishingTime set to the full L1 slot duration and attestationPropagationTime of 0.5.
 // This leaves us with roughly 2s for executing txs. This test will check that proposers honor the timetable
 // and do not try to include more than 2 txs per block. Should we ever implement preemptive block building,
 // sequencers will end up with more time, so we'll need to bump the EXPECTED_MAX_TXS_PER_BLOCK value.
@@ -60,12 +61,12 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       startProverNode: false,
       enforceTimeTable: true,
       ethereumSlotDuration: 8,
+      l1PublishingTime: 8,
       aztecSlotDuration: 16,
       fakeProcessingDelayPerTxMs: 850,
       attestationPropagationTime: 0.5,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
-      maxL1TxInclusionTimeIntoSlot: 0,
     });
 
     ({ context, logger } = test);
@@ -116,7 +117,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     logger.warn(`All txs have been mined`);
 
     // Check all blocks mined by the sequencers have under the expected max number of transactions.
-    const blocks = await nodes[0].getPublishedBlocks(1, 50);
+    const blocks = await nodes[0].getCheckpointedBlocks(BlockNumber(1), 50);
     for (const block of blocks) {
       logger.warn(
         `Block ${block.block.number} was mined at L1 ${block.l1.blockNumber} with ${block.block.body.txEffects.length} transactions`,

@@ -1,5 +1,5 @@
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
@@ -28,14 +28,12 @@ import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
-  collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
-import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import { computeSideEffectUniquenessHints } from './hints/compute_side_effect_uniqueness_hints.js';
+import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -102,7 +100,6 @@ export class PrivateKernelExecutionProver {
 
     const executionSteps: PrivateExecutionStep[] = [];
 
-    const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
     const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
     const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
@@ -117,7 +114,7 @@ export class PrivateKernelExecutionProver {
         );
         while (resetBuilder.needsReset()) {
           const witgenTimer = new Timer();
-          const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+          const privateInputs = await resetBuilder.build(this.oracle);
           output = generateWitnesses
             ? await this.proofCreator.generateResetOutput(privateInputs)
             : await this.proofCreator.simulateReset(privateInputs);
@@ -225,7 +222,7 @@ export class PrivateKernelExecutionProver {
     );
     while (resetBuilder.needsReset()) {
       const witgenTimer = new Timer();
-      const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
+      const privateInputs = await resetBuilder.build(this.oracle);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);
@@ -291,8 +288,8 @@ export class PrivateKernelExecutionProver {
       },
     });
 
-    // Hiding circuit is only executed if we are generating witnesses.
-    // For simulation, we can end with the tail, since the hiding circuit will simply return the same tail output.
+    // Hiding kernel is only executed if we are generating witnesses.
+    // For simulation, we can end with the tail, since the Hiding kernel will simply return the same tail output.
     if (generateWitnesses) {
       const previousKernelVkData = await this.getVkData(tailOutput.verificationKey);
 
@@ -417,8 +414,6 @@ export class PrivateKernelExecutionProver {
 
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
 
-    const sideEffectUniquenessHints = computeSideEffectUniquenessHints(publicInputs);
-
     return PrivateCallData.from({
       publicInputs,
       vk,
@@ -430,7 +425,6 @@ export class PrivateKernelExecutionProver {
         functionLeafMembershipWitness,
         updatedClassIdHints,
       }),
-      sideEffectUniquenessHints,
     });
   }
 }

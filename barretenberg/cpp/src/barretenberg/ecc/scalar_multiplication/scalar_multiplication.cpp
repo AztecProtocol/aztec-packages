@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
@@ -55,49 +55,45 @@ template <typename Curve>
 void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                  std::vector<uint32_t>& consolidated_indices) noexcept
 {
-    const size_t num_cpus = get_num_cpus();
+    std::vector<std::vector<uint32_t>> thread_indices(get_num_cpus());
 
-    const size_t scalars_per_thread = numeric::ceil_div(scalars.size(), num_cpus);
-    std::vector<std::vector<uint32_t>> thread_indices(num_cpus);
-    parallel_for(num_cpus, [&](size_t thread_idx) {
-        bool empty_thread = (thread_idx * scalars_per_thread >= scalars.size());
-        bool last_thread = ((thread_idx + 1) * scalars_per_thread) >= scalars.size();
-        const size_t start = thread_idx * scalars_per_thread;
-        const size_t end = last_thread ? scalars.size() : (thread_idx + 1) * scalars_per_thread;
-        if (!empty_thread) {
-            BB_ASSERT_DEBUG(end > start);
-            std::vector<uint32_t>& thread_scalar_indices = thread_indices[thread_idx];
-            thread_scalar_indices.reserve(end - start);
-            for (size_t i = start; i < end; ++i) {
-                BB_ASSERT_DEBUG(i < scalars.size());
-                auto& scalar = scalars[i];
-                scalar.self_from_montgomery_form();
+    parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
+        auto range = chunk.range(scalars.size());
+        if (range.empty()) {
+            return;
+        }
+        std::vector<uint32_t>& thread_scalar_indices = thread_indices[chunk.thread_index];
+        thread_scalar_indices.reserve(range.size());
+        for (size_t i : range) {
+            BB_ASSERT_DEBUG(i < scalars.size());
+            auto& scalar = scalars[i];
+            scalar.self_from_montgomery_form();
 
-                bool is_zero =
-                    (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
-                if (!is_zero) {
-                    thread_scalar_indices.push_back(static_cast<uint32_t>(i));
-                }
+            bool is_zero =
+                (scalar.data[0] == 0) && (scalar.data[1] == 0) && (scalar.data[2] == 0) && (scalar.data[3] == 0);
+            if (!is_zero) {
+                thread_scalar_indices.push_back(static_cast<uint32_t>(i));
             }
         }
     });
 
     size_t num_entries = 0;
-    for (size_t i = 0; i < num_cpus; ++i) {
-        BB_ASSERT_LT(i, thread_indices.size());
-        num_entries += thread_indices[i].size();
+    for (const auto& indices : thread_indices) {
+        num_entries += indices.size();
     }
     consolidated_indices.resize(num_entries);
 
-    parallel_for(num_cpus, [&](size_t thread_idx) {
+    parallel_for([&](const ThreadChunk& chunk) {
+        // parallel_for with ThreadChunk uses get_num_cpus() threads
+        BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         size_t offset = 0;
-        for (size_t i = 0; i < thread_idx; ++i) {
-            BB_ASSERT_LT(i, thread_indices.size());
+        for (size_t i = 0; i < chunk.thread_index; ++i) {
             offset += thread_indices[i].size();
         }
-        for (size_t i = offset; i < offset + thread_indices[thread_idx].size(); ++i) {
-            BB_ASSERT_LT(i, scalars.size());
-            consolidated_indices[i] = thread_indices[thread_idx][i - offset];
+        for (size_t i = offset; i < offset + thread_indices[chunk.thread_index].size(); ++i) {
+            consolidated_indices[i] = thread_indices[chunk.thread_index][i - offset];
         }
     });
 }
@@ -753,7 +749,8 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  *          This is because this method will be able to dispatch equal work to all threads without splitting the input
  *          msms up so much.
  *          The Pippenger algorithm runtime is O(N/log(N)) so there will be slight gains as each inner-thread MSM will
- *          have a larger N
+ *          have a larger N.
+ *          The input scalars are not const because the algorithm converts them out of Montgomery form and then back.
  *
  * @tparam Curve
  * @param points

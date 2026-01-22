@@ -17,13 +17,16 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
     // Polynomials that will be shifted need special care.
     AVM_TRACK_TIME("proving/init_polys_to_be_shifted", ({
                        auto to_be_shifted = polys.get_to_be_shifted();
-                       assert(to_be_shifted.size() == TO_BE_SHIFTED_COLUMNS_ARRAY.size());
+                       BB_ASSERT_EQ(to_be_shifted.size(),
+                                    TO_BE_SHIFTED_COLUMNS_ARRAY.size(),
+                                    "To be shifted columns array size mismatch");
 
                        // NOTE: we can't parallelize because Polynomial construction uses parallelism.
-                       for (size_t i = 0; i < to_be_shifted.size(); i++) {
+                       const size_t num_to_be_shifted = to_be_shifted.size();
+                       for (size_t i = 0; i < num_to_be_shifted; i++) {
                            auto& poly = to_be_shifted[i];
                            // WARNING! Column-Polynomials order matters!
-                           Column col = static_cast<Column>(TO_BE_SHIFTED_COLUMNS_ARRAY.at(i));
+                           Column col = static_cast<Column>(TO_BE_SHIFTED_COLUMNS_ARRAY[i]);
                            uint32_t num_rows = trace.get_column_rows(col);
                            // Since we are shifting, we need to allocate one less row.
                            // The first row is always zero.
@@ -98,7 +101,21 @@ void resize_inverses(AvmFlavor::ProverPolynomials& prover_polynomials,
 
     const size_t num_rows = std::max<size_t>(src_selector.end_index(), dst_selector.end_index());
     inverse_polynomial = AvmProver::Polynomial::create_non_parallel_zero_init(num_rows, MAX_AVM_TRACE_SIZE);
-    assert(prover_polynomials.get(static_cast<ColumnAndShifts>(inverses_col)).size() == num_rows);
+    BB_ASSERT_EQ(prover_polynomials.get(static_cast<ColumnAndShifts>(inverses_col)).size(),
+                 num_rows,
+                 "Inverse polynomial size mismatch");
+}
+
+std::shared_ptr<AvmProver::ProvingKey> proving_key_from_polynomials(AvmProver::ProverPolynomials& polynomials)
+{
+    auto proving_key = std::make_shared<AvmProver::ProvingKey>();
+
+    for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
+        BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
+        key_poly = std::move(prover_poly);
+    }
+
+    return proving_key;
 }
 
 } // namespace bb::avm2::constraining

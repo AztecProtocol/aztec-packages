@@ -1,13 +1,14 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { SentTx } from '@aztec/aztec.js/contracts';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -21,7 +22,7 @@ import {
   createNonValidatorNode,
   createProverNode,
 } from '../fixtures/setup_p2p_test.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
 
@@ -62,6 +63,7 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecSlotDuration: 24,
         aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
@@ -69,8 +71,8 @@ describe('e2e_p2p_network', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
     await t.setup();
+    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
@@ -85,7 +87,7 @@ describe('e2e_p2p_network', () => {
 
   afterAll(async () => {
     if (CHECK_ALERTS) {
-      const checker = new AlertChecker(t.logger);
+      const checker = new GrafanaClient(t.logger);
       await checker.runAlertCheck(qosAlerts);
     }
   });
@@ -106,7 +108,7 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
@@ -123,7 +125,7 @@ describe('e2e_p2p_network', () => {
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
+      { dateProvider: t.ctx.dateProvider! },
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
@@ -134,7 +136,7 @@ describe('e2e_p2p_network', () => {
     const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
     monitoringNode = await createNonValidatorNode(
       monitoringNodeConfig,
-      t.ctx.dateProvider,
+      t.ctx.dateProvider!,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
       t.bootstrapNodeEnr,
       t.prefilledPublicData,
@@ -149,6 +151,21 @@ describe('e2e_p2p_network', () => {
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
+
+    // Wait until the other nodes sync to the block from which we sent the tx
+    const targetBlock = await t.ctx.aztecNode.getBlockNumber();
+    t.logger.warn(`Waiting for all nodes to sync to block number ${targetBlock}`);
+    await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        const checkpointNumber = (await t.monitor.run()).checkpointNumber;
+        t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
+        return blockNumbers.every(bn => bn >= targetBlock);
+      },
+      `nodes to sync to block number ${targetBlock}`,
+      30,
+      0.5,
+    );
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
@@ -170,12 +187,12 @@ describe('e2e_p2p_network', () => {
 
     // Gather signers from attestations downloaded from L1
     const blockNumber = await txsSentViaDifferentNodes[0][0].getReceipt().then(r => r.blockNumber!);
-    const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
-    const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.attestations
+    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
+      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 

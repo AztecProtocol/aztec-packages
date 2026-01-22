@@ -1,23 +1,32 @@
+import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { SecretValue } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas, zodFor } from '@aztec/foundation/schemas';
 import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { Tx } from '@aztec/stdlib/tx';
+import type {
+  BlockProposal,
+  BlockProposalOptions,
+  CheckpointAttestation,
+  CheckpointLastBlockData,
+  CheckpointProposal,
+  CheckpointProposalOptions,
+} from '@aztec/stdlib/p2p';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
+import { type ValidatorHASignerConfig, ValidatorHASignerConfigSchema } from '@aztec/validator-ha-signer/config';
 
 import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
-import type { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { AllowedElementSchema } from './allowed_element.js';
 
 /**
  * Validator client configuration
  */
-export interface ValidatorClientConfig {
+export type ValidatorClientConfig = ValidatorHASignerConfig & {
   /** The private keys of the validators participating in attestation duties */
   validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
@@ -36,15 +45,20 @@ export interface ValidatorClientConfig {
   /** Whether to re-execute transactions in a block proposal before attesting */
   validatorReexecute: boolean;
 
-  /** Will re-execute until this many milliseconds are left in the slot */
-  validatorReexecuteDeadlineMs: number;
-
   /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
   alwaysReexecuteBlockProposals?: boolean;
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode?: boolean;
-}
+
+  // TODO(palla/mbps): Change default to false once checkpoint validation is stable
+  /** Skip checkpoint proposal validation and always attest (default: true) */
+  skipCheckpointProposalValidation?: boolean;
+
+  // TODO(palla/mbps): Change default to false once block sync is stable
+  /** Skip pushing re-executed blocks to archiver (default: true) */
+  skipPushProposedBlocksToArchiver?: boolean;
+};
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal'> &
@@ -56,23 +70,30 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
     disableTransactions?: boolean;
   };
 
-export const ValidatorClientConfigSchema = z.object({
-  validatorAddresses: z.array(schemas.EthAddress).optional(),
-  disableValidator: z.boolean(),
-  disabledValidators: z.array(schemas.EthAddress),
-  attestationPollingIntervalMs: z.number().min(0),
-  validatorReexecute: z.boolean(),
-  validatorReexecuteDeadlineMs: z.number().min(0),
-  alwaysReexecuteBlockProposals: z.boolean().optional(),
-  fishermanMode: z.boolean().optional(),
-}) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
+export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
+  ValidatorHASignerConfigSchema.extend({
+    validatorAddresses: z.array(schemas.EthAddress).optional(),
+    disableValidator: z.boolean(),
+    disabledValidators: z.array(schemas.EthAddress),
+    attestationPollingIntervalMs: z.number().min(0),
+    validatorReexecute: z.boolean(),
+    alwaysReexecuteBlockProposals: z.boolean().optional(),
+    fishermanMode: z.boolean().optional(),
+    skipCheckpointProposalValidation: z.boolean().optional(),
+    skipPushProposedBlocksToArchiver: z.boolean().optional(),
+  }),
+);
 
-export const ValidatorClientFullConfigSchema = ValidatorClientConfigSchema.extend({
-  txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
-  broadcastInvalidBlockProposal: z.boolean().optional(),
-  slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
-  disableTransactions: z.boolean().optional(),
-}) satisfies ZodFor<Omit<ValidatorClientFullConfig, 'validatorPrivateKeys'>>;
+export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullConfig, 'validatorPrivateKeys'>>()(
+  ValidatorClientConfigSchema.extend({
+    txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+    broadcastInvalidBlockProposal: z.boolean().optional(),
+    slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+    disableTransactions: z.boolean().optional(),
+  }),
+);
+
+export type CreateCheckpointProposalLastBlockData = Omit<CheckpointLastBlockData, 'txHashes'> & { txs: Tx[] };
 
 export interface Validator {
   start(): Promise<void>;
@@ -80,19 +101,52 @@ export interface Validator {
 
   // Block validation responsibilities
   createBlockProposal(
-    blockNumber: number,
-    header: CheckpointHeader,
+    blockHeader: BlockHeader,
+    indexWithinCheckpoint: number,
+    inHash: Fr,
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
-  attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
+
+  /** Creates a checkpoint proposal for the last block in a checkpoint */
+  createCheckpointProposal(
+    checkpointHeader: CheckpointHeader,
+    archive: Fr,
+    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
+    proposerAddress: EthAddress | undefined,
+    options: CheckpointProposalOptions,
+  ): Promise<CheckpointProposal>;
+
+  /**
+   * Validate a block proposal from a peer.
+   * Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
+   * @returns true if the proposal is valid, false otherwise
+   */
+  validateBlockProposal(proposal: BlockProposal, sender: PeerId): Promise<boolean>;
+
+  /**
+   * Validate and attest to a checkpoint proposal from a peer.
+   * @returns Checkpoint attestations if valid, undefined otherwise
+   */
+  attestToCheckpointProposal(
+    proposal: CheckpointProposal,
+    sender: PeerId,
+  ): Promise<CheckpointAttestation[] | undefined>;
 
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
-  collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
+
+  /** Collect own attestations for a checkpoint proposal (used when skipping p2p attestation collection) */
+  collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]>;
+
+  /** Collect attestations from the p2p network for a checkpoint proposal */
+  collectAttestations(proposal: CheckpointProposal, required: number, deadline: Date): Promise<CheckpointAttestation[]>;
+
   signAttestationsAndSigners(
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
+    slot: SlotNumber,
+    blockNumber: BlockNumber | CheckpointNumber,
   ): Promise<Signature>;
 }

@@ -43,7 +43,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // That is, exactly what is expected for a call to the target function,
             // but with a selector added at the beginning.
             quote {
-                let input_calldata: [Field; $params_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $params_len_quote);
+                let input_calldata: [Field; $params_len_quote] = dep::aztec::oracle::avm::calldata_copy(1, $params_len_quote);
                 let mut reader = dep::aztec::protocol_types::utils::reader::Reader::new(input_calldata);
             }
         };
@@ -61,7 +61,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         });
         let read = reads.join(quote { });
 
-        let mut args = &[];
+        let mut args = @[];
         for parameter_index in 0..parameters.len() {
             let param_name = f"arg{parameter_index}".quoted_contents();
             args = args.push_back(quote { $param_name });
@@ -79,12 +79,12 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             quote {
                 $call;
                 // Force early return.
-                dep::aztec::context::public_context::avm_return([]);
+                dep::aztec::oracle::avm::avm_return([]);
             }
         } else {
             quote {
                 let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
-                dep::aztec::context::public_context::avm_return(return_value.as_slice());
+                dep::aztec::oracle::avm::avm_return(return_value.as_vector());
             }
         };
 

@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -13,11 +13,10 @@ namespace bb {
 /**
  * @brief Compute the correction term for the permutation argument.
  *
- * @tparam Field
+ * @tparam Flavor
  * @param public_inputs x₀, ..., xₘ₋₁ public inputs to the circuit
  * @param beta random linear-combination term to combine both (wʲ, IDʲ) and (wʲ, σʲ)
  * @param gamma Schwartz-Zippel random evaluation to ensure ∏ᵢ (γ + Sᵢ) = ∏ᵢ (γ + Tᵢ)
- * @param domain_size Total number of rows required for the circuit (power of 2)
  * @param offset Extent to which PI are offset from the 0th index in the wire polynomials, for example, due to inclusion
  * of a leading zero row or Goblin style ECC op gates at the top of the execution trace.
  * @return Field Public input Δ
@@ -28,9 +27,9 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
                                                const typename Flavor::FF& gamma,
                                                const typename Flavor::FF& offset = 0)
 {
-    using Field = typename Flavor::FF;
-    Field numerator = Field(1);
-    Field denominator = Field(1);
+    using FF = typename Flavor::FF;
+    FF numerator = FF(1);
+    FF denominator = FF(1);
 
     // Let m be the number of public inputs x₀,…, xₘ₋₁.
     // Recall that we broke the permutation σ⁰ by changing the mapping
@@ -45,8 +44,10 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     //  -----------------------  =  ------------------------
     //   ∏ᵢ (γ + W⁰ᵢ + β⋅σ⁰ᵢ )        ∏ᵢ (γ + xᵢ - β⋅(i+1) )
 
-    // At the start of the loop for each xᵢ where i = 0, 1, …, m-1,
-    // we have
+    // The RHS is often referred to as the "grand product delta". Note that the products on the RHS is only over the
+    // public input indices, while the products on the LHS are over the entire circuit.
+    //
+    // At the start of the loop for each xᵢ where i = 0, 1, …, m-1, we have
     //      numerator_acc   = γ + β⋅(n+i) = γ + β⋅n + β⋅i
     //      denominator_acc = γ - β⋅(1+i) = γ - β   - β⋅i
     // at the end of the loop, add and subtract β to each term respectively to
@@ -57,9 +58,9 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
 
     // Using n = SEPARATOR ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the
     // boolean hypercube do not intersect for i != j.
-    const Field SEPARATOR(PERMUTATION_ARGUMENT_VALUE_SEPARATOR);
-    Field numerator_acc = gamma + (beta * (SEPARATOR + offset));
-    Field denominator_acc = gamma - beta * (offset + 1);
+    const FF SEPARATOR(PERMUTATION_ARGUMENT_VALUE_SEPARATOR);
+    FF numerator_acc = gamma + (beta * (SEPARATOR + offset));
+    FF denominator_acc = gamma - beta * (offset + 1);
 
     for (size_t i = 0; i < public_inputs.size(); i++) {
         numerator *= (numerator_acc + public_inputs[i]);     // γ + xᵢ + β(n+i)

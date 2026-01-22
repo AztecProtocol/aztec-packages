@@ -1,14 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Federico], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
-#include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 namespace bb::stdlib {
@@ -206,11 +206,9 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
         ecdsa_signature<Builder> sig{ byte_array<Builder>(&builder, rr), byte_array<Builder>(&builder, ss) };
 
-        byte_array<Builder> message(&builder, message_string);
-
-        // Compute H(m)
-        stdlib::byte_array<Builder> hashed_message =
-            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+        // Compute H(m) natively and pass as witness (mirrors ACIR which takes pre-hashed message)
+        auto hash_arr = crypto::sha256(std::vector<uint8_t>(message_string.begin(), message_string.end()));
+        stdlib::byte_array<Builder> hashed_message(&builder, std::vector<uint8_t>(hash_arr.begin(), hash_arr.end()));
 
         // Verify ecdsa signature
         bool_t<Builder> result =

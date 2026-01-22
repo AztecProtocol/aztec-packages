@@ -65,8 +65,8 @@ enum class EnvironmentVariable : uint8_t {
     VERSION = 4,
     BLOCKNUMBER = 5,
     TIMESTAMP = 6,
-    BASEFEEPERL2GAS = 7,
-    BASEFEEPERDAGAS = 8,
+    MINFEEPERL2GAS = 7,
+    MINFEEPERDAGAS = 8,
     ISSTATICCALL = 9,
     L2GASLEFT = 10,
     DAGASLEFT = 11,
@@ -261,7 +261,7 @@ struct PublicLogs {
         for (size_t i = 0; i < log.fields.size(); ++i) {
             payload[length + PUBLIC_LOG_HEADER_LENGTH + i] = log.fields[i];
         }
-        length += log.fields.size() + PUBLIC_LOG_HEADER_LENGTH;
+        length += static_cast<uint32_t>(log.fields.size()) + PUBLIC_LOG_HEADER_LENGTH;
     }
 
     static PublicLogs from_logs(const std::vector<PublicLog>& logs)
@@ -271,6 +271,22 @@ struct PublicLogs {
             public_logs.add_log(log);
         }
         return public_logs;
+    }
+
+    std::vector<PublicLog> to_logs() const
+    {
+        std::vector<PublicLog> logs;
+        for (uint32_t i = 0; i < length;) {
+            uint32_t log_length = static_cast<uint32_t>(payload[i]);
+            AztecAddress contract_address = payload[i + 1];
+            std::vector<FF> fields;
+            for (uint32_t j = 0; j < log_length; ++j) {
+                fields.push_back(payload[i + 2 + j]);
+            }
+            logs.push_back(PublicLog{ .fields = fields, .contract_address = contract_address });
+            i += log_length + PUBLIC_LOG_HEADER_LENGTH;
+        }
+        return logs;
     }
 
     MSGPACK_FIELDS(length, payload);
@@ -554,6 +570,8 @@ inline std::string debug_log_level_to_string(DebugLogLevel lvl)
     case DebugLogLevel::TRACE:
         return "trace";
     }
+
+    __builtin_unreachable();
 }
 
 struct DebugLog {
@@ -585,7 +603,7 @@ inline bool is_protocol_contract_address(const AztecAddress& address)
 inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& protocol_contracts,
                                                        const AztecAddress& canonical_address)
 {
-    assert(is_protocol_contract_address(canonical_address) && "Protocol contract canonical address out of bounds");
+    BB_ASSERT(is_protocol_contract_address(canonical_address), "Protocol contract canonical address out of bounds");
     AztecAddress derived_address =
         protocol_contracts.derived_addresses.at(static_cast<uint32_t>(canonical_address) - 1);
     if (derived_address.is_zero()) {

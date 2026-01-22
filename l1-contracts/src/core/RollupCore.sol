@@ -23,7 +23,8 @@ import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorO
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
 import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {EthValue} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
@@ -233,8 +234,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );
 
-    Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-
     // Deploy slasher based on flavor
     ISlasher slasher;
 
@@ -272,7 +271,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     }
 
     StakingLib.initialize(
-      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+      _stakingAsset,
+      _gse,
+      Timestamp.wrap(_config.exitDelaySeconds),
+      address(slasher),
+      _config.stakingQueueConfig,
+      _config.localEjectionThreshold
     );
     ValidatorOperationsExtLib.initializeValidatorSelection(
       _config.targetCommitteeSize, _config.lagInEpochsForValidatorSet, _config.lagInEpochsForRandao
@@ -297,7 +301,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     uint32 version = _config.version;
     rollupStore.config.version = version;
 
-    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
+    IInbox inbox = IInbox(
+      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag))
+    );
 
     rollupStore.config.inbox = inbox;
 
@@ -385,6 +391,17 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function updateStakingQueueConfig(StakingQueueConfig memory _config) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.updateStakingQueueConfig(_config);
+  }
+
+  /**
+   * @notice Sets the escape hatch contract address
+   * @dev Only callable by owner. Set to address(0) to disable escape hatch functionality.
+   *      The escape hatch provides an alternative block production path when the committee is unavailable.
+   * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
+   */
+  function updateEscapeHatch(address _escapeHatch) external override(IValidatorSelectionCore) onlyOwner {
+    ValidatorOperationsExtLib.updateEscapeHatch(_escapeHatch);
+    emit IValidatorSelectionCore.EscapeHatchUpdated(_escapeHatch);
   }
 
   /**

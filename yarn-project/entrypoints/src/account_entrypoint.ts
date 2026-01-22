@@ -1,13 +1,11 @@
-import { Fr } from '@aztec/foundation/fields';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { type FunctionAbi, FunctionCall, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
-import type { ExecutionPayload } from '@aztec/stdlib/tx';
+import { ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 import { EncodedAppEntrypointCalls } from './encoding.js';
-import type { AuthWitnessProvider, EntrypointInterface } from './interfaces.js';
+import type { AuthWitnessProvider, ChainInfo, EntrypointInterface } from './interfaces.js';
 
 /**
  * The mechanism via which an account contract will pay for a transaction in which it gets invoked.
@@ -59,44 +57,87 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   constructor(
     private address: AztecAddress,
     private auth: AuthWitnessProvider,
-    private chainId: number = DEFAULT_CHAIN_ID,
-    private version: number = DEFAULT_VERSION,
   ) {}
 
   async createTxExecutionRequest(
     exec: ExecutionPayload,
     gasSettings: GasSettings,
+    chainInfo: ChainInfo,
     options: DefaultAccountEntrypointOptions,
   ): Promise<TxExecutionRequest> {
-    // Initial request with calls, authWitnesses and capsules
-    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
-    // Global tx options
-    const { cancellable, txNonce, feePaymentMethodOptions } = options;
-    // Encode the calls for the app
-    const encodedCalls = await EncodedAppEntrypointCalls.create(calls, txNonce);
-
-    // Obtain the entrypoint hashed args, built from the app encoded calls and global options
-    const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromArgs(
-      encodeArguments(abi, [encodedCalls, feePaymentMethodOptions, !!cancellable]),
-    );
-
-    // Generate the payload auth witness, by signing the hash of the payload
-    const appPayloadAuthwitness = await this.auth.createAuthWit(await encodedCalls.hash());
-
-    // Assemble the tx request
+    const { authWitnesses, capsules, extraHashedArgs } = exec;
+    const callData = await this.#buildEntrypointCallData(exec, options);
+    const entrypointHashedArgs = await HashedValues.fromArgs(callData.encodedArgs);
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
-      functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
-      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
-      authWitnesses: [...authWitnesses, appPayloadAuthwitness],
+      functionSelector: callData.functionSelector,
+      txContext: new TxContext(chainInfo.chainId.toNumber(), chainInfo.version.toNumber(), gasSettings),
+      argsOfCalls: [...callData.encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
+      authWitnesses: [...authWitnesses, callData.payloadAuthWitness],
       capsules,
       salt: Fr.random(),
     });
 
     return txRequest;
+  }
+
+  async wrapExecutionPayload(
+    exec: ExecutionPayload,
+    options: DefaultAccountEntrypointOptions,
+  ): Promise<ExecutionPayload> {
+    const { authWitnesses, capsules, extraHashedArgs, feePayer } = exec;
+    const callData = await this.#buildEntrypointCallData(exec, options);
+
+    // Build the entrypoint function call
+    const entrypointCall = new FunctionCall(
+      callData.abi.name,
+      this.address,
+      callData.functionSelector,
+      callData.abi.functionType,
+      false,
+      callData.abi.isStatic,
+      callData.encodedArgs,
+      callData.abi.returnTypes,
+    );
+
+    return new ExecutionPayload(
+      [entrypointCall],
+      [callData.payloadAuthWitness, ...authWitnesses],
+      capsules,
+      [...callData.encodedCalls.hashedArguments, ...extraHashedArgs],
+      feePayer ?? this.address,
+    );
+  }
+
+  /**
+   * Builds the shared data needed for both creating a tx execution request and wrapping an execution payload.
+   * This includes encoding calls, building entrypoint arguments, and creating the authwitness.
+   * @param exec - The execution payload containing calls to encode
+   * @param options - Account entrypoint options including tx nonce and fee payment method
+   * @returns Encoded call data, ABI, function selector, and auth witness
+   */
+  async #buildEntrypointCallData(exec: ExecutionPayload, options: DefaultAccountEntrypointOptions) {
+    const { calls } = exec;
+    const { cancellable, txNonce, feePaymentMethodOptions } = options;
+
+    const encodedCalls = await EncodedAppEntrypointCalls.create(calls, txNonce);
+
+    const abi = this.getEntrypointAbi();
+    const args = [encodedCalls, feePaymentMethodOptions, !!cancellable];
+    const encodedArgs = encodeArguments(abi, args);
+
+    const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
+
+    const payloadAuthWitness = await this.auth.createAuthWit(await encodedCalls.hash());
+
+    return {
+      encodedCalls,
+      abi,
+      encodedArgs,
+      functionSelector,
+      payloadAuthWitness,
+    };
   }
 
   private getEntrypointAbi() {

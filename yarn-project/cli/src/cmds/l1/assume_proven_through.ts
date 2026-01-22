@@ -1,20 +1,20 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/ethereum/test';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 export async function assumeProvenThrough(
-  blockNumberOrLatest: number | undefined,
+  checkpointOrLatest: CheckpointNumber | undefined,
   l1RpcUrls: string[],
   nodeUrl: string,
   log: LogFn,
 ) {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const rollupAddress = await aztecNode.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
-  const blockNumber = blockNumberOrLatest ?? (await aztecNode.getBlockNumber());
 
   const rollupCheatCodes = RollupCheatCodes.create(l1RpcUrls, { rollupAddress }, new DateProvider());
 
-  await rollupCheatCodes.markAsProven(blockNumber);
-  log(`Assumed proven through block ${blockNumber}`);
+  await rollupCheatCodes.markAsProven(checkpointOrLatest);
+  log(`Assumed proven through checkpoint ${checkpointOrLatest ?? 'latest'}`);
 }

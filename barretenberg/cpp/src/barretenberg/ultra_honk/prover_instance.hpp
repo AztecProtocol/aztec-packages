@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -59,7 +59,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
-    bool is_complete = false; // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 
@@ -104,9 +103,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         // or all pairing points have been aggregated into a single equivalence class
         BB_ASSERT(circuit.pairing_points_tagging.has_single_pairing_point_tag(),
                   "Pairing points must all be aggregated together. Either no pairing points should be created, or "
-                  "all created pairing points must be aggregated into a single pairing point. Found ",
-                  circuit.pairing_points_tagging.num_unique_pairing_points(),
-                  " different pairing points.");
+                  "all created pairing points must be aggregated into a single pairing point. Found "
+                      << circuit.pairing_points_tagging.num_unique_pairing_points() << " different pairing points.");
         // Check pairing point tagging: check that the pairing points have been set to public
         BB_ASSERT(circuit.pairing_points_tagging.has_public_pairing_points() ||
                       !circuit.pairing_points_tagging.has_pairing_points(),
@@ -208,7 +206,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ~ProverInstance_() = default;
 
   private:
-    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
 
     size_t compute_dyadic_size(Circuit&);

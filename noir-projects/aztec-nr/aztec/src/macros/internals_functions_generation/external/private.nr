@@ -1,8 +1,7 @@
 use crate::macros::{
     internals_functions_generation::external::helpers::{
-        create_authorize_once_check, create_message_discovery_call, get_abi_relevant_attributes,
+        create_authorize_once_check, get_abi_relevant_attributes,
     },
-    notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer,
         is_fn_only_self, is_fn_view, module_has_initializer, module_has_storage,
@@ -25,7 +24,8 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         .map(|(param_name, param_type)| quote { $param_name: $param_type })
         .join(quote {, });
 
-    let params = quote { inputs: aztec::context::inputs::private_context_inputs::PrivateContextInputs, $original_params_quotes };
+    let params =
+        quote { inputs: aztec::context::inputs::PrivateContextInputs, $original_params_quotes };
 
     let mut body = f.body().as_block().unwrap();
 
@@ -53,15 +53,15 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         let mut self = {
             $args_serialization
             let args_hash = aztec::hash::hash_args($serialized_args_name);
-            let mut context = aztec::context::private_context::PrivateContext::new(inputs, args_hash);
+            let mut context = aztec::context::PrivateContext::new(inputs, args_hash);
             $storage_init
             let self_address = context.this_address();
-            let call_self: CallSelf<&mut aztec::context::private_context::PrivateContext> = CallSelf { address: self_address, context: &mut context };
-            let enqueue_self: EnqueueSelf<&mut aztec::context::private_context::PrivateContext> = EnqueueSelf { address: self_address, context: &mut context };
-            let call_self_static: CallSelfStatic<&mut aztec::context::private_context::PrivateContext> = CallSelfStatic { address: self_address, context: &mut context };
-            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::private_context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
-            let internal: CallInternal<&mut aztec::context::private_context::PrivateContext> = CallInternal { context: &mut context };
-            aztec::contract_self::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
+            let call_self: CallSelf<&mut aztec::context::PrivateContext> = CallSelf { address: self_address, context: &mut context };
+            let enqueue_self: EnqueueSelf<&mut aztec::context::PrivateContext> = EnqueueSelf { address: self_address, context: &mut context };
+            let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic { address: self_address, context: &mut context };
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
+            let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal { context: &mut context };
+            aztec::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
         };
     };
 
@@ -71,7 +71,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     let internal_check = if is_fn_only_self(f) {
         let assertion_message =
             f"Function {original_function_name} can only be called by the same contract";
-        quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
+        quote { assert(self.msg_sender() == self.address, $assertion_message); }
     } else {
         quote {}
     };
@@ -118,16 +118,6 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
                 f"Phase change detected on function with phase check. If this is expected, use #[nophasecheck]",
             ); 
         }
-    };
-
-    // All private functions perform message discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any. Note that the message
-    // discovery call syncs private events as well. We do not sync those here if there are no notes because we don't
-    // have an API that would access events from private functions.
-    let message_discovery_call = if NOTES.len() > 0 {
-        create_message_discovery_call()
-    } else {
-        quote {}
     };
 
     // Inject the authwit check if the function is marked with #[authorize_once].
@@ -192,7 +182,6 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         $init_check
         $internal_check
         $view_check
-        $message_discovery_call
         $authorize_once_check
     };
 

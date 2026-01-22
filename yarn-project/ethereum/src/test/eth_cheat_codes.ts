@@ -1,5 +1,5 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak256 } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
@@ -35,7 +35,7 @@ export class EthCheatCodes {
     public chain: Chain = foundry,
   ) {
     this.publicClient = createPublicClient({
-      transport: fallback(this.rpcUrls.map(url => http(url))),
+      transport: fallback(this.rpcUrls.map(url => http(url, { batch: false }))),
       chain: chain,
     });
   }

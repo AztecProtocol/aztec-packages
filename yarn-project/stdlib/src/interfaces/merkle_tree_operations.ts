@@ -1,4 +1,5 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
@@ -220,7 +221,7 @@ export interface MerkleTreeReadOperations {
   getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]>;
+  ): Promise<(BlockNumber | undefined)[]>;
 }
 
 export interface MerkleTreeCheckpointOperations {
@@ -250,7 +251,10 @@ export interface MerkleTreeCheckpointOperations {
   revertAllCheckpoints(): Promise<void>;
 }
 
-export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations, MerkleTreeCheckpointOperations {
+export interface MerkleTreeWriteOperations
+  extends MerkleTreeReadOperations,
+    MerkleTreeCheckpointOperations,
+    Disposable {
   /**
    * Appends leaves to a given tree.
    * @param treeId - The tree to be updated.

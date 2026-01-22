@@ -5,10 +5,12 @@
  * This fuzzer leverages the existing FieldVM infrastructure from field.fuzzer.hpp:
  * 1. Execute field arithmetic operations via FieldVM<fr>
  * 2. Use VM internal state as witnesses and coefficients
- * 3. Generate ACIR Program with AssertZero opcodes
- * 4. Serialize to bincode format
- * 5. Go through acir_to_constraint_buf pipeline
- * 6. Solve for valid witnesses and verify circuits
+ * 3. Generate ACIR Program with multiple opcode types:
+ *    - AssertZero (arithmetic constraints)
+ *    - Range constraints
+ *    - Logic constraints (AND/XOR)
+ * 4. Go through acir_to_constraint_buf pipeline
+ * 5. Solve for valid witnesses and verify circuits
  *
  * VM Approach Benefits:
  * - Reuses battle-tested FieldVM implementation
@@ -187,23 +189,6 @@ void print_acir_format_gates(const AcirFormat& acir_format)
 {
     std::cerr << "\n=== RESULTING GATES ===" << std::endl;
 
-    std::cerr << "\nArithmetic Triple Constraints (" << acir_format.arithmetic_triple_constraints.size()
-              << " total):" << std::endl;
-    for (size_t i = 0; i < acir_format.arithmetic_triple_constraints.size(); ++i) {
-        const auto& gate = acir_format.arithmetic_triple_constraints[i];
-        std::cerr << "\nTriple Gate " << i << ":" << std::endl;
-        std::cerr << "  a=" << gate.a << ", b=" << gate.b << ", c=" << gate.c << std::endl;
-        std::cerr << "  q_m=" << gate.q_m << " (mul coeff)" << std::endl;
-        std::cerr << "  q_l=" << gate.q_l << " (left coeff)" << std::endl;
-        std::cerr << "  q_r=" << gate.q_r << " (right coeff)" << std::endl;
-        std::cerr << "  q_o=" << gate.q_o << " (output coeff)" << std::endl;
-        std::cerr << "  q_c=" << gate.q_c << " (constant)" << std::endl;
-
-        std::cerr << "  Represents: " << gate.q_m << "*w" << gate.a << "*w" << gate.b << " + " << gate.q_l << "*w"
-                  << gate.a << " + " << gate.q_r << "*w" << gate.b << " + " << gate.q_o << "*w" << gate.c << " + "
-                  << gate.q_c << " = 0" << std::endl;
-    }
-
     std::cerr << "\nQuad Constraints (" << acir_format.quad_constraints.size() << " total):" << std::endl;
     for (size_t i = 0; i < acir_format.quad_constraints.size(); ++i) {
         const auto& gate = acir_format.quad_constraints[i];
@@ -357,6 +342,75 @@ bool validate_witnesses(const std::vector<Acir::Expression>& expressions,
 }
 
 /**
+ * @brief Structure to track logic constraint info for witness generation
+ */
+struct LogicConstraintInfo {
+    // Input can be either a witness index or a constant value
+    bool lhs_is_constant;
+    bool rhs_is_constant;
+    uint32_t lhs_witness; // Only valid if lhs_is_constant == false
+    uint32_t rhs_witness; // Only valid if rhs_is_constant == false
+    fr lhs_constant;      // Only valid if lhs_is_constant == true
+    fr rhs_constant;      // Only valid if rhs_is_constant == true
+    uint32_t output_witness;
+    uint32_t num_bits;
+    bool is_xor;
+};
+
+/**
+ * @brief Compute AND of two field elements treated as integers with given bit width
+ */
+fr compute_and(const fr& lhs, const fr& rhs, uint32_t num_bits)
+{
+    uint256_t lhs_int = static_cast<uint256_t>(lhs);
+    uint256_t rhs_int = static_cast<uint256_t>(rhs);
+    uint256_t mask = (uint256_t(1) << num_bits) - 1;
+    uint256_t result = (lhs_int & rhs_int) & mask;
+    return fr(result);
+}
+
+/**
+ * @brief Compute XOR of two field elements treated as integers with given bit width
+ */
+fr compute_xor(const fr& lhs, const fr& rhs, uint32_t num_bits)
+{
+    uint256_t lhs_int = static_cast<uint256_t>(lhs);
+    uint256_t rhs_int = static_cast<uint256_t>(rhs);
+    uint256_t mask = (uint256_t(1) << num_bits) - 1;
+    uint256_t result = ((lhs_int ^ rhs_int) & mask);
+    return fr(result);
+}
+
+/**
+ * @brief Create a FunctionInput from a witness index
+ */
+Acir::FunctionInput make_witness_input(uint32_t witness_idx)
+{
+    Acir::FunctionInput::Witness witness_input;
+    witness_input.value = Acir::Witness{ witness_idx };
+
+    Acir::FunctionInput input;
+    input.value = witness_input;
+    return input;
+}
+
+/**
+ * @brief Create a FunctionInput from a constant field element
+ */
+Acir::FunctionInput make_constant_input(const fr& value)
+{
+    Acir::FunctionInput::Constant constant_input;
+    // Convert field element to bytes (big-endian)
+    constant_input.value.resize(32);
+    auto value_bytes = value.to_buffer();
+    std::copy(value_bytes.begin(), value_bytes.end(), constant_input.value.begin());
+
+    Acir::FunctionInput input;
+    input.value = constant_input;
+    return input;
+}
+
+/**
  * @brief Test circuit through full ACIR pipeline using two FieldVMs
  *
  * Uses two separate VMs:
@@ -365,7 +419,11 @@ bool validate_witnesses(const std::vector<Acir::Expression>& expressions,
  */
 bool test_acir_circuit(const uint8_t* data, size_t size)
 {
-    if (size < 31)
+    // Minimum 32 bytes required:
+    //   - 6 bytes header (num_witnesses, num_expressions, coeff_vm_steps, witness_vm_steps,
+    //                     range_constraint_byte, logic_constraint_byte)
+    //   - 26+ bytes for VM data to execute meaningful operations on both VMs
+    if (size < 32)
         return false;
 
     // SECURITY FUZZING: With 10% probability, disable sanitization to test raw data handling
@@ -404,9 +462,10 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
     size_t coeff_vm_steps = (data[2] % max_vm_steps) + 3;       // 3 to max_vm_steps+2
     size_t witness_vm_steps = (data[3] % max_vm_steps) + 3;     // 3 to max_vm_steps+2
     uint8_t range_constraint_byte = data[4];                    // Controls range constraint generation
+    uint8_t logic_constraint_byte = data[5];                    // Controls logic constraint generation
 
-    const uint8_t* vm_data = data + 5;
-    size_t vm_data_size = size - 5;
+    const uint8_t* vm_data = data + 6;
+    size_t vm_data_size = size - 6;
 
     // VM 1: Generate coefficients
     FieldVM<fr> coeff_vm(false, coeff_vm_steps);
@@ -551,7 +610,7 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         std::set<uint32_t> already_corrupted; // Track which witnesses we've already corrupted
         for (uint32_t i = 0; i < num_to_corrupt && i < num_witnesses; ++i) {
             size_t byte_idx = size - 3 - i;
-            if (byte_idx >= 4) { // Adjusted for 4-byte header
+            if (byte_idx >= 6) { // Adjusted for 6-byte header
                 uint32_t witness_to_corrupt = disable_sanitization ? data[byte_idx] : data[byte_idx] % num_witnesses;
 
                 // Skip if we've already corrupted this witness
@@ -561,18 +620,55 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
                 already_corrupted.insert(witness_to_corrupt);
 
                 fr original_value = solved_witnesses[witness_to_corrupt];
-                // Use different part of coefficient VM state for corruption
-                // Add 1 to ensure we get a different value (especially important if original was 0)
-                size_t state_idx = (data[byte_idx] + INTERNAL_STATE_SIZE / 2) % INTERNAL_STATE_SIZE;
-                fr corruption_value = coeff_state[state_idx];
-                // If corruption value is same as original, add 1 to make it different
-                if (corruption_value == original_value) {
-                    corruption_value += fr::one();
+
+                // Read corruption parameters from input - gives fuzzer control over replacement value
+                // Use bytes further back in the input for corruption mode and value
+                size_t mode_idx = (byte_idx > 1) ? byte_idx - 1 : 0;
+                size_t value_idx = (byte_idx > 2) ? byte_idx - 2 : 0;
+                uint8_t corruption_mode = (mode_idx >= 6) ? (data[mode_idx] & 0x07) : 0;
+                uint8_t corruption_seed = (value_idx >= 6) ? data[value_idx] : 1;
+
+                fr corruption_value;
+                switch (corruption_mode) {
+                case 0:
+                    // Use seed as direct replacement (small value)
+                    corruption_value = fr(corruption_seed);
+                    break;
+                case 1:
+                    // Add seed to original
+                    corruption_value = original_value + fr(corruption_seed);
+                    break;
+                case 2:
+                    // Subtract seed from original
+                    corruption_value = original_value - fr(corruption_seed);
+                    break;
+                case 3:
+                    // XOR with seed (flip bits)
+                    corruption_value = fr(static_cast<uint256_t>(original_value) ^ uint256_t(corruption_seed));
+                    break;
+                case 4:
+                    // Large value: seed << 128
+                    corruption_value = fr(uint256_t(corruption_seed) << 128);
+                    break;
+                case 5:
+                    // Negate original
+                    corruption_value = -original_value;
+                    break;
+                case 6:
+                    // Use VM state value (previous behavior) for variety
+                    corruption_value = coeff_state[(data[byte_idx] + INTERNAL_STATE_SIZE / 2) % INTERNAL_STATE_SIZE];
+                    break;
+                default:
+                    // Scaled seed value
+                    corruption_value = fr(uint256_t(corruption_seed) << 64);
+                    break;
                 }
 
-                // Double-check that corruption actually changed the value
+                // Ensure corruption actually changed the value
                 if (corruption_value == original_value) {
-                    // Still the same after adding 1? Try subtracting 1 instead
+                    corruption_value = original_value + fr::one();
+                }
+                if (corruption_value == original_value) {
                     corruption_value = original_value - fr::one();
                 }
 
@@ -582,7 +678,6 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
                     corrupted_witness_indices.push_back(witness_to_corrupt);
                     actually_corrupted = true;
                 }
-                // else: Skip this witness - couldn't find a different value
             }
         }
 
@@ -706,31 +801,44 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         num_range_constraints = std::min(num_range_constraints, num_witnesses - 1);
 
         // Add range constraints for random witnesses
+        // Each constraint reads 2 bytes from input: witness_byte, bit_selector_byte
         for (uint32_t i = 0; i < num_range_constraints; ++i) {
-            uint32_t witness_idx =
-                disable_sanitization ? range_constraint_byte + i : (range_constraint_byte + i) % num_witnesses;
+            // Read parameters directly from input data - gives fuzzer byte-level control
+            size_t param_offset = i * 2;
 
-            // Determine bit width based on fuzzer input
-            // Mix of common bit widths and edge cases (capped at 254 bits for BN254 field)
-            uint8_t bit_selector = (range_constraint_byte + i * 37) & 0x1F;
+            // Bounds check - use default values if not enough data
+            uint8_t witness_byte = (param_offset < vm_data_size) ? vm_data[param_offset] : 0;
+            uint8_t bit_selector_byte = (param_offset + 1 < vm_data_size) ? vm_data[param_offset + 1] : 0;
+
+            uint32_t witness_idx = disable_sanitization ? witness_byte : witness_byte % num_witnesses;
+            uint8_t bit_selector = bit_selector_byte & 0x1F; // Mask to 5 bits [0,31]
+
+            // Map bit_selector [0,31] to num_bits with weighted distribution:
+            //   0-7   -> 8 bits   (u8)      25%
+            //   8-13  -> 16 bits  (u16)     19%
+            //   14-17 -> 32 bits  (u32)     12%
+            //   18-20 -> 64 bits  (u64)      9%
+            //   21-23 -> 128 bits (u128)     9%
+            //   24-27 -> 254 bits (max)     12%
+            //   28-29 -> 1 bit    (bool)     6%
+            //   30-31 -> 0 bits   (zero)     6%
             uint32_t num_bits = 0;
-
             if (bit_selector < 8) {
-                num_bits = 8; // Common: u8
+                num_bits = 8;
             } else if (bit_selector < 14) {
-                num_bits = 16; // Common: u16
+                num_bits = 16;
             } else if (bit_selector < 18) {
-                num_bits = 32; // Common: u32
+                num_bits = 32;
             } else if (bit_selector < 21) {
-                num_bits = 64; // Common: u64
+                num_bits = 64;
             } else if (bit_selector < 24) {
-                num_bits = 128; // Common: u128
+                num_bits = 128;
             } else if (bit_selector < 28) {
-                num_bits = 254; // Max valid for BN254 (all field elements satisfy this)
+                num_bits = 254;
             } else if (bit_selector < 30) {
-                num_bits = 1; // Edge case: boolean
+                num_bits = 1;
             } else {
-                num_bits = 0; // Edge case: must be zero
+                num_bits = 0;
             }
 
             // Track minimal range for each witness
@@ -800,11 +908,219 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         }
     }
 
+    // ========== LOGIC CONSTRAINT GENERATION (AND/XOR) ==========
+    // Generate AND/XOR constraints for pairs of witnesses
+    // Uses logic_constraint_byte to control generation
+    std::vector<LogicConstraintInfo> logic_constraints;
+    bool should_violate_logic = false;
+    uint32_t violated_logic_idx = 0;
+
+    // Decide if we should generate any logic constraints (50% chance)
+    if ((logic_constraint_byte & 0x80) != 0 && num_witnesses >= 3) {
+        // Number of logic constraints to add (1-3)
+        uint32_t num_logic_constraints = ((logic_constraint_byte >> 5) & 0x3) + 1;
+        num_logic_constraints = std::min(num_logic_constraints, (num_witnesses - 1) / 3 + 1);
+
+        // We need to allocate new witnesses for outputs
+        uint32_t next_witness = num_witnesses;
+
+        for (uint32_t i = 0; i < num_logic_constraints; ++i) {
+            // Read parameters directly from input data - gives fuzzer byte-level control
+            // Each constraint uses 3 bytes: control_byte, lhs_byte, rhs_byte
+            // Read from vm_data section (after header) to allow direct mutation
+            size_t param_offset = i * 3;
+
+            // Bounds check - use default values if not enough data
+            uint8_t control_byte = (param_offset < vm_data_size) ? vm_data[param_offset] : 0;
+            uint8_t lhs_byte = (param_offset + 1 < vm_data_size) ? vm_data[param_offset + 1] : 0;
+            uint8_t rhs_byte = (param_offset + 2 < vm_data_size) ? vm_data[param_offset + 2] : 0;
+
+            // Determine bit width: bits [0:1] select from {8, 16, 32, 64}
+            uint8_t bit_selector = control_byte & 0x3;
+            uint32_t num_bits = 8;
+            switch (bit_selector) {
+            case 0:
+                num_bits = 8;
+                break;
+            case 1:
+                num_bits = 16;
+                break;
+            case 2:
+                num_bits = 32;
+                break;
+            default:
+                num_bits = 64;
+                break;
+            }
+
+            uint256_t max_val_mask = (uint256_t(1) << num_bits) - 1;
+
+            // Determine operation type and input modes from control byte
+            // bit 2: is_xor (0=AND, 1=XOR)
+            // bit 3: lhs_is_const
+            // bit 4: rhs_is_const
+            bool is_xor = (control_byte & 0x04) != 0;
+            bool lhs_is_const = (control_byte & 0x08) != 0;
+            bool rhs_is_const = (control_byte & 0x10) != 0;
+
+            // Compute witness indices from input bytes
+            uint32_t lhs_idx = lhs_byte % num_witnesses;
+            uint32_t rhs_idx = rhs_byte % num_witnesses;
+
+            // Generate constant values from input bytes (masked to num_bits)
+            // Use lhs_byte/rhs_byte as seed for constant value
+            fr lhs_const = fr::zero();
+            fr rhs_const = fr::zero();
+            if (lhs_is_const) {
+                // Expand byte to field by using it as a multiplier with witness_state
+                uint256_t const_int = (static_cast<uint256_t>(lhs_byte) *
+                                       static_cast<uint256_t>(witness_state[i % INTERNAL_STATE_SIZE])) &
+                                      max_val_mask;
+                lhs_const = fr(const_int);
+            }
+            if (rhs_is_const) {
+                uint256_t const_int = (static_cast<uint256_t>(rhs_byte) *
+                                       static_cast<uint256_t>(witness_state[(i + 1) % INTERNAL_STATE_SIZE])) &
+                                      max_val_mask;
+                rhs_const = fr(const_int);
+            }
+
+            // Allocate output witness
+            uint32_t out_idx = next_witness++;
+
+            logic_constraints.push_back(LogicConstraintInfo{ .lhs_is_constant = lhs_is_const,
+                                                             .rhs_is_constant = rhs_is_const,
+                                                             .lhs_witness = lhs_idx,
+                                                             .rhs_witness = rhs_idx,
+                                                             .lhs_constant = lhs_const,
+                                                             .rhs_constant = rhs_const,
+                                                             .output_witness = out_idx,
+                                                             .num_bits = num_bits,
+                                                             .is_xor = is_xor });
+        }
+
+        // Update num_witnesses to account for new output witnesses
+        num_witnesses = next_witness;
+
+        // Generate correct output witnesses for logic constraints
+        // First, ensure input witnesses fit within num_bits range
+        uint256_t max_val_mask;
+        for (auto& lc : logic_constraints) {
+            max_val_mask = (uint256_t(1) << lc.num_bits) - 1;
+
+            // Get lhs value (from witness or constant)
+            fr lhs_val;
+            if (lc.lhs_is_constant) {
+                lhs_val = lc.lhs_constant; // Already masked during generation
+            } else {
+                lhs_val = solved_witnesses[lc.lhs_witness];
+                uint256_t lhs_int = static_cast<uint256_t>(lhs_val) & max_val_mask;
+                lhs_val = fr(lhs_int);
+                // Update witness to be within range
+                solved_witnesses[lc.lhs_witness] = lhs_val;
+            }
+
+            // Get rhs value (from witness or constant)
+            fr rhs_val;
+            if (lc.rhs_is_constant) {
+                rhs_val = lc.rhs_constant; // Already masked during generation
+            } else {
+                rhs_val = solved_witnesses[lc.rhs_witness];
+                uint256_t rhs_int = static_cast<uint256_t>(rhs_val) & max_val_mask;
+                rhs_val = fr(rhs_int);
+                // Update witness to be within range
+                solved_witnesses[lc.rhs_witness] = rhs_val;
+            }
+
+            // Compute correct output
+            fr output_val;
+            if (lc.is_xor) {
+                output_val = compute_xor(lhs_val, rhs_val, lc.num_bits);
+            } else {
+                output_val = compute_and(lhs_val, rhs_val, lc.num_bits);
+            }
+            solved_witnesses[lc.output_witness] = output_val;
+        }
+
+        // Decide if we should intentionally violate a logic constraint (20% chance)
+        if ((logic_constraint_byte & 0x08) != 0 && !logic_constraints.empty()) {
+            should_violate_logic = true;
+            violated_logic_idx = logic_constraint_byte % static_cast<uint32_t>(logic_constraints.size());
+
+            const auto& violated_lc = logic_constraints[violated_logic_idx];
+            fr correct_output = solved_witnesses[violated_lc.output_witness];
+
+            // Multiple violation strategies controlled by fuzzer input
+            // Read violation mode from vm_data to give fuzzer control
+            size_t violation_offset = num_logic_constraints * 3; // After logic constraint params
+            uint8_t violation_mode =
+                (violation_offset < vm_data_size) ? (vm_data[violation_offset] & 0x07) : 0; // 3 bits = 8 modes
+            uint8_t violation_value =
+                (violation_offset + 1 < vm_data_size) ? vm_data[violation_offset + 1] : 1; // Replacement seed
+
+            fr corrupted_output;
+            switch (violation_mode) {
+            case 0:
+                // Add violation_value (default: +1, but fuzzer can control)
+                corrupted_output = correct_output + fr(violation_value);
+                break;
+            case 1:
+                // Subtract violation_value
+                corrupted_output = correct_output - fr(violation_value);
+                break;
+            case 2:
+                // XOR with violation_value (flip some bits)
+                corrupted_output = fr(static_cast<uint256_t>(correct_output) ^ uint256_t(violation_value));
+                break;
+            case 3:
+                // Replace with violation_value directly
+                corrupted_output = fr(violation_value);
+                break;
+            case 4:
+                // Replace with scaled violation_value (larger corruption)
+                corrupted_output = fr(uint256_t(violation_value) << 8);
+                break;
+            case 5:
+                // Negate
+                corrupted_output = -correct_output;
+                if (corrupted_output == correct_output) {
+                    corrupted_output = fr::one(); // If negation is same (0), use 1
+                }
+                break;
+            case 6:
+                // Make input witness exceed num_bits (test range check in logic gate)
+                // Only if lhs is a witness
+                if (!violated_lc.lhs_is_constant) {
+                    // Set lhs to 2^num_bits + violation_value (just over the limit)
+                    uint256_t over_limit = (uint256_t(1) << violated_lc.num_bits) + violation_value;
+                    solved_witnesses[violated_lc.lhs_witness] = fr(over_limit);
+                }
+                // Also corrupt output to ensure constraint fails
+                corrupted_output = correct_output + fr::one();
+                break;
+            case 7:
+                // Make input witness exceed num_bits on rhs side
+                if (!violated_lc.rhs_is_constant) {
+                    uint256_t over_limit = (uint256_t(1) << violated_lc.num_bits) + violation_value;
+                    solved_witnesses[violated_lc.rhs_witness] = fr(over_limit);
+                }
+                corrupted_output = correct_output + fr::one();
+                break;
+            }
+
+            // Ensure corruption actually changed the value
+            if (corrupted_output == correct_output) {
+                corrupted_output = correct_output + fr::one();
+            }
+            solved_witnesses[violated_lc.output_witness] = corrupted_output;
+        }
+    }
+
     try {
         // Create ACIR Circuit
+        // Note: num_witnesses may have been updated by logic constraint generation
         Acir::Circuit circuit;
         circuit.function_name = "main";
-        circuit.current_witness_index = num_witnesses - 1;
         circuit.private_parameters = {};
         circuit.public_parameters.value = {};
         circuit.return_values.value = {};
@@ -847,6 +1163,53 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
             circuit.opcodes.push_back(opcode);
         }
 
+        // Add Logic constraint opcodes (AND/XOR)
+        for (const auto& lc : logic_constraints) {
+            // Create lhs input (witness or constant)
+            Acir::FunctionInput lhs_input =
+                lc.lhs_is_constant ? make_constant_input(lc.lhs_constant) : make_witness_input(lc.lhs_witness);
+
+            // Create rhs input (witness or constant)
+            Acir::FunctionInput rhs_input =
+                lc.rhs_is_constant ? make_constant_input(lc.rhs_constant) : make_witness_input(lc.rhs_witness);
+
+            if (lc.is_xor) {
+                // Create XOR BlackBoxFuncCall
+                Acir::BlackBoxFuncCall::XOR xor_op;
+                xor_op.lhs = lhs_input;
+                xor_op.rhs = rhs_input;
+                xor_op.num_bits = lc.num_bits;
+                xor_op.output = Acir::Witness{ lc.output_witness };
+
+                Acir::BlackBoxFuncCall bb_call;
+                bb_call.value = xor_op;
+
+                Acir::Opcode::BlackBoxFuncCall bb_opcode;
+                bb_opcode.value = bb_call;
+
+                Acir::Opcode opcode;
+                opcode.value = bb_opcode;
+                circuit.opcodes.push_back(opcode);
+            } else {
+                // Create AND BlackBoxFuncCall
+                Acir::BlackBoxFuncCall::AND and_op;
+                and_op.lhs = lhs_input;
+                and_op.rhs = rhs_input;
+                and_op.num_bits = lc.num_bits;
+                and_op.output = Acir::Witness{ lc.output_witness };
+
+                Acir::BlackBoxFuncCall bb_call;
+                bb_call.value = and_op;
+
+                Acir::Opcode::BlackBoxFuncCall bb_opcode;
+                bb_opcode.value = bb_call;
+
+                Acir::Opcode opcode;
+                opcode.value = bb_opcode;
+                circuit.opcodes.push_back(opcode);
+            }
+        }
+
         // *** Go through acir_to_constraint_buf pipeline directly ***
         // This exercises the core conversion logic without serialization issues
         AcirFormat acir_format = circuit_serde_to_acir_format(circuit);
@@ -868,10 +1231,9 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
         // Build circuit using the proper constructor that initializes witnesses
         // NOTE: Must use the witness-aware constructor, not default constructor!
         // The default constructor leaves witnesses uninitialized, causing false negatives.
-        UltraCircuitBuilder builder{ /*size_hint*/ 0, witness_vec, acir_format.public_inputs, acir_format.varnum };
+        UltraCircuitBuilder builder{ witness_vec, acir_format.public_inputs, /*is_write_vk_mode=*/false };
 
-        AcirProgram acir_program = { acir_format, witness_vec };
-        build_constraints(builder, acir_program, ProgramMetadata{});
+        build_constraints(builder, acir_format, ProgramMetadata{});
 
         // Check if the builder is in a failed state (e.g., from assert_equal with unequal values)
         if (builder.failed()) {
@@ -883,8 +1245,44 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
 
         bool circuit_valid = CircuitChecker::check(builder);
 
-        // SOUNDNESS CHECK: Corrupted witnesses or range violations should fail
-        if (witnesses_corrupted || should_violate_range) {
+        // Re-verify that range violations still exist after all witness modifications
+        // (Logic constraint generation may have masked witnesses, accidentally "fixing" the violation)
+        if (should_violate_range) {
+            fr actual_value = solved_witnesses[violated_witness_idx];
+            if (satisfies_range(actual_value, violated_range_bits)) {
+                // The violation was accidentally fixed by subsequent witness modifications
+                should_violate_range = false;
+            }
+        }
+
+        // Re-verify that witness corruption still breaks the expressions
+        // Logic constraint generation may have modified witnesses (masking for bit widths),
+        // potentially undoing the corruption or making it ineffective
+        if (witnesses_corrupted) {
+            // First check: verify corrupted witnesses still have different values from originals
+            bool corruption_still_effective = false;
+            for (uint32_t corrupted_w : corrupted_witness_indices) {
+                if (solved_witnesses[corrupted_w] != original_witnesses[corrupted_w]) {
+                    corruption_still_effective = true;
+                    break;
+                }
+            }
+
+            if (!corruption_still_effective) {
+                // All corrupted values were reset by subsequent operations (e.g., logic masking)
+                witnesses_corrupted = false;
+            } else {
+                // Second check: verify corruption actually breaks the expressions
+                bool expressions_still_broken = !validate_witnesses(expressions, solved_witnesses, false);
+                if (!expressions_still_broken) {
+                    // Expressions are still satisfied despite corruption - under-constrained circuit
+                    witnesses_corrupted = false;
+                }
+            }
+        }
+
+        // SOUNDNESS CHECK: Corrupted witnesses, range violations, or logic violations should fail
+        if (witnesses_corrupted || should_violate_range || should_violate_logic) {
             if (circuit_valid) {
                 std::cerr << "\n=== CRITICAL SOUNDNESS BUG ===" << std::endl;
                 if (witnesses_corrupted) {
@@ -895,6 +1293,18 @@ bool test_acir_circuit(const uint8_t* data, size_t size)
                     std::cerr << "Violated witness: w" << violated_witness_idx << " (range: " << violated_range_bits
                               << " bits)" << std::endl;
                     std::cerr << "Witness value: " << solved_witnesses[violated_witness_idx] << std::endl;
+                }
+                if (should_violate_logic) {
+                    std::cerr << "Logic constraint violation passed CircuitChecker verification!" << std::endl;
+                    const auto& violated_lc = logic_constraints[violated_logic_idx];
+                    std::cerr << "Violated logic op: " << (violated_lc.is_xor ? "XOR" : "AND") << std::endl;
+                    std::cerr << "LHS witness w" << violated_lc.lhs_witness << " = "
+                              << solved_witnesses[violated_lc.lhs_witness] << std::endl;
+                    std::cerr << "RHS witness w" << violated_lc.rhs_witness << " = "
+                              << solved_witnesses[violated_lc.rhs_witness] << std::endl;
+                    std::cerr << "Output witness w" << violated_lc.output_witness << " = "
+                              << solved_witnesses[violated_lc.output_witness] << std::endl;
+                    std::cerr << "Num bits: " << violated_lc.num_bits << std::endl;
                 }
                 std::cerr << "Num witnesses: " << num_witnesses << ", Num expressions: " << expressions.size()
                           << std::endl;
@@ -959,7 +1369,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     if (strategy < 30) {
         // Mutate VM instructions (scales with input size)
         if (size > 10) {
-            size_t vm_section_start = 4;
+            size_t vm_section_start = 6;      // Header is now 6 bytes
             size_t vm_section_end = size / 2; // First half is VM data
             if (vm_section_end > vm_section_start) {
                 size_t pos = vm_section_start + (static_cast<unsigned>(std::rand()) %
@@ -979,9 +1389,9 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
             }
         }
     } else if (strategy < 70) {
-        // Mutate header (controls scaling)
-        if (size > 3) {
-            data[static_cast<unsigned>(std::rand()) % 4u] =
+        // Mutate header (controls scaling and constraint generation)
+        if (size > 5) {
+            data[static_cast<unsigned>(std::rand()) % 6u] =
                 static_cast<uint8_t>(static_cast<unsigned>(std::rand()) % 256u);
         }
     } else if (strategy < 80) {

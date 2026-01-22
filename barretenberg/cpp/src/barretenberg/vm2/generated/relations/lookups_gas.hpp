@@ -22,7 +22,7 @@ struct lookup_gas_addressing_gas_read_settings_ {
     static constexpr Column COUNTS = Column::lookup_gas_addressing_gas_read_counts;
     static constexpr Column INVERSES = Column::lookup_gas_addressing_gas_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_indirect, ColumnAndShifts::execution_addressing_gas
+        ColumnAndShifts::execution_addressing_mode, ColumnAndShifts::execution_addressing_gas
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_addressing_gas

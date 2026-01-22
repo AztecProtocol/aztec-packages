@@ -1,5 +1,5 @@
 import { LogLevels } from '@aztec/foundation/log';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
+import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -23,7 +23,7 @@ describe('Misc Instructions', () => {
         ...Buffer.from('0010', 'hex'), // messageSize
       ]);
       const inst = new DebugLog(
-        /*indirect=*/ 0x01,
+        /*addressing_mode=*/ 0x01,
         /*level=*/ 0x02,
         /*messageOffset=*/ 0x1234,
         /*fieldsOffset=*/ 0x2345,
@@ -68,7 +68,7 @@ describe('Misc Instructions', () => {
       try {
         // Execute debug log instruction
         await new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
@@ -107,7 +107,7 @@ describe('Misc Instructions', () => {
       try {
         // Execute debug log instruction
         await new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*level=*/ 0,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
@@ -126,7 +126,10 @@ describe('Misc Instructions', () => {
     it('Should fail when max debug log memory reads is exceeded', async () => {
       const trace = mock<PublicSideEffectTraceInterface>();
       const env = initExecutionEnvironment({
-        config: PublicSimulatorConfig.from({ collectDebugLogs: true, maxDebugLogMemoryReads: 1000 }),
+        config: PublicSimulatorConfig.from({
+          collectDebugLogs: true,
+          collectionLimits: CollectionLimitsConfig.from({ maxDebugLogMemoryReads: 1000 }),
+        }),
       });
       const context = initContext({ env, persistableState: initPersistableStateManager({ trace }) });
 
@@ -151,7 +154,7 @@ describe('Misc Instructions', () => {
       // Execute debug log instruction
       await expect(
         new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,
@@ -185,7 +188,7 @@ describe('Misc Instructions', () => {
       // Execute debug log instruction
       await expect(
         new DebugLog(
-          /*indirect=*/ 0,
+          /*addressing_mode=*/ 0,
           /*levelOffset=*/ levelOffset,
           /*messageOffset=*/ messageOffset,
           /*fieldsOffset=*/ fieldsOffset,

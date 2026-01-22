@@ -1,10 +1,9 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-// goblin.hpp
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -23,6 +22,12 @@ namespace bb {
 class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
+
+  protected:
+    // In AVM we only use Goblin for a single circuit whose proof is not required to be zero-knowledge. While Translator
+    // will still expect to find random ops at the beginning to ensure the accumulation result remains at a fixed row we
+    // opt for not adding random ops at the end of the op queue.
+    bool avm_mode = false;
 
   public:
     using MegaBuilder = MegaCircuitBuilder;
@@ -43,6 +48,8 @@ class Goblin {
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = MegaStdlibTranscript;
+    using TranslatorInputData = TranslatorInputData_<fq>;
+    using IPA_PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     CommitmentKey<curve::BN254> commitment_key;
@@ -54,11 +61,6 @@ class Goblin {
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
     std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
-
-    // In AVM we only use Goblin for a single circuit (it's recursive verifier) whose proof is not required to be
-    // zero-knowledge. While Translator will still expect to find random ops at the beginning to ensure the accumulation
-    // result remains at a fixed row we opt for not adding random ops at the end of the op queue.
-    bool avm_mode = false;
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -79,7 +81,9 @@ class Goblin {
                      const MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
-     * @brief Construct an ECCVM proof and the translation polynomial evaluations
+     * @brief Construct an ECCVM proof and IPA opening proof.
+     * @details Also computes the translation polynomial evaluation challenges (batching_challenge_v,
+     * evaluation_challenge_x) which are passed to the Translator.
      */
     void prove_eccvm();
 
@@ -94,7 +98,7 @@ class Goblin {
      *
      * @return Proof
      */
-    GoblinProof prove(const MergeSettings merge_settings = MergeSettings::PREPEND);
+    GoblinProof prove();
 
     /**
      * @brief Recursively verify the next merge proof in the merge verification queue.
@@ -111,33 +115,6 @@ class Goblin {
         const RecursiveMergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
-
-    /**
-     * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
-     *
-     * @param proof
-     * @param inputs_commitments The commitments used by the Merge verifier
-     * @param merged_table_commitment The commitment to the merged table as read from the proof
-     * @param transcript
-     * @param merge_settings How the most recent ecc op subtable is going to be merged into the table of ecc ops
-     * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
-     * verifier
-     */
-    static bool verify(const GoblinProof& proof,
-                       const MergeCommitments& merge_commitments,
-                       const std::shared_ptr<Transcript>& transcript,
-                       const MergeSettings merge_settings = MergeSettings::PREPEND);
-
-    /**
-     * @brief Translator requires the op queue to start with a no-op to ensure op queue polynomials are shiftable and
-     * then expects three random ops. This is due to the ZK requirement in Chonk.  We need to also ensure
-     * these ops are present when Goblin is used for AVM, although we only ever have a single table of ecc ops and no ZK
-     * requiements.
-     *
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1537) Asses whether two Translator variants (one with
-     * Zk and one without) would be a better option
-     */
-    void ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const;
 };
 
 } // namespace bb

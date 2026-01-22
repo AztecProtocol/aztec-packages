@@ -4,15 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "compile": "cd src/contracts && CONTAINER_NAME=\"aztec-vite-box\" ${AZTEC:-aztec} compile --silence-warnings",
-    "codegen": "CONTAINER_NAME=\"aztec-vite-box\" ${AZTEC:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
-    "prep": "yarn clean && yarn compile && yarn codegen",
-    "build": "yarn prep && yarn tsgo -b && vite build",
+    "build": "yarn clean && yarn compile && yarn codegen && tsc -b && vite build",
+    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target ./test-results || true",
+    "compile": "cd src/contracts && ${AZTEC:-aztec} compile --silence-warnings",
+    "codegen": "${AZTEC:-aztec} codegen src/contracts/target -o artifacts",
     "serve": "vite",
     "test": "playwright test",
-    "formatting": "prettier --check ./src && eslint ./src",
-    "formatting:fix": "prettier -w ./src",
+    "lint": "prettier --check ./src && eslint ./src",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -8,8 +8,11 @@ replicaCount: 1
 node:
   resources:
     requests:
-      cpu: "1.6"
-      memory: "5Gi"
+      cpu: "0.5"
+      memory: "2Gi"
+    limits:
+      cpu: "1.5"
+      memory: "6Gi"
 persistence:
   enabled: true
 

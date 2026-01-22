@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 /**
@@ -66,6 +66,23 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
         info("WARNING: Redundant call to finalize_circuit(). Is this intentional?");
+    }
+}
+
+/**
+ * @brief Copy the public input idx data into the public inputs trace block
+ */
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
+{
+    BB_BENCH_NAME("populate_public_inputs_block");
+
+    // Update the public inputs block
+    for (const auto& idx : this->public_inputs()) {
+        // first two wires get a copy of the public inputs
+        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx(), this->zero_idx());
+        for (auto& selector : this->blocks.pub_inputs.get_selectors()) {
+            selector.emplace_back(0);
+        }
     }
 }
 
@@ -501,7 +518,8 @@ plookup::BasicTable& UltraCircuitBuilder_<ExecutionTrace>::get_table(const plook
  * and (2) the reconstruction of the final result from the results of the BasicTable lookups. This is done via an
  * accumulator pattern where the wires in each gate store accumulated sums and we use step size coefficients (stored in
  * q_2, q_m, q_c) to extract actual table entries via an expression of the form `derived_entry_i = w_i - step_size_i *
- * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row.
+ * w_i_shift` where w_i is the wire value at the current row, w_i_shift is the wire value at the next row. For a
+ * detailed description of the accumulator pattern, see barretenberg/stdlib_circuit_builders/plookup_tables/README.md.
  *
  * The last lookup has zero step size coefficients (q_2 = q_m = q_c = 0) because there's no next accumulator to
  * subtract; its wire values already contain the raw slices.
@@ -566,30 +584,31 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 }
 
 /**
- * Generalized Permutation Methods
+ * Range constraint methods
  **/
 template <typename ExecutionTrace>
 typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<ExecutionTrace>::create_range_list(
     const uint64_t target_range)
 {
     RangeList result;
-    const auto range_tag = get_new_tag(); // current_tag + 1;
-    const auto tau_tag = get_new_tag();   // current_tag + 2;
-    create_tag(range_tag, tau_tag);
-    create_tag(tau_tag, range_tag);
+    const auto range_tag = get_new_tag();
+    const auto tau_tag = get_new_tag();
+    set_tau_transposition(range_tag, tau_tag);
     result.target_range = target_range;
     result.range_tag = range_tag;
     result.tau_tag = tau_tag;
 
     uint64_t num_multiples_of_three = (target_range / DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
-
-    // AUDITTODO: This is not reserving the correct amount of space. Ensure this isn't indicative of a larger issue.
-    result.variable_indices.reserve((uint32_t)num_multiples_of_three);
+    // allocate the minimum number of variable indices required for the range constraint. this function is only called
+    // when we are creating a range constraint on a witness index, which is responsible for the extra + 1. (note that
+    // the below loop goes from 0 to `num_multiples_of_three` inclusive.)
+    result.variable_indices.reserve(static_cast<uint32_t>(num_multiples_of_three + 3));
     for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
         const uint32_t index = this->add_variable(fr(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
+    // `target_range` may not be divisible by 3, so we explicitly add it also.
     {
         const uint32_t index = this->add_variable(fr(target_range));
         result.variable_indices.emplace_back(index);
@@ -601,15 +620,14 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
     return result;
 }
 
-// range constraint a value by decomposing it into limbs whose size should be the default range constraint size
-
 template <typename ExecutionTrace>
-std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_default_range(
+std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_constraint(
     const uint32_t variable_index, const uint64_t num_bits, const uint64_t target_range_bitnum, std::string const& msg)
 {
     this->assert_valid_variables({ variable_index });
-
+    // make sure `num_bits` satisfies the correct bounds
     BB_ASSERT_GT(num_bits, 0U);
+    BB_ASSERT_GTE(MAX_NUM_BITS_RANGE_CONSTRAINT, num_bits);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -618,21 +636,9 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
         this->failure(msg);
     }
 
+    // compute limb structure
     const uint64_t sublimb_mask = (1ULL << target_range_bitnum) - 1;
 
-    /**
-     * TODO: Support this commented-out code!
-     * At the moment, `decompose_into_default_range` generates a minimum of 1 arithmetic gate.
-     * This is not strictly required iff num_bits <= target_range_bitnum.
-     * However, this produces an edge-case where a variable is range-constrained but NOT present in an arithmetic gate.
-     * This in turn produces an unsatisfiable circuit (see `create_new_range_constraint`). We would need to check for
-     * and accommodate/reject this edge case to support not adding addition gates here if not reqiured
-     * if (num_bits <= target_range_bitnum) {
-     *     const uint64_t expected_range = (1ULL << num_bits) - 1ULL;
-     *     create_new_range_constraint(variable_index, expected_range);
-     *     return { variable_index };
-     * }
-     **/
     std::vector<uint64_t> sublimbs;
     std::vector<uint32_t> sublimb_indices;
 
@@ -641,53 +647,82 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
     const uint64_t last_limb_size = num_bits - ((num_bits / target_range_bitnum) * target_range_bitnum);
     const uint64_t last_limb_range = ((uint64_t)1 << last_limb_size) - 1;
 
+    // extract limbs from the value
     uint256_t accumulator = val;
     for (size_t i = 0; i < num_limbs; ++i) {
         sublimbs.push_back(accumulator.data[0] & sublimb_mask);
         accumulator = accumulator >> target_range_bitnum;
     }
-    for (size_t i = 0; i < sublimbs.size(); ++i) {
+    // set the correct range constraint on each limb. note that when there are remainder bits, the last limb must be
+    // constrained to a smaller range.
+    const size_t num_full_limbs = has_remainder_bits ? sublimbs.size() - 1 : sublimbs.size();
+    for (size_t i = 0; i < num_full_limbs; ++i) {
         const auto limb_idx = this->add_variable(bb::fr(sublimbs[i]));
         sublimb_indices.emplace_back(limb_idx);
-        if ((i == sublimbs.size() - 1) && has_remainder_bits) {
-            create_new_range_constraint(limb_idx, last_limb_range);
-        } else {
-            create_new_range_constraint(limb_idx, sublimb_mask);
-        }
+        create_small_range_constraint(limb_idx, sublimb_mask);
+    }
+    if (has_remainder_bits) {
+        const auto limb_idx = this->add_variable(bb::fr(sublimbs.back()));
+        sublimb_indices.emplace_back(limb_idx);
+        create_small_range_constraint(limb_idx, last_limb_range);
     }
 
+    // Prove that the limbs reconstruct the original value by processing limbs in groups of 3.
+    // We constrain: value = sum_{j=0}^{num_limbs-1} limb[j] * 2^(j * target_range_bitnum)
+    //
+    // Each iteration subtracts 3 limbs' contributions from an accumulator (starting at `val`),
+    // and constrains that the accumulator updates correctly via an arithmetic gate.
     const uint64_t num_limb_triples = (num_limbs / 3) + ((num_limbs % 3) != 0);
+    // `leftovers` is the number of real limbs in the final triple (1, 2, or 3).
     const uint64_t leftovers = (num_limbs % 3) == 0 ? 3 : (num_limbs % 3);
 
     accumulator = val;
     uint32_t accumulator_idx = variable_index;
-
+    // loop goes from `i = 0` to `num_limb_triples`, but some special case must be taken for the last triple (`i ==
+    // num_limb_triples - 1`), hence some conditional logic.
     for (size_t i = 0; i < num_limb_triples; ++i) {
+        // `real_limbs` which limb positions in this triple contain actual limbs vs zero-padding.
+        // When `i == num_limb_triples - 1`, some positions may be unused if `num_limbs` isn't divisible by 3.
         const bool real_limbs[3]{
-            (i == (num_limb_triples - 1) && (leftovers < 1)) ? false : true,
-            (i == (num_limb_triples - 1) && (leftovers < 2)) ? false : true,
-            (i == (num_limb_triples - 1) && (leftovers < 3)) ? false : true,
+            !(i == (num_limb_triples - 1) && (leftovers < 1)),
+            !(i == (num_limb_triples - 1) && (leftovers < 2)),
+            !(i == (num_limb_triples - 1) && (leftovers < 3)),
         };
 
+        // The witness values of the 3 limbs in this triple (0 for padding positions).
         const uint64_t round_sublimbs[3]{
             real_limbs[0] ? sublimbs[3 * i] : 0,
             real_limbs[1] ? sublimbs[3 * i + 1] : 0,
             real_limbs[2] ? sublimbs[3 * i + 2] : 0,
         };
+        // The witnesss indices of the current 3 limbs (zero_idx for padding positions).
         const uint32_t new_limbs[3]{
             real_limbs[0] ? sublimb_indices[3 * i] : this->zero_idx(),
             real_limbs[1] ? sublimb_indices[3 * i + 1] : this->zero_idx(),
             real_limbs[2] ? sublimb_indices[3 * i + 2] : this->zero_idx(),
         };
+        // Bit-shifts for each limb: limb[3*i+k] contributes at bit position (3*i+k) * target_range_bitnum.
         const uint64_t shifts[3]{
             target_range_bitnum * (3 * i),
             target_range_bitnum * (3 * i + 1),
             target_range_bitnum * (3 * i + 2),
         };
+        // Compute the new accumulator after subtracting this triple's contribution.
+        // After the final iteration, accumulator should be 0.
         uint256_t new_accumulator = accumulator - (uint256_t(round_sublimbs[0]) << shifts[0]) -
                                     (uint256_t(round_sublimbs[1]) << shifts[1]) -
                                     (uint256_t(round_sublimbs[2]) << shifts[2]);
 
+        // This `big_add_gate` has differing behavior depending on whether or not `i == num_limb_triples - 1`.
+        // If `i != num_limb_triples - 1`, then the constraint will be limb[0]*2^shift[0] + limb[1]*2^shift[1] +
+        // limb[2]*2^shift[2] - acc = new_accumulator (the last argument to `create_big_add_gate` is `true`, means the
+        // sum is w_4-shift, which will be the witness corresponding to what is currently `new_accumulator`.).
+        // If `i == num_limb_triples - 1`, then the last argument to `create_big_add_gate` is false, so the constraint
+        // is limb[0]*2^shift[0] + limb[1]*2^shift[1] + limb[2]*2^shift[2] - acc = 0.
+        //
+        // N.B. When `num_bits` is small, we only have remainder bits. This last constraint, checking the correctness of
+        // the limb-decomposition, ensures that the variable is not orphaned. (See the warning in
+        // `create_small_range_constraint`.)
         create_big_add_gate(
             {
                 new_limbs[0],
@@ -700,29 +735,22 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
                 -1,
                 0,
             },
-            ((i == num_limb_triples - 1) ? false : true));
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
-        // wire/variable in the circuit, in the last iteration of the loop.
-        accumulator_idx = this->add_variable(fr(new_accumulator));
-        accumulator = new_accumulator;
+            (i != num_limb_triples - 1));
+        if (i != num_limb_triples - 1) {
+            accumulator_idx = this->add_variable(fr(new_accumulator));
+            accumulator = new_accumulator;
+        }
     }
     return sublimb_indices;
 }
 
-/**
- * @brief Constrain a variable to a range
- *
- * @details Checks if the range [0, target_range] already exists. If it doesn't, then creates a new range. Then tags
- * variable as belonging to this set.
- *
- * @param variable_index
- * @param target_range
- */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uint32_t variable_index,
-                                                                       const uint64_t target_range,
-                                                                       std::string const msg)
+void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const uint32_t variable_index,
+                                                                         const uint64_t target_range,
+                                                                         std::string const msg)
 {
+    // make sure `target_range` is not too big.
+    BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
     if (is_out_of_range && !this->failed()) {
         this->failure(msg);
@@ -730,45 +758,55 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
     if (range_lists.count(target_range) == 0) {
         range_lists.insert({ target_range, create_range_list(target_range) });
     }
-
+    // The tag of `variable_index` is `DEFAULT_TAG` if it has never been range-constrained and a non-trivial value
+    // otherwise.
     const auto existing_tag = this->real_variable_tags[this->real_variable_index[variable_index]];
     auto& list = range_lists[target_range];
 
-    // If the variable's tag matches the target range list's tag, do nothing.
-    if (existing_tag != list.range_tag) {
-        // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag.
-        // Otherwise, find the range for which the variable has already been tagged.
-        if (existing_tag != DUMMY_TAG) {
-            bool found_tag = false;
-            for (const auto& r : range_lists) {
-                if (r.second.range_tag == existing_tag) {
-                    found_tag = true;
-                    if (r.first < target_range) {
-                        // The variable already has a more restrictive range check, so do nothing.
-                        return;
-                    } else {
-                        // The range constraint we are trying to impose is more restrictive than the existing range
-                        // constraint. It would be difficult to remove an existing range check. Instead deep-copy the
-                        // variable and apply a range check to new variable
-                        const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
-                        create_add_gate({ .a = variable_index,
-                                          .b = copied_witness,
-                                          .c = this->zero_idx(),
-                                          .a_scaling = 1,
-                                          .b_scaling = -1,
-                                          .c_scaling = 0,
-                                          .const_scaling = 0 });
-                        // Recurse with new witness that has no tag attached.
-                        create_new_range_constraint(copied_witness, target_range, msg);
-                        return;
-                    }
-                }
-            }
-            BB_ASSERT(found_tag);
-        }
+    // If the variable's tag matches the target range list's tag, do nothing; the variable has _already_ been
+    // constrained to this exact range (i.e., `create_new_range_constraint(variable_index, target_range)` has already
+    // been called).
+    if (existing_tag == list.range_tag) {
+        return;
+    }
+    // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag, which amounts to
+    // setting the range-constraint.
+    if (existing_tag == DEFAULT_TAG) {
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
+        return;
     }
+    // Otherwise, find the range for which the variable has already been tagged.
+    bool found_tag = false;
+    for (const auto& r : range_lists) {
+        if (r.second.range_tag == existing_tag) {
+            found_tag = true;
+            if (r.first < target_range) {
+                // The variable already has a more restrictive range check, so do nothing.
+                return;
+            }
+            // The range constraint we are trying to impose is more restrictive than the existing range
+            // constraint. It would be difficult to remove an existing range check. Instead, arithmetically copy the
+            // variable and apply a range check to new variable. We do _not_ simply create a
+            // copy-constraint, because that would copy the tag, which exactly corresponds to the old (less
+            // restrictive) range constraint. Instead, we use an arithmetic gate to constrain the value of
+            // the new variable and set the tag (a.k.a. range-constraint) via a new call to
+            // `create_new_range_constraint`.
+            const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
+            create_add_gate({ .a = variable_index,
+                              .b = copied_witness,
+                              .c = this->zero_idx(),
+                              .a_scaling = 1,
+                              .b_scaling = -1,
+                              .c_scaling = 0,
+                              .const_scaling = 0 });
+            // Recurse with new witness that has no tag attached.
+            create_small_range_constraint(copied_witness, target_range, msg);
+            return;
+        }
+    }
+    // should never occur
+    BB_ASSERT(found_tag);
 }
 
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_range_list(RangeList& list)
@@ -777,23 +815,23 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
     BB_ASSERT_GT(list.variable_indices.size(), 0U);
 
-    // replace witness index in variable_indices with the real variable index i.e. if a copy constraint has been
-    // applied on a variable after it was range constrained, this makes sure the indices in list point to the updated
-    // index in the range list so the set equivalence does not fail
+    // replace witness-index in variable_indices with the corresponding real-variable-index i.e., if a copy constraint
+    // has been applied on a variable after it was range constrained, this makes sure the indices in list point to the
+    // updated index in the range list so the set equivalence does not fail
     for (uint32_t& x : list.variable_indices) {
         x = this->real_variable_index[x];
     }
-    // remove duplicate witness indices to prevent the sorted list set size being wrong!
+    // Sort `variable_indices` and remove duplicate witness indices to prevent the sorted list set size being wrong!
     std::sort(list.variable_indices.begin(), list.variable_indices.end());
     auto back_iterator = std::unique(list.variable_indices.begin(), list.variable_indices.end());
     list.variable_indices.erase(back_iterator, list.variable_indices.end());
 
-    // go over variables
-    // iterate over each variable and create mirror variable with same value - with tau tag
-    // need to make sure that, in original list, increments of at most 3
+    // Extract the values of each (real) variable into a list to be sorted (in the sense of the range/plookup-style
+    // argument).
     std::vector<uint32_t> sorted_list;
     sorted_list.reserve(list.variable_indices.size());
     for (const auto variable_index : list.variable_indices) {
+        // note that `field_element` is < 32 bits as the corresponding witness has a non-trivial range-constraint.
         const auto& field_element = this->get_variable(variable_index);
         const uint32_t shrinked_value = (uint32_t)field_element.from_montgomery_form().data[0];
         sorted_list.emplace_back(shrinked_value);
@@ -817,11 +855,13 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     for (size_t i = 0; i < padding; ++i) {
         indices.emplace_back(this->zero_idx());
     }
+    // tag the elements in the sorted_list to apply the multiset-equality check implicit in range-constraints.
     for (const auto sorted_value : sorted_list) {
         const uint32_t index = this->add_variable(fr(sorted_value));
         assign_tag(index, list.tau_tag);
         indices.emplace_back(index);
     }
+    // constrain the _sorted_ list: starts at 0, ends at `target_range`, consecutive differences in {0, 1, 2, 3}.
     create_sort_constraint_with_edges(indices, 0, list.target_range);
 }
 
@@ -832,29 +872,16 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     }
 }
 
-/*
- * Create range constraint:
- * add variable index to a list of range constrained variables
- * data structures: vector of lists, each list contains:
- *    - the range size
- *    - the list of variables in the range
- *    - a generalized permutation tag
- *
- * create range constraint parameters: variable index && range size
- *
- * std::map<uint64_t, RangeList> range_lists;
- */
-// Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checkj)
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
+void UltraCircuitBuilder_<ExecutionTrace>::enforce_small_deltas(const std::vector<uint32_t>& variable_indices)
 {
     constexpr size_t gate_width = NUM_WIRES;
-    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
-    this->assert_valid_variables(variable_index);
+    BB_ASSERT_EQ(variable_indices.size() % gate_width, 0U);
+    this->assert_valid_variables(variable_indices);
 
-    for (size_t i = 0; i < variable_index.size(); i += gate_width) {
+    for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
         blocks.delta_range.populate_wires(
-            variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
+            variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]);
 
         this->increment_num_gates();
         blocks.delta_range.q_m().emplace_back(0);
@@ -866,9 +893,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range.set_gate_selector(1);
         check_selector_length_consistency();
     }
-    // dummy gate needed because of sort widget's check of next row
+    // dummy gate needed because of widget's check of next row
     create_unconstrained_gate(blocks.delta_range,
-                              variable_index[variable_index.size() - 1],
+                              variable_indices[variable_indices.size() - 1],
                               this->zero_idx(),
                               this->zero_idx(),
                               this->zero_idx());
@@ -894,42 +921,28 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_unconstrained_gates(const std:
     }
 }
 
-// Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checks)
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
-    const std::vector<uint32_t>& variable_index, const FF& start, const FF& end)
+    const std::vector<uint32_t>& variable_indices, const FF& start, const FF& end)
 {
     // Convenient to assume size is at least 8 (gate_width = 4) for separate gates for start and end conditions
     constexpr size_t gate_width = NUM_WIRES;
-    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
-    BB_ASSERT_GT(variable_index.size(), gate_width);
-    this->assert_valid_variables(variable_index);
-
+    BB_ASSERT_EQ(variable_indices.size() % gate_width, 0U);
+    BB_ASSERT_GT(variable_indices.size(), gate_width);
+    this->assert_valid_variables(variable_indices);
+    // only work with the delta_range block. this forces: `w_2 - w_1`, `w_3 - w_2`, `w_4 - w_3`, and `w_1_shift - w_4`
+    // to be in {0, 1, 2, 3}.
     auto& block = blocks.delta_range;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
-    create_add_gate({ variable_index[0], this->zero_idx(), this->zero_idx(), 1, 0, 0, -start });
+    create_add_gate({ variable_indices[0], this->zero_idx(), this->zero_idx(), 1, 0, 0, -start });
 
-    // enforce range check for all but the final row
-    for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
+    // enforce delta range relation for all rows (there are `variabe_indices.size() / gate_width`). note that there are
+    // at least two rows.
+    for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
 
-        block.populate_wires(variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
-        this->increment_num_gates();
-        block.q_m().emplace_back(0);
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
-    }
-    // enforce range checks of last row and ending at end
-    if (variable_index.size() > gate_width) {
-        block.populate_wires(variable_index[variable_index.size() - 4],
-                             variable_index[variable_index.size() - 3],
-                             variable_index[variable_index.size() - 2],
-                             variable_index[variable_index.size() - 1]);
+        block.populate_wires(
+            variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]);
         this->increment_num_gates();
         block.q_m().emplace_back(0);
         block.q_1().emplace_back(0);
@@ -941,13 +954,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         check_selector_length_consistency();
     }
 
-    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
-    // (and remove dummy gate). This used to be a single gate before trace sorting based on gate types. The dummy gate
-    // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
-    // gate to occur out of sequence. More details on the linked Github issue.
+    // the delta_range constraint has to have access to w_1-shift (it checks that w_1-shift - w_4 is in {0, 1, 2, 3}).
+    // Therefore, we repeat the last element in an unconstrained gate.
     create_unconstrained_gate(
-        block, variable_index[variable_index.size() - 1], this->zero_idx(), this->zero_idx(), this->zero_idx());
-    create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx(), this->zero_idx(), 1, 0, 0, -end });
+        block, variable_indices[variable_indices.size() - 1], this->zero_idx(), this->zero_idx(), this->zero_idx());
+    // arithmetic gate to constrain that `variable_indices[last] == end`, i.e., verify the boundary condition.
+    create_add_gate(
+        { variable_indices[variable_indices.size() - 1], this->zero_idx(), this->zero_idx(), 1, 0, 0, -end });
 }
 
 /**
@@ -1245,60 +1258,28 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 
     for (size_t i = 0; i < 5; i++) {
         if (lo_masks[i] != 0) {
-            create_new_range_constraint(lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
+            create_small_range_constraint(
+                lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
         }
         if (hi_masks[i] != 0) {
-            create_new_range_constraint(hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
+            create_small_range_constraint(
+                hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
         }
     }
 };
 
 /**
- * @brief Decompose a single witness into two, where the lowest is DEFAULT_NON_NATIVE_FIELD_LIMB_BITS (68) range
- * constrained and the lowst is num_limb_bits - DEFAULT.. range constrained.
+ * @brief Create gates for a full non-native field multiplication identity a * b = q * p + r
  *
- * @details Doesn't create gates constraining the limbs to each other.
- *
- * @param limb_idx The index of the limb that will be decomposed
- * @param num_limb_bits The range we want to constrain the original limb to
- * @return std::array<uint32_t, 2> The indices of new limbs.
- */
-template <typename ExecutionTrace>
-std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
-    const uint32_t limb_idx, const size_t num_limb_bits)
-{
-    BB_ASSERT_LT(uint256_t(this->get_variable(limb_idx)), (uint256_t(1) << num_limb_bits));
-    constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
-    const uint256_t value = this->get_variable(limb_idx);
-    const uint256_t low = value & LIMB_MASK;
-    const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
-
-    const uint32_t low_idx = this->add_variable(fr(low));
-    const uint32_t hi_idx = this->add_variable(fr(hi));
-
-    BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
-    const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    range_constrain_two_limbs(
-        low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
-
-    return std::array<uint32_t, 2>{ low_idx, hi_idx };
-}
-
-/**
- * @brief Queue up non-native field multiplication data.
- *
- * @details The data queued represents a non-native field multiplication identity a * b = q * p + r,
- * where a, b, q, r are all emulated non-native field elements that are each split across 4 distinct witness variables.
- *
- * Without this queue some functions, such as bb::stdlib::element::multiple_montgomery_ladder, would
- * duplicate non-native field operations, which can be quite expensive. We queue up these operations, and remove
- * duplicates in the circuit finishing stage of the proving key computation.
+ * @details Creates gates to constrain the non-native field multiplication identity a * b = q * p + r, where a, b, q, r
+ * are all emulated non-native field elements that are each split across 4 distinct witness variables.
  *
  * The non-native field modulus, p, is a circuit constant
  *
- * The return value are the witness indices of the two remainder limbs `lo_1, hi_2`
+ * This method creates 8 gates total: 4 non-native field gates to check the limb multiplications, plus 4 arithmetic
+ * gates (3 big add gates + 1 unconstrained gate) to validate the quotient and remainder terms.
+ *
+ * The return values are the witness indices of the two remainder limbs `lo_1, hi_3`
  *
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
@@ -1306,47 +1287,41 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
     const non_native_multiplication_witnesses<FF>& input)
 {
+    const auto [a0, a1, a2, a3] = std::array{ this->get_variable(input.a[0]),
+                                              this->get_variable(input.a[1]),
+                                              this->get_variable(input.a[2]),
+                                              this->get_variable(input.a[3]) };
+    const auto [b0, b1, b2, b3] = std::array{ this->get_variable(input.b[0]),
+                                              this->get_variable(input.b[1]),
+                                              this->get_variable(input.b[2]),
+                                              this->get_variable(input.b[3]) };
+    const auto [q0, q1, q2, q3] = std::array{ this->get_variable(input.q[0]),
+                                              this->get_variable(input.q[1]),
+                                              this->get_variable(input.q[2]),
+                                              this->get_variable(input.q[3]) };
+    const auto [r0, r1, r2, r3] = std::array{ this->get_variable(input.r[0]),
+                                              this->get_variable(input.r[1]),
+                                              this->get_variable(input.r[2]),
+                                              this->get_variable(input.r[3]) };
+    const auto& p_neg = input.neg_modulus;
 
-    std::array<fr, 4> a{
-        this->get_variable(input.a[0]),
-        this->get_variable(input.a[1]),
-        this->get_variable(input.a[2]),
-        this->get_variable(input.a[3]),
-    };
-    std::array<fr, 4> b{
-        this->get_variable(input.b[0]),
-        this->get_variable(input.b[1]),
-        this->get_variable(input.b[2]),
-        this->get_variable(input.b[3]),
-    };
-    std::array<fr, 4> q{
-        this->get_variable(input.q[0]),
-        this->get_variable(input.q[1]),
-        this->get_variable(input.q[2]),
-        this->get_variable(input.q[3]),
-    };
-    std::array<fr, 4> r{
-        this->get_variable(input.r[0]),
-        this->get_variable(input.r[1]),
-        this->get_variable(input.r[2]),
-        this->get_variable(input.r[3]),
-    };
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     constexpr FF LIMB_RSHIFT = FF(1) / FF(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     constexpr FF LIMB_RSHIFT_2 = FF(1) / FF(uint256_t(1) << (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
 
-    FF lo_0 = a[0] * b[0] - r[0] + (a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT;
-    FF lo_1 = (lo_0 + q[0] * input.neg_modulus[0] +
-               (q[1] * input.neg_modulus[0] + q[0] * input.neg_modulus[1] - r[1]) * LIMB_SHIFT) *
-              LIMB_RSHIFT_2;
+    // lo_0 = (a0·b0 - r0) + (a1·b0 + a0·b1)·2^L
+    FF lo_0 = (a0 * b0 - r0) + (a1 * b0 + a0 * b1) * LIMB_SHIFT;
+    // lo_1 = (lo_0 + q0·p0' + (q1·p0' + q0·p1' - r1)·2^L) / 2^2L
+    FF lo_1 = (lo_0 + q0 * p_neg[0] + (q1 * p_neg[0] + q0 * p_neg[1] - r1) * LIMB_SHIFT) * LIMB_RSHIFT_2;
 
-    FF hi_0 = a[2] * b[0] + a[0] * b[2] + (a[0] * b[3] + a[3] * b[0] - r[3]) * LIMB_SHIFT;
-    FF hi_1 = hi_0 + a[1] * b[1] - r[2] + (a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT;
-    FF hi_2 = (hi_1 + lo_1 + q[2] * input.neg_modulus[0] +
-               (q[3] * input.neg_modulus[0] + q[2] * input.neg_modulus[1]) * LIMB_SHIFT);
-    FF hi_3 = (hi_2 + (q[0] * input.neg_modulus[3] + q[1] * input.neg_modulus[2]) * LIMB_SHIFT +
-               (q[0] * input.neg_modulus[2] + q[1] * input.neg_modulus[1])) *
-              LIMB_RSHIFT_2;
+    // hi_0 = (a2·b0 + a0·b2) + (a0·b3 + a3·b0 - r3)·2^L
+    FF hi_0 = (a2 * b0 + a0 * b2) + (a0 * b3 + a3 * b0 - r3) * LIMB_SHIFT;
+    // hi_1 = hi_0 + (a1·b1 - r2) + (a1·b2 + a2·b1)·2^L
+    FF hi_1 = hi_0 + (a1 * b1 - r2) + (a1 * b2 + a2 * b1) * LIMB_SHIFT;
+    // hi_2 = hi_1 + lo_1 + q2·p0' + (q3·p0' + q2·p1')·2^L
+    FF hi_2 = hi_1 + lo_1 + q2 * p_neg[0] + (q3 * p_neg[0] + q2 * p_neg[1]) * LIMB_SHIFT;
+    // hi_3 = (hi_2 + q0·p2' + q1·p1' + (q0·p3' + q1·p2')·2^L) / 2^2L
+    FF hi_3 = (hi_2 + q0 * p_neg[2] + q1 * p_neg[1] + (q0 * p_neg[3] + q1 * p_neg[2]) * LIMB_SHIFT) * LIMB_RSHIFT_2;
 
     const uint32_t lo_0_idx = this->add_variable(lo_0);
     const uint32_t lo_1_idx = this->add_variable(lo_1);
@@ -1355,11 +1330,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const uint32_t hi_2_idx = this->add_variable(hi_2);
     const uint32_t hi_3_idx = this->add_variable(hi_3);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
-    // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an nnf gate that
-    // has been sorted out of sequence.
-    // product gate 1
+    // Gate 1: big_add_gate to validate lo_1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
+    // This constraint requires two rows in the trace: an arithmetic gate plus an unconstrained arithmetic gate
+    // containing lo_0 in wire 4 so that the previous gate can access it via shifts. (We cannot use the next nnf gate
+    // for this purpose since our trace is sorted by gate type).
     create_big_add_gate({ input.q[0],
                           input.q[1],
                           input.r[1],
@@ -1369,21 +1344,23 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                           -LIMB_SHIFT,
                           -LIMB_SHIFT.sqr(),
                           0 },
-                        true);
+                        /*include_next_gate_w_4*/ true);
+    // Gate 2: unconstrained gate to provide lo_0 via w_4_shift for gate 1
     create_unconstrained_gate(blocks.arithmetic, this->zero_idx(), this->zero_idx(), this->zero_idx(), lo_0_idx);
+
     //
     // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
     // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
     //
-    // Check if lo_0 was computed correctly.
+    // Gate 3: NNF gate to check if lo_0 was computed correctly
     // The gate structure for the nnf gates is as follows:
     //
-    // | a1 | b1 | r0 | lo_0 | <-- product gate 1: check lo_0
+    // | a1 | b1 | r0 | lo_0 | <-- Gate 3: check lo_0
     // | a0 | b0 | a3 | b3   |
     // | a2 | b2 | r3 | hi_0 |
     // | a1 | b1 | r2 | hi_1 |
     //
-    // Constaint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
+    // Constraint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
     //              w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
     //
     blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
@@ -1391,48 +1368,48 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     this->increment_num_gates();
 
     //
-    // Check if hi_0 was computed correctly.
+    // Gate 4: NNF gate to check if hi_0 was computed correctly
     //
     // | a1 | b1 | r0 | lo_0 |
-    // | a0 | b0 | a3 | b3   | <-- product gate 2: check hi_0
+    // | a0 | b0 | a3 | b3   | <-- Gate 4: check hi_0
     // | a2 | b2 | r3 | hi_0 |
     // | a1 | b1 | r2 | hi_1 |
     //
-    // Constaint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0) - r2
-    //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2) - w'3
+    // Constraint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0)
+    //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2)
     //
     blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
     this->increment_num_gates();
 
     //
-    // Check if hi_1 was computed correctly.
+    // Gate 5: NNF gate to check if hi_1 was computed correctly
     //
     // | a1 | b1 | r0 | lo_0 |
     // | a0 | b0 | a3 | b3   |
-    // | a2 | b2 | r3 | hi_0 | <-- product gate 3: check hi_1
+    // | a2 | b2 | r3 | hi_0 | <-- Gate 5: check hi_1
     // | a1 | b1 | r2 | hi_1 |
     //
-    // Constaint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1)
-    //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2)
+    // Constraint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1) - r2
+    //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w'3
     //
     blocks.nnf.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
     this->increment_num_gates();
 
     //
-    // Does nothing, but is used by the previous gate to read the hi_1 limb.
+    // Gate 6: NNF gate with no constraints (q_nnf=0, truly unconstrained)
+    // Provides values a[1], b[1], r[2], hi_1 to Gate 5 via shifts (w'1, w'2, w'3, w'4)
     //
     blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
     this->increment_num_gates();
 
-    /**
-     * product gate 6
-     *
-     * hi_2 - hi_1 - lo_1 - q[2](p[1].2^b + p[0]) - q[3](p[0].2^b) = 0
-     *
-     **/
+    //
+    // Gate 7: big_add_gate to validate hi_2
+    //
+    // hi_2 - hi_1 - lo_1 - q[2](p[1].2^b + p[0]) - q[3](p[0].2^b) = 0
+    //
     create_big_add_gate(
         {
             input.q[2],
@@ -1445,13 +1422,13 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
             -1,
             0,
         },
-        true);
+        /*include_next_gate_w_4*/ true);
 
-    /**
-     * product gate 7
-     *
-     * hi_3 - (hi_2 - q[0](p[3].2^b + p[2]) - q[1](p[2].2^b + p[1])).2^-2b
-     **/
+    //
+    // Gate 8: big_add_gate to validate hi_3 (provides hi_2 in w_4 for gate 7)
+    //
+    // hi_3 - (hi_2 - q[0](p[3].2^b + p[2]) - q[1](p[2].2^b + p[1])).2^-2b = 0
+    //
     create_big_add_gate({
         hi_3_idx,
         input.q[0],
@@ -1468,27 +1445,10 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 }
 
 /**
- * @brief Copy the public input idx data into the public inputs trace block
- * @note
- */
-template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
-{
-    BB_BENCH_NAME("populate_public_inputs_block");
-
-    // Update the public inputs block
-    for (const auto& idx : this->public_inputs()) {
-        // first two wires get a copy of the public inputs
-        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx(), this->zero_idx());
-        for (auto& selector : this->blocks.pub_inputs.get_selectors()) {
-            selector.emplace_back(0);
-        }
-    }
-}
-
-/**
- * @brief Called in `compute_prover_instance` when finalizing circuit.
- * Iterates over the cached_non_native_field_multiplication objects,
- * removes duplicates, and instantiates the remainder as constraints`
+ * @brief Iterates over the cached_non_native_field_multiplication objects, removes duplicates, and instantiates the
+ * corresponding constraints
+ * @details Intended to be called during circuit finalization.
+ *
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_non_native_field_multiplications()
 {
@@ -1523,18 +1483,15 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 }
 
 /**
- * Compute the limb-multiplication part of a non native field mul
- *
- * i.e. compute the low 204 and high 204 bit components of `a * b` where `a, b` are nnf elements composed of 4
+ * @brief Queue the addition of gates constraining the limb-multiplication part of a non native field mul
+ * @details i.e. compute the low 204 and high 204 bit components of `a * b` where `a, b` are nnf elements composed of 4
  * limbs with size DEFAULT_NON_NATIVE_FIELD_LIMB_BITS
  *
  **/
-
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
     const non_native_partial_multiplication_witnesses<FF>& input)
 {
-
     std::array<fr, 4> a{
         this->get_variable(input.a[0]),
         this->get_variable(input.a[1]),
@@ -1550,17 +1507,15 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
 
     constexpr FF LIMB_SHIFT = uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
-    FF lo_0 = a[0] * b[0] + (a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT;
-
-    FF hi_0 = a[2] * b[0] + a[0] * b[2] + (a[0] * b[3] + a[3] * b[0]) * LIMB_SHIFT;
-    FF hi_1 = hi_0 + a[1] * b[1] + (a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT;
+    FF lo_0 = a[0] * b[0] + ((a[1] * b[0] + a[0] * b[1]) * LIMB_SHIFT);
+    FF hi_0 = a[2] * b[0] + a[0] * b[2] + ((a[0] * b[3] + a[3] * b[0]) * LIMB_SHIFT);
+    FF hi_1 = hi_0 + a[1] * b[1] + ((a[1] * b[2] + a[2] * b[1]) * LIMB_SHIFT);
 
     const uint32_t lo_0_idx = this->add_variable(lo_0);
     const uint32_t hi_0_idx = this->add_variable(hi_0);
     const uint32_t hi_1_idx = this->add_variable(hi_1);
 
-    // Add witnesses into the multiplication cache
-    // (when finalising the circuit, we will remove duplicates; several dups produced by biggroup.hpp methods)
+    // Add witnesses into the multiplication cache (duplicates removed during circuit finalization)
     cached_partial_non_native_field_multiplication cache_entry{
         .a = input.a,
         .b = input.b,
@@ -1573,78 +1528,77 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
 }
 
 /**
- * Uses a sneaky extra mini-addition gate in `plookup_arithmetic_widget.hpp` to add two non-native
- * field elements in 4 gates (would normally take 5)
+ * @brief Construct gates for non-native field addition
+ * @details Uses special mode of ArithmeticRelation (q_arith = 2 and q_arith = 3) to add two non-native field elements
+ * in 4 gates instead of 5.
  **/
-
 template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_addition(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
-    const auto& x_0 = std::get<0>(limb0).first;
-    const auto& x_1 = std::get<0>(limb1).first;
-    const auto& x_2 = std::get<0>(limb2).first;
-    const auto& x_3 = std::get<0>(limb3).first;
-    const auto& x_p = std::get<0>(limbp);
+    const uint32_t& x_0 = std::get<0>(limb0).first;
+    const uint32_t& x_1 = std::get<0>(limb1).first;
+    const uint32_t& x_2 = std::get<0>(limb2).first;
+    const uint32_t& x_3 = std::get<0>(limb3).first;
+    const uint32_t& x_p = std::get<0>(limbp);
 
-    const auto& x_mulconst0 = std::get<0>(limb0).second;
-    const auto& x_mulconst1 = std::get<0>(limb1).second;
-    const auto& x_mulconst2 = std::get<0>(limb2).second;
-    const auto& x_mulconst3 = std::get<0>(limb3).second;
+    const FF& x_mulconst0 = std::get<0>(limb0).second;
+    const FF& x_mulconst1 = std::get<0>(limb1).second;
+    const FF& x_mulconst2 = std::get<0>(limb2).second;
+    const FF& x_mulconst3 = std::get<0>(limb3).second;
 
-    const auto& y_0 = std::get<1>(limb0).first;
-    const auto& y_1 = std::get<1>(limb1).first;
-    const auto& y_2 = std::get<1>(limb2).first;
-    const auto& y_3 = std::get<1>(limb3).first;
-    const auto& y_p = std::get<1>(limbp);
+    const uint32_t& y_0 = std::get<1>(limb0).first;
+    const uint32_t& y_1 = std::get<1>(limb1).first;
+    const uint32_t& y_2 = std::get<1>(limb2).first;
+    const uint32_t& y_3 = std::get<1>(limb3).first;
+    const uint32_t& y_p = std::get<1>(limbp);
 
-    const auto& y_mulconst0 = std::get<1>(limb0).second;
-    const auto& y_mulconst1 = std::get<1>(limb1).second;
-    const auto& y_mulconst2 = std::get<1>(limb2).second;
-    const auto& y_mulconst3 = std::get<1>(limb3).second;
+    const FF& y_mulconst0 = std::get<1>(limb0).second;
+    const FF& y_mulconst1 = std::get<1>(limb1).second;
+    const FF& y_mulconst2 = std::get<1>(limb2).second;
+    const FF& y_mulconst3 = std::get<1>(limb3).second;
 
     // constant additive terms
-    const auto& addconst0 = std::get<2>(limb0);
-    const auto& addconst1 = std::get<2>(limb1);
-    const auto& addconst2 = std::get<2>(limb2);
-    const auto& addconst3 = std::get<2>(limb3);
-    const auto& addconstp = std::get<2>(limbp);
+    const FF& addconst0 = std::get<2>(limb0);
+    const FF& addconst1 = std::get<2>(limb1);
+    const FF& addconst2 = std::get<2>(limb2);
+    const FF& addconst3 = std::get<2>(limb3);
+    const FF& addconstp = std::get<2>(limbp);
 
     // get value of result limbs
-    const auto z_0value = this->get_variable(x_0) * x_mulconst0 + this->get_variable(y_0) * y_mulconst0 + addconst0;
-    const auto z_1value = this->get_variable(x_1) * x_mulconst1 + this->get_variable(y_1) * y_mulconst1 + addconst1;
-    const auto z_2value = this->get_variable(x_2) * x_mulconst2 + this->get_variable(y_2) * y_mulconst2 + addconst2;
-    const auto z_3value = this->get_variable(x_3) * x_mulconst3 + this->get_variable(y_3) * y_mulconst3 + addconst3;
-    const auto z_pvalue = this->get_variable(x_p) + this->get_variable(y_p) + addconstp;
+    const FF z_0value = (this->get_variable(x_0) * x_mulconst0) + (this->get_variable(y_0) * y_mulconst0) + addconst0;
+    const FF z_1value = (this->get_variable(x_1) * x_mulconst1) + (this->get_variable(y_1) * y_mulconst1) + addconst1;
+    const FF z_2value = (this->get_variable(x_2) * x_mulconst2) + (this->get_variable(y_2) * y_mulconst2) + addconst2;
+    const FF z_3value = (this->get_variable(x_3) * x_mulconst3) + (this->get_variable(y_3) * y_mulconst3) + addconst3;
+    const FF z_pvalue = this->get_variable(x_p) + this->get_variable(y_p) + addconstp;
 
-    const auto z_0 = this->add_variable(z_0value);
-    const auto z_1 = this->add_variable(z_1value);
-    const auto z_2 = this->add_variable(z_2value);
-    const auto z_3 = this->add_variable(z_3value);
-    const auto z_p = this->add_variable(z_pvalue);
+    const uint32_t z_0 = this->add_variable(z_0value);
+    const uint32_t z_1 = this->add_variable(z_1value);
+    const uint32_t z_2 = this->add_variable(z_2value);
+    const uint32_t z_3 = this->add_variable(z_3value);
+    const uint32_t z_p = this->add_variable(z_pvalue);
 
     /**
-     *   we want the following layout in program memory
-     *   (x - y = z)
+     * We want to impose the following five constraints:
+     *   Limb constraints: z.i = x.i * x_mulconst.i + y.i * y_mulconst.i + addconst.i, for i in [0, 3]
+     *   Prime basis limb constraint: z.p = x.p + y.p + addconstp
      *
-     *   |  1  |  2  |  3  |  4  |
-     *   |-----|-----|-----|-----|
-     *   | y.p | x.0 | y.0 | x.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-     *   | z.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-     *   | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-     *   | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
+     *   Wire layout for non-native field addition (z = x + y)
      *
-     * By setting `q_arith` to `3`, we can validate `x_p + y_p + q_m = z_p`
+     *   | w_1 | w_2 | w_3 | w_4 | q_arith |
+     *   |-----|-----|-----|-----|---------|
+     *   | y.p | x.0 | y.0 | x.p |    3    |
+     *   | z.p | x.1 | y.1 | z.0 |    2    |
+     *   | x.2 | y.2 | z.2 | z.1 |    1    |
+     *   | x.3 | y.3 | z.3 | --- |    1    |
+     *
+     *   Row 0:
+     *     - x.0 * x_mulconst.0 + y.0 * y_mulconst.0 - z.0 + addconst.0 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *     - x.p + y.p - z.p + addconstp = 0 (w_1 + w_4 - w_1_shift + q_m = 0)
+     *   Row 1: x.1 * x_mulconst.1 + y.1 * y_mulconst.1 - z.1 + addconst.1 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *   Row 2: x.2 * x_mulconst.2 + y.2 * y_mulconst.2 - z.2 + addconst.2 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 3: x.3 * x_mulconst.3 + y.3 * y_mulconst.3 - z.3 + addconst.3 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
-    // GATE 1
-    // |  1  |  2  |  3  |  4  |
-    // |-----|-----|-----|-----|
-    // | y.p | x.0 | y.0 | z.p | (b.p + b.p - c.p = 0) AND (a.0 + b.0 - c.0 = 0)
-    // | x.p | x.1 | y.1 | z.0 | (a.1  + b.1 - c.1 = 0)
-    // | x.2 | y.2 | z.2 | z.1 | (a.2  + b.2 - c.2 = 0)
-    // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/896): descrepency between above comment and the actual
-    // implementation below.
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, x_p);
     block.populate_wires(z_p, x_1, y_1, z_0);
@@ -1695,71 +1649,81 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     };
 }
 
+/**
+ * @brief Construct gates for non-native field subtraction
+ * @details Uses special mode of ArithmeticRelation (q_arith = 2 and q_arith = 3) to subtract two non-native field
+ * elements in 4 gates instead of 5.
+ **/
 template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_subtraction(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
-    const auto& x_0 = std::get<0>(limb0).first;
-    const auto& x_1 = std::get<0>(limb1).first;
-    const auto& x_2 = std::get<0>(limb2).first;
-    const auto& x_3 = std::get<0>(limb3).first;
-    const auto& x_p = std::get<0>(limbp);
+    const uint32_t& x_0 = std::get<0>(limb0).first;
+    const uint32_t& x_1 = std::get<0>(limb1).first;
+    const uint32_t& x_2 = std::get<0>(limb2).first;
+    const uint32_t& x_3 = std::get<0>(limb3).first;
+    const uint32_t& x_p = std::get<0>(limbp);
 
-    const auto& x_mulconst0 = std::get<0>(limb0).second;
-    const auto& x_mulconst1 = std::get<0>(limb1).second;
-    const auto& x_mulconst2 = std::get<0>(limb2).second;
-    const auto& x_mulconst3 = std::get<0>(limb3).second;
+    const FF& x_mulconst0 = std::get<0>(limb0).second;
+    const FF& x_mulconst1 = std::get<0>(limb1).second;
+    const FF& x_mulconst2 = std::get<0>(limb2).second;
+    const FF& x_mulconst3 = std::get<0>(limb3).second;
 
-    const auto& y_0 = std::get<1>(limb0).first;
-    const auto& y_1 = std::get<1>(limb1).first;
-    const auto& y_2 = std::get<1>(limb2).first;
-    const auto& y_3 = std::get<1>(limb3).first;
-    const auto& y_p = std::get<1>(limbp);
+    const uint32_t& y_0 = std::get<1>(limb0).first;
+    const uint32_t& y_1 = std::get<1>(limb1).first;
+    const uint32_t& y_2 = std::get<1>(limb2).first;
+    const uint32_t& y_3 = std::get<1>(limb3).first;
+    const uint32_t& y_p = std::get<1>(limbp);
 
-    const auto& y_mulconst0 = std::get<1>(limb0).second;
-    const auto& y_mulconst1 = std::get<1>(limb1).second;
-    const auto& y_mulconst2 = std::get<1>(limb2).second;
-    const auto& y_mulconst3 = std::get<1>(limb3).second;
+    const FF& y_mulconst0 = std::get<1>(limb0).second;
+    const FF& y_mulconst1 = std::get<1>(limb1).second;
+    const FF& y_mulconst2 = std::get<1>(limb2).second;
+    const FF& y_mulconst3 = std::get<1>(limb3).second;
 
     // constant additive terms
-    const auto& addconst0 = std::get<2>(limb0);
-    const auto& addconst1 = std::get<2>(limb1);
-    const auto& addconst2 = std::get<2>(limb2);
-    const auto& addconst3 = std::get<2>(limb3);
-    const auto& addconstp = std::get<2>(limbp);
+    const FF& addconst0 = std::get<2>(limb0);
+    const FF& addconst1 = std::get<2>(limb1);
+    const FF& addconst2 = std::get<2>(limb2);
+    const FF& addconst3 = std::get<2>(limb3);
+    const FF& addconstp = std::get<2>(limbp);
 
     // get value of result limbs
-    const auto z_0value = this->get_variable(x_0) * x_mulconst0 - this->get_variable(y_0) * y_mulconst0 + addconst0;
-    const auto z_1value = this->get_variable(x_1) * x_mulconst1 - this->get_variable(y_1) * y_mulconst1 + addconst1;
-    const auto z_2value = this->get_variable(x_2) * x_mulconst2 - this->get_variable(y_2) * y_mulconst2 + addconst2;
-    const auto z_3value = this->get_variable(x_3) * x_mulconst3 - this->get_variable(y_3) * y_mulconst3 + addconst3;
-    const auto z_pvalue = this->get_variable(x_p) - this->get_variable(y_p) + addconstp;
+    const FF z_0value = (this->get_variable(x_0) * x_mulconst0) - (this->get_variable(y_0) * y_mulconst0) + addconst0;
+    const FF z_1value = (this->get_variable(x_1) * x_mulconst1) - (this->get_variable(y_1) * y_mulconst1) + addconst1;
+    const FF z_2value = (this->get_variable(x_2) * x_mulconst2) - (this->get_variable(y_2) * y_mulconst2) + addconst2;
+    const FF z_3value = (this->get_variable(x_3) * x_mulconst3) - (this->get_variable(y_3) * y_mulconst3) + addconst3;
+    const FF z_pvalue = this->get_variable(x_p) - this->get_variable(y_p) + addconstp;
 
-    const auto z_0 = this->add_variable(z_0value);
-    const auto z_1 = this->add_variable(z_1value);
-    const auto z_2 = this->add_variable(z_2value);
-    const auto z_3 = this->add_variable(z_3value);
-    const auto z_p = this->add_variable(z_pvalue);
+    const uint32_t z_0 = this->add_variable(z_0value);
+    const uint32_t z_1 = this->add_variable(z_1value);
+    const uint32_t z_2 = this->add_variable(z_2value);
+    const uint32_t z_3 = this->add_variable(z_3value);
+    const uint32_t z_p = this->add_variable(z_pvalue);
 
     /**
-     *   we want the following layout in program memory
-     *   (x - y = z)
+     * We want to impose the following five constraints:
+     *   Limb constraints: z.i = x.i * x_mulconst.i - y.i * y_mulconst.i + addconst.i, for i in [0, 3]
+     *   Prime basis limb constraint: z.p = x.p - y.p + addconstp
      *
-     *   |  1  |  2  |  3  |  4  |
-     *   |-----|-----|-----|-----|
-     *   | y.p | x.0 | y.0 | z.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-     *   | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-     *   | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-     *   | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
+     *   Wire layout for non-native field subtraction (z = x - y)
      *
+     *   | w_1 | w_2 | w_3 | w_4 | q_arith |
+     *   |-----|-----|-----|-----|---------|
+     *   | y.p | x.0 | y.0 | z.p |    3    |
+     *   | x.p | x.1 | y.1 | z.0 |    2    |
+     *   | x.2 | y.2 | z.2 | z.1 |    1    |
+     *   | x.3 | y.3 | z.3 | --- |    1    |
+     *
+     * Note: The positions of z.p and x.p are swapped compared to the corresponding addition method. This is necessary
+     * to achieve the desired constraint since the scaler on w_1_shift is fixed to -1 in the relation implementation.
+     *
+     *   Row 0:
+     *     - x.0 * x_mulconst.0 - y.0 * y_mulconst.0 - z.0 + addconst.0 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *     - x.p - y.p - z.p + addconstp = 0 (w_1 + w_4 - w_1_shift + q_m = 0)
+     *   Row 1: x.1 * x_mulconst.1 - y.1 * y_mulconst.1 - z.1 + addconst.1 = 0 (q_2*w_2 + q_3*w_3 + q_c + w_4_shift = 0)
+     *   Row 2: x.2 * x_mulconst.2 - y.2 * y_mulconst.2 - z.2 + addconst.2 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
+     *   Row 3: x.3 * x_mulconst.3 - y.3 * y_mulconst.3 - z.3 + addconst.3 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
-    // GATE 1
-    // |  1  |  2  |  3  |  4  |
-    // |-----|-----|-----|-----|
-    // | y.p | x.0 | y.0 | z.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-    // | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-    // | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-    // | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
     auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, z_p);
     block.populate_wires(x_p, x_1, y_1, z_0);
@@ -1813,8 +1777,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 /**
  * @brief Create a new read-only memory region (a.k.a. ROM table)
  *
- * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
- and
+ * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory" and
  * empty memory record array. Puts this object into the vector of ROM arrays.
  *
  * @param array_size The size of region in elements
@@ -1829,9 +1792,8 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_ROM_array(const size_t array
 /**
  * @brief Create a new updatable memory region
  *
- * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
- and
- * and empty memory record array. Puts this object into the vector of ROM arrays.
+ * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory" and
+ * empty memory record array. Puts this object into the vector of ROM arrays.
  *
  * @param array_size The size of region in elements
  * @return size_t The index of the element

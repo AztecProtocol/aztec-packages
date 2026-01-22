@@ -1,7 +1,7 @@
 use dep::rollup_lib::checkpoint_merge::{
-    CheckpointMergeRollupPrivateInputs, CheckpointRollupPublicInputs,
+    checkpoint_merge_rollup, CheckpointMergeRollupPrivateInputs, CheckpointRollupPublicInputs,
 };
 
 fn main(inputs: CheckpointMergeRollupPrivateInputs) -> pub CheckpointRollupPublicInputs {
-    inputs.execute()
+    checkpoint_merge_rollup::execute(inputs)
 }

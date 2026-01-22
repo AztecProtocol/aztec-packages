@@ -29,26 +29,23 @@ pub struct BlockRollupPublicInputs {
     // Sponge blob after additionally absorbing tx effects and block end markers from this block range.
     pub end_sponge_blob: SpongeBlob,
 
-    // Timestamp of the first block in this block range.
-    // Validated against the previous checkpoint's end timestamp in the checkpoint root.
-    pub start_timestamp: u64,
-    // Timestamp of the last block in this block range.
-    // Validated on L1 to ensure it matches the slot's timestamp.
-    pub end_timestamp: u64,
+    // Timestamp of the blocks in this block range.
+    // All blocks within a checkpoint must share the same timestamp. This value will be set to the checkpoint header and
+    // checked on L1 to match the slot's timestamp.
+    pub timestamp: u64,
 
     // Hash of the headers of all blocks in this block range. It will be combined with the `block_headers_hash` from
-    // other blocks in the same checkpoint to form a wonky tree. The root of that tree becomes the final hash stored in
-    // the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
+    // other blocks in the same checkpoint to form an unbalanced tree. The root of that tree becomes the final hash
+    // stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
     pub block_headers_hash: Field,
 
     // Root of the `l1_to_l2` message subtree, set in the first block root and propagated to the checkpoint root.
     // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.
     pub in_hash: Field,
 
-    // Hash of the `l2_to_l1` message subtree. It will be combined with the `out_hash` from other blocks in the
-    // same checkpoint to form a wonky tree. The root of that tree becomes the final `out_hash` used on L1.
-    // TODO(#15793): Keep accumulating `out_hash` all the way up to the root rollup, and set the final hash on L1 when
-    // proving an epoch.
+    // Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
+    // values from other blocks within the same checkpoint to form a *wonky* tree.
+    // The tx and block out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
     // Accumulated fees for all blocks in this block range.

@@ -1,33 +1,38 @@
-use crate::history::{nullifier_inclusion::{ProveNoteIsNullified, ProveNullifierInclusion}, test};
+use crate::history::{
+    note_inclusion::ProveNoteInclusion,
+    nullifier_inclusion::{ProveNoteIsNullified, ProveNullifierInclusion},
+    test,
+};
 use crate::oracle::{notes::notify_created_nullifier, random::random};
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__OUTER_NULLIFIER, hash::poseidon2_hash_with_separator,
-    traits::ToField,
+    constants::DOM_SEP__OUTER_NULLIFIER, hash::poseidon2_hash_with_separator, traits::ToField,
 };
 
 #[test]
 unconstrained fn note_is_nullified_succeeds_on_blocks_after_note_nullification() {
-    let (env, retrieved_note) = test::create_note_and_nullify_it();
+    let (env, hinted_note) = test::create_note_and_nullify_it();
 
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT),
         |context| {
             let header = context.anchor_block_header;
-            header.prove_note_is_nullified(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+            let confirmed_note = header.prove_note_inclusion(hinted_note);
+            header.prove_note_is_nullified(confirmed_note, context);
         },
     );
 }
 
-#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block")]
 unconstrained fn note_is_nullified_fails_on_blocks_before_note_nullification() {
-    let (env, retrieved_note) = test::create_note_and_nullify_it();
+    let (env, hinted_note) = test::create_note_and_nullify_it();
 
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(test::NOTE_NULLIFIED_AT - 1),
         |context| {
             let header = context.anchor_block_header;
-            header.prove_note_is_nullified(retrieved_note, test::NOTE_STORAGE_SLOT, context);
+            let confirmed_note = header.prove_note_inclusion(hinted_note);
+            header.prove_note_is_nullified(confirmed_note, context);
         },
     );
 }
@@ -43,7 +48,7 @@ unconstrained fn prove_nullifier_inclusion_succeeds_on_blocks_after_nullifier_cr
         // We need to compute the siloed nullifier so we can check for its inclusion in state.
         poseidon2_hash_with_separator(
             [context.this_address().to_field(), unsiloed_nullifier],
-            GENERATOR_INDEX__OUTER_NULLIFIER,
+            DOM_SEP__OUTER_NULLIFIER,
         )
     });
 

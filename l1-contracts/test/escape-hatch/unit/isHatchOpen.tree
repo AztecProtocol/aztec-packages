@@ -1,0 +1,8 @@
+EscapeHatchIsHatchOpenTest
+├── when epoch is not within ACTIVE_DURATION of hatch start
+│   └── it should return (false, address(0))
+└── when epoch is within ACTIVE_DURATION of hatch start
+    ├── given no proposer designated
+    │   └── it should return (false, address(0))
+    └── given proposer is designated
+        └── it should return (true, proposer)

@@ -37,8 +37,7 @@ MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
 
     // Do this outside of an assert, in case this gets built without assert
     bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    (void)lo_in_range;                                               // To please GCC.
-    assert(lo_in_range && "Low Value in ROR out of range");
+    BB_ASSERT(lo_in_range, "Low Value in ROR out of range");
     return MemoryValue::from<uint32_t>(result);
 }
 
@@ -52,8 +51,7 @@ MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
 
     // Do this outside of an assert, in case this gets built without assert
     bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    (void)lo_in_range;                                               // To please GCC.
-    assert(lo_in_range && "Low Value in SHR out of range");
+    BB_ASSERT(lo_in_range, "Low Value in SHR out of range");
 
     return MemoryValue::from<uint32_t>(hi);
 }
@@ -67,16 +65,14 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
         sum += value.as<uint32_t>();
     }
     uint32_t lo = static_cast<uint32_t>(sum);
-    uint32_t hi = sum >> 32;
+    uint32_t hi = static_cast<uint32_t>(sum >> 32);
 
     // Do these outside of an assert, in case this gets built without assert
     bool lo_in_range =
         gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(lo)); // Ensure the lower bits are in range
     bool hi_in_range =
         gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(hi)); // Ensure the upper bits are in range
-    (void)lo_in_range;                                                    // To please GCC.
-    (void)hi_in_range;                                                    // To please GCC.
-    assert(lo_in_range && hi_in_range && "Sum in MODULO_SUM out of range");
+    BB_ASSERT(lo_in_range && hi_in_range, "Sum in MODULO_SUM out of range");
     return MemoryValue::from<uint32_t>(lo);
 }
 
@@ -105,7 +101,7 @@ void Sha256::compression(MemoryInterface& memory,
 
     try {
         if (state_addr_out_of_range || input_addr_out_of_range || output_addr_out_of_range) {
-            throw std::runtime_error("Memory address out of range for sha256 compression.");
+            throw Sha256CompressionException("Memory address out of range for sha256 compression.");
         }
 
         // Read the hash state from memory. The state needs to be loaded atomically from memory (i.e. all 8 elements are
@@ -116,7 +112,7 @@ void Sha256::compression(MemoryInterface& memory,
 
         // If any of the state values are not of tag U32, we throw an error.
         if (std::ranges::any_of(state, [](const MemoryValue& val) { return val.get_tag() != MemoryTag::U32; })) {
-            throw std::runtime_error("Invalid tag for sha256 state values.");
+            throw Sha256CompressionException("Invalid tag for sha256 state values.");
         }
 
         // Load 16 elements representing the hash input from memory.
@@ -124,7 +120,7 @@ void Sha256::compression(MemoryInterface& memory,
         for (uint32_t i = 0; i < 16; ++i) {
             input.emplace_back(memory.get(input_addr + i));
             if (input[i].get_tag() != MemoryTag::U32) {
-                throw std::runtime_error("Invalid tag for sha256 input values.");
+                throw Sha256CompressionException("Invalid tag for sha256 input values.");
             }
         }
 
@@ -198,7 +194,7 @@ void Sha256::compression(MemoryInterface& memory,
                       .state = state,
                       .input = input,
                       .output = output });
-    } catch (const std::exception& e) {
+    } catch (const Sha256CompressionException& e) {
         // If any error occurs, we emit an event with the error message.
         std::array<MemoryValue, 8> output;
         output.fill(MemoryValue::from<FF>(0)); // Default output in case of error
@@ -210,7 +206,9 @@ void Sha256::compression(MemoryInterface& memory,
                       .state = state,
                       .input = input,
                       .output = output });
-        throw; // Re-throw the exception after emitting the event
+
+        // Rethrow the exception after emitting the event
+        throw;
     }
 }
 

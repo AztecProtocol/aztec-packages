@@ -6,8 +6,8 @@ import { deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, DeployAccountMethod } from '@aztec/aztec.js/wallet';
-import { Schnorr } from '@aztec/foundation/crypto';
-import { Fq } from '@aztec/foundation/fields';
+import { Schnorr } from '@aztec/foundation/crypto/schnorr';
+import { Fq } from '@aztec/foundation/curves/bn254';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@aztec/noir-contracts.js/SchnorrAccount';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
@@ -25,10 +25,10 @@ describe('e2e_fees account_init', () => {
   const t = new FeesTest('account_init', 1);
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    await t.setup();
     await t.applyFundAliceWithBananas();
-    await t.applyFPCSetupSnapshot();
-    ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = await t.setup());
+    await t.applyFPCSetup();
+    ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = t);
   });
 
   afterAll(async () => {
@@ -111,7 +111,7 @@ describe('e2e_fees account_init', () => {
       // Bob deploys his account through the private FPC
       // The private fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
-      const maxFeesPerGas = (await aztecNode.getCurrentBaseFees()).mul(1.5);
+      const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } }).wait();
@@ -136,7 +136,7 @@ describe('e2e_fees account_init', () => {
 
       // The public fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
-      const maxFeesPerGas = (await aztecNode.getCurrentBaseFees()).mul(1.5);
+      const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const tx = await bobsDeployMethod
@@ -195,7 +195,7 @@ describe('e2e_fees account_init', () => {
       expect(aliceBalanceAfter).toBe(aliceBalanceBefore - tx.transactionFee!);
 
       // bob can now use his wallet for sending txs
-      const maxFeesPerGas = (await aztecNode.getCurrentBaseFees()).mul(1.5);
+      const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       await bananaCoin.methods

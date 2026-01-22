@@ -21,12 +21,13 @@ template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
 #endif
 template <typename T>
-concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor>;
 
 template <typename T>
-concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -52,10 +53,10 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
                                        MultilinearBatchingRecursiveFlavor,
-                                       AvmRecursiveFlavor,
                                        avm2::AvmRecursiveFlavor>;
 
 template <typename T>
@@ -65,7 +66,7 @@ template <typename T>
 concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
     for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {

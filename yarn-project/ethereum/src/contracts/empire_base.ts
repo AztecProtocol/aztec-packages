@@ -12,7 +12,7 @@ export interface IEmpireBase {
   getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
-  ): Promise<{ lastSignalSlot: SlotNumber; payloadWithMostSignals: Hex; executed: boolean }>;
+  ): Promise<{ lastSignalSlot: SlotNumber; payloadWithMostSignals: Hex; quorumReached: boolean; executed: boolean }>;
   computeRound(slot: SlotNumber): Promise<bigint>;
   createSignalRequest(payload: Hex): L1TxRequest;
   createSignalRequestWithSignature(

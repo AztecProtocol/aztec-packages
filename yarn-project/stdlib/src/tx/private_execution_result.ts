@@ -1,6 +1,7 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomBytes, randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { randomBytes, randomInt } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -13,7 +14,6 @@ import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class
 import { type PreTag, PreTagSchema } from '../logs/pre_tag.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
-import type { UInt32 } from '../types/index.js';
 import { HashedValues } from './hashed_values.js';
 import type { OffchainEffect } from './offchain_effect.js';
 
@@ -79,7 +79,7 @@ export class CountedContractClassLog implements IsEmpty {
 export class PrivateExecutionResult {
   constructor(
     public entrypoint: PrivateCallExecutionResult,
-    /** The first non revertible nullifier, or zero if there was none. */
+    /** The first non-revertible nullifier emitted by any private call, or the protocol nullifier if there was none. */
     public firstNullifier: Fr,
     /** An array of calldata for the enqueued public function calls and the teardown function call. */
     public publicFunctionCalldata: HashedValues[],
@@ -109,7 +109,7 @@ export class PrivateExecutionResult {
   /**
    * The anchor block number that this execution was simulated with.
    */
-  getSimulationAnchorBlockNumber(): UInt32 {
+  getSimulationAnchorBlockNumber(): BlockNumber {
     return this.entrypoint.publicInputs.anchorBlockHeader.globalVariables.blockNumber;
   }
 }
@@ -129,8 +129,6 @@ export class PrivateCallExecutionResult {
     // Needed for the verifier (kernel)
     /** The call stack item. */
     public publicInputs: PrivateCircuitPublicInputs,
-    /** Mapping of note hash to its index in the note hash tree. Used for building hints for note hash read requests. */
-    public noteHashLeafIndexMap: Map<bigint, bigint>,
     /** The notes created in the executed function. */
     public newNotes: NoteAndSlot[],
     /** Mapping of note hash counter to the counter of its nullifier. */
@@ -139,7 +137,7 @@ export class PrivateCallExecutionResult {
     public returnValues: Fr[],
     /** The offchain effects emitted during execution of this function call via the `emit_offchain_effect` oracle. */
     public offchainEffects: { data: Fr[] }[],
-    /** The pre tags used in this tx to compute tags for private logs */
+    /** The pre-tags used in this tx to compute tags for private logs */
     public preTags: PreTag[],
     /** The nested executions. */
     public nestedExecutionResults: PrivateCallExecutionResult[],
@@ -159,7 +157,6 @@ export class PrivateCallExecutionResult {
         vk: schemas.Buffer,
         partialWitness: mapSchema(z.coerce.number(), z.string()),
         publicInputs: PrivateCircuitPublicInputs.schema,
-        noteHashLeafIndexMap: mapSchema(schemas.BigInt, schemas.BigInt),
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
@@ -177,7 +174,6 @@ export class PrivateCallExecutionResult {
       fields.vk,
       fields.partialWitness,
       fields.publicInputs,
-      fields.noteHashLeafIndexMap,
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
@@ -194,7 +190,6 @@ export class PrivateCallExecutionResult {
       randomBytes(4),
       new Map([[1, 'one']]),
       PrivateCircuitPublicInputs.empty(),
-      new Map([[1n, 1n]]),
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
@@ -208,16 +203,6 @@ export class PrivateCallExecutionResult {
       [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );
   }
-}
-
-export function collectNoteHashLeafIndexMap(execResult: PrivateExecutionResult) {
-  const accum: Map<bigint, bigint> = new Map();
-  const collectNoteHashLeafIndexMapRecursive = (callResult: PrivateCallExecutionResult, accum: Map<bigint, bigint>) => {
-    callResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
-    callResult.nestedExecutionResults.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
-  };
-  collectNoteHashLeafIndexMapRecursive(execResult.entrypoint, accum);
-  return accum;
 }
 
 export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionResult) {

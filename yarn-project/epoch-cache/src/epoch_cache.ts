@@ -1,4 +1,5 @@
-import { NoCommitteeError, RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum/chain';
+import { NoCommitteeError, RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -27,6 +28,8 @@ export type EpochCommitteeInfo = {
   committee: EthAddress[] | undefined;
   seed: bigint;
   epoch: EpochNumber;
+  /** True if the epoch is within an open escape hatch window. */
+  isEscapeHatchOpen: boolean;
 };
 
 export type SlotTag = 'now' | 'next' | SlotNumber;
@@ -37,12 +40,8 @@ export interface EpochCacheInterface {
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
-  getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress | undefined;
-    nextProposer: EthAddress | undefined;
-    currentSlot: SlotNumber;
-    nextSlot: SlotNumber;
-  }>;
+  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
+  getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined>;
   getRegisteredValidators(): Promise<EthAddress[]>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
@@ -93,7 +92,7 @@ export class EpochCache implements EpochCacheInterface {
       const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
       const publicClient = createPublicClient({
         chain: chain.chainInfo,
-        transport: fallback(config.l1RpcUrls.map(url => http(url))),
+        transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
         pollingInterval: config.viemPollingIntervalMS,
       });
       rollup = new RollupContract(publicClient, rollupOrAddress.toString());
@@ -171,6 +170,38 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   /**
+   * Returns whether the escape hatch is open for the given epoch.
+   *
+   * Uses the already-cached EpochCommitteeInfo when available. If not cached, it will fetch
+   * the epoch committee info (which includes the escape hatch flag) and return it.
+   */
+  public async isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean> {
+    const cached = this.cache.get(epoch);
+    if (cached) {
+      return cached.isEscapeHatchOpen;
+    }
+    const info = await this.getCommitteeForEpoch(epoch);
+    return info.isEscapeHatchOpen;
+  }
+
+  /**
+   * Returns whether the escape hatch is open for the epoch containing the given slot.
+   *
+   * This is a lightweight helper intended for callers that already have a slot number and only
+   * need the escape hatch flag (without pulling full committee info).
+   */
+  public async isEscapeHatchOpenAtSlot(slot: SlotTag = 'now'): Promise<boolean> {
+    const epoch =
+      slot === 'now'
+        ? this.getEpochAndSlotNow().epoch
+        : slot === 'next'
+          ? this.getEpochAndSlotInNextL1Slot().epoch
+          : getEpochAtSlot(slot, this.l1constants);
+
+    return await this.isEscapeHatchOpen(epoch);
+  }
+
+  /**
    * Get the current validator set
    * @param nextSlot - If true, get the validator set for the next slot.
    * @returns The current validator set.
@@ -209,10 +240,11 @@ export class EpochCache implements EpochCacheInterface {
 
   private async computeCommittee(when: { epoch: EpochNumber; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
-    const [committeeHex, seed, l1Timestamp] = await Promise.all([
+    const [committee, seedBuffer, l1Timestamp, isEscapeHatchOpen] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
       this.rollup.getSampleSeedAt(ts),
       this.rollup.client.getBlock({ includeTransactions: false }).then(b => b.timestamp),
+      this.rollup.isEscapeHatchOpen(epoch),
     ]);
     const { lagInEpochsForValidatorSet, epochDuration, slotDuration } = this.l1constants;
     const sub = BigInt(lagInEpochsForValidatorSet) * BigInt(epochDuration) * BigInt(slotDuration);
@@ -221,8 +253,7 @@ export class EpochCache implements EpochCacheInterface {
         `Cannot query committee for future epoch ${epoch} with timestamp ${ts} (current L1 time is ${l1Timestamp}). Check your Ethereum node is synced.`,
       );
     }
-    const committee = committeeHex?.map((v: `0x${string}`) => EthAddress.fromString(v));
-    return { committee, seed, epoch };
+    return { committee, seed: seedBuffer.toBigInt(), epoch, isEscapeHatchOpen };
   }
 
   /**
@@ -247,24 +278,12 @@ export class EpochCache implements EpochCacheInterface {
     return BigInt(keccak256(this.getProposerIndexEncoding(epoch, slot, seed))) % size;
   }
 
-  /**
-   * Returns the current and next proposer's attester address
-   *
-   * We return the next proposer's attester address as the node will check if it is the proposer at the next ethereum block,
-   * which can be the next slot. If this is the case, then it will send proposals early.
-   */
-  public async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentSlot: SlotNumber;
-    nextSlot: SlotNumber;
-    currentProposer: EthAddress | undefined;
-    nextProposer: EthAddress | undefined;
-  }> {
+  /** Returns the current and next L2 slot numbers. */
+  public getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
     const current = this.getEpochAndSlotNow();
     const next = this.getEpochAndSlotInNextL1Slot();
 
     return {
-      currentProposer: await this.getProposerAttesterAddressAt(current),
-      nextProposer: await this.getProposerAttesterAddressAt(next),
       currentSlot: current.slot,
       nextSlot: next.slot,
     };
@@ -350,9 +369,9 @@ export class EpochCache implements EpochCacheInterface {
     const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
     if (validatorRefreshTime < this.dateProvider.now()) {
       const currentSet = await this.rollup.getAttesters();
-      this.allValidators = new Set(currentSet);
+      this.allValidators = new Set(currentSet.map(v => v.toString()));
       this.lastValidatorRefresh = this.dateProvider.now();
     }
-    return Array.from(this.allValidators.keys().map(v => EthAddress.fromString(v)));
+    return Array.from(this.allValidators.keys()).map(v => EthAddress.fromString(v));
   }
 }

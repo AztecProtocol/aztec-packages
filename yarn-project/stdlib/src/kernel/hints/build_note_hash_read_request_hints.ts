@@ -3,6 +3,7 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type { ClaimedLengthArray } from '../claimed_length_array.js';
@@ -61,12 +62,11 @@ export function getNoteHashReadRequestResetActions(
 
 export async function buildNoteHashReadRequestHintsFromResetActions<PENDING extends number, SETTLED extends number>(
   oracle: {
-    getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
+    getNoteHashMembershipWitness(noteHash: Fr): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
   },
   noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
   resetActions: ReadRequestResetActions<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-  noteHashLeafIndexMap: Map<bigint, bigint>,
   maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
 ) {
@@ -76,16 +76,26 @@ export async function buildNoteHashReadRequestHintsFromResetActions<PENDING exte
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
   });
 
+  // Collect all settled read requests
+  const settledRequests: { index: number; readRequest: ScopedReadRequest }[] = [];
   for (let i = 0; i < resetActions.actions.length; i++) {
     if (resetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
-      const readRequest = noteHashReadRequests.array[i];
-      const leafIndex = noteHashLeafIndexMap.get(readRequest.value.toBigInt());
-      if (leafIndex === undefined) {
-        throw new Error('Read request is reading an unknown note hash.');
-      }
-      const membershipWitness = await oracle.getNoteHashMembershipWitness(leafIndex);
-      builder.addSettledReadRequest(i, membershipWitness, readRequest.value);
+      settledRequests.push({ index: i, readRequest: noteHashReadRequests.array[i] });
     }
+  }
+
+  // Fetch all membership witnesses in parallel
+  const membershipWitnesses = await Promise.all(
+    settledRequests.map(({ readRequest }) => oracle.getNoteHashMembershipWitness(readRequest.value)),
+  );
+
+  // Add settled read requests to builder
+  for (let i = 0; i < settledRequests.length; i++) {
+    const membershipWitness = membershipWitnesses[i];
+    if (!membershipWitness) {
+      throw new Error('Read request is reading an unknown note hash.');
+    }
+    builder.addSettledReadRequest(settledRequests[i].index, membershipWitness, settledRequests[i].readRequest.value);
   }
 
   const noteHashMap: Map<bigint, { noteHash: ScopedNoteHash; index: number }[]> = new Map();
@@ -101,11 +111,10 @@ export async function buildNoteHashReadRequestHintsFromResetActions<PENDING exte
 
 export async function buildNoteHashReadRequestHints<PENDING extends number, SETTLED extends number>(
   oracle: {
-    getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
+    getNoteHashMembershipWitness(noteHash: Fr): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
   },
   noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
-  noteHashLeafIndexMap: Map<bigint, bigint>,
   futureNoteHashes: ScopedNoteHash[],
   maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
@@ -116,7 +125,6 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
     noteHashReadRequests,
     noteHashes,
     resetActions,
-    noteHashLeafIndexMap,
     maxPending,
     maxSettled,
   );

@@ -1,49 +1,39 @@
-use crate::context::{PrivateContext, UtilityContext};
-use crate::note::{
-    constants::MAX_NOTES_PER_PAGE,
-    lifecycle::{create_note, destroy_note_unsafe},
-    note_emission::NoteEmission,
-    note_getter::{get_notes, view_notes},
-    note_getter_options::NoteGetterOptions,
-    note_interface::{NoteHash, NoteType},
-    note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_read,
+use crate::{
+    context::{PrivateContext, UtilityContext},
+    note::{
+        ConfirmedNote,
+        constants::MAX_NOTES_PER_PAGE,
+        lifecycle::{create_note, destroy_note},
+        note_getter::{get_notes, view_notes},
+        note_getter_options::NoteGetterOptions,
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        NoteMessage,
+    },
+    state_vars::owned_state_variable::OwnedStateVariable,
 };
-use crate::note::retrieved_note::RetrievedNote;
-use crate::state_vars::storage::HasStorageSlot;
-use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
+use protocol_types::{
+    address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
+};
 
 mod test;
 
-/// # PrivateSet
-///
-/// PrivateSet is a private state variable type, which enables you to read, mutate,
-/// and write private state within the #[external("private")] functions of your smart contract.
-///
-/// You can declare a state variable of type PrivateSet within your contract's
-/// #[storage] struct:
+/// PrivateSet is an owned state variable type, which enables you to read, mutate, and write private state. Because it
+/// is "owned," you must wrap a PrivateSet inside an Owned state variable when storing it:
 ///
 /// E.g.:
-/// `your_variable: PrivateSet<YourNote, Context>`
-/// or:
-/// `your_mapping: Map<Field, PrivateSet<YourNote, Context>>`
+/// ```noir
+/// #[storage]
+/// struct Storage<Context> {
+///     your_variable: Owned<PrivateSet<YourNote, Context>, Context>,
+/// }
 ///
-/// The PrivateSet type operates over notes, by facilitating: the insertion
-/// of new notes, the reading of existing notes, and the nullification of existing
-/// notes.
+/// For more details on what "owned" means, see the documentation for the [OwnedStateVariable] trait.
 ///
-/// The methods of PrivateSet are:
-/// - `insert`
-/// - `pop_notes`
-/// - `get_notes`
-/// - `remove`
-/// (see the methods' own doc comments for more info).
+/// The PrivateSet facilitates: the insertion of new notes, the reading of existing notes, and the nullification of
+/// existing notes.
 ///
-/// The "current value" of a PrivateSet state variable is represented as a
-/// _collection_ (or "Set") of multiple notes.
-///
-/// > More exactly, the 'current value' is the collection of all
-/// > _not-yet-nullified_ notes in the set.
+/// The "current value" of a PrivateSet is the collection of all _not-yet-nullified_ account's notes in the set.
 ///
 ///
 /// ## Example.
@@ -99,33 +89,11 @@ mod test;
 /// the set.
 /// "Other people" can `insert` notes into the set.
 ///
-/// It's important to notice that the "owner" of a state variable is an abstract
-/// concept which will differ depending on the rules of a smart contract. When we
-/// talk about the "owner" in the context of these aztec-nr files, we tend to mean
-/// "the person who has the ability to nullify the state variable's notes".
-/// Notice that the state variable abstractions of aztec-nr do not know what an
-/// "owner" is: they delegate responsibility of understanding who the "owner" of a
-/// note is to the note itself, via a `compute_nullifier` call.
-///
-///
 /// ## Privacy
 ///
 /// The methods of a PrivateSet are only executable in a PrivateContext, and are
 /// designed to not leak anything about _which_ state variable was read/modified/
 /// inserted, to the outside world.
-///
-/// The design of the Note does impact the privacy of the state variable: the note
-/// will need to contain a `randomness` field so that, when hashed, the contents of
-/// the note are private.
-/// > Note: we decided to explicitly require `randomness` in a note definition,
-/// > because we anticipated use cases where notes might also be used to store
-/// > certain _public_ state. We might roll-back that decision, so that users don't
-/// > need to worry about handling their own randomness when defining custom notes.
-///
-/// The design of the note's custom `compute_nullifier` method will also impact the
-/// privacy of the note at the time it is nullified. (Note: all Notes must implement
-/// `compute_nullifier` to be compatible with PrivateSet). See the docs.
-///
 ///
 /// # Struct Fields:
 ///
@@ -143,46 +111,15 @@ mod test;
 ///            given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
-/// docs:start:struct
 pub struct PrivateSet<Note, Context> {
     pub context: Context,
     pub storage_slot: Field,
+    pub owner: AztecAddress,
 }
 
-impl<T, Context> HasStorageSlot<1> for PrivateSet<T, Context> {
-    // Private storage slots are not really 'slots' but rather a value in the note
-    // hash preimage, so there is no notion of a value spilling over multiple slots.
-    // For this reason, PrivateSet (and all other private state variables) needs
-    // just one slot to be reserved, regardless of what it stores.
-    fn get_storage_slot(self) -> Field {
-        self.storage_slot
-    }
-}
-
-impl<Note, Context> PrivateSet<Note, Context> {
-    /// Initializes a new PrivateSet state variable.
-    ///
-    /// This function is usually automatically called within the #[storage] macro.
-    /// You typically don't need to call this directly when writing smart contracts.
-    ///
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - One of `PrivateContext`/`PublicContext`/`UtilityContext`. The
-    ///               Context determines which methods of this struct will be made
-    ///               available to the calling smart contract function.
-    /// * `storage_slot` - A unique identifier for this state variable within the
-    ///                    contract. All notes that "belong" to a given PrivateSet
-    ///                    state variable are augmented with a common `storage_slot`
-    ///                    field, as a way of identifying which set they belong to.
-    ///                    Usually, the #[storage] macro will determine an appropriate
-    ///                    storage_slot automatically. A smart contract dev shouldn't
-    ///                    have to worry about this, as it's managed behind the scenes.
-    ///
-    /// docs:start:new
-    pub fn new(context: Context, storage_slot: Field) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        PrivateSet { context, storage_slot }
+impl<Note, Context> OwnedStateVariable<Context> for PrivateSet<Note, Context> {
+    fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
+        Self { context, storage_slot, owner }
     }
 }
 
@@ -199,7 +136,7 @@ where
     ///
     /// # Returns
     ///
-    /// - NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the
     ///                        smart contract dev that they now have a choice: they
     ///   need to decide whether they would like to send the contents of the newly-
     ///   created note to someone, or not. If they would like to, they have some
@@ -208,9 +145,8 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   You can call `.emit()` on the returned type to encrypt and log the note, or
-    ///   `.discard()` to skip emission.
-    ///   See NoteEmission for more details.
+    ///   You can call `.deliver()` on the returned type to encrypt and log the note.
+    ///   See NoteMessage for more details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
@@ -226,7 +162,7 @@ where
     /// - Augment the note with a `note_type_id`, so that it can be correctly filed-
     ///   away when it is eventually discovered, decrypted, and processed by its
     ///   intended recipient.
-    ///   (The note_type_id is usually allocated by the #[note] macro).
+    ///   (The note_type_id is usually allocated by the [note](crate::macros::notes::note) macro).
     /// - Provide the contents of the (augmented) note to the PXE, so that it can
     ///   store all notes created by the user executing this function.
     ///   - The note is also kept in the PXE's memory during execution, in case this
@@ -247,12 +183,11 @@ where
     ///       attacks, by hashing the `siloed_note_hash` with a unique value, to
     ///       yield a `unique_siloed_note_hash` (see the protocol spec for more).
     ///
-    /// docs:start:insert
-    pub fn insert(self, note: Note) -> NoteEmission<Note>
+    pub fn insert(self, note: Note) -> NoteMessage<Note>
     where
         Note: Packable,
     {
-        create_note(self.context, self.storage_slot, note)
+        create_note(self.context, self.owner, self.storage_slot, note)
     }
 
     /// Pops a collection of "current" notes (i.e. not-yet-nullified notes) which
@@ -333,28 +268,30 @@ where
     ///
     pub fn pop_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
     {
-        let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
+        std::static_assert(options.owner.is_none(), "Owner cannot be set in pop_notes");
+
+        let options = options.set_owner(self.owner);
+        let confirmed_notes = get_notes(self.context, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
         // time and hence will result in fewer constraints when set to a lower value than
         // MAX_NOTE_HASH_READ_REQUESTS_PER_CALL.
         for i in 0..options.limit {
-            if i < retrieved_notes.len() {
-                let retrieved_note = retrieved_notes.get_unchecked(i);
-                let note_hash = note_hashes.get_unchecked(i);
+            if i < confirmed_notes.len() {
+                let confirmed_note = confirmed_notes.get_unchecked(i);
                 // We immediately destroy the note without doing any of the read request checks `remove` typically
                 // performs because we know that the `get_notes` call has already placed those constraints.
-                destroy_note_unsafe(self.context, retrieved_note, note_hash);
+                destroy_note(self.context, confirmed_note);
             }
         }
 
-        // Since the notes were already destroyed, we no longer need the additional data in RetrievedNote and can
+        // Since the notes were already destroyed, we no longer need the additional data in ConfirmedNote and can
         // discard it.
-        retrieved_notes.map(|retrieved_note| retrieved_note.note)
+        confirmed_notes.map(|confirmed_note| confirmed_note.note)
     }
 
     /// Permanently removes (conceptually) the given note from this PrivateSet,
@@ -366,14 +303,14 @@ where
     ///
     /// # Arguments
     ///
-    /// - `retrieved_note` - A note which -- earlier in the calling function's
+    /// - `confirmed_note` - A note which -- earlier in the calling function's
     ///                      execution -- has been retrieved from the PXE.
-    ///                      The `retrieved_note` is constrained to have been read
+    ///                      The `confirmed_note` is constrained to have been read
     ///                      from the i
     ///
     /// # Returns
     ///
-    /// - NoteEmission<Note> - A type-safe wrapper which makes it clear to the
+    /// - NoteMessage<Note> - A type-safe wrapper which makes it clear to the
     ///                        smart contract dev that they now have a choice: they
     ///   need to decide whether they would like to send the contents of the newly-
     ///   created note to someone, or not. If they would like to, they have some
@@ -382,20 +319,17 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   See NoteEmission for further details.
+    ///   See NoteMessage for further details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
     ///     easier ways to customize your own note encryption options.
     ///
-    pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
-        let note_hash_read = compute_note_hash_read(retrieved_note, self.storage_slot);
-        self.context.assert_has_been_requested(note_hash_read);
-
-        destroy_note_unsafe(self.context, retrieved_note, note_hash_read);
+    pub fn remove(self, confirmed_note: ConfirmedNote<Note>) {
+        destroy_note(self.context, confirmed_note);
     }
 
-    /// Returns a collection of which belong to this PrivateSet.
+    /// Returns a filtered collection of notes from the set.
     ///
     /// DANGER: the returned notes do not get nullified within this `get_notes`
     /// function, and so they cannot necessarily be considered "current" notes.
@@ -457,12 +391,15 @@ where
     ///
     pub fn get_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
-    ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+        mut options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+    ) -> BoundedVec<ConfirmedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
     {
-        get_notes(self.context, self.storage_slot, options).0
+        std::static_assert(options.owner.is_none(), "Owner cannot be set in get_notes");
+
+        let options = options.set_owner(self.owner);
+        get_notes(self.context, self.storage_slot, options)
     }
 }
 
@@ -482,14 +419,16 @@ where
     ///               properties of the notes that must be returned by the oracle
     ///               call to the PXE.
     ///
-    /// docs:start:view_notes
     pub unconstrained fn view_notes(
         self,
-        options: NoteViewerOptions<Note, <Note as Packable>::N>,
+        mut options: NoteViewerOptions<Note, <Note as Packable>::N>,
     ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
     where
         Note: Packable,
     {
+        std::static_assert(options.owner.is_none(), "Owner cannot be set in view_notes");
+
+        let options = options.set_owner(self.owner);
         view_notes(self.storage_slot, options)
     }
 }

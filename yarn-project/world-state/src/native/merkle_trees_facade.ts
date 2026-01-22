@@ -1,5 +1,8 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { sleep } from '@aztec/foundation/sleep';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
   BatchInsertionResult,
@@ -191,19 +194,26 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   async getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
     treeId: ID,
     leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(BlockNumber | undefined)[]> {
     const response = await this.instance.call(WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, {
       treeId,
       revision: this.revision,
       leafIndices,
     });
 
-    return response.blockNumbers.map(x => (x === undefined || x === null ? undefined : BigInt(x)));
+    return response.blockNumbers.map(x => (x === undefined || x === null ? undefined : BlockNumber(Number(x))));
   }
 }
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
-  constructor(instance: NativeWorldStateInstance, initialHeader: BlockHeader, revision: WorldStateRevision) {
+  private log = createLogger('world-state:merkle-trees-fork-facade');
+
+  constructor(
+    instance: NativeWorldStateInstance,
+    initialHeader: BlockHeader,
+    revision: WorldStateRevision,
+    private opts: { closeDelayMs?: number },
+  ) {
     assert.notEqual(revision.forkId, 0, 'Fork ID must be set');
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
@@ -282,7 +292,31 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
 
   public async close(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
-    await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
+    try {
+      await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
+    } catch (err: any) {
+      // Ignore errors due to native instance being closed during shutdown.
+      // This can happen when validators are still processing block proposals while the node is stopping.
+      if (err?.message === 'Native instance is closed') {
+        return;
+      }
+      throw err;
+    }
+  }
+
+  async [Symbol.dispose](): Promise<void> {
+    if (this.opts.closeDelayMs) {
+      void sleep(this.opts.closeDelayMs)
+        .then(() => this.close())
+        .catch(err => {
+          if (err && 'message' in err && err.message === 'Native instance is closed') {
+            return; // Ignore errors due to native instance being closed
+          }
+          this.log.warn('Error closing MerkleTreesForkFacade after delay', { err });
+        });
+    } else {
+      await this.close();
+    }
   }
 
   public async createCheckpoint(): Promise<void> {

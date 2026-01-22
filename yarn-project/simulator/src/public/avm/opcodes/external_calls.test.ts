@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
@@ -53,7 +53,7 @@ describe('External Calls', () => {
         ...Buffer.from('b234', 'hex'), // argsOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x1234,
+        /*addressing_mode=*/ 0x1234,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
@@ -89,11 +89,18 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset);
+      const instruction = new Call(
+        /*addressing_mode=*/ 0,
+        l2GasOffset,
+        daGasOffset,
+        addrOffset,
+        argsSizeOffset,
+        argsOffset,
+      );
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
-      const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
+      const successCopyInstruction = new SuccessCopy(/*addressing_mode=*/ 0, successDstOffset);
       await successCopyInstruction.execute(context);
 
       const successValue = context.machineState.memory.get(successDstOffset);
@@ -123,11 +130,11 @@ describe('External Calls', () => {
       const successDstOffset = 6;
 
       const otherContextInstructionsBytecode = encodeToBytecode([
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
-        new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 1, /*csOffsetAddress=*/ 0, /*dstOffset=*/ 3),
-        new Return(/*indirect=*/ 0, /*sizeOffset=*/ 2, /*retOffset=*/ 3),
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
+        new CalldataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 1, /*csOffsetAddress=*/ 0, /*dstOffset=*/ 3),
+        new Return(/*addressing_mode=*/ 0, /*sizeOffset=*/ 2, /*retOffset=*/ 3),
       ]);
       const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
@@ -144,11 +151,18 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset);
+      const instruction = new Call(
+        /*addressing_mode=*/ 0,
+        l2GasOffset,
+        daGasOffset,
+        addrOffset,
+        argsSizeOffset,
+        argsOffset,
+      );
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
-      const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
+      const successCopyInstruction = new SuccessCopy(/*addressing_mode=*/ 0, successDstOffset);
       await successCopyInstruction.execute(context);
 
       const successValue = context.machineState.memory.get(successDstOffset);
@@ -174,12 +188,12 @@ describe('External Calls', () => {
       const successDstOffset = 6;
 
       const otherContextInstructionsBytecode = encodeToBytecode([
-        new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT).as(
+        new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT).as(
           Opcode.GETENVVAR_16,
           GetEnvVar.wireFormat16,
         ),
-        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
-        new Return(/*indirect=*/ 0, /*size=*/ 1, /*retOffset=*/ 0),
+        new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
+        new Return(/*addressing_mode=*/ 0, /*size=*/ 1, /*retOffset=*/ 0),
       ]);
       mockCheckNullifierExists(treesDB, true, addr);
 
@@ -198,7 +212,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
 
       const instruction = new Call(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         l2GasOffset,
         daGasOffset,
         addrOffset,
@@ -208,7 +222,7 @@ describe('External Calls', () => {
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
-      const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
+      const successCopyInstruction = new SuccessCopy(/*addressing_mode=*/ 0, successDstOffset);
       await successCopyInstruction.execute(context);
 
       const successValue = context.machineState.memory.get(successDstOffset);
@@ -235,7 +249,7 @@ describe('External Calls', () => {
         ...Buffer.from('b234', 'hex'), // argsOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x1234,
+        /*addressing_mode=*/ 0x1234,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
@@ -266,7 +280,7 @@ describe('External Calls', () => {
       context.machineState.memory.setSlice(argsOffset, args);
 
       const otherContextInstructions: Instruction[] = [
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0),
+        new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0),
       ];
 
       const otherContextInstructionsBytecode = encodeToBytecode(otherContextInstructions);
@@ -279,7 +293,7 @@ describe('External Calls', () => {
       mockGetContractInstance(contractsDB, contractInstance);
 
       const instruction = new StaticCall(
-        /*indirect=*/ 0,
+        /*addressing_mode=*/ 0,
         l2GasOffset,
         daGasOffset,
         addrOffset,
@@ -302,7 +316,7 @@ describe('External Calls', () => {
         ...Buffer.from('a234', 'hex'), // copySize
         ...Buffer.from('1234', 'hex'), // returnOffset
       ]);
-      const inst = new Return(/*indirect=*/ 0x10, /*copySize=*/ 0xa234, /*returnOffset=*/ 0x1234);
+      const inst = new Return(/*addressing_mode=*/ 0x10, /*copySize=*/ 0xa234, /*returnOffset=*/ 0x1234);
 
       expect(Return.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -316,7 +330,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(2, new Field(3n));
       context.machineState.memory.set(3, new Uint32(returnData.length));
 
-      const instruction = new Return(/*indirect=*/ 0, /*returnSizeOffset=*/ 3, /*returnOffset=*/ 0);
+      const instruction = new Return(/*addressing_mode=*/ 0, /*returnSizeOffset=*/ 3, /*returnOffset=*/ 0);
       await instruction.execute(context);
 
       expect(context.machineState.getHalted()).toBe(true);
@@ -333,7 +347,7 @@ describe('External Calls', () => {
         ...Buffer.from('a234', 'hex'), // retSizeOffset
         ...Buffer.from('1234', 'hex'), // returnOffset
       ]);
-      const inst = new Revert(/*indirect=*/ 0x10, /*retSizeOffset=*/ 0xa234, /*returnOffset=*/ 0x1234).as(
+      const inst = new Revert(/*addressing_mode=*/ 0x10, /*retSizeOffset=*/ 0xa234, /*returnOffset=*/ 0x1234).as(
         Opcode.REVERT_16,
         Revert.wireFormat16,
       );
@@ -349,7 +363,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(0, new Uint32(returnData.length));
       context.machineState.memory.setSlice(10, returnData);
 
-      const instruction = new Revert(/*indirect=*/ 0, /*retSizeOffset=*/ 0, /*returnOffset=*/ 10);
+      const instruction = new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 0, /*returnOffset=*/ 10);
       await instruction.execute(context);
 
       expect(context.machineState.getHalted()).toBe(true);
@@ -365,7 +379,7 @@ describe('External Calls', () => {
         0x12, // indirect (8-bit)
         ...Buffer.from('5678', 'hex'), // dstOffset (16-bit)
       ]);
-      const inst = new SuccessCopy(/*indirect=*/ 0x12, /*dstOffset=*/ 0x5678);
+      const inst = new SuccessCopy(/*addressing_mode=*/ 0x12, /*dstOffset=*/ 0x5678);
 
       expect(SuccessCopy.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -375,7 +389,7 @@ describe('External Calls', () => {
       context.machineState.nestedCallSuccess = true;
       const dstOffset = 0;
 
-      const instruction = new SuccessCopy(/*indirect=*/ 0, dstOffset);
+      const instruction = new SuccessCopy(/*addressing_mode=*/ 0, dstOffset);
       await instruction.execute(context);
 
       const successValue = context.machineState.memory.get(dstOffset);
@@ -386,7 +400,7 @@ describe('External Calls', () => {
       context.machineState.nestedCallSuccess = false;
       const dstOffset = 0;
 
-      const instruction = new SuccessCopy(/*indirect=*/ 0, dstOffset);
+      const instruction = new SuccessCopy(/*addressing_mode=*/ 0, dstOffset);
       await instruction.execute(context);
 
       const successValue = context.machineState.memory.get(dstOffset);

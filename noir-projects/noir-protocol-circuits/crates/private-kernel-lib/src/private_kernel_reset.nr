@@ -7,12 +7,39 @@ use crate::{
 };
 use dep::types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
-    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    constants::{
+        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
+    },
     PrivateKernelCircuitPublicInputs,
 };
 
 pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
-    [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
+    [PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX];
+
+/// The Private Kernel Reset circuit performs cleanup, validation, and siloing on accumulated transaction data.
+///
+/// This circuit may be invoked multiple times during private execution to validate pending requests and reduce the size
+/// of accumulated data by squashing transient side effects.
+///
+/// Siloing of side effects, however, must be performed at most once for a transaction. The Reset circuit is therefore
+/// required to be called exactly once with siloing enabled before transitioning to the Tail(-to-Public) circuit. This
+/// siloing call does not need to occur immediately before the Tail circuit, but it must be the final Reset that
+/// operates on side effects that require siloing - no additional silo-relevant side effects may be added in subsequent
+/// private function calls.
+///
+/// It performs:
+/// - Read request validation: Verifies note hash and nullifier read requests against pending data (from this
+///   transaction) or settled data (from historical state via membership proofs)
+/// - Key validation: Validates key derivation requests used for nullifier key generation
+/// - Transient data squashing: Removes note hash/nullifier pairs where a note is created and nullified within the
+///   current transaction, along with their associated logs
+/// - Siloing: Applies contract-specific siloing to note hashes, nullifiers, and logs for scoping and privacy
+/// - Padding: Pads accumulated arrays to obscure their true sizes for privacy
+///
+/// The Reset circuit is parameterized by the number of each type of operation to perform, allowing multiple "variants"
+/// optimized for different transaction patterns.
+///
+/// The vk indexes of all the reset variants are allocated after the PRIVATE_KERNEL_RESET_VK_INDEX.
 
 pub struct PrivateKernelResetCircuitPrivateInputs<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> {
     previous_kernel: PrivateKernelData,
@@ -59,7 +86,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // Validate inputs.
 
         if !dep::std::runtime::is_unconstrained() {
-            self.previous_kernel.verify(false /* is_last_kernel */);
+            self.previous_kernel.verify(false);
             self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 

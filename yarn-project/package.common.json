@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "build": "yarn clean && tsgo -b",
-    "build:dev": "tsgo -b --watch",
+    "build": "yarn clean && ../scripts/tsc.sh",
+    "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -12,7 +12,7 @@
   "devDependencies": {
     "@jest/globals": "^30.0.0",
     "jest": "^30.0.0",
-    "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "ts-node": "^10.9.1"
   },
   "jest": {

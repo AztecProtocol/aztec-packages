@@ -13,7 +13,7 @@ import {
 import { type FeeOptions, BaseWallet } from '@aztec/wallet-sdk/base-wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/types';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 
@@ -48,8 +48,7 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const chainInfo = await this.getChainInfo();
-      account = new SignerlessAccount(chainInfo);
+      account = new SignerlessAccount();
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }
@@ -76,7 +75,7 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<FeeOptions> {
     const maxFeesPerGas =
       gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentBaseFees()).mul(1 + this.baseFeePadding);
+      (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
     let walletFeePaymentMethod;
     let accountFeePaymentMethodOptions;
     // The transaction does not include a fee payment method, so we set a default
@@ -282,11 +281,24 @@ export class EmbeddedWallet extends BaseWallet {
     return this.connectedAccount;
   }
 
+  /**
+   * Creates a stub account that impersonates the given address, allowing kernelless simulations
+   * to bypass the account's authorization mechanisms via contract overrides.
+   * @param address - The address of the account to impersonate
+   * @returns The stub account, contract instance, and artifact for simulation
+   */
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = await originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(
+    // Account contracts can only be overridden if they have an associated address
+    // Overwriting SignerlessAccount is not supported, and does not really make sense
+    // since it has no authorization mechanism.
+    if (originalAccount instanceof SignerlessAccount) {
+      throw new Error(
+        `Cannot create fake account data for SignerlessAccount at address: ${address}`
+      );
+    }
+    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const contractInstance = await this.pxe.getContractInstance(
       originalAddress.address
     );
     if (!contractInstance) {
@@ -294,7 +306,7 @@ export class EmbeddedWallet extends BaseWallet {
         `No contract instance found for address: ${originalAddress.address}`
       );
     }
-    const stubAccount = createStubAccount(originalAddress, chainInfo);
+    const stubAccount = createStubAccount(originalAddress);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(
       StubAccountContractArtifact,
@@ -337,9 +349,11 @@ export class EmbeddedWallet extends BaseWallet {
       instance,
       artifact,
     } = await this.getFakeAccountDataFor(opts.from);
+    const chainInfo = await this.getChainInfo();
     const txRequest = await fromAccount.createTxExecutionRequest(
       finalExecutionPayload,
       feeOptions.gasSettings,
+      chainInfo,
       executionOptions
     );
     const contractOverrides = {

@@ -2,14 +2,13 @@ import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { AztecContext } from '../../../aztecContext';
 import { useContext, useEffect, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { useTransaction } from '../../../hooks/useTransaction';
 import {
@@ -283,6 +282,7 @@ export function Landing() {
     setDefaultContractCreationParams,
     setCurrentContractAddress,
     setFrom,
+    node,
     embeddedWalletSelected,
     playgroundDB,
     from,
@@ -414,7 +414,7 @@ export function Landing() {
 
       const txReceipt = await sendTx(`Deploy account contract`, deployMethod, address, opts);
 
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (txReceipt?.hasExecutionSucceeded()) {
         setFrom(address);
       }
     } catch (e) {
@@ -429,126 +429,132 @@ export function Landing() {
     <div css={container}>
       <div css={contentScroll}>
         <div css={welcomeCardContainer}>
-        <div css={featureCard}>
-          <div>
-            <div css={cardTitle}>Deploy Privacy-Preserving Smart Contracts</div>
-            <div css={cardDescription}>
-              Get started deploying and interacting with smart contracts on Aztec. Create an aztec account, try one of
-              our default contracts or upload your own and interact with public and private functions made possible by
-              client-side ZK proofs created in your browser.
+          <div css={featureCard}>
+            <div>
+              <div css={cardTitle}>Deploy Privacy-Preserving Smart Contracts</div>
+              <div css={cardDescription}>
+                Get started deploying and interacting with smart contracts on Aztec. Create an aztec account, try one of
+                our default contracts or upload your own and interact with public and private functions made possible by
+                client-side ZK proofs created in your browser.
+              </div>
+            </div>
+            <div
+              style={{
+                width: '40%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginLeft: '1rem',
+              }}
+            >
+              <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '140px' }} />
             </div>
           </div>
-          <div
-            style={{
-              width: '40%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginLeft: '1rem',
-            }}
-          >
-            <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '140px' }} />
+        </div>
+
+        <div css={cardsContainer}>
+          <div css={featureCard}>
+            <Box>
+              <div css={cardIcon}>
+                <AccountAbstractionIcon />
+              </div>
+              <div css={cardTitle}>Account Abstraction</div>
+              <div css={cardDescription}>
+                Aztec's native account abstraction turns every account into a smart contract, enabling highly flexible
+                and programmable user identities that unlock features like gas sponsorship, nonce abstraction (setting
+                your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g.
+                passkeys.{' '}
+              </div>
+            </Box>
+
+            <Tooltip
+              title={
+                !wallet || !embeddedWalletSelected ? 'Connect to a network and use a wallet to create an account' : ''
+              }
+              placement="top"
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  css={cardButton}
+                  onClick={handleCreateAccountButtonClick}
+                  disabled={isCreatingAccount || !wallet}
+                >
+                  {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+
+          <div css={featureCard}>
+            <Box>
+              <div css={cardIcon}>
+                <PrivateVotingIcon />
+              </div>
+              <div css={cardTitle}>Private Voting</div>
+              <div css={cardDescription}>
+                Developers can seamlessly integrate public and private functions to unlock use cases like private
+                voting. Voters can hide their address and cast their votes privately through a private function, which
+                internally calls a public function to update the vote count transparently.{' '}
+              </div>
+            </Box>
+
+            <Tooltip
+              title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''}
+              placement="top"
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  css={cardButton}
+                  onClick={async () => {
+                    setIsLoadingPrivateVoting(true);
+                    await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
+                    setIsLoadingPrivateVoting(false);
+                  }}
+                  disabled={isLoadingPrivateVoting || !wallet || isCreatingAccount}
+                >
+                  {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+
+          <div css={featureCard}>
+            <Box>
+              <div css={cardIcon}>
+                <PrivateTokensIcon />
+              </div>
+              <div css={cardTitle}>Private Tokens</div>
+              <div css={cardDescription}>
+                Accounts, transactions, and execution on Aztec can be done privately using client-side proofs, enabling
+                you to private mint or transfer tokens, move public tokens into private domain or the reverse - transfer
+                tokens from private to public, all without revealing your address or even the amount and recipient (in
+                case of private transfer), all the while maintaining the total supply of tokens publicly.
+              </div>
+            </Box>
+
+            <Tooltip
+              title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''}
+              placement="top"
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  css={cardButton}
+                  onClick={async () => {
+                    setIsLoadingPrivateTokens(true);
+                    await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
+                    setIsLoadingPrivateTokens(false);
+                  }}
+                  disabled={isLoadingPrivateTokens || !wallet || isCreatingAccount}
+                >
+                  {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+                </Button>
+              </span>
+            </Tooltip>
           </div>
         </div>
-      </div>
-
-      <div css={cardsContainer}>
-        <div css={featureCard}>
-          <Box>
-            <div css={cardIcon}>
-              <AccountAbstractionIcon />
-            </div>
-            <div css={cardTitle}>Account Abstraction</div>
-            <div css={cardDescription}>
-              Aztec's native account abstraction turns every account into a smart contract, enabling highly flexible and
-              programmable user identities that unlock features like gas sponsorship, nonce abstraction (setting your
-              own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g.
-              passkeys.{' '}
-            </div>
-          </Box>
-
-          <Tooltip
-            title={
-              !wallet || !embeddedWalletSelected ? 'Connect to a network and use a wallet to create an account' : ''
-            }
-            placement="top"
-          >
-            <span>
-              <Button
-                variant="contained"
-                css={cardButton}
-                onClick={handleCreateAccountButtonClick}
-                disabled={isCreatingAccount || !wallet}
-              >
-                {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
-              </Button>
-            </span>
-          </Tooltip>
-        </div>
-
-        <div css={featureCard}>
-          <Box>
-            <div css={cardIcon}>
-              <PrivateVotingIcon />
-            </div>
-            <div css={cardTitle}>Private Voting</div>
-            <div css={cardDescription}>
-              Developers can seamlessly integrate public and private functions to unlock use cases like private voting.
-              Voters can hide their address and cast their votes privately through a private function, which internally
-              calls a public function to update the vote count transparently.{' '}
-            </div>
-          </Box>
-
-          <Tooltip title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''} placement="top">
-            <span>
-              <Button
-                variant="contained"
-                css={cardButton}
-                onClick={async () => {
-                  setIsLoadingPrivateVoting(true);
-                  await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
-                  setIsLoadingPrivateVoting(false);
-                }}
-                disabled={isLoadingPrivateVoting || !wallet || isCreatingAccount}
-              >
-                {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
-              </Button>
-            </span>
-          </Tooltip>
-        </div>
-
-        <div css={featureCard}>
-          <Box>
-            <div css={cardIcon}>
-              <PrivateTokensIcon />
-            </div>
-            <div css={cardTitle}>Private Tokens</div>
-            <div css={cardDescription}>
-              Accounts, transactions, and execution on Aztec can be done privately using client-side proofs, enabling
-              you to private mint or transfer tokens, move public tokens into private domain or the reverse - transfer
-              tokens from private to public, all without revealing your address or even the amount and recipient (in
-              case of private transfer), all the while maintaining the total supply of tokens publicly.
-            </div>
-          </Box>
-
-          <Tooltip title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''} placement="top">
-            <span>
-              <Button
-                variant="contained"
-                css={cardButton}
-                onClick={async () => {
-                  setIsLoadingPrivateTokens(true);
-                  await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
-                  setIsLoadingPrivateTokens(false);
-                }}
-                disabled={isLoadingPrivateTokens || !wallet || isCreatingAccount}
-              >
-                {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
-              </Button>
-            </span>
-          </Tooltip>
-        </div>
-      </div>
       </div>
     </div>
   );

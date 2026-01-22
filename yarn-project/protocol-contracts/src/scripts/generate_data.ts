@@ -10,11 +10,11 @@ import {
   FEE_JUICE_ADDRESS,
   MAX_PROTOCOL_CONTRACTS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  ROUTER_ADDRESS,
+  PUBLIC_CHECKS_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -40,7 +40,7 @@ const contractAddressMapping: { [name: string]: number } = {
   ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
-  Router: ROUTER_ADDRESS,
+  PublicChecks: PUBLIC_CHECKS_ADDRESS,
 };
 
 async function clearDestDir() {
@@ -149,7 +149,7 @@ async function generateLogTags() {
 async function generateOutputFile(names: string[], derivedAddresses: AztecAddress[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
-    import { Fr } from '@aztec/foundation/fields';
+    import { Fr } from '@aztec/foundation/curves/bn254';
     import { AztecAddress } from '@aztec/stdlib/aztec-address';
     import { ProtocolContracts } from '@aztec/stdlib/tx';
 

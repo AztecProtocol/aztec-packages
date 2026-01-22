@@ -1,7 +1,7 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "./mock_transcript.hpp"
-#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
+#include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 using namespace bb;
@@ -19,9 +19,7 @@ class IPATest : public CommitmentTest<Curve> {
     using Commitment = typename Curve::AffineElement;
 
     using ShplonkProver = ShplonkProver_<Curve>;
-    using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
-    using GeminiVerifier = GeminiVerifier_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -69,49 +67,6 @@ class IPATest : public CommitmentTest<Curve> {
 
 #define IPA_TEST
 #include "ipa.hpp"
-
-// Commit Tests: below are several tests to make sure commitment is correct.
-//
-// Commit to a polynomial that is non-zero but has many zero coefficients
-TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
-{
-    constexpr size_t n = 16;
-    Polynomial p(n);
-    for (size_t i = 0; i < n - 1; i++) {
-        p.at(i) = Fr::zero();
-    }
-    p.at(3) = this->random_element();
-    GroupElement commitment = ck.commit(p);
-    auto srs_elements = ck.srs->get_monomial_points();
-    GroupElement expected = srs_elements[0] * p[0];
-    for (size_t i = 1; i < n; i += 1) {
-        expected += srs_elements[i] * p[i];
-    }
-    EXPECT_EQ(expected.normalize(), commitment.normalize());
-}
-// Commit to zero poly
-TEST_F(IPATest, CommitToZeroPoly)
-{
-    Polynomial poly(n);
-    Commitment commitment = ck.commit(poly);
-    EXPECT_TRUE(commitment.is_point_at_infinity());
-
-    auto x = this->random_element();
-    auto eval = poly.evaluate(x);
-    EXPECT_EQ(eval, Fr::zero());
-}
-// Commit to a random poly
-TEST_F(IPATest, Commit)
-{
-    auto poly = Polynomial::random(n);
-    const GroupElement commitment = ck.commit(poly);
-    auto srs_elements = ck.srs->get_monomial_points();
-    GroupElement expected = srs_elements[0] * poly[0];
-    for (size_t i = 1; i < n; ++i) {
-        expected += srs_elements[i] * poly[i];
-    }
-    EXPECT_EQ(expected.normalize(), commitment.normalize());
-}
 
 // Opening tests, i.e., check completeness for prove-and-verify.
 //
@@ -270,8 +225,8 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 
 // Tests of batched MLPCS, where IPA is the final univariate commitment scheme.
 
-// Gemini + Shplonk + IPA. Two random polynomials, no shifts.
-TEST_F(IPATest, GeminiShplonkIPAWithoutShift)
+// Shplemini + IPA. Two random polynomials, no shifts.
+TEST_F(IPATest, ShpleminiIPAWithoutShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
@@ -280,7 +235,6 @@ TEST_F(IPATest, GeminiShplonkIPAWithoutShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 2,
                                    /*num_to_be_shifted*/ 0,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -298,12 +252,17 @@ TEST_F(IPATest, GeminiShplonkIPAWithoutShift)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    auto gemini_verifier_claim =
-        GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
+    std::array<Fr, log_n> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
-    const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(vk.get_g1_identity(), gemini_verifier_claim, verifier_transcript);
-    auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                                    mock_claims.claim_batcher,
+                                                                                    mle_opening_point,
+                                                                                    vk.get_g1_identity(),
+                                                                                    verifier_transcript)
+                                         .batch_opening_claim;
+
+    auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
 
     EXPECT_EQ(result, true);
 }
@@ -316,7 +275,6 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 1,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
     auto prover_transcript = NativeTranscript::prover_init_empty();
@@ -340,7 +298,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk.get_g1_identity(),
-                                                                                    verifier_transcript);
+                                                                                    verifier_transcript)
+                                         .batch_opening_claim;
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
@@ -356,7 +315,6 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
-                                   /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
                                    ck);
 
@@ -396,7 +354,8 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
                                                                                     mle_opening_point,
                                                                                     vk.get_g1_identity(),
                                                                                     verifier_transcript,
-                                                                                    repeated_commitments);
+                                                                                    repeated_commitments)
+                                         .batch_opening_claim;
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);

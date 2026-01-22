@@ -1,4 +1,4 @@
-use super::authorization_selector::AuthorizationSelector;
+use super::AuthorizationSelector;
 
 /// Allows getting the selector for an authorization struct (see src/macros/authorization.nr)
 /// used to uniquely identify them and avoiding collisions. This is important

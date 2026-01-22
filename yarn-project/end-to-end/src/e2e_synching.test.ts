@@ -38,18 +38,16 @@ import { BatchCall, type Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  EmpireSlashingProposerContract,
-  GovernanceProposerContract,
-  RollupContract,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -57,7 +55,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -66,11 +65,9 @@ import * as fs from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
-import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 
-const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
@@ -255,13 +252,13 @@ class TestVariant {
     }
   }
 
-  async writeBlocks(blocks: L2Block[]) {
-    await this.writeJson(`blocks`, { blocks: blocks.map(block => block.toString()) });
+  async writeCheckpoints(checkpoints: Checkpoint[]) {
+    await this.writeJson(`checkpoints`, { checkpoints: checkpoints.map(cp => bufferToHex(cp.toBuffer())) });
   }
 
-  loadBlocks() {
-    const json = this.loadJson(`blocks`);
-    return (json['blocks'] as string[]).map(b => L2Block.fromString(b));
+  loadCheckpoints(): Checkpoint[] {
+    const json = this.loadJson(`checkpoints`);
+    return (json['checkpoints'] as string[]).map(cp => Checkpoint.fromBuffer(hexToBuffer(cp)));
   }
 
   numberOfBlocksStored() {
@@ -333,7 +330,6 @@ describe('e2e_synching', () => {
         initialFundedAccounts,
         cheatCodes,
       } = await setup(1, {
-        salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
@@ -365,9 +361,11 @@ describe('e2e_synching', () => {
         await cheatCodes.rollup.markAsProven();
       }
 
-      const blocks = await aztecNode.getBlocks(1, await aztecNode.getBlockNumber());
+      const blockNumber = await aztecNode.getBlockNumber();
+      const publishedCheckpoints = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber);
+      const checkpoints = publishedCheckpoints.map(pc => pc.checkpoint);
 
-      await variant.writeBlocks(blocks);
+      await variant.writeCheckpoints(checkpoints);
       await teardown();
     },
     240_400_000,
@@ -392,13 +390,10 @@ describe('e2e_synching', () => {
       sequencer,
       watcher,
       wallet,
-      blobSink,
       initialFundedAccounts,
       dateProvider,
     } = await setup(0, {
-      salt: SALT,
       l1StartTime: START_TIME,
-      skipProtocolContracts: true,
       numberOfInitialFundedAccounts: 10,
     });
 
@@ -406,9 +401,7 @@ describe('e2e_synching', () => {
     await (sequencer as any).stop();
     await watcher?.stop();
 
-    const blobSinkClient = createBlobSinkClient({
-      blobSinkUrl: `http://localhost:${blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
-    });
+    const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
@@ -438,15 +431,15 @@ describe('e2e_synching', () => {
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
+        l1DebugRpcUrls: [],
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
       {
-        blobSinkClient,
+        blobClient,
         l1TxUtils,
         rollupContract,
         governanceProposerContract,
@@ -459,20 +452,21 @@ describe('e2e_synching', () => {
       },
     );
 
-    const blocks = variant.loadBlocks();
+    const checkpoints = variant.loadCheckpoints();
 
-    // For each of the blocks we progress time such that it land at the correct time
+    // For each of the checkpoints we progress time such that it land at the correct time
     // We create blocks for every ethereum slot simply to make sure that the test is "closer" to
     // a real world.
-    for (const block of blocks) {
-      const targetTime = Number(block.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
+    for (const checkpoint of checkpoints) {
+      const lastBlock = checkpoint.blocks.at(-1)!;
+      const targetTime = Number(lastBlock.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
-      await cheatCodes.rollup.markAsProven(provenThrough);
+      await cheatCodes.rollup.markAsProven(CheckpointNumber.fromBlockNumber(BlockNumber(provenThrough)));
     }
 
     await alternativeSync(
@@ -569,12 +563,13 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const blobSinkClient = createBlobSinkClient({
-            blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
-          });
+          const blobClient = await createBlobClientWithFileStores(
+            opts.config!,
+            createLogger('test:blob-client:client'),
+          );
           const archiver = await createArchiver(
             opts.config!,
-            { blobSinkClient, dateProvider: opts.dateProvider! },
+            { blobClient, dateProvider: opts.dateProvider! },
             { blockUntilSync: true },
           );
           const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
@@ -584,8 +579,8 @@ describe('e2e_synching', () => {
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
-          const provenThrough = pendingBlockNumber - 2n;
-          await opts.cheatCodes!.rollup.markAsProven(provenThrough);
+          const provenThrough = BlockNumber.fromBigInt(pendingBlockNumber - 2n);
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber.fromBlockNumber(provenThrough));
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);
@@ -607,7 +602,6 @@ describe('e2e_synching', () => {
           }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
             await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
@@ -632,15 +626,16 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
           expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
             [],
           );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(provenThrough));
-          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(provenThrough));
-          const archiverLatestBlockHash = await archiver.getBlockHeader(Number(provenThrough)).then(b => b?.hash());
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(BlockNumber(Number(provenThrough)));
+          const archiverLatestBlockHash = await archiver
+            .getBlockHeader(BlockNumber(Number(provenThrough)))
+            .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
           await tryStop(archiver);
@@ -666,8 +661,9 @@ describe('e2e_synching', () => {
             client: opts.deployL1ContractsValues!.l1Client,
           });
 
-          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
-          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
+          const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
+          const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
@@ -731,8 +727,9 @@ describe('e2e_synching', () => {
             client: opts.deployL1ContractsValues!.l1Client,
           });
 
-          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
-          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
+          const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
+          const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);

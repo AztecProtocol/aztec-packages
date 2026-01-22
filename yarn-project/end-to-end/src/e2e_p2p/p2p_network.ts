@@ -2,20 +2,19 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
-  type ExtendedViemWalletClient,
   GSEContract,
-  MultiAdderArtifact,
-  type Operator,
   RollupContract,
   type TallySlashingProposerContract,
-  type ViemClient,
-  createL1TxUtilsFromViemWallet,
-  deployL1Contract,
-  getL1ContractsConfigEnvVars,
-} from '@aztec/ethereum';
+} from '@aztec/ethereum/contracts';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
+import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -36,17 +35,19 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  type EndToEndContext,
+  type SetupOptions,
+  deployAccounts,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
+import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-} from '../fixtures/snapshot_manager.js';
-import { type SetupOptions, getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -61,14 +62,14 @@ export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
 };
 
 export class P2PNetworkTest {
-  private snapshotManager: ISnapshotManager;
+  public context!: EndToEndContext;
   public baseAccountPrivateKey: `0x${string}`;
   public baseAccount;
 
   public logger: Logger;
   public monitor!: ChainMonitor;
 
-  public ctx!: SubsystemsContext;
+  public ctx!: EndToEndContext;
   public attesterPrivateKeys: `0x${string}`[] = [];
   public attesterPublicKeys: string[] = [];
   public peerIdPrivateKeys: string[] = [];
@@ -84,6 +85,10 @@ export class P2PNetworkTest {
 
   public bootstrapNode?: BootstrapNode;
 
+  // Store setup options for use in setup()
+  private setupOptions: SetupOptions;
+  private deployL1ContractsArgs: any;
+
   constructor(
     public readonly testName: string,
     public bootstrapNodeEnr: string,
@@ -94,7 +99,6 @@ export class P2PNetworkTest {
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
-    mockZkPassportVerifier?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -109,45 +113,41 @@ export class P2PNetworkTest {
 
     const zkPassportParams = ZkPassportProofParams.random();
 
-    this.snapshotManager = createSnapshotManager(
-      `e2e_p2p_network/${testName}`,
-      process.env.E2E_DATA_PATH,
-      {
-        ...initialValidatorConfig,
-        ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
-        aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-        aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-        aztecProofSubmissionEpochs:
-          initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-        slashingRoundSizeInEpochs:
-          initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-        slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
-        aztecTargetCommitteeSize: numberOfValidators,
-        salt: 420,
-        metricsPort: metricsPort,
-        numberOfInitialFundedAccounts: 2,
-        startProverNode,
-      },
-      {
-        ...initialValidatorConfig,
-        aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-        slashingRoundSizeInEpochs:
-          initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-        slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+    // Store setup options for later use
+    this.setupOptions = {
+      ...initialValidatorConfig,
+      ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
+      aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+      aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+      aztecProofSubmissionEpochs:
+        initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+      slashingRoundSizeInEpochs:
+        initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
+      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      aztecTargetCommitteeSize: numberOfValidators,
+      metricsPort: metricsPort,
+      numberOfInitialFundedAccounts: 2,
+      startProverNode,
+    };
 
-        ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
-        aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-        aztecProofSubmissionEpochs:
-          initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-        aztecTargetCommitteeSize: numberOfValidators,
-        initialValidators: [],
-        zkPassportArgs: {
-          mockZkPassportVerifier,
-          zkPassportDomain: zkPassportParams.domain,
-          zkPassportScope: zkPassportParams.scope,
-        },
+    this.deployL1ContractsArgs = {
+      ...initialValidatorConfig,
+      aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+      slashingRoundSizeInEpochs:
+        initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
+      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+
+      ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
+      aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+      aztecProofSubmissionEpochs:
+        initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+      aztecTargetCommitteeSize: numberOfValidators,
+      initialValidators: [],
+      zkPassportArgs: {
+        zkPassportDomain: zkPassportParams.domain,
+        zkPassportScope: zkPassportParams.scope,
       },
-    );
+    };
   }
 
   static async create({
@@ -158,7 +158,6 @@ export class P2PNetworkTest {
     metricsPort,
     initialConfig,
     startProverNode,
-    mockZkPassportVerifier,
   }: {
     testName: string;
     numberOfNodes: number;
@@ -167,7 +166,6 @@ export class P2PNetworkTest {
     metricsPort?: number;
     initialConfig?: SetupOptions;
     startProverNode?: boolean;
-    mockZkPassportVerifier?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -188,29 +186,27 @@ export class P2PNetworkTest {
       numberOfNodes,
       metricsPort,
       startProverNode,
-      mockZkPassportVerifier,
     );
   }
 
   get fundedAccount() {
     if (!this.deployedAccounts[0]) {
-      throw new Error('Call snapshot t.setupAccount to create a funded account.');
+      throw new Error('Call setupAccount to create a funded account.');
     }
     return this.deployedAccounts[0];
   }
 
   async addBootstrapNode() {
-    await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
-      const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
-      this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
-        BOOTSTRAP_NODE_PRIVATE_KEY,
-        this.bootNodePort,
-        telemetry,
-        aztecNodeConfig,
-      );
-      // Overwrite enr with updated info
-      this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
-    });
+    this.logger.info('Adding bootstrap node');
+    const telemetry = await getEndToEndTestTelemetryClient(this.metricsPort);
+    this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
+      BOOTSTRAP_NODE_PRIVATE_KEY,
+      this.bootNodePort,
+      telemetry,
+      this.context.config,
+    );
+    // Overwrite enr with updated info
+    this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
   }
 
   getValidators() {
@@ -231,128 +227,114 @@ export class P2PNetworkTest {
     return { validators };
   }
 
-  async applyBaseSnapshots() {
+  async applyBaseSetup() {
     await this.addBootstrapNode();
-    await this.snapshotManager.snapshot('add-validators', async ({ deployL1ContractsValues, cheatCodes }) => {
-      const rollup = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
 
-      this.logger.info(`Adding ${this.numberOfValidators} validators`);
-
-      const stakingAsset = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
-        abi: TestERC20Abi,
-        client: deployL1ContractsValues.l1Client,
-      });
-
-      const { address: multiAdderAddress } = await deployL1Contract(
-        deployL1ContractsValues.l1Client,
-        MultiAdderArtifact.contractAbi,
-        MultiAdderArtifact.contractBytecode,
-        [rollup.address, deployL1ContractsValues.l1Client.account.address],
-      );
-
-      const multiAdder = getContract({
-        address: multiAdderAddress.toString(),
-        abi: MultiAdderArtifact.contractAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
-
-      const stakeNeeded = (await rollup.read.getActivationThreshold()) * BigInt(this.numberOfValidators);
-      await Promise.all(
-        [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
-          deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
-        ),
-      );
-
-      const { validators } = this.getValidators();
-      this.validators = validators;
-
-      const gseAddress = deployL1ContractsValues.l1ContractAddresses.gseAddress!;
-      if (!gseAddress) {
-        throw new Error('GSE contract not deployed');
-      }
-
-      const gseContract = new GSEContract(deployL1ContractsValues.l1Client, gseAddress.toString());
-
-      const makeValidatorTuples = async (validator: Operator) => {
-        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
-        return {
-          attester: validator.attester.toString() as `0x${string}`,
-          withdrawer: validator.withdrawer.toString() as `0x${string}`,
-          ...registrationTuple,
-        };
-      };
-      const validatorTuples = await Promise.all(validators.map(makeValidatorTuples));
-
-      await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-        hash: await multiAdder.write.addValidators([validatorTuples]),
-      });
-
-      await cheatCodes.rollup.advanceToEpoch(
-        EpochNumber.fromBigInt(
-          BigInt(await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochsForValidatorSet()) + 1n,
-        ),
-      );
-
-      // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-      await this._sendDummyTx(deployL1ContractsValues.l1Client);
+    this.logger.info('Adding validators');
+    const rollup = getContract({
+      address: this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: this.context.deployL1ContractsValues.l1Client,
     });
+
+    this.logger.info(`Adding ${this.numberOfValidators} validators`);
+
+    const stakingAsset = getContract({
+      address: this.context.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+      abi: TestERC20Abi,
+      client: this.context.deployL1ContractsValues.l1Client,
+    });
+
+    const { address: multiAdderAddress } = await deployL1Contract(
+      this.context.deployL1ContractsValues.l1Client,
+      MultiAdderArtifact.contractAbi,
+      MultiAdderArtifact.contractBytecode,
+      [rollup.address, this.context.deployL1ContractsValues.l1Client.account.address],
+    );
+
+    const multiAdder = getContract({
+      address: multiAdderAddress.toString(),
+      abi: MultiAdderArtifact.contractAbi,
+      client: this.context.deployL1ContractsValues.l1Client,
+    });
+
+    const stakeNeeded = (await rollup.read.getActivationThreshold()) * BigInt(this.numberOfValidators);
+    await Promise.all(
+      [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
+        this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
+      ),
+    );
+
+    const { validators } = this.getValidators();
+    this.validators = validators;
+
+    const gseAddress = this.context.deployL1ContractsValues.l1ContractAddresses.gseAddress!;
+    if (!gseAddress) {
+      throw new Error('GSE contract not deployed');
+    }
+
+    const gseContract = new GSEContract(this.context.deployL1ContractsValues.l1Client, gseAddress.toString());
+
+    const makeValidatorTuples = async (validator: Operator) => {
+      const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+      return {
+        attester: validator.attester.toString() as `0x${string}`,
+        withdrawer: validator.withdrawer.toString() as `0x${string}`,
+        ...registrationTuple,
+      };
+    };
+    const validatorTuples = await Promise.all(validators.map(makeValidatorTuples));
+
+    await this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await multiAdder.write.addValidators([validatorTuples]),
+    });
+
+    await this.context.cheatCodes.rollup.advanceToEpoch(
+      EpochNumber.fromBigInt(
+        BigInt(await this.context.cheatCodes.rollup.getEpoch()) +
+          (await rollup.read.getLagInEpochsForValidatorSet()) +
+          1n,
+      ),
+    );
+
+    // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+    await this._sendDummyTx(this.context.deployL1ContractsValues.l1Client);
   }
 
   async setupAccount() {
-    await this.snapshotManager.snapshot(
-      'setup-account',
-      deployAccounts(1, this.logger),
-      ({ deployedAccounts }, { wallet }) => {
-        this.deployedAccounts = deployedAccounts;
-        [{ address: this.defaultAccountAddress }] = deployedAccounts;
-        this.wallet = wallet;
-        return Promise.resolve();
-      },
-    );
+    this.logger.info('Setting up account');
+    const { deployedAccounts } = await deployAccounts(
+      1,
+      this.logger,
+    )({
+      wallet: this.context.wallet,
+      initialFundedAccounts: this.context.initialFundedAccounts,
+    });
+    this.deployedAccounts = deployedAccounts;
+    [{ address: this.defaultAccountAddress }] = deployedAccounts;
+    this.wallet = this.context.wallet;
   }
 
   async deploySpamContract() {
-    await this.snapshotManager.snapshot(
-      'add-spam-contract',
-      async () => {
-        if (!this.wallet) {
-          throw new Error('Call snapshot t.setupAccount before deploying account contract');
-        }
+    this.logger.info('Deploying spam contract');
+    if (!this.wallet) {
+      throw new Error('Call setupAccount before deploying spam contract');
+    }
 
-        const spamContract = await SpamContract.deploy(this.wallet)
-          .send({ from: this.defaultAccountAddress! })
-          .deployed();
-        return { contractAddress: spamContract.address };
-      },
-      ({ contractAddress }) => {
-        if (!this.wallet) {
-          throw new Error('Call snapshot t.setupAccount before deploying account contract');
-        }
-        this.spamContract = SpamContract.at(contractAddress, this.wallet);
-        return Promise.resolve();
-      },
-    );
+    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! }).deployed();
+    this.spamContract = spamContract;
   }
 
   async removeInitialNode() {
-    await this.snapshotManager.snapshot(
-      'remove-initial-validator',
-      async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
-        // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        const { receipt } = await this._sendDummyTx(deployL1ContractsValues.l1Client);
-        const block = await deployL1ContractsValues.l1Client.getBlock({
-          blockNumber: receipt.blockNumber,
-        });
-        dateProvider.setTime(Number(block.timestamp) * 1000);
+    this.logger.info('Removing initial node');
+    // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+    const { receipt } = await this._sendDummyTx(this.context.deployL1ContractsValues.l1Client);
+    const block = await this.context.deployL1ContractsValues.l1Client.getBlock({
+      blockNumber: receipt.blockNumber,
+    });
+    this.context.dateProvider!.setTime(Number(block.timestamp) * 1000);
 
-        await aztecNode.stop();
-      },
-    );
+    await this.context.aztecNodeService!.stop();
   }
 
   async sendDummyTx() {
@@ -368,17 +350,26 @@ export class P2PNetworkTest {
   }
 
   async setup() {
-    this.ctx = await this.snapshotManager.setup();
+    this.logger.info('Setting up subsystems from fresh');
+    this.context = await setup(0, {
+      ...this.setupOptions,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+      slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
+      aztecTargetCommitteeSize: 0,
+      l1ContractsArgs: this.deployL1ContractsArgs,
+    });
+    this.ctx = this.context;
 
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const initialFundedAccounts = [...this.ctx.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
+    const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
     const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
     this.prefilledPublicData = prefilledPublicData;
 
-    const rollupContract = RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues);
-    this.monitor = new ChainMonitor(rollupContract, this.ctx.dateProvider).start();
-    this.monitor.on('l1-block', ({ timestamp }) => this.ctx.dateProvider.setTime(Number(timestamp) * 1000));
+    const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
+    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider!).start();
+    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider!.setTime(Number(timestamp) * 1000));
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
@@ -439,7 +430,7 @@ export class P2PNetworkTest {
   async teardown() {
     await this.monitor.stop();
     await tryStop(this.bootstrapNode, this.logger);
-    await this.snapshotManager.teardown();
+    await teardown(this.context);
   }
 
   async getContracts(): Promise<{
@@ -449,7 +440,7 @@ export class P2PNetworkTest {
     slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
-      throw new Error('DeployL1ContractsValues not set');
+      throw new Error('DeployAztecL1ContractsValues not set');
     }
 
     const rollup = new RollupContract(
@@ -458,7 +449,7 @@ export class P2PNetworkTest {
     );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.getSlasherAddress()),
+      address: getAddress((await rollup.getSlasherAddress()).toString()),
       abi: SlasherAbi,
       client: this.ctx.deployL1ContractsValues.l1Client,
     });

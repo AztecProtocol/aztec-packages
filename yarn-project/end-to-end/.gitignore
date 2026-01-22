@@ -2,4 +2,6 @@ joblog.txt
 results
 bench-out
 example-app-ivc-inputs-out
+dumped-avm-circuit-inputs
 web/main.js*
+consensys_web3signer_25.11.0

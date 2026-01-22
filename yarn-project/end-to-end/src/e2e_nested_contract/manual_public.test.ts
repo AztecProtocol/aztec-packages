@@ -14,9 +14,8 @@ describe('e2e_nested_contract manual', () => {
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyManualSnapshots();
     await t.setup();
+    await t.applyManual();
     ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t);
   });
 

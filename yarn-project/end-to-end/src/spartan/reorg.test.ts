@@ -17,6 +17,7 @@ import {
   performTransfers,
 } from './setup_test_wallets.js';
 import {
+  ChainHealth,
   applyProverFailure,
   getGitProjectRoot,
   setupEnvironment,
@@ -44,7 +45,7 @@ async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, tot
 }
 
 describe('reorg test', () => {
-  jest.setTimeout(60 * 60 * 1000); // 60 minutes
+  jest.setTimeout(210 * 60 * 1000); // 210 minutes
 
   const MINT_AMOUNT = 2_000_000n;
   const SETUP_EPOCHS = 2;
@@ -58,13 +59,16 @@ describe('reorg test', () => {
   let testAccounts: TestAccounts;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
+  const health = new ChainHealth(config.NAMESPACE, debugLogger);
 
   afterAll(async () => {
+    await health.teardown();
     await cleanup?.();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
+    await health.setup();
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);

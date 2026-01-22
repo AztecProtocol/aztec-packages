@@ -8,6 +8,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
+import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -16,7 +17,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 contract InboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
-  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + 1;
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
   // We set low depth (5) to ensure we sufficiently test the tree transitions
   uint256 internal constant HEIGHT = 5;
   uint256 internal constant SIZE = 2 ** HEIGHT;
@@ -31,7 +32,7 @@ contract InboxTest is Test {
   function setUp() public {
     address rollup = address(this);
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
-    inbox = new InboxHarness(rollup, feeAsset, version, HEIGHT);
+    inbox = new InboxHarness(rollup, feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG);
     emptyTreeRoot = inbox.getEmptyRoot();
   }
 
@@ -76,7 +77,7 @@ contract InboxTest is Test {
     return _message;
   }
 
-  // Since there is a 1 checkpoint lag between tree to be consumed and tree in progress the following invariant should
+  // Since there is a LAG checkpoint lag between tree to be consumed and tree in progress the following invariant should
   // never be violated
   modifier checkInvariant() {
     _;
@@ -131,7 +132,7 @@ contract InboxTest is Test {
     (bytes32 leaf3, uint256 index3) = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
-    assertEq(inbox.getNumTrees(), 1);
+    assertEq(inbox.getNumTrees(), TestConstants.AZTEC_INBOX_LAG);
 
     // All the leaves should be different since the index gets mixed in
     assertNotEq(leaf1, leaf2);
@@ -205,7 +206,7 @@ contract InboxTest is Test {
       assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
     }
 
-    // Root of a tree waiting to be consumed should not change because we introduced a 1 checkpoint lag to prevent
+    // Root of a tree waiting to be consumed should not change because we introduced a LAG checkpoint lag to prevent
     // sequencer DOS attacks
     assertEq(
       inbox.getToConsumeRoot(checkpointNumber), toConsumeRoot, "Root of a tree waiting to be consumed should not change"
@@ -221,7 +222,8 @@ contract InboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       uint256 numTrees = inbox.getNumTrees();
-      uint256 expectedNumTrees = (checkpointNumber + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
+      uint256 expectedNumTrees =
+        (checkpointNumber + TestConstants.AZTEC_INBOX_LAG == inbox.getInProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume(checkpointNumber);
 
       // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume

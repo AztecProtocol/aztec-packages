@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
-#include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/numeric/bitop/rotate.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
@@ -14,384 +13,624 @@
 #include "sparse.hpp"
 #include "types.hpp"
 
+/**
+ * @file sha256.hpp
+ * @brief Plookup tables for SHA-256 using sparse form representation.
+ *
+ * @details This file defines lookup tables that enable efficient SHA-256 computation in circuits by converting bitwise
+ * XOR operations into arithmetic additions via "sparse form" representation.
+ *
+ * In sparse form, each bit of a value is stored in its own base-B digit, where B is chosen large enough to prevent
+ * overflow when multiple values are added. This allows:
+ *   - XOR of N values becomes addition of N sparse values plus normalization (digit mod 2)
+ *   - Boolean functions (Ch, Maj) to be encoded alongside rotations in a single sparse digit
+ *
+ * Each SHA-256 operation proceeds in three stages:
+ *
+ *   1. **Input Table** (decomposition): Converts a 32-bit word into sparse limbs
+ *      - Splits the word into limbs at boundaries aligned with rotation parameters
+ *      - Produces sparse form (C2) and rotated sparse form corrections (C3) (for certain limbs)
+ *
+ *   2. **Sparse Computation** (in sha256.cpp): Combines sparse limbs via arithmetic
+ *      - Multiplies limbs by rotation coefficients to position them correctly
+ *      - Adds multiple rotated/shifted copies together
+ *      - Result is a sparse value encoding the XOR (and optionally Ch/Maj) result
+ *
+ *   3. **Output Table** (normalization): Converts sparse form back to normal form
+ *
+ * ## Tables overview
+ *
+ * | Operation              | Input Table              | Output Table             | Base |
+ * |------------------------|--------------------------|--------------------------|------|
+ * | Message extension σ₀/σ₁| `SHA256_WITNESS_INPUT`   | `SHA256_WITNESS_OUTPUT`  | 16   |
+ * | Choose + Σ₁            | `SHA256_CH_INPUT`        | `SHA256_CH_OUTPUT`       | 28   |
+ * | Majority + Σ₀          | `SHA256_MAJ_INPUT`       | `SHA256_MAJ_OUTPUT`      | 16   |
+ *
+ * See corresponding table generation functions for details, including choice of base and limb structure.
+ */
 namespace bb::plookup::sha256_tables {
 
-static constexpr uint64_t choose_normalization_table[28]{
-    /* xor result = 0 */
-    0, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    1, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    0, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    1, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    1, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
-    /* xor result = 1 */
-    1, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    1, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    1, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    2, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    1, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    2, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    2, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
-    /* xor result = 2 */
-    0, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    0, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    1, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    0, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    1, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    1, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
-    1, // e + 2f + 3g = 0 => e = 0, f = 0, g = 0 => t = 0
-    /* xor result = 3 */
-    1, // e + 2f + 3g = 1 => e = 1, f = 0, g = 0 => t = 0
-    1, // e + 2f + 3g = 2 => e = 0, f = 1, g = 0 => t = 0
-    2, // e + 2f + 3g = 3 => e = 0, f = 0, g = 1 OR e = 1, f = 1, g = 0 => t = 1
-    1, // e + 2f + 3g = 4 => e = 1, f = 0, g = 1 => t = 0
-    2, // e + 2f + 3g = 5 => e = 0, f = 1, g = 1 => t = 1
-    2, // e + 2f + 3g = 6 => e = 1, f = 1, g = 1 => t = 1
+// Sparse form bases used for SHA-256 operations; chosen to prevent overflow during sparse digit addition
+static constexpr uint64_t CHOOSE_BASE = 28;
+static constexpr uint64_t MAJORITY_BASE = 16;
+static constexpr uint64_t WITNESS_EXTENSION_BASE = 16;
+
+// Bits per lookup in the sparse form normalization tables
+static constexpr uint64_t CHOOSE_BITS_PER_LOOKUP = 2;            // table size: 28² = 784
+static constexpr uint64_t MAJORITY_BITS_PER_LOOKUP = 3;          // table size: 16³ = 4096
+static constexpr uint64_t WITNESS_EXTENSION_BITS_PER_LOOKUP = 3; // table size: 16³ = 4096
+
+/**
+ * @brief Normalization table for combined Σ₁(e) + Ch(e,f,g) computation in base-28 sparse form.
+ *
+ * @details
+ * The Choose function is Ch(e,f,g) = (e & f) ^ (~e & g), i.e., "if e then f else g".
+ * The Σ₁ function is Σ₁(e) = (e>>>6) ^ (e>>>11) ^ (e>>>25).
+ *
+ * Table index = 7 * σ + (e + 2f + 3g), where:
+ *   - σ (0-3): sum of the three rotation bits at position i: (e>>>6)[i] + (e>>>11)[i] + (e>>>25)[i]
+ *   - e, f, g (each 0 or 1): the Ch function input bits at position i
+ *   - e + 2f + 3g (0-6): sparse encoding of Ch inputs
+ *
+ * Table output = Σ₁_bit + Ch_bit, where:
+ *   - Σ₁_bit = σ mod 2 (the actual XOR result: 0,2 → 0 and 1,3 → 1)
+ *   - Ch_bit = Ch(e,f,g)
+ *
+ * Output range is 0-2, fitting in the normalized sparse digit.
+ */
+static constexpr uint64_t choose_normalization_table[CHOOSE_BASE]{
+    /* σ = 0 (Σ₁ = 0): output = 0 + Ch */
+    0, // e + 2f + 3g = 0 => e=0, f=0, g=0 => Ch=0
+    0, // e + 2f + 3g = 1 => e=1, f=0, g=0 => Ch=0
+    0, // e + 2f + 3g = 2 => e=0, f=1, g=0 => Ch=0
+    1, // e + 2f + 3g = 3 => e=0, f=0, g=1 OR e=1, f=1, g=0 => Ch=1
+    0, // e + 2f + 3g = 4 => e=1, f=0, g=1 => Ch=0
+    1, // e + 2f + 3g = 5 => e=0, f=1, g=1 => Ch=1
+    1, // e + 2f + 3g = 6 => e=1, f=1, g=1 => Ch=1
+    /* σ = 1 (Σ₁ = 1): output = 1 + Ch */
+    1, // e + 2f + 3g = 0 => Ch=0
+    1, // e + 2f + 3g = 1 => Ch=0
+    1, // e + 2f + 3g = 2 => Ch=0
+    2, // e + 2f + 3g = 3 => Ch=1
+    1, // e + 2f + 3g = 4 => Ch=0
+    2, // e + 2f + 3g = 5 => Ch=1
+    2, // e + 2f + 3g = 6 => Ch=1
+    /* σ = 2 (Σ₁ = 0): output = 0 + Ch */
+    0, // e + 2f + 3g = 0 => Ch=0
+    0, // e + 2f + 3g = 1 => Ch=0
+    0, // e + 2f + 3g = 2 => Ch=0
+    1, // e + 2f + 3g = 3 => Ch=1
+    0, // e + 2f + 3g = 4 => Ch=0
+    1, // e + 2f + 3g = 5 => Ch=1
+    1, // e + 2f + 3g = 6 => Ch=1
+    /* σ = 3 (Σ₁ = 1): output = 1 + Ch */
+    1, // e + 2f + 3g = 0 => Ch=0
+    1, // e + 2f + 3g = 1 => Ch=0
+    1, // e + 2f + 3g = 2 => Ch=0
+    2, // e + 2f + 3g = 3 => Ch=1
+    1, // e + 2f + 3g = 4 => Ch=0
+    2, // e + 2f + 3g = 5 => Ch=1
+    2, // e + 2f + 3g = 6 => Ch=1
 };
 
-static constexpr uint64_t majority_normalization_table[16]{
-    /* xor result = 0 */
-    0, // a + b + c = 0 => (a & b) ^ (a & c) ^ (b & c) = 0
-    0, // a + b + c = 1 => (a & b) ^ (a & c) ^ (b & c) = 0
-    1, // a + b + c = 2 => (a & b) ^ (a & c) ^ (b & c) = 1
-    1, // a + b + c = 3 => (a & b) ^ (a & c) ^ (b & c) = 1
-    /* xor result = 1 */
-    1,
-    1,
-    2,
-    2,
-    /* xor result = 2 */
-    0,
-    0,
-    1,
-    1,
-    /* xor result = 3 */
-    1,
-    1,
-    2,
-    2,
+/**
+ * @brief Normalization table for combined Σ₀(a) + Maj(a,b,c) computation in base-16 sparse form.
+ *
+ * @details
+ * The Majority function is Maj(a,b,c) = (a & b) ^ (a & c) ^ (b & c), i.e., the majority bit.
+ * The Σ₀ function is Σ₀(a) = (a>>>2) ^ (a>>>13) ^ (a>>>22).
+ *
+ * Table index = 4 * σ + (a + b + c), where:
+ *   - σ (0-3): sum of the three rotation bits at position i: (a>>>2)[i] + (a>>>13)[i] + (a>>>22)[i]
+ *   - a, b, c (each 0 or 1): the Maj function input bits at position i
+ *   - a + b + c (0-3): sum of Maj inputs
+ *
+ * Table output = Σ₀_bit + Maj_bit, where:
+ *   - Σ₀_bit = σ mod 2 (the actual XOR result)
+ *   - Maj_bit = 1 if (a + b + c) >= 2, else 0 (majority vote)
+ *
+ * Output range is 0-2, fitting in the normalized sparse digit.
+ */
+static constexpr uint64_t majority_normalization_table[MAJORITY_BASE]{
+    /* σ = 0 (Σ₀ = 0): output = 0 + Maj */
+    0, // a + b + c = 0 => Maj=0
+    0, // a + b + c = 1 => Maj=0
+    1, // a + b + c = 2 => Maj=1
+    1, // a + b + c = 3 => Maj=1
+    /* σ = 1 (Σ₀ = 1): output = 1 + Maj */
+    1, // a + b + c = 0 => Maj=0
+    1, // a + b + c = 1 => Maj=0
+    2, // a + b + c = 2 => Maj=1
+    2, // a + b + c = 3 => Maj=1
+    /* σ = 2 (Σ₀ = 0): output = 0 + Maj */
+    0, // a + b + c = 0 => Maj=0
+    0, // a + b + c = 1 => Maj=0
+    1, // a + b + c = 2 => Maj=1
+    1, // a + b + c = 3 => Maj=1
+    /* σ = 3 (Σ₀ = 1): output = 1 + Maj */
+    1, // a + b + c = 0 => Maj=0
+    1, // a + b + c = 1 => Maj=0
+    2, // a + b + c = 2 => Maj=1
+    2, // a + b + c = 3 => Maj=1
 };
 
-static constexpr uint64_t witness_extension_normalization_table[16]{
-    /* xor result = 0 */
-    0,
-    1,
-    0,
-    1,
-    /* xor result = 1 */
-    1,
-    2,
-    1,
-    2,
-    /* xor result = 2 */
-    0,
-    1,
-    0,
-    1,
-    /* xor result = 3 */
-    1,
-    2,
-    1,
-    2,
+/**
+ * @brief Normalization table for message schedule extension (σ₀ and σ₁) in base-16 sparse form.
+ *
+ * @details
+ * Used for the SHA-256 message schedule extension which computes:
+ *   w[i] = σ₁(w[i-2]) + w[i-7] + σ₀(w[i-15]) + w[i-16]
+ * where:
+ *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)   (3-way XOR)
+ *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10) (3-way XOR)
+ *
+ * At each bit position, the sparse digit encodes two sums:
+ *   - s_0 (0-3): sum of the 3 rotation/shift bits from σ₀
+ *   - s_1 (0-3): sum of the 3 rotation/shift bits from σ₁
+ *
+ * Table index = 4 * s_0 + s_1 (range 0-15)
+ * Table output = (s_0 mod 2) + (s_1 mod 2) = σ₀_bit + σ₁_bit
+ * Output range is 0-2.
+ */
+static constexpr uint64_t witness_extension_normalization_table[WITNESS_EXTENSION_BASE]{
+    /* s_0 = 0 (σ₀_bit = 0): output = 0 + (s_1 mod 2) */
+    0, // s_1 = 0 => σ₁_bit = 0
+    1, // s_1 = 1 => σ₁_bit = 1
+    0, // s_1 = 2 => σ₁_bit = 0
+    1, // s_1 = 3 => σ₁_bit = 1
+    /* s_0 = 1 (σ₀_bit = 1): output = 1 + (s_1 mod 2) */
+    1, // s_1 = 0 => σ₁_bit = 0
+    2, // s_1 = 1 => σ₁_bit = 1
+    1, // s_1 = 2 => σ₁_bit = 0
+    2, // s_1 = 3 => σ₁_bit = 1
+    /* s_0 = 2 (σ₀_bit = 0): output = 0 + (s_1 mod 2) */
+    0, // s_1 = 0 => σ₁_bit = 0
+    1, // s_1 = 1 => σ₁_bit = 1
+    0, // s_1 = 2 => σ₁_bit = 0
+    1, // s_1 = 3 => σ₁_bit = 1
+    /* s_0 = 3 (σ₀_bit = 1): output = 1 + (s_1 mod 2) */
+    1, // s_1 = 0 => σ₁_bit = 0
+    2, // s_1 = 1 => σ₁_bit = 1
+    1, // s_1 = 2 => σ₁_bit = 0
+    2, // s_1 = 3 => σ₁_bit = 1
 };
 
-inline plookup::BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
+/**
+ * Rotation coefficients for Choose function: Σ₁(e) = (e>>>6) ^ (e>>>11) ^ (e>>>25)
+ *
+ * There are three outcomes to consider when a limb is rotated:
+ *   - It stays contiguous: can be represented via multiplication by coefficient = base^(new_bit_position)
+ *   - It splits across the bit-31/0 boundary: must be handled via lookup table correction
+ *   - It lands exactly in bit 0: can be handled via sparse limb base table
+ *
+ * Limb structure: L0 = bits 0-10, L1 = bits 11-21, L2 = bits 22-31
+ */
+static constexpr bb::fr choose_base{ CHOOSE_BASE };
+
+static constexpr bb::fr HANDLED_VIA_TABLE{ 0 }; // indicates handling via lookup table instead of scalar multiplier
+
+static constexpr std::array<bb::fr, 3> choose_rot6_coefficients{
+    HANDLED_VIA_TABLE,       // splits across boundary
+    choose_base.pow(11 - 6), // lands at bit 5
+    choose_base.pow(22 - 6), // lands at bit 16
+};
+
+static constexpr std::array<bb::fr, 3> choose_rot11_coefficients{
+    choose_base.pow(32 - 11), // lands at bit 21
+    HANDLED_VIA_TABLE,        // lands at bit 0 can be handled using sparse limb base table
+    choose_base.pow(22 - 11), // lands at bit 11
+};
+
+static constexpr std::array<bb::fr, 3> choose_rot25_coefficients{
+    choose_base.pow(32 - 25),      // lands at bit 7
+    choose_base.pow(32 - 25 + 11), // lands at bit 18
+    HANDLED_VIA_TABLE,             // splits across boundary
+};
+
+// Combined per-limb rotation coefficients
+static constexpr std::array<bb::fr, 3> choose_rotation_coefficients{
+    choose_rot6_coefficients[0] + choose_rot11_coefficients[0] + choose_rot25_coefficients[0],
+    choose_rot6_coefficients[1] + choose_rot11_coefficients[1] + choose_rot25_coefficients[1],
+    choose_rot6_coefficients[2] + choose_rot11_coefficients[2] + choose_rot25_coefficients[2],
+};
+
+/**
+ * Rotation coefficients for Majority function: Σ₀(a) = (a>>>2) ^ (a>>>13) ^ (a>>>22)
+ *
+ * There are three outcomes to consider when a limb is rotated:
+ *   - It stays contiguous: can be represented via multiplication by coefficient = base^(new_bit_position)
+ *   - It splits across the bit-31/0 boundary: must be handled via lookup table correction
+ *   - It lands exactly in bit 0: can be handled via sparse limb base table
+ *
+ * Limb structure: L0 = bits 0-10, L1 = bits 11-21, L2 = bits 22-31
+ */
+static constexpr bb::fr majority_base{ MAJORITY_BASE };
+
+static constexpr std::array<bb::fr, 3> majority_rot2_coefficients{
+    HANDLED_VIA_TABLE,         // splits across boundary
+    majority_base.pow(11 - 2), // lands at bit 9
+    majority_base.pow(22 - 2), // lands at bit 20
+};
+
+static constexpr std::array<bb::fr, 3> majority_rot13_coefficients{
+    majority_base.pow(32 - 13), // lands at bit 19
+    HANDLED_VIA_TABLE,          // splits across boundary
+    majority_base.pow(22 - 13), // lands at bit 9
+};
+
+static constexpr std::array<bb::fr, 3> majority_rot22_coefficients{
+    majority_base.pow(32 - 22),      // lands at bit 10
+    majority_base.pow(32 - 22 + 11), // lands at bit 21
+    HANDLED_VIA_TABLE,               // lands at bit 0, handled via sparse limb base table
+};
+
+// Combined per-limb rotation coefficients
+static constexpr std::array<bb::fr, 3> majority_rotation_coefficients{
+    majority_rot2_coefficients[0] + majority_rot13_coefficients[0] + majority_rot22_coefficients[0],
+    majority_rot2_coefficients[1] + majority_rot13_coefficients[1] + majority_rot22_coefficients[1],
+    majority_rot2_coefficients[2] + majority_rot13_coefficients[2] + majority_rot22_coefficients[2],
+};
+
+/**
+ * @brief Generates a BasicTable for normalizing witness extension sparse digits.
+ *
+ * @details Template: <base=16, num_bits=3, witness_extension_normalization_table>.
+ * Processes num_bits=3 bits per lookup, giving 16³ = 4096 table entries.
+ * Normalizing 32 bits requires ceil(32/3) = 11 lookups (see get_witness_extension_output_table).
+ */
+inline BasicTable generate_witness_extension_normalization_table(BasicTableId id, const size_t table_index)
 {
-    return sparse_tables::generate_sparse_normalization_table<16, 3, witness_extension_normalization_table>(
-        id, table_index);
+    return sparse_tables::generate_sparse_normalization_table<WITNESS_EXTENSION_BASE,
+                                                              WITNESS_EXTENSION_BITS_PER_LOOKUP,
+                                                              witness_extension_normalization_table>(id, table_index);
 }
 
+/**
+ * @brief Generates a BasicTable for normalizing choose sparse digits.
+ *
+ * @details Template: <base=28, num_bits=2, choose_normalization_table>.
+ * Processes num_bits=2 bits per lookup, giving 28² = 784 table entries.
+ * Normalizing 32 bits requires 32/2 = 16 lookups (see get_choose_output_table).
+ */
 inline BasicTable generate_choose_normalization_table(BasicTableId id, const size_t table_index)
 {
-    return sparse_tables::generate_sparse_normalization_table<28, 2, choose_normalization_table>(id, table_index);
+    return sparse_tables::generate_sparse_normalization_table<CHOOSE_BASE,
+                                                              CHOOSE_BITS_PER_LOOKUP,
+                                                              choose_normalization_table>(id, table_index);
 }
 
+/**
+ * @brief Generates a BasicTable for normalizing majority sparse digits.
+ *
+ * @details Template: <base=16, num_bits=3, majority_normalization_table>.
+ * Processes num_bits=3 bits per lookup, giving 16³ = 4096 table entries.
+ * Normalizing 32 bits requires ceil(32/3) = 11 lookups (see get_majority_output_table).
+ */
 inline BasicTable generate_majority_normalization_table(BasicTableId id, const size_t table_index)
 {
-    return sparse_tables::generate_sparse_normalization_table<16, 3, majority_normalization_table>(id, table_index);
+    return sparse_tables::generate_sparse_normalization_table<MAJORITY_BASE,
+                                                              MAJORITY_BITS_PER_LOOKUP,
+                                                              majority_normalization_table>(id, table_index);
 }
 
+/**
+ * @brief Constructs a MultiTable for normalizing witness extension sparse results back to normal form.
+ *
+ * @details Allows for normalizing 32 bits using 11 lookups of 3 bits each (ceil(32/3) = 11).
+ */
 inline MultiTable get_witness_extension_output_table(const MultiTableId id = SHA256_WITNESS_OUTPUT)
 {
-    const size_t num_entries = 11;
+    const size_t num_entries = 11; // ceil(32 bits / WITNESS_EXTENSION_BITS_PER_LOOKUP)
+    const auto slice_size = numeric::pow64(WITNESS_EXTENSION_BASE, WITNESS_EXTENSION_BITS_PER_LOOKUP);
 
-    MultiTable table(numeric::pow64(16, 3), 1 << 3, 0, num_entries);
+    MultiTable table(slice_size, 1ULL << WITNESS_EXTENSION_BITS_PER_LOOKUP, 0, num_entries);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(numeric::pow64(16, 3));
+        table.slice_sizes.emplace_back(slice_size);
         table.basic_table_ids.emplace_back(SHA256_WITNESS_NORMALIZE);
         table.get_table_values.emplace_back(
-            &sparse_tables::get_sparse_normalization_values<16, witness_extension_normalization_table>);
+            &sparse_tables::get_sparse_normalization_values<WITNESS_EXTENSION_BASE,
+                                                            witness_extension_normalization_table>);
     }
     return table;
 }
 
+/**
+ * @brief Constructs a MultiTable for normalizing choose sparse results back to normal form.
+ *
+ * @details Allows for normalizing 32 bits using 16 lookups of 2 bits each (32/2 = 16).
+ */
 inline MultiTable get_choose_output_table(const MultiTableId id = SHA256_CH_OUTPUT)
 {
-    const size_t num_entries = 16;
+    const size_t num_entries = 16; // 32 bits / CHOOSE_BITS_PER_LOOKUP
+    const auto slice_size = numeric::pow64(CHOOSE_BASE, CHOOSE_BITS_PER_LOOKUP);
 
-    MultiTable table(numeric::pow64(28, 2), 1 << 2, 0, num_entries);
+    MultiTable table(slice_size, 1ULL << CHOOSE_BITS_PER_LOOKUP, 0, num_entries);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(numeric::pow64(28, 2));
+        table.slice_sizes.emplace_back(slice_size);
         table.basic_table_ids.emplace_back(SHA256_CH_NORMALIZE);
         table.get_table_values.emplace_back(
-            &sparse_tables::get_sparse_normalization_values<28, choose_normalization_table>);
+            &sparse_tables::get_sparse_normalization_values<CHOOSE_BASE, choose_normalization_table>);
     }
     return table;
 }
 
+/**
+ * @brief Constructs a MultiTable for normalizing majority sparse results back to normal form.
+ *
+ * @details Allows for normalizing 32 bits using 11 lookups of 3 bits each (ceil(32/3) = 11).
+ */
 inline MultiTable get_majority_output_table(const MultiTableId id = SHA256_MAJ_OUTPUT)
 {
-    const size_t num_entries = 11;
+    const size_t num_entries = 11; // ceil(32 bits / MAJORITY_BITS_PER_LOOKUP)
+    const auto slice_size = numeric::pow64(MAJORITY_BASE, MAJORITY_BITS_PER_LOOKUP);
 
-    MultiTable table(numeric::pow64(16, 3), 1 << 3, 0, num_entries);
+    MultiTable table(slice_size, 1ULL << MAJORITY_BITS_PER_LOOKUP, 0, num_entries);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(numeric::pow64(16, 3));
+        table.slice_sizes.emplace_back(slice_size);
         table.basic_table_ids.emplace_back(SHA256_MAJ_NORMALIZE);
         table.get_table_values.emplace_back(
-            &sparse_tables::get_sparse_normalization_values<16, majority_normalization_table>);
+            &sparse_tables::get_sparse_normalization_values<MAJORITY_BASE, majority_normalization_table>);
     }
     return table;
 }
 
+/**
+ * @brief Returns multipliers for computing Σ₀(a) rotations in majority_with_sigma0.
+ *
+ * @details When computing rotations, we multiply a_sparse by c0 (L0's coefficient).
+ * This gives L1 a coefficient of B¹¹·c0, but we need c1. The correction δ = c1 - B¹¹·c0
+ * is applied to L1's contribution. L2 correction is handled in the input table (see get_majority_input_table).
+ *
+ * @return {c0, L1_correction, 0} where L1_correction = c1 - 16¹¹·c0
+ */
 inline std::array<bb::fr, 3> get_majority_rotation_multipliers()
 {
-    constexpr uint64_t base_temp = 16;
-    auto base = bb::fr(base_temp);
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot2_coefficients{ 0, base.pow(11 - 2), base.pow(22 - 2) };
-    const std::array<bb::fr, 3> rot13_coefficients{ base.pow(32 - 13), 0, base.pow(22 - 13) };
-    const std::array<bb::fr, 3> rot22_coefficients{ base.pow(32 - 22), base.pow(32 - 22 + 11), 0 };
+    bb::fr limb1_correction =
+        majority_rotation_coefficients[1] - majority_base.pow(11) * majority_rotation_coefficients[0];
 
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot2_coefficients[0] + rot13_coefficients[0] + rot22_coefficients[0],
-        rot2_coefficients[1] + rot13_coefficients[1] + rot22_coefficients[1],
-        rot2_coefficients[2] + rot13_coefficients[2] + rot22_coefficients[2],
-    };
-
-    bb::fr column_2_row_1_multiplier = target_rotation_coefficients[0];
-    bb::fr column_2_row_2_multiplier =
-        target_rotation_coefficients[0] * (-bb::fr(base).pow(11)) + target_rotation_coefficients[1];
-
-    std::array<bb::fr, 3> rotation_multipliers = { column_2_row_1_multiplier, column_2_row_2_multiplier, bb::fr(0) };
-    return rotation_multipliers;
+    return { majority_rotation_coefficients[0], limb1_correction, bb::fr(0) };
 }
 
-// template <uint64_t rot_a, uint64_t rot_b, uint64_t rot_c>
+/**
+ * @brief Returns multipliers for computing Σ₁(e) rotations in choose_with_sigma1.
+ *
+ * @details When computing rotations, we multiply e_sparse by c0 (L0's coefficient).
+ * This gives L2 a coefficient of B²²·c0, but we need c2. The correction δ = c2 - B²²·c0
+ * is applied to L2's contribution. L1 correction is handled in the input table (see get_choose_input_table).
+ *
+ * @return {c0, 0, L2_correction} where L2_correction = c2 - 28²²·c0
+ */
 inline std::array<bb::fr, 3> get_choose_rotation_multipliers()
 {
-    const std::array<bb::fr, 3> column_2_row_3_coefficients{
-        bb::fr(1),
-        bb::fr(28).pow(11),
-        bb::fr(28).pow(22),
-    };
+    bb::fr limb2_correction = choose_rotation_coefficients[2] - choose_base.pow(22) * choose_rotation_coefficients[0];
 
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot6_coefficients{ bb::fr(0), bb::fr(28).pow(11 - 6), bb::fr(28).pow(22 - 6) };
-    const std::array<bb::fr, 3> rot11_coefficients{ bb::fr(28).pow(32 - 11), bb::fr(0), bb::fr(28).pow(22 - 11) };
-    const std::array<bb::fr, 3> rot25_coefficients{ bb::fr(28).pow(32 - 25), bb::fr(28).pow(32 - 25 + 11), bb::fr(0) };
-
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot6_coefficients[0] + rot11_coefficients[0] + rot25_coefficients[0],
-        rot6_coefficients[1] + rot11_coefficients[1] + rot25_coefficients[1],
-        rot6_coefficients[2] + rot11_coefficients[2] + rot25_coefficients[2],
-    };
-
-    bb::fr column_2_row_1_multiplier = bb::fr(1) * target_rotation_coefficients[0]; // why multiply by one?
-
-    // this gives us the correct scaling factor for a0's 1st limb
-    std::array<bb::fr, 3> current_coefficients{
-        column_2_row_3_coefficients[0] * column_2_row_1_multiplier,
-        column_2_row_3_coefficients[1] * column_2_row_1_multiplier,
-        column_2_row_3_coefficients[2] * column_2_row_1_multiplier,
-    };
-
-    bb::fr column_2_row_3_multiplier = -(current_coefficients[2]) + target_rotation_coefficients[2];
-
-    std::array<bb::fr, 3> rotation_multipliers = { column_2_row_1_multiplier, bb::fr(0), column_2_row_3_multiplier };
-    return rotation_multipliers;
+    return { choose_rotation_coefficients[0], bb::fr(0), limb2_correction };
 }
 
+/**
+ * @brief Constructs a MultiTable for decomposing a 32-bit word for message schedule extension.
+ *
+ * @details
+ * ## Table Structure
+ *
+ * This table decomposes a 32-bit input into 4 limbs and produces outputs via lookup:
+ *   - C1: Normal form accumulator (x = L0 + L1·2³ + L2·2¹⁰ + L3·2¹⁸)
+ *   - C2: Sparse form of each limb (NOT accumulated)
+ *   - C3: Rotated sparse form for split-boundary corrections (NOT accumulated)
+ *
+ * Limb structure (boundaries chosen to work nicely with rotation magnitudes):
+ *   - L0: bits 0-2   (3 bits)
+ *   - L1: bits 3-9   (7 bits)
+ *   - L2: bits 10-17 (8 bits)
+ *   - L3: bits 18-31 (14 bits)
+ *
+ * ## Purpose
+ *
+ * Used to compute the SHA-256 message schedule extension:
+ *   w[i] = σ₁(w[i-2]) + w[i-7] + σ₀(w[i-15]) + w[i-16]
+ * where:
+ *   σ₀(x) = (x>>>7) ^ (x>>>18) ^ (x>>3)   — applied to w[i-15]
+ *   σ₁(x) = (x>>>17) ^ (x>>>19) ^ (x>>10) — applied to w[i-2]
+ *
+ * The same decomposition serves BOTH σ₀ and σ₁, with limb boundaries at 3, 10, 18
+ * aligning with the shift/rotation parameters of both functions.
+ *
+ */
 inline MultiTable get_witness_extension_input_table(const MultiTableId id = SHA256_WITNESS_INPUT)
 {
     std::vector<bb::fr> column_1_coefficients{ 1, 1 << 3, 1 << 10, 1 << 18 };
-    std::vector<bb::fr> column_2_coefficients{ 0, 0, 0, 0 };
-    std::vector<bb::fr> column_3_coefficients{ 0, 0, 0, 0 };
+    std::vector<bb::fr> column_2_coefficients{ 0, 0, 0, 0 }; // Not accumulated; accessed individually
+    std::vector<bb::fr> column_3_coefficients{ 0, 0, 0, 0 }; // Not accumulated; accessed individually
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
-    table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 18) };
+    table.slice_sizes = { (1 << 3), (1 << 7), (1 << 8), (1 << 14) };
+
+    /**
+     * Specify the functions defining the rotation to be applied to each of three limbs. This is only for handling the
+     * limbs which split across the 31/0-bit boundary when rotated. The table handles rotations from both σ₀ and σ₁.
+     *
+     * table_rotation = splitting_rotation - limb_start_position
+     *
+     *   | Limb | Start | Splitting rot | Table rot    |
+     *   |------|-------|---------------|--------------|
+     *   | L0   | 0     | (none)        | 0 (unused)   |
+     *   | L1   | 3     | 7 (from σ₀)   | 7 - 3 = 4    |
+     *   | L2   | 10    | 17 (from σ₁)  | 17 - 10 = 7  |
+     *   | L3   | 18    | 19 (from σ₁)  | 19 - 18 = 1  |
+     *
+     */
     table.basic_table_ids = { SHA256_WITNESS_SLICE_3,
                               SHA256_WITNESS_SLICE_7_ROTATE_4,
                               SHA256_WITNESS_SLICE_8_ROTATE_7,
                               SHA256_WITNESS_SLICE_14_ROTATE_1 };
 
     table.get_table_values = {
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 0>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 4>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 7>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 1>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 0>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 4>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 7>,
+        &sparse_tables::get_sparse_table_with_rotation_values<WITNESS_EXTENSION_BASE, 1>,
     };
     return table;
 }
 
+/**
+ * @brief Constructs a MultiTable for decomposing e into sparse form and computing rotation components for Σ₁(e).
+ *
+ * @details
+ * ## Table Structure
+ *
+ * This table decomposes a 32-bit input into 3 limbs and produces three accumulated outputs:
+ *   - C1: Normal form accumulator (e = L0 + L1·2¹¹ + L2·2²²)
+ *   - C2: Sparse form accumulator (e_sparse = S0 + S1·B¹¹ + S2·B²², where B=28)
+ *   - C3: Rotation accumulator for split-boundary rotations, with L1 correction baked in
+ *
+ * Limb structure:
+ *   - L0: bits 0-10  (11 bits)
+ *   - L1: bits 11-21 (11 bits)
+ *   - L2: bits 22-31 (10 bits)
+ *
+ * ## Purpose
+ *
+ * Used to compute Σ₁(e) + Ch(e,f,g) for SHA-256
+ *    - Σ₁(e) = (e>>>6) ^ (e>>>11) ^ (e>>>25)
+ *    - Ch(e,f,g) = (e & f) ^ (~e & g)
+ *
+ * In sparse base-28 form, XOR becomes addition (mod 28 per digit), allowing:
+ *     e + 7·Σ₁(e) = e_sparse + 7·[(e>>>6) + (e>>>11) + (e>>>25)]
+ *
+ * Each rotation is decomposed per-limb. For each limb, rotations either:
+ *   - Stay contiguous (handled via scalar multiplication by rotation coefficients c0, c1, c2)
+ *   - Split across the bit-31/0 boundary (handled via lookup table in C3)
+ *
+ * ## Column 3 Correction Term
+ *
+ * When computing rotations, we multiply e_sparse by L0's rotation coefficient c0 (see `choose_with_sigma1`).
+ * This gives each limb a coefficient proportional to its position:
+ *   - L0 gets c0 (correct)
+ *   - L1 gets B¹¹·c0 (needs a correction to make it equal to c1)
+ *   - L2 gets B²²·c0 (needs a correction to make it equal to c2)
+ *
+ * The L2 correction is handled directly in the `choose_with_sigma1` function.
+ *
+ * The L1 correction factor δ = c1 - B¹¹·c0 is baked into the C3 accumulator via column_3_coefficients.
+ * When C3 is accumulated, it produces: C3[0] = raw[0] + raw[2] + S1 + S1·δ
+ * The S1·δ term corrects L1's coefficient from B¹¹·c0 to c1.
+ *
+ */
 inline MultiTable get_choose_input_table(const MultiTableId id = SHA256_CH_INPUT)
 {
-    /**
-     * When reading from our lookup tables, we can read from the differences between adjacent rows in program memory,
-     *instead of taking absolute values
-     *
-     * For example, if our layout in memory is:
-     *
-     * |  1  |  2  |  3  |
-     * |  -  |  -  |  -  |
-     * | a_1 | b_1 | c_1 |
-     * | a_2 | b_2 | c_2 |
-     * | ... | ... | ... |
-     *
-     * We can valdiate that (a_1 + q_0 * a_2) is a table key and (c_1 + q_1 * c_2), (b_1 + q_2 * b_2) are table values,
-     * where q_0, q_1, q_2 are precomputed constants
-     *
-     * This allows us to assemble accumulating sums out of multiple table reads, without requiring extra addition gates.
-     *
-     * We can also use this feature to evaluate our sha256 rotations more efficiently, when converting into sparse form.
-     *
-     * Let column 1 represents our 'normal' scalar, column 2 represents our scalar in sparse form
-     *
-     * It's simple enough to make columns 1 and 2 track the accumulating sum of our scalar in normal and sparse form.
-     *
-     * Column 3 contains terms we can combine with our accumulated sparse scalar, to obtain our rotated scalar.
-     *
-     * Each lookup table will be of size 2^11. as that allows us to decompose a 32-bit scalar into sparse form in 3
-     *reads (2^16 is too expensive for small circuits)
-     *
-     * For example, if we want to rotate `a` by 6 bits, we make the first lookup access the table that rotates `b` by 6
-     *bits. Subsequent table reads do not need to be rotated, as the 11-bit limbs will not cross 32-bit boundary and can
-     *be scaled by constants
-     *
-     * With this in mind, we want to tackle the SHA256 `ch` sub-algorithm
-     *
-     * This requires us to compute ((a >>> 6) ^ (a >>> 11) ^ (a >>> 25)) + ((a ^ b) ^ (~a ^ c))
-     *
-     * In sparse form, we can represent this as:
-     *
-     *      7 * (a >>> 6) + (a >>> 11) + (a >>> 25) + (a + 2 * b + 3 * c)
-     *
-     * When decomposing a into sparse form, we would therefore like to obtain the following:
-     *
-     *      7 * (a >>> 6) + (a >>> 11) + (a >>> 25) + (a)
-     *
-     * We need to determine the values of the constants (q_1, q_2, q_3) that we will be scaling our lookup values by,
-     *when assembling our accumulated sums.
-     *
-     * We need the sparse representation of `a` elsewhere in the algorithm, so the constants in columns 1 and 2 are
-     *fixed.
-     *
-     **/
 
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot6_coefficients{ bb::fr(0), bb::fr(28).pow(11 - 6), bb::fr(28).pow(22 - 6) };
-    const std::array<bb::fr, 3> rot11_coefficients{ bb::fr(28).pow(32 - 11), bb::fr(0), bb::fr(28).pow(22 - 11) };
-    const std::array<bb::fr, 3> rot25_coefficients{ bb::fr(28).pow(32 - 25), bb::fr(28).pow(32 - 25 + 11), bb::fr(0) };
-
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot6_coefficients[0] + rot11_coefficients[0] + rot25_coefficients[0],
-        rot6_coefficients[1] + rot11_coefficients[1] + rot25_coefficients[1],
-        rot6_coefficients[2] + rot11_coefficients[2] + rot25_coefficients[2],
-    };
-
-    bb::fr column_2_row_1_multiplier = target_rotation_coefficients[0];
-
-    // this gives us the correct scaling factor for a0's 1st limb
-    std::array<bb::fr, 3> current_coefficients{
-        column_2_row_1_multiplier,
-        bb::fr(28).pow(11) * column_2_row_1_multiplier,
-        bb::fr(28).pow(22) * column_2_row_1_multiplier,
-    };
-
-    // bb::fr column_2_row_3_multiplier = -(current_coefficients[2]) + target_rotation_coefficients[2];
-    bb::fr column_3_row_2_multiplier = -(current_coefficients[1]) + target_rotation_coefficients[1];
+    // L1 correction factor: δ = c1 - B¹¹·c0 (see block comment above)
+    bb::fr limb1_table_correction =
+        choose_rotation_coefficients[1] - choose_base.pow(11) * choose_rotation_coefficients[0];
 
     std::vector<bb::fr> column_1_coefficients{ bb::fr(1), bb::fr(1 << 11), bb::fr(1 << 22) };
-    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), bb::fr(28).pow(11), bb::fr(28).pow(22) };
-    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), column_3_row_2_multiplier + bb::fr(1), bb::fr(1) };
+    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), choose_base.pow(11), choose_base.pow(22) };
+    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), bb::fr(1) + limb1_table_correction, bb::fr(1) };
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
     table.slice_sizes = { (1 << 11), (1 << 11), (1 << 10) };
+
+    /**
+     * Specify the functions defining the rotation to be applied to each of three limbs. This is only for handling the
+     * limbs which split across the 31/0-bit boundary when rotated.
+     *
+     * table_rotation = SHA256_rotation - limb_start_position
+     *
+     *   | Limb | Start pos | SHA256 rot | Table rot   |
+     *   |------|-----------|------------|-------------|
+     *   | L0   | 0         | 6          | 6 - 0 = 6   |
+     *   | L1   | 11        | 11         | 11 - 11 = 0 |
+     *   | L2   | 22        | 25         | 25 - 22 = 3 |
+     */
     table.basic_table_ids = { SHA256_BASE28_ROTATE6, SHA256_BASE28, SHA256_BASE28_ROTATE3 };
+    table.get_table_values = { &sparse_tables::get_sparse_table_with_rotation_values<CHOOSE_BASE, 6>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<CHOOSE_BASE, 0>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<CHOOSE_BASE, 3> };
 
-    table.get_table_values.push_back(&sparse_tables::get_sparse_table_with_rotation_values<28, 6>);
-    table.get_table_values.push_back(&sparse_tables::get_sparse_table_with_rotation_values<28, 0>);
-    table.get_table_values.push_back(&sparse_tables::get_sparse_table_with_rotation_values<28, 3>);
-    // table.get_table_values = std::vector<MultiTable::table_out (*)(MultiTable::table_in)>{
-
-    //     &get_sha256_sparse_map_values<28, 0, 0>,
-    //     &get_sha256_sparse_map_values<28, 3, 0>,
-    // };
     return table;
 }
 
-// This table (at third row and column) returns the sum of roations that "non-trivially wrap"
+/**
+ * @brief Constructs a MultiTable for decomposing a into sparse form and computing rotation components for Σ₀(a).
+ *
+ * @details
+ * ## Table Structure
+ *
+ * This table decomposes a 32-bit input into 3 limbs and produces three accumulated outputs:
+ *   - C1: Normal form accumulator (a = L0 + L1·2¹¹ + L2·2²²)
+ *   - C2: Sparse form accumulator (a_sparse = S0 + S1·B¹¹ + S2·B²², where B=16)
+ *   - C3: Rotation accumulator for split-boundary rotations, with L2 correction baked in
+ *
+ * Limb structure:
+ *   - L0: bits 0-10  (11 bits)
+ *   - L1: bits 11-21 (11 bits)
+ *   - L2: bits 22-31 (10 bits)
+ *
+ * ## Purpose
+ *
+ * Used to compute Σ₀(a) + Maj(a,b,c) for SHA-256:
+ *   - Σ₀(a) = (a>>>2) ^ (a>>>13) ^ (a>>>22)
+ *   - Maj(a,b,c) = (a & b) ^ (a & c) ^ (b & c)
+ *
+ * In sparse base-16 form, XOR becomes addition (mod 16 per digit), allowing:
+ *     a + 4·Σ₀(a) = a_sparse + 4·[(a>>>2) + (a>>>13) + (a>>>22)]
+ *
+ * Each rotation is decomposed per-limb. For each limb, rotations either:
+ *   - Stay contiguous (handled via scalar multiplication by rotation coefficients c0, c1, c2)
+ *   - Split across the bit-31/0 boundary (handled via lookup table in C3)
+ *
+ * ## Column 3 Correction Term
+ *
+ * When computing rotations, we multiply a_sparse by L0's rotation coefficient c0 (see `majority_with_sigma0`).
+ * This gives each limb a coefficient proportional to its position:
+ *   - L0 gets c0 (correct)
+ *   - L1 gets B¹¹·c0 (needs a correction to make it equal to c1)
+ *   - L2 gets B²²·c0 (needs a correction to make it equal to c2)
+ *
+ * The L1 correction is handled directly in the `majority_with_sigma0` function.
+ *
+ * The L2 correction factor δ = c2 - B¹¹·c1 is baked into the C3 accumulator via column_3_coefficients.
+ * When C3 is accumulated, it produces: C3[0] = raw[0] + raw[1] + S2 + S2·δ
+ * The S2·δ term corrects L2's coefficient.
+ *
+ */
 inline MultiTable get_majority_input_table(const MultiTableId id = SHA256_MAJ_INPUT)
 {
-    /**
-     * We want to tackle the SHA256 `maj` sub-algorithm
-     *
-     * This requires us to compute ((a >>> 2) ^ (a >>> 13) ^ (a >>> 22)) + ((a & b) ^ (a & c) ^ (b & c))
-     *
-     * In sparse form, we can represent this as:
-     *
-     *      4 * (a >>> 2) + (a >>> 13) + (a >>> 22) +  (a + b + c)
-     *
-     *
-     * We need to determine the values of the constants (q_1, q_2, q_3) that we will be scaling our lookup values by,
-     *when assembling our accumulated sums.
-     *
-     * We need the sparse representation of `a` elsewhere in the algorithm, so the constants in columns 1 and 2 are
-     *fixed.
-     *
-     **/
-    constexpr uint64_t base = 16;
-
-    // scaling factors applied to a's sparse limbs, excluding the rotated limb
-    const std::array<bb::fr, 3> rot2_coefficients{ bb::fr(0), bb::fr(base).pow(11 - 2), bb::fr(base).pow(22 - 2) };
-    const std::array<bb::fr, 3> rot13_coefficients{ bb::fr(base).pow(32 - 13), bb::fr(0), bb::fr(base).pow(22 - 13) };
-    const std::array<bb::fr, 3> rot22_coefficients{ bb::fr(base).pow(32 - 22),
-                                                    bb::fr(base).pow(32 - 22 + 11),
-                                                    bb::fr(0) };
-
-    // these are the coefficients that we want
-    const std::array<bb::fr, 3> target_rotation_coefficients{
-        rot2_coefficients[0] + rot13_coefficients[0] + rot22_coefficients[0],
-        rot2_coefficients[1] + rot13_coefficients[1] + rot22_coefficients[1],
-        rot2_coefficients[2] + rot13_coefficients[2] + rot22_coefficients[2],
-    };
-
-    bb::fr column_2_row_3_multiplier =
-        target_rotation_coefficients[1] * (-bb::fr(base).pow(11)) + target_rotation_coefficients[2];
+    // L2 correction factor: δ = c2 - B¹¹·c1 (see block comment above)
+    bb::fr limb2_table_correction =
+        majority_rotation_coefficients[2] - majority_base.pow(11) * majority_rotation_coefficients[1];
 
     std::vector<bb::fr> column_1_coefficients{ bb::fr(1), bb::fr(1 << 11), bb::fr(1 << 22) };
-    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), bb::fr(base).pow(11), bb::fr(base).pow(22) };
-    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), bb::fr(1), bb::fr(1) + column_2_row_3_multiplier };
+    std::vector<bb::fr> column_2_coefficients{ bb::fr(1), majority_base.pow(11), majority_base.pow(22) };
+    std::vector<bb::fr> column_3_coefficients{ bb::fr(1), bb::fr(1), bb::fr(1) + limb2_table_correction };
 
     MultiTable table(column_1_coefficients, column_2_coefficients, column_3_coefficients);
     table.id = id;
     table.slice_sizes = { (1 << 11), (1 << 11), (1 << 10) };
+
+    /**
+     * Specify the functions defining the rotation to be applied to each of three limbs. This is only for handling the
+     * limbs which split across the 31/0-bit boundary when rotated.
+     *
+     * table_rotation = SHA256_rotation - limb_start_position
+     *
+     *   | Limb | Start pos | SHA256 rot | Table rot   |
+     *   |------|-----------|------------|-------------|
+     *   | L0   | 0         | 2          | 2 - 0 = 2   |
+     *   | L1   | 11        | 13         | 13 - 11 = 2 |
+     *   | L2   | 22        | 22         | 22 - 22 = 0 |
+     */
     table.basic_table_ids = { SHA256_BASE16_ROTATE2, SHA256_BASE16_ROTATE2, SHA256_BASE16 };
-    table.get_table_values = {
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 2>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 2>,
-        &sparse_tables::get_sparse_table_with_rotation_values<16, 0>,
-    };
+    table.get_table_values = { &sparse_tables::get_sparse_table_with_rotation_values<MAJORITY_BASE, 2>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<MAJORITY_BASE, 2>,
+                               &sparse_tables::get_sparse_table_with_rotation_values<MAJORITY_BASE, 0> };
     return table;
 }
 

@@ -1,9 +1,15 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-import { BlockProposal, ConsensusPayload, PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation, makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import {
+  makeBlockHeader,
+  makeCheckpointAttestation,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -29,17 +35,15 @@ describe('FishermanAttestationValidator', () => {
   describe('base validation', () => {
     it('returns high tolerance error if slot number is not current or next slot', async () => {
       // Create an attestation for slot 97
-      const header = makeL2BlockHeader(1, 97, 97);
-      const mockAttestation = makeBlockAttestation({
+      const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
+      const mockAttestation = makeCheckpointAttestation({
         header,
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
       // Mock epoch cache to return different slot numbers
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(98),
         nextSlot: SlotNumber(99),
       });
@@ -49,174 +53,181 @@ describe('FishermanAttestationValidator', () => {
       expect(result).toBe(PeerErrorSeverity.HighToleranceError);
 
       // Should not check attestation pool if base validation fails
-      expect(attestationPool.getBlockProposal).not.toHaveBeenCalled();
+      expect(attestationPool.getCheckpointProposal).not.toHaveBeenCalled();
+      // Should not try to resolve proposers if base validation fails
+      expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
     });
 
     it('returns high tolerance error if attester is not in committee', async () => {
-      const mockAttestation = makeBlockAttestation({
-        header: makeL2BlockHeader(1, 100, 100),
+      const mockAttestation = makeCheckpointAttestation({
+        header: CheckpointHeader.random({ slotNumber: SlotNumber(100) }),
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
       epochCache.isInCommittee.mockResolvedValue(false);
 
       const result = await validator.validate(mockAttestation);
       expect(result).toBe(PeerErrorSeverity.HighToleranceError);
 
       // Should not check attestation pool if base validation fails
-      expect(attestationPool.getBlockProposal).not.toHaveBeenCalled();
+      expect(attestationPool.getCheckpointProposal).not.toHaveBeenCalled();
     });
 
     it('returns high tolerance error if proposer signature is invalid', async () => {
       const wrongProposer = Secp256k1Signer.random();
-      const mockAttestation = makeBlockAttestation({
-        header: makeL2BlockHeader(1, 100, 100),
+      const mockAttestation = makeCheckpointAttestation({
+        header: CheckpointHeader.random({ slotNumber: SlotNumber(100) }),
         attesterSigner: attester,
         proposerSigner: wrongProposer,
       });
 
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
       epochCache.isInCommittee.mockResolvedValue(true);
 
       const result = await validator.validate(mockAttestation);
       expect(result).toBe(PeerErrorSeverity.HighToleranceError);
 
       // Should not check attestation pool if base validation fails
-      expect(attestationPool.getBlockProposal).not.toHaveBeenCalled();
+      expect(attestationPool.getCheckpointProposal).not.toHaveBeenCalled();
     });
   });
 
   describe('fisherman payload validation', () => {
     beforeEach(() => {
       // Setup valid base validation for all fisherman tests
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
       epochCache.isInCommittee.mockResolvedValue(true);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
     });
 
     it('returns undefined if attestation payload matches proposal payload', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(100) });
+      const blockHeader = makeBlockHeader(1);
       const archive = Fr.random();
-      const mockAttestation = makeBlockAttestation({
-        header,
+      const mockAttestation = makeCheckpointAttestation({
+        header: checkpointHeader,
         attesterSigner: attester,
         proposerSigner: proposer,
         archive,
       });
 
-      // Create a matching proposal with the same payload
-      const mockProposal = makeBlockProposal({
-        header,
+      // Create a matching checkpoint proposal with the same payload
+      const mockProposal = await makeCheckpointProposal({
+        checkpointHeader,
         signer: proposer,
-        archive,
+        archiveRoot: archive,
+        lastBlock: { blockHeader },
       });
 
-      attestationPool.getBlockProposal.mockResolvedValue(mockProposal);
+      attestationPool.getCheckpointProposal.mockResolvedValue(mockProposal);
 
       const result = await validator.validate(mockAttestation);
       expect(result).toBeUndefined();
 
       // Should have checked the proposal
-      expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
+      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
     });
 
     it('returns low tolerance error if attestation payload does not match proposal payload', async () => {
-      const header1 = makeL2BlockHeader(1, 100, 100);
-      const header2 = makeL2BlockHeader(2, 100, 100); // Different block number
+      const checkpointHeader1 = makeCheckpointHeader(1, { slotNumber: SlotNumber(100) });
+      const checkpointHeader2 = makeCheckpointHeader(2, { slotNumber: SlotNumber(100) }); // Different seed = different header
+      const blockHeader2 = makeBlockHeader(2);
 
-      const mockAttestation = makeBlockAttestation({
-        header: header1,
+      const mockAttestation = makeCheckpointAttestation({
+        header: checkpointHeader1,
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
       // Create a proposal with a different payload
-      const mockProposal = makeBlockProposal({
-        header: header2,
+      const mockProposal = await makeCheckpointProposal({
+        checkpointHeader: checkpointHeader2,
         signer: proposer,
+        lastBlock: { blockHeader: blockHeader2 },
       });
 
-      attestationPool.getBlockProposal.mockResolvedValue(mockProposal);
+      attestationPool.getCheckpointProposal.mockResolvedValue(mockProposal);
 
       const result = await validator.validate(mockAttestation);
       expect(result).toBe(PeerErrorSeverity.LowToleranceError);
 
       // Should have checked the proposal
-      expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
+      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
     });
 
     it('returns undefined if proposal is not found yet (attestation arrived before proposal)', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
-      const mockAttestation = makeBlockAttestation({
-        header,
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(100) });
+      const mockAttestation = makeCheckpointAttestation({
+        header: checkpointHeader,
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
       // Proposal not found in pool yet
-      attestationPool.getBlockProposal.mockResolvedValue(undefined);
+      attestationPool.getCheckpointProposal.mockResolvedValue(undefined);
 
       const result = await validator.validate(mockAttestation);
       expect(result).toBeUndefined();
 
       // Should have tried to check the proposal
-      expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
+      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
     });
 
     it('detects payload mismatch with different archive roots', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
-      const mockAttestation = makeBlockAttestation({
-        header,
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(100) });
+      const blockHeader = makeBlockHeader(1);
+      const mockAttestation = makeCheckpointAttestation({
+        header: checkpointHeader,
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
-      // Create a proposal with the same header but manually create a different payload
-      const differentPayload = new ConsensusPayload(
-        header.toCheckpointHeader(),
-        Fr.random(), // Different archive
-      );
-      const mockProposal = new BlockProposal(differentPayload, mockAttestation.proposerSignature, []);
+      // Create a proposal with the same header but different archive
+      const mockProposal = await makeCheckpointProposal({
+        checkpointHeader,
+        signer: proposer,
+        archiveRoot: Fr.random(), // Different archive
+        lastBlock: { blockHeader },
+      });
 
-      attestationPool.getBlockProposal.mockResolvedValue(mockProposal);
+      attestationPool.getCheckpointProposal.mockResolvedValue(mockProposal);
 
       const result = await validator.validate(mockAttestation);
       expect(result).toBe(PeerErrorSeverity.LowToleranceError);
     });
 
     it('detects payload mismatch with different header hash', async () => {
-      const header1 = makeL2BlockHeader(1, 100, 100);
-      const header2 = makeL2BlockHeader(1, 100, 100); // Same slot but different random content
+      const checkpointHeader1 = makeCheckpointHeader(1, { slotNumber: SlotNumber(100) });
+      const checkpointHeader2 = makeCheckpointHeader(2, { slotNumber: SlotNumber(100) }); // Same slot but different content
+      const blockHeader2 = makeBlockHeader(2);
 
-      const mockAttestation = makeBlockAttestation({
-        header: header1,
+      const mockAttestation = makeCheckpointAttestation({
+        header: checkpointHeader1,
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
       // Create a proposal with a different header (different hash)
-      const mockProposal = makeBlockProposal({
-        header: header2,
+      const mockProposal = await makeCheckpointProposal({
+        checkpointHeader: checkpointHeader2,
         signer: proposer,
+        lastBlock: { blockHeader: blockHeader2 },
       });
 
-      attestationPool.getBlockProposal.mockResolvedValue(mockProposal);
+      attestationPool.getCheckpointProposal.mockResolvedValue(mockProposal);
 
       // Headers are different, so payloads should be different
       const result = await validator.validate(mockAttestation);
@@ -227,25 +238,24 @@ describe('FishermanAttestationValidator', () => {
   describe('edge cases', () => {
     beforeEach(() => {
       // Setup valid base validation
-      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
-        currentProposer: proposer.address,
-        nextProposer: proposer.address,
+      epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: SlotNumber(100),
         nextSlot: SlotNumber(101),
       });
       epochCache.isInCommittee.mockResolvedValue(true);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
     });
 
     it('handles attestation pool errors gracefully', async () => {
-      const header = makeL2BlockHeader(1, 100, 100);
-      const mockAttestation = makeBlockAttestation({
-        header,
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(100) });
+      const mockAttestation = makeCheckpointAttestation({
+        header: checkpointHeader,
         attesterSigner: attester,
         proposerSigner: proposer,
       });
 
       // Simulate pool throwing an error
-      attestationPool.getBlockProposal.mockRejectedValue(new Error('Pool error'));
+      attestationPool.getCheckpointProposal.mockRejectedValue(new Error('Pool error'));
 
       await expect(validator.validate(mockAttestation)).rejects.toThrow('Pool error');
     });

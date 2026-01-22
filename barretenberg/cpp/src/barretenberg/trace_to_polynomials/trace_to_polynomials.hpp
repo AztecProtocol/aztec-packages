@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -25,11 +25,7 @@ template <class Flavor> class TraceToPolynomials {
 
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
-     * @note By default, this method constructs an exectution trace that is sorted by gate type. Optionally, it
-     * constructs a trace that is both sorted and "structured" in the sense that each block/gate-type has a fixed amount
-     * of space within the wire polynomials, regardless of how many actual constraints of each type exist. This is
-     * useful primarily for folding since it guarantees that the set of relations that must be executed at each row is
-     * consistent across all folding steps.
+     * @note By default, this method constructs an execution trace that is sorted by gate type.
      *
      * @param builder
      */

@@ -1,5 +1,5 @@
 mod note;
-mod fake_public_context;
+mod fake_avm_oracle;
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -12,8 +12,8 @@ pub contract AvmTest {
         0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
-    use crate::fake_public_context::{
-        avm_return, avm_revert, call, returndata_copy, returndata_size, success_copy,
+    use crate::fake_avm_oracle::{
+        avm_return, call, returndata_copy, returndata_size, revert, success_copy,
     };
     use dep::aztec::context::gas::GasOpts;
     use dep::aztec::macros::{functions::{external, view}, storage::storage};
@@ -39,13 +39,13 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::state_vars::storage::HasStorageSlot;
+    use dep::aztec::state_vars::state_variable::StateVariable;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
     use dep::auth_contract::AuthRegistry;
-    use dep::aztec::context::public_context::PublicContext;
+    use dep::aztec::context::PublicContext;
     use dep::fee_juice::FeeJuice;
     use dep::instance_contract::ContractInstanceRegistry;
     use std::ops::Add;
@@ -391,14 +391,14 @@ pub contract AvmTest {
     #[external("public")]
     fn assert_calldata_copy(args: [Field; 3], with_selector: bool) {
         let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
-        let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
+        let cd: [Field; 3] = dep::aztec::oracle::avm::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
     }
 
     #[external("public")]
     fn assert_calldata_copy_large(args: [Field; 300], with_selector: bool) {
         let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
-        let cd: [Field; 300] = dep::aztec::context::public_context::calldata_copy(offset, 300);
+        let cd: [Field; 300] = dep::aztec::oracle::avm::calldata_copy(offset, 300);
         assert(cd == args, "Calldata copy failed");
     }
 
@@ -407,7 +407,7 @@ pub contract AvmTest {
         let _ = self.call_self.return_oracle();
         let returndatasize = returndata_size();
         let returndata = returndata_copy(0, returndatasize);
-        assert(returndata == &[1, 2, 3], "Returndata copy failed");
+        assert(returndata == @[1, 2, 3], "Returndata copy failed");
     }
 
     #[external("public")]
@@ -418,7 +418,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn revert_oracle() -> [Field; 3] {
-        avm_revert([1, 2, 3]);
+        revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
@@ -513,7 +513,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_sender(context: PublicContext) -> AztecAddress {
-        context.msg_sender_unsafe()
+        context.maybe_msg_sender().unwrap()
     }
 
     #[external("public")]
@@ -573,7 +573,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_fee_per_l2_gas(context: PublicContext) -> u128 {
-        context.base_fee_per_l2_gas()
+        context.min_fee_per_l2_gas()
     }
 
     #[external("public")]
@@ -583,7 +583,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _get_fee_per_da_gas(context: PublicContext) -> u128 {
-        context.base_fee_per_da_gas()
+        context.min_fee_per_da_gas()
     }
 
     #[external("public")]
@@ -704,19 +704,22 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _nullifier_exists(context: PublicContext, address: AztecAddress, nullifier: Field) -> bool {
-        context.nullifier_exists(nullifier, address)
+        context.nullifier_exists_unsafe(nullifier, address)
     }
 
     #[external("public")]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(self.context.nullifier_exists(nullifier, self.address), "Nullifier doesn't exist!");
+        assert(
+            self.context.nullifier_exists_unsafe(nullifier, self.address),
+            "Nullifier doesn't exist!",
+        );
     }
 
     // Use the standard context interface to emit a new nullifier
     #[external("public")]
     fn emit_nullifier_and_check(nullifier: Field) {
         self.context.push_nullifier(nullifier);
-        let exists = self.context.nullifier_exists(nullifier, self.address);
+        let exists = self.context.nullifier_exists_unsafe(nullifier, self.address);
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 
@@ -941,7 +944,7 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
         let _ = keccak256::keccak256(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = sha256::sha256_var(args_u8, args_u8.len() as u64);
+        let _ = sha256::sha256_var(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
         let _ = poseidon::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");

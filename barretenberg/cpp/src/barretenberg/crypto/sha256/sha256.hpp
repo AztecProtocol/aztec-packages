@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Complete, auditors: [Luke], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "stdint.h"
 #include <array>
 #include <iomanip>
@@ -17,15 +16,10 @@ namespace bb::crypto {
 
 using Sha256Hash = std::array<uint8_t, 32>;
 
-Sha256Hash sha256_block(const std::vector<uint8_t>& input);
+// SHA-256 compression function (FIPS 180-4 Section 6.2.2)
+std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, const std::array<uint32_t, 16>& input);
 
 template <typename T> Sha256Hash sha256(const T& input);
-
-inline bb::fr sha256_to_field(std::vector<uint8_t> const& input)
-{
-    auto result = sha256(input);
-    return from_buffer<bb::fr>(&result[0]);
-}
 
 inline bool operator==(Sha256Hash const& lhs, std::vector<uint8_t> const& rhs)
 {

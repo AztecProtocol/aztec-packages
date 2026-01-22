@@ -1,10 +1,10 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
-import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
@@ -12,9 +12,8 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
-import type { UInt32 } from '@aztec/stdlib/types';
 
-import { insertTxEffectIntoWorldTrees, makeTXEBlockHeader } from '../utils/block_creation.js';
+import { insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { IAvmExecutionOracle } from './interfaces.js';
 
 export class TXEOraclePublicContext implements IAvmExecutionOracle {
@@ -48,7 +47,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return Promise.resolve(AztecAddress.ZERO); // todo: change?
   }
 
-  avmOpcodeBlockNumber(): Promise<UInt32> {
+  avmOpcodeBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(this.globalVariables.blockNumber);
   }
 
@@ -133,11 +132,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     const txEffect = this.makeTxEffect();
     await insertTxEffectIntoWorldTrees(txEffect, this.forkedWorldTrees);
 
-    const block = new L2Block(
-      makeAppendOnlyTreeSnapshot(),
-      await makeTXEBlockHeader(this.forkedWorldTrees, this.globalVariables),
-      new Body([txEffect]),
-    );
+    const block = await makeTXEBlock(this.forkedWorldTrees, this.globalVariables, [txEffect]);
 
     await this.forkedWorldTrees.close();
 

@@ -1,4 +1,4 @@
-import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
+import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
 import { decryptBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
@@ -383,7 +383,7 @@ describe('validator keys utilities', () => {
           count: 2,
           publisherCount: 1,
           mnemonic: TEST_MNEMONIC,
-          feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '04'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -409,7 +409,7 @@ describe('validator keys utilities', () => {
             publisherCount: 0,
             // no mnemonic on purpose
             remoteSigner: 'http://localhost:9000',
-            feeRecipient: ('0x' + '55'.repeat(32)) as unknown as AztecAddress,
+            feeRecipient: ('0x' + '05'.repeat(32)) as unknown as AztecAddress,
           },
           log,
         ),
@@ -429,7 +429,7 @@ describe('validator keys utilities', () => {
           mnemonic: TEST_MNEMONIC,
           password: '',
           encryptedKeystoreDir: tmp,
-          feeRecipient: ('0x' + '77'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -459,7 +459,7 @@ describe('validator keys utilities', () => {
           mnemonic: TEST_MNEMONIC,
           password,
           encryptedKeystoreDir: tmp,
-          feeRecipient: ('0x' + 'ee'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '0e'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -507,7 +507,7 @@ describe('validator keys utilities', () => {
           count: 1,
           publishers: [publisherKey],
           mnemonic: TEST_MNEMONIC,
-          feeRecipient: ('0x' + 'ff'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '0f'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -533,7 +533,7 @@ describe('validator keys utilities', () => {
           count: 2,
           publishers: [publisherKeyNoPrefix],
           mnemonic: TEST_MNEMONIC,
-          feeRecipient: ('0x' + 'dd'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '0d'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -559,7 +559,7 @@ describe('validator keys utilities', () => {
             count: 1,
             publishers: [invalidPublisherKey],
             mnemonic: TEST_MNEMONIC,
-            feeRecipient: ('0x' + 'cc'.repeat(32)) as unknown as AztecAddress,
+            feeRecipient: ('0x' + '0c'.repeat(32)) as unknown as AztecAddress,
           },
           log,
         ),
@@ -580,7 +580,7 @@ describe('validator keys utilities', () => {
           count: 1,
           publishers: [publisherKey1, publisherKey2],
           mnemonic: TEST_MNEMONIC,
-          feeRecipient: ('0x' + 'ee'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '0e'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -597,10 +597,10 @@ describe('validator keys utilities', () => {
   describe('materialization helpers (invoked directly)', () => {
     it('replaces plaintext keys with file references', async () => {
       const validators = [
-        { attester: '0x' + 'aa'.repeat(32), feeRecipient: ('0x' + '99'.repeat(32)) as unknown as AztecAddress },
+        { attester: '0x' + '0a'.repeat(32), feeRecipient: ('0x' + '09'.repeat(32)) as unknown as AztecAddress },
         {
-          attester: { eth: '0x' + 'bb'.repeat(32), bls: '0x' + 'cc'.repeat(32) },
-          feeRecipient: ('0x' + '88'.repeat(32)) as unknown as AztecAddress,
+          attester: { eth: '0x' + '0b'.repeat(32), bls: '0x' + '0c'.repeat(32) },
+          feeRecipient: ('0x' + '08'.repeat(32)) as unknown as AztecAddress,
         },
       ] as any;
       const dirA = mkdtempSync(join(tmpdir(), 'aztec-mat-a-'));
@@ -622,8 +622,8 @@ describe('validator keys utilities', () => {
         schemaVersion: 1,
         validators: [
           {
-            attester: '0x' + 'aa'.repeat(32),
-            feeRecipient: ('0x' + '66'.repeat(32)) as unknown as AztecAddress,
+            attester: '0x' + '0a'.repeat(32),
+            feeRecipient: ('0x' + '06'.repeat(32)) as unknown as AztecAddress,
           },
         ],
       } as any;
@@ -637,7 +637,7 @@ describe('validator keys utilities', () => {
           dataDir: tmp,
           count: 2,
           mnemonic: TEST_MNEMONIC,
-          feeRecipient: ('0x' + '66'.repeat(32)) as unknown as AztecAddress,
+          feeRecipient: ('0x' + '06'.repeat(32)) as unknown as AztecAddress,
         },
         log,
       );
@@ -703,7 +703,7 @@ describe('validator keys utilities', () => {
             file: 'staker-test.json',
             count: 1,
             mnemonic: TEST_MNEMONIC,
-            feeRecipient: ('0x' + '44'.repeat(32)) as unknown as AztecAddress,
+            feeRecipient: ('0x' + '04'.repeat(32)) as unknown as AztecAddress,
             stakerOutput: true,
             // Missing gseAddress
             l1RpcUrls: ['http://localhost:8545'],

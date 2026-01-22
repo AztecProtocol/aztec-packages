@@ -3,8 +3,8 @@ import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxHash } from '@aztec/aztec.js/tx';
-import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { Fr } from '@aztec/foundation/curves/bn254';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
@@ -52,7 +52,7 @@ describe('Aztec persistence', () => {
   let dataDirectory: string;
 
   // state that is persisted between tests
-  let deployL1ContractsValues: DeployL1ContractsReturnType;
+  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
 
   let context: EndToEndContext;
 
@@ -349,7 +349,7 @@ async function addPendingShieldNoteToPXE(
 ) {
   const txEffects = await aztecNode.getTxEffect(txHash);
   await contract.methods
-    .deliver_transparent_note(
+    .process_transparent_note(
       contract.address,
       amount,
       secretHash,

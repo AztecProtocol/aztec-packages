@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -12,6 +12,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -40,7 +41,9 @@ class TranslatorFlavor {
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
-    using Transcript = NativeTranscript;
+    using Codec = FrCodec;
+    using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -187,25 +190,26 @@ class TranslatorFlavor {
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. accumulated_result */ (num_frs_fq) +
-        /* 2. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 3) * num_frs_comm) +
-        /* 3. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 4. Libra sum */ (num_frs_fr) +
-        /* 5. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        /* 1. NUM_WITNESS_ENTITIES commitments (minus gemini_masking_poly sent separately, z_perm sent separately,
+              and 4 op queue wires passed by merge protocol) */
+        ((NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES) * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fr) +
+        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
         (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 7. Libra claimed evaluation */ (num_frs_fr) +
-        /* 8. Libra grand sum commitment */ (num_frs_comm) +
-        /* 9. Libra quotient commitment */ (num_frs_comm) +
-        /* 10. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 6. Libra claimed evaluation */ (num_frs_fr) +
+        /* 7. Libra grand sum commitment */ (num_frs_comm) +
+        /* 8. Libra quotient commitment */ (num_frs_comm) +
+        /* 9. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
         ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
-        /* 11. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        /* 10. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
         (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 12. Gemini P pos evaluation */ (num_frs_fr) +
-        /* 13. Gemini P neg evaluation */ (num_frs_fr) +
-        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 15. Shplonk Q commitment */ (num_frs_comm) +
-        /* 16. KZG W commitment */ (num_frs_comm);
+        /* 11. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 12. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 14. Shplonk Q commitment */ (num_frs_comm) +
+        /* 15. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -238,13 +242,13 @@ class TranslatorFlavor {
                               interleaved_range_constraints_2, // column 2
                               interleaved_range_constraints_3) // column 3
     };
-    template <typename DataType> class WireToBeShiftedEntities {
+    /**
+     * @brief Non-op-queue wires that need to be shifted
+     */
+    template <typename DataType> class NonOpQueueWiresToBeShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              x_lo_y_hi,                                    // column 0
-                              x_hi_z_1,                                     // column 1
-                              y_lo_z_2,                                     // column 2
-                              p_x_low_limbs,                                // column 3
+                              p_x_low_limbs,                                // column 0
                               p_x_high_limbs,                               // column 4
                               p_y_low_limbs,                                // column 5
                               p_y_high_limbs,                               // column 6
@@ -322,6 +326,28 @@ class TranslatorFlavor {
                               relation_wide_limbs_range_constraint_2,       // column 78
                               relation_wide_limbs_range_constraint_3);      // column 79
     };
+
+    /**
+     * @brief Op queue wires (to be shifted): first 3 wires of the to-be-shifted group
+     */
+    template <typename DataType> class OpQueueWiresToBeShiftedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              x_lo_y_hi, // column 0
+                              x_hi_z_1,  // column 1
+                              y_lo_z_2)  // column 2
+    };
+
+    /**
+     * @brief All wires to be shifted (op queue + non-op-queue)
+     */
+    template <typename DataType>
+    class WireToBeShiftedEntities : public OpQueueWiresToBeShiftedEntities<DataType>,
+                                    public NonOpQueueWiresToBeShiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(OpQueueWiresToBeShiftedEntities<DataType>, NonOpQueueWiresToBeShiftedEntities<DataType>)
+    };
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
     // Note: These are technically derived from wires but do not depend on challenges (like z_perm). They are committed
     // to in the wires commitment round.
@@ -335,12 +361,24 @@ class TranslatorFlavor {
                               ordered_range_constraints_4); // column 4
     };
 
-    template <typename DataType> class WireNonshiftedEntities {
+    /**
+     * @brief Op queue wires (non-shifted): these represent the op queue and are provided by the merge protocol
+     */
+    template <typename DataType> class OpQueueWireNonshiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               op // column 0
         );
     };
+
+    /**
+     * @brief All wire entities that are not shifted (currently just the op queue wire)
+     */
+    template <typename DataType> class WireNonshiftedEntities : public OpQueueWireNonshiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(OpQueueWireNonshiftedEntities<DataType>)
+    };
+
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
@@ -373,12 +411,30 @@ class TranslatorFlavor {
         };
 
         /**
+         * @brief Get only the op queue wires (provided by merge protocol, not committed to in translator)
+         */
+        auto get_op_queue_wires()
+        {
+            return concatenate(OpQueueWireNonshiftedEntities<DataType>::get_all(),
+                               OpQueueWiresToBeShiftedEntities<DataType>::get_all());
+        };
+
+        /**
          * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
          */
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all(),
+                               OrderedRangeConstraints<DataType>::get_all());
+        };
+
+        /**
+         * @brief Non-op-queue wires and ordered range constraints (committed to by translator prover)
+         */
+        auto get_non_opqueue_wires_and_ordered_range_constraints()
+        {
+            return concatenate(NonOpQueueWiresToBeShiftedEntities<DataType>::get_all(),
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
@@ -785,83 +841,16 @@ class TranslatorFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
+     * @brief The verification key stores commitments to the precomputed polynomials used by the verifier.
+     * @details Translator has a fixed circuit size, so the VK is hardcoded in recursive verifiers.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
-      public:
-        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
-        VerificationKey()
-            : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
-        {
-            this->pub_inputs_offset = 0;
-
-            // Populate the commitments of the precomputed polynomials
-            for (auto [vk_commitment, fixed_commitment] :
-                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
-                vk_commitment = fixed_commitment;
-            }
-        }
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-        {
-            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
-            this->num_public_inputs = 0;
-            this->pub_inputs_offset = 0;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
-            }
-        }
-
-        /**
-         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
-         *
-         * @param domain_separator
-         * @param transcript
-         */
-        fr hash_with_origin_tagging([[maybe_unused]] const std::string& domain_separator,
-                                    [[maybe_unused]] Transcript& transcript) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-#ifndef NDEBUG
-        bool compare(const VerificationKey& other)
-        {
-            return NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript>::compare<
-                NUM_PRECOMPUTED_ENTITIES>(other, CommitmentLabels().get_precomputed());
-        }
-#endif
-    };
+    using VerificationKey = FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, TranslatorHardcodedVKAndHash>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
-        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
-        {
-            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                // After the initial sumcheck round, the new size is CEIL(size/2).
-                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-                poly = Polynomial(desired_size, circuit_size / 2);
-            }
-        }
-    };
+    using PartiallyEvaluatedMultivariates =
+        PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
 
     /**
      * @brief A container for univariates used during sumcheck.
@@ -963,7 +952,7 @@ class TranslatorFlavor {
             this->relation_wide_limbs_range_constraint_0 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0";
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
-            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
+            this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_3";
             this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
             this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
             this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";

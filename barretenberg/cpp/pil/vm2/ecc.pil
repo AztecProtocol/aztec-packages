@@ -11,40 +11,41 @@ namespace ecc;
     pol INFINITY_Y = 0;
 
     // This is the selector with which other subtraces will reference
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
     #[skippable_if]
     sel = 0;
 
-    pol commit double_op;
+    pol commit double_op; // @boolean
     double_op * (1 - double_op) = 0;
-    pol commit add_op;
+    pol commit add_op; // @boolean
     add_op * (1 - add_op) = 0;
 
     // When the sel is on, we are either doubling, adding or handling the edge case
+    #[OP_CHECK]
     sel = double_op + add_op + INFINITY_PRED;
 
     // Point P in affine form
     pol commit p_x;
     pol commit p_y;
-    pol commit p_is_inf;
+    pol commit p_is_inf; // @boolean
     p_is_inf * (1 - p_is_inf) = 0;
 
     // Point Q in affine form
     pol commit q_x;
     pol commit q_y;
-    pol commit q_is_inf;
+    pol commit q_is_inf; // @boolean
     q_is_inf * (1 - q_is_inf) = 0;
 
     // Resulting Point R in affine form
     pol commit r_x;
     pol commit r_y;
-    pol commit r_is_inf;
+    pol commit r_is_inf; // @boolean
     r_is_inf * (1 - r_is_inf) = 0;
 
     // Check the coordinates to see if we need to handle an edge case
     // Check x coordinates, i.e. p_x == q_x
-    pol commit x_match;
+    pol commit x_match; // @boolean
     x_match * (1 - x_match) = 0;
     pol X_DIFF = q_x - p_x;
     pol commit inv_x_diff;
@@ -52,7 +53,7 @@ namespace ecc;
     sel * (X_DIFF * (x_match * (1 - inv_x_diff) + inv_x_diff) - 1 + x_match) = 0;
 
     // Check y coordinates, i.e. p_y == q_y
-    pol commit y_match;
+    pol commit y_match; // @boolean
     y_match * (1 - y_match) = 0;
     pol Y_DIFF = q_y - p_y;
     pol commit inv_y_diff;

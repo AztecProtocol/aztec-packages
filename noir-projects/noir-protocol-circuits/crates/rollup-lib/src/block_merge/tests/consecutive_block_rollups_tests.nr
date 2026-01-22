@@ -203,6 +203,7 @@ fn non_consecutive_archive_next_available_leaf_indices() {
 
     // Tweak the next_available_leaf_index of the right rollup.
     builder.right_rollup.previous_archive.next_available_leaf_index += 1;
+    builder.right_rollup.new_archive.next_available_leaf_index += 1; // ensures the `num_blocks()` fn still returns the correct value.
 
     builder.execute_and_fail();
 }
@@ -238,22 +239,22 @@ fn non_consecutive_sponge_blobs() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Rollup block timestamps do not follow on from each other")]
-fn non_consecutive_timestamps() {
+#[test(should_fail_with = "Mismatched timestamps: expected right.timestamp to match left.timestamp")]
+fn right_rollup_timestamp_less_than_left_rollup_timestamp() {
     let mut builder = TestBuilder::default();
 
-    // Tweak the start_timestamp of the right rollup to be smaller than the end_timestamp of the left rollup.
-    builder.right_rollup.start_timestamp = builder.left_rollup.end_timestamp - 1;
+    // Tweak the timestamp of the right rollup to be less than the timestamp of the left rollup.
+    builder.right_rollup.timestamp = builder.left_rollup.timestamp - 1;
 
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "Rollup block timestamps do not follow on from each other")]
-fn non_consecutive_timestamps_duplicates() {
+#[test(should_fail_with = "Mismatched timestamps: expected right.timestamp to match left.timestamp")]
+fn right_rollup_timestamp_greater_than_left_rollup_timestamp() {
     let mut builder = TestBuilder::default();
 
-    // Change the start_timestamp of the right rollup to be the same as the end_timestamp of the left rollup.
-    builder.right_rollup.start_timestamp = builder.left_rollup.end_timestamp;
+    // Tweak the timestamp of the right rollup to be greater than the timestamp of the left rollup.
+    builder.right_rollup.timestamp = builder.left_rollup.timestamp + 1;
 
     builder.execute_and_fail();
 }

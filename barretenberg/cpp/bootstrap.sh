@@ -158,7 +158,7 @@ function build_gcc_syntax_check_only {
   cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
 }
 
-# Do basic tests that the fuzzing preset still compiles (does not do optimization or create object files).
+# Do basic tests that the fuzzing and fuzzing-avm presets still compile (does not do optimization or create object files).
 function build_fuzzing_syntax_check_only {
   set -eu
   if cache_download barretenberg-fuzzing-$hash.zst; then
@@ -166,6 +166,8 @@ function build_fuzzing_syntax_check_only {
   fi
   cmake --preset fuzzing -DSYNTAX_ONLY=1
   cmake --build --preset fuzzing
+  cmake --preset fuzzing-avm -DSYNTAX_ONLY=1
+  cmake --build --preset fuzzing-avm
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-fuzzing/syntax-check-success.flag
   cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
@@ -280,8 +282,8 @@ function test_cmds_native {
       while read -r test; do
         local prefix=$hash
         # A little extra resource for these tests.
-        # IPARecursiveTests and AcirHonkRecursionConstraint fail with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|AcirHonkRecursionConstraint) ]]; then
+        # IPARecursiveTests fails with 2 threads.
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest) ]]; then
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
@@ -304,7 +306,7 @@ function test_cmds_asan {
     ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
     ["chonk_tests"]="ChonkTests.Basic"
     ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-    ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+    ["dsl_tests"]="HonkRecursionConstraintTestWithoutPredicate/2.Tampering"
   )
   for bin_name in "${!asan_tests[@]}"; do
     local filter=${asan_tests[$bin_name]}

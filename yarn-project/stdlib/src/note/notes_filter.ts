@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import { z } from 'zod';
 
@@ -16,6 +16,8 @@ export type NotesFilter = {
    * @remarks Providing a contract address is required as we need that information to trigger private state sync.
    */
   contractAddress: AztecAddress;
+  /** The owner of the note. */
+  owner?: AztecAddress;
   /** The specific storage location of the note on the contract. */
   storageSlot?: Fr;
   /** The status of the note. Defaults to 'ACTIVE'. */
@@ -28,6 +30,7 @@ export type NotesFilter = {
 
 export const NotesFilterSchema: ZodFor<NotesFilter> = z.object({
   contractAddress: schemas.AztecAddress,
+  owner: schemas.AztecAddress.optional(),
   storageSlot: schemas.Fr.optional(),
   status: z.nativeEnum(NoteStatus).optional(),
   siloedNullifier: schemas.Fr.optional(),

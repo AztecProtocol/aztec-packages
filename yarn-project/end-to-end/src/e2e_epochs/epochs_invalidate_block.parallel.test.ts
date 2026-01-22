@@ -1,7 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { type ExtendedViemWalletClient, type Operator, RollupContract } from '@aztec/ethereum';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -14,6 +16,7 @@ import { timeoutPromise } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { OffenseType } from '@aztec/slasher';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -163,7 +166,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Verify the transaction was eventually included
     const receipt = await sentTx.wait({ timeout: 30 });
-    expect(receipt.status).toBe('success');
+    expect(receipt.isMined()).toBeTrue();
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
     // Check that we have tagged an offense for that
@@ -317,7 +320,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       await node.setConfig({
         skipInvalidateBlockAsProposer: true,
         skipCollectingAttestations: true,
-        skipValidateBlockAttestations: true,
+        skipValidateCheckpointAttestations: true,
         minTxsPerBlock: 0,
       });
     }
@@ -362,7 +365,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       `Checkpoints ${firstCheckpoint} and ${secondCheckpoint} have been mined. Waiting for slot with good proposer.`,
     );
     const goodProposer = await retryUntil(async () => {
-      const { currentProposer } = await test.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+      const { currentSlot } = test.epochCache.getCurrentAndNextSlot();
+      const currentProposer = await test.epochCache.getProposerAttesterAddressInSlot(currentSlot);
       if (badProposers.every(p => !p!.equals(currentProposer!))) {
         return currentProposer;
       }
@@ -387,7 +391,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         await node.setConfig({
           skipInvalidateBlockAsProposer: false,
           skipCollectingAttestations: false,
-          skipValidateBlockAttestations: false,
+          skipValidateCheckpointAttestations: false,
         });
       }),
     );
@@ -450,7 +454,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -506,7 +510,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const [event] = checkpointInvalidatedEvents;
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber(initialBlockNumber));
+    expect(await test.rollup.getCheckpointNumber()).toEqual(CheckpointNumber.fromBlockNumber(initialBlockNumber));
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
@@ -528,10 +532,13 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
 
     // Disable skipCollectingAttestations after the first block is mined
-    let invalidBlockTimestamp: bigint | undefined;
-    test.monitor.once('checkpoint', ({ checkpointNumber, timestamp }) => {
-      logger.warn(`Disabling skipCollectingAttestations after L2 block ${checkpointNumber} has been mined`);
-      invalidBlockTimestamp = timestamp;
+    let invalidCheckpointSlotNumber: SlotNumber | undefined;
+    test.monitor.once('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
+      logger.warn(
+        `Disabling skipCollectingAttestations after L2 block ${checkpointNumber} has been mined at L2 slot ${l2SlotNumber}`,
+        { checkpointNumber, l2SlotNumber },
+      );
+      invalidCheckpointSlotNumber = l2SlotNumber;
       sequencers.forEach(sequencer => {
         sequencer.updateConfig({ skipCollectingAttestations: false });
       });
@@ -569,10 +576,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`CheckpointInvalidated event emitted`, { event });
     expect(event.args.checkpointNumber).toBeGreaterThan(initialBlockNumber);
 
-    // And check that the invalidation happened at least after the specified timeout
+    // And check that the invalidation happened at least after the specified timeout.
+    // We use the checkpoint header timestamp (L2 timestamp) since that's what the sequencer uses
+    // to calculate how long to wait before invalidating, not the L1 block timestamp when it landed.
+    const invalidSlotTimestamp = getTimestampForSlot(invalidCheckpointSlotNumber!, test.constants);
     const { timestamp: invalidationTimestamp } = await l1Client.getBlock({ blockNumber: event.blockNumber });
-    expect(invalidationTimestamp).toBeGreaterThanOrEqual(invalidBlockTimestamp! + BigInt(invalidationDelay));
-
+    expect(invalidationTimestamp).toBeGreaterThanOrEqual(invalidSlotTimestamp + BigInt(invalidationDelay));
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 });

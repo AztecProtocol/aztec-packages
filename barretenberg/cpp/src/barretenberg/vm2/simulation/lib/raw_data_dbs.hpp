@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -71,7 +72,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
         const PublicDataLeafValue& leaf_value) override;
     SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) override;
-    std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    void append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
     void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
 
     void create_checkpoint() override;
@@ -105,7 +106,6 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     // Private helper methods.
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id);
-    AppendLeafResult appendLeafInternal(MerkleTreeId tree_id, const FF& leaf);
 };
 
 // todo(facundo): When used in pure simulation mode, the return values from tree insertions are not used (since we don't
@@ -114,9 +114,24 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
 // insertions (since we won't be tied to SequentialInsertionResult).
 class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
   public:
-    PureRawMerkleDB(world_state::WorldStateRevision ws_revision, world_state::WorldState& ws_instance)
+    /**
+     * @brief Constructor for PureRawMerkleDB.
+     * @param ws_revision The world state revision.
+     * @param ws_instance The world state instance.
+     * @param cache_tree_roots Whether to cache the tree roots.
+     *  If true, the tree roots will be cached and returned by get_tree_roots().
+     *  If false, the tree roots will be fetched from the world state on each call to get_tree_roots().
+     *  It is important to note that if caching is ON, you are assuming nobody else could concurrently modify the trees.
+     * @param cancellation_token Optional cancellation token for stopping writes on timeout.
+     */
+    PureRawMerkleDB(world_state::WorldStateRevision ws_revision,
+                    world_state::WorldState& ws_instance,
+                    bool cache_tree_roots = true,
+                    CancellationTokenPtr cancellation_token = nullptr)
         : ws_revision(ws_revision)
         , ws_instance(ws_instance)
+        , cache_tree_roots(cache_tree_roots)
+        , cancellation_token_(std::move(cancellation_token))
     {}
 
     TreeSnapshots get_tree_roots() const override;
@@ -133,7 +148,7 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
         const PublicDataLeafValue& leaf_value) override;
     SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) override;
-    std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    void append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
     void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
 
     void create_checkpoint() override;
@@ -142,9 +157,20 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
     uint32_t get_checkpoint_id() const override;
 
   private:
+    // Helper to check cancellation before write operations - throws CancelledException if cancelled
+    void throw_if_cancelled() const
+    {
+        if (cancellation_token_) {
+            cancellation_token_->check_and_throw();
+        }
+    }
+
     world_state::WorldStateRevision ws_revision;
     world_state::WorldState& ws_instance;
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
+    bool cache_tree_roots;
+    mutable std::optional<TreeSnapshots> cached_tree_snapshots;
+    CancellationTokenPtr cancellation_token_;
 };
 
 } // namespace bb::avm2::simulation

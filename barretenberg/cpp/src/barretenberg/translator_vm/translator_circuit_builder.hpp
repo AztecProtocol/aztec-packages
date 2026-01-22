@@ -1,7 +1,7 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: Planned, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
@@ -24,7 +24,7 @@ namespace bb {
  * OP | X_LO | X_HI | Y_LO
  * 0  | Y_HI | Z1   | Z2
  *
- *  OP is supposed to be { 0, 1, 2, 3, 4, 8 }. X_LO and Y_LO need to be < 2¹³⁶, X_HI and Y_LO < 2¹¹⁸, Z1 and Z2 < 2¹²⁸.
+ *  OP is supposed to be { 0, 3, 4, 8 }. X_LO and Y_LO need to be < 2¹³⁶, X_HI and Y_LO < 2¹¹⁸, Z1 and Z2 < 2¹²⁸.
  *  X_* and Y_* are supposed to be the decompositions of bn254 base fields elements P.x and P.y and are split into two
  * chunks each because the scalar field we are operating on can't fit them
  *

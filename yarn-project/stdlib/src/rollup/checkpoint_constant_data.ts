@@ -1,6 +1,6 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -11,6 +11,7 @@ import { GasFees } from '../gas/gas_fees.js';
 
 /**
  * Constants that are the same for the entire checkpoint.
+ * Used in circuits during rollup proving.
  */
 export class CheckpointConstantData {
   constructor(

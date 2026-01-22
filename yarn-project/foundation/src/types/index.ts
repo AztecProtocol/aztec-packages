@@ -19,6 +19,11 @@ export function unfreeze<T>(obj: T): Writeable<T> {
   return obj as Writeable<T>;
 }
 
+/** Is defined type guard */
+export function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
 /** Resolves a record-like type. Lifted from viem. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -28,7 +33,7 @@ export type Prettify<T> = {
  * Type-safe Event Emitter type
  * @example
  * export type ArchiverEmitter = TypedEventEmitter<{
- *  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
+ *  [L2BlockSourceEvents.L2PruneUnproven]: (args: L2BlockSourceEvent) => void;
  *  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
  * }>;
  * class Archiver extends (EventEmitter as new () => ArchiverEmitter) {

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "recursive_verifier.hpp"
 
 #include <algorithm>
@@ -9,28 +15,44 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
-#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 
 namespace bb::avm2 {
 
-// TODO(#15892): Remove vk argument from all functions once its fixed.
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
+/**
+ * @brief Construct a new AvmRecursiveVerifier
+ *
+ * @details The constructor fixes the verification key and vk hash of the AVM circuit by copying them into the
+ * selectors.
+ *
+ * @param builder
+ * @param transcript
+ */
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
-    , key(vkey)
+    , transcript(transcript)
 {
-    // TODO(#15892): Uncomment this when we make the AVM vk and vk
-    // hash fixed.
-    // key->fix_witness();
-    // compute the vk hash from the native vk fields
-    // this->vk_hash.fix_witness();
+    auto native_vk = std::make_shared<NativeVerificationKey>();
+    key = std::make_shared<VerificationKey>(&builder, native_vk);
 }
 
-// Evaluate the given public input column over the multivariate challenge points
+/**
+ * @brief Evaluate the given public input column over the multivariate challenge points
+ *
+ * @details Among its witness commitments, the AVM prover sends commitments to the public inputs. To enforce consistency
+ * between these commitments and the public inputs, the verifier computes the evaluation of the public inputs sent in
+ * the clear at the Sumcheck challenge and compares the result with the claimed evaluation sent by the Prover at the end
+ * of Sumcheck.
+ *
+ * @param points The public input column to be evaluated
+ * @param challenges The sumcheck challenge
+ * @return FF
+ */
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
@@ -47,123 +69,96 @@ AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(cons
     return generic_evaluate_mle<FF>(challenges, coefficients);
 }
 
+/**
+ * @brief Verify an AVM proof and return PairingPoints whose validity bears witness to successful verification of the
+ * proof.
+ *
+ * @details This function reduces verification of an AVM proof to a pairing check, which is deferred for performance
+ * reasons.
+ *
+ * @note As the AVM verifier is arithmetized over Mega, this function does not enforce the validity of the elliptic
+ * curve operations. Such verification is deferred to the circuit that verifies the proof of the circuit that contains
+ * the AVM verifier.
+ *
+ */
 AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
+    const stdlib::Proof<Builder>& stdlib_proof, const std::vector<std::vector<FF>>& public_inputs)
 {
-    StdlibProof stdlib_proof(builder, proof);
-
-    std::vector<std::vector<FF>> public_inputs_ct;
-    public_inputs_ct.reserve(public_inputs_vec_nt.size());
-
-    for (const auto& vec : public_inputs_vec_nt) {
-        std::vector<FF> vec_ct;
-        vec_ct.reserve(vec.size());
-        for (const auto& el : vec) {
-            vec_ct.push_back(stdlib::witness_t<Builder>(&builder, el));
-        }
-        public_inputs_ct.push_back(vec_ct);
-    }
-
-    return verify_proof(stdlib_proof, public_inputs_ct);
-}
-
-// TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
-// TODO(#14234)[Unconditional PIs validation]: rename stdlib_proof_with_pi_flag to stdlib_proof
-AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
-    const stdlib::Proof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
-{
-    using Curve = typename Flavor::Curve;
-    using PCS = typename Flavor::PCS;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using stdlib::bool_t;
+    using Challenges = Flavor::NativeFlavor::AllEntities<FF>;
 
-    // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
-    StdlibProof stdlib_proof = stdlib_proof_with_pi_flag;
-    bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) Origin Tag security mechanism is screaming
-    // that there is a free witness affecting proof verificaton. Because it is and this bool allows completely disabling
-    // public input logic. So this has to be removed in the future.
-    pi_validation.unset_free_witness_tag();
-    stdlib_proof.erase(stdlib_proof.begin());
-
-    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
-        throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
-    }
-    for (const auto& public_input : public_inputs) {
-        if (public_input.size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
-            throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
-        }
-    }
+    RelationParams relation_parameters;
 
     transcript->load_proof(stdlib_proof);
 
-    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
-    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) For now we are unsetting the free witness tags
-    // to stop triggering the Origin Tag security mechanism, but the problem is that the VK is not hashed.
-    for (auto& comm : key->get_all()) {
-        comm.unset_free_witness_tag();
+    // ========== Execute preamble round ==========
+
+    // Add vk hash to transcript
+    transcript->add_to_hash_buffer("avm_vk_hash", key->get_hash());
+
+    info("AVM vk hash in recursive verifier: ", key->get_hash().get_value());
+
+    // ========== Execute public inputs round ==========
+
+    // Validate number of public input columns
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
-    info("AVM vk hash in recursive verifier: ", vk_hash);
-
-    RelationParams relation_parameters;
-    VerifierCommitments commitments{ key };
-
-    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
-    // // Add public inputs to transcript
-    // for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-    //     for (size_t j = 0; j < public_inputs[i].size(); j++) {
-    //         transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-    //                                        public_inputs[i][j]);
-    //     }
-    // }
-
+    // Add public inputs to transcript. This ensures that the Sumcheck challenge depends both on the public inputs sent
+    // in the clear and on the committed columns.
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+            throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
+        }
         for (size_t j = 0; j < public_inputs[i].size(); j++) {
-            // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
-            // transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-            //                               public_inputs[i][j]);
-            public_inputs[i][j].unset_free_witness_tag();
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           public_inputs[i][j]);
         }
     }
-    // Get commitments to VM wires
+
+    // ========== Execute wire commitments round ==========
+
+    // Receive commitments to all polynomials except the logderivate ones
+    VerifierCommitments commitments{ key };
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
+    // ========== Execute log derivative inverse round ==========
+
+    // Generate randomness required by Lookup and Permutation relations
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
-    // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
+    // Receive commitments to all logderivative inverse polynomials
+    for (auto [commitment, label] : zip_view(commitments.get_derived(), commitments.get_derived_labels())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    FF one{ 1 };
-    one.convert_constant_to_fixed_witness(&builder);
+    // ========== Execute relation check rounds ==========
 
-    std::vector<FF> padding_indicator_array(key->log_fixed_circuit_size);
-    std::ranges::fill(padding_indicator_array, one);
+    // Construct padding indicator array: it is a vector of constant ones as the AVM verifier performs verification of
+    // the AVM circuit, so the number of rounds is fixed.
+    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, FF(1));
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_fixed_circuit_size);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, MAX_AVM_TRACE_LOG_SIZE);
 
     std::vector<FF> gate_challenges =
-        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_fixed_circuit_size);
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
 
-    // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
-    // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
+    // Validate that the public inputs committed in the public input columns match the public inputs sent in the clear
+    // by the Prover
     using C = ColumnAndShifts;
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
         output.claimed_evaluations.get(C::public_inputs_cols_0_),
@@ -172,13 +167,16 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         output.claimed_evaluations.get(C::public_inputs_cols_3_),
     };
 
-    // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
-    // public_input_evaluation.assert_equal(claimed_evaluations[i]
-    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
-        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i],
-                                 format("public_input_evaluation failed at column ", i));
+    // Validate public inputs match the claimed evaluations
+    for (size_t idx = 0;
+         const auto& [public_input_column, claimed_evaluation] : zip_view(public_inputs, claimed_evaluations)) {
+        FF public_input_evaluation = evaluate_public_input_column(public_input_column, output.challenge);
+        public_input_evaluation.assert_equal(claimed_evaluation,
+                                             format("public_input_evaluation failed at column ", idx));
+        idx++;
     }
+
+    // ========== Execute PCS verification ==========
 
     // Batch commitments and evaluations using short scalars to reduce ECCVM circuit size
     auto unshifted_comms = commitments.get_unshifted();
@@ -186,54 +184,69 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     auto shifted_comms = commitments.get_to_be_shifted();
     auto shifted_evals = output.claimed_evaluations.get_shifted();
 
-    // Generate batching challenge labels
-    // Note: We get N-1 challenges for N unshifted commitments (first commitment has implicit coefficient 1)
-    std::vector<std::string> unshifted_batching_challenge_labels;
-    unshifted_batching_challenge_labels.reserve(unshifted_comms.size() - 1);
-    for (size_t idx = 0; idx < unshifted_comms.size() - 1; idx++) {
-        unshifted_batching_challenge_labels.push_back("rho_" + std::to_string(idx));
-    }
-    std::vector<std::string> shifted_batching_challenge_labels;
-    shifted_batching_challenge_labels.reserve(shifted_comms.size());
-    for (size_t idx = 0; idx < shifted_comms.size(); idx++) {
-        shifted_batching_challenge_labels.push_back("rho_" + std::to_string(unshifted_comms.size() - 1 + idx));
-    }
+    // Get short batching challenges from transcript
+    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
+    // cleaner, we generate it nonetheless
+    Challenges challenges;
+    auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+    std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
+    challenges.get(ColumnAndShifts::precomputed_clk) = FF(1);
+    auto unshifted_challenges = challenges.get_unshifted();
+    auto shifted_challenges = challenges.get_to_be_shifted();
 
-    // Get short (128-bit) batching challenges from transcript
-    auto unshifted_challenges = transcript->template get_challenges<FF>(unshifted_batching_challenge_labels);
-    auto shifted_challenges = transcript->template get_challenges<FF>(shifted_batching_challenge_labels);
+    // Batch to be shifted commitments
+    Commitment batched_shifted =
+        Commitment::batch_mul(std::vector<Commitment>(shifted_comms.begin(), shifted_comms.end()),
+                              std::vector<FF>(shifted_challenges.begin(), shifted_challenges.end()),
+                              128);
 
-    // Batch commitments: first commitment has coefficient 1, rest are batched with challenges
-    Commitment squashed_unshifted =
-        unshifted_comms[0] +
+    // Batch unshifted commitments: ColumnAndShifts::precomputed_clk has coefficient 1, rest are batched with
+    // challenges. We reuse the calculation performed for shifted commitments.
+    Commitment batched_unshifted =
         Commitment::batch_mul(
-            std::vector<Commitment>(unshifted_comms.begin() + 1, unshifted_comms.end()), unshifted_challenges, 128);
+            std::vector<Commitment>(unshifted_comms.begin(), unshifted_comms.begin() + WIRES_TO_BE_SHIFTED_START_IDX),
+            std::vector<FF>(unshifted_challenges.begin(), unshifted_challenges.begin() + WIRES_TO_BE_SHIFTED_START_IDX),
+            128) +
+        Commitment::batch_mul(
+            std::vector<Commitment>(unshifted_comms.begin() + WIRES_TO_BE_SHIFTED_END_IDX, unshifted_comms.end()),
+            std::vector<FF>(unshifted_challenges.begin() + WIRES_TO_BE_SHIFTED_END_IDX, unshifted_challenges.end()),
+            128) +
+        batched_shifted;
 
-    Commitment squashed_shifted = Commitment::batch_mul(
-        std::vector<Commitment>(shifted_comms.begin(), shifted_comms.end()), shifted_challenges, 128);
+    // Batch evaluations
+    FF batched_unshifted_eval =
+        std::inner_product(unshifted_challenges.begin(), unshifted_challenges.end(), unshifted_evals.begin(), FF(0));
 
-    // Batch evaluations: compute inner product with first eval as initial value for unshifted
-    FF squashed_unshifted_eval = std::inner_product(
-        unshifted_challenges.begin(), unshifted_challenges.end(), unshifted_evals.begin() + 1, unshifted_evals[0]);
-
-    FF squashed_shifted_eval =
+    FF batched_shifted_eval =
         std::inner_product(shifted_challenges.begin(), shifted_challenges.end(), shifted_evals.begin(), FF(0));
 
-    // Execute Shplemini rounds with squashed claims
-    ClaimBatcher squashed_claim_batcher{ .unshifted = ClaimBatch{ .commitments = RefVector(squashed_unshifted),
-                                                                  .evaluations = RefVector(squashed_unshifted_eval) },
-                                         .shifted = ClaimBatch{ .commitments = RefVector(squashed_shifted),
-                                                                .evaluations = RefVector(squashed_shifted_eval) } };
-    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        padding_indicator_array, squashed_claim_batcher, output.challenge, Commitment::one(&builder), transcript);
+    // Execute Shplemini rounds with batched claims
+    ClaimBatcher batched_claim_batcher{ .unshifted = ClaimBatch{ .commitments = RefVector(batched_unshifted),
+                                                                 .evaluations = RefVector(batched_unshifted_eval) },
+                                        .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted),
+                                                               .evaluations = RefVector(batched_shifted_eval) } };
+    auto opening_claim =
+        Shplemini::compute_batch_opening_claim(
+            padding_indicator_array, batched_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
+            .batch_opening_claim;
 
-    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
 
     if (builder.failed()) {
         info("AVM Recursive verifier builder failed with error: ", builder.err());
     }
 
+    is_verification_complete = true;
+
     return pairing_points;
 }
+
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+{
+    if (!is_verification_complete) {
+        throw_or_abort("Transcript can only be hashed after verification is complete");
+    }
+    return Transcript::hash_avm_transcript(transcript, stdlib_proof);
+};
 
 } // namespace bb::avm2

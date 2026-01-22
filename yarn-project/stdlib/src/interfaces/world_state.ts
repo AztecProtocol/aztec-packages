@@ -1,3 +1,4 @@
+import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
 import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 
 import { z } from 'zod';
@@ -18,10 +19,10 @@ export enum WorldStateRunningState {
 }
 
 export interface WorldStateSyncStatus {
-  latestBlockNumber: number;
+  latestBlockNumber: BlockNumber;
   latestBlockHash: string;
-  finalizedBlockNumber: number;
-  oldestHistoricBlockNumber: number;
+  finalizedBlockNumber: BlockNumber;
+  oldestHistoricBlockNumber: BlockNumber;
   treesAreSynched: boolean;
 }
 
@@ -41,18 +42,28 @@ export interface WorldStateSynchronizerStatus {
 
 /** Provides writeable forks of the world state at a given block number. */
 export interface ForkMerkleTreeOperations {
-  /** Forks the world state at the given block number, defaulting to the latest one. */
-  fork(block?: number): Promise<MerkleTreeWriteOperations>;
-
-  /** Gets a handle that allows reading the state as it was at the given block number. */
-  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+  /**
+   * Forks the world state at the given block number, defaulting to the latest one.
+   * @param block - The block number to fork at.
+   * @param opts - Optional parameters:
+   *  - closeDelayMs: number of milliseconds to wait before closing the fork on dispose.
+   */
+  fork(block?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations>;
 
   /** Backups the db to the target path. */
   backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;
 }
 
+export interface ReadonlyWorldStateAccess {
+  /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
+  getCommitted(): MerkleTreeReadOperations;
+
+  /** Gets a handle that allows reading the state as it was at the given block number. */
+  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+}
+
 /** Defines the interface for a world state synchronizer. */
-export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
+export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMerkleTreeOperations {
   /** Starts the synchronizer. */
   start(): Promise<void | PromiseWithResolvers<void>>;
 
@@ -74,19 +85,16 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
    * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  syncImmediate(minBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number>;
-
-  /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
-  getCommitted(): MerkleTreeReadOperations;
+  syncImmediate(minBlockNumber?: BlockNumber, skipThrowIfTargetNotReached?: boolean): Promise<BlockNumber>;
 
   /** Deletes the db */
   clear(): Promise<void>;
 }
 
-export const WorldStateSyncStatusSchema = z.object({
-  finalizedBlockNumber: z.number().int().nonnegative(),
-  latestBlockNumber: z.number().int().nonnegative(),
+export const WorldStateSyncStatusSchema: z.ZodType<WorldStateSyncStatus, z.ZodTypeDef, any> = z.object({
+  finalizedBlockNumber: BlockNumberSchema,
+  latestBlockNumber: BlockNumberSchema,
   latestBlockHash: z.string(),
-  oldestHistoricBlockNumber: z.number().int().nonnegative(),
+  oldestHistoricBlockNumber: BlockNumberSchema,
   treesAreSynched: z.boolean(),
-}) satisfies z.ZodType<WorldStateSyncStatus>;
+});

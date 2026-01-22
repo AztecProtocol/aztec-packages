@@ -1,7 +1,7 @@
 import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -27,6 +27,14 @@ export class CheckpointRollupPublicInputs {
      * Archive tree after adding this checkpoint range.
      */
     public newArchive: AppendOnlyTreeSnapshot,
+    /**
+     * The out hash tree snapshot immediately before this checkpoint range.
+     */
+    public previousOutHash: AppendOnlyTreeSnapshot,
+    /**
+     * The out hash tree snapshot after applying this checkpoint range.
+     */
+    public newOutHash: AppendOnlyTreeSnapshot,
     /**
      * The hashes of the headers of the constituent checkpoints.
      */
@@ -55,6 +63,8 @@ export class CheckpointRollupPublicInputs {
       reader.readObject(EpochConstantData),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       reader.readObject(BlobAccumulator),
@@ -68,6 +78,8 @@ export class CheckpointRollupPublicInputs {
       this.constants,
       this.previousArchive,
       this.newArchive,
+      this.previousOutHash,
+      this.newOutHash,
       this.checkpointHeaderHashes,
       this.fees,
       this.startBlobAccumulator,

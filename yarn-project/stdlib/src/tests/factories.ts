@@ -43,11 +43,15 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
-import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
+import { sha256 } from '@aztec/foundation/crypto/sha256';
+import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -83,7 +87,7 @@ import {
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { L2BlockHeader } from '../block/l2_block_header.js';
+import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
   ContractDeploymentData,
@@ -127,11 +131,12 @@ import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
+import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
-import { ProofData } from '../proofs/index.js';
+import { ProofData, ProofDataForFixedVk } from '../proofs/index.js';
 import { Proof } from '../proofs/proof.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
@@ -159,7 +164,6 @@ import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
@@ -169,6 +173,7 @@ import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { TxContext } from '../tx/tx_context.js';
+import { TxHash } from '../tx/tx_hash.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
@@ -435,7 +440,10 @@ function makeAvmAccumulatedDataArrayLengths(seed = 1) {
 }
 
 export function makeGas(seed = 1) {
-  return new Gas(seed, seed + 1);
+  // Constrain gas values to u32 range
+  const daGas = seed % 2 ** 32;
+  const l2Gas = (seed + 1) % 2 ** 32;
+  return new Gas(daGas, l2Gas);
 }
 
 /**
@@ -694,7 +702,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: seed + 2,
+    blockNumber: BlockNumber(seed + 2),
     slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
@@ -718,7 +726,9 @@ function makeFeeRecipient(seed = 1) {
  * @returns An append only tree snapshot.
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
-  return new AppendOnlyTreeSnapshot(fr(seed), seed);
+  // Constrain nextAvailableLeafIndex to u32 range
+  const nextAvailableLeafIndex = seed % 2 ** 32;
+  return new AppendOnlyTreeSnapshot(fr(seed), nextAvailableLeafIndex);
 }
 
 /**
@@ -826,7 +836,6 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeSpongeBlob(seed + 0x600),
     makeSpongeBlob(seed + 0x700),
     BigInt(seed + 0x800),
-    BigInt(seed + 0x810),
     fr(seed + 0x820),
     fr(seed + 0x830),
     fr(seed + 0x840),
@@ -840,11 +849,13 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeEpochConstantData(seed),
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x400),
-    makeBlobAccumulator(seed + 0x500),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    makeAppendOnlyTreeSnapshot(seed + 0x350),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeBlobAccumulator(seed + 0x600),
-    makeFinalBlobBatchingChallenges(seed + 0x700),
+    makeBlobAccumulator(seed + 0x700),
+    makeFinalBlobBatchingChallenges(seed + 0x800),
   );
 }
 
@@ -876,18 +887,12 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
     fr(seed + 0x100),
     fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
+    fr(seed + 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x400),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
     makeFinalBlobAccumulator(seed + 0x700),
   );
-}
-
-/**
- * Makes content commitment
- */
-export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
 export function makeBlockHeader(
@@ -905,38 +910,20 @@ export function makeBlockHeader(
   });
 }
 
-export function makeL2BlockHeader(
-  seed = 0,
-  blockNumber?: number,
-  slotNumber?: number,
-  overrides: Partial<FieldsOf<L2BlockHeader>> = {},
-) {
-  return new L2BlockHeader(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200),
-    overrides?.state ?? makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber } : {}),
-      ...(slotNumber ? { slotNumber: SlotNumber(slotNumber) } : {}),
-    }),
-    new Fr(seed + 0x800),
-    new Fr(seed + 0x900),
-    new Fr(seed + 0xa00),
-    new Fr(seed + 0xb00),
-  );
-}
-
-export function makeCheckpointHeader(seed = 0) {
+export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<CheckpointHeader>> = {}) {
   return CheckpointHeader.from({
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
-    contentCommitment: makeContentCommitment(seed + 0x200),
+    blobsHash: fr(seed + 0x200),
+    inHash: fr(seed + 0x210),
+    epochOutHash: fr(seed + 0x220),
     slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),
     coinbase: makeEthAddress(seed + 0x500),
     feeRecipient: makeAztecAddress(seed + 0x600),
     gasFees: makeGasFees(seed + 0x700),
     totalManaUsed: fr(seed + 0x800),
+    ...overrides,
   });
 }
 
@@ -977,7 +964,7 @@ function makeCountedL2ToL1Message(seed = 0) {
   return new CountedL2ToL1Message(makeL2ToL1Message(seed), seed + 2);
 }
 
-function makeScopedL2ToL1Message(seed = 1) {
+export function makeScopedL2ToL1Message(seed = 1) {
   return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
@@ -1121,6 +1108,14 @@ export function makeProofData<T extends Bufferable, PROOF_LENGTH extends number>
   );
 }
 
+function makeProofDataForFixedVk<T extends Bufferable, PROOF_LENGTH extends number>(
+  seed = 0,
+  makePublicInputs: (seed: number) => T,
+  proofSize: PROOF_LENGTH = NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH as PROOF_LENGTH,
+) {
+  return new ProofDataForFixedVk(makePublicInputs(seed), makeRecursiveProof<PROOF_LENGTH>(proofSize, seed + 0x100));
+}
+
 function makeContractClassLogFields(seed = 1) {
   return new ContractClassLogFields(makeArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, fr, seed));
 }
@@ -1173,7 +1168,11 @@ export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
     makePublicChonkVerifierPublicInputs,
     RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   );
-  const avmProofData = makeProofData(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+  const avmProofData = makeProofDataForFixedVk(
+    seed + 0x100,
+    makeAvmCircuitPublicInputs,
+    AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  );
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({
@@ -1674,4 +1673,87 @@ export async function makeAvmCircuitInputs(
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/**
+ * Creates a random TxScopedL2Log with private log data.
+ */
+export function randomTxScopedPrivateL2Log(opts?: {
+  tag?: Fr;
+  txHash?: TxHash;
+  blockNumber?: number;
+  blockTimestamp?: bigint;
+  noteHashes?: Fr[];
+  firstNullifier?: Fr;
+}) {
+  const log = PrivateLog.random(opts?.tag);
+  return new TxScopedL2Log(
+    opts?.txHash ?? TxHash.random(),
+    BlockNumber(opts?.blockNumber ?? 1),
+    opts?.blockTimestamp ?? 1n,
+    log.getEmittedFields(),
+    opts?.noteHashes ?? [Fr.random(), Fr.random()],
+    opts?.firstNullifier ?? Fr.random(),
+  );
+}
+
+/**
+ * Creates a random TxScopedL2Log with public log data.
+ */
+export async function randomTxScopedPublicL2Log(opts?: {
+  txHash?: TxHash;
+  blockNumber?: number;
+  blockTimestamp?: bigint;
+  noteHashes?: Fr[];
+  firstNullifier?: Fr;
+}) {
+  const log = await PublicLog.random();
+  return new TxScopedL2Log(
+    opts?.txHash ?? TxHash.random(),
+    BlockNumber(opts?.blockNumber ?? 1),
+    opts?.blockTimestamp ?? 1n,
+    log.getEmittedFields(),
+    opts?.noteHashes ?? [Fr.random(), Fr.random()],
+    opts?.firstNullifier ?? Fr.random(),
+  );
+}
+
+/**
+ * Creates L2Tips with all tips pointing to the same block number.
+ * Useful for mocking aztecNode.getL2Tips() in tests.
+ * @param blockNumber - The block number to use for all tips.
+ * @param hash - Optional hash for the block (defaults to empty string).
+ * @param checkpointNumber - Optional checkpoint number (defaults to blockNumber).
+ * @param checkpointHash - Optional checkpoint hash (defaults to block hash).
+ * @returns L2Tips object with all tips at the same block.
+ */
+export function makeL2Tips(
+  blockNumber: number | BlockNumber,
+  hash = '',
+  checkpointNumber?: number | CheckpointNumber,
+  checkpointHash?: string,
+): L2Tips {
+  const bn = typeof blockNumber === 'number' ? BlockNumber(blockNumber) : blockNumber;
+  const cpn =
+    checkpointNumber !== undefined
+      ? typeof checkpointNumber === 'number'
+        ? CheckpointNumber(checkpointNumber)
+        : checkpointNumber
+      : CheckpointNumber.fromBlockNumber(bn);
+  const cph = checkpointHash ?? hash;
+  return {
+    proposed: { number: bn, hash },
+    checkpointed: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    proven: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+    finalized: {
+      block: { number: bn, hash },
+      checkpoint: { number: cpn, hash: cph },
+    },
+  };
 }

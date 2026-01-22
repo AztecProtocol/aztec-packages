@@ -1,4 +1,128 @@
 use super::TestBuilder;
+use types::{
+    abis::fee_recipient::FeeRecipient, address::EthAddress,
+    constants::CHECKPOINT_MERGE_ROLLUP_VK_INDEX, tests::utils::pad_end, traits::Empty,
+};
+
+// -- checkpoint header hashes ---
+
+#[test]
+fn accumulated_checkpoint_header_hashes_from_both_sides() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let checkpoint_header_hashes = [123, 456, 7890, 12345];
+
+    builder.left_rollup.checkpoint_header_hashes[0] = checkpoint_header_hashes[0];
+    builder.left_rollup.checkpoint_header_hashes[1] = checkpoint_header_hashes[1];
+    builder.right_rollup.checkpoint_header_hashes[0] = checkpoint_header_hashes[2];
+    builder.right_rollup.checkpoint_header_hashes[1] = checkpoint_header_hashes[3];
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.checkpoint_header_hashes, pad_end(checkpoint_header_hashes));
+}
+
+// --- fees ---
+
+fn mock_fee(recipient: Field, value: Field) -> FeeRecipient {
+    FeeRecipient { recipient: EthAddress::from_field(recipient), value }
+}
+
+#[test]
+fn accumulated_fees_from_both_side() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let fees = [mock_fee(11, 23), mock_fee(456, 7), mock_fee(8, 90), mock_fee(1234, 56789)];
+
+    builder.left_rollup.fees[0] = fees[0];
+    builder.left_rollup.fees[1] = fees[1];
+    builder.right_rollup.fees[0] = fees[2];
+    builder.right_rollup.fees[1] = fees[3];
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.fees, pad_end(fees));
+}
+
+#[test]
+fn preserve_empty_fees_from_left() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let fees = [mock_fee(0, 0), mock_fee(11, 23), mock_fee(456, 7), mock_fee(8, 90)];
+
+    builder.left_rollup.fees[0] = FeeRecipient::empty();
+    builder.left_rollup.fees[1] = fees[1];
+    builder.right_rollup.fees[0] = fees[2];
+    builder.right_rollup.fees[1] = fees[3];
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.fees, pad_end(fees));
+}
+
+#[test]
+fn preserve_empty_fees_from_right() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let fees = [mock_fee(11, 23), mock_fee(456, 7), mock_fee(0, 0), mock_fee(8, 90)];
+
+    builder.left_rollup.fees[0] = fees[0];
+    builder.left_rollup.fees[1] = fees[1];
+    builder.right_rollup.fees[0] = FeeRecipient::empty();
+    builder.right_rollup.fees[1] = fees[3];
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.fees, pad_end(fees));
+}
+
+#[test]
+fn preserve_empty_fees_from_both_sides() {
+    let mut builder = TestBuilder::new(
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
+        2,
+    );
+
+    let fees = [mock_fee(11, 23), mock_fee(0, 0), mock_fee(0, 0), mock_fee(456, 7)];
+
+    builder.left_rollup.fees[0] = fees[0];
+    builder.left_rollup.fees[1] = FeeRecipient::empty();
+    builder.right_rollup.fees[0] = FeeRecipient::empty();
+    builder.right_rollup.fees[1] = fees[3];
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    assert_eq(pi.fees, pad_end(fees));
+}
+
+// -- constants ---
 
 #[test]
 fn correct_default_inputs() {
@@ -69,6 +193,8 @@ fn mismatch_prover_id() {
     builder.execute_and_fail();
 }
 
+// --- archives ---
+
 #[test(should_fail_with = "Mismatched archives: expected right.previous_archive to match left.new_archive")]
 fn non_consecutive_archive_roots() {
     let mut builder = TestBuilder::default();
@@ -88,6 +214,30 @@ fn non_consecutive_archive_next_available_leaf_indices() {
 
     builder.execute_and_fail();
 }
+
+// --- out hashes ---
+
+#[test(should_fail_with = "Mismatched out hashes: expected right.previous_out_hash to match left.new_out_hash")]
+fn non_consecutive_out_hash_roots() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the previous out hash root of the right rollup.
+    builder.right_rollup.previous_out_hash.root += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Mismatched out hashes: expected right.previous_out_hash to match left.new_out_hash")]
+fn non_consecutive_out_hash_next_available_leaf_indices() {
+    let mut builder = TestBuilder::default();
+
+    // Tweak the next_available_leaf_index of the right rollup.
+    builder.right_rollup.previous_out_hash.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+// --- blob accumulators ---
 
 #[test(should_fail_with = "Mismatched blob accumulators: expected right.start_blob_accumulator to match left.end_blob_accumulator")]
 fn non_consecutive_blob_accumulators() {
