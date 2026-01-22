@@ -1,14 +1,15 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
 import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
-import { NativeWorldStateService } from '@aztec/world-state/native';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import path from 'path';
@@ -32,7 +33,7 @@ import {
 
 jest.setTimeout(120_000);
 
-const logger = createLogger('ivc-integration:test:avm-integration');
+let logger: Logger;
 
 const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   skipFeeEnforcement: false,
@@ -87,6 +88,7 @@ describe('AVM Integration', () => {
   let simTester: PublicTxSimulationTester;
 
   beforeAll(async () => {
+    logger = createLogger('ivc-integration:test:avm-integration');
     const barretenberg = await Barretenberg.initSingleton({
       threads: 16,
       // logger: (m: string) => logger.info(m),
@@ -109,7 +111,7 @@ describe('AVM Integration', () => {
     //Create a temp working dir
     bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
 
-    worldStateService = await NativeWorldStateService.tmp();
+    worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     simTester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined, // default

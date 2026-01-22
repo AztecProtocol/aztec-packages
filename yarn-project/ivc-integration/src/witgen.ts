@@ -5,7 +5,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { type ForeignCallInput, type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
@@ -93,8 +93,6 @@ export {
 
 /* eslint-disable camelcase */
 
-const log = createLogger('aztec:ivc-test');
-
 export async function getVkAsFields({
   keyAsFields,
 }: {
@@ -107,18 +105,25 @@ export async function getVkAsFields({
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
 
-function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
-  if (name === 'debugLog') {
-    assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');
-    const [msgRaw, _ignoredFieldsSize, fields] = args;
-    const msg: string = msgRaw.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
-    const fieldsFr: Fr[] = fields.map((field: string) => Fr.fromString(field));
-    log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
-  } else {
-    throw new Error('Unexpected foreign call');
-  }
-  return Promise.resolve([]);
+function createForeignCallHandler(
+  log?: Logger,
+): (name: string, args: ForeignCallInput[]) => Promise<ForeignCallOutput[]> {
+  return (name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> => {
+    if (name === 'debugLog') {
+      assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');
+      const [msgRaw, _ignoredFieldsSize, fields] = args;
+      const msg: string = msgRaw.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
+      const fieldsFr: Fr[] = fields.map((field: string) => Fr.fromString(field));
+      log?.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
+    } else {
+      throw new Error('Unexpected foreign call');
+    }
+    return Promise.resolve([]);
+  };
 }
+
+/** Creates a foreign call handler for Noir circuits. */
+const foreignCallHandler = createForeignCallHandler();
 
 export interface WitnessGenResult<PublicInputsType> {
   witness: Uint8Array;

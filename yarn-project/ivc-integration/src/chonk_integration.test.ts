@@ -1,5 +1,5 @@
 import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { ungzip } from 'pako';
@@ -12,7 +12,7 @@ import {
   generateTestingIVCStack,
 } from './witgen.js';
 
-const logger = createLogger('ivc-integration:test:wasm');
+let logger: Logger;
 
 jest.setTimeout(180_000);
 
@@ -21,6 +21,8 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
     let barretenberg: Barretenberg;
 
     beforeAll(async () => {
+      logger = createLogger('ivc-integration:test:wasm');
+
       barretenberg = await Barretenberg.initSingleton({
         backend,
         threads: 16,

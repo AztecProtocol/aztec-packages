@@ -27,7 +27,7 @@
  *   cd yarn-project/ivc-integration
  *   yarn test client_ivc_browser.test.ts
  */
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { execSync } from 'child_process';
@@ -37,7 +37,7 @@ import { dirname, join } from 'path';
 import puppeteer, { Browser } from 'puppeteer';
 import { fileURLToPath } from 'url';
 
-const logger = createLogger('ivc-integration:test:browser');
+let logger: Logger;
 
 // Get project paths
 const __filename = fileURLToPath(import.meta.url);
@@ -52,6 +52,8 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
   let serverUrl: string;
 
   beforeAll(async () => {
+    logger = createLogger('ivc-integration:test:browser');
+
     // Ensure webpack build exists
     const distPath = join(projectRoot, 'dist');
     if (!existsSync(join(distPath, 'index.js'))) {

@@ -1,14 +1,15 @@
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
 import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS, ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
-import { NativeWorldStateService } from '@aztec/world-state/native';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import path from 'path';
@@ -36,7 +37,7 @@ import {
 
 jest.setTimeout(150_000);
 
-const logger = createLogger('ivc-integration:test:rollup-native');
+let logger: Logger;
 
 const simConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
   skipFeeEnforcement: false,
@@ -58,6 +59,7 @@ describe('Rollup IVC Integration', () => {
   let workingDirectory: string;
 
   beforeAll(async () => {
+    logger = createLogger('ivc-integration:test:rollup-native');
     const barretenberg = await Barretenberg.initSingleton({
       threads: 16,
       // logger: (m: string) => logger.info(m),
@@ -80,7 +82,7 @@ describe('Rollup IVC Integration', () => {
     // Create an AVM proof
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
-    const worldStateService = await NativeWorldStateService.tmp();
+    const worldStateService = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     const simTester = await PublicTxSimulationTester.create(
       worldStateService,
       /*globals=*/ undefined, // default
