@@ -25,13 +25,13 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     #[STORAGE_READ]
     sel_execute_sload {
-        register[1], // Contract address from memory
         register[0], // Slot
+        register[1], // Contract address from memory
         register[2], // Value (output)
         prev_public_data_tree_root // From context
     } in public_data_check.sel {
-        public_data_check.address,
         public_data_check.slot,
+        public_data_check.address,
         public_data_check.value,
         public_data_check.root
     };
