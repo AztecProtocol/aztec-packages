@@ -4,6 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -11,6 +12,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
+
+const logger = createLogger('test:epoch-cache');
 
 class TestEpochCache extends EpochCache {
   public seedCache(epoch: EpochNumber, committeeInfo: EpochCommitteeInfo): void {
@@ -76,7 +79,7 @@ describe('EpochCache', () => {
       lagInEpochsForRandao: 2,
     };
 
-    epochCache = new TestEpochCache(rollupContract, testConstants);
+    epochCache = new TestEpochCache(rollupContract, testConstants, logger);
     // Initialize the cache with the initial epoch's committee
     epochCache.seedCache(EpochNumber(0), {
       epoch: EpochNumber(0),

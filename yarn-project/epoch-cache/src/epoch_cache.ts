@@ -2,7 +2,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { NoCommitteeError, RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import {
   type L1RollupConstants,
@@ -61,7 +61,7 @@ export class EpochCache implements EpochCacheInterface {
   protected cache: Map<EpochNumber, EpochCommitteeInfo> = new Map();
   private allValidators: Set<string> = new Set();
   private lastValidatorRefresh = 0;
-  private readonly log: Logger = createLogger('epoch-cache');
+  private readonly log: Logger;
 
   constructor(
     private rollup: RollupContract,
@@ -69,9 +69,11 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForValidatorSet: number;
       lagInEpochsForRandao: number;
     },
+    log: Logger,
     private readonly dateProvider: DateProvider = new DateProvider(),
     protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
+    this.log = log;
     this.log.debug(`Initialized EpochCache`, {
       l1constants,
     });
@@ -79,8 +81,8 @@ export class EpochCache implements EpochCacheInterface {
 
   static async create(
     rollupOrAddress: EthAddress | RollupContract,
-    config?: EpochCacheConfig,
-    deps: { dateProvider?: DateProvider } = {},
+    config: EpochCacheConfig | undefined,
+    deps: { dateProvider?: DateProvider; logger: Logger },
   ) {
     config = config ?? getEpochCacheConfigEnvVars();
 
@@ -95,7 +97,7 @@ export class EpochCache implements EpochCacheInterface {
         transport: fallback(config.l1RpcUrls.map(url => http(url, { batch: false }))),
         pollingInterval: config.viemPollingIntervalMS,
       });
-      rollup = new RollupContract(publicClient, rollupOrAddress.toString());
+      rollup = new RollupContract(publicClient, rollupOrAddress.toString(), deps.logger.createChild('rollup'));
     }
 
     const [
@@ -127,7 +129,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForRandao: Number(lagInEpochsForRandao),
     };
 
-    return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);
+    return new EpochCache(rollup, l1RollupConstants, deps.logger, deps.dateProvider);
   }
 
   public getL1Constants(): L1RollupConstants {
