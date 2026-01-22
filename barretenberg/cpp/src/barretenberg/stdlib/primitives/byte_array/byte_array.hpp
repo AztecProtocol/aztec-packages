@@ -99,8 +99,8 @@ template <typename Builder> class byte_array {
 
     bb::OriginTag get_origin_tag() const
     {
-        bb::OriginTag tag{};
-        tag.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+        bb::OriginTag tag =
+            bb::OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (auto& value : values) {
             tag = bb::OriginTag(tag, value.tag);
         }

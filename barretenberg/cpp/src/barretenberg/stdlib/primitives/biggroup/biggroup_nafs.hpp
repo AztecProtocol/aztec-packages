@@ -498,8 +498,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             // If the number of rounds is ≤ (2 * Fr::NUM_LIMB_BITS), the high bits of the resulting Fr element are 0.
             field_ct zero = field_ct::from_witness_index(builder, builder->zero_idx());
             // The zero_idx is a constant zero, so set the CONSTANT tag to allow merging with origin-tagged elements
-            auto const_tag = OriginTag();
-            const_tag.set_constant();
+            auto const_tag = OriginTag::constant();
             zero.set_origin_tag(const_tag);
             lo_accumulators = reconstruct_half_naf(&naf_entries[0], num_rounds);
             hi_accumulators = std::make_pair(zero, zero);

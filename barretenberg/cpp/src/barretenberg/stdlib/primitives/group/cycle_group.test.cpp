@@ -1398,8 +1398,7 @@ TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
  */
 template <typename T1, typename T2> auto assign_and_merge_tags(T1& points, T2& scalars)
 {
-    OriginTag merged_tag;
-    merged_tag.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+    OriginTag merged_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (size_t i = 0; i < points.size(); i++) {
         const auto point_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/true);
         const auto scalar_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/false);

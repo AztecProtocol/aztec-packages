@@ -156,7 +156,7 @@ template <typename Builder_> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {
-        tag.set_constant();
+        tag = OriginTag::constant();
     }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
@@ -166,7 +166,7 @@ template <typename Builder_> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {
-        tag.set_constant();
+        tag = OriginTag::constant();
     }
 
     field_t(const unsigned int value)
@@ -175,7 +175,7 @@ template <typename Builder_> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {
-        tag.set_constant();
+        tag = OriginTag::constant();
     }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
@@ -185,7 +185,7 @@ template <typename Builder_> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {
-        tag.set_constant();
+        tag = OriginTag::constant();
     }
 
     // Construct a constant circuit element from a native field element
@@ -195,7 +195,7 @@ template <typename Builder_> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {
-        tag.set_constant();
+        tag = OriginTag::constant();
     }
 
     // Construct a constant circuit element from a uint256t, that is implicitly converted to a native field element
@@ -205,7 +205,7 @@ template <typename Builder_> class field_t {
         , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {
-        tag.set_constant();
+        tag = OriginTag::constant();
     }
 
     field_t(const witness_t<Builder>& value);

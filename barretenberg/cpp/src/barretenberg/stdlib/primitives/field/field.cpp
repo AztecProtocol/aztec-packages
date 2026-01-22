@@ -24,7 +24,7 @@ field_t<Builder>::field_t(Builder* parent_context)
     , multiplicative_constant(bb::fr::one())
     , witness_index(IS_CONSTANT)
 {
-    tag.set_constant();
+    tag = OriginTag::constant();
 }
 
 template <typename Builder>
@@ -44,7 +44,7 @@ field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     , multiplicative_constant(bb::fr::one())
     , witness_index(IS_CONSTANT)
 {
-    tag.set_constant();
+    tag = OriginTag::constant();
 }
 
 template <typename Builder>
@@ -952,8 +952,7 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
         // (e.g., proving 2 separate properties about same object through 2 different transcripts)
         const auto lhs_original_tag = lhs.get_origin_tag();
         const auto rhs_original_tag = rhs.get_origin_tag();
-        auto empty_tag = OriginTag();
-        empty_tag.set_constant(); // Use CONSTANT tag to disable origin checking during intermediate operations
+        auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
         lhs.set_origin_tag(empty_tag);
         rhs.set_origin_tag(empty_tag);
 
@@ -1281,8 +1280,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
                          accumulator[3 * last_gate_idx + 1].additive_constant +
                          accumulator[3 * last_gate_idx + 2].additive_constant,
     });
-    OriginTag new_tag{};
-    new_tag.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+    OriginTag new_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (const auto& single_input : input) {
         new_tag = OriginTag(new_tag, single_input.tag);
     }

@@ -1464,8 +1464,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         fr scalar_c(6);
         std::vector<fr> input_scalars = { scalar_a, scalar_b, scalar_c };
 
-        OriginTag tag_union{};
-        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         std::vector<scalar_ct> scalars;
         std::vector<element_ct> points;
         for (size_t i = 0; i < 3; ++i) {
@@ -1621,8 +1621,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             circuit_points.push_back(P);
         }
 
-        OriginTag tag_union{};
-        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             // Set tag to submitted value tag at round i
             circuit_points[i].set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/i, /*is_submitted=*/true));
@@ -1680,8 +1680,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
-        OriginTag tag_union{};
-        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1730,8 +1730,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
 
-        OriginTag tag_union{};
-        tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+        OriginTag tag_union =
+            OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
         for (size_t i = 0; i < num_points; ++i) {
             circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1785,8 +1785,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
 
-            OriginTag tag_union{};
-            tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+            OriginTag tag_union =
+                OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1846,8 +1846,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
 
-            OriginTag tag_union{};
-            tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+            OriginTag tag_union =
+                OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 
@@ -1895,8 +1895,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
-            OriginTag tag_union{};
-            tag_union.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+            OriginTag tag_union =
+                OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
                 circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
 

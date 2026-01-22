@@ -1274,8 +1274,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     bool add_constant = true;
     std::vector<bigfield> new_to_add;
 
-    OriginTag new_tag{};
-    new_tag.set_constant(); // Initialize as CONSTANT so merging with input tags works correctly
+    OriginTag new_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     // Merge all tags. Do it in pairs (logically a submitted value can be masked by a challenge)
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
         new_tag = OriginTag(new_tag, OriginTag(left_element.get_origin_tag(), right_element.get_origin_tag()));
@@ -1970,8 +1969,7 @@ void bigfield<Builder, T>::assert_equal(const bigfield& other, std::string const
         // Remove tags, we don't want to cause violations on assert_equal
         const auto original_tag = get_origin_tag();
         const auto other_original_tag = other.get_origin_tag();
-        auto empty_tag = OriginTag();
-        empty_tag.set_constant(); // Use CONSTANT tag to disable origin checking during intermediate operations
+        auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
         set_origin_tag(empty_tag);
         other.set_origin_tag(empty_tag);
 
@@ -2545,8 +2543,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             field_t<Builder> hi_2 = field_t<Builder>::from_witness_index(ctx, hi_2_idx);
             // Set CONSTANT tags so these intermediate results are absorbed during tag merging
             // The final tag will come from the remainders which have properly merged tags from mult_madd
-            auto const_tag = OriginTag();
-            const_tag.set_constant();
+            auto const_tag = OriginTag::constant();
             lo_2.set_origin_tag(const_tag);
             hi_2.set_origin_tag(const_tag);
 

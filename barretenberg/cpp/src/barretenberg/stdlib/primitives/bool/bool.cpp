@@ -22,7 +22,7 @@ template <typename Builder>
 bool_t<Builder>::bool_t(const bool value)
     : witness_bool(value)
 {
-    tag.set_constant();
+    tag = OriginTag::constant();
 }
 
 /**
@@ -32,7 +32,7 @@ template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context)
     : context(parent_context)
 {
-    tag.set_constant();
+    tag = OriginTag::constant();
 }
 
 /**
@@ -69,7 +69,7 @@ bool_t<Builder>::bool_t(Builder* parent_context, const bool value)
     : context(parent_context)
     , witness_bool(value)
 {
-    tag.set_constant();
+    tag = OriginTag::constant();
 }
 
 /**
@@ -126,7 +126,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     witness_index = IS_CONSTANT;
     witness_bool = other;
     witness_inverted = false;
-    tag.set_constant();
+    tag = OriginTag::constant();
     return *this;
 }
 
@@ -452,8 +452,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
         // (e.g., proving 2 separate properties about same object through 2 different transcripts)
         const auto lhs_original_tag = lhs.get_origin_tag();
         const auto rhs_original_tag = rhs.get_origin_tag();
-        auto empty_tag = OriginTag();
-        empty_tag.set_constant(); // Use CONSTANT tag to disable origin checking during intermediate operations
+        auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
         lhs.set_origin_tag(empty_tag);
         rhs.set_origin_tag(empty_tag);
 
