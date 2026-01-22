@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
 
 import cors from '@koa/cors';
@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import { type Faucet, ThrottleError } from './faucet.js';
 
-export function createFaucetHttpServer(faucet: Faucet, apiPrefix = '', logger = createLogger('aztec:faucet:http')) {
+export function createFaucetHttpServer(faucet: Faucet, apiPrefix: string, logger: Logger) {
   const router = new Router({ prefix: `${apiPrefix}` });
   router.get('/drip/:address', async ctx => {
     const { address } = ctx.params;

@@ -12,8 +12,8 @@ const logger = createLogger('aztec:faucet:http');
  */
 async function main() {
   const config = getFaucetConfigFromEnv();
-  const faucet = await Faucet.create(config);
-  const httpServer = createFaucetHttpServer(faucet, '/', logger);
+  const faucet = await Faucet.create(config, logger);
+  const httpServer = createFaucetHttpServer(faucet, '/', logger.createChild('http'));
   const port = parseInt(process.env?.AZTEC_PORT ?? '', 10) || 8080;
   httpServer.listen(port);
   logger.info(`Aztec Faucet listening on port ${port}`);

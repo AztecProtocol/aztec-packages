@@ -2,7 +2,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
 import {
@@ -33,21 +33,21 @@ export class Faucet {
   constructor(
     private config: FaucetConfig,
     private account: LocalAccount,
+    private log: Logger,
     private timeFn: () => number = Date.now,
-    private log = createLogger('aztec:faucet'),
   ) {
     const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
     this.l1Client = createExtendedL1Client(config.l1RpcUrls, this.account, chain.chainInfo);
   }
 
-  public static async create(config: FaucetConfig): Promise<Faucet> {
+  public static async create(config: FaucetConfig, log: Logger): Promise<Faucet> {
     if (!config.l1Mnemonic || !config.l1Mnemonic.getValue()) {
       throw new Error('Missing faucet mnemonic');
     }
 
     const account = mnemonicToAccount(config.l1Mnemonic.getValue(), { addressIndex: config.mnemonicAddressIndex });
-    const faucet = new Faucet(config, account);
+    const faucet = new Faucet(config, account, log);
 
     for (const asset of config.l1Assets) {
       await faucet.addL1Asset(asset);
