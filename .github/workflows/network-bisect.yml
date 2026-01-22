@@ -1,5 +1,6 @@
 # Network Bisect Workflow
 # Finds the commit that broke network tests using binary search.
+# Uses 5 sequential jobs (one per bisect step) to stay under 6hr job limit.
 name: Network Bisect
 
 on:
@@ -14,21 +15,24 @@ on:
         required: true
         type: string
       env_file:
-        description: "Network configuration (e.g., next-scenario)"
+        description: "Network configuration"
         required: false
         type: string
         default: next-scenario
 
 jobs:
-  bisect:
+  step-0:
     runs-on: ubuntu-latest
+    outputs:
+      good: ${{ steps.bisect.outputs.good }}
+      bad: ${{ steps.bisect.outputs.bad }}
+      culprit: ${{ steps.bisect.outputs.culprit }}
+      done: ${{ steps.bisect.outputs.done }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Run bisect
+      - name: Bisect step
         id: bisect
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -41,23 +45,163 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           NO_SPOT: 1
         run: |
-          ./spartan/scripts/network_bisect.ts "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" \
-            --env-file="${{ inputs.env_file }}"
+          ./spartan/scripts/network_bisect.ts step \
+            "${{ inputs.good_commit }}" "${{ inputs.bad_commit }}" \
+            --env-file="${{ inputs.env_file }}" >> $GITHUB_OUTPUT
 
-      - name: Notify Slack
-        if: always()
+  step-1:
+    needs: step-0
+    if: needs.step-0.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      good: ${{ steps.bisect.outputs.good }}
+      bad: ${{ steps.bisect.outputs.bad }}
+      culprit: ${{ steps.bisect.outputs.culprit }}
+      done: ${{ steps.bisect.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bisect step
+        id: bisect
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NO_SPOT: 1
+        run: |
+          ./spartan/scripts/network_bisect.ts step \
+            "${{ needs.step-0.outputs.good }}" "${{ needs.step-0.outputs.bad }}" \
+            --env-file="${{ inputs.env_file }}" >> $GITHUB_OUTPUT
+
+  step-2:
+    needs: [step-0, step-1]
+    if: needs.step-1.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      good: ${{ steps.bisect.outputs.good }}
+      bad: ${{ steps.bisect.outputs.bad }}
+      culprit: ${{ steps.bisect.outputs.culprit }}
+      done: ${{ steps.bisect.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bisect step
+        id: bisect
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NO_SPOT: 1
+        run: |
+          ./spartan/scripts/network_bisect.ts step \
+            "${{ needs.step-1.outputs.good }}" "${{ needs.step-1.outputs.bad }}" \
+            --env-file="${{ inputs.env_file }}" >> $GITHUB_OUTPUT
+
+  step-3:
+    needs: [step-0, step-1, step-2]
+    if: needs.step-2.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      good: ${{ steps.bisect.outputs.good }}
+      bad: ${{ steps.bisect.outputs.bad }}
+      culprit: ${{ steps.bisect.outputs.culprit }}
+      done: ${{ steps.bisect.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bisect step
+        id: bisect
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NO_SPOT: 1
+        run: |
+          ./spartan/scripts/network_bisect.ts step \
+            "${{ needs.step-2.outputs.good }}" "${{ needs.step-2.outputs.bad }}" \
+            --env-file="${{ inputs.env_file }}" >> $GITHUB_OUTPUT
+
+  step-4:
+    needs: [step-0, step-1, step-2, step-3]
+    if: needs.step-3.outputs.done != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      good: ${{ steps.bisect.outputs.good }}
+      bad: ${{ steps.bisect.outputs.bad }}
+      culprit: ${{ steps.bisect.outputs.culprit }}
+      done: ${{ steps.bisect.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bisect step
+        id: bisect
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NO_SPOT: 1
+        run: |
+          ./spartan/scripts/network_bisect.ts step \
+            "${{ needs.step-3.outputs.good }}" "${{ needs.step-3.outputs.bad }}" \
+            --env-file="${{ inputs.env_file }}" >> $GITHUB_OUTPUT
+
+  report:
+    needs: [step-0, step-1, step-2, step-3, step-4]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Report result
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
-          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then exit 0; fi
+          # Find the culprit from whichever step found it
+          culprit="${{ needs.step-0.outputs.culprit }}"
+          [ -z "$culprit" ] && culprit="${{ needs.step-1.outputs.culprit }}"
+          [ -z "$culprit" ] && culprit="${{ needs.step-2.outputs.culprit }}"
+          [ -z "$culprit" ] && culprit="${{ needs.step-3.outputs.culprit }}"
+          [ -z "$culprit" ] && culprit="${{ needs.step-4.outputs.culprit }}"
 
-          if [ "${{ job.status }}" = "success" ]; then
-            text="Network bisect completed. Check logs for culprit."
+          if [ -n "$culprit" ]; then
+            subject=$(git log -1 --format="%s" "$culprit" | head -c 80)
+            author=$(git log -1 --format="%an" "$culprit")
+            short=${culprit:0:7}
+            echo "CULPRIT FOUND: $short"
+            echo "  $subject"
+            echo "  Author: $author"
+
+            if [ -n "$SLACK_BOT_TOKEN" ]; then
+              curl -X POST https://slack.com/api/chat.postMessage \
+                -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                -H "Content-type: application/json" \
+                --data "{\"channel\":\"#alerts-next-scenario\",\"text\":\"Bisect found culprit: $short - $subject\\nAuthor: $author\\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            fi
           else
-            text="Network bisect failed or was cancelled."
+            echo "Bisect did not find culprit within 5 steps"
           fi
-
-          curl -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            --data "{\"channel\":\"#alerts-next-scenario\",\"text\":\"$text\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"

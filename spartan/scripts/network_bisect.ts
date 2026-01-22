@@ -184,6 +184,50 @@ function runTests(): boolean {
 }
 
 // ============================================================================
+// Single bisect step (for CI workflow)
+// ============================================================================
+
+function bisectStep(good: string, bad: string, envFile: string): void {
+  const commits = getCommitsBetween(good, bad);
+
+  if (commits.length === 0) {
+    console.log("No commits between good and bad");
+    console.log("done=true");
+    return;
+  }
+
+  if (commits.length === 1) {
+    const info = getCommitInfo(commits[0]);
+    console.log(`Culprit found: ${info.short} - ${info.subject}`);
+    console.log(`good=${good}`);
+    console.log(`bad=${bad}`);
+    console.log(`culprit=${commits[0]}`);
+    console.log(`done=true`);
+    return;
+  }
+
+  // Test midpoint
+  const mid = Math.floor((commits.length - 1) / 2);
+  const testCommit = commits[mid];
+  const info = getCommitInfo(testCommit);
+
+  console.log(`Testing ${info.short}: ${info.subject}`);
+  console.log(`${commits.length} commits remaining`);
+
+  const passed = runNetworkTest(testCommit, envFile, false);
+  console.log(`Result: ${passed ? "PASS" : "FAIL"}`);
+
+  if (passed) {
+    console.log(`good=${testCommit}`);
+    console.log(`bad=${bad}`);
+  } else {
+    console.log(`good=${good}`);
+    console.log(`bad=${testCommit}`);
+  }
+  console.log(`done=false`);
+}
+
+// ============================================================================
 // CLI
 // ============================================================================
 
@@ -194,8 +238,21 @@ function main() {
     process.exit(runTests() ? 0 : 1);
   }
 
+  if (args[0] === "step") {
+    if (args.length < 3) {
+      console.error("Usage: network_bisect.ts step <good_commit> <bad_commit> [--env-file=next-scenario]");
+      process.exit(1);
+    }
+    const good = args[1];
+    const bad = args[2];
+    const envFile = args.find(a => a.startsWith("--env-file="))?.split("=")[1] ?? "next-scenario";
+    bisectStep(good, bad, envFile);
+    return;
+  }
+
   if (args.length < 2) {
     console.log(`Usage: network_bisect.ts <good_commit> <bad_commit> [--env-file=next-scenario] [--dry-run]
+       network_bisect.ts step <good_commit> <bad_commit> [--env-file=next-scenario]
        network_bisect.ts test`);
     process.exit(1);
   }
