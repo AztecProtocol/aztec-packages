@@ -63,73 +63,13 @@ class AvmRecursiveFlavor {
 
     /**
      * @brief In-circuit representation of the verification key of the AVM. It is reconstructed by precomputed values
-     * and fixed as a constant of the circuit when the AVM verifier is constructed. The vk commitments are stored in the
-     * selectors of the circuit that contains an AVM verifier.
+     * and fixed as a constant of the circuit when the AVM verifier is constructed. The vk commitments and vk hash are
+     * stored in the selectors of the circuit that contains an AVM verifier.
      *
-     * @note While the base class has a pub_inputs_offset field, this is not used in the AVM verification algorithm, so
-     * we leave it default initialized to zero and don't copy this value in the selectors.
-     *
-     * @note As the serialization mode is set to NO_METADATA, the hash of the vk is computed by hashing only the
-     * commitments. This is ok because `log_circuit_size` and `num_public_inputs` are implicitly hard-coded in the
-     * verification algorithm.
      */
-    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
-                                                          NativeFlavor::PrecomputedEntities<Commitment>,
-                                                          NativeVerificationKey,
-                                                          VKSerializationMode::NO_METADATA> {
-      public:
-        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        {
-            log_circuit_size = FF(MAX_AVM_TRACE_LOG_SIZE);
-            num_public_inputs = FF(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
-            for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
-                comm = Commitment::from_witness(builder, native_comm);
-            }
-        }
+    using VerificationKey =
+        FixedStdlibVKAndHash_<CircuitBuilder, AvmFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
 
-        /**
-         * @brief Deserialize a verification key from a vector of field elements
-         *
-         * @param builder
-         * @param elements
-         */
-        VerificationKey(std::span<const FF> elements)
-        {
-            using Codec = stdlib::StdlibCodec<FF>;
-
-            log_circuit_size = FF(MAX_AVM_TRACE_LOG_SIZE);
-            num_public_inputs = FF(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
-
-            size_t num_frs_read = 0;
-
-            for (Commitment& comm : this->get_all()) {
-                comm = Codec::template deserialize_from_fields<Commitment>(
-                    elements.subspan(num_frs_read, NativeFlavor::NUM_FRS_COM));
-                num_frs_read += NativeFlavor::NUM_FRS_COM;
-            }
-        }
-
-        FF hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-
-        /**
-         * @brief Fixes witnesses of VK to be constants.
-         *
-         * @note There is no need to fix log circuit size and number of public inputs, as they are hard-coded in the
-         * verification algorithm:
-         *  - The verifier adds `AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH` to the transcript at the beginning of
-         *    the interaction, thus fixing the number of public inputs
-         *  - The verifier runs sumcheck for `MAX_AVM_TRACE_LOG_SIZE` rounds, thus fixing the log circuit size
-         */
-        void fix_witness()
-        {
-            for (Commitment& commitment : this->get_all()) {
-                commitment.fix_witness();
-            }
-        }
-    };
     template <typename Builder> class TemplatedTranscript : public StdlibTranscript<Builder> {
         using Base = StdlibTranscript<Builder>;
         using FF = stdlib::field_t<Builder>;
@@ -155,8 +95,8 @@ class AvmRecursiveFlavor {
             using Challenges = AllValues;
             Challenges challenges;
 
-            auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
-            auto native_vk_hash = native_vk->hash();
+            auto native_vk = std::make_shared<NativeVerificationKey>();
+            auto native_vk_hash = native_vk->get_hash();
             FF vk_hash = FF::from_witness(&builder, native_vk_hash);
             vk_hash.fix_witness();
 
@@ -198,7 +138,7 @@ class AvmRecursiveFlavor {
             [[maybe_unused]] const FF _initial_gate_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:gate_challenge");
 
-            for (size_t i = 0; i < native_vk->log_circuit_size; i++) {
+            for (size_t i = 0; i < MAX_AVM_TRACE_LOG_SIZE; i++) {
                 std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(i);
                 transcript->add_element_frs_to_hash_buffer(
                     round_univariate_label, proof_span.subspan(proof_idx, AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH));
@@ -216,7 +156,7 @@ class AvmRecursiveFlavor {
 
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
-            for (size_t i = 1; i < native_vk->log_circuit_size; ++i) {
+            for (size_t i = 1; i < MAX_AVM_TRACE_LOG_SIZE; ++i) {
                 transcript->add_element_frs_to_hash_buffer("Gemini:FOLD_" + std::to_string(i),
                                                            proof_span.subspan(proof_idx, num_frs_comm));
                 proof_idx += num_frs_comm;
@@ -224,7 +164,7 @@ class AvmRecursiveFlavor {
 
             [[maybe_unused]] const FF _gemini_evaluation_challenge = transcript->template get_challenge<FF>("Gemini:r");
 
-            for (size_t i = 1; i <= native_vk->log_circuit_size; ++i) {
+            for (size_t i = 1; i <= MAX_AVM_TRACE_LOG_SIZE; ++i) {
                 transcript->add_to_hash_buffer("Gemini:a_" + std::to_string(i), proof_span[proof_idx++]);
             }
 

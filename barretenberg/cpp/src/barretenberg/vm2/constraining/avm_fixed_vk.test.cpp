@@ -5,6 +5,42 @@
 
 #include <gtest/gtest.h>
 
+namespace {
+
+using namespace bb::avm2;
+
+/**
+ * @brief Helper function to reconstruct the AVM verification key from the proving key
+ *
+ */
+AvmVerifier::VerificationKey from_proving_key_for_testing(const AvmProver::ProvingKey& proving_key)
+{
+    AvmVerifier::VerificationKey vk;
+    for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
+        commitment = proving_key.commitment_key.commit(polynomial);
+    }
+    return vk;
+}
+
+/**
+ * @brief Helper function to compute vk hash
+ *
+ */
+AvmFlavor::FF compute_vk_hash(const std::span<AvmFlavor::Commitment>& commitments)
+{
+    std::vector<typename AvmFlavor::FF> elements;
+    // Serialize commitments using the Codec
+    for (const auto& commitment : commitments) {
+        auto frs = AvmFlavor::Transcript::Codec::serialize_to_fields(commitment);
+        for (const auto& fr : frs) {
+            elements.push_back(fr);
+        }
+    }
+    return AvmFlavor::Transcript::HashFunction::hash(elements);
+}
+
+} // namespace
+
 namespace bb::avm2::constraining {
 
 /**
@@ -22,23 +58,29 @@ TEST(AvmFixedVKTests, FixedVKCommitments)
     auto polynomials = compute_polynomials(trace);
     auto proving_key = proving_key_from_polynomials(polynomials);
 
-    auto vk_computed = AvmVerifier::VerificationKey::from_proving_key_for_testing(*proving_key);
+    auto vk_computed = from_proving_key_for_testing(*proving_key);
     auto vk_computed_commitments = vk_computed.get_all();
 
     // Get the fixed VK commitments
-    auto fixed_vk_commitments = AvmFixedVKCommitments::get_all();
+    auto fixed_vk = AvmVerifier::VerificationKey();
 
     // Check that sizes match
-    EXPECT_EQ(vk_computed_commitments.size(), fixed_vk_commitments.size())
+    EXPECT_EQ(vk_computed_commitments.size(), fixed_vk.get_all().size())
         << "VK commitments size mismatch: computed has " << vk_computed_commitments.size() << " commitments, fixed has "
-        << fixed_vk_commitments.size();
+        << fixed_vk.get_all().size();
 
     // Compare each commitment
     auto labels = vk_computed.get_labels();
     for (size_t i = 0; i < vk_computed_commitments.size(); ++i) {
-        EXPECT_EQ(vk_computed_commitments[i], fixed_vk_commitments[i])
+        EXPECT_EQ(vk_computed_commitments[i], fixed_vk.get_all()[i])
             << "Mismatch at index " << i << " (label: " << labels[i] << ")";
     }
+
+    // Compare VK hashes
+    auto vk_computed_hash = compute_vk_hash(vk_computed_commitments);
+    auto fixed_vk_hash = AvmHardCodedVKAndHash::vk_hash();
+    EXPECT_EQ(vk_computed_hash, fixed_vk_hash)
+        << "VK hash mismatch: computed " << vk_computed_hash << ", fixed " << fixed_vk_hash;
 
     // Uncomment to print the commitments formatted for easy copy-paste into avm_fixed_vk.hpp
     // std::cout << "// Copy these commitments into AvmFixedVKCommitments::get_all():\n";

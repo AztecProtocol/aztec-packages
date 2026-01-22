@@ -14,10 +14,6 @@
 
 namespace bb::avm2 {
 
-AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
-    : key(std::move(verifier_key))
-{}
-
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
     : key(std::move(other.key))
     , transcript(std::move(other.transcript))
@@ -42,10 +38,10 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
  * @param challenges The sumcheck challenge
  * @return FF
  */
-inline AvmVerifier::FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points,
-                                                                 const std::vector<FF>& challenges)
+AvmVerifier::FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points,
+                                                          const std::vector<FF>& challenges)
 {
-    Polynomial<FF> polynomial(points, (1 << key->log_circuit_size));
+    Polynomial<FF> polynomial(points, MAX_AVM_TRACE_SIZE);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -71,7 +67,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // ========== Execute preamble round ==========
 
     // Add vk hash to transcript
-    FF vk_hash = key->hash();
+    FF vk_hash = key->get_hash();
     transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     vinfo("AVM vk hash in verifier: ", vk_hash);
 
@@ -121,17 +117,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // Construct padding indicator array: it is a vector of constant ones as the AVM verifier performs verification of
     // the AVM circuit, so the number of rounds is fixed.
-    std::vector<FF> padding_indicator_array(key->log_circuit_size, 1);
+    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_circuit_size);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, MAX_AVM_TRACE_LOG_SIZE);
 
     // Get the gate challenges for sumcheck computation
     std::vector<FF> gate_challenges =
-        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
-
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false

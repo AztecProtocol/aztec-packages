@@ -21,6 +21,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor_macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
@@ -233,59 +234,9 @@ class AvmFlavor {
     /**
      * @brief Verification key of the AVM. It is fixed and reconstructed by precomputed values.
      *
-     * @note While the base class has a pub_inputs_offset field, this is not used in the AVM verification algorithm, so
-     * we leave it default initialized to zero.
-     *
-     * @note As the serialization mode is set to NO_METADATA, the hash of the vk is computed by hashing only the
-     * commitments. This is ok because `log_circuit_size` and `num_public_inputs` are implicitly hard-coded in the
-     * verification algorithm.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                                          typename Transcript::Codec,
-                                                          typename Transcript::HashFunction,
-                                                          void,
-                                                          VKSerializationMode::NO_METADATA> {
-        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                            typename Transcript::Codec,
-                                            typename Transcript::HashFunction,
-                                            void,
-                                            VKSerializationMode::NO_METADATA>;
-
-      public:
-        static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
-
-        VerificationKey() = default;
-
-        VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-        {
-            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            this->num_public_inputs = AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH;
-            for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
-                vk_cmt = cmt;
-            }
-        }
-
-        // NOTE: This should not be used in production. You should use the fixed VK instead.
-        static VerificationKey from_proving_key_for_testing(const ProvingKey& proving_key)
-        {
-            VerificationKey vk;
-            vk.log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            vk.num_public_inputs = AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH;
-            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
-            }
-            return vk;
-        }
-
-        /**
-         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
-         * the provided VK hash directly to the transcript.
-         */
-        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-    };
+    using VerificationKey =
+        FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash>;
 
     // Used by sumcheck.
     using AllValues = AllEntities<FF>;

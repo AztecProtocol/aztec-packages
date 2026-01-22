@@ -46,7 +46,6 @@ class AvmRecursiveVerifier {
   private:
     Builder& builder;
     std::shared_ptr<VerificationKey> key;
-    FF vk_hash;
     std::shared_ptr<Transcript> transcript;
 
     bool is_verification_complete = false;

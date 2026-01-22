@@ -37,14 +37,8 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
     : builder(builder)
     , transcript(transcript)
 {
-    auto native_vk = std::make_shared<NativeVerificationKey>(constraining::AvmFixedVKCommitments::get_all());
-
+    auto native_vk = std::make_shared<NativeVerificationKey>();
     key = std::make_shared<VerificationKey>(&builder, native_vk);
-    key->fix_witness();
-
-    auto native_vk_hash = native_vk->hash();
-    vk_hash = FF::from_witness(&builder, native_vk_hash);
-    vk_hash.fix_witness();
 }
 
 /**
@@ -103,9 +97,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // ========== Execute preamble round ==========
 
     // Add vk hash to transcript
-    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    transcript->add_to_hash_buffer("avm_vk_hash", key->get_hash());
 
-    info("AVM vk hash in recursive verifier: ", vk_hash.get_value());
+    info("AVM vk hash in recursive verifier: ", key->get_hash().get_value());
 
     // ========== Execute public inputs round ==========
 

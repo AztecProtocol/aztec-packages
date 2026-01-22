@@ -44,8 +44,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
             InnerProver prover;
             const auto proof = prover.prove(std::move(trace));
-            const auto verification_key = InnerProver::create_verification_key(InnerProver().get_verification_key());
-            InnerVerifier verifier(verification_key);
+            InnerVerifier verifier;
 
             const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 

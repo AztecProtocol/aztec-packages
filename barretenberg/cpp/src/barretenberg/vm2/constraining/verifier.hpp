@@ -19,7 +19,7 @@ class AvmVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Transcript = Flavor::Transcript;
 
-    explicit AvmVerifier(std::shared_ptr<VerificationKey> verifier_key);
+    AvmVerifier() = default;
     AvmVerifier(AvmVerifier&& other) noexcept;
     AvmVerifier(const AvmVerifier& other) = delete;
     virtual ~AvmVerifier() = default;
@@ -29,11 +29,11 @@ class AvmVerifier {
 
     bool verify_proof(const HonkProof& proof, const std::vector<std::vector<FF>>& public_inputs);
 
-    std::shared_ptr<VerificationKey> key;
+    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
-    FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
+    static FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);
 };
 
 } // namespace bb::avm2

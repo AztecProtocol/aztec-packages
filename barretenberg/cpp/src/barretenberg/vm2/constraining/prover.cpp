@@ -53,7 +53,7 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_proving_key,
  */
 void AvmProver::execute_preamble_round()
 {
-    FF vk_hash = vk->hash();
+    FF vk_hash = vk->get_hash();
     transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     vinfo("AVM vk hash in prover: ", vk_hash);
 }
@@ -70,17 +70,22 @@ void AvmProver::execute_public_inputs_round()
     BB_BENCH_NAME("AvmProver::execute_public_inputs_round");
 
     using C = ColumnAndShifts;
-    // We take the starting values of the public inputs polynomials to add to the transcript
-    const auto public_inputs_cols = std::vector({ &prover_polynomials.get(C::public_inputs_cols_0_),
-                                                  &prover_polynomials.get(C::public_inputs_cols_1_),
-                                                  &prover_polynomials.get(C::public_inputs_cols_2_),
-                                                  &prover_polynomials.get(C::public_inputs_cols_3_) });
+    // Add the public inputs to the transcript so that the Sumcheck challenge depends both on the public inputs sent in
+    // the clear and the commitments to the columns that are purtported to contain them.
+    const std::array<ColumnAndShifts, AVM_NUM_PUBLIC_INPUT_COLUMNS> public_input_columns = {
+        C::public_inputs_cols_0_,
+        C::public_inputs_cols_1_,
+        C::public_inputs_cols_2_,
+        C::public_inputs_cols_3_,
+    };
+
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
-        size_t public_input_col_size = public_inputs_cols[i]->size();
+        const auto* public_input_col = &prover_polynomials.get(public_input_columns[i]);
+        size_t public_input_col_size = public_input_col->size();
         for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
             // The public inputs are added to the hash buffer, but do not increase the size of the proof
             transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-                                           j < public_input_col_size ? public_inputs_cols[i]->at(j) : FF(0));
+                                           j < public_input_col_size ? public_input_col->at(j) : FF(0));
         }
     }
 }
@@ -94,7 +99,7 @@ void AvmProver::execute_wire_commitments_round()
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto batch = commitment_key.start_batch();
-    for (const auto [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
+    for (const auto& [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
         batch.add_to_batch(poly, label, /*mask=*/false);
     }
     batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
