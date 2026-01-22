@@ -78,6 +78,7 @@ TEST_F(BytecodeHashingTest, Hash)
     std::vector<uint8_t> bytecode = testing::random_bytes(500);
     std::vector<FF> bytecode_fields = encode_bytecode(bytecode);
     std::vector<FF> prepended_bytecode_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    prepended_bytecode_fields.reserve(1 + bytecode_fields.size());
     prepended_bytecode_fields.insert(prepended_bytecode_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
 
     auto hash = RawPoseidon2::hash(prepended_bytecode_fields);

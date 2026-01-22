@@ -12,8 +12,8 @@ class OinkTests : public ::testing::Test {
   public:
     using Flavor = MegaFlavor;
     using Transcript = Flavor::Transcript;
-    using OinkProver = OinkProver<Flavor>;
-    using OinkVerifier = OinkVerifier<Flavor>;
+    using OinkProver = bb::OinkProver<Flavor>;
+    using OinkVerifier = bb::OinkVerifier<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;

@@ -192,17 +192,17 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 //     auto client = IpcClient::create_shm(test_shm);
 //     ASSERT_TRUE(client->connect());
 
-// #define snd(s)                                                                                                         \
-//     {                                                                                                                  \
-//         ASSERT_TRUE(client->send(std::vector<uint8_t>(s, 0).data(), s, 0));                                            \
-//         dynamic_cast<ShmClient*>(client.get())->debug_dump();                                                          \
+// #define snd(s)
+//     {
+//         ASSERT_TRUE(client->send(std::vector<uint8_t>(s, 0).data(), s, 0));
+//         dynamic_cast<ShmClient*>(client.get())->debug_dump();
 //     }
-// #define rcv()                                                                                                          \
-//     {                                                                                                                  \
-//         auto request = server->receive(0);                                                                             \
-//         ASSERT_FALSE(request.empty());                                                                                 \
-//         server->release(0, request.size());                                                                            \
-//         dynamic_cast<ShmServer*>(server.get())->debug_dump();                                                          \
+// #define rcv()
+//     {
+//         auto request = server->receive(0);
+//         ASSERT_FALSE(request.empty());
+//         server->release(0, request.size());
+//         dynamic_cast<ShmServer*>(server.get())->debug_dump();
 //     }
 
 //     snd(MAX_MSG_SIZE - 1);

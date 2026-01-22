@@ -300,7 +300,7 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
             if (hi_bit < normal_slice_size) {
                 lo_bit = 0;
             }
-            uint64_t slice = engine.get_random_uint64() & ((1 << num_bits_in_slice) - 1);
+            uint64_t slice = engine.get_random_uint64() & ((1ULL << num_bits_in_slice) - 1);
             // at this point in the algo, scalars has been converted out of montgomery form
             uint256_t scalar = uint256_t(slice) << lo_bit;
             scalars[i].data[0] = scalar.data[0];
