@@ -103,30 +103,32 @@ function install_versions_file {
 
 function install_noir {
   set -euo pipefail
+  local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
 
-  if [[ -n ${NARGO:-} ]]; then
-    cp "$NARGO" "$version_bin_path/nargo"
-  else
-    local noir_version=$(cat "$version_path/versions" | grep noir | cut -d' ' -f2)
+  # Create a temp directory for noirup to install to
+  local temp_nargo_home=$(mktemp -d)
+  mkdir -p "$temp_nargo_home/bin"
 
-    # Create a temp directory for noirup to install to
-    local temp_nargo_home=$(mktemp -d)
-    mkdir -p "$temp_nargo_home/bin"
 
-    # Install noirup if not already present
-    if [ ! -f "$HOME/.nargo/bin/noirup" ]; then
-      curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-    fi
-
-    # Install noir to temp location and move to version directory
-    NARGO_HOME="$temp_nargo_home" "$HOME/.nargo/bin/noirup" -v "$noir_version"
-
-    # Move the nargo binary to our version bin directory
-    mv "$temp_nargo_home/bin/nargo" "$version_bin_path/nargo"
-
-    # Cleanup temp directory
-    rm -rf "$temp_nargo_home"
+  # Install noirup if not already present
+  if [ ! -f "$HOME/.nargo/bin/noirup" ]; then
+    curl -Ls https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
   fi
+
+  # Install noir to temp location and move to version directory
+  NARGO_HOME="$temp_nargo_home" "$HOME/.nargo/bin/noirup" -v "$noir_version"
+
+
+
+  # Move the nargo binary to our version bin directory
+  mv "$temp_nargo_home/bin/nargo" "$version_bin_path/nargo"
+
+  # Cleanup temp directory
+  rm -rf "$temp_nargo_home"
+
+
+
+
 }
 
 function install_foundry {
