@@ -18,10 +18,11 @@ import { compactArray, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
+import type { PartialBy } from '@aztec/foundation/types';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import {
@@ -151,13 +152,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
     private proofVerifier: ClientProtocolCircuitVerifier,
+    private log: Logger,
     private telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('node'),
     private blobClient?: BlobClientInterface,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
-
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
@@ -180,18 +180,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     inputConfig: AztecNodeConfig,
     deps: {
       telemetry?: TelemetryClient;
-      logger?: Logger;
+      loggerFactory: LoggerFactory;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
-      p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
-    } = {},
+      p2pClientDeps?: PartialBy<P2PClientDeps<P2PClientType.Full>, 'loggerFactory'>;
+    },
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
       dontStartSequencer?: boolean;
     } = {},
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
-    const log = deps.logger ?? createLogger('node');
+    const log = deps.loggerFactory.createLogger('node');
     const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
@@ -202,7 +202,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
     if (keyStoreProvided) {
       const keyStores = loadKeystores(config.keyStoreDirectory!);
-      keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
+      keyStoreManager = new KeystoreManager(mergeKeystores(keyStores, log));
     } else {
       const keyStore = createKeyStoreForValidator(config);
       if (keyStore) {
@@ -242,12 +242,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       publicClient,
       config.l1Contracts.registryAddress,
       config.rollupVersion ?? 'canonical',
+      log,
     );
 
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString(), log);
     const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -262,16 +263,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
-    const blobClient = await createBlobClientWithFileStores(config, createLogger('node:blob-client:client'));
+    const blobClient = await createBlobClientWithFileStores(config, log.createChild('blob-client:client'));
 
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
+      dateProvider,
+      logger: log.createChild('epoch-cache'),
+    });
 
     const archiver = await createArchiver(
       config,
-      { blobClient, epochCache, telemetry, dateProvider },
+      { blobClient, epochCache, telemetry, dateProvider, loggerFactory: log },
       { blockUntilSync: !config.skipArchiverInitialSync },
     );
 
@@ -279,17 +283,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const worldStateSynchronizer = await createWorldStateSynchronizer(
       config,
       archiver,
-      options.prefilledPublicData,
+      options.prefilledPublicData ?? [],
+      log.createChild('world-state'),
       telemetry,
     );
     const circuitVerifier =
       config.realProofs || config.debugForceTxProofVerification
-        ? await BBCircuitVerifier.new(config)
+        ? await BBCircuitVerifier.new(config, deps.loggerFactory)
         : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
-    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
+    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier, log, telemetry);
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
@@ -302,7 +307,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       packageVersion,
       dateProvider,
       telemetry,
-      deps.p2pClientDeps,
+      { ...deps.p2pClientDeps, loggerFactory: log },
     );
 
     // We should really not be modifying the config object
@@ -314,6 +319,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       worldStateSynchronizer,
       archiver,
       dateProvider,
+      log,
       telemetry,
     );
 
@@ -332,6 +338,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       l1ToL2MessageSource: archiver,
       keyStoreManager,
       blobClient,
+      loggerFactory: deps.loggerFactory,
     });
 
     // If we have a validator client, register it as a source of offenses for the slasher,
@@ -357,6 +364,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         p2pClient,
         dateProvider,
         telemetry,
+        loggerFactory: deps.loggerFactory,
       }).registerForReexecution(p2pClient);
     }
 
@@ -366,7 +374,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    const validatorsSentinel = await createSentinel(
+      epochCache,
+      archiver,
+      p2pClient,
+      config,
+      log.createChild('sentinel'),
+    );
     if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
       watchers.push(validatorsSentinel);
     }
@@ -380,6 +394,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         p2pClient.getTxProvider(),
         validatorCheckpointsBuilder,
         config,
+        log.createChild('epoch-prune-watcher'),
       );
       watchers.push(epochPruneWatcher);
     }
@@ -387,7 +402,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We assume we want to slash for invalid attestations unless all max penalties are set to 0
     let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
     if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
-      attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+      attestationsBlockWatcher = new AttestationsBlockWatcher(
+        archiver,
+        epochCache,
+        config,
+        log.createChild('attestations-block-watcher'),
+      );
       watchers.push(attestationsBlockWatcher);
     }
 
@@ -421,7 +441,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         epochCache,
         validatorAddresses,
-        undefined, // logger
+        log.createChild('slasher'),
       );
       await slasherClient.start();
 
@@ -431,13 +451,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
             keyStoreManager!.createAllValidatorPublisherSigners(),
             config.publisherForwarderAddress,
             { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            { telemetry, loggerFactory: deps.loggerFactory, dateProvider },
           )
         : await createL1TxUtilsWithBlobsFromEthSigner(
             publicClient,
             keyStoreManager!.createAllValidatorPublisherSigners(),
             { ...config, scope: 'sequencer' },
-            { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+            { telemetry, loggerFactory: deps.loggerFactory, dateProvider },
           );
 
       // Create and start the sequencer client
@@ -446,6 +466,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         worldStateSynchronizer,
         archiver,
         dateProvider,
+        log,
         telemetry,
       );
 
@@ -474,12 +495,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.warn(`Sequencer created but not started`);
     }
 
-    const globalVariableBuilder = new GlobalVariableBuilder({
-      ...config,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime,
-      slotDuration: Number(slotDuration),
-    });
+    const globalVariableBuilder = new GlobalVariableBuilder(
+      {
+        ...config,
+        rollupVersion: BigInt(config.rollupVersion),
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+      },
+      deps.loggerFactory.createLogger('sequencer:global_variable_builder'),
+    );
 
     return new AztecNodeService(
       config,
@@ -499,8 +523,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       packageVersion,
       proofVerifier,
-      telemetry,
       log,
+      telemetry,
       blobClient,
     );
   }
@@ -700,44 +724,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContract(address);
   }
 
-  public async getPrivateLogsByTags(
-    tags: SiloedTag[],
-    page?: number,
-    referenceBlock?: L2BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
-    if (referenceBlock) {
-      const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
-        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
-        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
-        if (!header) {
-          throw new Error(
-            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
-          );
-        }
-      }
-    }
+  public getPrivateLogsByTags(tags: SiloedTag[], page?: number): Promise<TxScopedL2Log[][]> {
     return this.logsSource.getPrivateLogsByTags(tags, page);
   }
 
-  public async getPublicLogsByTagsFromContract(
+  public getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
     page?: number,
-    referenceBlock?: L2BlockHash,
   ): Promise<TxScopedL2Log[][]> {
-    if (referenceBlock) {
-      const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
-        const blockHashFr = Fr.fromBuffer(referenceBlock.toBuffer());
-        const header = await this.blockSource.getBlockHeaderByHash(blockHashFr);
-        if (!header) {
-          throw new Error(
-            `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
-          );
-        }
-      }
-    }
     return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
   }
 
@@ -1192,6 +1187,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     );
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
+      this.log,
       new DateProvider(),
       this.telemetry,
     );
@@ -1247,16 +1243,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
-      timestamp: nextSlotTimestamp,
-      blockNumber,
-      l1ChainId: this.l1ChainId,
-      rollupVersion: this.version,
-      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
-      gasFees: await this.getCurrentMinFees(),
-      skipFeeEnforcement,
-      txsPermitted: !this.config.disableTransactions,
-    });
+    const validator = createValidatorForAcceptingTxs(
+      db,
+      this.contractDataSource,
+      verifier,
+      {
+        timestamp: nextSlotTimestamp,
+        blockNumber,
+        l1ChainId: this.l1ChainId,
+        rollupVersion: this.version,
+        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        gasFees: await this.getCurrentMinFees(),
+        skipFeeEnforcement,
+        txsPermitted: !this.config.disableTransactions,
+      },
+      this.log,
+    );
 
     return await validator.validateTx(tx);
   }
@@ -1278,7 +1280,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver.updateConfig(config);
     }
     if (newConfig.realProofs !== this.config.realProofs) {
-      this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+      this.proofVerifier = config.realProofs
+        ? await BBCircuitVerifier.new(newConfig, this.log)
+        : new TestCircuitVerifier();
     }
 
     this.config = newConfig;

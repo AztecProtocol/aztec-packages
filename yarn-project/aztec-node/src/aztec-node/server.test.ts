@@ -4,6 +4,7 @@ import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -158,6 +159,7 @@ describe('aztec node', () => {
     epochCache = new EpochCache(
       rollupContract,
       { ...EmptyL1RollupConstants, lagInEpochsForValidatorSet: 0, lagInEpochsForRandao: 0 },
+      createLogger('test:epoch-cache'),
       new MockDateProvider(),
     );
 
@@ -179,6 +181,7 @@ describe('aztec node', () => {
       epochCache,
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
+      createLoggerFactory().createLogger('node'),
     );
   });
 

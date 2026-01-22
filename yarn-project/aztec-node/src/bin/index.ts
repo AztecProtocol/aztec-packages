@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
@@ -16,8 +16,8 @@ const logger = createLogger('node');
  */
 async function createAndDeployAztecNode() {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
-
-  return await AztecNodeService.createAndSync(aztecNodeConfig);
+  const loggerFactory = createLoggerFactory({});
+  return await AztecNodeService.createAndSync(aztecNodeConfig, { loggerFactory });
 }
 
 /**
@@ -39,7 +39,7 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 
-  const rpcServer = createTracedJsonRpcServer(aztecNode, AztecNodeApiSchema);
+  const rpcServer = createTracedJsonRpcServer(aztecNode, AztecNodeApiSchema, { loggerFactory: createLoggerFactory() });
   const app = rpcServer.getApp(API_PREFIX);
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises

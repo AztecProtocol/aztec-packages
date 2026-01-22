@@ -3,6 +3,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/slasher';
@@ -62,7 +63,7 @@ describe('sentinel', () => {
     p2p = mock<P2PClient>();
     blockStream = mock<L2BlockStream>();
 
-    kvStore = await openTmpStore('sentinel-test');
+    kvStore = await openTmpStore('sentinel-test', createLogger('sentinel:test'));
     store = new SentinelStore(kvStore, { historyLength: 10, historicProvenPerformanceLength: 5 });
 
     slot = SlotNumber(10);
@@ -828,7 +829,7 @@ class TestSentinel extends Sentinel {
     >,
     protected override blockStream: L2BlockStream,
   ) {
-    super(epochCache, archiver, p2p, store, config);
+    super(epochCache, archiver, p2p, store, config, createLogger('sentinel:test'));
   }
 
   public override init() {

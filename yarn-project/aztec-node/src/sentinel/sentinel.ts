@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
@@ -58,7 +58,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       SlasherConfig,
       'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
     >,
-    protected logger = createLogger('node:sentinel'),
+    protected logger: Logger,
   ) {
     super();
     this.l2TipsStore = new L2TipsMemoryStore();

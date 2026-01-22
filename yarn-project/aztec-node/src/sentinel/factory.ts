@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
@@ -15,17 +15,12 @@ export async function createSentinel(
   archiver: L2BlockSource,
   p2p: P2PClient,
   config: SentinelConfig & DataStoreConfig & SlasherConfig,
-  logger = createLogger('node:sentinel'),
+  logger: Logger,
 ): Promise<Sentinel | undefined> {
   if (!config.sentinelEnabled) {
     return undefined;
   }
-  const kvStore = await createStore(
-    'sentinel',
-    SentinelStore.SCHEMA_VERSION,
-    config,
-    createLogger('node:sentinel:lmdb'),
-  );
+  const kvStore = await createStore('sentinel', SentinelStore.SCHEMA_VERSION, config, logger.createChild('lmdb'));
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
   const storeHistoricProvenPerformanceLength = config.sentinelHistoricProvenPerformanceLengthInEpochs;
   const sentinelStore = new SentinelStore(kvStore, {

@@ -17,7 +17,7 @@ describe('sentinel-store', () => {
 
   beforeEach(async () => {
     log = createLogger('sentinel:store:test');
-    kvStore = await openTmpStore('sentinel-store-test');
+    kvStore = await openTmpStore('sentinel-store-test', log);
     store = new SentinelStore(kvStore, { historyLength, historicProvenPerformanceLength });
   });
 
