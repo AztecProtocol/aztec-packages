@@ -1,6 +1,7 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import type { ProofUri, ProvingJob, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
@@ -18,6 +19,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
   let db: KVBrokerDatabase;
   let directory: string;
   let config: ProverBrokerConfig;
+  const logger = createLogger('test:proving-broker-database');
 
   beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'proving-broker-database-test'));
@@ -39,7 +41,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       viemPollingIntervalMS: 100,
       rollupVersion: 42,
     };
-    db = await KVBrokerDatabase.new(config);
+    db = await KVBrokerDatabase.new(config, logger);
   });
 
   afterEach(async () => {
@@ -274,7 +276,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await mkdir(garbageDirectory, { recursive: true });
 
     // Now create another instance
-    const secondDb = await KVBrokerDatabase.new(config);
+    const secondDb = await KVBrokerDatabase.new(config, logger);
 
     // All data should be restored
     const allJobs = await toArray(secondDb.allProvingJobs());
@@ -310,13 +312,16 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await db.close();
 
     // Now create another instance
-    const secondDb = await KVBrokerDatabase.new({
-      ...config,
-      l1Contracts: {
-        ...config.l1Contracts,
-        rollupAddress: EthAddress.random(),
+    const secondDb = await KVBrokerDatabase.new(
+      {
+        ...config,
+        l1Contracts: {
+          ...config.l1Contracts,
+          rollupAddress: EthAddress.random(),
+        },
       },
-    });
+      logger,
+    );
 
     // db should be empty
     const allJobs = await toArray(secondDb.allProvingJobs());
@@ -348,7 +353,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         viemPollingIntervalMS: 100,
         rollupVersion: 42,
       };
-      db = await KVBrokerDatabase.new(config);
+      db = await KVBrokerDatabase.new(config, logger);
       commitSpy = jest.spyOn(db, 'commitWrites');
     });
 

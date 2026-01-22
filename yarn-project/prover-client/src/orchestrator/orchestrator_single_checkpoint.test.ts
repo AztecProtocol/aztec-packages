@@ -2,7 +2,7 @@ import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 
@@ -10,10 +10,14 @@ import TOML from '@iarna/toml';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('prover-client:test:orchestrator-single-blocks');
+let logger: Logger;
 
 describe('prover/orchestrator/single-checkpoint', () => {
   let context: TestContext;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-single-blocks');
+  });
 
   beforeEach(async () => {
     context = await TestContext.new(logger);

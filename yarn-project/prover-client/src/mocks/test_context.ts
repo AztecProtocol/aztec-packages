@@ -73,7 +73,8 @@ export class TestContext {
     logger: Logger,
     {
       proverCount = 4,
-      createProver = async (bbConfig: BBProverConfig) => new TestCircuitProver(await getSimulator(bbConfig, logger)),
+      createProver = async (bbConfig: BBProverConfig) =>
+        new TestCircuitProver(logger, await getSimulator(bbConfig, logger)),
     }: {
       proverCount?: number;
       createProver?: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver>;
@@ -88,15 +89,16 @@ export class TestContext {
 
     // Separated dbs for public processor and prover - see public_processor for context
     const ws = await NativeWorldStateService.tmp(
-      /*rollupAddress=*/ undefined,
-      /*cleanupTmpDir=*/ true,
+      EthAddress.ZERO /* rollupAddress */,
+      true /* cleanupTmpDir */,
       prefilledPublicData,
+      logger,
     );
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
     if (!config) {
-      localProver = new TestCircuitProver();
+      localProver = new TestCircuitProver(logger);
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -114,9 +116,9 @@ export class TestContext {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
-    const broker = new TestBroker(proverCount, localProver);
-    const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
+    const broker = new TestBroker(proverCount, localProver, logger);
+    const facade = new BrokerCircuitProverFacade(broker, logger);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO, logger);
 
     await broker.start();
     facade.start();
@@ -254,6 +256,7 @@ export class TestContext {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       cleanFork,
+      this.logger,
     );
 
     // Add tx effects to db and build block headers.

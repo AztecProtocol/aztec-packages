@@ -3,7 +3,7 @@ import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -19,10 +19,13 @@ describe('prover/bb_prover/full-rollup', () => {
 
   beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig, getTelemetryClient());
+      prover = await BBNativeRollupProver.new(bbConfig, {
+        telemetry: getTelemetryClient(),
+        loggerFactory: createLoggerFactory(),
+      });
       return prover;
     };
-    log = createLogger('prover-client:test:bb-prover-full-rollup');
+    log = createLogger('prover:test:bb-prover-full-rollup');
     context = await TestContext.new(log, {
       proverCount: 1,
       createProver: FAKE_PROOFS ? undefined : buildProver,

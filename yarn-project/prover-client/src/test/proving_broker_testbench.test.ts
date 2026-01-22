@@ -7,7 +7,7 @@ import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-c
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-// import { createLogger } from '@aztec/foundation/log';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
@@ -21,18 +21,21 @@ import { PROOF_TYPES_IN_PRIORITY_ORDER, ProvingBroker } from '../proving_broker/
 import { KVBrokerDatabase } from '../proving_broker/proving_broker_database/persisted.js';
 import { MockProofStore } from './mock_proof_store.js';
 
-// const logger = createLogger('proving-broker-bench');
+const benchLogger = createLoggerFactory().createLogger('proving-broker-bench');
 const benchTimer = new Timer();
 
 async function createKVDatabase(l1Contracts?: L1ContractAddresses) {
   const directory = await mkdtemp(join(tmpdir(), 'proving-broker-bench'));
-  const database = await KVBrokerDatabase.new({
-    ...defaultProverBrokerConfig,
-    dataDirectory: directory,
-    l1Contracts:
-      l1Contracts ??
-      (Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses),
-  });
+  const database = await KVBrokerDatabase.new(
+    {
+      ...defaultProverBrokerConfig,
+      dataDirectory: directory,
+      l1Contracts:
+        l1Contracts ??
+        (Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses),
+    },
+    benchLogger,
+  );
   return { database, directory };
 }
 
@@ -394,7 +397,7 @@ describe('Proving Broker: Benchmarks', () => {
     databaseHandle = database;
     tempDirectory = directory;
 
-    broker = new ProvingBroker(databaseHandle);
+    broker = new ProvingBroker(databaseHandle, createLoggerFactory());
 
     // Initialize the mock proof store to generate realistic GCP URI
     proofStore = new MockProofStore();
@@ -601,14 +604,17 @@ describe('Proving Broker: Benchmarks', () => {
     const timer = benchTimer;
     const initStart = timer.ms();
 
-    databaseHandle = await KVBrokerDatabase.new({
-      ...defaultProverBrokerConfig,
-      dataDirectory: tempDirectory,
-      l1Contracts: l1Contracts,
-    });
+    databaseHandle = await KVBrokerDatabase.new(
+      {
+        ...defaultProverBrokerConfig,
+        dataDirectory: tempDirectory,
+        l1Contracts: l1Contracts,
+      },
+      benchLogger,
+    );
 
     // Create new broker instance and measure startup time
-    broker = new ProvingBroker(databaseHandle);
+    broker = new ProvingBroker(databaseHandle, createLoggerFactory());
     await broker.start();
 
     const initializationTime = timer.ms() - initStart;

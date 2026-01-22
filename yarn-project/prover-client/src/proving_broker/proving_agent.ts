@@ -1,5 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { ProvingError } from '@aztec/stdlib/errors';
@@ -31,11 +31,11 @@ export class ProvingAgent {
     private proofStore: ProofStore,
     /** The prover implementation to defer jobs to */
     private circuitProver: ServerCircuitProver,
+    private log: Logger,
     /** Optional list of allowed proof types to build */
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
-    private log = createLogger('prover-client:proving-agent'),
   ) {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollIntervalMs);
   }
@@ -159,6 +159,7 @@ export class ProvingAgent {
         // no need to await this here. The controller will stay alive (in DONE state) until the result is send to the broker
         void this.runningPromise.trigger();
       },
+      this.log,
     );
 
     if (abortedProofJobId) {

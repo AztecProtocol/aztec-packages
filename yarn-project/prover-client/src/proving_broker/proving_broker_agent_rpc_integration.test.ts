@@ -2,6 +2,7 @@ import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import type { ProofUri, ProvingJob } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
@@ -12,7 +13,8 @@ import { ProvingJobBrokerSchema, createProvingJobBrokerClient } from './rpc.js';
 
 describe('ProvingBroker RPC', () => {
   it.each([true, false])('handles compression (isSmall=%s)', async (isSmall: boolean) => {
-    const broker = new ProvingBroker(new InMemoryBrokerDatabase(), {
+    const loggerFactory = createLoggerFactory();
+    const broker = new ProvingBroker(new InMemoryBrokerDatabase(), loggerFactory, {
       proverBrokerJobTimeoutMs: 10000,
       proverBrokerPollIntervalMs: 100,
       proverBrokerJobMaxRetries: 3,
@@ -20,9 +22,10 @@ describe('ProvingBroker RPC', () => {
     });
     await broker.start();
 
-    const rpcServer = createNamespacedSafeJsonRpcServer({
-      proverBroker: [broker, ProvingJobBrokerSchema],
-    });
+    const rpcServer = createNamespacedSafeJsonRpcServer(
+      { proverBroker: [broker, ProvingJobBrokerSchema] },
+      { loggerFactory },
+    );
 
     const httpServer = await startHttpRpcServer(rpcServer, { host: '127.0.0.1' });
 
@@ -30,7 +33,7 @@ describe('ProvingBroker RPC', () => {
       const client = createProvingJobBrokerClient(
         `http://127.0.0.1:${httpServer.port}`,
         {},
-        makeUndiciFetch(new Agent()),
+        makeUndiciFetch(createLogger('test:fetch'), new Agent()),
       );
 
       // Small URI stays below threshold (uncompressed), large URI exceeds it (compressed)

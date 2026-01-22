@@ -5,6 +5,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
+import type { Logger } from '@aztec/foundation/log';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
   type ProvingJob,
@@ -61,13 +62,14 @@ export class TestBroker implements ProvingJobProducer {
   constructor(
     agentCount: number,
     prover: ServerCircuitProver,
+    log: Logger,
     private proofStore: ProofStore = new InlineProofStore(),
     agentPollInterval = 100,
   ) {
-    this.broker = new ProvingBroker(new InMemoryBrokerDatabase());
+    this.broker = new ProvingBroker(new InMemoryBrokerDatabase(), log);
     this.agents = times(
       agentCount,
-      () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
+      () => new ProvingAgent(this.broker, proofStore, prover, log, undefined, agentPollInterval),
     );
   }
 

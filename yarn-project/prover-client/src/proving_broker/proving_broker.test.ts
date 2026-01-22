@@ -1,5 +1,6 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
@@ -15,6 +16,8 @@ import { ProvingBroker } from './proving_broker.js';
 import type { ProvingBrokerDatabase } from './proving_broker_database.js';
 import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
 import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
+
+const testLogger = createLoggerFactory().createLogger('test:proving-broker');
 
 describe.each([
   () => Promise.resolve({ database: new InMemoryBrokerDatabase(), cleanup: undefined }),
@@ -33,7 +36,7 @@ describe.each([
         rollupAddress: EthAddress.random(),
       } as any,
     };
-    const database = await KVBrokerDatabase.new(config);
+    const database = await KVBrokerDatabase.new(config, testLogger);
     const cleanup = () => {
       return database.close();
     };
@@ -55,7 +58,7 @@ describe.each([
     brokerIntervalMs = jobTimeoutMs / 4;
     ({ database, cleanup } = await createDb());
 
-    broker = new ProvingBroker(database, {
+    broker = new ProvingBroker(database, createLoggerFactory(), {
       proverBrokerJobTimeoutMs: jobTimeoutMs,
       proverBrokerPollIntervalMs: brokerIntervalMs,
       proverBrokerJobMaxRetries: maxRetries,
@@ -577,7 +580,7 @@ describe.each([
       // time passes while the broker restarts
       await sleep(10 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database);
+      broker = new ProvingBroker(database, createLoggerFactory());
       await broker.start();
 
       await assertJobStatus(job1.id, 'in-queue');
@@ -639,7 +642,7 @@ describe.each([
       // time passes while the broker restarts
       await sleep(10 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database);
+      broker = new ProvingBroker(database, createLoggerFactory());
       await broker.start();
 
       await assertJobStatus(job1.id, 'in-queue');
@@ -691,7 +694,7 @@ describe.each([
       // time passes while the broker restarts
       await sleep(10 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database);
+      broker = new ProvingBroker(database, createLoggerFactory());
       await broker.start();
       await assertJobStatus(job1.id, 'in-queue');
 

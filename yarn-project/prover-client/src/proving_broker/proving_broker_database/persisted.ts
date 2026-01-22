@@ -1,6 +1,6 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { BatchQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { openVersionedStoreAt } from '@aztec/kv-store/lmdb-v2';
@@ -90,8 +90,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private constructor(
     private epochs: Map<number, SingleEpochDatabase>,
     private config: ProverBrokerConfig,
-    client: TelemetryClient = getTelemetryClient(),
     private logger: Logger,
+    client: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new LmdbMetrics(
       client.getMeter('KVBrokerDatabase'),
@@ -107,7 +107,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       (items, key) => this.commitWrites(items, key),
       config.proverBrokerBatchSize,
       config.proverBrokerBatchIntervalMs,
-      createLogger('proving-client:proving-broker-database:batch-queue'),
+      logger,
     );
   }
 
@@ -130,11 +130,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     };
   }
 
-  public static async new(
-    config: ProverBrokerConfig,
-    client: TelemetryClient = getTelemetryClient(),
-    logger = createLogger('prover-client:proving-broker-database'),
-  ) {
+  public static async new(config: ProverBrokerConfig, logger: Logger, client: TelemetryClient = getTelemetryClient()) {
     const epochs: Map<number, SingleEpochDatabase> = new Map<number, SingleEpochDatabase>();
     const files = await readdir(config.dataDirectory!, { recursive: false, withFileTypes: true });
     for (const file of files) {
@@ -155,12 +151,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
         fullDirectory,
         SingleEpochDatabase.SCHEMA_VERSION,
         config.l1Contracts.rollupAddress,
+        logger,
         config.dataStoreMapSizeKb,
       );
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
-    const db = new KVBrokerDatabase(epochs, config, client, logger);
+    const db = new KVBrokerDatabase(epochs, config, logger, client);
     db.start();
     return db;
   }
@@ -223,6 +220,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
         newEpochDirectory,
         SingleEpochDatabase.SCHEMA_VERSION,
         this.config.l1Contracts.rollupAddress,
+        this.logger,
         this.config.dataStoreMapSizeKb,
       );
       epochDb = new SingleEpochDatabase(db);

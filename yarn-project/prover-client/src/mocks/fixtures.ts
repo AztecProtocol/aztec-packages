@@ -2,7 +2,7 @@ import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -68,19 +68,18 @@ export async function getSimulator(
   config: { acvmWorkingDirectory: string | undefined; acvmBinaryPath: string | undefined },
   logger?: Logger,
 ): Promise<CircuitSimulator> {
+  const log = logger ?? createLogger('test:simulator');
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {
       await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
       await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
-      logger?.info(
-        `Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`,
-      );
-      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath);
+      log.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
+      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, log);
     } catch {
-      logger?.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
+      log.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
     }
   }
-  logger?.info('Using WASM ACVM simulation');
+  log.info('Using WASM ACVM simulation');
   return new WASMSimulatorWithBlobs();
 }
 

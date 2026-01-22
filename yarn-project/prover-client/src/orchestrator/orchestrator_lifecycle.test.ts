@@ -2,7 +2,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
@@ -12,10 +12,14 @@ import { jest } from '@jest/globals';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('prover-client:test:orchestrator-lifecycle');
+let logger: Logger;
 
 describe('prover/orchestrator/lifecycle', () => {
   let context: TestContext;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-lifecycle');
+  });
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -27,9 +31,10 @@ describe('prover/orchestrator/lifecycle', () => {
 
   describe('lifecycle', () => {
     it('cancels proving requests', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver();
+      const loggerFactory = createLoggerFactory();
+      const prover: ServerCircuitProver = new TestCircuitProver(loggerFactory);
       // Pass cancelJobsOnStop=true to test that cancellation actually aborts jobs
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, true);
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, loggerFactory, true);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -71,9 +76,15 @@ describe('prover/orchestrator/lifecycle', () => {
     });
 
     it('does not abort proving requests when cancelJobsOnStop is false (default)', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver();
+      const prover: ServerCircuitProver = new TestCircuitProver(createLoggerFactory());
       // Default behavior: cancelJobsOnStop=false, jobs remain in queue for reuse
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, false);
+      const orchestrator = new ProvingOrchestrator(
+        context.worldState,
+        prover,
+        EthAddress.ZERO,
+        createLoggerFactory(),
+        false,
+      );
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];

@@ -9,7 +9,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
@@ -19,18 +19,22 @@ import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { TestContext } from '../mocks/test_context.js';
 import { toProofData } from '../orchestrator/block-building-helpers.js';
 
-const logger = createLogger('prover-client:test:bb-prover-parity');
+let logger: Logger;
 
 describe('prover/bb_prover/parity', () => {
   const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
 
   let context: TestContext;
+  beforeAll(() => {
+    logger = createLogger('prover:test:bb-prover-parity');
+  });
+
   let bbProver: BBNativeRollupProver | undefined;
 
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
       bbConfig.circuitFilter = ['ParityBaseArtifact', 'ParityRootArtifact'];
-      bbProver = await BBNativeRollupProver.new(bbConfig);
+      bbProver = await BBNativeRollupProver.new(bbConfig, { loggerFactory: createLoggerFactory() });
       return bbProver;
     };
     context = await TestContext.new(logger, {

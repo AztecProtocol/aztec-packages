@@ -2,16 +2,20 @@ import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('prover-client:test:orchestrator-multi-checkpoints');
+let logger: Logger;
 
 const LONG_TIMEOUT = 600_000;
 
 describe('prover/orchestrator/multi-checkpoints', () => {
   let context: TestContext;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-multi-checkpoints');
+  });
 
   beforeEach(async () => {
     context = await TestContext.new(logger);

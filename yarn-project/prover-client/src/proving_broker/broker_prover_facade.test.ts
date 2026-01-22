@@ -1,5 +1,6 @@
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { type ProvingJobStatus, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
@@ -20,14 +21,15 @@ describe('BrokerCircuitProverFacade', () => {
   let broker: TestBroker;
   let prover: MockProver;
   let agentPollInterval: number;
+  const logger = createLoggerFactory().createLogger('test:broker-prover-facade');
 
   beforeEach(async () => {
     proofStore = new InlineProofStore();
     errorProofStore = new InlineProofStore();
     prover = new MockProver();
     agentPollInterval = 100;
-    broker = new TestBroker(2, prover, proofStore, agentPollInterval);
-    facade = new BrokerCircuitProverFacade(broker, proofStore, errorProofStore);
+    broker = new TestBroker(2, prover, logger, proofStore, agentPollInterval);
+    facade = new BrokerCircuitProverFacade(broker, logger, proofStore, errorProofStore);
 
     await broker.start();
     facade.start();

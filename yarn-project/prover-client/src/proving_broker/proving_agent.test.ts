@@ -2,6 +2,7 @@ import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { AbortError } from '@aztec/foundation/error';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
@@ -31,6 +32,7 @@ describe('ProvingAgent', () => {
   let proofDB: jest.Mocked<ProofStore>;
   const agentPollIntervalMs = 1000;
   let allowList: ProvingRequestType[];
+  const logger = createLogger('test:proving-agent');
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -50,7 +52,7 @@ describe('ProvingAgent', () => {
     };
 
     allowList = [ProvingRequestType.PARITY_BASE];
-    agent = new ProvingAgent(jobSource, proofDB, prover, allowList, agentPollIntervalMs);
+    agent = new ProvingAgent(jobSource, proofDB, prover, logger, allowList, agentPollIntervalMs);
   });
 
   afterEach(async () => {

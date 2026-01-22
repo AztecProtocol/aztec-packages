@@ -2,7 +2,7 @@ import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProvingJob, makeProvingJobId } from '@aztec/stdlib/interfaces/server';
@@ -31,7 +31,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
   let store: ProofStore;
 
   beforeEach(async () => {
-    broker = new ProvingBroker(new InMemoryBrokerDatabase(), {
+    broker = new ProvingBroker(new InMemoryBrokerDatabase(), createLoggerFactory(), {
       proverBrokerJobTimeoutMs: JOB_TIMEOUT,
       proverBrokerJobMaxRetries: 3,
       proverBrokerPollIntervalMs: WORK_LOOP,
@@ -47,7 +47,7 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
     store = new InlineProofStore();
     agents = times(
       AGENTS,
-      i => new ProvingAgent(broker, store, prover, [], WORK_LOOP, createLogger('prover-agent-' + i)),
+      i => new ProvingAgent(broker, store, prover, createLogger('prover-agent-' + i), [], WORK_LOOP),
     );
 
     await broker.start();

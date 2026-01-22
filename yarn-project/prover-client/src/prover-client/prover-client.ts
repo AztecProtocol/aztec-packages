@@ -1,7 +1,7 @@
 import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import { times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import {
   type ActualProverConfig,
@@ -32,24 +32,36 @@ export class ProverClient implements EpochProverManager {
   private proofStore: ProofStore;
   private failedProofStore: ProofStore | undefined;
 
+  private log: Logger;
+
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     private orchestratorClient: ProvingJobProducer,
+    private loggerFactory: LoggerFactory,
+    private telemetry: TelemetryClient,
     private agentClient?: ProvingJobConsumer,
-    private telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('prover-client:tx-prover'),
   ) {
+    this.log = loggerFactory.createLogger('prover:tx-prover');
     this.proofStore = new InlineProofStore();
-    this.failedProofStore = this.config.failedProofStore ? createProofStore(this.config.failedProofStore) : undefined;
+    this.failedProofStore = this.config.failedProofStore
+      ? createProofStore(this.config.failedProofStore, this.loggerFactory)
+      : undefined;
   }
 
   public createEpochProver(): EpochProver {
-    const facade = new BrokerCircuitProverFacade(this.orchestratorClient, this.proofStore, this.failedProofStore);
+    const facadeLogger = this.loggerFactory.createLogger('prover:broker-circuit-prover-facade');
+    const facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      facadeLogger,
+      this.proofStore,
+      this.failedProofStore,
+    );
     const orchestrator = new ProvingOrchestrator(
       this.worldState,
       facade,
       this.config.proverId,
+      this.loggerFactory,
       this.config.cancelJobsOnStop,
       this.telemetry,
     );
@@ -108,9 +120,10 @@ export class ProverClient implements EpochProverManager {
     config: ProverClientConfig,
     worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     broker: ProvingJobBroker,
-    telemetry: TelemetryClient = getTelemetryClient(),
+    deps: { telemetry?: TelemetryClient; loggerFactory: LoggerFactory },
   ) {
-    const prover = new ProverClient(config, worldState, broker, broker, telemetry);
+    const telemetry = deps.telemetry ?? getTelemetryClient();
+    const prover = new ProverClient(config, worldState, broker, deps.loggerFactory, telemetry, broker);
     await prover.start();
     return prover;
   }
@@ -133,10 +146,15 @@ export class ProverClient implements EpochProverManager {
     }
 
     const proofStore = new InlineProofStore();
-    const prover = await buildServerCircuitProver(this.config, this.telemetry);
+    const prover = await buildServerCircuitProver(this.config, {
+      telemetry: this.telemetry,
+      loggerFactory: this.loggerFactory,
+    });
+    const agentLogger = this.loggerFactory.createLogger('prover:proving-agent');
     this.agents = times(
       this.config.proverAgentCount,
-      () => new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs),
+      () =>
+        new ProvingAgent(this.agentClient!, proofStore, prover, agentLogger, [], this.config.proverAgentPollIntervalMs),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));
@@ -149,15 +167,19 @@ export class ProverClient implements EpochProverManager {
 
 export function buildServerCircuitProver(
   config: ActualProverConfig & ACVMConfig & BBConfig,
-  telemetry: TelemetryClient,
+  deps: { telemetry?: TelemetryClient; loggerFactory: LoggerFactory },
 ): Promise<ServerCircuitProver> {
   if (config.realProofs) {
-    return BBNativeRollupProver.new(config, telemetry);
+    return BBNativeRollupProver.new(config, deps);
   }
 
   const simulator = config.acvmBinaryPath
-    ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
+    ? new NativeACVMSimulator(
+        config.acvmWorkingDirectory,
+        config.acvmBinaryPath,
+        deps.loggerFactory.createLogger('acvm:native'),
+      )
     : undefined;
 
-  return Promise.resolve(new TestCircuitProver(simulator, config, telemetry));
+  return Promise.resolve(new TestCircuitProver(deps.loggerFactory, simulator, config, deps.telemetry));
 }

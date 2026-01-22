@@ -1,4 +1,4 @@
-import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import { type JsonRpcFetch, createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import {
   type GetProvingJobResponse,
   ProofUri,
@@ -12,7 +12,6 @@ import {
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { type ApiSchemaFor, optional } from '@aztec/stdlib/schemas';
 import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/stdlib/versioning';
-import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
@@ -56,7 +55,7 @@ export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
 export function createProvingJobBrokerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch: JsonRpcFetch,
 ): ProvingJobBroker {
   return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
     namespaceMethods: 'proverBroker',
@@ -68,7 +67,7 @@ export function createProvingJobBrokerClient(
 export function createProvingJobProducerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch: JsonRpcFetch,
 ): ProvingJobProducer {
   return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
     namespaceMethods: 'provingJobProducer',
@@ -80,7 +79,7 @@ export function createProvingJobProducerClient(
 export function createProvingJobConsumerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch: JsonRpcFetch,
 ): ProvingJobConsumer {
   return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
     namespaceMethods: 'provingJobConsumer',

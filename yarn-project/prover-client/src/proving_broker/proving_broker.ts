@@ -1,5 +1,6 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import { fromEntries } from '@aztec/foundation/collection';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -37,36 +38,7 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
  */
 export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
-  private queues: ProvingQueues = {
-    [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-
-    [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.TX_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-
-    [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
-      provingJobComparator,
-    ),
-    [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
-      provingJobComparator,
-    ),
-    [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-
-    [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
-      provingJobComparator,
-    ),
-    [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-
-    [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-  };
+  private queues: ProvingQueues;
 
   // holds a copy of the database in memory in order to quickly fulfill requests
   // this is fine because this broker is the only one that can modify the database
@@ -114,8 +86,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
   private started = false;
 
+  private logger;
+
   public constructor(
     private database: ProvingBrokerDatabase,
+    loggerFactory: LoggerFactory,
     {
       proverBrokerJobTimeoutMs,
       proverBrokerPollIntervalMs,
@@ -131,8 +106,22 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       >
     > = defaultProverBrokerConfig,
     client: TelemetryClient = getTelemetryClient(),
-    private logger = createLogger('prover-client:proving-broker'),
   ) {
+    this.logger = loggerFactory.createLogger('prover:proving-broker');
+
+    const provingRequestTypes = Object.values(ProvingRequestType).filter(
+      (v): v is ProvingRequestType => typeof v === 'number',
+    );
+
+    const queues = fromEntries(
+      provingRequestTypes.map(type => {
+        const typeName = ProvingRequestType[type].toLowerCase().replace(/_/g, '-');
+        const queueLogger = this.logger.createChild(typeName);
+        return [type, new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator, queueLogger)];
+      }),
+    );
+
+    this.queues = queues;
     this.tracer = client.getTracer('ProvingBroker');
     this.instrumentation = new ProvingBrokerInstrumentation(client);
     this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, proverBrokerPollIntervalMs);

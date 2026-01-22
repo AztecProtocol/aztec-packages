@@ -1,7 +1,7 @@
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
@@ -21,9 +21,13 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { TestContext } from '../mocks/test_context.js';
 import type { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('prover-client:test:orchestrator-workflow');
+let logger: Logger;
 
 describe('prover/orchestrator', () => {
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-workflow');
+  });
+
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
     let context: TestContext;

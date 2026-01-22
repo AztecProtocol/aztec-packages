@@ -1,10 +1,11 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 
 import { GoogleCloudStorageProofStore } from './gcs_proof_store.js';
 import { InlineProofStore } from './inline_proof_store.js';
 import type { ProofStore } from './proof_store.js';
 
-export function createProofStore(config: string | undefined, logger = createLogger('prover-client:proof-store')) {
+export function createProofStore(config: string | undefined, loggerFactory: LoggerFactory) {
+  const logger = loggerFactory?.createLogger('prover:proof-store');
   if (config === undefined) {
     logger.info('Creating inline proof store');
     return new InlineProofStore();
@@ -27,15 +28,15 @@ export function createProofStore(config: string | undefined, logger = createLogg
 
 export function createProofStoreForUri(
   uri: string,
-  logger = createLogger('prover-client:proof-store'),
+  loggerFactory: LoggerFactory,
 ): Pick<ProofStore, 'getProofInput' | 'getProofOutput'> {
   if (uri.startsWith('data://')) {
-    return createProofStore(undefined, logger);
+    return createProofStore(undefined, loggerFactory);
   } else if (uri.startsWith('gs://')) {
     const url = new URL(uri);
     const basePath = url.pathname.replace(/^\/+/, '').split('/').slice(0, -3);
     url.pathname = basePath.join('/');
-    return createProofStore(uri, logger);
+    return createProofStore(uri, loggerFactory);
   } else {
     throw new Error(`Unknown proof store config: '${uri}'. Supported protocols are 'data://' and 'gs://'.`);
   }

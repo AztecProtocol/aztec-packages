@@ -1,6 +1,6 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
@@ -8,13 +8,17 @@ import { jest } from '@jest/globals';
 import { TestContext } from '../mocks/test_context.js';
 import type { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('prover-client:test:orchestrator-failures');
+let logger: Logger;
 const LONG_TIMEOUT = 600_000;
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;
   let orchestrator: ProvingOrchestrator;
   let prover: ServerCircuitProver;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-failures');
+  });
 
   beforeEach(async () => {
     context = await TestContext.new(logger);

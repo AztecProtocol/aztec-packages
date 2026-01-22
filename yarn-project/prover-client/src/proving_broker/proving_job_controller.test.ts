@@ -1,6 +1,7 @@
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ProvingJobId, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
@@ -17,6 +18,7 @@ describe('ProvingJobController', () => {
   let prover: MockProver;
   let onComplete: jest.Mock<any>;
   let controller: ProvingJobController;
+  const logger = createLogger('test:proving-job-controller');
 
   beforeEach(() => {
     prover = new MockProver();
@@ -31,6 +33,7 @@ describe('ProvingJobController', () => {
       42,
       prover,
       onComplete,
+      logger,
     );
   });
 

@@ -5,7 +5,7 @@ import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { ScopedL2ToL1Message, computeL2ToL1MembershipWitnessFromMessagesInEpoch } from '@aztec/stdlib/messaging';
 import { FeeRecipient } from '@aztec/stdlib/rollup';
@@ -19,11 +19,15 @@ import { jest } from '@jest/globals';
 import { TestContext } from '../mocks/test_context.js';
 import { getTreeSnapshot } from './block-building-helpers.js';
 
-const logger = createLogger('prover-client:test:orchestrator-single-blocks');
+let logger: Logger;
 
 describe('prover/orchestrator/rollup-structure', () => {
   let context: TestContext;
   let proverSpy: Record<ServerCircuitName, jest.SpiedFunction<(...args: any[]) => any>>;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-single-blocks');
+  });
 
   const mockCoinbase = (checkpointIndex: number) => {
     return EthAddress.fromNumber(checkpointIndex + 9876);

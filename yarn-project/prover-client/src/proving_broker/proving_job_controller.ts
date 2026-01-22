@@ -1,7 +1,6 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type {
   ProvingJobId,
   ProvingJobInputs,
@@ -29,7 +28,7 @@ export class ProvingJobController {
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: () => void,
-    private log = createLogger('prover-client:proving-agent:job-controller-' + randomBytes(4).toString('hex')),
+    private log: Logger,
   ) {}
 
   public start(): void {

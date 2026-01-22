@@ -2,14 +2,14 @@ import type { FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 
 import { TestContext } from '../mocks/test_context.js';
 import type { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createLogger('prover-client:test:orchestrator-errors');
+let logger: Logger;
 
 describe('prover/orchestrator/errors', () => {
   let context: TestContext;
@@ -19,6 +19,10 @@ describe('prover/orchestrator/errors', () => {
   let previousBlockHeader: BlockHeader;
   let finalBlobChallenges: FinalBlobBatchingChallenges;
   const numBlocks = 1;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-errors');
+  });
 
   beforeEach(async () => {
     context = await TestContext.new(logger);

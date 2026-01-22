@@ -1,13 +1,17 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 
-const logger = createLogger('prover-client:test:orchestrator-single-blocks');
+let logger: Logger;
 
 describe('prover/orchestrator/blocks', () => {
   let context: TestContext;
+
+  beforeAll(() => {
+    logger = createLogger('prover:test:orchestrator-single-blocks');
+  });
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
