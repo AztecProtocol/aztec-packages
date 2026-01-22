@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { L1PublishCheckpointStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
@@ -35,7 +35,7 @@ export class SequencerPublisherMetrics {
   constructor(
     client: TelemetryClient,
     name = 'SequencerPublisher',
-    private logger = createLogger('sequencer:publisher:metrics'),
+    private logger: Logger,
   ) {
     const meter = client.getMeter(name);
 

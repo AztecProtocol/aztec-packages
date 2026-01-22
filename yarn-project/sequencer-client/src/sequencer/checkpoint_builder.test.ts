@@ -2,6 +2,7 @@ import { EMPTY_EPOCH_OUT_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -16,9 +17,11 @@ import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
-import { NativeWorldStateService } from '@aztec/world-state/native';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+
+const logger = createLogger('test:checkpoint-builder');
 
 describe('CheckpointBuilder', () => {
   let worldState: NativeWorldStateService;
@@ -33,7 +36,7 @@ describe('CheckpointBuilder', () => {
     const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)];
 
     // Create world state with fee payer balance
-    worldState = await NativeWorldStateService.tmp(undefined, true, prefilledPublicData);
+    worldState = await NativeWorldStateService.tmp(EthAddress.ZERO, true, prefilledPublicData, logger);
   });
 
   afterEach(async () => {
@@ -107,6 +110,7 @@ describe('CheckpointBuilder', () => {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        createLogger('test:checkpoint-builder'),
       );
 
       // Build empty block
@@ -147,6 +151,7 @@ describe('CheckpointBuilder', () => {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        createLogger('test:checkpoint-builder'),
       );
 
       // This checkpoint has a block with 1 tx.
@@ -197,6 +202,7 @@ describe('CheckpointBuilder', () => {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        createLogger('test:checkpoint-builder'),
       );
 
       // Create a few transactions
@@ -236,6 +242,7 @@ describe('CheckpointBuilder', () => {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        createLogger('test:checkpoint-builder'),
       );
 
       // Build 3 blocks with 2 txs each
@@ -289,6 +296,7 @@ describe('CheckpointBuilder', () => {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        createLogger('test:checkpoint-builder'),
       );
 
       // Try to complete checkpoint without adding any blocks
@@ -313,6 +321,7 @@ describe('CheckpointBuilder', () => {
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
+        createLogger('test:checkpoint-builder'),
       );
 
       // Add first block with txs - insertTxsEffects will handle inserting side effects

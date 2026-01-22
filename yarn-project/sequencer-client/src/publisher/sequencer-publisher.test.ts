@@ -13,6 +13,7 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -149,9 +150,10 @@ describe('SequencerPublisher', () => {
       slashingProposerContract,
       governanceProposerContract,
       slashFactoryContract,
-      dateProvider: new TestDateProvider(),
+      dateProvider: new TestDateProvider(createLogger('sequencer:publisher')),
       metrics: l1Metrics,
       lastActions: {},
+      log: createLogger('sequencer:publisher'),
     });
 
     publisher.l1TxUtils = l1TxUtils;

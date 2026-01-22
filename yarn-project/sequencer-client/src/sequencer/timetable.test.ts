@@ -1,3 +1,5 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { MIN_EXECUTION_TIME, SequencerTimetable } from './timetable.js';
 import { SequencerState } from './utils.js';
 
@@ -8,9 +10,18 @@ describe('sequencer-timetable', () => {
   const AZTEC_SLOT_DURATION = 36;
   const L1_PUBLISHING_TIME = 12;
   const ENFORCE_TIMETABLE = true;
+  const logger = createLogger('sequencer:timetable:test');
+
+  const createTimetable = (opts: {
+    ethereumSlotDuration: number;
+    aztecSlotDuration: number;
+    l1PublishingTime: number;
+    blockDurationMs?: number;
+    enforce: boolean;
+  }) => new SequencerTimetable(opts, logger);
 
   beforeEach(() => {
-    timetable = new SequencerTimetable({
+    timetable = createTimetable({
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       l1PublishingTime: L1_PUBLISHING_TIME,
@@ -21,20 +32,19 @@ describe('sequencer-timetable', () => {
   describe('constructor', () => {
     it('fails to construct an instance with too short slot duration', () => {
       const aztecSlotDuration = ETHEREUM_SLOT_DURATION;
-      expect(
-        () =>
-          new SequencerTimetable({
-            ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-            aztecSlotDuration,
-            l1PublishingTime: L1_PUBLISHING_TIME,
-            enforce: ENFORCE_TIMETABLE,
-          }),
+      expect(() =>
+        createTimetable({
+          ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+          aztecSlotDuration,
+          l1PublishingTime: L1_PUBLISHING_TIME,
+          enforce: ENFORCE_TIMETABLE,
+        }),
       ).toThrow(/initialize deadline cannot be negative/i);
     });
 
     it('allows a slot duration with enough time for initialization and execution', () => {
       const aztecSlotDuration = ETHEREUM_SLOT_DURATION * 3; // 36s
-      const timetable = new SequencerTimetable({
+      const timetable = createTimetable({
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration,
         l1PublishingTime: L1_PUBLISHING_TIME,
@@ -95,7 +105,7 @@ describe('sequencer-timetable', () => {
     });
 
     it('skips check if enforcement is off', () => {
-      timetable = new SequencerTimetable({
+      timetable = createTimetable({
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         l1PublishingTime: L1_PUBLISHING_TIME,
@@ -110,7 +120,7 @@ describe('sequencer-timetable', () => {
 
     describe('single block per slot', () => {
       beforeEach(() => {
-        timetable = new SequencerTimetable({
+        timetable = createTimetable({
           ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
           aztecSlotDuration: AZTEC_SLOT_DURATION,
           l1PublishingTime: L1_PUBLISHING_TIME,
@@ -152,7 +162,7 @@ describe('sequencer-timetable', () => {
       const BLOCK_DURATION_MS = 8000; // 8 seconds
 
       beforeEach(() => {
-        timetable = new SequencerTimetable({
+        timetable = createTimetable({
           ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
           aztecSlotDuration: AZTEC_SLOT_DURATION,
           l1PublishingTime: L1_PUBLISHING_TIME,
@@ -201,7 +211,7 @@ describe('sequencer-timetable', () => {
 
     describe('non-enforced mode', () => {
       beforeEach(() => {
-        timetable = new SequencerTimetable({
+        timetable = createTimetable({
           ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
           aztecSlotDuration: AZTEC_SLOT_DURATION,
           l1PublishingTime: L1_PUBLISHING_TIME,
@@ -239,7 +249,7 @@ describe('sequencer-timetable', () => {
         const BLOCK_DURATION_MS = 8000;
 
         beforeEach(() => {
-          timetable = new SequencerTimetable({
+          timetable = createTimetable({
             ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
             aztecSlotDuration: AZTEC_SLOT_DURATION,
             l1PublishingTime: L1_PUBLISHING_TIME,
@@ -282,7 +292,7 @@ describe('sequencer-timetable', () => {
         ])(
           'should calculate max blocks with aztecSlot=$aztecSlot blockDuration=$blockDuration)',
           ({ aztecSlot, blockDuration }) => {
-            const tt = new SequencerTimetable({
+            const tt = createTimetable({
               ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
               aztecSlotDuration: aztecSlot,
               l1PublishingTime: L1_PUBLISHING_TIME,
@@ -304,7 +314,7 @@ describe('sequencer-timetable', () => {
         );
 
         it('should default to single block mode when blockDurationMs is undefined', () => {
-          const tt = new SequencerTimetable({
+          const tt = createTimetable({
             ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
             aztecSlotDuration: AZTEC_SLOT_DURATION,
             l1PublishingTime: L1_PUBLISHING_TIME,
@@ -319,7 +329,7 @@ describe('sequencer-timetable', () => {
 
       describe('extreme timing scenarios', () => {
         beforeEach(() => {
-          timetable = new SequencerTimetable({
+          timetable = createTimetable({
             ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
             aztecSlotDuration: AZTEC_SLOT_DURATION,
             l1PublishingTime: L1_PUBLISHING_TIME,
@@ -349,7 +359,7 @@ describe('sequencer-timetable', () => {
 
       describe('state transition timing', () => {
         beforeEach(() => {
-          timetable = new SequencerTimetable({
+          timetable = createTimetable({
             ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
             aztecSlotDuration: AZTEC_SLOT_DURATION,
             l1PublishingTime: L1_PUBLISHING_TIME,

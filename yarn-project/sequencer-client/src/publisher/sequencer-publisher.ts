@@ -30,7 +30,7 @@ import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -105,8 +105,8 @@ export class SequencerPublisher {
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
 
-  protected governanceLog = createLogger('sequencer:publisher:governance');
-  protected slashingLog = createLogger('sequencer:publisher:slashing');
+  protected governanceLog: Logger;
+  protected slashingLog: Logger;
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
@@ -157,10 +157,12 @@ export class SequencerPublisher {
       dateProvider: DateProvider;
       metrics: SequencerPublisherMetrics;
       lastActions: Partial<Record<Action, SlotNumber>>;
-      log?: Logger;
+      log: Logger;
     },
   ) {
-    this.log = deps.log ?? createLogger('sequencer:publisher');
+    this.log = deps.log;
+    this.governanceLog = this.log.createChild('governance');
+    this.slashingLog = this.log.createChild('slashing');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
@@ -168,7 +170,8 @@ export class SequencerPublisher {
     this.blobClient = deps.blobClient;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
+    this.metrics =
+      deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher', this.log.createChild('metrics'));
     this.tracer = telemetry.getTracer('SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
@@ -189,7 +192,7 @@ export class SequencerPublisher {
       this.l1FeeAnalyzer = new L1FeeAnalyzer(
         this.l1TxUtils.client,
         deps.dateProvider,
-        createLogger('sequencer:publisher:fee-analyzer'),
+        this.log.createChild('fee-analyzer'),
       );
     }
   }

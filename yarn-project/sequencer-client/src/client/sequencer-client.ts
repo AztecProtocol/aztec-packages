@@ -6,7 +6,7 @@ import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/cont
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
@@ -64,6 +64,7 @@ export class SequencerClient {
       epochCache?: EpochCache;
       l1TxUtils: L1TxUtilsWithBlobs[];
       nodeKeyStore: KeystoreManager;
+      loggerFactory: LoggerFactory;
     },
   ) {
     const {
@@ -75,9 +76,10 @@ export class SequencerClient {
       l2BlockSource,
       l1ToL2MessageSource,
       telemetry: telemetryClient,
+      loggerFactory,
     } = deps;
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
-    const log = createLogger('sequencer');
+    const log = loggerFactory.createLogger('sequencer');
     const publicClient = getPublicClient(config);
     const l1TxUtils = deps.l1TxUtils;
     const l1Metrics = new L1Metrics(
@@ -85,8 +87,8 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(l1TxUtils, config);
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const publisherManager = new PublisherManager(l1TxUtils, config, log);
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString(), log);
     const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -108,12 +110,13 @@ export class SequencerClient {
           viemPollingIntervalMS: config.viemPollingIntervalMS,
           ethereumSlotDuration: config.ethereumSlotDuration,
         },
-        { dateProvider: deps.dateProvider },
+        { dateProvider: deps.dateProvider, logger: log.createChild('epoch-cache') },
       ));
 
     const slashFactoryContract = new SlashFactoryContract(
       publicClient,
       config.l1Contracts.slashFactoryAddress?.toString() ?? EthAddress.ZERO.toString(),
+      loggerFactory.createLogger('contracts:slash_factory'),
     );
 
     const publisherFactory =
@@ -128,13 +131,16 @@ export class SequencerClient {
         dateProvider: deps.dateProvider,
         publisherManager,
         nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(deps.nodeKeyStore),
-        logger: log,
+        loggerFactory,
       });
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
     const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration };
 
-    const globalsBuilder = new GlobalVariableBuilder({ ...config, ...l1Constants, rollupVersion });
+    const globalsBuilder = new GlobalVariableBuilder(
+      { ...config, ...l1Constants, rollupVersion },
+      loggerFactory.createLogger('sequencer:global_variable_builder'),
+    );
 
     let sequencerManaLimit = config.maxL2BlockGas ?? rollupManaLimit;
     if (sequencerManaLimit > rollupManaLimit) {
@@ -167,8 +173,8 @@ export class SequencerClient {
       epochCache,
       rollupContract,
       { ...config, l1PublishingTime, maxL2BlockGas: sequencerManaLimit },
-      telemetryClient,
       log,
+      telemetryClient,
     );
 
     await sequencer.init();

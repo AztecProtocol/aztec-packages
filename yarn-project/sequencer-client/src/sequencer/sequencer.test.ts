@@ -7,6 +7,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -32,6 +33,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
@@ -287,7 +289,7 @@ describe('sequencer', () => {
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);
 
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(createLogger('sequencer'));
 
     const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSequencer(
@@ -305,6 +307,8 @@ describe('sequencer', () => {
       epochCache,
       rollupContract,
       config,
+      createLogger('sequencer'),
+      getTelemetryClient(),
     );
     sequencer.updateConfig(config);
   });

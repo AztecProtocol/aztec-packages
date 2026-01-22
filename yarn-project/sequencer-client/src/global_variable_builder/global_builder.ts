@@ -6,7 +6,7 @@ import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -22,7 +22,7 @@ import { createPublicClient, fallback, http } from 'viem';
  * Simple global variables builder.
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
-  private log = createLogger('sequencer:global_variable_builder');
+  private log: Logger;
   private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
   private currentL1BlockNumber: bigint | undefined = undefined;
 
@@ -39,7 +39,9 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     config: L1ReaderConfig &
       Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
       Pick<L1RollupConstants, 'slotDuration' | 'l1GenesisTime'> & { rollupVersion: bigint },
+    log: Logger,
   ) {
+    this.log = log;
     const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
 
     const chain = createEthereumChain(l1RpcUrls, chainId);
@@ -57,7 +59,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
-    this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress);
+    this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress, log);
   }
 
   /**

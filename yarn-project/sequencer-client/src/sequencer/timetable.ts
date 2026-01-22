@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { DEFAULT_ATTESTATION_PROPAGATION_TIME as DEFAULT_P2P_PROPAGATION_TIME } from '../config.js';
 import { SequencerTooSlowError } from './errors.js';
@@ -78,8 +78,8 @@ export class SequencerTimetable {
       blockDurationMs?: number;
       enforce: boolean;
     },
+    private readonly log: Logger,
     private readonly metrics?: SequencerMetrics,
-    private readonly log = createLogger('sequencer:timetable'),
   ) {
     this.ethereumSlotDuration = opts.ethereumSlotDuration;
     this.aztecSlotDuration = opts.aztecSlotDuration;

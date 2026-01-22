@@ -4,6 +4,7 @@ import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -59,6 +60,7 @@ describe('SequencerPublisherFactory', () => {
       rollupContract: mockRollupContract,
       slashFactoryContract: mockSlashFactoryContract,
       nodeKeyStore: mockNodeKeyStore,
+      loggerFactory: { createLogger },
     });
   });
 

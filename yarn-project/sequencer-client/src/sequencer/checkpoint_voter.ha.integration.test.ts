@@ -18,6 +18,7 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
@@ -193,7 +194,7 @@ describe('CheckpointVoter HA Integration', () => {
     slashingProposerContract = createMockSlashingContract();
     l1TxUtils = createMockL1TxUtils(validatorAccounts[0]);
 
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(createLogger('checkpoint-voter'));
     sequencerMetrics = mock<SequencerMetrics>();
     publisherMetrics = mock<SequencerPublisherMetrics>();
 
@@ -258,13 +259,14 @@ describe('CheckpointVoter HA Integration', () => {
     };
 
     // Create HA signer with pglite pool
-    const { signer: haSigner } = await createHASigner(baseConfig, { pool: pool as any });
+    const loggerFactory = createLoggerFactory();
+    const { signer: haSigner } = await createHASigner(loggerFactory, baseConfig, { pool: pool as any });
 
     // Create base keystore
     const baseKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
 
     // Wrap with HA key store
-    const haKeyStore = new HAKeyStore(baseKeyStore, haSigner);
+    const haKeyStore = new HAKeyStore(baseKeyStore, haSigner, createLogger('ha-key-store'));
 
     // Create publisher
     const publisherConfig = {
@@ -304,6 +306,7 @@ describe('CheckpointVoter HA Integration', () => {
       dateProvider,
       metrics: publisherMetrics,
       lastActions: {},
+      log: createLogger('sequencer:publisher'),
     });
 
     // Create mock validator client with real signing via HA keystore

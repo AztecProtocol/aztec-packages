@@ -65,6 +65,16 @@ import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable } from './timetable.js';
 
+const testLogger = createLogger('sequencer:checkpoint_proposal_job:test');
+
+const createTimetable = (opts: {
+  ethereumSlotDuration: number;
+  aztecSlotDuration: number;
+  l1PublishingTime: number;
+  blockDurationMs?: number;
+  enforce: boolean;
+}) => new SequencerTimetable(opts, testLogger);
+
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
   let epochCache: MockProxy<EpochCache>;
@@ -147,7 +157,7 @@ describe('CheckpointProposalJob', () => {
       proofSubmissionEpochs: 4,
     };
 
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(testLogger);
     // Set time to be at the start of the slot (slot 1 starts at l1GenesisTime + slotDuration - ethereumSlotDuration)
     const slotStartTime = Number(l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
@@ -273,7 +283,7 @@ describe('CheckpointProposalJob', () => {
       shuffleAttestationOrdering: false,
     };
 
-    timetable = new SequencerTimetable({
+    timetable = createTimetable({
       ethereumSlotDuration,
       aztecSlotDuration: slotDuration,
       l1PublishingTime: ethereumSlotDuration,
@@ -287,7 +297,7 @@ describe('CheckpointProposalJob', () => {
     beforeEach(() => {
       // Single block mode: no blockDurationMs set
       job.setTimetable(
-        new SequencerTimetable({
+        createTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
@@ -372,7 +382,7 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(3);
       job = createCheckpointProposalJob();
       job.setTimetable(
-        new SequencerTimetable({
+        createTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
@@ -409,7 +419,7 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(2);
       job = createCheckpointProposalJob();
       job.setTimetable(
-        new SequencerTimetable({
+        createTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
@@ -547,7 +557,7 @@ describe('CheckpointProposalJob', () => {
     beforeEach(() => {
       // Multiple block mode: set blockDurationMs to 8 seconds
       job.setTimetable(
-        new SequencerTimetable({
+        createTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
@@ -864,7 +874,7 @@ describe('CheckpointProposalJob', () => {
 
       // Create job first
       job.setTimetable(
-        new SequencerTimetable({
+        createTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
@@ -905,7 +915,7 @@ describe('CheckpointProposalJob', () => {
 
       // Create job first
       job.setTimetable(
-        new SequencerTimetable({
+        createTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,

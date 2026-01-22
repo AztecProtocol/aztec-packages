@@ -6,7 +6,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -98,8 +98,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected epochCache: EpochCache,
     protected rollupContract: RollupContract,
     config: SequencerConfig,
+    protected log: Logger,
     protected telemetry: TelemetryClient = getTelemetryClient(),
-    protected log = createLogger('sequencer'),
   ) {
     super();
 
@@ -108,7 +108,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log = log.createChild('[FISHERMAN]');
     }
 
-    this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
+    this.metrics = new SequencerMetrics(this.telemetry, this.rollupContract, 'Sequencer');
     this.updateConfig(config);
   }
 
@@ -126,8 +126,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         blockDurationMs: this.config.blockDurationMs,
         enforce: this.config.enforceTimeTable,
       },
+      this.log.createChild('timetable'),
       this.metrics,
-      this.log,
     );
   }
 

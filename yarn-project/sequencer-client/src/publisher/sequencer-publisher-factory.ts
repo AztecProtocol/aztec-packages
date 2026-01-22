@@ -1,11 +1,11 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import type { PublisherFilter, PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { TelemetryClient } from '@aztec/telemetry-client';
@@ -26,7 +26,10 @@ export class SequencerPublisherFactory {
   /** Stores the last slot in which every action was carried out by a publisher */
   private lastActions: Partial<Record<Action, SlotNumber>> = {};
 
-  private logger: Logger;
+  private loggerFactory: LoggerFactory;
+
+  /** Counter for publisher instances created by this factory */
+  private instanceCount = 0;
 
   constructor(
     private sequencerConfig: SequencerClientConfig,
@@ -40,11 +43,12 @@ export class SequencerPublisherFactory {
       governanceProposerContract: GovernanceProposerContract;
       slashFactoryContract: SlashFactoryContract;
       nodeKeyStore: NodeKeystoreAdapter;
-      logger?: Logger;
+      loggerFactory: LoggerFactory;
     },
   ) {
-    this.publisherMetrics = new SequencerPublisherMetrics(deps.telemetry, 'SequencerPublisher');
-    this.logger = deps.logger ?? createLogger('sequencer');
+    this.loggerFactory = deps.loggerFactory;
+    const metricsLogger = this.loggerFactory.createLogger('sequencer:publisher:metrics');
+    this.publisherMetrics = new SequencerPublisherMetrics(deps.telemetry, 'SequencerPublisher', metricsLogger);
   }
   /**
    * Creates a new SequencerPublisher instance.
@@ -69,6 +73,9 @@ export class SequencerPublisherFactory {
     const rollup = this.deps.rollupContract;
     const slashingProposerContract = await rollup.getSlashingProposer();
 
+    const instanceId = `#${++this.instanceCount}`;
+    const log = this.loggerFactory.createLogger('sequencer:publisher', { instanceId });
+
     const publisher = new SequencerPublisher(this.sequencerConfig, {
       l1TxUtils: l1Publisher,
       telemetry: this.deps.telemetry,
@@ -81,7 +88,7 @@ export class SequencerPublisherFactory {
       dateProvider: this.deps.dateProvider,
       metrics: this.publisherMetrics,
       lastActions: this.lastActions,
-      log: this.logger.createChild('publisher'),
+      log,
     });
 
     return {
