@@ -129,7 +129,10 @@ describe('e2e_multi_validator_node', () => {
     expect(tx.blockNumber).toBeDefined();
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber(tx.blockNumber!), 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(
+      CheckpointNumber.fromBlockNumber(tx.blockNumber!),
+      1,
+    );
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
@@ -192,7 +195,10 @@ describe('e2e_multi_validator_node', () => {
     expect(tx.blockNumber).toBeDefined();
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber(tx.blockNumber!), 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(
+      CheckpointNumber.fromBlockNumber(tx.blockNumber!),
+      1,
+    );
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())

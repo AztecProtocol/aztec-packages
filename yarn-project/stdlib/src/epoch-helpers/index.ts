@@ -69,7 +69,7 @@ export function getSlotRangeForEpoch(
   epochNumber: EpochNumber,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
 ): [SlotNumber, SlotNumber] {
-  const startSlot = SlotNumber(epochNumber * constants.epochDuration);
+  const startSlot = SlotNumber(Number(epochNumber) * constants.epochDuration);
   return [startSlot, SlotNumber(startSlot + constants.epochDuration - 1)];
 }
 

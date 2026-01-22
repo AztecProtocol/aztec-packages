@@ -503,7 +503,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     }
     const targetL1BlockHash = Buffer32.fromString(targetL1Block.hash);
     this.log.info(`Unwinding ${blocksToUnwind} checkpoints from L2 block ${currentL2Block}`);
-    await this.updater.unwindCheckpoints(CheckpointNumber(currentL2Block), blocksToUnwind);
+    await this.updater.unwindCheckpoints(CheckpointNumber.fromBlockNumber(currentL2Block), blocksToUnwind);
     this.log.info(`Unwinding L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);

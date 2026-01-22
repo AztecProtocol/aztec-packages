@@ -416,7 +416,7 @@ export async function mockCheckpointAndMessages(
   } & Partial<Parameters<typeof Checkpoint.random>[1]> &
     Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
-  const slotNumber = options.slotNumber ?? SlotNumber(checkpointNumber * 10);
+  const slotNumber = options.slotNumber ?? SlotNumber(Number(checkpointNumber) * 10);
   const blocksAndMessages = [];
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
@@ -702,7 +702,7 @@ export async function randomPublishedL2Block(
   });
 
   const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const checkpoint = await Checkpoint.random(CheckpointNumber(l2BlockNumber), { numBlocks: 0 });
+  const checkpoint = await Checkpoint.random(CheckpointNumber.fromBlockNumber(l2BlockNumber), { numBlocks: 0 });
   checkpoint.blocks = [block];
   const atts = signers.map(signer =>
     makeCheckpointAttestation({
@@ -714,5 +714,5 @@ export async function randomPublishedL2Block(
   const attestations = atts.map(
     (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
   );
-  return new CheckpointedL2Block(CheckpointNumber(l2BlockNumber), block, l1, attestations);
+  return new CheckpointedL2Block(CheckpointNumber.fromBlockNumber(l2BlockNumber), block, l1, attestations);
 }

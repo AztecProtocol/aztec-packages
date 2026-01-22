@@ -269,7 +269,7 @@ export async function makeCheckpointWithLogs(
   const { previousArchive, numTxsPerBlock = 4, privateLogs, publicLogs } = options;
 
   const block = await L2Block.random(BlockNumber(blockNumber), {
-    checkpointNumber: CheckpointNumber(blockNumber),
+    checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
     indexWithinCheckpoint: IndexWithinCheckpoint(0),
     state: makeStateForBlock(blockNumber, numTxsPerBlock),
     ...(previousArchive ? { lastArchive: previousArchive } : {}),
@@ -289,7 +289,7 @@ export async function makeCheckpointWithLogs(
     AppendOnlyTreeSnapshot.random(),
     CheckpointHeader.random(),
     [block],
-    CheckpointNumber(blockNumber),
+    CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
   );
   return makePublishedCheckpoint(checkpoint, blockNumber);
 }
