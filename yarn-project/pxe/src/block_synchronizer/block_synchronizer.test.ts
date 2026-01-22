@@ -35,7 +35,7 @@ describe('BlockSynchronizer', () => {
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe');
     anchorBlockStore = new AnchorBlockStore(store);
-    noteStore = await NoteStore.create(store);
+    noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
     synchronizer = new TestSynchronizer(aztecNode, store, anchorBlockStore, noteStore, privateEventStore, tipsStore);
   });

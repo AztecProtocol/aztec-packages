@@ -3,6 +3,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync, unlinkSync } from 'fs';
 import { IMsgpackBackendSync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
+import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
 
@@ -54,7 +55,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     }
 
     // Create a unique shared memory name
-    const shmName = `bb-sync-${process.pid}-${instanceCounter++}`;
+    const shmName = `bb-sync-${process.pid}-${threadId}-${instanceCounter++}`;
 
     // If threads not set use 1 thread. We're not expected to do long lived work on sync backends.
     const hwc = threads ? threads.toString() : '1';

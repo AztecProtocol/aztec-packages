@@ -9,6 +9,17 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec-nr] Removal of intermediate modules
+
+Lots of unnecessary modules have been removed from the API, making imports shorter. These are the modules that contain just a single struct, in which the module has the same name as the struct.
+
+```diff
+- use aztec::state_vars::private_mutable::PrivateMutable;
++ use aztec::state_vars::PrivateMutable;
+```
+
+Affected structs include all state variables, notes, contexts, messages, etc.
+
 ### [Aztec.js] Wallet batching now supports all methods
 
 The `BatchedMethod` type is now a discriminated union that ensures type safety: the `args` must match the specific method `name`. This prevents runtime errors from mismatched arguments.
@@ -788,7 +799,7 @@ Previously, you might have computed the membership witness without explicitly ne
 const witness = await computeL2ToL1MembershipWitness(
   node,
   l2TxReceipt.blockNumber,
-  l2ToL1Message
+  l2ToL1Message,
 );
 ```
 
@@ -796,12 +807,12 @@ Now, you should provide the epoch number:
 
 ```typescript
 const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber)
+  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber),
 );
 const witness = await computeL2ToL1MembershipWitness(
   node,
   epoch,
-  l2ToL1Message
+  l2ToL1Message,
 );
 ```
 
@@ -2340,7 +2351,7 @@ await contract.methods
     txHash.hash,
     toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
     txEffects!.data.nullifiers[0],
-    wallet.getAddress()
+    wallet.getAddress(),
   )
   .simulate();
 ```
@@ -2395,7 +2406,7 @@ const transferAmount = 100n;
 const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
 const paymentMethod = new PrivateFeePaymentMethod(
   bananaFPCAddress,
-  aliceWallet
+  aliceWallet,
 );
 const receipt = await bananaCoin
   .withWallet(aliceWallet)

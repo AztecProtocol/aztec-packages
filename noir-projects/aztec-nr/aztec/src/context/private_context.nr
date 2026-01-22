@@ -1,8 +1,5 @@
 use crate::{
-    context::{
-        inputs::PrivateContextInputs, note_existence_request::NoteExistenceRequest,
-        returns_hash::ReturnsHash,
-    },
+    context::{inputs::PrivateContextInputs, NoteExistenceRequest, ReturnsHash},
     hash::{hash_args, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,

@@ -69,6 +69,7 @@
 <li><a href="#impl-Serialize-for-GlobalVariables">GlobalVariables</a></li>
 <li><a href="#impl-Serialize-for-HasArray">HasArray</a></li>
 <li><a href="#impl-Serialize-for-HasArrayWithGenerics<T, N>">HasArrayWithGenerics<T, N></a></li>
+<li><a href="#impl-Serialize-for-HintedNote<Note>">HintedNote<Note></a></li>
 <li><a href="#impl-Serialize-for-IvpkM">IvpkM</a></li>
 <li><a href="#impl-Serialize-for-KeyValidationRequest">KeyValidationRequest</a></li>
 <li><a href="#impl-Serialize-for-KeyValidationRequestAndGenerator">KeyValidationRequestAndGenerator</a></li>
@@ -106,7 +107,6 @@
 <li><a href="#impl-Serialize-for-PublicKeys">PublicKeys</a></li>
 <li><a href="#impl-Serialize-for-PublicKeysHash">PublicKeysHash</a></li>
 <li><a href="#impl-Serialize-for-PublicLogs">PublicLogs</a></li>
-<li><a href="#impl-Serialize-for-RetrievedNote<Note>">RetrievedNote<Note></a></li>
 <li><a href="#impl-Serialize-for-Scoped<T>">Scoped<T></a></li>
 <li><a href="#impl-Serialize-for-Smol">Smol</a></li>
 <li><a href="#impl-Serialize-for-SpongeBlob">SpongeBlob</a></li>
@@ -312,6 +312,10 @@ fail with an arguments hash mismatch error message.</p>
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
+<h3 id="impl-Serialize-for-HintedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/hinted_note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
+
 <h3 id="impl-Serialize-for-IvpkM"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/public_keys/struct.IvpkM.html" class="struct">IvpkM</a></code></h3>
 
 <h3 id="impl-Serialize-for-KeyValidationRequest"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/validation_requests/key_validation_request/struct.KeyValidationRequest.html" class="struct">KeyValidationRequest</a></code></h3>
@@ -387,10 +391,6 @@ fail with an arguments hash mismatch error message.</p>
 <h3 id="impl-Serialize-for-PublicKeysHash"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/address/public_keys_hash/struct.PublicKeysHash.html" class="struct">PublicKeysHash</a></code></h3>
 
 <h3 id="impl-Serialize-for-PublicLogs"><code class="code-header">impl <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
-
-<h3 id="impl-Serialize-for-RetrievedNote<Note>"><code class="code-header">impl&lt;Note&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/note/retrieved_note/struct.RetrievedNote.html" class="struct">RetrievedNote</a>&lt;Note&gt;
-<div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
 <h3 id="impl-Serialize-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../protocol_types/traits/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
 <div class="where-clause">where

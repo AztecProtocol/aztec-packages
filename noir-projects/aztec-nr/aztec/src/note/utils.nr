@@ -1,11 +1,9 @@
 use crate::{
-    context::{note_existence_request::NoteExistenceRequest, PrivateContext},
-    note::{confirmed_note::ConfirmedNote, hinted_note::HintedNote, note_interface::NoteHash},
+    context::NoteExistenceRequest,
+    note::{ConfirmedNote, HintedNote, note_interface::NoteHash},
 };
 
-use protocol_types::hash::{
-    compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash,
-};
+use protocol_types::hash::{compute_siloed_note_hash, compute_unique_note_hash};
 
 /// Returns the [NoteExistenceRequest] used to prove a note exists.
 pub fn compute_note_existence_request<Note>(hinted_note: HintedNote<Note>) -> NoteExistenceRequest
@@ -63,47 +61,12 @@ pub fn compute_confirmed_note_hash_for_nullification<Note>(
     if confirmed_note.metadata.is_pending_previous_phase() {
         let siloed_note_hash = compute_siloed_note_hash(
             confirmed_note.contract_address,
-            confirmed_note.read_request_note_hash,
+            confirmed_note.proven_note_hash,
         );
         let note_nonce = confirmed_note.metadata.to_pending_previous_phase().note_nonce();
 
         compute_unique_note_hash(note_nonce, siloed_note_hash)
     } else {
-        confirmed_note.read_request_note_hash
+        confirmed_note.proven_note_hash
     }
-}
-
-/// Returns the siloed nullifier for a settled note.
-///
-/// This fails unless the note is settled (i.e. it has been inserted into the trees and therefore has a nonce).
-pub fn compute_settled_note_siloed_nullifier<Note>(
-    hinted_note: HintedNote<Note>,
-    context: &mut PrivateContext,
-) -> Field
-where
-    Note: NoteHash,
-{
-    let unique_note_hash = compute_settled_note_unique_hash(hinted_note);
-
-    let inner_nullifier =
-        hinted_note.note.compute_nullifier(context, hinted_note.owner, unique_note_hash);
-
-    compute_siloed_nullifier(hinted_note.contract_address, inner_nullifier)
-}
-
-pub fn compute_settled_note_unique_hash<Note>(hinted_note: HintedNote<Note>) -> Field
-where
-    Note: NoteHash,
-{
-    let note_hash = hinted_note.note.compute_note_hash(
-        hinted_note.owner,
-        hinted_note.storage_slot,
-        hinted_note.randomness,
-    );
-
-    let siloed_note_hash = compute_siloed_note_hash(hinted_note.contract_address, note_hash);
-    compute_unique_note_hash(
-        hinted_note.metadata.to_settled().note_nonce(),
-        siloed_note_hash,
-    )
 }

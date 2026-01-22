@@ -6,7 +6,10 @@ tfplan
 mnemonic.tmp
 environments/*
 !environments/network-defaults.yml
-!environments/10-tps-scenario.env
+!environments/ten-tps-short-epoch.env
+!environments/ten-tps-long-epoch.env
+!environments/five-tps-short-epoch.env
+!environments/five-tps-long-epoch.env
 !environments/devnet-avm-prover.env
 !environments/devnet-next.env
 !environments/devnet.env

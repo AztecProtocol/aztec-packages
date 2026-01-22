@@ -1,9 +1,10 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { makeL2Tips, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
-import { TxHash, TxStatus } from '@aztec/stdlib/tx';
+import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -54,7 +55,6 @@ describe('syncSenderTaggingIndexes', () => {
   // These tests need to be run together in sequence.
   describe('sequential tests', () => {
     const finalizedIndexStep1 = 3;
-    const finalizedBlockNumberStep1 = 15;
 
     const pendingTxHashStep2 = TxHash.random();
     const pendingIndexStep2 = 5;
@@ -66,23 +66,27 @@ describe('syncSenderTaggingIndexes', () => {
     it('step 1: highest finalized index is updated', async () => {
       // Create a log with tag index 3
       const index3Tag = await computeSiloedTagForIndex(finalizedIndexStep1);
+      const finalizedTxHash = TxHash.random();
 
       aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
         // Return empty arrays for all tags except the one at index 3
         return Promise.resolve(
-          tags.map((tag: SiloedTag) => (tag.equals(index3Tag) ? [makeLog(TxHash.random(), index3Tag.value)] : [])),
+          tags.map((tag: SiloedTag) => (tag.equals(index3Tag) ? [makeLog(finalizedTxHash, index3Tag.value)] : [])),
         );
       });
 
-      // Mock getTxReceipt to return a successful, finalized tx (finalized because it is included in a block before
-      // the finalized block)
-      aztecNode.getTxReceipt.mockResolvedValue({
-        status: TxStatus.SUCCESS,
-        blockNumber: finalizedBlockNumberStep1 - 1,
-      } as any);
-
-      // Mock getL2Tips to return a finalized block number >= the tx block number
-      aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumberStep1));
+      // Mock getTxReceipt to return a finalized and successful tx
+      aztecNode.getTxReceipt.mockResolvedValue(
+        new TxReceipt(
+          finalizedTxHash,
+          TxStatus.FINALIZED,
+          TxExecutionResult.SUCCESS,
+          undefined,
+          undefined,
+          undefined,
+          BlockNumber(14),
+        ),
+      );
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
 
@@ -103,13 +107,18 @@ describe('syncSenderTaggingIndexes', () => {
         );
       });
 
-      // Mock getTxReceipt to return a successful but still pending tx
-      aztecNode.getTxReceipt.mockResolvedValue({
-        status: TxStatus.SUCCESS,
-        blockNumber: finalizedBlockNumberStep1 + 1,
-      } as any);
-
-      aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumberStep1));
+      // Mock getTxReceipt to return a proposed (mined but not finalized) tx
+      aztecNode.getTxReceipt.mockResolvedValue(
+        new TxReceipt(
+          pendingTxHashStep2,
+          TxStatus.PROPOSED,
+          TxExecutionResult.SUCCESS,
+          undefined,
+          undefined,
+          undefined,
+          BlockNumber(16),
+        ),
+      );
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
 
@@ -120,8 +129,6 @@ describe('syncSenderTaggingIndexes', () => {
     });
 
     it('step 3: syncs logs across 2 windows', async () => {
-      // Move finalized block into the future
-      const newFinalizedBlockNumber = finalizedBlockNumberStep1 + 5;
       const newHighestFinalizedIndex = finalizedIndexStep1 + 4;
       const newHighestUsedIndex = newHighestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
@@ -154,29 +161,47 @@ describe('syncSenderTaggingIndexes', () => {
       aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
         if (hash.equals(pendingTxHashStep2)) {
           // The previously pending tx (index pendingIndexStep2) is now finalized
-          return {
-            status: TxStatus.SUCCESS,
-            blockNumber: newFinalizedBlockNumber - 3,
-          } as any;
+          return Promise.resolve(
+            new TxReceipt(
+              hash,
+              TxStatus.FINALIZED,
+              TxExecutionResult.SUCCESS,
+              undefined,
+              undefined,
+              undefined,
+              BlockNumber(17),
+            ),
+          );
         } else if (hash.equals(newHighestFinalizedTxHash)) {
           // This tx (index newHighestFinalizedIndex) is finalized
-          return {
-            status: TxStatus.SUCCESS,
-            blockNumber: newFinalizedBlockNumber - 2,
-          } as any;
+          return Promise.resolve(
+            new TxReceipt(
+              hash,
+              TxStatus.FINALIZED,
+              TxExecutionResult.SUCCESS,
+              undefined,
+              undefined,
+              undefined,
+              BlockNumber(18),
+            ),
+          );
         } else if (hash.equals(newHighestUsedTxHash)) {
-          // This tx (index newHighestUsedIndex) is pending
-          return {
-            status: TxStatus.SUCCESS,
-            blockNumber: newFinalizedBlockNumber + 2,
-          } as any;
+          // This tx (index newHighestUsedIndex) is pending (mined but not finalized)
+          return Promise.resolve(
+            new TxReceipt(
+              hash,
+              TxStatus.PROPOSED,
+              TxExecutionResult.SUCCESS,
+              undefined,
+              undefined,
+              undefined,
+              BlockNumber(22),
+            ),
+          );
         } else {
           throw new Error(`Unexpected tx hash: ${hash.toString()}`);
         }
       });
-
-      // Mock getL2Tips with the new finalized block number
-      aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(newFinalizedBlockNumber));
 
       await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');
 
@@ -195,7 +220,6 @@ describe('syncSenderTaggingIndexes', () => {
     const finalizedTxHash = TxHash.random();
     const pendingTxHash = TxHash.random();
 
-    const finalizedBlockNumber = 15;
     const pendingAndFinalizedIndex = 3;
 
     const index3Tag = await computeSiloedTagForIndex(pendingAndFinalizedIndex);
@@ -213,21 +237,33 @@ describe('syncSenderTaggingIndexes', () => {
 
     aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
       if (hash.equals(finalizedTxHash)) {
-        return {
-          status: TxStatus.SUCCESS,
-          blockNumber: finalizedBlockNumber - 1, // Finalized tx
-        } as any;
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.FINALIZED,
+            TxExecutionResult.SUCCESS,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(14),
+          ),
+        );
       } else if (hash.equals(pendingTxHash)) {
-        return {
-          status: TxStatus.SUCCESS,
-          blockNumber: finalizedBlockNumber + 1, // Pending tx
-        } as any;
+        return Promise.resolve(
+          new TxReceipt(
+            hash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            undefined,
+            undefined,
+            undefined,
+            BlockNumber(16),
+          ),
+        );
       } else {
         throw new Error(`Unexpected tx hash: ${hash.toString()}`);
       }
     });
-
-    aztecNode.getL2Tips.mockResolvedValue(makeL2Tips(finalizedBlockNumber));
 
     // Sync tagged logs
     await syncSenderTaggingIndexes(secret, contractAddress, aztecNode, taggingStore, 'test');

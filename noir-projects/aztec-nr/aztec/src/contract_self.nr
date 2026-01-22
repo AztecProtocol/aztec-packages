@@ -3,14 +3,14 @@
 use crate::{
     context::{
         calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall},
-        private_context::PrivateContext,
-        public_context::PublicContext,
-        utility_context::UtilityContext,
+        PrivateContext,
+        PublicContext,
+        UtilityContext,
     },
     event::{
         event_emission::{emit_event_in_private, emit_event_in_public},
         event_interface::EventInterface,
-        event_message::EventMessage,
+        EventMessage,
     },
 };
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};

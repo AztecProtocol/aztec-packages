@@ -14,7 +14,7 @@ pub contract NoteGetter {
         state_vars::{Owned, PrivateSet},
     };
 
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

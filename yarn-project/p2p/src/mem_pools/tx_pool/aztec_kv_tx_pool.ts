@@ -6,7 +6,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { MerkleTreeReadOperations, ReadonlyWorldStateAccess } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -99,7 +99,7 @@ export class AztecKVTxPool
   constructor(
     store: AztecAsyncKVStore,
     archive: AztecAsyncKVStore,
-    worldState: ReadonlyWorldStateAccess,
+    worldState: WorldStateSynchronizer,
     telemetry: TelemetryClient = getTelemetryClient(),
     config: TxPoolOptions = {},
     log = createLogger('p2p:tx_pool'),

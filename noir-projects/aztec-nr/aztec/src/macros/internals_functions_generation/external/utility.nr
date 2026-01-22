@@ -19,9 +19,9 @@ pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quote
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = {
-            let context = dep::aztec::context::utility_context::UtilityContext::new();
+            let context = dep::aztec::context::UtilityContext::new();
             $storage_init
-            aztec::contract_self::ContractSelf::new_utility(context, storage)
+            aztec::ContractSelf::new_utility(context, storage)
         };
     };
 

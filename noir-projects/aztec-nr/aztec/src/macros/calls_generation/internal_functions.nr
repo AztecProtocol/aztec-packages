@@ -22,7 +22,7 @@ comptime fn generate_private_internal_function_call(f: FunctionDefinition) -> Qu
     let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
 
     quote {
-        pub fn $original_function_name(self: CallInternal<&mut aztec::context::private_context::PrivateContext>, $original_params) -> $original_return_type {
+        pub fn $original_function_name(self: CallInternal<&mut aztec::context::PrivateContext>, $original_params) -> $original_return_type {
             $fn_name(self.context, $params_at_callsite)
         }
     }
@@ -43,7 +43,7 @@ comptime fn generate_public_internal_function_call(f: FunctionDefinition) -> Quo
     let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
 
     quote {
-        pub unconstrained fn $original_function_name(self: CallInternal<aztec::context::public_context::PublicContext>, $original_params) -> $original_return_type {
+        pub unconstrained fn $original_function_name(self: CallInternal<aztec::context::PublicContext>, $original_params) -> $original_return_type {
             $fn_name(self.context, $params_at_callsite)
         }
     }
@@ -72,11 +72,11 @@ pub(crate) comptime fn generate_call_internal_struct(m: Module) -> Quoted {
             pub context: Context,
         }
 
-        impl CallInternal<&mut aztec::context::private_context::PrivateContext> {
+        impl CallInternal<&mut aztec::context::PrivateContext> {
             $private_internal_functions_calls
         }
 
-        impl CallInternal<aztec::context::public_context::PublicContext> {
+        impl CallInternal<aztec::context::PublicContext> {
             $public_internal_functions_calls
         }
     }

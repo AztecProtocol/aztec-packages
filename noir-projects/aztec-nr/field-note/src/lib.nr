@@ -1,3 +1,4 @@
 //! Note for a `Field` value.
 
-pub mod field_note;
+mod field_note;
+pub use field_note::FieldNote;

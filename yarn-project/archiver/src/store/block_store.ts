@@ -19,6 +19,7 @@ import {
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -27,6 +28,7 @@ import {
   TxEffect,
   TxHash,
   TxReceipt,
+  TxStatus,
   deserializeIndexedTxEffect,
   serializeIndexedTxEffect,
 } from '@aztec/stdlib/tx';
@@ -111,7 +113,10 @@ export class BlockStore {
 
   #log = createLogger('archiver:block_store');
 
-  constructor(private db: AztecAsyncKVStore) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    private l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
+  ) {
     this.#blocks = db.openMap('archiver_blocks');
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');
@@ -122,6 +127,18 @@ export class BlockStore {
     this.#lastProvenCheckpoint = db.openSingleton('archiver_last_proven_l2_checkpoint');
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
     this.#checkpoints = db.openMap('archiver_checkpoints');
+  }
+
+  /**
+   * Computes the finalized block number based on the proven block number.
+   * A block is considered finalized when it's 2 epochs behind the proven block.
+   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * TODO(palla/mbps): Even the provisional computation is wrong, since it should subtract checkpoints, not blocks
+   * @returns The finalized block number.
+   */
+  async getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    const provenBlockNumber = await this.getProvenBlockNumber();
+    return BlockNumber(Math.max(provenBlockNumber - this.l1Constants.epochDuration * 2, 0));
   }
 
   /**
@@ -802,13 +819,34 @@ export class BlockStore {
       return undefined;
     }
 
+    const blockNumber = BlockNumber(txEffect.l2BlockNumber);
+
+    // Use existing archiver methods to determine finalization level
+    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
+      this.getProvenBlockNumber(),
+      this.getCheckpointedL2BlockNumber(),
+      this.getFinalizedL2BlockNumber(),
+    ]);
+
+    let status: TxStatus;
+    if (blockNumber <= finalizedBlockNumber) {
+      status = TxStatus.FINALIZED;
+    } else if (blockNumber <= provenBlockNumber) {
+      status = TxStatus.PROVEN;
+    } else if (blockNumber <= checkpointedBlockNumber) {
+      status = TxStatus.CHECKPOINTED;
+    } else {
+      status = TxStatus.PROPOSED;
+    }
+
     return new TxReceipt(
       txHash,
-      TxReceipt.statusFromRevertCode(txEffect.data.revertCode),
-      '',
+      status,
+      TxReceipt.executionResultFromRevertCode(txEffect.data.revertCode),
+      undefined,
       txEffect.data.transactionFee.toBigInt(),
       txEffect.l2BlockHash,
-      BlockNumber(txEffect.l2BlockNumber),
+      blockNumber,
     );
   }
 

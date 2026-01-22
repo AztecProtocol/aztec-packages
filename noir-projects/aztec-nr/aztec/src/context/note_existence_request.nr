@@ -2,7 +2,7 @@ use protocol_types::address::aztec_address::AztecAddress;
 
 /// A request to assert the existence of a note.
 ///
-/// Used by [crate::context::private_context::PrivateContext::assert_note_exists].
+/// Used by [crate::context::PrivateContext::assert_note_exists].
 pub struct NoteExistenceRequest {
     note_hash: Field,
     maybe_contract_address: Option<AztecAddress>,

@@ -1,14 +1,14 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     note::{
-        confirmed_note::ConfirmedNote,
+        ConfirmedNote,
         constants::MAX_NOTES_PER_PAGE,
         lifecycle::{create_note, destroy_note},
         note_getter::{get_notes, view_notes},
         note_getter_options::NoteGetterOptions,
         note_interface::{NoteHash, NoteType},
-        note_message::NoteMessage,
         note_viewer_options::NoteViewerOptions,
+        NoteMessage,
     },
     state_vars::owned_state_variable::OwnedStateVariable,
 };

@@ -1,14 +1,13 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
-import { Tx, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import { Tx, TxExecutionResult, TxReceipt } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
-import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
@@ -371,8 +370,8 @@ describe('full_prover', () => {
       }
 
       // Assert that the valid tx is successfully sent and mined
-      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
-      expect(validTxReceipt.status).toBe(TxStatus.SUCCESS);
+      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<TxReceipt>).value;
+      expect(validTxReceipt.executionResult).toBe(TxExecutionResult.SUCCESS);
 
       logger.info(`Valid tx was mined and invalid txs were dropped by P2P node`);
     },

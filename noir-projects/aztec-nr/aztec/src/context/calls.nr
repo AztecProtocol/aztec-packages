@@ -4,7 +4,7 @@ use dep::protocol_types::{
     traits::{Deserialize, ToField},
 };
 
-use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
+use crate::context::{gas::GasOpts, PrivateContext, PublicContext};
 use crate::hash::{hash_args, hash_calldata_array};
 use crate::oracle::execution_cache;
 

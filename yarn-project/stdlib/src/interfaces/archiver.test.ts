@@ -85,6 +85,16 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual(BlockNumber(1));
   });
 
+  it('getCheckpointedL2BlockNumber', async () => {
+    const result = await context.client.getCheckpointedL2BlockNumber();
+    expect(result).toEqual(BlockNumber(1));
+  });
+
+  it('getFinalizedL2BlockNumber', async () => {
+    const result = await context.client.getFinalizedL2BlockNumber();
+    expect(result).toEqual(BlockNumber(0));
+  });
+
   it('getBlock', async () => {
     const result = await context.client.getBlock(BlockNumber(1));
     expect(result).toBeInstanceOf(L2BlockNew);
@@ -384,6 +394,12 @@ class MockArchiver implements ArchiverApi {
   }
   getProvenBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
+  }
+  getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
+    return Promise.resolve(BlockNumber(1));
+  }
+  getFinalizedL2BlockNumber(): Promise<BlockNumber> {
+    return Promise.resolve(BlockNumber(0));
   }
   getBlock(number: BlockNumber): Promise<L2BlockNew | undefined> {
     return L2BlockNew.random(number);

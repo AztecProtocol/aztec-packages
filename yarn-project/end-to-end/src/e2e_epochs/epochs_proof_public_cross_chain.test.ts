@@ -2,7 +2,7 @@ import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { TxStatus } from '@aztec/aztec.js/tx';
+import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -96,7 +96,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
       )
       .send({ from: context.accounts[0] })
       .wait({ dontThrowOnRevert: true });
-    expect(failedReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    expect(failedReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
 
     logger.info(`Test succeeded`);
   });

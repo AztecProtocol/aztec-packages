@@ -64,7 +64,7 @@ describe('e2e_sequencer_config', () => {
       // Run a tx to get the total mana used
       const receipt: TxReceipt = (await bot.run()) as TxReceipt;
       expect(receipt).toBeDefined();
-      expect(receipt.status).toBe('success');
+      expect(receipt.hasExecutionSucceeded()).toBe(true);
       const block = await aztecNode.getBlock(receipt.blockNumber!);
       expect(block).toBeDefined();
       const totalManaUsed = block?.header.totalManaUsed!.toBigInt();
@@ -84,7 +84,7 @@ describe('e2e_sequencer_config', () => {
       // Run a tx and expect it to succeed
       const receipt2: TxReceipt = (await bot.run()) as TxReceipt;
       expect(receipt2).toBeDefined();
-      expect(receipt2.status).toBe('success');
+      expect(receipt2.hasExecutionSucceeded()).toBe(true);
 
       // Set the maxL2BlockGas to the total mana used - 1
       sequencer!.updateConfig({

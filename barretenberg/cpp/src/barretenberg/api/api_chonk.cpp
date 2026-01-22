@@ -31,15 +31,11 @@ namespace { // anonymous namespace
  * @param output_path Directory to write the VK (or "-" for stdout)
  * @param flags API flags including output_format
  */
-void write_standalone_vk(std::vector<uint8_t> bytecode,
-                         const std::filesystem::path& output_path,
-                         const API::Flags& flags)
+void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response = bbapi::ChonkComputeStandaloneVk{
-        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
 
-    bool is_stdout = output_path == "-";
+    const bool is_stdout = output_path == "-";
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else if (flags.output_format == "json") {
@@ -48,33 +44,6 @@ void write_standalone_vk(std::vector<uint8_t> bytecode,
         info("VK (JSON) saved to ", output_path / "vk.json");
     } else {
         write_file(output_path / "vk", response.bytes);
-    }
-}
-
-/**
- * @brief Compute and write the Chonk verification key.
- *
- * @details Computes the VK for the hiding kernel circuit. The bytecode parameter should be
- * the last circuit in the IVC chain (e.g., private-tail in Aztec), as this determines
- * the public inputs structure of the hiding kernel.
- *
- * @param bytecode ACIR bytecode of the final circuit in the IVC chain
- * @param output_dir Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format
- */
-void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir, const API::Flags& flags)
-{
-    info("Chonk: computing IVC vk for hiding kernel circuit");
-    auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
-    const bool output_to_stdout = output_dir == "-";
-    if (flags.output_format == "json") {
-        // IVC VK doesn't have field elements, only bytes - output as binary with a warning
-        info("Warning: JSON output format is not supported for IVC verification keys, writing binary format");
-    }
-    if (output_to_stdout) {
-        write_bytes_to_stdout(response.bytes);
-    } else {
-        write_file(output_dir / "vk", response.bytes);
     }
 }
 } // anonymous namespace
@@ -214,18 +183,7 @@ void ChonkAPI::write_vk(const Flags& flags,
                         const std::filesystem::path& output_path)
 {
     BB_BENCH_NAME("ChonkAPI::write_vk");
-    auto bytecode = get_bytecode(bytecode_path);
-    if (flags.verifier_type == "ivc") {
-        write_chonk_vk(bytecode, output_path, flags);
-    } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(bytecode, output_path, flags);
-    } else if (flags.verifier_type == "standalone_hiding") {
-        // write the VK for the hiding kernel which DOES NOT utilize a structured trace
-        write_standalone_vk(bytecode, output_path, flags);
-    } else {
-        const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
-        throw_or_abort(msg);
-    }
+    write_chonk_vk(get_bytecode(bytecode_path), output_path, flags);
 }
 
 bool ChonkAPI::check([[maybe_unused]] const Flags& flags,

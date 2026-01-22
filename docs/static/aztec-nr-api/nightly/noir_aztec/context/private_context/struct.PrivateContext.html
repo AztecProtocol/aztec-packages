@@ -31,9 +31,7 @@
 <li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
 <li><a href="#structfield.last_key_validation_requests">last_key_validation_requests</a></li>
 <li><a href="#structfield.min_revertible_side_effect_counter">min_revertible_side_effect_counter</a></li>
-<li><a href="#structfield.note_hash_read_requests">note_hash_read_requests</a></li>
 <li><a href="#structfield.note_hashes">note_hashes</a></li>
-<li><a href="#structfield.nullifier_read_requests">nullifier_read_requests</a></li>
 <li><a href="#structfield.nullifiers">nullifiers</a></li>
 <li><a href="#structfield.private_call_requests">private_call_requests</a></li>
 <li><a href="#structfield.private_logs">private_logs</a></li>
@@ -44,7 +42,8 @@
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
-<li><a href="#assert_has_been_requested">assert_has_been_requested</a></li>
+<li><a href="#assert_note_exists">assert_note_exists</a></li>
+<li><a href="#assert_nullifier_exists">assert_nullifier_exists</a></li>
 <li><a href="#call_private_function">call_private_function</a></li>
 <li><a href="#call_private_function_no_args">call_private_function_no_args</a></li>
 <li><a href="#call_private_function_with_args_hash">call_private_function_with_args_hash</a></li>
@@ -67,10 +66,8 @@
 <li><a href="#message_portal">message_portal</a></li>
 <li><a href="#new">new</a></li>
 <li><a href="#push_note_hash">push_note_hash</a></li>
-<li><a href="#push_note_hash_read_request">push_note_hash_read_request</a></li>
 <li><a href="#push_nullifier">push_nullifier</a></li>
 <li><a href="#push_nullifier_for_note_hash">push_nullifier_for_note_hash</a></li>
-<li><a href="#push_nullifier_read_request">push_nullifier_read_request</a></li>
 <li><a href="#request_nsk_app">request_nsk_app</a></li>
 <li><a href="#request_ovsk_app">request_ovsk_app</a></li>
 <li><a href="#selector">selector</a></li>
@@ -107,8 +104,6 @@
     pub args_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub return_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub include_by_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>,
-    pub note_hash_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 16&gt;,
-    pub nullifier_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 16&gt;,
     pub note_hashes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;, 16&gt;,
     pub nullifiers: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;, 16&gt;,
     pub private_call_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 8&gt;,
@@ -275,8 +270,6 @@ error will be thrown by the LSP or when they compile their contract.</p>
 <div class="padded-description"></div><div id="structfield.args_hash" class="struct-field"><code class="code-header">args_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.return_hash" class="struct-field"><code class="code-header">return_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.include_by_timestamp" class="struct-field"><code class="code-header">include_by_timestamp: <a href="../../../std/primitive.u64.html" class="primitive">u64</a></code></div>
-<div class="padded-description"></div><div id="structfield.note_hash_read_requests" class="struct-field"><code class="code-header">note_hash_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 16&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.nullifier_read_requests" class="struct-field"><code class="code-header">nullifier_read_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;&gt;, 16&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/note_hash/type.NoteHash.html" class="type">NoteHash</a>&gt;, 16&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/nullifier/struct.Nullifier.html" class="struct">Nullifier</a>&gt;, 16&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.private_call_requests" class="struct-field"><code class="code-header">private_call_requests: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../protocol_types/abis/private_call_request/struct.PrivateCallRequest.html" class="struct">PrivateCallRequest</a>, 8&gt;</code></div>
@@ -679,80 +672,42 @@ will need to be discussed. Wallets that deviate from a standard might
 accidentally reveal which wallet each transaction originates from.</li>
 </ul>
 </div>
-</div><code id="push_note_hash_read_request" class="code-header">pub fn <a href="#push_note_hash_read_request"><span class="fn">push_note_hash_read_request</span></a>(&mut self, note_hash_read: <a href="../../../noir_aztec/context/note_hash_read/struct.NoteHashRead.html" class="struct">NoteHashRead</a>)</code>
+</div><code id="assert_note_exists" class="code-header">pub fn <a href="#assert_note_exists"><span class="fn">assert_note_exists</span></a>(&mut self, note_existence_request: <a href="../../../noir_aztec/context/note_existence_request/struct.NoteExistenceRequest.html" class="struct">NoteExistenceRequest</a>)</code>
 
 <div class="padded-description"><div class="comments">
-<p>Makes a request to the protocol's kernel circuit to ensure a note_hash
-actually exists.</p>
-<p>&quot;Read requests&quot; are used to prove that a note hash exists without
-revealing which specific note was read.</p>
-<p>This can be used to prove existence of both settled notes (created in
-prior transactions) and pending notes (created in the current
-transaction).
-If you need to prove existence of a settled note <em>at a specific block
-number</em>, use <code>note_inclusion::prove_note_inclusion</code>.</p>
-<p>Low-level function. Ordinarily, smart contract developers will not need
-to call this directly. Aztec-nr's state variables (see <code>../state_vars/</code>)
-are designed to understand when to create and push new note_hash read
-requests.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>note_hash_read</code> - The note hash to read and verify</li>
-</ul>
-<h4>Advanced</h4>
-<p>In &quot;traditional&quot; circuits for non-Aztec privacy applications, the merkle
-membership proofs to check existence of a note are performed <em>within</em>
-the application circuit.</p>
-<p>All Aztec private functions have access to the following constraint
-optimisation:
-In cases where the note being read was created earlier in the same tx,
-the note wouldn't yet exist in the Note Hash Tree, so a hard-coded
-merkle membership check which then gets ignored would be a waste of
-constraints.
-Instead, we can send read requests for all notes to the protocol's
-kernel circuits, where we can conditionally assess which notes actually
-need merkle membership proofs, and select an appropriately-sized
-kernel circuit.</p>
-<p>For &quot;settled notes&quot; (which already existed in the Note Hash Tree of the
-anchor block (i.e. before the tx began)), the kernel does a merkle
-membership check.</p>
-<p>For &quot;pending notes&quot; (which were created earlier in <em>this</em> tx), the
-kernel will check that the note existed <em>before</em> this read request was
-made, by checking the side-effect counters of the note_hash and this
-read request.</p>
-<p>This approach improves latency between writes and reads:
-a function can read a note which was created earlier in the tx (rather
-than performing the read in a later tx, after waiting for the earlier tx
-to be included, to ensure the note is included in the tree).</p>
-</div>
-</div><code id="assert_has_been_requested" class="code-header">pub fn <a href="#assert_has_been_requested"><span class="fn">assert_has_been_requested</span></a>(self, note_hash_read: <a href="../../../noir_aztec/context/note_hash_read/struct.NoteHashRead.html" class="struct">NoteHashRead</a>)</code>
-
-<div class="padded-description"><div class="comments">
-<p>Asserts that a NoteHashRead has been requested to the kernel by this context.
-Asserts instead of returning a boolean to save on gates.</p>
-<h4>Arguments</h4>
-<ul>
-<li><code>note_hash_read</code> - The note hash read to assert that has been requested.</li>
-</ul>
-</div>
-</div><code id="push_nullifier_read_request" class="code-header">pub fn <a href="#push_nullifier_read_request"><span class="fn">push_nullifier_read_request</span></a>(
+<p>Asserts that a note has been created.</p>
+<p>This function will cause the transaction to fail unless the requested note exists. This is the preferred
+mechanism for performing this check, and the only one that works for pending notes.</p>
+<h4>Pending Notes</h4>
+<p>Both settled notes (created in prior transactions) and pending notes (created in the current transaction) will
+be considered by this function. Pending notes must have been created <strong>before</strong> this call is made for the check
+to pass.</p>
+<h4>Historical Notes</h4>
+<p>If you need to assert that a note existed <em>at some specific time in the past</em>, instead of simply proving that it
+exists in the current anchor block, use
+<a href="../../../noir_aztec/history/note_inclusion/trait.ProveNoteInclusion.html#prove_note_inclusion">crate::history::note_inclusion::ProveNoteInclusion::prove_note_inclusion</a> instead.</p>
+<h4>Cost</h4>
+<p>This uses up one of the call's kernel note hash read requests, which are limited. Like all kernel requests,
+proving time costs are only incurred when the total number of requests exceeds the kernel's capacity, requiring
+an additional invocation of the kernel reset circuit.</p></div>
+</div><code id="assert_nullifier_exists" class="code-header">pub fn <a href="#assert_nullifier_exists"><span class="fn">assert_nullifier_exists</span></a>(
     &mut self,
     unsiloed_nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 )</code>
 
 <div class="padded-description"><div class="comments">
-<p>Requests the private kernel to ensure an <code>unsiloed_nullifier</code> has been emitted by <code>contract_address</code>, failing
-the transaction otherwise.</p>
-<p>Note that unsiloed nullifiers are not the actual values stored in the nullifier tree: they are first siloed via
-<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html">crate::hash::compute_siloed_nullifier</a> with the emitting contract's address.</p>
+<p>Asserts that a nullifier has been emitted.</p>
+<p>This function will cause the transaction to fail unless the requested nullifier exists. This is the preferred
+mechanism for performing this check, and the only one that works for pending nullifiers.</p>
 <h4>Pending Nullifiers</h4>
 <p>Both settled nullifiers (emitted in prior transactions) and pending nullifiers (emitted in the current
-transaction) will be considered by this function. This is the <strong>only</strong> mechanism via which it is possible to
-assert that a pending nullifier exists, since those are otherwise hidden from contracts by the kernels.</p>
-<p>The nullifier must have been emitted <strong>before</strong> this call is made for the transaction to not fail.</p>
-<p>In order to instead prove existence of a settled nullifier at a specific block number, use
-<a href="../../../noir_aztec/history/nullifier_inclusion/trait.ProveNullifierInclusion.html#prove_nullifier_inclusion">crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion</a>.</p>
+transaction) will be considered by this function. Pending nullifiers must have been emitted <strong>before</strong> this call
+is made for the check to pass.</p>
+<h4>Historical Nullifiers</h4>
+<p>If you need to assert that a nullifier existed <em>at some specific time in the past</em>, instead of simply proving
+that it exists in the current anchor block, use
+<a href="../../../noir_aztec/history/nullifier_inclusion/trait.ProveNullifierInclusion.html#prove_nullifier_inclusion">crate::history::nullifier_inclusion::ProveNullifierInclusion::prove_nullifier_inclusion</a> instead.</p>
 <h4>Public vs Private</h4>
 <p>In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
 possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion

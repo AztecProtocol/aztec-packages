@@ -1,12 +1,12 @@
 // docs:start:custom_filter_imports
 use aztec::{
-    note::hinted_note::HintedNote,
+    note::HintedNote,
     protocol_types::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, utils::field::full_field_less_than,
     },
 };
 // docs:end:custom_filter_imports
-use field_note::field_note::FieldNote;
+use field_note::FieldNote;
 
 // docs:start:custom_filter
 pub fn filter_notes_min_sum(

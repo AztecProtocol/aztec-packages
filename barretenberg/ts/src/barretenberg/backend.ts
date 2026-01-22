@@ -326,7 +326,7 @@ export class AztecClientBackend {
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
     // Generate the VK
-    const vkResult = await this.api.chonkComputeIvcVk({
+    const vkResult = await this.api.chonkComputeVk({
       circuit: {
         name: 'hiding',
         bytecode: this.acirBuf[this.acirBuf.length - 1],

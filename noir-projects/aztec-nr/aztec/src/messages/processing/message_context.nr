@@ -14,7 +14,7 @@ pub struct MessageContext {
 }
 
 mod test {
-    use crate::messages::processing::message_context::MessageContext;
+    use crate::messages::processing::MessageContext;
     use protocol_types::{address::AztecAddress, traits::{Deserialize, FromField}};
 
     #[test]
