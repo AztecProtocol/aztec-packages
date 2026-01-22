@@ -1,6 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Logger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import type { TransactionSerializable } from 'viem';
@@ -26,20 +26,21 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
 export function createL1TxUtilsWithBlobsFromViemWallet(
   client: ExtendedViemWalletClient,
   deps: {
-    logger?: Logger;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
-  } = {},
+  },
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
+  const logger = deps.loggerFactory.createLogger('ethereum:l1-tx-utils-blobs');
   return new L1TxUtilsWithBlobs(
     client,
     EthAddress.fromString(client.account.address),
     createViemSigner(client),
-    deps.logger,
-    deps.dateProvider,
+    logger,
+    deps.dateProvider ?? new DateProvider(),
     config,
     debugMaxGasLimit,
     deps.store,
@@ -51,11 +52,11 @@ export function createL1TxUtilsWithBlobsFromEthSigner(
   client: ViemClient,
   signer: EthSigner,
   deps: {
-    logger?: Logger;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
-  } = {},
+  },
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
@@ -63,12 +64,13 @@ export function createL1TxUtilsWithBlobsFromEthSigner(
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 
+  const logger = deps.loggerFactory.createLogger('ethereum:l1-tx-utils-blobs');
   return new L1TxUtilsWithBlobs(
     client,
     signer.address,
     callback,
-    deps.logger,
-    deps.dateProvider,
+    logger,
+    deps.dateProvider ?? new DateProvider(),
     config,
     debugMaxGasLimit,
     deps.store,

@@ -2,7 +2,7 @@ import type { RollupContract } from '@aztec/ethereum/contracts';
 import { InboxContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 
@@ -46,14 +46,17 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   /** Current L2 slot number */
   public l2SlotNumber!: SlotNumber;
 
+  private readonly logger: Logger;
+
   constructor(
     private readonly rollup: RollupContract,
     private readonly dateProvider: DateProvider = new DateProvider(),
-    private readonly logger = createLogger('aztecjs:utils:chain_monitor'),
+    loggerFactory: LoggerFactory,
     private readonly intervalMs = 200,
   ) {
     super();
     this.l1Client = rollup.client;
+    this.logger = loggerFactory.createLogger('chain-monitor');
   }
 
   start() {

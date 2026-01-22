@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 
@@ -13,12 +13,12 @@ import { RollupContract } from './rollup.js';
 export class RegistryContract {
   public address: EthAddress;
 
-  private readonly log = createLogger('ethereum:contracts:registry');
   private readonly registry: GetContractReturnType<typeof RegistryAbi, ViemClient>;
 
   constructor(
     public readonly client: ViemClient,
     address: Hex | EthAddress,
+    private readonly log: Logger,
   ) {
     if (address instanceof EthAddress) {
       address = address.toString();
@@ -84,8 +84,9 @@ export class RegistryContract {
     client: ViemClient,
     registryAddress: Hex | EthAddress,
     rollupVersion: number | bigint | 'canonical',
+    log: Logger,
   ): Promise<L1ContractAddresses> {
-    const registry = new RegistryContract(client, registryAddress);
+    const registry = new RegistryContract(client, registryAddress, log);
     const governanceAddresses = await registry.getGovernanceAddresses();
     const rollupAddress = await registry.getRollupAddress(rollupVersion);
 
@@ -93,7 +94,7 @@ export class RegistryContract {
       throw new Error('Rollup address is undefined');
     }
 
-    const rollup = new RollupContract(client, rollupAddress);
+    const rollup = new RollupContract(client, rollupAddress, log);
     const addresses = await rollup.getRollupAddresses();
     const feeAsset = getContract({
       address: addresses.feeJuiceAddress.toString(),

@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -22,10 +23,7 @@ import {
   keccak256,
 } from 'viem';
 
-import { getPublicClient } from '../client.js';
-import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -223,23 +221,10 @@ export class RollupContract {
     return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
   }
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployAztecL1ContractsReturnType) {
-    const {
-      l1Client,
-      l1ContractAddresses: { rollupAddress },
-    } = deployL1ContractsValues;
-    return new RollupContract(l1Client, rollupAddress.toString());
-  }
-
-  static getFromConfig(config: L1ReaderConfig) {
-    const client = getPublicClient(config);
-    const address = config.l1Contracts.rollupAddress.toString();
-    return new RollupContract(client, address);
-  }
-
   constructor(
     public readonly client: ViemClient,
     address: Hex | EthAddress,
+    private readonly log: Logger,
   ) {
     if (address instanceof EthAddress) {
       address = address.toString();
@@ -283,7 +268,7 @@ export class RollupContract {
     if (proposerType === SlashingProposerType.Tally.valueOf()) {
       return new TallySlashingProposerContract(this.client, proposerAddress);
     } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
-      return new EmpireSlashingProposerContract(this.client, proposerAddress);
+      return new EmpireSlashingProposerContract(this.client, proposerAddress, this.log);
     } else {
       throw new Error(`Unknown slashing proposer type: ${proposerType}`);
     }
@@ -472,7 +457,7 @@ export class RollupContract {
     if (slasherAddress.isZero()) {
       return undefined;
     }
-    return new SlasherContract(this.client, slasherAddress);
+    return new SlasherContract(this.client, slasherAddress, this.log);
   }
 
   async getOwner(): Promise<EthAddress> {
@@ -618,6 +603,7 @@ export class RollupContract {
         const pendingCheckpoint = await this.getCheckpoint(pendingCheckpointNumber);
         return pendingCheckpoint;
       },
+      this.log,
       'getting pending checkpoint',
       makeBackoff([0.5, 0.5, 0.5]),
     );

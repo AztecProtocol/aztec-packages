@@ -35,20 +35,26 @@ describe('FeeAssetHandler', () => {
     const vkTreeRoot = Fr.random();
     const protocolContractsHash = Fr.random();
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     const l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, rawPrivateKey, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot,
-      protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    const deployed = await deployAztecL1Contracts(
+      rpcUrl,
+      rawPrivateKey,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot,
+        protocolContractsHash,
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
+    txUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: logger });
     feeAssetHandler = new FeeAssetHandlerContract(l1Client, deployedAddresses.feeAssetHandlerAddress!);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),

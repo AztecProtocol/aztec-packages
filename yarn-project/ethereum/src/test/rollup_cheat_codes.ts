@@ -3,7 +3,7 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -24,11 +24,10 @@ export class RollupCheatCodes {
   private client: ViemPublicClient;
   private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
-  private logger = createLogger('aztecjs:cheat_codes');
-
   constructor(
     private ethCheatCodes: EthCheatCodes,
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
+    private logger: Logger,
   ) {
     this.client = createPublicClient({
       chain: ethCheatCodes.chain,
@@ -45,9 +44,10 @@ export class RollupCheatCodes {
     rpcUrls: string[],
     addresses: Pick<L1ContractAddresses, 'rollupAddress'>,
     dateProvider: DateProvider,
+    loggerFactory: LoggerFactory,
   ): RollupCheatCodes {
-    const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
-    return new RollupCheatCodes(ethCheatCodes, addresses);
+    const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider, loggerFactory);
+    return new RollupCheatCodes(ethCheatCodes, addresses, loggerFactory.createLogger('aztecjs:cheat_codes'));
   }
 
   /** Returns the current slot */
@@ -81,7 +81,7 @@ export class RollupCheatCodes {
    * Logs the current state of the rollup contract.
    */
   public async debugRollup() {
-    const rollup = new RollupContract(this.client, this.rollup.address);
+    const rollup = new RollupContract(this.client, this.rollup.address, this.logger);
     const pendingNum = await rollup.getCheckpointNumber();
     const provenNum = await rollup.getProvenCheckpointNumber();
     const validators = await rollup.getAttesters();

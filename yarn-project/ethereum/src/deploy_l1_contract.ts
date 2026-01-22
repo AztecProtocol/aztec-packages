@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import {
@@ -39,16 +39,16 @@ export class L1Deployer {
   constructor(
     public readonly client: ExtendedViemWalletClient,
     maybeSalt: number | undefined,
-    dateProvider: DateProvider = new DateProvider(),
-    private acceleratedTestDeployments: boolean = false,
-    private logger: Logger = createLogger('L1Deployer'),
+    dateProvider: DateProvider,
+    private acceleratedTestDeployments: boolean,
+    private logger: Logger,
     private txUtilsConfig?: L1TxUtilsConfig,
     private createVerificationJson: boolean = false,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
     this.l1TxUtils = createL1TxUtilsFromViemWallet(
       this.client,
-      { logger: this.logger, dateProvider },
+      { loggerFactory: this.logger, dateProvider },
       { ...this.txUtilsConfig, debugMaxGasLimit: acceleratedTestDeployments },
     );
   }
@@ -154,16 +154,16 @@ export async function deployL1Contract(
   extendedClient: ExtendedViemWalletClient,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
-  args: readonly unknown[] = [],
+  args: readonly unknown[],
   opts: {
+    logger: Logger;
     salt?: Hex;
     libraries?: Libraries;
-    logger?: Logger;
     l1TxUtils?: L1TxUtils;
     gasLimit?: bigint;
     acceleratedTestDeployments?: boolean;
     noSimulation?: boolean;
-  } = {},
+  },
 ): Promise<{
   address: EthAddress;
   txHash: Hex | undefined;
@@ -181,7 +181,7 @@ export async function deployL1Contract(
     const config = getL1TxUtilsConfigEnvVars();
     l1TxUtils = createL1TxUtilsFromViemWallet(
       extendedClient,
-      { logger },
+      { loggerFactory: logger },
       { ...config, debugMaxGasLimit: acceleratedTestDeployments },
     );
   }

@@ -1,5 +1,5 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 
@@ -250,8 +250,8 @@ export class L1FeeAnalyzer {
 
   constructor(
     private client: ViemClient,
-    private dateProvider: DateProvider = new DateProvider(),
-    private logger: Logger = createLogger('ethereum:l1-fee-analyzer'),
+    private dateProvider: DateProvider,
+    private logger: Logger,
     private maxCompletedAnalyses: number = 100,
     strategies: PriorityFeeStrategy[] = DEFAULT_PRIORITY_FEE_STRATEGIES,
     private gasConfig: L1TxUtilsConfig = {},

@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -7,8 +7,11 @@ import { dirname, resolve } from 'path';
 
 /**
  * Ensures there's a running Anvil instance and returns the RPC URL.
+ * @param logger - Logger for retry and debug output.
+ * @param opts - Options for the Anvil instance.
  */
 export async function startAnvil(
+  logger: Logger,
   opts: {
     port?: number;
     l1BlockTime?: number;
@@ -21,7 +24,6 @@ export async function startAnvil(
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
-  const logger = opts.log ? createLogger('ethereum:anvil') : undefined;
   const methodCalls = opts.captureMethodCalls ? ([] as string[]) : undefined;
 
   let port: number | undefined;
@@ -43,7 +45,9 @@ export async function startAnvil(
 
       // Listen to the anvil output to get the port.
       const removeHandler = anvil.on('message', (message: string) => {
-        logger?.debug(message.trim());
+        if (opts.log) {
+          logger.debug(message.trim());
+        }
 
         methodCalls?.push(...(message.match(/eth_[^\s]+/g) || []));
         if (port === undefined && message.includes('Listening on')) {
@@ -51,12 +55,13 @@ export async function startAnvil(
         }
       });
       await anvil.start();
-      if (!logger && !opts.captureMethodCalls) {
+      if (!opts.log && !opts.captureMethodCalls) {
         removeHandler();
       }
 
       return anvil;
     },
+    logger,
     'Start anvil',
     makeBackoff([5, 5, 5]),
   );

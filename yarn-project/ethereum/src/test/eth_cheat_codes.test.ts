@@ -1,6 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { times, timesAsync } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
@@ -18,6 +18,7 @@ import { startAnvil } from './start_anvil.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const ANVIL_RPC_URL = process.env.ANVIL_RPC_URL;
+const loggerFactory = createLoggerFactory();
 
 describe('EthCheatCodes', () => {
   let l1Client: ExtendedViemWalletClient;
@@ -28,14 +29,13 @@ describe('EthCheatCodes', () => {
   let sender: Hex;
 
   beforeEach(async () => {
+    logger = loggerFactory.createLogger('ethereum:test:eth_cheat_codes');
     if (ANVIL_RPC_URL) {
       rpcUrl = ANVIL_RPC_URL;
     } else {
-      ({ anvil, rpcUrl } = await startAnvil());
+      ({ anvil, rpcUrl } = await startAnvil(logger));
     }
-
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
-    logger = createLogger('ethereum:test:eth_cheat_codes');
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
 
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey!;
@@ -54,11 +54,13 @@ describe('EthCheatCodes', () => {
   describe('reorgs', () => {
     const deployToken = async () => {
       logger.warn(`Deploying token contract`);
-      const { address, txHash } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
-        'Test Token',
-        'TEST',
-        sender,
-      ]);
+      const { address, txHash } = await deployL1Contract(
+        l1Client,
+        TestERC20Abi,
+        TestERC20Bytecode,
+        ['Test Token', 'TEST', sender],
+        { logger },
+      );
       await l1Client.waitForTransactionReceipt({ hash: txHash! });
       return getContract({ address: address.toString(), abi: TestERC20Abi, client: l1Client });
     };
@@ -215,11 +217,13 @@ describe('EthCheatCodes', () => {
   describe('mineEmptyBlock', () => {
     it('mines an empty block while preserving pending transactions', async () => {
       // Deploy a token first (with automine enabled)
-      const { address, txHash } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
-        'Test Token',
-        'TEST',
-        sender,
-      ]);
+      const { address, txHash } = await deployL1Contract(
+        l1Client,
+        TestERC20Abi,
+        TestERC20Bytecode,
+        ['Test Token', 'TEST', sender],
+        { logger },
+      );
       await l1Client.waitForTransactionReceipt({ hash: txHash! });
       const token = getContract({ address: address.toString(), abi: TestERC20Abi, client: l1Client });
 

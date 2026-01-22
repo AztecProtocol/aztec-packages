@@ -1,6 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import type { Anvil } from '@viem/anvil';
@@ -18,9 +18,15 @@ import { L1FeeAnalyzer } from './l1_fee_analyzer.js';
 import type { L1BlobInputs, L1TxRequest } from './types.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
-const logger = createLogger('ethereum:test:l1-fee-analyzer');
+const loggerFactory = createLoggerFactory();
 
 describe('L1FeeAnalyzer', () => {
+  let logger: Logger;
+
+  beforeAll(() => {
+    logger = loggerFactory.createLogger('ethereum:test:l1-fee-analyzer');
+  });
+
   const initialBaseFee = WEI_CONST; // 1 gwei
 
   let l1Client: ExtendedViemWalletClient;
@@ -32,8 +38,8 @@ describe('L1FeeAnalyzer', () => {
   let analyzer: L1FeeAnalyzer;
 
   beforeEach(async () => {
-    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++, log: false }));
-    cheatCodes = new EthCheatCodes([rpcUrl], new TestDateProvider());
+    ({ anvil, rpcUrl } = await startAnvil(logger, { l1BlockTime: 1, port: port++, log: false }));
+    cheatCodes = new EthCheatCodes([rpcUrl], new TestDateProvider(logger), loggerFactory);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
@@ -43,7 +49,7 @@ describe('L1FeeAnalyzer', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(logger);
 
     await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
     await cheatCodes.evmMine();

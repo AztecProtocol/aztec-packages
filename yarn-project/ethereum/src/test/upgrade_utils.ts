@@ -22,7 +22,7 @@ export async function executeGovernanceProposal(
 ) {
   const proposal = await governance.read.getProposal([proposalId]);
 
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: logger });
 
   const waitL1Block = async () => {
     await l1TxUtils.sendAndMonitorTransaction({

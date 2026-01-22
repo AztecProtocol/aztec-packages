@@ -1,3 +1,5 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
+
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
 import {
@@ -42,6 +44,7 @@ describe('fallback_transport', () => {
   let publicClient2: PublicClient;
   let anvil1: Anvil;
   let anvil2: Anvil;
+  let logger: Logger;
 
   afterEach(async () => {
     await anvil1.stop();
@@ -49,9 +52,10 @@ describe('fallback_transport', () => {
   }, 5_000);
 
   beforeEach(async () => {
+    logger = createLogger('ethereum:test:fallback_transport');
     // Start two separate Anvil instances
-    const anvil1Result = await startAnvil({ port: 8545 });
-    const anvil2Result = await startAnvil({ port: 8546 });
+    const anvil1Result = await startAnvil(logger, { port: 8545 });
+    const anvil2Result = await startAnvil(logger, { port: 8546 });
 
     anvil1 = anvil1Result.anvil;
     anvil2 = anvil2Result.anvil;

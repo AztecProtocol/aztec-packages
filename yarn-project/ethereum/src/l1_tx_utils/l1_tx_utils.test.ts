@@ -3,7 +3,7 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { retryFastUntil, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
@@ -48,7 +48,6 @@ import { createViemSigner } from './signer.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
-const logger = createLogger('ethereum:test:l1_tx_utils');
 // Simple contract that just returns 42
 const SIMPLE_CONTRACT_BYTECODE = '0x69602a60005260206000f3600052600a6016f3';
 
@@ -70,10 +69,16 @@ describe('L1TxUtils', () => {
   let dateProvider: TestDateProvider;
   let port: number = 8545;
   let metrics: MockProxy<IL1TxMetrics>;
+  let logger: Logger;
+  const loggerFactory = createLoggerFactory();
+
+  beforeAll(() => {
+    logger = loggerFactory.createLogger('ethereum:test:l1_tx_utils');
+  });
 
   beforeEach(async () => {
-    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++, log: false }));
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
+    ({ anvil, rpcUrl } = await startAnvil(logger, { l1BlockTime: 1, port: port++, log: false }));
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
@@ -83,7 +88,7 @@ describe('L1TxUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(logger);
     metrics = mock<IL1TxMetrics>();
 
     await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
@@ -1716,7 +1721,7 @@ describe('L1TxUtils', () => {
       const { L1TxStore } = await import('@aztec/node-lib/stores' as string);
 
       const kvStore = await openTmpStore('l1-tx-utils-rehydration-test', true);
-      const store = new L1TxStore(kvStore);
+      const store = new L1TxStore(kvStore, createLogger('l1-tx-utils:store'));
       gasUtils.setStore(store);
 
       const { state } = await gasUtils.sendTransaction(request);
@@ -1776,7 +1781,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { loggerFactory: logger });
       expect(l1TxUtils).toBeDefined();
       expect(l1TxUtils.client).toBe(walletClient);
 
@@ -1788,7 +1793,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { loggerFactory: logger });
 
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
@@ -1802,7 +1807,7 @@ describe('L1TxUtils', () => {
 
     it('L1TxUtils cannot be instantiated with public client', () => {
       expect(() => {
-        createL1TxUtilsFromViemWallet(publicClient as any, { logger });
+        createL1TxUtilsFromViemWallet(publicClient as any, { loggerFactory: logger });
       }).toThrow();
     });
   });

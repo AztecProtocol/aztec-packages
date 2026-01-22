@@ -1,6 +1,7 @@
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GSEContract } from '@aztec/ethereum/contracts';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 
 import type { Anvil } from '@viem/anvil';
 import { foundry } from 'viem/chains';
@@ -9,6 +10,8 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
+
+const logger = createLogger('ethereum:test:gse');
 
 describe('Governance', () => {
   let anvil: Anvil;
@@ -25,17 +28,23 @@ describe('Governance', () => {
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot,
-      protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    const deployed = await deployAztecL1Contracts(
+      rpcUrl,
+      privateKeyRaw,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot,
+        protocolContractsHash,
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
 
     gseAddress = deployed.l1ContractAddresses.gseAddress!.toString() as `0x${string}`;
   });

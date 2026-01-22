@@ -39,17 +39,23 @@ describe('Multicall3', () => {
     const vkTreeRoot = Fr.random();
     const protocolContractsHash = Fr.random();
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     walletClient = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot,
-      protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    deployed = await deployAztecL1Contracts(
+      rpcUrl,
+      privateKeyRaw,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot,
+        protocolContractsHash,
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
 
     const { address: erc20Address, txHash: erc20TxHash } = await deployL1Contract(
       walletClient,
@@ -67,7 +73,7 @@ describe('Multicall3', () => {
       client: walletClient,
     });
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+    l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { loggerFactory: logger });
 
     const addMinterHash = await tokenContract.write.addMinter([MULTI_CALL_3_ADDRESS], { account: privateKey });
     await walletClient.waitForTransactionReceipt({ hash: addMinterHash });

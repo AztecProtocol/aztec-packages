@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
@@ -15,6 +15,8 @@ import { EthCheatCodes } from './eth_cheat_codes.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, waitUntilBlock, withDelayer } from './tx_delayer.js';
 
+const loggerFactory = createLoggerFactory();
+
 describe('tx_delayer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
@@ -28,20 +30,22 @@ describe('tx_delayer', () => {
   const ETHEREUM_SLOT_DURATION = process.env.L1_SLOT_DURATION ? parseInt(process.env.L1_SLOT_DURATION) : 4;
 
   beforeAll(async () => {
-    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
-    logger = createLogger('ethereum:test:tx_delayer');
+    logger = loggerFactory.createLogger('ethereum:test:tx_delayer');
+    ({ anvil, rpcUrl } = await startAnvil(logger, { l1BlockTime: ETHEREUM_SLOT_DURATION }));
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
   });
 
   beforeEach(() => {
     account = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(logger);
     const _client = createWalletClient({
       transport: fallback([http(rpcUrl, { batch: false })]),
       chain: foundry,
       account,
     }).extend(publicActions);
-    ({ client, delayer } = withDelayer(_client, dateProvider, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }));
+    ({ client, delayer } = withDelayer(_client, dateProvider, logger, {
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+    }));
   });
 
   const receiptNotFound = expect.objectContaining({ name: 'TransactionReceiptNotFoundError' });
@@ -192,6 +196,6 @@ describe('tx_delayer', () => {
   }, 20000);
 
   afterAll(async () => {
-    await anvil.stop().catch(err => createLogger('cleanup').error(err));
+    await anvil.stop().catch(err => logger.error(err));
   });
 });

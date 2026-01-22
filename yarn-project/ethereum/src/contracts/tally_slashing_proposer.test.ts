@@ -4,7 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
@@ -19,6 +19,9 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { RollupContract, decodeSlashConsensusVotes } from './index.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
+
+const loggerFactory = createLoggerFactory();
+const logger = loggerFactory.createLogger('ethereum:tally-slashing-proposer:test');
 
 describe('TallySlashingProposer', () => {
   let anvil: Anvil;
@@ -50,7 +53,7 @@ describe('TallySlashingProposer', () => {
     deployerPrivateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     deployerPrivateKey = privateKeyToAccount(deployerPrivateKeyRaw);
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     validatorsPrivateKeys = (
       [
@@ -79,12 +82,12 @@ describe('TallySlashingProposer', () => {
       })),
     };
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, foundry.id, testConfig);
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
-    rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses);
+    const deployed = await deployAztecL1Contracts(rpcUrl, deployerPrivateKeyRaw, foundry.id, testConfig, logger);
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
+    rollupCheatCodes = new RollupCheatCodes(cheatCodes, deployed.l1ContractAddresses, logger);
 
     writeClient = createExtendedL1Client([rpcUrl], deployerPrivateKey);
-    rollup = new RollupContract(writeClient, deployed.l1ContractAddresses.rollupAddress!);
+    rollup = new RollupContract(writeClient, deployed.l1ContractAddresses.rollupAddress!, logger);
     tallySlashingProposer = (await rollup.getSlashingProposer()) as TallySlashingProposerContract;
     tallySlashingProposerAddress = tallySlashingProposer.address;
   });

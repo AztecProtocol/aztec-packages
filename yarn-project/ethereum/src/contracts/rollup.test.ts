@@ -2,7 +2,7 @@ import { getPublicClient } from '@aztec/ethereum/client';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -16,6 +16,9 @@ import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
 import { RollupContract } from './rollup.js';
+
+const loggerFactory = createLoggerFactory();
+const logger = loggerFactory.createLogger('ethereum:rollup:test');
 
 describe('Rollup', () => {
   let anvil: Anvil;
@@ -34,21 +37,27 @@ describe('Rollup', () => {
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot,
-      protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    const deployed = await deployAztecL1Contracts(
+      rpcUrl,
+      privateKeyRaw,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot,
+        protocolContractsHash,
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
 
     rollupAddress = deployed.l1ContractAddresses.rollupAddress.toString();
-    rollup = new RollupContract(publicClient, rollupAddress);
+    rollup = new RollupContract(publicClient, rollupAddress, logger);
   });
 
   afterAll(async () => {

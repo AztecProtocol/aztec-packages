@@ -1,10 +1,13 @@
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 
 import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 import { PublisherManager } from './publisher_manager.js';
+
+const logger = createLogger('ethereum:publisher-manager:test');
 
 describe('PublisherManager', () => {
   let mockPublishers: (TestL1TxUtils & L1TxUtils)[];
@@ -18,7 +21,7 @@ describe('PublisherManager', () => {
     it('should initialize with publishers', () => {
       mockPublishers = createMockPublishers(3);
 
-      expect(() => new PublisherManager(mockPublishers, {})).not.toThrow();
+      expect(() => new PublisherManager(mockPublishers, {}, logger)).not.toThrow();
     });
   });
 
@@ -27,7 +30,7 @@ describe('PublisherManager', () => {
     beforeEach(() => {
       addresses = Array.from({ length: 3 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(3, addresses);
-      publisherManager = new PublisherManager(mockPublishers, {});
+      publisherManager = new PublisherManager(mockPublishers, {}, logger);
     });
 
     it('should throw error when no valid publishers found', async () => {
@@ -52,7 +55,7 @@ describe('PublisherManager', () => {
       mockPublishers[1].state = TxUtilsState.CANCELLED;
       mockPublishers[2].state = TxUtilsState.NOT_MINED;
 
-      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true });
+      publisherManager = new PublisherManager(mockPublishers, { publisherAllowInvalidStates: true }, logger);
       await expect(publisherManager.getAvailablePublisher(p => p.state === TxUtilsState.CANCELLED)).resolves.toBe(
         mockPublishers[1],
       );
@@ -129,7 +132,7 @@ describe('PublisherManager', () => {
     it('should prioritise same state publishers based on balance and then least recently used', async () => {
       const ethAddresses = Array.from({ length: 5 }, () => EthAddress.random());
       mockPublishers = createMockPublishers(5, ethAddresses);
-      publisherManager = new PublisherManager(mockPublishers, {});
+      publisherManager = new PublisherManager(mockPublishers, {}, logger);
 
       const filter = (utils: L1TxUtils) => utils.getSenderAddress() !== mockPublishers[2].getSenderAddress(); // Filter out publisher in index 2
 

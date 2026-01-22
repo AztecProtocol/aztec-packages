@@ -15,7 +15,7 @@ describe('start_anvil', () => {
   beforeEach(async () => {
     sleepAfterTeardown = 0;
     logger = createLogger('ethereum:test:anvil');
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
   });
 
   afterEach(async () => {

@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import { type GetContractReturnType, getContract } from 'viem';
@@ -15,7 +15,7 @@ export class SlasherContract {
   constructor(
     private readonly client: ViemClient,
     private readonly address: EthAddress,
-    private readonly log = createLogger('slasher-contract'),
+    private readonly log: Logger,
   ) {
     this.contract = getContract({
       address: this.address.toString(),

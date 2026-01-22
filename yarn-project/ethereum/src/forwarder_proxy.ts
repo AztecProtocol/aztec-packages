@@ -1,7 +1,6 @@
 /* eslint-disable no-console */
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Logger } from '@aztec/foundation/log';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, extractChain } from 'viem';
@@ -58,11 +57,11 @@ const FORWARDER_ARTIFACT = {
 /**
  * Deploys the forwarder proxy contract to L1.
  * @param client - The L1 client to use for deployment
- * @param logger - Optional logger
+ * @param logger - Logger for deployment
  * @returns The deployed forwarder contract address
  */
-export async function deployForwarderProxy(client: ExtendedViemWalletClient, logger?: Logger): Promise<EthAddress> {
-  const log = logger ?? createLogger('ethereum:forwarder');
+export async function deployForwarderProxy(client: ExtendedViemWalletClient, logger: Logger): Promise<EthAddress> {
+  const log = logger;
   const nonce = await client.getTransactionCount({ address: client.account.address });
   const deployer = new L1Deployer(client, nonce, new DateProvider(), false, log, undefined, false);
 
@@ -94,7 +93,8 @@ async function main() {
     privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`,
     extractChain({ chains: [mainnet, sepolia, anvil], id: parseInt(chainId) as any }),
   );
-  const address = await deployForwarderProxy(client);
+  const logger = createLogger('ethereum:forwarder-proxy');
+  const address = await deployForwarderProxy(client, logger);
 
   console.log(`Forwarder proxy deployed at: ${address.toString()}`);
 }

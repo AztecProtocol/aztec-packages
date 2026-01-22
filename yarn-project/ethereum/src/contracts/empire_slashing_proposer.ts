@@ -1,6 +1,6 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
 
@@ -27,7 +27,6 @@ export class ProposalAlreadyExecutedError extends Error {
 }
 
 export class EmpireSlashingProposerContract extends EventEmitter implements IEmpireBase {
-  private readonly logger = createLogger('ethereum:contracts:empire_slashing_proposer');
   private readonly proposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
 
   public readonly type = 'empire' as const;
@@ -35,6 +34,7 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
   constructor(
     public readonly client: ViemClient,
     address: Hex | EthAddress,
+    private readonly logger: Logger,
   ) {
     super();
     this.proposer = getContract({

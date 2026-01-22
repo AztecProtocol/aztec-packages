@@ -1,6 +1,6 @@
 import { getKeys, merge, pick, times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -45,7 +45,7 @@ export class ReadOnlyL1TxUtils {
 
   constructor(
     public client: ViemClient,
-    protected logger: Logger = createLogger('ethereum:readonly-l1-utils'),
+    protected logger: Logger,
     public readonly dateProvider: DateProvider,
     config?: Partial<L1TxUtilsConfig>,
     protected debugMaxGasLimit: boolean = false,
@@ -92,9 +92,9 @@ export class ReadOnlyL1TxUtils {
           isBlobTx,
           logger: this.logger,
         }),
+      this.logger,
       'Executing priority fee strategy',
       makeBackoff(times(2, () => 0)),
-      this.logger,
       true,
     );
 

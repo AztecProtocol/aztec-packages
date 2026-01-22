@@ -2,7 +2,7 @@ import { maxBigint } from '@aztec/foundation/bigint';
 import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -52,7 +52,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     public override client: ViemClient,
     public address: EthAddress,
     protected signer: SigningCallback,
-    logger: Logger = createLogger('ethereum:publisher'),
+    logger: Logger,
     dateProvider: DateProvider = new DateProvider(),
     config?: Partial<L1TxUtilsConfig>,
     debugMaxGasLimit: boolean = false,

@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Logger } from '@aztec/foundation/log';
 
 import { DefaultL1ContractsConfig, type L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
@@ -11,6 +12,7 @@ import type { ViemPublicClient } from './types.js';
 export async function getL1ContractsConfig(
   publicClient: ViemPublicClient,
   addresses: { governanceAddress: EthAddress; rollupAddress?: EthAddress },
+  logger: Logger,
 ): Promise<
   Omit<L1ContractsConfig, 'ethereumSlotDuration'> & {
     l1StartBlock: bigint;
@@ -23,7 +25,7 @@ export async function getL1ContractsConfig(
   const governanceProposerAddress = await governance.getGovernanceProposerAddress();
   const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
-  const rollup = new RollupContract(publicClient, rollupAddress.toString());
+  const rollup = new RollupContract(publicClient, rollupAddress.toString(), logger);
   const slasherProposer = await rollup.getSlashingProposer();
   const slasher = await rollup.getSlasherContract();
   const rollupAddresses = await rollup.getRollupAddresses();

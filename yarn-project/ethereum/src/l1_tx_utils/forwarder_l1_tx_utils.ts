@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Logger } from '@aztec/foundation/log';
-import type { DateProvider } from '@aztec/foundation/timer';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, encodeFunctionData } from 'viem';
 
@@ -22,8 +22,8 @@ export class ForwarderL1TxUtils extends L1TxUtilsWithBlobs {
     client: ViemClient | ExtendedViemWalletClient,
     senderAddress: EthAddress,
     signingCallback: SigningCallback,
-    logger: Logger | undefined,
-    dateProvider: DateProvider | undefined,
+    logger: Logger,
+    dateProvider: DateProvider,
     config: Partial<L1TxUtilsConfig>,
     debugMaxGasLimit: boolean,
     store: IL1TxStore | undefined,
@@ -65,20 +65,21 @@ export function createForwarderL1TxUtilsFromViemWallet(
   client: ExtendedViemWalletClient,
   forwarderAddress: EthAddress,
   deps: {
-    logger?: Logger;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
-  } = {},
+  },
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
+  const logger = deps.loggerFactory.createLogger('ethereum:l1-tx-utils:forwarder');
   return new ForwarderL1TxUtils(
     client,
     EthAddress.fromString(client.account.address),
     createViemSigner(client),
-    deps.logger,
-    deps.dateProvider,
+    logger,
+    deps.dateProvider ?? new DateProvider(),
     config,
     debugMaxGasLimit,
     deps.store,
@@ -92,11 +93,11 @@ export function createForwarderL1TxUtilsFromEthSigner(
   signer: EthSigner,
   forwarderAddress: EthAddress,
   deps: {
-    logger?: Logger;
+    loggerFactory: LoggerFactory;
     dateProvider?: DateProvider;
     store?: IL1TxStore;
     metrics?: IL1TxMetrics;
-  } = {},
+  },
   config: Partial<L1TxUtilsConfig> = {},
   debugMaxGasLimit: boolean = false,
 ) {
@@ -104,12 +105,13 @@ export function createForwarderL1TxUtilsFromEthSigner(
     return (await signer.signTransaction(transaction)).toViemTransactionSignature();
   };
 
+  const logger = deps.loggerFactory.createLogger('ethereum:l1-tx-utils:forwarder');
   return new ForwarderL1TxUtils(
     client,
     signer.address,
     callback,
-    deps.logger,
-    deps.dateProvider,
+    logger,
+    deps.dateProvider ?? new DateProvider(),
     config,
     debugMaxGasLimit,
     deps.store,

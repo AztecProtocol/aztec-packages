@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
@@ -24,6 +24,8 @@ import { RollupContract } from './rollup.js';
 
 const originalVersionSalt = 42;
 
+const loggerFactory = createLoggerFactory();
+
 describe('Registry', () => {
   let anvil: Anvil;
   let rpcUrl: string;
@@ -40,24 +42,30 @@ describe('Registry', () => {
   let ethCheatCodes: EthCheatCodes;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:registry');
+    logger = loggerFactory.createLogger('ethereum:test:registry');
     // this is the 6th address that gets funded by the junk mnemonic
     rawPrivateKey = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     privateKey = privateKeyToAccount(rawPrivateKey);
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, rawPrivateKey, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot,
-      protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    const deployed = await deployAztecL1Contracts(
+      rpcUrl,
+      rawPrivateKey,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot,
+        protocolContractsHash,
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     deployedAddresses = omit(
       deployed.l1ContractAddresses,
@@ -67,11 +75,11 @@ describe('Registry', () => {
       'zkPassportVerifierAddress',
       'dateGatedRelayerAddress',
     );
-    registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
-    const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
+    registry = new RegistryContract(l1Client, deployedAddresses.registryAddress, logger);
+    const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress, logger);
     deployedVersion = Number(await rollup.getVersion());
 
-    ethCheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
+    ethCheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
     await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 10n ** 18n);
   });
 
@@ -105,24 +113,31 @@ describe('Registry', () => {
 
   it('collects addresses', async () => {
     await expect(
-      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, 'canonical'),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, 'canonical', logger),
     ).resolves.toEqual(deployedAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion, logger),
     ).resolves.toEqual(deployedAddresses);
 
     // Version 2 does not exist
 
-    await expect(RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, 2n)).rejects.toThrow(
-      'Rollup address is undefined',
-    );
+    await expect(
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, 2n, logger),
+    ).rejects.toThrow('Rollup address is undefined');
   });
 
   it('adds a version to the registry', async () => {
     const newVersionSalt = originalVersionSalt + 1;
 
-    const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, undefined, logger, defaultL1TxUtilsConfig);
+    const deployer = new L1Deployer(
+      l1Client,
+      newVersionSalt,
+      new DateProvider(),
+      false,
+      logger,
+      defaultL1TxUtilsConfig,
+    );
 
     // We need to steal ownership of the registry to add a rollup without going through governance
     await setRegistryOwnership(EthAddress.fromString(deployer.client.account.address));
@@ -139,6 +154,7 @@ describe('Registry', () => {
         genesisArchiveRoot: Fr.random(),
         realVerifier: false,
       },
+      logger,
     );
 
     // We need to return ownership of the registry to the governance address to collect the addresses
@@ -150,6 +166,7 @@ describe('Registry', () => {
       l1Client,
       deployedAddresses.registryAddress,
       'canonical',
+      logger,
     );
 
     expect(newCanonicalAddresses).toEqual({
@@ -158,11 +175,16 @@ describe('Registry', () => {
     });
 
     await expect(
-      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, await newRollup.getVersion()),
+      RegistryContract.collectAddresses(
+        l1Client,
+        deployedAddresses.registryAddress,
+        await newRollup.getVersion(),
+        logger,
+      ),
     ).resolves.toEqual(newCanonicalAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion, logger),
     ).resolves.toEqual(deployedAddresses);
   });
 

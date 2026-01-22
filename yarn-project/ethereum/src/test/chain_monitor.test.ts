@@ -1,4 +1,6 @@
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -9,10 +11,11 @@ describe('ChainMonitor', () => {
   describe('with noop runs', () => {
     let monitor: NoopChainMonitor;
     let rollupContract: MockProxy<RollupContract>;
+    const logger = createLogger('test:chain_monitor');
 
     beforeEach(() => {
       rollupContract = mock<RollupContract>();
-      monitor = new NoopChainMonitor(rollupContract);
+      monitor = new NoopChainMonitor(rollupContract, new DateProvider(), logger);
     });
 
     it('awaits for runs to finish before stopping', async () => {

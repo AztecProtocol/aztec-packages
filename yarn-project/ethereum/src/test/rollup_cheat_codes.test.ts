@@ -1,6 +1,6 @@
 import { getPublicClient } from '@aztec/ethereum/client';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
@@ -14,6 +14,8 @@ import { EthCheatCodes } from './eth_cheat_codes.js';
 import { RollupCheatCodes } from './rollup_cheat_codes.js';
 import { startAnvil } from './start_anvil.js';
 
+const loggerFactory = createLoggerFactory();
+
 describe('RollupCheatCodes', () => {
   let anvil: Anvil;
   let rpcUrl: string;
@@ -21,6 +23,7 @@ describe('RollupCheatCodes', () => {
   let publicClient: ViemClient;
   let cheatCodes: EthCheatCodes;
   let rollupCheatCodes: RollupCheatCodes;
+  let logger: Logger;
 
   let vkTreeRoot: Fr;
   let protocolContractsHash: Fr;
@@ -31,21 +34,33 @@ describe('RollupCheatCodes', () => {
     privateKey = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
+    logger = loggerFactory.createLogger('ethereum:test:rollup_cheat_codes');
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), loggerFactory);
 
-    deployedL1Contracts = await deployAztecL1Contracts(rpcUrl, privateKey, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot,
-      protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    deployedL1Contracts = await deployAztecL1Contracts(
+      rpcUrl,
+      privateKey,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot,
+        protocolContractsHash,
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
 
-    rollupCheatCodes = RollupCheatCodes.create([rpcUrl], deployedL1Contracts.l1ContractAddresses, new DateProvider());
+    rollupCheatCodes = RollupCheatCodes.create(
+      [rpcUrl],
+      deployedL1Contracts.l1ContractAddresses,
+      new DateProvider(),
+      loggerFactory,
+    );
   });
 
   afterAll(async () => {

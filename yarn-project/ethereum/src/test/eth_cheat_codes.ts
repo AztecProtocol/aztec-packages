@@ -2,7 +2,7 @@ import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { pluralize } from '@aztec/foundation/string';
 import type { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
@@ -16,6 +16,8 @@ import type { ViemPublicClient } from '../types.js';
  */
 export class EthCheatCodes {
   public readonly publicClient: ViemPublicClient;
+  public readonly logger: Logger;
+
   constructor(
     /**
      * The RPC URL to use for interacting with the chain
@@ -26,14 +28,15 @@ export class EthCheatCodes {
      */
     public dateProvider: DateProvider | TestDateProvider,
     /**
-     * The logger to use for the eth cheatcodes
+     * Logger factory to create the logger for the eth cheatcodes
      */
-    public logger = createLogger('ethereum:cheat_codes'),
+    loggerFactory: LoggerFactory,
     /**
      * The chain configuration provided to Anvil
      */
     public chain: Chain = foundry,
   ) {
+    this.logger = loggerFactory.createLogger('ethereum:cheat-codes');
     this.publicClient = createPublicClient({
       transport: fallback(this.rpcUrls.map(url => http(url, { batch: false }))),
       chain: chain,

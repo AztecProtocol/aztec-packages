@@ -1,5 +1,5 @@
 import { omit } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 
@@ -93,9 +93,9 @@ export interface Delayer {
 }
 
 class DelayerImpl implements Delayer {
-  private logger = createLogger('ethereum:tx_delayer');
   constructor(
     public dateProvider: DateProvider,
+    private readonly logger: Logger,
     opts: { ethereumSlotDuration: bigint | number },
   ) {
     this.ethereumSlotDuration = BigInt(opts.ethereumSlotDuration);
@@ -140,13 +140,13 @@ class DelayerImpl implements Delayer {
 export function withDelayer<T extends ViemClient>(
   client: T,
   dateProvider: DateProvider,
+  logger: Logger,
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {
   if (!isExtendedClient(client)) {
     throw new Error('withDelayer has to be instantiated with a wallet viem client.');
   }
-  const logger = createLogger('ethereum:tx_delayer');
-  const delayer = new DelayerImpl(dateProvider, opts);
+  const delayer = new DelayerImpl(dateProvider, logger, opts);
 
   const extended = client
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.

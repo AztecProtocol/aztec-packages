@@ -2,7 +2,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue, getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { Fr } from '@aztec/foundation/schemas';
 import { fileURLToPath } from '@aztec/foundation/url';
@@ -26,8 +26,6 @@ import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
-const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
-
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
 /**
@@ -40,6 +38,7 @@ function runProcess<T>(
   args: string[],
   env: Record<string, string | undefined>,
   cwd: string,
+  logger: Logger,
 ): Promise<T | undefined> {
   const { promise, resolve, reject } = promiseWithResolvers<T | undefined>();
   const proc = spawn(command, args, {
@@ -79,11 +78,16 @@ function runProcess<T>(
 
 // Covers an edge where where we may have a cached BlobLib that is not meant for production.
 // Despite the profile apparently sometimes cached code remains (so says Lasse after his ignition-monorepo arc).
-async function maybeForgeForceProductionBuild(l1ContractsPath: string, script: string, chainId: number) {
+async function maybeForgeForceProductionBuild(
+  l1ContractsPath: string,
+  script: string,
+  chainId: number,
+  logger: Logger,
+) {
   if (chainId === mainnet.id) {
     logger.info(`Recompiling ${script} with production profile for mainnet deployment`);
     logger.info('This may take a minute but ensures production BlobLib is used.');
-    await runProcess('forge', ['build', script, '--force'], { FOUNDRY_PROFILE: 'production' }, l1ContractsPath);
+    await runProcess('forge', ['build', script, '--force'], { FOUNDRY_PROFILE: 'production' }, l1ContractsPath, logger);
   }
 }
 
@@ -139,7 +143,7 @@ function cleanupDeployDir() {
  * Copies all artifacts with preserved timestamps (required for forge cache validity).
  * A fresh broadcast/ directory is created for deployment outputs.
  */
-export function prepareL1ContractsForDeployment(): string {
+export function prepareL1ContractsForDeployment(logger: Logger): string {
   if (preparedDeployDir && existsSync(preparedDeployDir)) {
     logger.verbose(`Using cached deployment directory: ${preparedDeployDir}`);
     return preparedDeployDir;
@@ -257,7 +261,9 @@ export interface ForgeL1ContractsDeployResult extends ForgeRollupUpgradeResult {
  *
  * @param rpcUrl - The RPC URL to use
  * @param privateKey - The private key for the deployer (with 0x prefix)
- * @param options - Additional deployment options (all optional with sensible defaults)
+ * @param chainId - The chain ID to deploy to
+ * @param args - Additional deployment options (all optional with sensible defaults)
+ * @param logger - Logger instance
  * @returns The deployment result with all contract addresses and an l1Client
  */
 export async function deployAztecL1Contracts(
@@ -265,6 +271,7 @@ export async function deployAztecL1Contracts(
   privateKey: `0x${string}`,
   chainId: number,
   args: DeployAztecL1ContractsArgs,
+  logger: Logger,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
@@ -302,10 +309,10 @@ export async function deployAztecL1Contracts(
   }
 
   // Use foundry-artifacts from l1-artifacts package
-  const l1ContractsPath = prepareL1ContractsForDeployment();
+  const l1ContractsPath = prepareL1ContractsForDeployment(logger);
 
   const FORGE_SCRIPT = 'script/deploy/DeployAztecL1Contracts.s.sol';
-  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
+  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId, logger);
 
   // Verify contracts on Etherscan when on mainnet/sepolia and ETHERSCAN_API_KEY is available.
   const isVerifiableChain = chainId === mainnet.id || chainId === sepolia.id;
@@ -340,13 +347,13 @@ export async function deployAztecL1Contracts(
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     ...getDeployAztecL1ContractsEnvVars(args),
   };
-  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath, logger);
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
   logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
 
-  const rollup = new RollupContract(l1Client, result.rollupAddress);
+  const rollup = new RollupContract(l1Client, result.rollupAddress, logger);
 
   if (isAnvilTestChain(chainId)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
@@ -575,12 +582,13 @@ export const deployRollupForUpgrade = async (
     | 'activationThreshold'
     | 'zkPassportArgs'
   >,
+  logger: Logger,
 ) => {
   // Use foundry-artifacts from l1-artifacts package
-  const l1ContractsPath = prepareL1ContractsForDeployment();
+  const l1ContractsPath = prepareL1ContractsForDeployment(logger);
 
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
-  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
+  await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId, logger);
 
   const forgeArgs = [
     'script',
@@ -601,7 +609,7 @@ export const deployRollupForUpgrade = async (
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath, logger);
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -609,7 +617,7 @@ export const deployRollupForUpgrade = async (
   const extendedClient = createExtendedL1Client([rpcUrl], privateKey);
 
   // Create RollupContract wrapper for the deployed rollup
-  const rollup = new RollupContract(extendedClient, result.rollupAddress);
+  const rollup = new RollupContract(extendedClient, result.rollupAddress, logger);
 
   return {
     rollup,

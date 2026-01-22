@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 
@@ -7,9 +7,12 @@ import type { L1TxUtilsConfig } from '../config.js';
 import { P75AllTxsPriorityFeeStrategy } from './p75_competitive.js';
 import type { PriorityFeeStrategy, PriorityFeeStrategyContext } from './types.js';
 
-const logger = createLogger('ethereum:test:fee-strategies');
-
 describe('PriorityFeeStrategy', () => {
+  let logger: Logger;
+
+  beforeAll(() => {
+    logger = createLogger('ethereum:test:fee-strategies');
+  });
   describe('execute runs all RPC calls internally', () => {
     it('P75AllTxsPriorityFeeStrategy executes and returns priority fee with block data', async () => {
       const mockClient = {

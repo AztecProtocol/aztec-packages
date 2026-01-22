@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
@@ -18,9 +18,14 @@ import { createViemSigner } from './signer.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
-const logger = createLogger('ethereum:test:forwarder_l1_tx_utils');
+const loggerFactory = createLoggerFactory();
 
 describe('ForwarderL1TxUtils', () => {
+  let logger: Logger;
+
+  beforeAll(() => {
+    logger = loggerFactory.createLogger('ethereum:test:forwarder_l1_tx_utils');
+  });
   const initialBaseFee = WEI_CONST; // 1 gwei
 
   let l1Client: ExtendedViemWalletClient;
@@ -33,9 +38,9 @@ describe('ForwarderL1TxUtils', () => {
   let testERC20Address: EthAddress;
 
   beforeEach(async () => {
-    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: 1, port: port++, log: false }));
-    dateProvider = new TestDateProvider();
-    cheatCodes = new EthCheatCodes([rpcUrl], dateProvider);
+    ({ anvil, rpcUrl } = await startAnvil(logger, { l1BlockTime: 1, port: port++, log: false }));
+    dateProvider = new TestDateProvider(logger);
+    cheatCodes = new EthCheatCodes([rpcUrl], dateProvider, loggerFactory);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
@@ -45,7 +50,7 @@ describe('ForwarderL1TxUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     l1Client = createExtendedL1Client([rpcUrl], account, foundry);
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(logger);
 
     await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
     await cheatCodes.evmMine();
