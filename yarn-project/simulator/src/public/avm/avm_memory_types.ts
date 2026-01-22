@@ -369,6 +369,10 @@ export class TaggedMemory implements TaggedMemoryInterface {
    * Check tags for all memory in the specified range.
    */
   public checkTagsRange(tag: TypeTag, startOffset: number, size: number) {
+    if (startOffset + size > TaggedMemory.MAX_MEMORY_SIZE) {
+      throw new MemorySliceOutOfRangeError(startOffset, size);
+    }
+
     for (let offset = startOffset; offset < startOffset + size; offset++) {
       this.checkTag(tag, offset);
     }

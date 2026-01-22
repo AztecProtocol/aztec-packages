@@ -622,20 +622,22 @@ TEST_F(ExecutionSimulationTest, DebugLog)
 TEST_F(ExecutionSimulationTest, Sload)
 {
     MemoryAddress slot_addr = 27;
+    MemoryAddress contract_address_addr = 28;
     MemoryAddress dst_addr = 10;
     AztecAddress address = 0xdeadbeef;
     auto slot = MemoryValue::from<FF>(42);
+    auto contract_address = MemoryValue::from<AztecAddress>(address);
 
     EXPECT_CALL(context, get_memory());
 
     EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
-    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
+    EXPECT_CALL(memory, get(contract_address_addr)).WillOnce(ReturnRef(contract_address));
     EXPECT_CALL(merkle_db, storage_read(address, slot.as<FF>())).WillOnce(Return(7));
 
     EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<FF>(7)));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    execution.sload(context, slot_addr, dst_addr);
+    execution.sload(context, slot_addr, contract_address_addr, dst_addr);
 }
 
 TEST_F(ExecutionSimulationTest, SStore)
