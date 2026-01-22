@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: Completed, auditors: [Federico], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 #pragma once
 
 #include <array>
@@ -16,6 +21,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor_macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
@@ -119,12 +125,9 @@ class AvmFlavor {
     //               "in constants.nr accordingly.");
 
     // VK is composed of
-    // - circuit size encoded as a fr field element
-    // - num of inputs encoded as a fr field element
     // - NUM_PRECOMPUTED_ENTITIES commitments
     // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES *
-    // NUM_FRS_COM,
+    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
     //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
     //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
     //               "in constants.nr accordingly.");
@@ -224,50 +227,12 @@ class AvmFlavor {
         std::vector<FF> public_inputs;
     };
 
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                                          typename Transcript::Codec,
-                                                          typename Transcript::HashFunction,
-                                                          void,
-                                                          VKSerializationMode::NO_METADATA> {
-        using Base = NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                            typename Transcript::Codec,
-                                            typename Transcript::HashFunction,
-                                            void,
-                                            VKSerializationMode::NO_METADATA>;
-
-      public:
-        static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
-
-        VerificationKey() = default;
-
-        VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-        {
-            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
-                vk_cmt = cmt;
-            }
-        }
-
-        // NOTE: This should not be used in production. You should use the fixed VK instead.
-        static VerificationKey from_proving_key(const ProvingKey& proving_key)
-        {
-            VerificationKey vk;
-            vk.log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
-            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
-            }
-            return vk;
-        }
-
-        /**
-         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
-         * the provided VK hash directly to the transcript.
-         */
-        typename Base::DataType hash_with_origin_tagging([[maybe_unused]] const OriginTag& tag) const override
-        {
-            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
-        }
-    };
+    /**
+     * @brief Verification key of the AVM. It is fixed and reconstructed from precomputed values.
+     *
+     */
+    using VerificationKey =
+        FixedVKAndHash_<PrecomputedEntities<Commitment>, FF, typename constraining::AvmHardCodedVKAndHash>;
 
     // Used by sumcheck.
     using AllValues = AllEntities<FF>;
