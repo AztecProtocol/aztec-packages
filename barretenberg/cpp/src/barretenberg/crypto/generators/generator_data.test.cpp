@@ -40,6 +40,65 @@ TEST(GeneratorContext, DeriveDefaultGenerators)
     for (size_t i = 0; i < default_generators.size(); ++i) {
         EXPECT_EQ(default_generators[i], expected_default_generators[i]);
     }
+
+    // Verifies that the hard-coded precomputed generators match the derivation
+    EXPECT_TRUE((bb::check_precomputed_generators<grumpkin::g1,
+                                                  bb::detail::DomainSeparator("DEFAULT_DOMAIN_SEPARATOR"),
+                                                  generator_data<curve::Grumpkin>::DEFAULT_NUM_GENERATORS>()));
+}
+
+// Tests generator_data<Grumpkin>::get() for different domain separators, num_generators, and offsets.
+TEST(GeneratorContext, GeneratorDataGetVariousCases)
+{
+    generator_data<curve::Grumpkin> generator_d;
+
+    constexpr size_t default_num_generators = generator_data<curve::Grumpkin>::DEFAULT_NUM_GENERATORS; // 8
+    constexpr std::string_view default_domain_separator =
+        generator_data<curve::Grumpkin>::DEFAULT_DOMAIN_SEPARATOR;         // "DEFAULT_DOMAIN_SEPARATOR"
+    constexpr std::string_view domain_separator = "TEST_DOMAIN_SEPARATOR"; // custom non-default domain
+
+    // Choose (n, offset) pairs that hit reach various branches in get(): (1) n+offset < 8, (2) n+offset == 8,
+    // (3)n+offset > 8
+    struct Case {
+        size_t num_generators;
+        size_t offset;
+    };
+    constexpr std::array<Case, 3> cases{ { { 5, 0 }, { 6, 2 }, { 9, 1 } } };
+
+    // Test both default and non-default domain separators
+    constexpr std::array<std::string_view, 2> domains{ { default_domain_separator, domain_separator } };
+
+    for (auto domain : domains) {
+        for (auto test_case : cases) {
+            const size_t num_generators = test_case.num_generators;
+            const size_t offset = test_case.offset;
+
+            // Compute generators using get()
+            auto generators = generator_d.get(num_generators, offset, domain);
+            ASSERT_EQ(generators.size(), num_generators);
+
+            auto derived_generators =
+                grumpkin::g1::derive_generators(domain, num_generators + offset, /*starting_index=*/0);
+            ASSERT_EQ(derived_generators.size(), num_generators + offset);
+
+            for (size_t i = 0; i < num_generators; ++i) {
+                EXPECT_EQ(generators[i], derived_generators[offset + i]);
+            }
+
+            const bool is_default_domain = (domain == default_domain_separator);
+
+            // For default-domain and num_generators + offset <= default_num_generators, the values must match
+            // precomputed_generators.
+            if (is_default_domain && (num_generators + offset <= default_num_generators)) {
+                auto default_generators = generator_data<curve::Grumpkin>::precomputed_generators;
+                ASSERT_GE(default_generators.size(), num_generators + offset);
+
+                for (size_t i = 0; i < num_generators; ++i) {
+                    EXPECT_EQ(generators[i], default_generators[offset + i]);
+                }
+            }
+        }
+    }
 }
 
 } // namespace bb::crypto
