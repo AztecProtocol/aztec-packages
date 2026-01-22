@@ -9,6 +9,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 import noNonPrimitiveInCollections from './eslint-rules/no-non-primitive-in-collections.js';
+import noUnsafeBrandedTypeConversion from './eslint-rules/no-unsafe-branded-type-conversion.js';
 
 export default [
   globalIgnores([
@@ -51,6 +52,7 @@ export default [
       'aztec-custom': {
         rules: {
           'no-non-primitive-in-collections': noNonPrimitiveInCollections,
+          'no-unsafe-branded-type-conversion': noUnsafeBrandedTypeConversion,
         },
       },
     },
@@ -113,6 +115,7 @@ export default [
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],
       'aztec-custom/no-non-primitive-in-collections': 'error',
+      'aztec-custom/no-unsafe-branded-type-conversion': 'error',
     },
   }),
   {

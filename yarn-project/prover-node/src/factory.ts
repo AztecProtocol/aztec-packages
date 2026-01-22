@@ -109,9 +109,8 @@ export async function createProverNode(
     (await createArchiver(config, { blobClient, epochCache, telemetry, dateProvider }, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
-  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
   const worldStateSynchronizer = await createWorldStateSynchronizer(
-    worldStateConfig,
+    config,
     archiver,
     options.prefilledPublicData,
     telemetry,

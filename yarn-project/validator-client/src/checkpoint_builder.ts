@@ -12,7 +12,7 @@ import {
   PublicProcessor,
   createPublicTxSimulatorForBlockBuilding,
 } from '@aztec/simulator/server';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -240,7 +240,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
-    existingBlocks: L2BlockNew[] = [],
+    existingBlocks: L2Block[] = [],
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);

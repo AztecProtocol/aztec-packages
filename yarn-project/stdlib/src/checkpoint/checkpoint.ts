@@ -13,7 +13,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { L2BlockNew } from '../block/l2_block_new.js';
+import { L2Block } from '../block/l2_block.js';
 import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import { computeCheckpointOutHash } from '../messaging/out_hash.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -29,7 +29,7 @@ export class Checkpoint {
     /** Header of the checkpoint. */
     public header: CheckpointHeader,
     /** L2 blocks in the checkpoint. */
-    public blocks: L2BlockNew[],
+    public blocks: L2Block[],
     /** Number of the checkpoint. */
     public number: CheckpointNumber,
   ) {}
@@ -43,7 +43,7 @@ export class Checkpoint {
       .object({
         archive: AppendOnlyTreeSnapshot.schema,
         header: CheckpointHeader.schema,
-        blocks: z.array(L2BlockNew.schema),
+        blocks: z.array(L2Block.schema),
         number: CheckpointNumberSchema,
       })
       .transform(({ archive, header, blocks, number }) => new Checkpoint(archive, header, blocks, number));
@@ -62,7 +62,7 @@ export class Checkpoint {
     return new Checkpoint(
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(CheckpointHeader),
-      reader.readVector(L2BlockNew, MAX_BLOCKS_PER_CHECKPOINT),
+      reader.readVector(L2Block, MAX_BLOCKS_PER_CHECKPOINT),
       CheckpointNumber(reader.readNumber()),
     );
   }
@@ -135,16 +135,16 @@ export class Checkpoint {
       startBlockNumber?: number;
       previousArchive?: AppendOnlyTreeSnapshot;
     } & Partial<Parameters<typeof CheckpointHeader.random>[0]> &
-      Partial<Parameters<typeof L2BlockNew.random>[1]> = {},
+      Partial<Parameters<typeof L2Block.random>[1]> = {},
   ) {
     const header = CheckpointHeader.random(options);
 
     // Create blocks sequentially to chain archive roots properly.
     // Each block's header.lastArchive must equal the previous block's archive.
-    const blocks: L2BlockNew[] = [];
+    const blocks: L2Block[] = [];
     let lastArchive = previousArchive;
     for (let i = 0; i < numBlocks; i++) {
-      const block = await L2BlockNew.random(BlockNumber(startBlockNumber + i), {
+      const block = await L2Block.random(BlockNumber(startBlockNumber + i), {
         indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),

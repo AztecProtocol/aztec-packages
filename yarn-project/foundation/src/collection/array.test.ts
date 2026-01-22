@@ -1,6 +1,7 @@
 import { sleep } from '../sleep/index.js';
 import {
   chunk,
+  chunkBy,
   compactArray,
   filterAsync,
   maxBy,
@@ -275,6 +276,71 @@ describe('chunk', () => {
     const input = [1, 2, 3];
     const result = chunk(input, 1);
     expect(result).toEqual([[1], [2], [3]]);
+  });
+});
+
+describe('chunkBy', () => {
+  it('groups contiguous items by key', () => {
+    const input = [1, 1, 2, 2, 2, 3, 1, 1];
+    const result = chunkBy(input, x => x);
+    expect(result).toEqual([[1, 1], [2, 2, 2], [3], [1, 1]]);
+  });
+
+  it('returns an empty array when input is empty', () => {
+    const result = chunkBy([], x => x);
+    expect(result).toEqual([]);
+  });
+
+  it('handles a single element', () => {
+    const result = chunkBy([42], x => x);
+    expect(result).toEqual([[42]]);
+  });
+
+  it('returns a single chunk when all items have the same key', () => {
+    const result = chunkBy([1, 2, 3], () => 'same');
+    expect(result).toEqual([[1, 2, 3]]);
+  });
+
+  it('returns separate chunks when all items have different keys', () => {
+    const result = chunkBy([1, 2, 3], x => x);
+    expect(result).toEqual([[1], [2], [3]]);
+  });
+
+  it('handles undefined as a valid key value', () => {
+    const input = [{ type: undefined }, { type: undefined }, { type: 'a' }];
+    const result = chunkBy(input, x => x.type);
+    expect(result).toEqual([[{ type: undefined }, { type: undefined }], [{ type: 'a' }]]);
+  });
+
+  it('handles null as a valid key value', () => {
+    const input = [{ type: null }, { type: null }, { type: 'a' }];
+    const result = chunkBy(input, x => x.type);
+    expect(result).toEqual([[{ type: null }, { type: null }], [{ type: 'a' }]]);
+  });
+
+  it('works with objects and custom key functions', () => {
+    const input = [
+      { category: 'fruit', name: 'apple' },
+      { category: 'fruit', name: 'banana' },
+      { category: 'vegetable', name: 'carrot' },
+      { category: 'fruit', name: 'cherry' },
+    ];
+    const result = chunkBy(input, x => x.category);
+    expect(result).toEqual([
+      [
+        { category: 'fruit', name: 'apple' },
+        { category: 'fruit', name: 'banana' },
+      ],
+      [{ category: 'vegetable', name: 'carrot' }],
+      [{ category: 'fruit', name: 'cherry' }],
+    ]);
+  });
+
+  it('does not modify the original array', () => {
+    const input = [1, 1, 2, 2];
+    const inputCopy = [...input];
+    chunkBy(input, x => x);
+    expect(input).toEqual(inputCopy);
   });
 });
 

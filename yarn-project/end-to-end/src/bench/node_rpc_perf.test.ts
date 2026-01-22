@@ -310,10 +310,10 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getPublishedBlocks (5 blocks)', async () => {
+    it('benchmarks getCheckpointedBlocks (5 blocks)', async () => {
       const fromBlock = BlockNumber(Math.max(1, blockNumber - 4));
-      const { stats } = await benchmark('getPublishedBlocks', () => aztecNode.getPublishedBlocks(fromBlock, 5));
-      addResult('getPublishedBlocks_5', stats);
+      const { stats } = await benchmark('getCheckpointedBlocks', () => aztecNode.getCheckpointedBlocks(fromBlock, 5));
+      addResult('getCheckpointedBlocks_5', stats);
       expect(stats.avg).toBeLessThan(5000);
     });
 
