@@ -2,6 +2,7 @@ import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -150,7 +151,7 @@ describe('L2BlockStream', () => {
     beforeEach(() => {
       localData = new TestL2BlockStreamLocalDataProvider();
       handler = new TestL2BlockStreamEventHandler();
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
         batchSize: 10,
         checkpointPrefetchLimit: 1,
       });
@@ -318,13 +319,15 @@ describe('L2BlockStream', () => {
     beforeEach(() => {
       localData = new TestL2TipsMemoryStore();
       handler = new TestL2BlockStreamEventHandler(localData);
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
+        batchSize: 10,
+      });
     });
 
     // Regression test for https://github.com/AztecProtocol/aztec-packages/issues/13471
     it('handles a prune to a block before start block', async () => {
       setRemoteTips(35, 30, 25, 10);
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
         batchSize: 10,
         startingBlock: 30,
       });
@@ -437,7 +440,9 @@ describe('L2BlockStream', () => {
     beforeEach(() => {
       localData = new TestL2BlockStreamLocalDataProvider();
       handler = new TestL2BlockStreamEventHandler();
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
+        batchSize: 10,
+      });
 
       // Override the mocks to support multiple blocks per checkpoint
       blockSource.getCheckpointedBlocks.mockImplementation((from, limit) =>
@@ -541,7 +546,9 @@ describe('L2BlockStream', () => {
       // Set up: 12 blocks in 4 checkpoints (3 blocks each), with batch size of 5
       // Batch size doesn't align with checkpoint boundaries, so the stream must
       // respect checkpoint boundaries and emit events correctly
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 5 });
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
+        batchSize: 5,
+      });
       setRemoteTipsMultiBlock(12, 12);
 
       await blockStream.work();
@@ -567,7 +574,9 @@ describe('L2BlockStream', () => {
     it('does not emit more than batchSize blocks in a single blocks-added event for checkpointed blocks', async () => {
       // Set up: 12 blocks in 4 checkpoints (3 blocks each), but batch size is 2
       // Each checkpoint has 3 blocks, but we should never emit more than 2 at once
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 2 });
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
+        batchSize: 2,
+      });
       setRemoteTipsMultiBlock(12, 12);
 
       await blockStream.work();
@@ -760,10 +769,16 @@ describe('L2BlockStream', () => {
 
         // Create a stream with prefetch limit of 10 (will fetch all 3 checkpoints in one call)
         // This also tests that we handle getting fewer checkpoints (3) than requested (10)
-        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
-          batchSize: 10,
-          checkpointPrefetchLimit: 10,
-        });
+        const prefetchStream = new TestL2BlockStream(
+          blockSource,
+          localData,
+          handler,
+          createLogger('test:l2-block-stream'),
+          {
+            batchSize: 10,
+            checkpointPrefetchLimit: 10,
+          },
+        );
 
         await prefetchStream.work();
 
@@ -796,10 +811,16 @@ describe('L2BlockStream', () => {
         localData.checkpointed.checkpoint.number = CheckpointNumber(2);
 
         // Create a stream with prefetch limit of 10
-        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
-          batchSize: 10,
-          checkpointPrefetchLimit: 10,
-        });
+        const prefetchStream = new TestL2BlockStream(
+          blockSource,
+          localData,
+          handler,
+          createLogger('test:l2-block-stream'),
+          {
+            batchSize: 10,
+            checkpointPrefetchLimit: 10,
+          },
+        );
 
         await prefetchStream.work();
 
@@ -830,10 +851,16 @@ describe('L2BlockStream', () => {
         localData.proposed.number = BlockNumber(7);
         localData.checkpointed.checkpoint.number = CheckpointNumber(2);
 
-        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
-          batchSize: 10,
-          checkpointPrefetchLimit: 10,
-        });
+        const prefetchStream = new TestL2BlockStream(
+          blockSource,
+          localData,
+          handler,
+          createLogger('test:l2-block-stream'),
+          {
+            batchSize: 10,
+            checkpointPrefetchLimit: 10,
+          },
+        );
 
         await prefetchStream.work();
 
@@ -863,10 +890,16 @@ describe('L2BlockStream', () => {
         setRemoteTipsMultiBlock(15, 15);
 
         // Create a stream with prefetch limit of 2 (will need 3 calls to fetch 5 checkpoints)
-        const prefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
-          batchSize: 10,
-          checkpointPrefetchLimit: 2,
-        });
+        const prefetchStream = new TestL2BlockStream(
+          blockSource,
+          localData,
+          handler,
+          createLogger('test:l2-block-stream'),
+          {
+            batchSize: 10,
+            checkpointPrefetchLimit: 2,
+          },
+        );
 
         await prefetchStream.work();
 
@@ -888,9 +921,15 @@ describe('L2BlockStream', () => {
         setRemoteTipsMultiBlock(9, 9);
 
         // Create a stream without specifying checkpointPrefetchLimit (should use default of 50)
-        const defaultPrefetchStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
-          batchSize: 10,
-        });
+        const defaultPrefetchStream = new TestL2BlockStream(
+          blockSource,
+          localData,
+          handler,
+          createLogger('test:l2-block-stream'),
+          {
+            batchSize: 10,
+          },
+        );
 
         await defaultPrefetchStream.work();
 
@@ -1222,7 +1261,7 @@ describe('L2BlockStream', () => {
 
     describe('ignoreCheckpoints', () => {
       beforeEach(() => {
-        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
           batchSize: 10,
           ignoreCheckpoints: true,
         });
@@ -1360,7 +1399,7 @@ describe('L2BlockStream', () => {
 
       it('does not emit checkpoint events but still emits proven and finalized events with skipFinalized', async () => {
         // Use skipFinalized in addition to ignoreCheckpoints
-        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
           batchSize: 10,
           ignoreCheckpoints: true,
           skipFinalized: true,
@@ -1456,7 +1495,7 @@ describe('L2BlockStream', () => {
     beforeEach(() => {
       localData = new TestL2BlockStreamLocalDataProvider();
       handler = new TestL2BlockStreamEventHandler();
-      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, createLogger('test:l2-block-stream'), {
         batchSize: 10,
         skipFinalized: true,
       });

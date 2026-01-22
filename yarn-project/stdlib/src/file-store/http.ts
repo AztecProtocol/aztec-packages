@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
@@ -16,15 +16,15 @@ export class HttpFileStore implements ReadOnlyFileStore {
 
   constructor(
     private readonly baseUrl: string,
-    private readonly log: Logger = createLogger('stdlib:http-file-store'),
+    private readonly log: Logger,
   ) {
     this.axiosInstance = axios.create();
     this.fetch = async <T>(config: AxiosRequestConfig) => {
       return await retry(
         () => this.axiosInstance.request<T>(config),
+        this.log,
         `Fetching ${config.url}`,
         makeBackoff([1, 1, 3]),
-        this.log,
         /*failSilently=*/ true,
       );
     };

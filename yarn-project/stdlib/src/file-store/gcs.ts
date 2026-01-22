@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { File, Storage, type UploadOptions } from '@google-cloud/storage';
 import { join } from 'path';
@@ -11,7 +11,7 @@ export class GoogleCloudFileStore implements FileStore {
   constructor(
     private readonly bucketName: string,
     private readonly basePath: string,
-    private readonly log: Logger = createLogger('stdlib:gcs-file-store'),
+    private readonly log: Logger,
   ) {
     this.storage = new Storage();
   }

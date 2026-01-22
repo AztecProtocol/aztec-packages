@@ -1,4 +1,5 @@
 import { randomBigInt } from '@aztec/foundation/crypto/random';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 
@@ -26,6 +27,7 @@ describe('UpdateChecker', () => {
       rollupVersionAtStart,
       fetch,
       getCanonicalRollupVersion,
+      createLogger('test:update-checker'),
       100,
     );
 

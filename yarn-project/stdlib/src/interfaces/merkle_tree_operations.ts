@@ -1,6 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
 import type { MerkleTreeId, TreeHeights } from '../trees/merkle_tree_id.js';
@@ -303,11 +303,7 @@ export interface MerkleTreeWriteOperations
 /**
  * Outputs a tree leaves using for debugging purposes.
  */
-export async function inspectTree(
-  db: MerkleTreeReadOperations,
-  treeId: MerkleTreeId,
-  log = createLogger('types:inspect-tree'),
-) {
+export async function inspectTree(db: MerkleTreeReadOperations, treeId: MerkleTreeId, log: Logger) {
   const info = await db.getTreeInfo(treeId);
   const output = [`Tree id=${treeId} size=${info.size} root=0x${info.root.toString('hex')}`];
   for (let i = 0; i < info.size; i++) {

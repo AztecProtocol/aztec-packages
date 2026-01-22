@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { join } from 'path';
@@ -35,6 +36,7 @@ describe('VersionManager', () => {
       rollupAddress,
       dataDirectory: tempDir,
       onOpen: openSpy,
+      log: createLogger('test:version-manager'),
       onUpgrade: upgradeSpy,
       fileSystem: fs,
     });
@@ -81,6 +83,7 @@ describe('VersionManager', () => {
           rollupAddress,
           dataDirectory: tempDir,
           onOpen: openSpy,
+          log: createLogger('test:version-manager'),
           onUpgrade: undefined,
           fileSystem: fs,
         });

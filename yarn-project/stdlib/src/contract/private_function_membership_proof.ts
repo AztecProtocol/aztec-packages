@@ -1,6 +1,6 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
 import { type ContractArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
@@ -24,13 +24,13 @@ import { computePrivateFunctionLeaf, computePrivateFunctionsTree } from './priva
  * Creates a membership proof for a private function in a contract class, to be verified via `isValidPrivateFunctionMembershipProof`.
  * @param selector - Selector of the function to create the proof for.
  * @param artifact - Artifact of the contract class where the function is defined.
+ * @param log - Logger instance for debug output.
  */
 export async function createPrivateFunctionMembershipProof(
   selector: FunctionSelector,
   artifact: ContractArtifact,
+  log: Logger,
 ): Promise<PrivateFunctionMembershipProof> {
-  const log = createLogger('circuits:function_membership_proof');
-
   // Locate private function definition and artifact
   const privateFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
   const privateFunctionsFromArtifact = await Promise.all(
@@ -111,13 +111,13 @@ export async function createPrivateFunctionMembershipProof(
  * ```
  * @param fn - Function to check membership proof for.
  * @param contractClass - In which contract class the function is expected to be.
+ * @param log - Logger instance for debug output.
  */
 export async function isValidPrivateFunctionMembershipProof(
   fn: ExecutablePrivateFunctionWithMembershipProof,
   contractClass: Pick<ContractClassPublic, 'privateFunctionsRoot' | 'artifactHash'>,
+  log: Logger,
 ) {
-  const log = createLogger('circuits:function_membership_proof');
-
   // Check private function tree membership
   const functionLeaf = await computePrivateFunctionLeaf(fn);
   const rootBuffer = await computeRootFromSiblingPath(

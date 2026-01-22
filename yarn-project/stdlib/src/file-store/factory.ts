@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { GoogleCloudFileStore } from './gcs.js';
 import { HttpFileStore } from './http.js';
@@ -13,12 +13,9 @@ const supportedExamples = [
   `https://host/path`,
 ];
 
-export async function createFileStore(config: string, logger?: Logger): Promise<FileStore>;
-export async function createFileStore(config: undefined, logger?: Logger): Promise<undefined>;
-export async function createFileStore(
-  config: string | undefined,
-  logger = createLogger('stdlib:file-store'),
-): Promise<FileStore | undefined> {
+export async function createFileStore(config: string, logger: Logger): Promise<FileStore>;
+export async function createFileStore(config: undefined, logger: Logger): Promise<undefined>;
+export async function createFileStore(config: string | undefined, logger: Logger): Promise<FileStore | undefined> {
   if (config === undefined) {
     return undefined;
   } else if (config.startsWith('file://')) {
@@ -35,7 +32,7 @@ export async function createFileStore(
       const bucket = url.host;
       const path = url.pathname.replace(/^\/+/, '');
       logger.info(`Creating google cloud file store at ${bucket} ${path}`);
-      const store = new GoogleCloudFileStore(bucket, path);
+      const store = new GoogleCloudFileStore(bucket, path, logger);
       await store.checkCredentials();
       return store;
     } catch {
@@ -49,7 +46,7 @@ export async function createFileStore(
       const endpoint = url.searchParams.get('endpoint');
       const publicBaseUrl = url.searchParams.get('publicBaseUrl') ?? undefined;
       logger.info(`Creating S3 file store at ${bucket} ${path}`);
-      const store = new S3FileStore(bucket, path, { endpoint: endpoint ?? undefined, publicBaseUrl });
+      const store = new S3FileStore(bucket, path, { endpoint: endpoint ?? undefined, publicBaseUrl }, logger);
       return store;
     } catch {
       throw new Error(`Invalid S3 store definition: '${config}'.`);
@@ -59,11 +56,11 @@ export async function createFileStore(
   }
 }
 
-export async function createReadOnlyFileStore(config: string, logger?: Logger): Promise<ReadOnlyFileStore>;
-export async function createReadOnlyFileStore(config: undefined, logger?: Logger): Promise<undefined>;
+export async function createReadOnlyFileStore(config: string, logger: Logger): Promise<ReadOnlyFileStore>;
+export async function createReadOnlyFileStore(config: undefined, logger: Logger): Promise<undefined>;
 export async function createReadOnlyFileStore(
   config: string | undefined,
-  logger = createLogger('stdlib:file-store'),
+  logger: Logger,
 ): Promise<ReadOnlyFileStore | undefined> {
   if (config === undefined) {
     return undefined;

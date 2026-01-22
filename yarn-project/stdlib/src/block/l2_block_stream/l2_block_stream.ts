@@ -1,6 +1,6 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
@@ -23,7 +23,7 @@ export class L2BlockStream {
     >,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
-    private readonly log = createLogger('types:block_stream'),
+    private readonly log: Logger,
     private opts: {
       proven?: boolean;
       pollIntervalMS?: number;

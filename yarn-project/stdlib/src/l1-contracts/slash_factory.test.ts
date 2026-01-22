@@ -6,7 +6,7 @@ import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types
 import { tryExtractEvent } from '@aztec/ethereum/utils';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
@@ -47,25 +47,36 @@ describe('SlashFactory', () => {
   };
 
   beforeAll(async () => {
+    const logger = createLogger('test:slash-factory');
     const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     privateKey = privateKeyToAccount(privateKeyRaw);
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl } = await startAnvil(logger));
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
-    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
+    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider(), createLoggerFactory());
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
-      ...DefaultL1ContractsConfig,
-      vkTreeRoot: Fr.random(),
-      protocolContractsHash: Fr.random(),
-      genesisArchiveRoot: Fr.random(),
-      realVerifier: false,
-    });
+    const deployed = await deployAztecL1Contracts(
+      rpcUrl,
+      privateKeyRaw,
+      foundry.id,
+      {
+        ...DefaultL1ContractsConfig,
+        vkTreeRoot: Fr.random(),
+        protocolContractsHash: Fr.random(),
+        genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
+      },
+      logger,
+    );
 
     writeClient = createExtendedL1Client([rpcUrl], privateKey);
     slashFactoryAddress = deployed.l1ContractAddresses.slashFactoryAddress!;
-    slashFactory = new SlashFactoryContract(publicClient, slashFactoryAddress.toString());
+    slashFactory = new SlashFactoryContract(
+      publicClient,
+      slashFactoryAddress.toString(),
+      createLogger('test:slash-factory'),
+    );
   });
 
   beforeEach(async () => {

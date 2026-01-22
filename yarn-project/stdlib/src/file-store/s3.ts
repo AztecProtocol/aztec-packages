@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import {
   GetObjectCommand,
@@ -31,7 +31,7 @@ export class S3FileStore implements FileStore {
     private readonly bucketName: string,
     private readonly basePath: string,
     opts: { endpoint?: string; publicBaseUrl?: string },
-    private readonly log: Logger = createLogger('stdlib:s3-file-store'),
+    private readonly log: Logger,
   ) {
     this.endpoint = opts.endpoint;
     this.region = this.endpoint ? 'auto' : (process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? 'us-east-1');

@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
 import { type ContractArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
@@ -18,16 +18,16 @@ import type {
 } from './interfaces/index.js';
 
 /**
- * Creates a membership proof for a utility  function in a contract class, to be verified via `isValidUtilityFunctionMembershipProof`.
+ * Creates a membership proof for a utility function in a contract class, to be verified via `isValidUtilityFunctionMembershipProof`.
  * @param selector - Selector of the function to create the proof for.
  * @param artifact - Artifact of the contract class where the function is defined.
+ * @param log - Logger instance for debug output.
  */
 export async function createUtilityFunctionMembershipProof(
   selector: FunctionSelector,
   artifact: ContractArtifact,
+  log: Logger,
 ): Promise<UtilityFunctionMembershipProof> {
-  const log = createLogger('circuits:function_membership_proof');
-
   // Locate function artifact
   const utilityFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UTILITY);
   const utilityFunctionsAndSelectors = await Promise.all(
@@ -66,7 +66,7 @@ export async function createUtilityFunctionMembershipProof(
 }
 
 /**
- * Verifies that a utility  function with a membership proof as emitted by the ClassRegistry contract is valid,
+ * Verifies that a utility function with a membership proof as emitted by the ClassRegistry contract is valid,
  * as defined in the protocol specs at contract-deployment/classes:
  *
  * ```
@@ -81,13 +81,13 @@ export async function createUtilityFunctionMembershipProof(
  * ```
  * @param fn - Function to check membership proof for.
  * @param contractClass - In which contract class the function is expected to be.
+ * @param log - Logger instance for debug output.
  */
 export async function isValidUtilityFunctionMembershipProof(
   fn: UtilityFunctionWithMembershipProof,
   contractClass: Pick<ContractClassPublic, 'artifactHash'>,
+  log: Logger,
 ) {
-  const log = createLogger('circuits:function_membership_proof');
-
   const functionArtifactHash = await computeFunctionArtifactHash(fn);
   const computedArtifactFunctionTreeRootBuffer = await computeRootFromSiblingPath(
     functionArtifactHash.toBuffer(),

@@ -3,7 +3,7 @@ import type { ViemClient } from '@aztec/ethereum/types';
 import { tryExtractEvent } from '@aztec/ethereum/utils';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
 import { type GetContractReturnType, type Hex, type Log, encodeFunctionData, getContract } from 'viem';
@@ -18,12 +18,12 @@ import {
 } from '../slashing/index.js';
 
 export class SlashFactoryContract {
-  private readonly logger = createLogger('contracts:slash_factory');
   private readonly contract: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
 
   constructor(
     public readonly client: ViemClient,
     address: Hex | EthAddress,
+    private readonly logger: Logger,
   ) {
     this.contract = getContract({
       address: typeof address === 'string' ? address : address.toString(),

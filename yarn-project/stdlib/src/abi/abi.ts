@@ -1,6 +1,6 @@
 /* eslint-disable camelcase */
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { inflate } from 'pako';
@@ -14,8 +14,6 @@ export interface BasicValue<T extends string, V> {
   kind: T;
   value: V;
 }
-
-const logger = createLogger('aztec:foundation:abi');
 
 /** An exported value. */
 export type AbiValue =
@@ -421,13 +419,15 @@ export function parseDebugSymbols(debugSymbols: string): DebugInfo[] {
 
 /**
  * Gets the debug metadata of a given function from the contract artifact
- * @param artifact - The contract build artifact
- * @param functionName - The name of the function
+ * @param contractArtifact - The contract build artifact
+ * @param functionArtifact - The function artifact
+ * @param logger - Optional logger for warnings
  * @returns The debug metadata of the function
  */
 export function getFunctionDebugMetadata(
   contractArtifact: ContractArtifact,
   functionArtifact: FunctionArtifact,
+  logger?: Logger,
 ): FunctionDebugMetadata | undefined {
   try {
     if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
@@ -443,7 +443,7 @@ export function getFunctionDebugMetadata(
     }
   } catch (err: any) {
     if (err instanceof RangeError && err.message.includes('Invalid string length')) {
-      logger.warn(
+      logger?.warn(
         `Caught RangeError: Invalid string length. This suggests the debug_symbols field of the contract ${contractArtifact.name} and function ${functionArtifact.name} is huge; too big to parse. We'll skip returning this info until this issue is resolved. Here's the error:\n${err.message}`,
       );
       // We'll return undefined.

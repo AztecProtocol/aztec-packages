@@ -1,6 +1,5 @@
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fr, reduceFn } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
@@ -48,7 +47,6 @@ export async function computeArtifactHash(
 
   const preimage = await computeArtifactHashPreimage(artifact);
   const artifactHash = computeArtifactHash(preimage);
-  getLogger().trace('Computed artifact hash', { artifactHash, ...preimage });
   return artifactHash;
 }
 
@@ -106,10 +104,6 @@ export async function computeFunctionArtifactHash(
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
   return sha256Fr(Buffer.from(deterministicStringify(fn.returnTypes), 'utf8'));
-}
-
-function getLogger() {
-  return createLogger('circuits:artifact_hash');
 }
 
 export function getArtifactMerkleTreeHasher() {

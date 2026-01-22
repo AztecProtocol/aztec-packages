@@ -1,7 +1,7 @@
 import { RegistryContract } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -31,6 +31,7 @@ type Config = {
   registryContractAddress: EthAddress;
   publicClient: ViemClient;
   fetch?: typeof fetch;
+  log: Logger;
 };
 
 export class UpdateChecker extends EventEmitter<EventMap> {
@@ -44,15 +45,15 @@ export class UpdateChecker extends EventEmitter<EventMap> {
     private rollupVersion: bigint,
     private fetch: typeof globalThis.fetch,
     private getLatestRollupVersion: () => Promise<bigint>,
+    private log: Logger,
     private checkIntervalMs = 10 * 60_000, // every 10 mins
-    private log = createLogger('foundation:update-check'),
   ) {
     super();
     this.runningPromise = new RunningPromise(this.runChecks, this.log, this.checkIntervalMs);
   }
 
   public static async new(config: Config): Promise<UpdateChecker> {
-    const registryContract = new RegistryContract(config.publicClient, config.registryContractAddress);
+    const registryContract = new RegistryContract(config.publicClient, config.registryContractAddress, config.log);
     const getLatestRollupVersion = () => registryContract.getRollupVersions().then(versions => versions.at(-1)!);
 
     return new UpdateChecker(
@@ -61,6 +62,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
       await getLatestRollupVersion(),
       config.fetch ?? fetch,
       getLatestRollupVersion,
+      config.log,
       config.checkIntervalMs,
     );
   }

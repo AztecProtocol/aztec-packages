@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
 import { inspect } from 'node:util';
@@ -91,9 +91,9 @@ export type DatabaseVersionManagerOptions<T> = {
   rollupAddress: EthAddress;
   dataDirectory: string;
   onOpen: (dataDir: string) => Promise<T>;
+  log: Logger;
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   fileSystem?: DatabaseVersionManagerFs;
-  log?: Logger;
 };
 
 /**
@@ -130,9 +130,9 @@ export class DatabaseVersionManager<T> {
     rollupAddress,
     dataDirectory,
     onOpen,
+    log,
     onUpgrade,
     fileSystem = fs,
-    log = createLogger(`foundation:version-manager`),
   }: DatabaseVersionManagerOptions<T>) {
     if (schemaVersion < 1) {
       throw new TypeError(`Invalid schema version received: ${schemaVersion}`);

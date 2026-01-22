@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
 import { getTestContractArtifact } from '../tests/fixtures.js';
@@ -10,6 +11,8 @@ import {
   createUtilityFunctionMembershipProof,
   isValidUtilityFunctionMembershipProof,
 } from './utility_function_membership_proof.js';
+
+const log = createLogger('test:utility_function_membership_proof');
 
 describe('utility_function_membership_proof', () => {
   let artifact: ContractArtifact;
@@ -29,9 +32,9 @@ describe('utility_function_membership_proof', () => {
 
   it('computes and verifies a proof', async () => {
     expect(utilityFunction).toBeDefined();
-    const proof = await createUtilityFunctionMembershipProof(selector, artifact);
+    const proof = await createUtilityFunctionMembershipProof(selector, artifact, log);
     const fn = { ...utilityFunction, ...proof, selector };
-    await expect(isValidUtilityFunctionMembershipProof(fn, contractClass)).resolves.toBeTruthy();
+    await expect(isValidUtilityFunctionMembershipProof(fn, contractClass, log)).resolves.toBeTruthy();
   });
 
   it('handles a contract with a single function', async () => {
@@ -43,23 +46,23 @@ describe('utility_function_membership_proof', () => {
     const utilityFunction = utilityFns[0];
     const selector = await FunctionSelector.fromNameAndParameters(utilityFunction);
 
-    const proof = await createUtilityFunctionMembershipProof(selector, artifact);
+    const proof = await createUtilityFunctionMembershipProof(selector, artifact, log);
     expect(proof.artifactTreeSiblingPath.length).toBe(0);
 
     const fn = { ...utilityFunction, ...proof, selector };
     const contractClass = await getContractClassFromArtifact(artifact);
-    await expect(isValidUtilityFunctionMembershipProof(fn, contractClass)).resolves.toBeTruthy();
+    await expect(isValidUtilityFunctionMembershipProof(fn, contractClass, log)).resolves.toBeTruthy();
   });
 
   test.each(['artifactTreeSiblingPath', 'artifactMetadataHash', 'functionMetadataHash'] as const)(
     'fails proof if %s is mangled',
     async field => {
-      const proof = await createUtilityFunctionMembershipProof(selector, artifact);
+      const proof = await createUtilityFunctionMembershipProof(selector, artifact, log);
       const original = proof[field];
       const mangled = Array.isArray(original) ? [Fr.random(), ...original.slice(1)] : Fr.random();
       const wrong = { ...proof, [field]: mangled };
       const fn = { ...utilityFunction, ...wrong, selector, vkHash };
-      await expect(isValidUtilityFunctionMembershipProof(fn, contractClass)).resolves.toBeFalsy();
+      await expect(isValidUtilityFunctionMembershipProof(fn, contractClass, log)).resolves.toBeFalsy();
     },
   );
 });
