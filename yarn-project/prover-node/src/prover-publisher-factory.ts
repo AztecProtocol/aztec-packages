@@ -1,6 +1,7 @@
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import type { Logger } from '@aztec/foundation/log';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -12,6 +13,7 @@ export class ProverPublisherFactory {
     private deps: {
       rollupContract: RollupContract;
       publisherManager: PublisherManager<L1TxUtils>;
+      log: Logger;
       telemetry?: TelemetryClient;
     },
   ) {}
@@ -33,6 +35,7 @@ export class ProverPublisherFactory {
     return new ProverNodePublisher(this.config, {
       rollupContract: this.deps.rollupContract,
       l1TxUtils: l1Publisher,
+      log: this.deps.log,
       telemetry: this.deps.telemetry,
     });
   }

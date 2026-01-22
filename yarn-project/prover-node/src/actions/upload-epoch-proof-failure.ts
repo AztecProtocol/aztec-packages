@@ -40,7 +40,7 @@ export async function uploadEpochProofFailure(
   log.warn(`Uploading epoch proof failure for ${epochNumber} to ${location}`, { epochNumber, jobId, location });
 
   const backupDir = await mkdtemp(join(config.dataDirectory ?? tmpdir(), 'epoch-proof-data-'));
-  const store = await createFileStore(location);
+  const store = await createFileStore(location, log);
   if (!store) {
     throw new Error(`Failed to create file store for epoch proof failure upload for location ${location}.`);
   }

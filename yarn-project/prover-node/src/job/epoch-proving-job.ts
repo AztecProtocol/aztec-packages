@@ -3,7 +3,7 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -43,7 +43,6 @@ export type EpochProvingJobOptions = {
  */
 export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
-  private log = createLogger('prover-node:epoch-proving-job');
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
@@ -62,6 +61,7 @@ export class EpochProvingJob implements Traceable {
     private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: EpochProvingJobOptions,
+    private log: Logger,
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();

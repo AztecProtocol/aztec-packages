@@ -4,7 +4,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { P2PClient } from '@aztec/p2p';
@@ -54,7 +54,7 @@ type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfi
  * proof for the epoch, and submits it to L1.
  */
 export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable {
-  private log = createLogger('prover-node');
+  private log: Logger;
   private dateProvider = new DateProvider();
 
   private jobs: Map<string, EpochProvingJob> = new Map();
@@ -77,9 +77,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly epochsMonitor: EpochMonitor,
     protected readonly rollupContract: RollupContract,
     protected readonly l1Metrics: L1Metrics,
+    log: Logger,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
+    this.log = log;
     this.config = {
       proverNodePollingIntervalMs: 1_000,
       proverNodeMaxPendingJobs: 100,
@@ -98,9 +100,18 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const meter = telemetryClient.getMeter('ProverNode');
     this.tracer = telemetryClient.getTracer('ProverNode');
 
-    this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
+    this.jobMetrics = new ProverNodeJobMetrics(
+      meter,
+      telemetryClient.getTracer('EpochProvingJob'),
+      this.log.createChild('metrics:job'),
+    );
 
-    this.rewardsMetrics = new ProverNodeRewardsMetrics(meter, this.prover.getProverId(), rollupContract);
+    this.rewardsMetrics = new ProverNodeRewardsMetrics(
+      meter,
+      this.prover.getProverId(),
+      rollupContract,
+      this.log.createChild('metrics:rewards'),
+    );
   }
 
   public getProverId() {
@@ -286,6 +297,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     // Create a processor factory
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
+      this.log,
       this.dateProvider,
       this.telemetryClient,
     );
@@ -374,6 +386,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     opts: { skipEpochCheck?: boolean } = {},
   ) {
     const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit, proverNodeDisableProofPublish } = this.config;
+    const epochLog = this.log.createChild('job', { instanceId: `epoch-${data.epochNumber}` });
     return new EpochProvingJob(
       data,
       this.worldState,
@@ -384,6 +397,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.jobMetrics,
       deadline,
       { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
+      epochLog,
     );
   }
 

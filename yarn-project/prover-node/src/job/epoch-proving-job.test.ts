@@ -3,6 +3,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
@@ -65,6 +66,7 @@ describe('epoch-proving-job', () => {
       previousBlockHeader: initialHeader,
       attestations,
     };
+    const log = createLogger('prover-node:job', { instanceId: `epoch-${epochNumber}` });
     return new EpochProvingJob(
       data,
       worldState,
@@ -75,6 +77,7 @@ describe('epoch-proving-job', () => {
       metrics,
       opts.deadline,
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32, skipSubmitProof: opts.skipSubmitProof },
+      log,
     );
   };
 
@@ -89,6 +92,7 @@ describe('epoch-proving-job', () => {
     metrics = new ProverNodeJobMetrics(
       getTelemetryClient().getMeter('EpochProvingJob'),
       getTelemetryClient().getTracer('EpochProvingJob'),
+      createLogger('prover-node:job:metrics'),
     );
 
     publicInputs = RootRollupPublicInputs.random();

@@ -1,6 +1,6 @@
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { L1PublishProofStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
@@ -27,7 +27,7 @@ export class ProverNodeJobMetrics {
   constructor(
     private meter: Meter,
     public readonly tracer: Tracer,
-    private logger = createLogger('prover-node:publisher:metrics'),
+    private logger: Logger,
   ) {
     this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION);
     this.provingJobDuration = this.meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION);
@@ -61,7 +61,7 @@ export class ProverNodeRewardsMetrics {
     private meter: Meter,
     private coinbase: EthAddress,
     private rollup: RollupContract,
-    private logger = createLogger('prover-node:publisher:metrics'),
+    private logger: Logger,
   ) {
     this.rewards = this.meter.createObservableGauge(Metrics.PROVER_NODE_REWARDS_PER_EPOCH);
 
@@ -121,8 +121,8 @@ export class ProverNodePublisherMetrics {
 
   constructor(
     public readonly client: TelemetryClient,
+    private logger: Logger,
     name = 'ProverNode',
-    private logger = createLogger('prover-node:publisher:metrics'),
   ) {
     this.meter = client.getMeter(name);
 

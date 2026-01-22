@@ -7,6 +7,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -52,7 +53,11 @@ describe('prover-node-publisher', () => {
   });
 
   beforeEach(() => {
-    publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
+    publisher = new ProverNodePublisher(config, {
+      rollupContract: rollup,
+      l1TxUtils: l1Utils,
+      log: createLogger('prover-node:l1-tx-publisher'),
+    });
   });
 
   const testCases = [

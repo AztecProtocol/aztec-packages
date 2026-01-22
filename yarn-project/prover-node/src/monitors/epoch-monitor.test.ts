@@ -1,4 +1,5 @@
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -53,7 +54,9 @@ describe('EpochMonitor', () => {
       },
     });
 
-    epochMonitor = new EpochMonitor(l2BlockSource, l1Constants, { pollingIntervalMs: 10 });
+    epochMonitor = new EpochMonitor(l2BlockSource, l1Constants, createLogger('prover-node:epoch-monitor'), {
+      pollingIntervalMs: 10,
+    });
     epochMonitor.setHandler(handler);
   });
 

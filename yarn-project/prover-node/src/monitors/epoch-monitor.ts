@@ -1,5 +1,5 @@
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -23,7 +23,7 @@ export interface EpochMonitorHandler {
  */
 export class EpochMonitor implements Traceable {
   private runningPromise: RunningPromise;
-  private log = createLogger('prover-node:epoch-monitor');
+  private log: Logger;
   public readonly tracer: Tracer;
 
   private handler: EpochMonitorHandler | undefined;
@@ -32,9 +32,11 @@ export class EpochMonitor implements Traceable {
   constructor(
     private readonly l2BlockSource: L2BlockSource,
     private readonly l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
+    log: Logger,
     private options: { pollingIntervalMs: number; provingDelayMs?: number },
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
+    this.log = log;
     this.tracer = telemetry.getTracer('EpochMonitor');
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.options.pollingIntervalMs);
     if (this.options.provingDelayMs) {
@@ -44,11 +46,12 @@ export class EpochMonitor implements Traceable {
 
   public static async create(
     l2BlockSource: L2BlockSource,
+    log: Logger,
     options: { pollingIntervalMs: number; provingDelayMs?: number },
     telemetry: TelemetryClient = getTelemetryClient(),
   ): Promise<EpochMonitor> {
     const l1Constants = await l2BlockSource.getL1Constants();
-    return new EpochMonitor(l2BlockSource, l1Constants, options, telemetry);
+    return new EpochMonitor(l2BlockSource, l1Constants, log, options, telemetry);
   }
 
   public start(handler: EpochMonitorHandler) {

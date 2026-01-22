@@ -7,7 +7,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { pick } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { LoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -35,7 +35,7 @@ import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 export type ProverNodeDeps = {
   telemetry?: TelemetryClient;
-  log?: Logger;
+  loggerFactory: LoggerFactory;
   aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
   archiver?: Archiver;
   publisherFactory?: ProverPublisherFactory;
@@ -47,7 +47,7 @@ export type ProverNodeDeps = {
 /** Creates a new prover node given a config. */
 export async function createProverNode(
   userConfig: ProverNodeConfig & DataStoreConfig & KeyStoreConfig,
-  deps: ProverNodeDeps = {},
+  deps: ProverNodeDeps,
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
@@ -55,15 +55,16 @@ export async function createProverNode(
   const config = { ...userConfig };
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const dateProvider = deps.dateProvider ?? new DateProvider();
-  const blobClient = await createBlobClientWithFileStores(config, createLogger('prover-node:blob-client:client'));
-  const log = deps.log ?? createLogger('prover-node');
+  const loggerFactory = deps.loggerFactory;
+  const log = loggerFactory.createLogger('prover-node');
+  const blobClient = await createBlobClientWithFileStores(config, log.createChild('blob-client:client'));
 
   // Build a key store from file if given or from environment otherwise
   let keyStoreManager: KeystoreManager | undefined;
   const keyStoreProvided = config.keyStoreDirectory !== undefined && config.keyStoreDirectory.length > 0;
   if (keyStoreProvided) {
     const keyStores = loadKeystores(config.keyStoreDirectory!);
-    keyStoreManager = new KeystoreManager(mergeKeystores(keyStores));
+    keyStoreManager = new KeystoreManager(mergeKeystores(keyStores, log));
   } else {
     const keyStore = createKeyStoreForProver(config);
     if (keyStore) {
@@ -102,25 +103,35 @@ export async function createProverNode(
 
   await trySnapshotSync(config, log);
 
-  const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
+  const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
+    logger: log.createChild('epoch-cache'),
+  });
 
   const archiver =
     deps.archiver ??
-    (await createArchiver(config, { blobClient, epochCache, telemetry, dateProvider }, { blockUntilSync: true }));
+    (await createArchiver(
+      config,
+      { blobClient, epochCache, telemetry, dateProvider, loggerFactory },
+      { blockUntilSync: true },
+    ));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
   const worldStateSynchronizer = await createWorldStateSynchronizer(
     worldStateConfig,
     archiver,
-    options.prefilledPublicData,
+    options.prefilledPublicData ?? [],
+    log.createChild('world-state'),
     telemetry,
   );
   await worldStateSynchronizer.start();
 
-  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry, loggerFactory));
 
-  const prover = await createProverClient(proverClientConfig, worldStateSynchronizer, broker, telemetry);
+  const prover = await createProverClient(proverClientConfig, worldStateSynchronizer, broker, {
+    telemetry,
+    loggerFactory,
+  });
 
   const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -131,7 +142,11 @@ export async function createProverNode(
     pollingInterval: config.viemPollingIntervalMS,
   });
 
-  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+  const rollupContract = new RollupContract(
+    publicClient,
+    config.l1Contracts.rollupAddress.toString(),
+    log.createChild('rollup'),
+  );
 
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]
@@ -141,28 +156,31 @@ export async function createProverNode(
           proverSigners.signers,
           config.publisherForwarderAddress,
           { ...config, scope: 'prover' },
-          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          { telemetry, loggerFactory, dateProvider },
         )
       : await createL1TxUtilsFromEthSignerWithStore(
           publicClient,
           proverSigners.signers,
           { ...config, scope: 'prover' },
-          { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+          { telemetry, loggerFactory, dateProvider },
         );
 
   const publisherFactory =
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(l1TxUtils, config),
+      publisherManager: new PublisherManager(l1TxUtils, config, log.createChild('publisher-manager')),
+      log: log.createChild('publisher'),
       telemetry,
     });
 
   const proofVerifier = new QueuedIVCVerifier(
     config,
     config.realProofs || config.debugForceTxProofVerification
-      ? await BBCircuitVerifier.new(config)
+      ? await BBCircuitVerifier.new(config, loggerFactory)
       : new TestCircuitVerifier(config.proverTestVerificationDelayMs),
+    log,
+    telemetry,
   );
 
   const p2pClient = await createP2PClient(
@@ -179,6 +197,7 @@ export async function createProverNode(
       txCollectionNodeSources: deps.aztecNodeTxProvider
         ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')]
         : [],
+      loggerFactory,
     },
   );
 
@@ -204,6 +223,7 @@ export async function createProverNode(
 
   const epochMonitor = await EpochMonitor.create(
     archiver,
+    log.createChild('epoch-monitor'),
     { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
     telemetry,
   );
@@ -225,6 +245,7 @@ export async function createProverNode(
     epochMonitor,
     rollupContract,
     l1Metrics,
+    log,
     proverNodeConfig,
     telemetry,
   );

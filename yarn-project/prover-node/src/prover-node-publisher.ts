@@ -7,7 +7,7 @@ import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -39,7 +39,7 @@ export class ProverNodePublisher {
   private interrupted = false;
   private metrics: ProverNodePublisherMetrics;
 
-  protected log = createLogger('prover-node:l1-tx-publisher');
+  protected log: Logger;
 
   protected rollupContract: RollupContract;
 
@@ -50,12 +50,14 @@ export class ProverNodePublisher {
     deps: {
       rollupContract: RollupContract;
       l1TxUtils: L1TxUtils;
+      log: Logger;
       telemetry?: TelemetryClient;
     },
   ) {
+    this.log = deps.log;
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
-    this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
+    this.metrics = new ProverNodePublisherMetrics(telemetry, this.log.createChild('metrics'), 'ProverNode');
 
     this.rollupContract = deps.rollupContract;
     this.l1TxUtils = deps.l1TxUtils;

@@ -28,10 +28,18 @@ export async function rerunEpochProvingJob(
   log.info(`Loaded proving job data for epoch ${jobData.epochNumber}`);
 
   const telemetry = getTelemetryClient();
-  const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
-  const worldState = await createWorldState(config);
-  const archiver = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
-  const publicProcessorFactory = new PublicProcessorFactory(archiver);
+  const metrics = new ProverNodeJobMetrics(
+    telemetry.getMeter('prover-job'),
+    telemetry.getTracer('prover-job'),
+    log.createChild('metrics'),
+  );
+  const worldState = await createWorldState(config, log);
+  const archiver = await createArchiverStore(
+    config,
+    { loggerFactory: log },
+    { epochDuration: config.aztecEpochDuration },
+  );
+  const publicProcessorFactory = new PublicProcessorFactory(archiver, log);
 
   const publisher = { submitEpochProof: () => Promise.resolve(true) };
   const l2BlockSourceForReorgDetection = undefined;
@@ -40,9 +48,10 @@ export async function rerunEpochProvingJob(
   // This starts a local proving broker that does not get exposed as a service. This should be good enough for
   // smallish epochs to be proven if we run on a large machine, but as epochs grow larger, we may want to switch
   // this out for a live proving broker with multiple agents that we can connect to.
-  const broker = await createAndStartProvingBroker(config, telemetry);
-  const prover = await createProverClient(config, worldState, broker, telemetry);
+  const broker = await createAndStartProvingBroker(config, telemetry, log);
+  const prover = await createProverClient(config, worldState, broker, { telemetry, loggerFactory: log });
 
+  const epochLog = log.createChild('job', { instanceId: `epoch-${jobData.epochNumber}` });
   const provingJob = new EpochProvingJob(
     jobData,
     worldState,
@@ -53,6 +62,7 @@ export async function rerunEpochProvingJob(
     metrics,
     deadline,
     { skipEpochCheck: true },
+    epochLog,
   );
 
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
