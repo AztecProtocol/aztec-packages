@@ -20,7 +20,7 @@ async function main() {
   }
   const flows = await readdir(ivcFolder);
   logger.info(`Flows in ${ivcFolder}: \n${flows.map(flowName => `\t- ${flowName}`).join('\n')}`);
-  const simulator = new WASMSimulator();
+  const simulator = new WASMSimulator(createLogger('wasm:simulator'));
   const log = proxyLogger.createLogger('bb:prover');
   const prover = new BBBundlePrivateKernelProver(simulator, { logger: log });
 

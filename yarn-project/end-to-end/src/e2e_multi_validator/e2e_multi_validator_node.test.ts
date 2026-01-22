@@ -91,6 +91,7 @@ describe('e2e_multi_validator_node', () => {
     rollup = new RollupContract(
       deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      logger,
     );
 
     // We jump to the next epoch such that the committee can be setup.

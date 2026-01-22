@@ -77,7 +77,7 @@ describe('e2e_deploy_contract private initialization', () => {
       initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
     );
     const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]));
-    await new BatchCall(wallet, calls).send({ from: defaultAccountAddress }).wait();
+    await new BatchCall(wallet, logger, calls).send({ from: defaultAccountAddress }).wait();
     expect(await contracts[0].methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(42n);
     expect(await contracts[1].methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(52n);
   });
@@ -86,7 +86,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const owner = (await wallet.createAccount()).address;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
-    const batch = new BatchCall(wallet, [
+    const batch = new BatchCall(wallet, logger, [
       contract.methods.constructor(...initArgs),
       contract.methods.create_note(owner, 10),
     ]);

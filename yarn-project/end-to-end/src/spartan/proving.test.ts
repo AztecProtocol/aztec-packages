@@ -1,4 +1,5 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -23,7 +24,7 @@ describe('proving test', () => {
     const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess);
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
-    aztecNode = createAztecNodeClient(rpcUrl);
+    aztecNode = createAztecNodeClient(rpcUrl, {}, defaultFetch);
   });
 
   afterAll(async () => {

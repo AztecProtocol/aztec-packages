@@ -2,7 +2,8 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { expect, jest } from '@jest/globals';
@@ -138,11 +139,16 @@ describe('a test that passively observes the network in the presence of network 
     forwardProcesses.push(ethProcess);
     ETHEREUM_HOST = `http://127.0.0.1:${ethPort}`;
 
-    const node = createAztecNodeClient(nodeUrl);
-    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST], new DateProvider());
+    const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
+    const ethCheatCodes = new EthCheatCodesWithState(
+      [ETHEREUM_HOST],
+      new DateProvider(),
+      createLoggerFactory({ actor: 'test' }),
+    );
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await node.getNodeInfo().then(n => n.l1ContractAddresses),
+      debugLogger,
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 

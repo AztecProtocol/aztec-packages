@@ -48,7 +48,7 @@ describe('slash inactivity test', () => {
     await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
-    rollup = new RollupContract(client, deployAddresses.rollupAddress);
+    rollup = new RollupContract(client, deployAddresses.rollupAddress, logger);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
     constants = await rollup.getRollupConstants();
     slashSettings = await getTallySlasherSettings(rollup);

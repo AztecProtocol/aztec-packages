@@ -109,6 +109,7 @@ describe('Transfer benchmark', () => {
               benchysAddress,
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
+              t.logger,
             );
           });
 

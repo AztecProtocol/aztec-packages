@@ -4,6 +4,7 @@ import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -209,7 +210,7 @@ describe('sustained N TPS test', () => {
 
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     const rpcUrl = `http://${rpcIP}:8080`;
-    aztecNode = createAztecNodeClient(rpcUrl);
+    aztecNode = createAztecNodeClient(rpcUrl, {}, defaultFetch);
 
     const promPortForward = await startPortForwardForPrometeheus('metrics');
     childProcesses.push(promPortForward.process);

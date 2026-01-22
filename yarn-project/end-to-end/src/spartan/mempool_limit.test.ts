@@ -22,6 +22,7 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { times } from '@aztec/foundation/collection';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -69,7 +70,7 @@ describe('mempool limiter test', () => {
     await health.setup();
     const rpcIP = await getExternalIP(config.NAMESPACE, 'rpc-aztec-node');
     rpcUrl = `http://${rpcIP}:8080`;
-    node = createAztecNodeClient(rpcUrl);
+    node = createAztecNodeClient(rpcUrl, {}, defaultFetch);
     const initialBlock = await node.getBlockNumber().catch(() => 0n);
     debugLogger.info(`Connected to RPC at ${rpcUrl}; initial L2 block: ${initialBlock}`);
     await retryUntil(async () => await node.isReady(), 'node ready', 60, 1);

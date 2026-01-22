@@ -60,7 +60,7 @@ describe('invalidate blocks test', () => {
     await health.setup();
     const deployAddresses = await getL1DeploymentAddresses(config);
     ({ client } = await getPublicViemClient(config, forwardProcesses));
-    rollup = new RollupContract(client, deployAddresses.rollupAddress);
+    rollup = new RollupContract(client, deployAddresses.rollupAddress, logger);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
     const c = await rollup.getRollupConstants();
     constants = { ...c, ethereumSlotDuration: ETHEREUM_SLOT_DURATION } as L1RollupConstants;

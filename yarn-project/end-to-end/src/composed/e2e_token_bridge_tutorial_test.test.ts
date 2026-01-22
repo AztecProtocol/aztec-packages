@@ -10,6 +10,7 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -35,10 +36,12 @@ const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
 
+const logger = createLogger('test:token_bridge_tutorial');
+
 const setupLocalNetwork = async () => {
   const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 
-  const node = createAztecNodeClient(AZTEC_NODE_URL);
+  const node = createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch);
   await waitForNode(node);
   const wallet = await TestWallet.create(node);
   return { node, wallet };
@@ -47,20 +50,22 @@ const setupLocalNetwork = async () => {
 async function deployTestERC20(): Promise<EthAddress> {
   const constructorArgs = ['Test Token', 'TEST', l1Client.account.address];
 
-  return await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, constructorArgs).then(
+  return await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, constructorArgs, { logger }).then(
     ({ address }) => address,
   );
 }
 
 async function deployFeeAssetHandler(l1TokenContract: EthAddress): Promise<EthAddress> {
   const constructorArgs = [l1Client.account.address, l1TokenContract.toString(), MINT_AMOUNT];
-  return await deployL1Contract(l1Client, FeeAssetHandlerAbi, FeeAssetHandlerBytecode, constructorArgs).then(
-    ({ address }) => address,
-  );
+  return await deployL1Contract(l1Client, FeeAssetHandlerAbi, FeeAssetHandlerBytecode, constructorArgs, {
+    logger,
+  }).then(({ address }) => address);
 }
 
 async function deployTokenPortal(): Promise<EthAddress> {
-  return await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode, []).then(({ address }) => address);
+  return await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode, [], { logger }).then(
+    ({ address }) => address,
+  );
 }
 
 async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress) {
@@ -217,7 +222,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:l2-withdraw
 
     // docs:start:l1-withdraw
-    const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
+    const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString(), logger);
     const epoch = await rollup.getEpochNumberForCheckpoint(CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber!));
 
     const result = await computeL2ToL1MembershipWitness(node, epoch, l2ToL1Message);

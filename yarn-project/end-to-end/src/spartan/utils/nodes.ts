@@ -99,9 +99,9 @@ export async function withSequencersAdmin<T>(env: TestConfig, fn: (node: AztecNo
     const url = `http://localhost:${port}`;
     await retry(
       () => fetch(`${url}/status`).then(res => res.status === 200),
+      logger,
       'forward node admin port',
       makeBackoff([1, 1, 2, 6]),
-      logger,
       true,
     );
     const client = createAztecNodeAdminClient(url);

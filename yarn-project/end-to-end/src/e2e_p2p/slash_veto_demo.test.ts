@@ -19,6 +19,7 @@ import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
+import { DateProvider } from '@aztec/foundation/timer';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
@@ -116,7 +117,7 @@ describe('veto slash', () => {
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
     vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
-      logger: t.logger,
+      loggerFactory: t.logger,
       dateProvider: t.ctx.dateProvider!,
     });
 
@@ -159,7 +160,7 @@ describe('veto slash', () => {
    * @returns The address of the deployed slasher contract.
    */
   async function deployNewSlasher(deployerClient: ExtendedViemWalletClient, slasherType: 'empire' | 'tally') {
-    const deployer = new L1Deployer(deployerClient, 42, undefined, false, undefined, undefined);
+    const deployer = new L1Deployer(deployerClient, 42, new DateProvider(), false, debugLogger);
 
     const vetoer = deployerClient.account.address;
     const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
@@ -200,7 +201,7 @@ describe('veto slash', () => {
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
     const txUtils = createL1TxUtilsFromViemWallet(deployerClient, {
-      logger: t.logger,
+      loggerFactory: t.logger,
       dateProvider: t.ctx.dateProvider!,
     });
     await txUtils.sendAndMonitorTransaction({

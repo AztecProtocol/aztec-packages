@@ -1,9 +1,10 @@
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { Logger } from '@aztec/foundation/log';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
@@ -77,7 +78,7 @@ export class ChainHealth {
       const ethereumUrl = `http://127.0.0.1:${ethPort}`;
 
       // Create clients
-      const node = createAztecNodeClient(nodeUrl);
+      const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
 
       // Check 1: Node is reachable
       let nodeInfo;
@@ -122,7 +123,7 @@ export class ChainHealth {
       }
 
       // Check 5: Committee exists
-      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress, this.logger);
 
       let committee;
       try {
@@ -201,7 +202,7 @@ export class ChainHealth {
 
       const nodeUrl = `http://127.0.0.1:${rpcPort}`;
       const ethereumUrl = `http://127.0.0.1:${ethPort}`;
-      const node = createAztecNodeClient(nodeUrl);
+      const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
 
       // Check that block number increased
       let currentBlockNumber;
@@ -229,7 +230,7 @@ export class ChainHealth {
         transport: fallback([http(ethereumUrl, { batch: false })]),
       });
 
-      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress, this.logger);
       let currentCheckpoint;
       try {
         currentCheckpoint = await rollup.getCheckpointNumber();

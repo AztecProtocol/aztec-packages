@@ -4,7 +4,7 @@ import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
@@ -76,10 +76,14 @@ describe('token transfer test', () => {
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS, new DateProvider());
+    const ethCheatCodes = new EthCheatCodesWithState(
+      ETHEREUM_HOSTS,
+      new DateProvider(),
+      createLoggerFactory({ actor: 'test' }),
+    );
     const l1ContractAddresses = await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
-    const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
+    const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses, logger);
     logger.info(`Deployed L1 contract addresses: ${JSON.stringify(l1ContractAddresses)}`);
     const recipient = testAccounts.recipientAddress;
     const transferAmount = 1n;

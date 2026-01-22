@@ -8,7 +8,7 @@ import {
   type L2AmountClaimWithRecipient,
 } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { Logger } from '@aztec/aztec.js/log';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SiblingPath } from '@aztec/aztec.js/trees';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
@@ -65,7 +65,10 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   underlyingERC20: any;
 }> {
   // deploy the token portal
-  const { address: tokenPortalAddress } = await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode);
+  const logger = createLogger('cross-chain-test-harness');
+  const { address: tokenPortalAddress } = await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode, [], {
+    logger,
+  });
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,

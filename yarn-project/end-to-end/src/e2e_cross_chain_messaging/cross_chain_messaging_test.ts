@@ -142,11 +142,13 @@ export class CrossChainMessagingTest {
 
     this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
-    const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      this.l1Client.account.address,
-    ]).then(({ address }) => address);
+    const underlyingERC20Address = await deployL1Contract(
+      this.l1Client,
+      TestERC20Abi,
+      TestERC20Bytecode,
+      ['Underlying', 'UND', this.l1Client.account.address],
+      { logger: this.logger },
+    ).then(({ address }) => address);
 
     this.logger.verbose(`Setting up cross chain harness...`);
     this.crossChainTestHarness = await CrossChainTestHarness.new(
@@ -173,7 +175,7 @@ export class CrossChainMessagingTest {
     this.l1Client = l1Client;
 
     const l1Contracts = this.aztecNodeConfig.l1Contracts;
-    this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString());
+    this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString(), this.logger);
     this.inbox = new InboxContract(l1Client, l1Contracts.inboxAddress.toString());
     this.outbox = new OutboxContract(l1Client, l1Contracts.outboxAddress.toString());
 

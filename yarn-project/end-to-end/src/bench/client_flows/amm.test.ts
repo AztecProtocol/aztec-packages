@@ -134,6 +134,7 @@ describe('AMM benchmark', () => {
               benchysAddress,
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
+              t.logger,
             );
             // Mint some BananaCoins for the user, separated in different notes
             await mintNotes(
@@ -142,6 +143,7 @@ describe('AMM benchmark', () => {
               benchysAddress,
               bananaCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
+              t.logger,
             );
           });
 

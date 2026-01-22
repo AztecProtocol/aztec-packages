@@ -90,7 +90,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         constructorArtifact.parameters,
       );
 
-      const tx = await (await broadcastPrivateFunction(wallet, artifact, selector))
+      const tx = await (await broadcastPrivateFunction(wallet, artifact, selector, logger))
         .send({ from: defaultAccountAddress })
         .wait();
       const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
@@ -110,7 +110,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     it('broadcasts a utility function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UTILITY)!;
       const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
-      const tx = await (await broadcastUtilityFunction(wallet, artifact, selector))
+      const tx = await (await broadcastUtilityFunction(wallet, artifact, selector, logger))
         .send({ from: defaultAccountAddress })
         .wait();
       const logs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });

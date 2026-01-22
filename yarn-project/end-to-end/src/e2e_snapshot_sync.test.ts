@@ -7,7 +7,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { logger, withLogNameSuffix } from '@aztec/foundation/log';
+import { createLoggerFactory, logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
@@ -45,7 +45,11 @@ describe('e2e_snapshot_sync', () => {
     snapshotDir = await mkdtemp(join(tmpdir(), 'snapshots-'));
     cleanupDirs = [snapshotDir];
     snapshotLocation = `file://${snapshotDir}`;
-    monitor = new ChainMonitor(RollupContract.getFromConfig(context.config), context.dateProvider, log).start();
+    monitor = new ChainMonitor(
+      new RollupContract(context.deployL1ContractsValues.l1Client, context.config.l1Contracts.rollupAddress, log),
+      context.dateProvider,
+      log,
+    ).start();
   });
 
   afterAll(async () => {
@@ -57,25 +61,29 @@ describe('e2e_snapshot_sync', () => {
   // Adapted from epochs-test
   const createNonValidatorNode = async (suffix: string, config: Partial<AztecNodeConfig> = {}) => {
     log.warn('Creating and syncing a node without a validator...');
-    return await withLogNameSuffix(suffix, () =>
-      AztecNodeService.createAndSync({
+    const loggerFactory = createLoggerFactory({ actor: `node-${suffix}` });
+    return await AztecNodeService.createAndSync(
+      {
         ...context.config,
         disableValidator: true,
         dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
         ...config,
-      }),
+      },
+      { loggerFactory, dateProvider: context.dateProvider },
     );
   };
 
   const createTestProverNode = async (config: Partial<ProverNodeConfig> = {}) => {
     log.warn('Creating and syncing a prover node...');
     const dataDirectory = join(context.config.dataDirectory!, randomBytes(8).toString('hex'));
+    const loggerFactory = createLoggerFactory({ actor: 'prover' });
     return await createAndSyncProverNode(
       bufferToHex(getPrivateKeyFromIndex(5)!),
       context.config,
       { ...config, realProofs: false, dataDirectory },
       context.aztecNode,
       context.prefilledPublicData ?? [],
+      { loggerFactory },
     );
   };
 

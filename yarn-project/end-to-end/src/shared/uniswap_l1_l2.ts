@@ -93,6 +93,7 @@ export const uniswapL1L2TestSuite = (
       rollup = new RollupContract(
         deployL1ContractsValues.l1Client,
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        logger,
       );
       version = Number(await rollup.getVersion());
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
@@ -120,9 +121,9 @@ export const uniswapL1L2TestSuite = (
       );
 
       logger.info('Deploy Uniswap portal on L1 and L2...');
-      uniswapPortalAddress = await deployL1Contract(l1Client, UniswapPortalAbi, UniswapPortalBytecode).then(
-        ({ address }) => address,
-      );
+      uniswapPortalAddress = await deployL1Contract(l1Client, UniswapPortalAbi, UniswapPortalBytecode, [], {
+        logger,
+      }).then(({ address }) => address);
 
       uniswapPortal = getContract({
         address: uniswapPortalAddress.toString(),

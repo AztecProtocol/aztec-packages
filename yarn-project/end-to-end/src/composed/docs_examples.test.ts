@@ -2,6 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet/server';
 
@@ -18,7 +19,7 @@ import { TestWallet } from '@aztec/test-wallet/server';
 describe('docs_examples', () => {
   it('deploys and interacts with a token contract', async () => {
     const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
-    const node = createAztecNodeClient(AZTEC_NODE_URL);
+    const node = createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch);
 
     const wallet = await TestWallet.create(node);
     const secretKey = Fr.random();

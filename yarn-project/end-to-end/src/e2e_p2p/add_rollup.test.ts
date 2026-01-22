@@ -88,7 +88,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.applyBaseSetup();
     await t.removeInitialNode();
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client, { loggerFactory: t.logger });
 
     t.ctx.watcher!.setIsMarkingAsProven(false);
   });
@@ -131,6 +131,7 @@ describe('e2e_p2p_add_rollup', () => {
     const rollup = new RollupContract(
       t.ctx.deployL1ContractsValues!.l1Client,
       t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+      t.logger,
     );
 
     const emperor = t.ctx.deployL1ContractsValues.l1Client.account;
@@ -188,6 +189,7 @@ describe('e2e_p2p_add_rollup', () => {
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
         governanceVotingDuration: t.ctx.aztecNodeConfig.governanceVotingDuration,
       },
+      t.logger,
     );
 
     // Fund the new rollup's FeeJuicePortal using the feeAssetHandler.
@@ -207,6 +209,7 @@ describe('e2e_p2p_add_rollup', () => {
       RegisterNewRollupVersionPayloadAbi,
       RegisterNewRollupVersionPayloadBytecode,
       [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), newRollup.address],
+      { logger: t.logger },
     );
 
     const govInfo = async () => {
@@ -349,7 +352,7 @@ describe('e2e_p2p_add_rollup', () => {
           chainId: new Fr(l1Client.chain.id),
         });
 
-        const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
+        const rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress, t.logger);
         const epoch = await rollup.getEpochNumberForCheckpoint(
           CheckpointNumber.fromBlockNumber(l2OutgoingReceipt.blockNumber!),
         );
@@ -358,7 +361,7 @@ describe('e2e_p2p_add_rollup', () => {
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider!);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider!, t.logger);
         await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
 
@@ -536,6 +539,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       newVersion,
+      t.logger,
     );
 
     // Set up shared blob storage for the new rollup using FileStore

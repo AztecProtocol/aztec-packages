@@ -3,6 +3,7 @@ import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -50,9 +51,13 @@ describe('validator ha', () => {
     const ethereumHost = `http://127.0.0.1:${ethPort}`;
 
     // Setup rollup cheat codes for monitoring
-    const node = createAztecNodeClient(nodeUrl);
-    const ethCheatCodes = new EthCheatCodesWithState([ethereumHost], new DateProvider());
-    rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, await node.getNodeInfo().then(n => n.l1ContractAddresses));
+    const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
+    const ethCheatCodes = new EthCheatCodesWithState([ethereumHost], new DateProvider(), logger);
+    rollupCheatCodes = new RollupCheatCodes(
+      ethCheatCodes,
+      await node.getNodeInfo().then(n => n.l1ContractAddresses),
+      logger,
+    );
     await awaitCheckpointNumber(rollupCheatCodes, CheckpointNumber(INITIAL_CHECKPOINT_NUMBER + 1), 60 * 60, logger);
   });
 

@@ -84,6 +84,7 @@ describe('e2e_lending_contract', () => {
     const rollup = new RollupContract(
       deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      logger,
     );
 
     lendingAccount = new LendingAccount(defaultAccountAddress, new Fr(42));

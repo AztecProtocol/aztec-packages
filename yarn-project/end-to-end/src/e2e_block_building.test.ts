@@ -242,6 +242,7 @@ describe('e2e_block_building', () => {
       const deployerInstance = await deployMethod.getInstance();
       const callInteraction = new ContractFunctionInteraction(
         wallet,
+        logger,
         deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minterAddress, true],
@@ -546,7 +547,7 @@ describe('e2e_block_building', () => {
 
       // Send two txs that emit two nullifiers each, one from private and one from public.
       const makeBatch = () =>
-        new BatchCall(wallet, [
+        new BatchCall(wallet, logger, [
           testContract.methods.emit_nullifier(Fr.random()),
           testContract.methods.emit_nullifier_public(Fr.random()),
         ]);

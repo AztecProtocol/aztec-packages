@@ -250,6 +250,7 @@ export class P2PNetworkTest {
       MultiAdderArtifact.contractAbi,
       MultiAdderArtifact.contractBytecode,
       [rollup.address, this.context.deployL1ContractsValues.l1Client.account.address],
+      { logger: this.logger },
     );
 
     const multiAdder = getContract({
@@ -342,7 +343,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: this.logger });
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,
@@ -367,8 +368,12 @@ export class P2PNetworkTest {
     const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
     this.prefilledPublicData = prefilledPublicData;
 
-    const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
-    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider!).start();
+    const rollupContract = new RollupContract(
+      this.context.deployL1ContractsValues.l1Client,
+      this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      this.logger,
+    );
+    this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider!, this.logger).start();
     this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider!.setTime(Number(timestamp) * 1000));
   }
 
@@ -446,6 +451,7 @@ export class P2PNetworkTest {
     const rollup = new RollupContract(
       this.ctx.deployL1ContractsValues!.l1Client,
       this.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+      this.logger,
     );
 
     const slasherContract = getContract({
@@ -460,6 +466,7 @@ export class P2PNetworkTest {
     const slashFactory = new SlashFactoryContract(
       this.ctx.deployL1ContractsValues.l1Client,
       getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+      this.logger,
     );
 
     return { rollup, slasherContract, slashingProposer, slashFactory };

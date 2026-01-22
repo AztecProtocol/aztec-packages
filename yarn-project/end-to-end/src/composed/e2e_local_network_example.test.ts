@@ -10,6 +10,7 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { timesParallel } from '@aztec/foundation/collection';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TestWallet, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
@@ -37,7 +38,7 @@ describe('e2e_local_network_example', () => {
     const logger = createLogger('e2e:token');
 
     // We create PXE client connected to the local network URL
-    const node = createAztecNodeClient(AZTEC_NODE_URL);
+    const node = createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch);
     // Wait for local network to be ready
     await waitForNode(node, logger);
     const wallet = await TestWallet.create(node);
@@ -120,7 +121,7 @@ describe('e2e_local_network_example', () => {
   it('can create accounts on the local network', async () => {
     const logger = createLogger('e2e:token');
     // We create PXE client connected to the local network URL
-    const node = createAztecNodeClient(AZTEC_NODE_URL);
+    const node = createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch);
     // Wait for local network to be ready
     await waitForNode(node, logger);
     const wallet = await TestWallet.create(node);

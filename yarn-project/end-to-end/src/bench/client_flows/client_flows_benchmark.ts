@@ -140,7 +140,11 @@ export class ClientFlowsBenchmark {
 
     await this.context.aztecNodeService!.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
-    const rollupContract = RollupContract.getFromConfig(this.context.config);
+    const rollupContract = new RollupContract(
+      this.context.deployL1ContractsValues.l1Client,
+      this.context.config.l1Contracts.rollupAddress,
+      this.logger,
+    );
     this.chainMonitor = new ChainMonitor(rollupContract, this.context.dateProvider!, this.logger, 200).start();
 
     return this;
@@ -309,11 +313,13 @@ export class ClientFlowsBenchmark {
   public async createCrossChainTestHarness(owner: AztecAddress) {
     const l1Client = createExtendedL1Client(this.context.config.l1RpcUrls, MNEMONIC);
 
-    const underlyingERC20Address = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      l1Client.account.address,
-    ]).then(({ address }) => address);
+    const underlyingERC20Address = await deployL1Contract(
+      l1Client,
+      TestERC20Abi,
+      TestERC20Bytecode,
+      ['Underlying', 'UND', l1Client.account.address],
+      { logger: this.logger },
+    ).then(({ address }) => address);
 
     this.logger.verbose(`Setting up cross chain harness...`);
     const crossChainTestHarness = await CrossChainTestHarness.new(

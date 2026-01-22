@@ -4,6 +4,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -71,7 +72,7 @@ describe('validator suppression and nuke with slashing assertions', () => {
     }
 
     // Reuse RPC port-forward to fetch L1 deployment addresses
-    const deployAddresses = await createAztecNodeClient(nodeRpcUrl)
+    const deployAddresses = await createAztecNodeClient(nodeRpcUrl, {}, defaultFetch)
       .getNodeInfo()
       .then(i => i.l1ContractAddresses);
 
@@ -91,7 +92,7 @@ describe('validator suppression and nuke with slashing assertions', () => {
       client = viem.client;
     }
 
-    rollup = new RollupContract(client, deployAddresses.rollupAddress);
+    rollup = new RollupContract(client, deployAddresses.rollupAddress, logger);
     monitor = new ChainMonitor(rollup, undefined, logger.createChild('chain-monitor'), 500).start();
 
     constants = await rollup.getRollupConstants();

@@ -112,7 +112,11 @@ export class FeesTest {
       l1ContractsArgs: { ...this.setupOptions },
     });
 
-    this.rollupContract = RollupContract.getFromConfig(this.context.config);
+    this.rollupContract = new RollupContract(
+      this.context.deployL1ContractsValues.l1Client,
+      this.context.config.l1Contracts.rollupAddress,
+      this.logger,
+    );
     this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider!, this.logger, 200).start();
 
     await this.applyBaseSetup();

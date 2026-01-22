@@ -4,6 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
@@ -129,7 +130,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
     // Batch deployment and a public call into the same transaction
     const publicCall = contract.methods.increment_public_value(owner, 84);
-    await new BatchCall(wallet, [deployMethod, publicCall]).send({ from: defaultAccountAddress }).wait();
+    await new BatchCall(wallet, logger, [deployMethod, publicCall]).send({ from: defaultAccountAddress }).wait();
     // docs:end:deploy_batch
   }, 300_000);
 
@@ -140,7 +141,7 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug('Initializing deploy method');
     const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
     logger.debug('Creating request/calls to register and deploy contract');
-    const deployTx = new BatchCall(wallet, [deployMethod]);
+    const deployTx = new BatchCall(wallet, logger, [deployMethod]);
     logger.debug('Registering the not-yet-deployed contract to batch calls to');
     const contract = await deployMethod.register();
 
@@ -168,7 +169,7 @@ describe('e2e_deploy_contract deploy method', () => {
       if (!AZTEC_NODE_URL) {
         return;
       }
-      const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
+      const aztecNode = createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch);
       const retryingWallet = await TestWallet.create(aztecNode);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' })

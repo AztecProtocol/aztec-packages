@@ -154,36 +154,42 @@ describe('L1Publisher integration', () => {
 
   let port = 8545; // We increase the port for each test to avoid anvil conflicts
   const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
-    ({ rpcUrl, anvil } = await startAnvil({ port: port++ }));
+    ({ rpcUrl, anvil } = await startAnvil(logger, { port: port++ }));
     config.l1RpcUrls = [rpcUrl];
 
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await deployAztecL1Contracts(rpcUrl, deployerPK, foundry.id, {
-      ...getL1ContractsConfigEnvVars(),
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      aztecTargetCommitteeSize: 0,
-      slasherFlavor: 'none',
-      ...deployL1ContractsArgs,
-    }));
+    ({ l1ContractAddresses, l1Client } = await deployAztecL1Contracts(
+      rpcUrl,
+      deployerPK,
+      foundry.id,
+      {
+        ...getL1ContractsConfigEnvVars(),
+        vkTreeRoot: getVKTreeRoot(),
+        protocolContractsHash,
+        genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+        aztecTargetCommitteeSize: 0,
+        slasherFlavor: 'none',
+        ...deployL1ContractsArgs,
+      },
+      logger,
+    ));
 
-    dateProvider = new TestDateProvider();
-    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
+    dateProvider = new TestDateProvider(logger);
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider, logger);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
 
-    rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
+    rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses, logger);
 
     // Set up contract instances
-    rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
+    rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress, logger);
 
     l1Constants = {
       ...(await rollup.getRollupConstants()),
       ethereumSlotDuration: config.ethereumSlotDuration,
     };
 
-    builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
+    builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress), true, [], logger);
     blocks = [];
     blockSource = mock<ArchiverDataSource>({
       getBlocks(from, limit, _proven) {
@@ -263,19 +269,26 @@ describe('L1Publisher integration', () => {
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig, logger);
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, { logger, dateProvider }, config);
-    const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
+      sequencerL1Client,
+      { loggerFactory: logger, dateProvider },
+      config,
+    );
+    const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString(), logger);
     const slashingProposerContract = await rollupContract.getSlashingProposer();
     governanceProposerContract = new GovernanceProposerContract(
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
-    epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
-    const blobClient = createBlobClient();
+    epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, {
+      dateProvider,
+      logger: logger.createChild('epoch-cache'),
+    });
+    const blobClient = createBlobClient(undefined, { logger: createLogger('test:blob-client') });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
 
     publisher = new SequencerPublisher(
@@ -299,6 +312,7 @@ describe('L1Publisher integration', () => {
         dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
+        log: createLogger('sequencer:publisher'),
       },
     );
 
@@ -374,6 +388,7 @@ describe('L1Publisher integration', () => {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       tempFork,
+      logger,
     );
 
     await builder.addBlock(globalVariables, txs, { insertTxsEffects: true });

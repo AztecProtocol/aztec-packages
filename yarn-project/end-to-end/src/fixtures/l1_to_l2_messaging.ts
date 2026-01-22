@@ -26,7 +26,11 @@ export async function sendL1ToL2Message(
 
   const { recipient, content, secretHash } = message;
 
-  const version = await new RollupContract(ctx.l1Client, ctx.l1ContractAddresses.rollupAddress.toString()).getVersion();
+  const version = await new RollupContract(
+    ctx.l1Client,
+    ctx.l1ContractAddresses.rollupAddress.toString(),
+    logger,
+  ).getVersion();
 
   // We inject the message to Inbox
   const txHash = await inbox.write.sendL2Message(

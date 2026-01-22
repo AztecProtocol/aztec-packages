@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
@@ -22,6 +23,7 @@ describe('e2e_state_vars', () => {
 
   let teardown: () => Promise<void>;
   let contract: StateVarsContract;
+  const logger = createLogger('test:e2e_state_vars');
 
   const VALUE = 2n;
   const RANDOMNESS = 2n;
@@ -63,7 +65,7 @@ describe('e2e_state_vars', () => {
       // 2. A constrained private function that calls another private function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
-      const [a, b, c] = await new BatchCall(wallet, [
+      const [a, b, c] = await new BatchCall(wallet, logger, [
         contract.methods.get_public_immutable_constrained_private(),
         contract.methods.get_public_immutable_constrained_private_indirect(),
         contract.methods.get_public_immutable(),
@@ -80,7 +82,7 @@ describe('e2e_state_vars', () => {
       // 2. A constrained public function that calls another public function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
-      const [a, b, c] = await new BatchCall(wallet, [
+      const [a, b, c] = await new BatchCall(wallet, logger, [
         contract.methods.get_public_immutable_constrained_public(),
         contract.methods.get_public_immutable_constrained_public_indirect(),
         contract.methods.get_public_immutable(),

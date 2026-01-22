@@ -4,14 +4,13 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { range } from '@aztec/foundation/array';
 import { SecretValue } from '@aztec/foundation/config';
-import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
+import { type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import getPort from 'get-port';
-import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { createAndSyncProverNode, getPrivateKeyFromIndex } from './utils.js';
@@ -44,10 +43,6 @@ export async function createNodes(
   validatorsPerNode = 1,
 ): Promise<AztecNodeService[]> {
   const nodePromises: Promise<AztecNodeService>[] = [];
-  const loggerIdStorage = new AsyncLocalStorage<string>();
-  const logNameHandler = (module: string) =>
-    loggerIdStorage.getStore() ? `${module}:${loggerIdStorage.getStore()}` : module;
-  addLogNameHandler(logNameHandler);
 
   for (let i = 0; i < numNodes; i++) {
     const index = indexOffset + i;
@@ -60,6 +55,9 @@ export async function createNodes(
     // Assign data directory
     const dataDir = dataDirectory ? `${dataDirectory}-${index}` : undefined;
 
+    // Create a logger factory with the node port as actor for identification
+    const loggerFactory = createLoggerFactory({ actor: `validator-${port}` });
+
     const nodePromise = createNode(
       config,
       dateProvider,
@@ -69,7 +67,7 @@ export async function createNodes(
       prefilledPublicData,
       dataDir,
       metricsPort,
-      loggerIdStorage,
+      loggerFactory,
     );
     nodePromises.push(nodePromise);
   }
@@ -81,7 +79,6 @@ export async function createNodes(
     throw new Error('Sequencer not found');
   }
 
-  removeLogNameHandler(logNameHandler);
   return nodes;
 }
 
@@ -95,18 +92,17 @@ export async function createNode(
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
-  loggerIdStorage?: AsyncLocalStorage<string>,
+  loggerFactory?: LoggerFactory,
 ) {
-  const createNode = async () => {
-    const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(
-      validatorConfig,
-      { telemetry, dateProvider },
-      { prefilledPublicData, dontStartSequencer: config.dontStartSequencer },
-    );
-  };
-  return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
+  const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
+  const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+  // Use provided loggerFactory or create one with default actor
+  const factory = loggerFactory ?? createLoggerFactory({ actor: `validator-${tcpPort}` });
+  return await AztecNodeService.createAndSync(
+    validatorConfig,
+    { telemetry, dateProvider, loggerFactory: factory },
+    { prefilledPublicData, dontStartSequencer: config.dontStartSequencer },
+  );
 }
 
 /** Creates a P2P enabled instance of Aztec Node Service without a validator */
@@ -118,20 +114,23 @@ export async function createNonValidatorNode(
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
-  loggerIdStorage?: AsyncLocalStorage<string>,
+  loggerFactory?: LoggerFactory,
 ) {
-  const createNode = async () => {
-    const p2pConfig = await createP2PConfig(baseConfig, bootstrapNode, tcpPort, dataDirectory);
-    const config: AztecNodeConfig = {
-      ...p2pConfig,
-      disableValidator: true,
-      validatorPrivateKeys: undefined,
-      publisherPrivateKeys: [],
-    };
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { prefilledPublicData });
+  const p2pConfig = await createP2PConfig(baseConfig, bootstrapNode, tcpPort, dataDirectory);
+  const config: AztecNodeConfig = {
+    ...p2pConfig,
+    disableValidator: true,
+    validatorPrivateKeys: undefined,
+    publisherPrivateKeys: [],
   };
-  return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
+  const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+  // Use provided loggerFactory or create one with default actor
+  const factory = loggerFactory ?? createLoggerFactory({ actor: `node-${tcpPort}` });
+  return await AztecNodeService.createAndSync(
+    config,
+    { telemetry, dateProvider, loggerFactory: factory },
+    { prefilledPublicData },
+  );
 }
 
 export async function createProverNode(
@@ -139,34 +138,29 @@ export async function createProverNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   addressIndex: number,
-  proverNodeDeps: ProverNodeDeps & Required<Pick<ProverNodeDeps, 'dateProvider'>>,
+  proverNodeDeps: Partial<Omit<ProverNodeDeps, 'loggerFactory'>> &
+    Required<Pick<ProverNodeDeps, 'dateProvider'>> & { loggerFactory?: LoggerFactory },
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
-  loggerIdStorage?: AsyncLocalStorage<string>,
+  loggerFactory?: LoggerFactory,
 ) {
-  const createProverNode = async () => {
-    const proverNodePrivateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!;
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!;
+  const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+  // Use provided loggerFactory or create one with default actor
+  const factory = loggerFactory ?? createLoggerFactory({ actor: `prover-${tcpPort}` });
 
-    const proverConfig: Partial<ProverNodeConfig> = await createP2PConfig(
-      config,
-      bootstrapNode,
-      tcpPort,
-      dataDirectory,
-    );
+  const proverConfig: Partial<ProverNodeConfig> = await createP2PConfig(config, bootstrapNode, tcpPort, dataDirectory);
 
-    const aztecNodeRpcTxProvider = undefined;
-    return await createAndSyncProverNode(
-      bufferToHex(proverNodePrivateKey),
-      config,
-      { ...proverConfig, dataDirectory },
-      aztecNodeRpcTxProvider,
-      prefilledPublicData,
-      { ...proverNodeDeps, telemetry },
-    );
-  };
-  return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createProverNode) : createProverNode();
+  const aztecNodeRpcTxProvider = undefined;
+  return await createAndSyncProverNode(
+    bufferToHex(proverNodePrivateKey),
+    config,
+    { ...proverConfig, dataDirectory },
+    aztecNodeRpcTxProvider,
+    prefilledPublicData,
+    { ...proverNodeDeps, telemetry, loggerFactory: factory },
+  );
 }
 
 export async function createP2PConfig(

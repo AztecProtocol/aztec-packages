@@ -3,6 +3,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
@@ -39,7 +40,7 @@ describe('smoke test', () => {
     forwardProcesses.push(ethereumProcess);
     const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-    aztecNode = createAztecNodeClient(nodeUrl);
+    aztecNode = createAztecNodeClient(nodeUrl, {}, defaultFetch);
     const nodeInfo = await aztecNode.getNodeInfo();
 
     const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
@@ -62,7 +63,7 @@ describe('smoke test', () => {
     'should have a committee',
     async () => {
       const nodeInfo = await aztecNode.getNodeInfo();
-      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+      const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress, logger);
       const epochDuration = await rollup.getEpochDuration();
       logger.info(`Epoch duration: ${epochDuration}`);
       logger.info('Waiting for committee');
@@ -84,7 +85,7 @@ describe('smoke test', () => {
 
   it('should have mined a checkpoint', async () => {
     const nodeInfo = await aztecNode.getNodeInfo();
-    const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress);
+    const rollup = new RollupContract(ethereumClient, nodeInfo.l1ContractAddresses.rollupAddress, logger);
     logger.info('Waiting for the first checkpoint to mine');
     await retryUntil(
       async () => {
@@ -128,7 +129,7 @@ describe('smoke test', () => {
             try {
               const { process: rpcProcess, port: rpcPort } = await startPortForwardForRPC(config.NAMESPACE);
               const rpcUrl = `http://127.0.0.1:${rpcPort}`;
-              const testNode = createAztecNodeClient(rpcUrl);
+              const testNode = createAztecNodeClient(rpcUrl, {}, defaultFetch);
               const nodeInfo = await testNode.getNodeInfo();
               if (nodeInfo?.enr?.startsWith('enr:-')) {
                 return { process: rpcProcess, port: rpcPort };

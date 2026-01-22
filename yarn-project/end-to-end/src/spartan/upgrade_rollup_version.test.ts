@@ -7,6 +7,7 @@ import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contract
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
@@ -65,7 +66,7 @@ describe('spartan_upgrade_rollup_version', () => {
     const nodeUrl = `http://127.0.0.1:${aztecRpcPort}`;
     const ethereumUrl = `http://127.0.0.1:${ethereumPort}`;
 
-    aztecNode = createAztecNodeClient(nodeUrl);
+    aztecNode = createAztecNodeClient(nodeUrl, {}, defaultFetch);
     nodeInfo = await aztecNode.getNodeInfo();
     ETHEREUM_HOSTS = [ethereumUrl];
 
@@ -93,7 +94,7 @@ describe('spartan_upgrade_rollup_version', () => {
     // Get the original rollup's genesis archive root directly from L1
     // This ensures the new rollup has the same genesis as the original,
     // avoiding version mismatches between local build and deployed network
-    const rollup = new RollupContract(l1Client, originalL1ContractAddresses.rollupAddress.toString());
+    const rollup = new RollupContract(l1Client, originalL1ContractAddresses.rollupAddress.toString(), debugLogger);
     const genesisArchiveRoot = await rollup.getGenesisArchiveTreeRoot();
     debugLogger.info(`Original rollup genesis archive root: ${genesisArchiveRoot.toString()}`);
 
@@ -136,6 +137,7 @@ describe('spartan_upgrade_rollup_version', () => {
         slashAmountLarge: l1Config.slashAmountLarge,
         governanceVotingDuration: l1Config.governanceVotingDuration,
       },
+      debugLogger,
     );
 
     // Safeguard against deploying the same version twice (since it will fail)
@@ -145,8 +147,13 @@ describe('spartan_upgrade_rollup_version', () => {
       l1Client,
       originalL1ContractAddresses.registryAddress,
       'canonical',
+      debugLogger,
     );
-    const currentVer = await new RollupContract(l1Client, currentCanonical.rollupAddress.toString()).getVersion();
+    const currentVer = await new RollupContract(
+      l1Client,
+      currentCanonical.rollupAddress.toString(),
+      debugLogger,
+    ).getVersion();
     const targetVer = await newRollup.getVersion();
     if (currentVer === targetVer) {
       debugLogger.info(`Already at target version ${targetVer}; skipping execute.`);
@@ -160,6 +167,7 @@ describe('spartan_upgrade_rollup_version', () => {
       RegisterNewRollupVersionPayloadAbi,
       RegisterNewRollupVersionPayloadBytecode,
       [originalL1ContractAddresses.registryAddress.toString(), newRollup.address],
+      { logger: debugLogger },
     );
     debugLogger.info(`RegisterNewRollupVersionPayload deployed at ${payloadAddress.toString()}`);
 
@@ -211,7 +219,7 @@ describe('spartan_upgrade_rollup_version', () => {
       ({ round } = await govInfo());
     }
 
-    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: debugLogger });
     const { receipt: proposerReceipt, proposalId } = await governanceProposer.submitRoundWinner(
       executableRound,
       l1TxUtils,
@@ -346,7 +354,11 @@ describe('spartan_upgrade_rollup_version', () => {
       }
       debugLogger.info(`Voter power: ${voterPower}; total power: ${totalPower}`);
 
-      const voteRollup = new RollupContract(l1Client, nodeInfo.l1ContractAddresses.rollupAddress.toString());
+      const voteRollup = new RollupContract(
+        l1Client,
+        nodeInfo.l1ContractAddresses.rollupAddress.toString(),
+        debugLogger,
+      );
       debugLogger.info(`Casting local vote for proposal ${proposalId}`);
       const voteResult = await voteRollup.vote(l1TxUtils, proposalId);
       debugLogger.info(`Local vote tx sent: ${voteResult.receipt?.transactionHash ?? 'unknown hash'}`);
@@ -470,6 +482,7 @@ describe('spartan_upgrade_rollup_version', () => {
       l1Client,
       originalL1ContractAddresses.registryAddress,
       'canonical',
+      debugLogger,
     );
 
     const pick = <T, K extends readonly (keyof T)[]>(obj: T, keys: K) =>
@@ -512,19 +525,24 @@ describe('spartan_upgrade_rollup_version', () => {
     const oldVersion = await new RollupContract(
       l1Client,
       originalL1ContractAddresses.rollupAddress.toString(),
+      debugLogger,
     ).getVersion();
-    const newVersion = await new RollupContract(l1Client, newCanonicalAddresses.rollupAddress.toString()).getVersion();
+    const newVersion = await new RollupContract(
+      l1Client,
+      newCanonicalAddresses.rollupAddress.toString(),
+      debugLogger,
+    ).getVersion();
 
     debugLogger.info(`oldVersion: ${oldVersion}, address: ${originalL1ContractAddresses.rollupAddress}`);
     debugLogger.info(`newVersion: ${newVersion}, address: ${newCanonicalAddresses.rollupAddress}`);
     expect(oldVersion).not.toEqual(newVersion);
 
     await expect(
-      RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, oldVersion),
+      RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, oldVersion, debugLogger),
     ).resolves.toEqual(originalL1ContractAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, newVersion),
+      RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, newVersion, debugLogger),
     ).resolves.toEqual(newCanonicalAddresses);
 
     try {
@@ -538,7 +556,7 @@ describe('spartan_upgrade_rollup_version', () => {
     const { process: aztecRpcProcess2, port: aztecRpcPort2 } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(aztecRpcProcess2);
     const nodeUrl2 = `http://127.0.0.1:${aztecRpcPort2}`;
-    aztecNode = createAztecNodeClient(nodeUrl2);
+    aztecNode = createAztecNodeClient(nodeUrl2, {}, defaultFetch);
 
     const newNodeInfo = await aztecNode.getNodeInfo();
 

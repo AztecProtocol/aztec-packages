@@ -1,4 +1,4 @@
-import { levels, registerLoggingStream } from '@aztec/foundation/log';
+import { type Logger, createLogger, levels, registerLoggingStream } from '@aztec/foundation/log';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -7,12 +7,15 @@ import {
 } from '@aztec/telemetry-client';
 import { OTelPinoStream } from '@aztec/telemetry-client/otel-pino-stream';
 
-export async function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<TelemetryClient> {
+export async function getEndToEndTestTelemetryClient(metricsPort?: number, logger?: Logger): Promise<TelemetryClient> {
   if (metricsPort) {
     const otelStream = new OTelPinoStream({ levels });
     registerLoggingStream(otelStream);
   }
-  return await initTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort));
+  return await initTelemetryClient(
+    logger ?? createLogger('test:telemetry'),
+    getEndToEndTestTelemetryConfig(metricsPort),
+  );
 }
 
 /**

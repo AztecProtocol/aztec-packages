@@ -25,11 +25,11 @@ describe('e2e_multiple_blobs', () => {
   let aztecNodeAdmin: AztecNodeAdmin;
   let teardown: () => Promise<void>;
 
-  const broadcastFunction = async (artifact: FunctionArtifact) => {
+  const broadcastFunction = async (artifact: FunctionArtifact, logger: Logger) => {
     const selector = await FunctionSelector.fromNameAndParameters(artifact);
     return artifact.functionType == FunctionType.PRIVATE
-      ? await broadcastPrivateFunction(wallet, contractArtifact, selector)
-      : await broadcastUtilityFunction(wallet, contractArtifact, selector);
+      ? await broadcastPrivateFunction(wallet, contractArtifact, selector, logger)
+      : await broadcastUtilityFunction(wallet, contractArtifact, selector, logger);
   };
 
   beforeAll(async () => {
@@ -63,12 +63,12 @@ describe('e2e_multiple_blobs', () => {
       await publishContractClass(wallet, AvmTestContract.artifact),
       // 2 private function broadcast txs. We pick [2] because it has large bytecode (~1,807 fields),
       // which combined with the contract class publication exceeds FIELDS_PER_BLOB (4,096).
-      await broadcastFunction(privateFunctions[0]),
-      await broadcastFunction(privateFunctions[2]),
+      await broadcastFunction(privateFunctions[0], logger),
+      await broadcastFunction(privateFunctions[2], logger),
       // 1 utility function broadcast tx.
-      await broadcastFunction(utilityFunctions[0]),
+      await broadcastFunction(utilityFunctions[0], logger),
       // 1 tx to emit note hash, nullifier, l2_to_l1_message, private log and public log.
-      new BatchCall(wallet, [
+      new BatchCall(wallet, logger, [
         contract.methods.call_create_note(123n, await AztecAddress.random(), Fr.random(), false),
         contract.methods.emit_nullifier(Fr.random()),
         contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random()),

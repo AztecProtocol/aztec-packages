@@ -36,7 +36,7 @@ import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import { BatchCall, type Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/aztec.js/log';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -236,7 +236,7 @@ class TestVariant {
 
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const batch = new BatchCall(this.wallet, [
+        const batch = new BatchCall(this.wallet, this.logger, [
           this.spam.methods.spam(this.seed, 16, false),
           this.spam.methods.spam(this.seed + 16n, 16, false),
           this.spam.methods.spam(this.seed + 32n, 16, false),
@@ -407,11 +407,11 @@ describe('e2e_synching', () => {
 
     const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
       deployL1ContractsValues.l1Client,
-      { logger, dateProvider: dateProvider! },
+      { loggerFactory: logger, dateProvider: dateProvider! },
       config,
     );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
-    const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
+    const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress, logger);
     const governanceProposerContract = new GovernanceProposerContract(
       deployL1ContractsValues.l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
@@ -420,13 +420,18 @@ describe('e2e_synching', () => {
     const slashingProposerContract = new EmpireSlashingProposerContract(
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
+      logger,
     );
     const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
     const slashFactoryContract = new SlashFactoryContract(
       deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
+      logger.createChild('contracts:slash_factory'),
     );
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
+      dateProvider,
+      logger: logger.createChild('epoch-cache'),
+    });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {
@@ -449,6 +454,7 @@ describe('e2e_synching', () => {
         dateProvider: dateProvider!,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
+        log: createLogger('sequencer:publisher'),
       },
     );
 
@@ -491,7 +497,11 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
+            const loggerFactory = createLoggerFactory({ actor: 'sync' });
+            const freshNode = await AztecNodeService.createAndSync(
+              { ...opts.config!, disableValidator: true },
+              { loggerFactory },
+            );
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -534,10 +544,12 @@ describe('e2e_synching', () => {
               opts.cheatCodes!.eth,
               opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
               opts.deployL1ContractsValues!.l1Client,
+              createLogger('test:watcher'),
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+            const nodeLoggerFactory = createLoggerFactory({ actor: 'test-node' });
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!, { loggerFactory: nodeLoggerFactory });
             const sequencer = aztecNode.getSequencer();
 
             const { wallet } = await setupPXEAndGetWallet(aztecNode!);
@@ -567,14 +579,16 @@ describe('e2e_synching', () => {
             opts.config!,
             createLogger('test:blob-client:client'),
           );
+          const archiverLoggerFactory = createLoggerFactory({ actor: 'archiver' });
           const archiver = await createArchiver(
             opts.config!,
-            { blobClient, dateProvider: opts.dateProvider! },
+            { blobClient, dateProvider: opts.dateProvider!, loggerFactory: archiverLoggerFactory },
             { blockUntilSync: true },
           );
           const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
+          const worldStateLogger = createLogger('test:world-state');
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, [], worldStateLogger);
           await worldState.start();
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
@@ -665,7 +679,8 @@ describe('e2e_synching', () => {
           const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
           await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const testLoggerFactory = createLoggerFactory({ actor: 'test' });
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, { loggerFactory: testLoggerFactory });
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
@@ -680,6 +695,7 @@ describe('e2e_synching', () => {
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
             opts.deployL1ContractsValues!.l1Client,
+            createLogger('test:watcher'),
           );
           await watcher.start();
 
@@ -743,11 +759,13 @@ describe('e2e_synching', () => {
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
             opts.deployL1ContractsValues!.l1Client,
+            createLogger('test:watcher'),
           );
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const freshLoggerFactory = createLoggerFactory({ actor: 'fresh' });
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, { loggerFactory: freshLoggerFactory });
           const sequencer = aztecNode.getSequencer();
 
           const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);

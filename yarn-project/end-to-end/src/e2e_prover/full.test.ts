@@ -46,7 +46,7 @@ describe('full_prover', () => {
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
     [sender, recipient] = accounts;
 
-    rollup = new RollupContract(t.l1Contracts.l1Client, t.l1Contracts.l1ContractAddresses.rollupAddress);
+    rollup = new RollupContract(t.l1Contracts.l1Client, t.l1Contracts.l1ContractAddresses.rollupAddress, logger);
 
     feeJuicePortal = getContract({
       abi: FeeJuicePortalAbi,

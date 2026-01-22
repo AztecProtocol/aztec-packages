@@ -11,6 +11,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
+import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
@@ -142,7 +143,8 @@ async function createKeyFiles() {
 
 function verifyKeyStore(directory: string) {
   const keyStores = loadKeystores(directory);
-  const keyStore = mergeKeystores(keyStores);
+  const logger = createLogger('e2e:multi-validator-node-key-store');
+  const keyStore = mergeKeystores(keyStores, logger);
   expect(keyStore.validators).toBeDefined();
 
   // This is the count of validator blocks. There is one validator block consisting of multiple keys so we expect 1 less
@@ -164,6 +166,7 @@ describe('e2e_multi_validator_node', () => {
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let rollup: RollupContract;
   let keyStoreDirectory: string;
+  const logger = createLogger('e2e:multi-validator-node-key-store');
   let aztecNode: AztecNode;
   let sequencer: Sequencer | undefined;
   let sequencerClient: SequencerClient | undefined;
@@ -302,6 +305,7 @@ describe('e2e_multi_validator_node', () => {
     rollup = new RollupContract(
       deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      logger,
     );
 
     // We jump to the next epoch such that the committee can be setup.

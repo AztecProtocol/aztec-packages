@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
@@ -9,6 +10,8 @@ import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { jest } from '@jest/globals';
 
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+
+const logger = createLogger('test:e2e_avm_simulator');
 
 const TIMEOUT = 100_000;
 
@@ -131,7 +134,7 @@ describe('e2e_avm_simulator', () => {
       it('Preserves storage across enqueued public calls', async () => {
         const address = AztecAddress.fromBigInt(9090n);
         // This will create 1 tx with 2 public calls in it.
-        await new BatchCall(wallet, [
+        await new BatchCall(wallet, logger, [
           avmContract.methods.set_storage_map(address, 100),
           avmContract.methods.add_storage_map(address, 100),
         ])
@@ -183,7 +186,7 @@ describe('e2e_avm_simulator', () => {
         const nullifier = new Fr(123456);
 
         // This will create 1 tx with 2 public calls in it.
-        await new BatchCall(wallet, [
+        await new BatchCall(wallet, logger, [
           avmContract.methods.new_nullifier(nullifier),
           avmContract.methods.assert_nullifier_exists(nullifier),
         ])

@@ -8,6 +8,7 @@ import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -45,7 +46,7 @@ export async function setupTestAccountsWithTokens(
 ): Promise<TestAccounts> {
   const ACCOUNT_COUNT = 1; // TODO fix this to allow for 16 wallets again
 
-  const aztecNode = createAztecNodeClient(nodeUrl);
+  const aztecNode = createAztecNodeClient(nodeUrl, {}, defaultFetch);
   const wallet = await TestWallet.create(aztecNode);
 
   const [recipientAccount, ...accounts] = (await registerInitialLocalNetworkAccountsInWallet(wallet)).slice(
@@ -155,7 +156,7 @@ export async function deployTestAccountsWithTokens(
   logger: Logger,
   numberOfFundedWallets = 1,
 ): Promise<TestAccounts> {
-  const aztecNode = createAztecNodeClient(nodeUrl);
+  const aztecNode = createAztecNodeClient(nodeUrl, {}, defaultFetch);
   const wallet = await TestWallet.create(aztecNode);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
@@ -326,7 +327,7 @@ export async function createWalletAndAztecNodeClient(
   proverEnabled: boolean,
   logger: Logger,
 ): Promise<WalletWrapper> {
-  const aztecNode = createAztecNodeClient(nodeUrl);
+  const aztecNode = createAztecNodeClient(nodeUrl, {}, defaultFetch);
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
   const pxeConfig = {
     dataDirectory: undefined,

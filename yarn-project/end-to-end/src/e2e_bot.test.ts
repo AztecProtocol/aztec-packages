@@ -1,11 +1,13 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { AmmBot, Bot, type BotConfig, BotStore, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -23,6 +25,8 @@ describe('e2e_bot', () => {
   let cheatCodes: CheatCodes;
   let config: BotConfig;
   let l1RpcUrls: string[];
+  let logger: Logger;
+  let loggerFactory: ReturnType<typeof createLoggerFactory>;
 
   beforeAll(async () => {
     const initialFundedAccounts = await getInitialTestAccountsData();
@@ -33,8 +37,10 @@ describe('e2e_bot', () => {
       aztecNode,
       aztecNodeAdmin,
       cheatCodes,
+      logger,
       config: { l1RpcUrls },
     } = setupResult);
+    loggerFactory = createLoggerFactory();
   });
 
   afterAll(() => teardown());
@@ -47,7 +53,14 @@ describe('e2e_bot', () => {
         followChain: 'PENDING',
         ammTxs: false,
       };
-      bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      bot = await Bot.create(
+        config,
+        wallet,
+        aztecNode,
+        undefined,
+        new BotStore(await openTmpStore('bot', loggerFactory), logger),
+        logger,
+      );
     });
 
     it('sends token transfers from the bot', async () => {
@@ -71,7 +84,14 @@ describe('e2e_bot', () => {
 
     it('reuses the same token contract', async () => {
       const { defaultAccountAddress, token } = bot;
-      const bot2 = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      const bot2 = await Bot.create(
+        config,
+        wallet,
+        aztecNode,
+        undefined,
+        new BotStore(await openTmpStore('bot', loggerFactory), logger),
+        logger,
+      );
       expect(bot2.defaultAccountAddress.toString()).toEqual(defaultAccountAddress.toString());
       expect(bot2.token.address.toString()).toEqual(token.address.toString());
     });
@@ -82,7 +102,8 @@ describe('e2e_bot', () => {
         wallet,
         aztecNode,
         undefined,
-        new BotStore(await openTmpStore('bot')),
+        new BotStore(await openTmpStore('bot', loggerFactory), logger),
+        logger,
       );
       const { recipient: recipientBefore } = await easyBot.getBalances();
 
@@ -97,7 +118,7 @@ describe('e2e_bot', () => {
     let store: BotStore;
 
     beforeAll(async () => {
-      store = new BotStore(await openTmpStore('bot'));
+      store = new BotStore(await openTmpStore('bot', loggerFactory), logger);
     });
 
     afterAll(async () => {
@@ -130,14 +151,16 @@ describe('e2e_bot', () => {
           throw new Error('test error');
         });
 
-        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store, logger)).rejects.toThrow(
+          'test error',
+        );
         expect(deploy).toHaveBeenCalledOnce();
         expect(saveSpy).toHaveBeenCalledOnce();
       }
 
       {
         saveSpy.mockClear();
-        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store, logger)).resolves.toBeDefined();
         expect(saveSpy).not.toHaveBeenCalled();
       }
     });
@@ -166,7 +189,9 @@ describe('e2e_bot', () => {
         deploy.mockImplementation(() => {
           throw new Error('test error');
         });
-        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store, logger)).rejects.toThrow(
+          'test error',
+        );
         expect(saveSpy).toHaveBeenCalledOnce();
       }
       {
@@ -174,7 +199,7 @@ describe('e2e_bot', () => {
 
         // same private key, but different salt derives a different L2 address
         config.senderSalt = config.senderSalt!.add(Fr.ONE);
-        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
+        await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store, logger)).resolves.toBeDefined();
         expect(saveSpy).toHaveBeenCalledOnce();
       }
     });
@@ -188,7 +213,14 @@ describe('e2e_bot', () => {
         followChain: 'PENDING',
         ammTxs: true,
       };
-      bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      bot = await AmmBot.create(
+        config,
+        wallet,
+        aztecNode,
+        undefined,
+        new BotStore(await openTmpStore('bot', loggerFactory), logger),
+        logger,
+      );
     });
 
     it('swaps tokens from the bot', async () => {
@@ -228,7 +260,14 @@ describe('e2e_bot', () => {
     // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
     it('creates bot after inbox drift', async () => {
       await cheatCodes.rollup.advanceInboxInProgress(10);
-      await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
+      await Bot.create(
+        config,
+        wallet,
+        aztecNode,
+        aztecNodeAdmin,
+        new BotStore(await openTmpStore('bot', loggerFactory), logger),
+        logger,
+      );
     }, 300_000);
   });
 });

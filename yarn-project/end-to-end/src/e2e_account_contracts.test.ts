@@ -9,17 +9,24 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
-import { createPXE, getPXEConfig } from '@aztec/pxe/server';
+import type { PXEConfig } from '@aztec/pxe/config';
+import { type PXECreationOptions, createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
 
 export class TestWalletInternals extends TestWallet {
-  static override async create(node: AztecNode): Promise<TestWalletInternals> {
-    const pxeConfig = getPXEConfig();
-    pxeConfig.proverEnabled = false;
-    const pxe = await createPXE(node, pxeConfig);
+  static override async create(
+    node: AztecNode,
+    overridePXEConfig?: Partial<PXEConfig>,
+    options: PXECreationOptions = { loggers: {} },
+  ): Promise<TestWalletInternals> {
+    const pxeConfig = Object.assign(getPXEConfig(), {
+      proverEnabled: overridePXEConfig?.proverEnabled ?? false,
+      ...overridePXEConfig,
+    });
+    const pxe = await createPXE(node, pxeConfig, options);
     return new TestWalletInternals(pxe, node);
   }
 

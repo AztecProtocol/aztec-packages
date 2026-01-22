@@ -1,7 +1,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { type Logger, createLogger, createLoggerFactory } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
@@ -173,8 +173,9 @@ export class FullProverTest {
 
       await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
 
-      const verifier = await BBCircuitVerifier.new(bbConfig);
-      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
+      const loggerFactory = createLoggerFactory({ actor: 'prover-test' });
+      const verifier = await BBCircuitVerifier.new(bbConfig, loggerFactory);
+      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier, loggerFactory);
 
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({
@@ -225,9 +226,10 @@ export class FullProverTest {
 
     // Creating temp store and archiver for fully proven prover node
     this.logger.verbose('Starting archiver for new prover node');
+    const proverLoggerFactory = createLoggerFactory({ actor: 'prover' });
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobClient, dateProvider: this.context.dateProvider! },
+      { blobClient, dateProvider: this.context.dateProvider!, loggerFactory: proverLoggerFactory },
       { blockUntilSync: true },
     );
 
@@ -267,6 +269,7 @@ export class FullProverTest {
       {
         aztecNodeTxProvider: this.aztecNode,
         archiver: archiver as Archiver,
+        loggerFactory: proverLoggerFactory,
       },
       { prefilledPublicData },
     );

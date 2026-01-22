@@ -268,7 +268,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // We also need to send the blob to the sink, so the node can get it
       logger.warn(`Sending blobs to blob client`);
       const blobs = getBlobs(l2BlockTx);
-      const blobClient = createBlobClient(context.config);
+      const blobClient = createBlobClient(context.config, { logger });
       await blobClient.sendBlobsToFilestore(blobs);
 
       // And wait for the node to see the new block

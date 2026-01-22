@@ -3,7 +3,7 @@ import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLoggerFactory } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -40,7 +40,7 @@ describe('proof_verification', () => {
     let rpcUrlList = process.env.ETHEREUM_HOSTS?.split(',');
     let rpcUrl = rpcUrlList?.[0];
     if (!rpcUrl) {
-      ({ anvil, rpcUrl } = await startAnvil());
+      ({ anvil, rpcUrl } = await startAnvil(logger));
       rpcUrlList = [rpcUrl];
     }
     logger.info('Anvil started');
@@ -48,7 +48,7 @@ describe('proof_verification', () => {
     const bb = await getBBConfig(logger);
     const acvm = await getACVMConfig(logger);
 
-    circuitVerifier = await BBCircuitVerifier.new(bb!);
+    circuitVerifier = await BBCircuitVerifier.new(bb!, createLoggerFactory());
 
     bbTeardown = bb!.cleanup;
     acvmTeardown = acvm!.cleanup;
@@ -56,7 +56,9 @@ describe('proof_verification', () => {
 
     l1Client = createExtendedL1Client(rpcUrlList!, mnemonicToAccount(MNEMONIC));
 
-    const { address: verifierAddress } = await deployL1Contract(l1Client, HonkVerifierAbi, HonkVerifierBytecode);
+    const { address: verifierAddress } = await deployL1Contract(l1Client, HonkVerifierAbi, HonkVerifierBytecode, [], {
+      logger,
+    });
     logger.info(`Deployed honk verifier at ${verifierAddress}`);
 
     verifierContract = getContract({ address: verifierAddress.toString(), client: l1Client, abi: IVerifierAbi });

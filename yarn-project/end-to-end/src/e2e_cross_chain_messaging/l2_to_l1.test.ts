@@ -1,6 +1,7 @@
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { OutboxContract, RollupContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
@@ -21,6 +22,7 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging l2_to_l1', () => {
   const t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true });
+  const logger = createLogger('test:e2e_cross_chain_messaging_l2_to_l1');
 
   let crossChainTestHarness: CrossChainTestHarness;
   let aztecNode: AztecNode;
@@ -60,7 +62,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // Configure the node to be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
-    const txReceipt = await new BatchCall(wallet, [
+    const txReceipt = await new BatchCall(wallet, logger, [
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(contents[0], recipient),
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(contents[1], recipient),
     ])
@@ -244,7 +246,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const calls = recipients.map((recipient, i) =>
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(contents[i], recipient),
     );
-    return new BatchCall(wallet, calls);
+    return new BatchCall(wallet, logger, calls);
   }
 
   function generateMessages(numMessages: number) {

@@ -2,6 +2,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import type { Anvil } from '@viem/anvil';
@@ -21,9 +22,10 @@ describe('e2e_cheat_codes', () => {
     let anvil: Anvil;
 
     beforeEach(async () => {
-      const res = await startAnvil();
+      const logger = getLogger();
+      const res = await startAnvil(logger);
       anvil = res.anvil;
-      ethCheatCodes = new EthCheatCodes([res.rpcUrl], new DateProvider());
+      ethCheatCodes = new EthCheatCodes([res.rpcUrl], new DateProvider(), createLoggerFactory());
       const account = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       l1Client = createExtendedL1Client([res.rpcUrl], account, foundry);
     });

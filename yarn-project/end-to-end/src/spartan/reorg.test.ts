@@ -2,7 +2,7 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
-import { createLogger } from '@aztec/foundation/log';
+import { createLogger, createLoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet } from '@aztec/test-wallet/server';
@@ -84,8 +84,9 @@ describe('reorg test', () => {
 
   it('survives a reorg', async () => {
     const rollupCheatCodes = new RollupCheatCodes(
-      new EthCheatCodesWithState(ETHEREUM_HOSTS, new DateProvider()),
+      new EthCheatCodesWithState(ETHEREUM_HOSTS, new DateProvider(), createLoggerFactory({ actor: 'test' })),
       await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses),
+      debugLogger,
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 

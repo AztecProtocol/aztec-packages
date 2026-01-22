@@ -107,7 +107,9 @@ export class TokenSimulator {
 
     const results = (
       await Promise.all(
-        chunk(calls, 5).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
+        chunk(calls, 5).map(batch =>
+          new BatchCall(this.defaultWallet, this.logger, batch).simulate({ from: this.defaultAddress }),
+        ),
       )
     ).flat();
     expect(results[0]).toEqual(this.totalSupply);
@@ -135,7 +137,7 @@ export class TokenSimulator {
     const results = (
       await Promise.all(
         chunk(defaultCalls, 4).map(batch =>
-          new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress }),
+          new BatchCall(this.defaultWallet, this.logger, batch).simulate({ from: this.defaultAddress }),
         ),
       )
     ).flat();

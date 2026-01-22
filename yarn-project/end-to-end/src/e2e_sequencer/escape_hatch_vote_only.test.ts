@@ -88,7 +88,7 @@ describe('e2e_escape_hatch_vote_only', () => {
     } = context);
 
     const { l1Client, l1ContractAddresses } = deployL1ContractsValues;
-    rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
+    rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress, logger);
     governanceProposer = new GovernanceProposerContract(
       l1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
@@ -100,7 +100,7 @@ describe('e2e_escape_hatch_vote_only', () => {
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
       [l1ContractAddresses.registryAddress.toString(), l1ContractAddresses.gseAddress!.toString()],
-      { salt: '0x2a' },
+      { logger, salt: '0x2a' },
     );
     newGovernanceProposerPayloadAddress = payloadDeployment.address;
     logger.warn(`Deployed governance proposer payload at ${newGovernanceProposerPayloadAddress}`);
@@ -127,7 +127,7 @@ describe('e2e_escape_hatch_vote_only', () => {
         lagInHatches,
         proposingExitDelay,
       ],
-      { salt: '0x6a' },
+      { logger, salt: '0x6a' },
     );
     const escapeHatchAddress = escapeHatchDeployment.address;
     logger.warn(`Deployed escape hatch at ${escapeHatchAddress}`);

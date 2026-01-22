@@ -48,6 +48,7 @@ export async function mintNotes(
   recipient: AztecAddress,
   asset: TokenContract,
   noteAmounts: bigint[],
+  logger: Logger,
 ): Promise<bigint> {
   // We can only mint 5 notes at a time, since that's the maximum number of calls our entrypoints allow
   // TODO(#13024): mint as many notes as possible in a single tx
@@ -55,7 +56,7 @@ export async function mintNotes(
   for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
     const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
     const actions = toMint.map(amt => asset.methods.mint_to_private(recipient, amt));
-    await new BatchCall(wallet, actions).send({ from: minter }).wait();
+    await new BatchCall(wallet, logger, actions).send({ from: minter }).wait();
   }
 
   return noteAmounts.reduce((prev, curr) => prev + curr, 0n);

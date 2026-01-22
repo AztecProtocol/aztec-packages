@@ -41,10 +41,12 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { withLogNameSuffix } from '@aztec/foundation/log';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import type { PartialBy } from '@aztec/foundation/types';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -99,7 +101,8 @@ let telemetry: TelemetryClient | undefined = undefined;
 async function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
   if (!telemetry) {
     const config = { ...getTelemetryConfig(), ...partialConfig };
-    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : await initTelemetryClient(config);
+    const logger = createLogger('test:telemetry');
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient(logger) : await initTelemetryClient(logger, config);
   }
   return telemetry;
 }
@@ -274,7 +277,7 @@ async function setupWithRemoteEnvironment(
 ): Promise<EndToEndContext> {
   const aztecNodeUrl = getAztecUrl();
   logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
-  const aztecNode = createAztecNodeClient(aztecNodeUrl);
+  const aztecNode = createAztecNodeClient(aztecNodeUrl, {}, defaultFetch);
   await waitForNode(aztecNode, logger);
   logger.verbose('JSON RPC client connected to Aztec Node');
   logger.verbose(`Retrieving contract addresses from ${aztecNodeUrl}`);
@@ -287,7 +290,7 @@ async function setupWithRemoteEnvironment(
     l1Client,
     rollupVersion,
   };
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider(), createLoggerFactory({ actor: 'test' }));
   const wallet = await TestWallet.create(aztecNode);
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
   const teardown = () => Promise.resolve();
@@ -382,7 +385,7 @@ export async function setup(
         );
       }
 
-      const res = await startAnvil({
+      const res = await startAnvil(logger, {
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort,
@@ -398,8 +401,12 @@ export async function setup(
       setupMetricsLogger(filename);
     }
 
-    const dateProvider = new TestDateProvider();
-    const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls, dateProvider);
+    const dateProvider = new TestDateProvider(logger);
+    const ethCheatCodes = new EthCheatCodesWithState(
+      config.l1RpcUrls,
+      dateProvider,
+      createLoggerFactory({ actor: 'test' }),
+    );
 
     if (opts.stateLoad) {
       await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -489,6 +496,7 @@ export async function setup(
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
       },
+      logger,
     );
 
     config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
@@ -505,9 +513,10 @@ export async function setup(
     }
 
     const watcher = new AnvilTestWatcher(
-      new EthCheatCodesWithState(config.l1RpcUrls, dateProvider),
+      new EthCheatCodesWithState(config.l1RpcUrls, dateProvider, createLoggerFactory({ actor: 'test' })),
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       deployL1ContractsValues.l1Client,
+      logger,
       dateProvider,
     );
     if (!opts.disableAnvilTestWatcher) {
@@ -536,10 +545,10 @@ export async function setup(
     }
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
-    let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
+    let p2pClientDeps: Partial<P2PClientDeps<P2PClientType.Full>> | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
-      mockGossipSubNetwork = new MockGossipSubNetwork();
+      mockGossipSubNetwork = new MockGossipSubNetwork(logger);
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
@@ -569,14 +578,24 @@ export async function setup(
 
     const aztecNodeService = await AztecNodeService.createAndSync(
       config,
-      { dateProvider, telemetry: telemetryClient, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
+      {
+        dateProvider,
+        telemetry: telemetryClient,
+        p2pClientDeps,
+        loggerFactory: createLoggerFactory({ actor: 'initial-node' }),
+      },
       { prefilledPublicData },
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
     if (sequencerClient) {
       const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration, l1Client);
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(
+        publisher.l1TxUtils,
+        config.ethereumSlotDuration,
+        l1Client,
+        logger,
+      );
     }
 
     let proverNode: ProverNode | undefined = undefined;
@@ -723,9 +742,9 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   if (!describeBlockName) {
     const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createLogger('e2e:' + name);
+    return createLogger('e2e:' + name, { actor: 'test' });
   }
-  return createLogger('e2e:' + describeBlockName);
+  return createLogger('e2e:' + describeBlockName, { actor: 'test' });
 }
 
 /**
@@ -778,80 +797,81 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNum
   );
 }
 
-export function createAndSyncProverNode(
+export async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'> & { dontStart?: boolean },
   aztecNode: AztecNode | undefined,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
-  proverNodeDeps: ProverNodeDeps = {},
+  proverNodeDeps: PartialBy<ProverNodeDeps, 'loggerFactory'> = {},
 ) {
-  return withLogNameSuffix('prover-node', async () => {
-    const aztecNodeTxProvider = aztecNode && {
-      getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
-      getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
-      stop: () => Promise.resolve(),
-    };
+  // Use provided loggerFactory or create one with 'prover' actor
+  const loggerFactory = proverNodeDeps.loggerFactory ?? createLoggerFactory({ actor: 'prover' });
+  const log = loggerFactory.createLogger('prover-node');
 
-    const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('blob-client:prover-node'));
+  const aztecNodeTxProvider = aztecNode && {
+    getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
+    getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
+    stop: () => Promise.resolve(),
+  };
 
-    const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(
-      archiverConfig,
-      { blobClient, dateProvider: proverNodeDeps.dateProvider },
-      { blockUntilSync: true },
-    );
+  const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, log.createChild('blob-client'));
 
-    const proverConfig: ProverNodeConfig = {
-      ...aztecNodeConfig,
-      txCollectionNodeRpcUrls: [],
-      realProofs: false,
-      proverAgentCount: 2,
-      publisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
-      proverNodeMaxPendingJobs: 10,
-      proverNodeMaxParallelBlocksPerEpoch: 32,
-      proverNodePollingIntervalMs: 200,
-      txGatheringIntervalMs: 1000,
-      txGatheringBatchSize: 10,
-      txGatheringMaxParallelRequestsPerNode: 10,
-      txGatheringTimeoutMs: 24_000,
-      proverNodeFailedEpochStore: undefined,
-      proverId: EthAddress.fromNumber(1),
-      proverNodeEpochProvingDelayMs: undefined,
-      ...proverNodeConfig,
-    };
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
+  const archiver = await createArchiver(
+    archiverConfig,
+    { blobClient, dateProvider: proverNodeDeps.dateProvider, loggerFactory },
+    { blockUntilSync: true },
+  );
 
-    const l1TxUtils = createDelayedL1TxUtils(
-      aztecNodeConfig,
-      proverNodePrivateKey,
-      'prover-node',
-      proverNodeDeps.dateProvider,
-    );
+  const proverConfig: ProverNodeConfig = {
+    ...aztecNodeConfig,
+    txCollectionNodeRpcUrls: [],
+    realProofs: false,
+    proverAgentCount: 2,
+    publisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
+    proverNodeMaxPendingJobs: 10,
+    proverNodeMaxParallelBlocksPerEpoch: 32,
+    proverNodePollingIntervalMs: 200,
+    txGatheringIntervalMs: 1000,
+    txGatheringBatchSize: 10,
+    txGatheringMaxParallelRequestsPerNode: 10,
+    txGatheringTimeoutMs: 24_000,
+    proverNodeFailedEpochStore: undefined,
+    proverId: EthAddress.fromNumber(1),
+    proverNodeEpochProvingDelayMs: undefined,
+    ...proverNodeConfig,
+  };
 
-    const proverNode = await createProverNode(
-      proverConfig,
-      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
-      { prefilledPublicData },
-    );
-    getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
-    if (!proverNodeConfig.dontStart) {
-      await proverNode.start();
-    }
-    return proverNode;
-  });
+  const l1TxUtils = createDelayedL1TxUtils(
+    aztecNodeConfig,
+    proverNodePrivateKey,
+    loggerFactory,
+    proverNodeDeps.dateProvider,
+  );
+
+  const proverNode = await createProverNode(
+    proverConfig,
+    { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils, loggerFactory },
+    { prefilledPublicData },
+  );
+  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
+  if (!proverNodeConfig.dontStart) {
+    await proverNode.start();
+  }
+  return proverNode;
 }
 
 function createDelayedL1TxUtils(
   aztecNodeConfig: AztecNodeConfig,
   privateKey: `0x${string}`,
-  logName: string,
+  loggerFactory: LoggerFactory,
   dateProvider?: DateProvider,
 ) {
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-
-  const log = createLogger(logName);
-  const l1TxUtils = createDelayedL1TxUtilsFromViemWallet(l1Client, log, dateProvider, aztecNodeConfig);
-  l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
+  const logger = loggerFactory.createLogger('ethereum:delayed-l1-tx-utils');
+  const l1TxUtils = createDelayedL1TxUtilsFromViemWallet(l1Client, logger, dateProvider, aztecNodeConfig);
+  l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration, logger);
   return l1TxUtils;
 }
 
@@ -860,7 +880,7 @@ export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
   from: AztecAddress,
-  logger: any,
+  logger: Logger,
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
@@ -926,7 +946,7 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
       .wait();
   }
   const requests = instances.map(instance => publishInstance(wallet, instance!));
-  const batch = new BatchCall(wallet, requests);
+  const batch = new BatchCall(wallet, createLogger('test:deploy-accounts'), requests);
   await batch.send({ from: accountsToDeploy[0] }).wait();
 }
 
@@ -984,7 +1004,7 @@ export async function publicDeployAccounts(
     ...instances.map(instance => publishInstance(wallet, instance!)),
   ]);
 
-  const batch = new BatchCall(wallet, calls);
+  const batch = new BatchCall(wallet, createLogger('test:public-deploy-accounts'), calls);
 
   const txReceipt = await batch.send({ from: accountsToDeploy[0] }).wait();
   if (waitUntilProven) {

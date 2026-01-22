@@ -8,7 +8,7 @@ import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual', () => {
   const t = new NestedContractTest('manual');
-  let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t;
+  let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode, logger } = t;
 
   const getChildStoredValue = (child: { address: AztecAddress }) =>
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
@@ -16,7 +16,7 @@ describe('e2e_nested_contract manual', () => {
   beforeAll(async () => {
     await t.setup();
     await t.applyManual();
-    ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t);
+    ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode, logger } = t);
   });
 
   afterAll(async () => {
@@ -50,7 +50,7 @@ describe('e2e_nested_contract manual', () => {
       parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n),
     ];
 
-    const tx = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress }).wait();
+    const tx = await new BatchCall(wallet, logger, actions).send({ from: defaultAccountAddress }).wait();
     const extendedLogs = (
       await aztecNode.getPublicLogs({
         fromBlock: tx.blockNumber!,

@@ -68,7 +68,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     });
 
     ({ context, logger, l1Client } = test);
-    rollupContract = new RollupContract(l1Client, test.rollup.address);
+    rollupContract = new RollupContract(l1Client, test.rollup.address, logger);
 
     // Halt block building in initial aztec node
     logger.warn(`Stopping sequencer in initial aztec node.`);

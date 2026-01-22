@@ -93,8 +93,8 @@ describe('e2e_gov_proposal', () => {
 
     // Get contract wrappers
     const { l1Client, l1ContractAddresses } = deployL1ContractsValues;
-    const { registryAddress, gseAddress, governanceProposerAddress } = l1ContractAddresses;
-    rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
+    const { registryAddress, gseAddress, governanceProposerAddress, rollupAddress } = l1ContractAddresses;
+    rollup = new RollupContract(l1Client, rollupAddress, logger);
     governanceProposer = new GovernanceProposerContract(l1Client, governanceProposerAddress.toString());
 
     // Deploy new governance proposer payload
@@ -103,7 +103,7 @@ describe('e2e_gov_proposal', () => {
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
       [registryAddress.toString(), gseAddress!.toString()],
-      { salt: '0x2a' },
+      { logger, salt: '0x2a' },
     );
     newGovernanceProposerAddress = deployment.address;
     logger.warn(`Deployed new governance proposer at ${newGovernanceProposerAddress}`);
@@ -185,10 +185,10 @@ describe('e2e_gov_proposal', () => {
   });
 
   it('should vote even when unable to build blocks', async () => {
-    const monitor = new ChainMonitor(rollup, dateProvider).start();
+    const monitor = new ChainMonitor(rollup, dateProvider, logger).start();
 
     // Break the blob client so no new blocks are synced
-    ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
+    ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled();
     await sleep(1000);
     const lastBlockSynced = await aztecNode!.getBlockNumber();
     logger.warn(`blob client is disabled (last block synced is ${lastBlockSynced})`);

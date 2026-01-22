@@ -115,13 +115,15 @@ async function makeCall(
   heavyPublicCompute: boolean,
 ) {
   if (heavyPublicCompute) {
-    return new BatchCall(context.wallet, [contract.methods.sha256_hash_1024(randomBytesAsBigInts(1024))]);
+    return new BatchCall(context.wallet, context.logger, [
+      contract.methods.sha256_hash_1024(randomBytesAsBigInts(1024)),
+    ]);
   } else {
     // We use random address for the new note owner because we can emit at most UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN
     // logs for a given sender-recipient-contract tuple.
     const ownerOfNewNote = await AztecAddress.random();
     const [ownerOfBalance] = context.accounts;
-    return new BatchCall(context.wallet, [
+    return new BatchCall(context.wallet, context.logger, [
       contract.methods.create_note(ownerOfNewNote, index + 1),
       contract.methods.increment_balance(ownerOfBalance, index + 1),
     ]);

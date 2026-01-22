@@ -96,7 +96,11 @@ describe('e2e_p2p_network', () => {
 
     const { validators } = t.getValidators();
 
-    const rollupWrapper = RollupContract.getFromL1ContractsValues(t.ctx.deployL1ContractsValues);
+    const rollupWrapper = new RollupContract(
+      t.ctx.deployL1ContractsValues.l1Client,
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      t.logger,
+    );
 
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),

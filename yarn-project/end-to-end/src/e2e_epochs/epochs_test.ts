@@ -14,7 +14,7 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
-import { withLogNameSuffix } from '@aztec/foundation/log';
+import { createLoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -151,8 +151,15 @@ export class EpochsTestContext {
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.l1Client;
-    this.rollup = RollupContract.getFromConfig(context.config);
-    this.epochCache = await EpochCache.create(this.rollup, context.config, { dateProvider: context.dateProvider });
+    this.rollup = new RollupContract(
+      context.deployL1ContractsValues.l1Client,
+      context.config.l1Contracts.rollupAddress,
+      this.logger,
+    );
+    this.epochCache = await EpochCache.create(this.rollup, context.config, {
+      dateProvider: context.dateProvider,
+      logger: this.logger.createChild('epoch-cache'),
+    });
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, context.dateProvider, this.logger).start();
@@ -200,20 +207,19 @@ export class EpochsTestContext {
     this.logger.warn('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = this.getNextPrivateKey();
     const suffix = (this.proverNodes.length + 1).toString();
-    const proverNode = await withLogNameSuffix(suffix, () =>
-      createAndSyncProverNode(
-        proverNodePrivateKey,
-        { ...this.context.config },
-        {
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
-          dontStart: opts.dontStart,
-          ...opts,
-        },
-        this.context.aztecNode,
-        this.context.prefilledPublicData ?? [],
-        { dateProvider: this.context.dateProvider },
-      ),
+    const loggerFactory = createLoggerFactory({ actor: `prover-${suffix}` });
+    const proverNode = await createAndSyncProverNode(
+      proverNodePrivateKey,
+      { ...this.context.config },
+      {
+        dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        proverId: EthAddress.fromNumber(parseInt(suffix, 10)),
+        dontStart: opts.dontStart,
+        ...opts,
+      },
+      this.context.aztecNode,
+      this.context.prefilledPublicData ?? [],
+      { dateProvider: this.context.dateProvider, loggerFactory },
     );
     this.proverNodes.push(proverNode);
     return proverNode;
@@ -240,26 +246,26 @@ export class EpochsTestContext {
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await withLogNameSuffix(suffix, () =>
-      AztecNodeService.createAndSync(
-        {
-          ...resolvedConfig,
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
-          p2pEnabled,
-          p2pIp,
+    const loggerFactory = createLoggerFactory({ actor: `node-${suffix}` });
+    const node = await AztecNodeService.createAndSync(
+      {
+        ...resolvedConfig,
+        dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
+        p2pEnabled,
+        p2pIp,
+      },
+      {
+        dateProvider: this.context.dateProvider,
+        loggerFactory,
+        p2pClientDeps: {
+          p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
         },
-        {
-          dateProvider: this.context.dateProvider,
-          p2pClientDeps: {
-            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
-          },
-        },
-        {
-          prefilledPublicData: this.context.prefilledPublicData,
-          ...opts,
-        },
-      ),
+      },
+      {
+        prefilledPublicData: this.context.prefilledPublicData,
+        ...opts,
+      },
     );
 
     // REFACTOR: We're getting too much into the internals of the sequencer here.
@@ -277,7 +283,7 @@ export class EpochsTestContext {
       );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client);
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client, this.logger);
       delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
       publisher.l1TxUtils = delayed;
     }
@@ -379,6 +385,7 @@ export class EpochsTestContext {
         this.l1Client.chain,
       ),
       this.context.dateProvider!,
+      this.logger,
       { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
     );
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);

@@ -154,6 +154,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     const rollupContract = new RollupContract(
       t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      t.logger,
     );
 
     const attesters = await rollupContract.getAttesters();

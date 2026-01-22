@@ -60,7 +60,7 @@ describe('e2e_p2p_governance_proposer', () => {
     await t.setup();
     await t.applyBaseSetup();
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client, { loggerFactory: t.logger });
   });
 
   afterEach(async () => {
@@ -94,6 +94,7 @@ describe('e2e_p2p_governance_proposer', () => {
     const rollup = new RollupContract(
       t.ctx.deployL1ContractsValues!.l1Client,
       t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+      t.logger,
     );
 
     const gseAddress = await rollup.getGSE();
@@ -115,6 +116,7 @@ describe('e2e_p2p_governance_proposer', () => {
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
       [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress.toString()],
+      { logger: t.logger },
     );
 
     t.logger.info(`Deployed new payload at ${newPayloadAddress}`);

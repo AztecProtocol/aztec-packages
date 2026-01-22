@@ -4,6 +4,7 @@ import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -75,7 +76,7 @@ describe('End-to-end tests for devnet', () => {
     logger.info(`Using AZTEC_CLI: ${AZTEC_CLI}`);
 
     logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
-    node = createAztecNodeClient(AZTEC_NODE_URL);
+    node = createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch);
     const bbConfig = await getBBConfig(logger);
     const acvmConfig = await getACVMConfig(logger);
     const svc = await setupPXEAndGetWallet(node, {

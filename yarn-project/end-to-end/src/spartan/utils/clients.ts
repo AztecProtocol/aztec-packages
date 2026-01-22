@@ -1,6 +1,7 @@
 import { createLogger } from '@aztec/aztec.js/log';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
@@ -61,12 +62,12 @@ export async function getL1DeploymentAddresses(env: TestConfig): Promise<L1Contr
 
     forwardProcess = process;
     const url = `http://127.0.0.1:${port}`;
-    const node = createAztecNodeClient(url);
+    const node = createAztecNodeClient(url, {}, defaultFetch);
     return await retry(
       () => node.getNodeInfo().then(i => i.l1ContractAddresses),
+      logger,
       'get node info',
       makeBackoff([1, 3, 6]),
-      logger,
     );
   } finally {
     forwardProcess?.kill();
@@ -95,12 +96,12 @@ export async function getNodeClient(
   const url = `http://localhost:${port}`;
   await retry(
     () => fetch(`${url}/status`).then(res => res.status === 200),
+    logger,
     'forward port',
     makeBackoff([1, 1, 2, 6]),
-    logger,
     true,
   );
 
-  const client = createAztecNodeClient(url);
+  const client = createAztecNodeClient(url, {}, defaultFetch);
   return { node: client, port, process };
 }

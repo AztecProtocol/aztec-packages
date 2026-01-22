@@ -6,12 +6,12 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract private transfer recursion', () => {
   const t = new TokenContractTest('odd_transfer_private');
-  let { asset, wallet, adminAddress, account1Address, node } = t;
+  let { asset, wallet, adminAddress, account1Address, node, logger } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     await t.setup();
-    ({ asset, wallet, adminAddress, account1Address, node } = t);
+    ({ asset, wallet, adminAddress, account1Address, node, logger } = t);
   });
 
   afterAll(async () => {
@@ -22,7 +22,14 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We insert 16 notes, which is large enough to guarantee that the token will need to do two recursive calls to
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
-    const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
+    const totalBalance = await mintNotes(
+      wallet,
+      adminAddress,
+      adminAddress,
+      asset,
+      Array(totalNotes).fill(10n),
+      logger,
+    );
     const tx = await asset.methods.transfer(account1Address, totalBalance).send({ from: adminAddress }).wait();
     const txEffects = await node.getTxEffect(tx.txHash);
 
@@ -56,7 +63,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     const noteAmounts = [10n, 10n, 10n, 10n];
     const expectedChange = 3n; // This will result in one of the notes being partially used
 
-    const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts);
+    const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts, logger);
     const toSend = totalBalance - expectedChange;
 
     const tx = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress }).wait();

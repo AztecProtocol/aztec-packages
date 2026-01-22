@@ -78,7 +78,11 @@ describe.skip('e2e_p2p_mbps_checkpoint_consensus', () => {
 
     await t.setup();
     await t.applyBaseSetup();
-    rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
+    rollup = new RollupContract(
+      t.ctx.deployL1ContractsValues.l1Client,
+      t.ctx.aztecNodeConfig.l1Contracts.rollupAddress,
+      t.logger,
+    );
   });
 
   afterEach(async () => {

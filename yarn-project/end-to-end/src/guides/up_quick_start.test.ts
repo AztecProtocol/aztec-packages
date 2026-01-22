@@ -1,4 +1,5 @@
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { execSync } from 'child_process';
 
@@ -8,7 +9,7 @@ const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 describe('guides/up_quick_start', () => {
   // TODO: update to not use CLI
   it('works', async () => {
-    await waitForNode(createAztecNodeClient(AZTEC_NODE_URL));
+    await waitForNode(createAztecNodeClient(AZTEC_NODE_URL, {}, defaultFetch));
     execSync(`LOG_LEVEL=\${LOG_LEVEL:-verbose} AZTEC_NODE_URL=${AZTEC_NODE_URL} ./src/guides/up_quick_start.sh`, {
       shell: '/bin/bash',
       stdio: 'inherit',
