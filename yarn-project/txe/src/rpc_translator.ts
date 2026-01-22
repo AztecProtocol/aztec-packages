@@ -822,10 +822,11 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle) {
+  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
     const slot = fromSingle(foreignSlot);
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot)).value;
+    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot, contractAddress)).value;
 
     return toForeignCallResult([toSingle(new Fr(value))]);
   }

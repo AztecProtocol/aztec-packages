@@ -110,8 +110,8 @@ pub unconstrained fn revert(revertdata: [Field]) {
     revert_opcode(revertdata)
 }
 
-pub unconstrained fn storage_read(storage_slot: Field) -> Field {
-    storage_read_opcode(storage_slot)
+pub unconstrained fn storage_read(storage_slot: Field, contract_address: Field) -> Field {
+    storage_read_opcode(storage_slot, contract_address)
 }
 
 pub unconstrained fn storage_write(storage_slot: Field, value: Field) {
@@ -219,7 +219,7 @@ unconstrained fn call_static_opcode<let N: u32>(
 unconstrained fn success_copy_opcode() -> bool {}
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
+unconstrained fn storage_read_opcode(storage_slot: Field, contract_address: Field) -> Field {}
 
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
