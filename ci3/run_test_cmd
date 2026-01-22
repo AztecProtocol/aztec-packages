@@ -135,6 +135,20 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
   log_info=" ($(ci_term_link $log_key))"
 
+  # Publish test started event to Redis channel.
+  start_redis_data=$(jq -n \
+    --arg status "started" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_id "$log_key" \
+    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson is_scenario "$SCENARIO_TESTS" \
+    '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
+  redis_publish "ci:test:started" "$start_redis_data"
+
   if [ "$CI" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
     live_publish_log &
