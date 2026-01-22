@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   type FileStore,
   type ReadOnlyFileStore,
@@ -37,29 +37,28 @@ export function makeBlobBasePath(metadata: BlobFileStoreMetadata): string {
  *
  * @param storeUrl - The URL of the filestore (s3://, gs://, file://, https://)
  * @param metadata - Chain metadata for constructing the base path
- * @param logger - Optional logger
+ * @param log - Logger instance
  * @returns A FileStoreBlobClient for reading blobs, or undefined if storeUrl is undefined
  */
 export async function createReadOnlyFileStoreBlobClient(
   storeUrl: string,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient>;
 export async function createReadOnlyFileStoreBlobClient(
   storeUrl: string | undefined,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient | undefined>;
 export async function createReadOnlyFileStoreBlobClient(
   storeUrl: string | undefined,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient | undefined> {
   if (!storeUrl) {
     return undefined;
   }
 
-  const log = logger ?? createLogger('blob-client:filestore-factory');
   const basePath = makeBlobBasePath(metadata);
 
   log.debug(`Creating read-only filestore blob client`, { storeUrl, basePath });
@@ -73,19 +72,18 @@ export async function createReadOnlyFileStoreBlobClient(
  *
  * @param storeUrls - Array of filestore URLs
  * @param metadata - Chain metadata for constructing the base path
- * @param logger - Optional logger
+ * @param log - Logger instance
  * @returns Array of FileStoreBlobClients (excludes any that failed to create)
  */
 export async function createReadOnlyFileStoreBlobClients(
   storeUrls: string[] | undefined,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient[]> {
   if (!storeUrls || storeUrls.length === 0) {
     return [];
   }
 
-  const log = logger ?? createLogger('blob-client:filestore-factory');
   const clients: FileStoreBlobClient[] = [];
 
   for (const storeUrl of storeUrls) {
@@ -108,29 +106,28 @@ export async function createReadOnlyFileStoreBlobClients(
  *
  * @param storeUrl - The URL of the filestore (s3://, gs://, file://)
  * @param metadata - Chain metadata for constructing the base path
- * @param logger - Optional logger
+ * @param log - Logger instance
  * @returns A writable FileStoreBlobClient, or undefined if storeUrl is undefined
  */
 export async function createWritableFileStoreBlobClient(
   storeUrl: string,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient>;
 export async function createWritableFileStoreBlobClient(
   storeUrl: string | undefined,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient | undefined>;
 export async function createWritableFileStoreBlobClient(
   storeUrl: string | undefined,
   metadata: BlobFileStoreMetadata,
-  logger?: Logger,
+  log: Logger,
 ): Promise<FileStoreBlobClient | undefined> {
   if (!storeUrl) {
     return undefined;
   }
 
-  const log = logger ?? createLogger('blob-client:filestore-factory');
   const basePath = makeBlobBasePath(metadata);
 
   log.debug(`Creating writable filestore blob client`, { storeUrl, basePath });

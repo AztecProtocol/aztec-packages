@@ -1,3 +1,5 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import {
   type BlobFileStoreMetadata,
   createReadOnlyFileStoreBlobClient,
@@ -5,6 +7,8 @@ import {
   createWritableFileStoreBlobClient,
   makeBlobBasePath,
 } from './factory.js';
+
+const testLogger = createLogger('test:blob-filestore');
 
 describe('Blob FileStore Factory', () => {
   describe('makeBlobBasePath', () => {
@@ -89,14 +93,14 @@ describe('Blob FileStore Factory', () => {
     };
 
     it('should return undefined for undefined URL', async () => {
-      const client = await createReadOnlyFileStoreBlobClient(undefined, metadata);
+      const client = await createReadOnlyFileStoreBlobClient(undefined, metadata, testLogger);
 
       expect(client).toBeUndefined();
     });
 
     it('should create client for file:// URL', async () => {
       // Use a file URL that doesn't require external connectivity
-      const client = await createReadOnlyFileStoreBlobClient('file:///tmp/test-blob-store', metadata);
+      const client = await createReadOnlyFileStoreBlobClient('file:///tmp/test-blob-store', metadata, testLogger);
 
       expect(client).toBeDefined();
       expect(client!.getBaseUrl()).toBe('aztec-1-1-0x1234');
@@ -111,20 +115,20 @@ describe('Blob FileStore Factory', () => {
     };
 
     it('should return empty array for undefined URLs', async () => {
-      const clients = await createReadOnlyFileStoreBlobClients(undefined, metadata);
+      const clients = await createReadOnlyFileStoreBlobClients(undefined, metadata, testLogger);
 
       expect(clients).toEqual([]);
     });
 
     it('should return empty array for empty URL array', async () => {
-      const clients = await createReadOnlyFileStoreBlobClients([], metadata);
+      const clients = await createReadOnlyFileStoreBlobClients([], metadata, testLogger);
 
       expect(clients).toEqual([]);
     });
 
     it('should create multiple clients for file:// URLs', async () => {
       const urls = ['file:///tmp/store1', 'file:///tmp/store2'];
-      const clients = await createReadOnlyFileStoreBlobClients(urls, metadata);
+      const clients = await createReadOnlyFileStoreBlobClients(urls, metadata, testLogger);
 
       expect(clients).toHaveLength(2);
       clients.forEach(client => {
@@ -135,7 +139,7 @@ describe('Blob FileStore Factory', () => {
     it('should skip invalid URLs and continue', async () => {
       // Mix of valid and invalid URLs - invalid URLs should be skipped
       const urls = ['file:///tmp/store1', 'invalid-not-a-url', 'file:///tmp/store2'];
-      const clients = await createReadOnlyFileStoreBlobClients(urls, metadata);
+      const clients = await createReadOnlyFileStoreBlobClients(urls, metadata, testLogger);
 
       // The 'invalid-not-a-url' should fail, so we should get 2 clients
       expect(clients.length).toBeLessThanOrEqual(3);
@@ -151,13 +155,17 @@ describe('Blob FileStore Factory', () => {
     };
 
     it('should return undefined for undefined URL', async () => {
-      const client = await createWritableFileStoreBlobClient(undefined, metadata);
+      const client = await createWritableFileStoreBlobClient(undefined, metadata, testLogger);
 
       expect(client).toBeUndefined();
     });
 
     it('should create writable client for file:// URL', async () => {
-      const client = await createWritableFileStoreBlobClient('file:///tmp/test-writable-blob-store', metadata);
+      const client = await createWritableFileStoreBlobClient(
+        'file:///tmp/test-writable-blob-store',
+        metadata,
+        testLogger,
+      );
 
       expect(client).toBeDefined();
       expect(client!.getBaseUrl()).toBe('aztec-1-1-0x1234');
@@ -165,9 +173,9 @@ describe('Blob FileStore Factory', () => {
 
     it('should throw for https:// URL (not supported for writable stores)', async () => {
       // https:// URLs are not supported for writable file stores
-      await expect(createWritableFileStoreBlobClient('https://example.com/blobs', metadata)).rejects.toThrow(
-        'Unknown file store config',
-      );
+      await expect(
+        createWritableFileStoreBlobClient('https://example.com/blobs', metadata, testLogger),
+      ).rejects.toThrow('Unknown file store config');
     });
   });
 });

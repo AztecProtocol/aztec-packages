@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
 import {
@@ -13,15 +13,18 @@ import type { BlobClientInterface } from './interface.js';
 import { LocalBlobClient } from './local.js';
 
 export interface CreateBlobClientDeps {
-  logger?: Logger;
+  logger: Logger;
   /** FileStore clients for reading blobs */
   fileStoreClients?: FileStoreBlobClient[];
   /** FileStore client for uploading blobs */
   fileStoreUploadClient?: FileStoreBlobClient;
 }
 
-export function createBlobClient(config?: BlobClientConfig, deps?: CreateBlobClientDeps): BlobClientInterface {
-  const log = deps?.logger ?? createLogger('blob-client');
+export function createBlobClient(
+  config: BlobClientConfig | undefined,
+  deps: CreateBlobClientDeps,
+): BlobClientInterface {
+  const log = deps.logger;
   if (!hasRemoteBlobSources(config)) {
     log.info(`Creating local blob client.`);
     const blobStore = new MemoryBlobStore();
@@ -61,15 +64,13 @@ export interface BlobClientWithFileStoresConfig extends BlobClientConfig {
  * 5. Starting the client (uploads initial healthcheck file if upload client is configured)
  *
  * @param config - Configuration containing blob client settings and chain metadata
- * @param logger - Optional logger for the blob client
+ * @param log - Logger for the blob client
  * @returns A BlobClientInterface configured with file store support, already started
  */
 export async function createBlobClientWithFileStores(
   config: BlobClientWithFileStoresConfig,
-  logger?: Logger,
+  log: Logger,
 ): Promise<BlobClientInterface> {
-  const log = logger ?? createLogger('blob-client');
-
   const fileStoreMetadata: BlobFileStoreMetadata = {
     l1ChainId: config.l1ChainId,
     rollupVersion: config.rollupVersion,

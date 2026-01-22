@@ -1,3 +1,4 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -12,6 +13,7 @@ describe('blobscan_archive_client', () => {
   let data: any;
   let response: Response;
   let spy: jest.SpiedFunction<typeof fetch>;
+  let logger: Logger;
 
   const blobId = '0xb32d173d17b2b9435d8280f6dd780048e851a1f89dd0441889899a79a9274d1377d5b94d27440ad55a68d826fc836c53';
   const blockId = '0x7d81980a40426c40544f0f729ada953be406730b877b5865d6cdc35cc8f9c84e';
@@ -28,6 +30,7 @@ describe('blobscan_archive_client', () => {
 
   beforeAll(() => {
     spy = jest.spyOn(global, 'fetch').mockImplementation(() => Promise.resolve(response));
+    logger = createLogger('blob-client:test');
   });
 
   afterAll(() => {
@@ -35,7 +38,7 @@ describe('blobscan_archive_client', () => {
   });
 
   beforeEach(() => {
-    client = new BlobscanArchiveClient('https://api.blobscan.dev');
+    client = new BlobscanArchiveClient('https://api.blobscan.dev', logger);
   });
 
   describe('getBlobData', () => {

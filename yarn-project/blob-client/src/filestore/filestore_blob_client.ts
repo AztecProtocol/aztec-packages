@@ -1,5 +1,5 @@
 import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { inboundTransform, outboundTransform } from '../encoding/index.js';
@@ -15,9 +15,9 @@ export class FileStoreBlobClient {
   constructor(
     private readonly store: ReadOnlyFileStore | FileStore,
     private readonly basePath: string,
-    logger?: Logger,
+    logger: Logger,
   ) {
-    this.log = logger ?? createLogger('blob-client:filestore-client');
+    this.log = logger;
   }
 
   /**

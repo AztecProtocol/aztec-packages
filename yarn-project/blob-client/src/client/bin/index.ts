@@ -19,7 +19,7 @@ async function main() {
     logger.info(`Filtering by blob hashes ${blobHashes.map(bufferToHex).join(', ')}`);
   }
 
-  const blobClient = createBlobClient(getBlobClientConfigFromEnv());
+  const blobClient = createBlobClient(getBlobClientConfigFromEnv(), { logger });
   const blobs = await blobClient.getBlobSidecar(blockHash, blobHashes);
   logger.info(`Got ${blobs.length} blobs`);
   for (const blob of blobs) {

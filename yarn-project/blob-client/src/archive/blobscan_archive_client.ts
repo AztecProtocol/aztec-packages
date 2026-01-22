@@ -1,5 +1,5 @@
 import type { BlobJson } from '@aztec/blob-lib/types';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { schemas, zodFor } from '@aztec/foundation/schemas';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -54,15 +54,14 @@ export const BlobscanBlocksResponseSchema = z.object({
 });
 
 export class BlobscanArchiveClient implements BlobArchiveClient {
-  private readonly logger = createLogger('blob-client:blobscan-archive-client');
   private readonly fetchOpts = { headers: { accept: 'application/json' } };
   private readonly fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
     return await retry(
       () => fetch(...args),
+      this.logger,
       // eslint-disable-next-line @typescript-eslint/no-base-to-string
       `Fetching ${args[0]}`,
       makeBackoff([1, 1, 3]),
-      this.logger,
       /*failSilently=*/ false,
     );
   };
@@ -71,7 +70,11 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
 
   private instrumentation: BlobArchiveClientInstrumentation;
 
-  constructor(baseUrl: string, telemetry: TelemetryClient = getTelemetryClient()) {
+  constructor(
+    baseUrl: string,
+    private readonly logger: Logger,
+    telemetry: TelemetryClient = getTelemetryClient(),
+  ) {
     this.baseUrl = new URL(baseUrl);
     if (this.baseUrl.protocol !== 'https:') {
       throw new TypeError('BaseURL must be secure: ' + baseUrl);

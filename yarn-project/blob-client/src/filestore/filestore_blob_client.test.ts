@@ -1,9 +1,12 @@
 import { Blob } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { inboundTransform, outboundTransform } from '../encoding/index.js';
 import { FileStoreBlobClient } from './filestore_blob_client.js';
+
+const logger = createLogger('test:filestore-blob-client');
 
 class MockFileStore implements FileStore {
   private files = new Map<string, Buffer>();
@@ -69,7 +72,7 @@ describe('FileStoreBlobClient', () => {
 
   beforeEach(() => {
     mockStore = new MockFileStore();
-    client = new FileStoreBlobClient(mockStore, basePath);
+    client = new FileStoreBlobClient(mockStore, basePath, logger);
   });
 
   describe('saveBlob', () => {
@@ -219,7 +222,7 @@ describe('FileStoreBlobClient', () => {
 
     it('should return false when healthcheck file does not exist', async () => {
       const freshStore = new MockFileStore();
-      const freshClient = new FileStoreBlobClient(freshStore, basePath);
+      const freshClient = new FileStoreBlobClient(freshStore, basePath, logger);
       expect(await freshClient.testConnection()).toBe(false);
     });
 
@@ -230,7 +233,7 @@ describe('FileStoreBlobClient', () => {
         exists: () => Promise.reject(new Error('fail')),
       };
 
-      const failingClient = new FileStoreBlobClient(failingStore, basePath);
+      const failingClient = new FileStoreBlobClient(failingStore, basePath, logger);
       expect(await failingClient.testConnection()).toBe(false);
     });
   });
@@ -238,7 +241,7 @@ describe('FileStoreBlobClient', () => {
   describe('read-only store', () => {
     it('should throw when trying to save to read-only store', async () => {
       const readOnlyStore = new MockReadOnlyFileStore();
-      const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath);
+      const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath, logger);
 
       const blob = Blob.fromFields([Fr.random()]);
 
@@ -254,7 +257,7 @@ describe('FileStoreBlobClient', () => {
       files.set(path, outboundTransform(Buffer.from(JSON.stringify(blob.toJSON()))));
 
       const readOnlyStore = new MockReadOnlyFileStore(files);
-      const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath);
+      const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath, logger);
 
       const blobs = await readOnlyClient.getBlobsByHashes([versionedHash]);
 
