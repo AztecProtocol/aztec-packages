@@ -548,6 +548,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.aztecNode,
       this.contractStore,
       this.anchorBlockHeader,
+      this.anchorBlockStore,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(

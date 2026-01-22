@@ -27,6 +27,7 @@ import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
+import type { AnchorBlockStore } from '../../storage/anchor_block_store/anchor_block_store.js';
 import { ContractStore } from '../../storage/contract_store/index.js';
 import { Oracle } from './oracle.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
@@ -211,9 +212,16 @@ export async function ensureContractSynced(
   aztecNode: AztecNode,
   contractStore: ContractStore,
   header: BlockHeader,
+  anchorBlockStore: AnchorBlockStore,
 ): Promise<void> {
+  if (anchorBlockStore.isContractSynced(contractAddress)) {
+    return;
+  }
+
   await Promise.all([
     contractStore.syncPrivateState(contractAddress, functionToInvokeAfterSync, utilityExecutor),
     verifyCurrentClassId(contractAddress, aztecNode, contractStore, header),
   ]);
+
+  anchorBlockStore.markContractSynced(contractAddress);
 }
