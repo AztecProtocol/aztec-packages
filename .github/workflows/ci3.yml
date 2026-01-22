@@ -126,6 +126,7 @@ jobs:
     # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
     needs: ci
     if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    timeout-minutes: 540 # 9 hours to match AWS_SHUTDOWN_TIME
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -156,8 +157,8 @@ jobs:
             namespace="v${major_version}-scenario"
             docker_image="aztecprotocol/aztec:${tag}"
           else
-            # branch name
-            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
+            # branch name (truncate to 20 chars and strip trailing hyphens for valid k8s name)
+            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
             echo "NAMESPACE=$namespace" >> $GITHUB_ENV
             docker_image=""
           fi

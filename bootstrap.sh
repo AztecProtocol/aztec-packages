@@ -728,6 +728,7 @@ case "$cmd" in
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
     # Args: <registry_address> [KEY=VALUE...]
     export CI=1
+    build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
