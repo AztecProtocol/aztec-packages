@@ -50,7 +50,7 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
     // Hi range check = r_hi - hi - borrow
     // Lo range check = (r_lo - 1) - lo + borrow * 2^lo_bits
     field_t<Builder> hi_diff = (-hi + r_hi) - borrow;
-    field_t<Builder> lo_diff = (-lo + (r_lo - 1)) + (borrow * (uint256_t(1) << lo_bits));
+    field_t<Builder> lo_diff = (-lo + (r_lo - fr(1))) + (borrow * (uint256_t(1) << lo_bits));
 
     hi_diff.create_range_constraint(hi_bits);
     lo_diff.create_range_constraint(lo_bits);
