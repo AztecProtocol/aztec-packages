@@ -2,9 +2,10 @@ import type { Fr } from '@aztec/foundation/schemas';
 
 import { TaggedMemory } from './avm_memory_types.js';
 
-const DEFAULT_BEST_EFFORT_READ_CAP = 3000;
+// Allow reading up to 300 kB of return data when unspecified.
+const DEFAULT_BEST_EFFORT_READ_CAP = 10000;
 
-interface LazyReader {
+export interface LazyReader {
   bestEffortReadAll(readCap?: number): Fr[];
   readAll(): Fr[];
   read(idx: number): Fr;
@@ -12,7 +13,7 @@ interface LazyReader {
   length(): number;
 }
 
-class LazyReaderMemory implements LazyReader {
+export class LazyReaderMemory implements LazyReader {
   constructor(
     private memory: TaggedMemory,
     private offset: number,
@@ -29,7 +30,9 @@ class LazyReaderMemory implements LazyReader {
   }
 
   public slice(start: number, end: number): Fr[] {
-    return this.memory.getSlice(this.offset + start, end - start).map(word => word.toFr());
+    const clampedEnd = Math.min(end, this.size);
+    const length = Math.max(0, clampedEnd - start);
+    return this.memory.getSlice(this.offset + start, length).map(word => word.toFr());
   }
 
   public readAll(): Fr[] {
@@ -41,7 +44,7 @@ class LazyReaderMemory implements LazyReader {
   }
 }
 
-class LazyReaderArray implements LazyReader {
+export class LazyReaderArray implements LazyReader {
   constructor(private array: Fr[]) {}
 
   public bestEffortReadAll(readCap = DEFAULT_BEST_EFFORT_READ_CAP): Fr[] {

@@ -268,7 +268,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
       const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest);
 
-      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output));
+      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output.bestEffortReadAll()));
 
       if (enqueuedCallResult.reverted) {
         reverted = true;
