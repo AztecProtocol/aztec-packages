@@ -756,21 +756,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node.');
-
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
-    if ((await this.p2pClient.getTxStatus(txHash)) === 'pending') {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
-    }
+    const txStatus = await this.p2pClient.getTxStatus(txHash);
+    const isKnownToPool = txStatus === 'pending' || txStatus === 'mined';
 
+    // Then get the actual tx from the archiver, which tracks every tx in a mined block.
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
-    if (settledTxReceipt) {
-      txReceipt = settledTxReceipt;
-    }
 
-    return txReceipt;
+    if (settledTxReceipt) {
+      // If the archiver has the receipt then return it.
+      return settledTxReceipt;
+    } else if (isKnownToPool) {
+      // If the tx is in the pool but not in the archiver, it's pending.
+      // This handles race conditions between archiver and p2p, where the archiver
+      // has pruned the block in which a tx was mined, but p2p has not caught up yet.
+      return new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
+    } else {
+      // Otherwise, if we don't know the tx, we consider it dropped.
+      return new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
+    }
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
