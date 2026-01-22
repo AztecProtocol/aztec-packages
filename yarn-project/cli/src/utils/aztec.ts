@@ -11,7 +11,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 
@@ -20,8 +20,6 @@ import { readFile } from 'fs/promises';
 import type { HDAccount, Hex, PrivateKeyAccount } from 'viem';
 
 import { encodeArgs } from './encoding.js';
-
-const logger = createLogger('cli:utils:aztec');
 
 /**
  * Helper to get an ABI function or throw error if it doesn't exist.
@@ -49,6 +47,7 @@ export async function deployNewRollupContracts(
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
+  logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { deployRollupForUpgrade } = await import('@aztec/ethereum/deploy-aztec-l1-contracts');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
@@ -94,6 +93,7 @@ export async function deployNewRollupContracts(
       realVerifier,
       ...config,
     },
+    logger,
   );
 
   return { rollup, slashFactoryAddress: EthAddress.fromString(slashFactoryAddress!) };

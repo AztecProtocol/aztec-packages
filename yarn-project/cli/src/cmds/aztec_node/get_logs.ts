@@ -3,6 +3,7 @@ import type { LogFilter, LogId } from '@aztec/aztec.js/log';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -16,7 +17,7 @@ export async function getLogs(
   follow: boolean,
   log: LogFn,
 ) {
-  const node = createAztecNodeClient(nodeUrl);
+  const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
 
   if (follow) {
     if (txHash) {

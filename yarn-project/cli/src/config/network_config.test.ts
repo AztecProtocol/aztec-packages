@@ -1,8 +1,12 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { enrichEnvironmentWithNetworkConfig, getNetworkConfig } from './network_config.js';
+
+const logger = createLogger('cli:network_config:test');
 
 describe('Network Config', () => {
   let tempDir: string;
@@ -42,7 +46,7 @@ describe('Network Config', () => {
       process.env.NETWORK_CONFIG_LOCATION = `file://${configPath}`;
 
       // Should not throw - network 'testnet' doesn't exist in the config but config is valid
-      await expect(enrichEnvironmentWithNetworkConfig('testnet')).resolves.toBeUndefined();
+      await expect(enrichEnvironmentWithNetworkConfig('testnet', logger)).resolves.toBeUndefined();
 
       // Environment should not be enriched since network doesn't exist
       expect(process.env.BOOTSTRAP_NODES).toBeUndefined();
@@ -53,7 +57,7 @@ describe('Network Config', () => {
       process.env.NETWORK_CONFIG_LOCATION = `file://${join(tempDir, 'nonexistent.json')}`;
 
       // Should throw because file doesn't exist
-      await expect(enrichEnvironmentWithNetworkConfig('testnet')).rejects.toThrow();
+      await expect(enrichEnvironmentWithNetworkConfig('testnet', logger)).rejects.toThrow();
     });
 
     it('should throw when config parsing fails', async () => {
@@ -62,12 +66,12 @@ describe('Network Config', () => {
       process.env.NETWORK_CONFIG_LOCATION = `file://${configPath}`;
 
       // Should throw because config is invalid JSON
-      await expect(enrichEnvironmentWithNetworkConfig('testnet')).rejects.toThrow();
+      await expect(enrichEnvironmentWithNetworkConfig('testnet', logger)).rejects.toThrow();
     });
 
     it('should skip local network', async () => {
       // Should return early without fetching
-      await expect(enrichEnvironmentWithNetworkConfig('local')).resolves.toBeUndefined();
+      await expect(enrichEnvironmentWithNetworkConfig('local', logger)).resolves.toBeUndefined();
     });
 
     it('should enrich environment when network exists in config', async () => {
@@ -84,7 +88,7 @@ describe('Network Config', () => {
       await writeFile(configPath, JSON.stringify(validConfig));
       process.env.NETWORK_CONFIG_LOCATION = `file://${configPath}`;
 
-      await enrichEnvironmentWithNetworkConfig('testnet');
+      await enrichEnvironmentWithNetworkConfig('testnet', logger);
 
       // Environment should be enriched
       expect(process.env.BOOTSTRAP_NODES).toBe('enr:-test1,enr:-test2');
@@ -108,7 +112,7 @@ describe('Network Config', () => {
       await writeFile(configPath, JSON.stringify(validConfig));
       process.env.NETWORK_CONFIG_LOCATION = `file://${configPath}`;
 
-      const result = await getNetworkConfig('testnet');
+      const result = await getNetworkConfig('testnet', logger);
       expect(result).toBeDefined();
       expect(result?.bootnodes).toEqual(['enr:-test1']);
     });
@@ -127,14 +131,14 @@ describe('Network Config', () => {
       await writeFile(configPath, JSON.stringify(validConfig));
       process.env.NETWORK_CONFIG_LOCATION = `file://${configPath}`;
 
-      const result = await getNetworkConfig('testnet');
+      const result = await getNetworkConfig('testnet', logger);
       expect(result).toBeUndefined();
     });
 
     it('should throw when config file does not exist', async () => {
       process.env.NETWORK_CONFIG_LOCATION = `file://${join(tempDir, 'nonexistent.json')}`;
 
-      await expect(getNetworkConfig('testnet')).rejects.toThrow();
+      await expect(getNetworkConfig('testnet', logger)).rejects.toThrow();
     });
   });
 });

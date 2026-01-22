@@ -4,6 +4,7 @@ import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
@@ -15,7 +16,7 @@ export async function setupL2Contracts(nodeUrl: string, testAccounts: boolean, j
   };
   log('setupL2Contracts: Wait options' + jsonStringify(waitOpts));
   log('setupL2Contracts: Creating PXE client...');
-  const node = createAztecNodeClient(nodeUrl);
+  const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
   const wallet = await TestWallet.create(node);
 
   let deployedAccountManagers: AccountManager[] = [];

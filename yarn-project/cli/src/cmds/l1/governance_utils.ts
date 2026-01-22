@@ -36,7 +36,7 @@ export async function depositGovernanceTokens({
     mnemonicIndex,
   );
 
-  const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical', debugLogger);
   const governanceAddress = addresses.governanceAddress.toString();
   const tokenAddress = addresses.stakingAssetAddress.toString();
 
@@ -81,7 +81,7 @@ export async function proposeWithLock({
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
-  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical', debugLogger);
   const governanceAddress = addresses.governanceAddress.toString();
 
   const governance = new GovernanceContract(governanceAddress, client);
@@ -129,7 +129,7 @@ export async function voteOnGovernanceProposal({
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
-  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical', debugLogger);
   const governanceAddress = addresses.governanceAddress.toString();
 
   const governance = new GovernanceContract(governanceAddress, client);
@@ -168,7 +168,7 @@ export async function executeGovernanceProposal({
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
-  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical', debugLogger);
   const governanceAddress = addresses.governanceAddress.toString();
 
   const governance = new GovernanceContract(governanceAddress, client);

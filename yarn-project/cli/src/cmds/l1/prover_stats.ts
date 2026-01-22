@@ -3,6 +3,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
@@ -42,7 +43,7 @@ export async function proverStats(opts: {
 
   const rollup = l1RollupAddress
     ? EthAddress.fromString(l1RollupAddress)
-    : await createAztecNodeClient(nodeUrl!)
+    : await createAztecNodeClient(nodeUrl!, {}, defaultFetch)
         .getL1ContractAddresses()
         .then(a => a.rollupAddress);
 

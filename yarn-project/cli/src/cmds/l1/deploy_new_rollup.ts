@@ -2,11 +2,13 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { deployNewRollupContracts } from '../../utils/aztec.js';
 import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
+
+const logger = createLogger('cli:deploy_new_rollup');
 
 export async function deployNewRollup(
   registryAddress: EthAddress,
@@ -41,6 +43,7 @@ export async function deployNewRollup(
     fundingNeeded,
     config,
     realVerifier,
+    logger,
   );
 
   if (json) {

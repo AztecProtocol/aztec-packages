@@ -1,6 +1,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { LogFn } from '@aztec/foundation/log';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 
@@ -11,7 +12,7 @@ export async function getL1ToL2MessageWitness(
   secret: Fr,
   log: LogFn,
 ) {
-  const node = createAztecNodeClient(nodeUrl);
+  const node = createAztecNodeClient(nodeUrl, {}, defaultFetch);
   const messageWitness = await getNonNullifiedL1ToL2MessageWitness(node, contractAddress, messageHash, secret);
 
   log(

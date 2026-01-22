@@ -1,8 +1,9 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { LogFn } from '@aztec/foundation/log';
 
 export async function getNodeInfo(nodeUrl: string, json: boolean, log: LogFn, logJson: (output: any) => void) {
-  const client = createAztecNodeClient(nodeUrl);
+  const client = createAztecNodeClient(nodeUrl, {}, defaultFetch);
 
   const info = await client.getNodeInfo();
   if (json) {

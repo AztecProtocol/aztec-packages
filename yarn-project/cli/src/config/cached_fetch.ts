@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import { dirname } from 'path';
@@ -15,16 +15,16 @@ export interface CachedFetchOptions {
  * This utility can be used by both remote config and bootnodes fetching.
  *
  * @param url - The URL to fetch from
- * @param networkName - Network name for cache directory structure
  * @param options - Caching and error handling options
- * @param cacheDir - Optional cache directory (defaults to no caching)
+ * @param log - Logger instance
+ * @param fetch - Fetch function to use
  * @returns The fetched and parsed JSON data, or undefined if fetch fails and throwOnError is false
  */
 export async function cachedFetch<T = any>(
   url: string,
   options: CachedFetchOptions,
+  log: Logger,
   fetch = globalThis.fetch,
-  log = createLogger('cached_fetch'),
 ): Promise<T | undefined> {
   const { cacheDurationMs, cacheFile } = options;
 

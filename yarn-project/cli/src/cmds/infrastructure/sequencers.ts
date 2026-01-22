@@ -3,7 +3,9 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { GSEContract, RollupContract } from '@aztec/ethereum/contracts';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import type { LogFn } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
@@ -20,7 +22,8 @@ export async function sequencers(opts: {
   log: LogFn;
 }) {
   const { command, who: maybeWho, mnemonic, bn254SecretKey, nodeUrl, l1RpcUrls, chainId, log } = opts;
-  const client = createAztecNodeClient(nodeUrl);
+  const logger = createLogger('cli:sequencers');
+  const client = createAztecNodeClient(nodeUrl, {}, defaultFetch);
   const { l1ContractAddresses } = await client.getNodeInfo();
 
   const chain = createEthereumChain(l1RpcUrls, chainId);
@@ -37,7 +40,7 @@ export async function sequencers(opts: {
       })
     : undefined;
 
-  const rollup = new RollupContract(publicClient, l1ContractAddresses.rollupAddress);
+  const rollup = new RollupContract(publicClient, l1ContractAddresses.rollupAddress, logger);
 
   const writeableRollup = walletClient
     ? getContract({

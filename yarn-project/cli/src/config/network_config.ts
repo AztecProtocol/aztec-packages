@@ -1,4 +1,5 @@
 import { type NetworkConfig, NetworkConfigMapSchema, type NetworkNames } from '@aztec/foundation/config';
+import type { Logger } from '@aztec/foundation/log';
 
 import { readFile } from 'fs/promises';
 import { join } from 'path';
@@ -16,12 +17,14 @@ const NETWORK_CONFIG_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
  * Uses the reusable cachedFetch utility. Falls back to metadata.aztec.network if the default URL fails.
  *
  * @param networkName - The network name to fetch config for
+ * @param log - Logger instance
  * @param cacheDir - Optional cache directory for storing fetched config
  * @returns Remote configuration for the specified network, or undefined if network not found in config
  * @throws Error if both primary and fallback URLs fail to fetch
  */
 export async function getNetworkConfig(
   networkName: NetworkNames,
+  log: Logger,
   cacheDir?: string,
 ): Promise<NetworkConfig | undefined> {
   // Try with the primary URL (env var or default)
@@ -32,7 +35,7 @@ export async function getNetworkConfig(
 
   // First try the primary config location
   try {
-    config = await fetchNetworkConfigFromUrl(configLocation, networkName, cacheDir);
+    config = await fetchNetworkConfigFromUrl(configLocation, networkName, log, cacheDir);
   } catch (error) {
     primaryError = error as Error;
   }
@@ -40,7 +43,7 @@ export async function getNetworkConfig(
   // If primary fails and we were using the default URL, try the fallback
   if (!config && configLocation === DEFAULT_CONFIG_URL) {
     try {
-      config = await fetchNetworkConfigFromUrl(FALLBACK_CONFIG_URL, networkName, cacheDir);
+      config = await fetchNetworkConfigFromUrl(FALLBACK_CONFIG_URL, networkName, log, cacheDir);
     } catch {
       // Both failed - throw the primary error
       if (primaryError) {
@@ -59,6 +62,7 @@ export async function getNetworkConfig(
  * Helper function to fetch network config from a specific URL.
  * @param configLocation - The URL or file path to fetch from
  * @param networkName - The network name to fetch config for
+ * @param log - Logger instance
  * @param cacheDir - Optional cache directory for storing fetched config
  * @returns Remote configuration for the specified network, or undefined if network not found in config, or undefined if URL invalid
  * @throws Error if fetch/parse fails
@@ -66,6 +70,7 @@ export async function getNetworkConfig(
 async function fetchNetworkConfigFromUrl(
   configLocation: string,
   networkName: NetworkNames,
+  log: Logger,
   cacheDir?: string,
 ): Promise<NetworkConfig | undefined> {
   let url: URL | undefined;
@@ -86,10 +91,14 @@ async function fetchNetworkConfigFromUrl(
   let rawConfig: any;
 
   if (url.protocol === 'http:' || url.protocol === 'https:') {
-    rawConfig = await cachedFetch(url.href, {
-      cacheDurationMs: NETWORK_CONFIG_CACHE_DURATION_MS,
-      cacheFile: cacheDir ? join(cacheDir, networkName, 'network_config.json') : undefined,
-    });
+    rawConfig = await cachedFetch(
+      url.href,
+      {
+        cacheDurationMs: NETWORK_CONFIG_CACHE_DURATION_MS,
+        cacheFile: cacheDir ? join(cacheDir, networkName, 'network_config.json') : undefined,
+      },
+      log,
+    );
   } else if (url.protocol === 'file:') {
     rawConfig = JSON.parse(await readFile(url.pathname, 'utf-8'));
   } else {
@@ -114,16 +123,17 @@ async function fetchNetworkConfigFromUrl(
  * from the remote config.
  *
  * @param networkName - The network name to fetch remote config for
+ * @param log - Logger instance
  * @throws Error if network config fetch fails (network errors, parse errors, etc.)
  * Does not throw if the network simply doesn't exist in the config - just returns without enriching
  */
-export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNames) {
+export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNames, log: Logger) {
   if (networkName === 'local') {
     return; // No remote config for local development
   }
 
   const cacheDir = process.env.DATA_DIRECTORY ? join(process.env.DATA_DIRECTORY, 'cache') : undefined;
-  const networkConfig = await getNetworkConfig(networkName, cacheDir);
+  const networkConfig = await getNetworkConfig(networkName, log, cacheDir);
 
   if (!networkConfig) {
     return; // Network not found in config, continue without enriching

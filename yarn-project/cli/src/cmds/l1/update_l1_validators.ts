@@ -6,6 +6,7 @@ import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi, StakingAssetHandlerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
@@ -88,7 +89,7 @@ export async function addL1Validator({
   const gse = new GSEContract(l1Client, gseAddress);
   const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
 
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: debugLogger });
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
 
   // Step 1: Claim STK tokens from the faucet
@@ -194,7 +195,7 @@ export async function addL1ValidatorViaRollup({
 
   const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
 
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: debugLogger });
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: rollupAddress.toString(),
@@ -241,7 +242,7 @@ export async function removeL1Validator({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: debugLogger });
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -268,7 +269,7 @@ export async function pruneRollup({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { loggerFactory: debugLogger });
 
   dualLog(`Trying prune`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -316,9 +317,10 @@ export async function fastForwardEpochs({
 }
 
 export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
+  const logger = createLogger('cli:debug_rollup');
   const config = getL1ContractsConfigEnvVars();
   const publicClient = getPublicClient({ l1RpcUrls: rpcUrls, l1ChainId: chainId });
-  const rollup = new RollupContract(publicClient, rollupAddress);
+  const rollup = new RollupContract(publicClient, rollupAddress, logger);
 
   const pendingNum = await rollup.getCheckpointNumber();
   log(`Pending block num: ${pendingNum}`);
