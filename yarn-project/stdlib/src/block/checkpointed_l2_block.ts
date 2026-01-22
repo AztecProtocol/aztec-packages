@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import { MAX_BLOCK_HASH_STRING_LENGTH, MAX_COMMITTEE_SIZE } from '../deserialization/index.js';
-import { L2BlockNew } from './l2_block_new.js';
+import { L2Block } from './l2_block.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /**
@@ -16,7 +16,7 @@ import { CommitteeAttestation } from './proposal/committee_attestation.js';
 export class CheckpointedL2Block {
   constructor(
     public checkpointNumber: CheckpointNumber,
-    public block: L2BlockNew,
+    public block: L2Block,
     public l1: L1PublishedData,
     public attestations: CommitteeAttestation[],
   ) {}
@@ -24,7 +24,7 @@ export class CheckpointedL2Block {
     return z
       .object({
         checkpointNumber: CheckpointNumberSchema,
-        block: L2BlockNew.schema,
+        block: L2Block.schema,
         l1: L1PublishedData.schema,
         attestations: z.array(CommitteeAttestation.schema),
       })
@@ -34,7 +34,7 @@ export class CheckpointedL2Block {
   static fromBuffer(bufferOrReader: Buffer | BufferReader): CheckpointedL2Block {
     const reader = BufferReader.asReader(bufferOrReader);
     const checkpointNumber = reader.readNumber();
-    const block = reader.readObject(L2BlockNew);
+    const block = reader.readObject(L2Block);
     const l1BlockNumber = reader.readBigInt();
     const l1BlockHash = reader.readString(MAX_BLOCK_HASH_STRING_LENGTH);
     const l1Timestamp = reader.readBigInt();

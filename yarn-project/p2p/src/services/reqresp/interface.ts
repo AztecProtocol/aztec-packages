@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -198,7 +198,7 @@ export const subProtocolMap = {
   },
   [ReqRespSubProtocol.BLOCK]: {
     request: Fr, // block number
-    response: L2BlockNew,
+    response: L2Block,
   },
   [ReqRespSubProtocol.AUTH]: {
     request: AuthRequest,

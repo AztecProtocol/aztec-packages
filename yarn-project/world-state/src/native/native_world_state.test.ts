@@ -16,7 +16,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -158,7 +158,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Persistence', () => {
-    let block: L2BlockNew;
+    let block: L2Block;
     let messages: Fr[];
     let noteHash: Fr;
 
@@ -976,7 +976,7 @@ describe('NativeWorldState', () => {
       // Now build an invalid block, see that it is rejected and that we can then insert the correct block
       {
         const { block: block, messages } = await mockBlock(BlockNumber(5), 1, fork);
-        const invalidBlock = L2BlockNew.fromBuffer(block.toBuffer());
+        const invalidBlock = L2Block.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
         await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
@@ -995,7 +995,7 @@ describe('NativeWorldState', () => {
       // Now we push another invalid block, see that it is rejected and check we can unwind to the last proven block
       {
         const { block: block, messages } = await mockBlock(BlockNumber(6), 1, fork);
-        const invalidBlock = L2BlockNew.fromBuffer(block.toBuffer());
+        const invalidBlock = L2Block.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
         await expect(ws.handleL2BlockAndMessages(invalidBlock, messages)).rejects.toThrow(
@@ -1012,7 +1012,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Finding leaves', () => {
-    let block: L2BlockNew;
+    let block: L2Block;
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
@@ -1074,7 +1074,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Finding sibling paths', () => {
-    let block: L2BlockNew;
+    let block: L2Block;
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
@@ -1132,7 +1132,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Block numbers for indices', () => {
-    let block: L2BlockNew;
+    let block: L2Block;
     let messages: Fr[];
     let noteHashes: number;
     let nullifiers: number;
@@ -1193,7 +1193,7 @@ describe('NativeWorldState', () => {
   });
 
   describe('Status reporting', () => {
-    let block: L2BlockNew;
+    let block: L2Block;
     let messages: Fr[];
 
     beforeAll(async () => {

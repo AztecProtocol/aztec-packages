@@ -12,8 +12,8 @@ import {
   Body,
   CheckpointedL2Block,
   CommitteeAttestation,
+  L2Block,
   L2BlockHash,
-  L2BlockNew,
   type ValidateCheckpointResult,
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
@@ -146,7 +146,7 @@ export class BlockStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addBlocks(blocks: L2BlockNew[], opts: { force?: boolean } = {}): Promise<boolean> {
+  async addBlocks(blocks: L2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
     if (blocks.length === 0) {
       return true;
     }
@@ -199,7 +199,7 @@ export class BlockStore {
       }
 
       // Iterate over blocks array and insert them, checking that the block numbers and indexes are sequential. Also check they are for the correct checkpoint.
-      let previousBlock: L2BlockNew | undefined = undefined;
+      let previousBlock: L2Block | undefined = undefined;
       for (const block of blocks) {
         if (!opts.force && previousBlock) {
           if (previousBlock.number + 1 !== block.number) {
@@ -258,7 +258,7 @@ export class BlockStore {
       }
 
       let previousBlockNumber: BlockNumber | undefined = undefined;
-      let previousBlock: L2BlockNew | undefined = undefined;
+      let previousBlock: L2Block | undefined = undefined;
 
       // If we have a previous checkpoint then we need to get the previous block number
       if (previousCheckpointData !== undefined) {
@@ -339,7 +339,7 @@ export class BlockStore {
     });
   }
 
-  private async addBlockToDatabase(block: L2BlockNew, checkpointNumber: number, indexWithinCheckpoint: number) {
+  private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
     const blockHash = L2BlockHash.fromField(await block.hash());
 
     await this.#blocks.set(block.number, {
@@ -368,7 +368,7 @@ export class BlockStore {
   }
 
   /** Deletes a block and all associated data (tx effects, indices). */
-  private async deleteBlock(block: L2BlockNew): Promise<void> {
+  private async deleteBlock(block: L2Block): Promise<void> {
     // Delete the block from the main blocks map
     await this.#blocks.delete(block.number);
 
@@ -466,7 +466,7 @@ export class BlockStore {
     return data;
   }
 
-  async getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2BlockNew[] | undefined> {
+  async getBlocksForCheckpoint(checkpointNumber: CheckpointNumber): Promise<L2Block[] | undefined> {
     const checkpoint = await this.#checkpoints.getAsync(checkpointNumber);
     if (!checkpoint) {
       return undefined;
@@ -489,8 +489,8 @@ export class BlockStore {
    * @param slotNumber - The slot number to search for.
    * @returns All blocks with the given slot number, in ascending block number order.
    */
-  async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2BlockNew[]> {
-    const blocks: L2BlockNew[] = [];
+  async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
+    const blocks: L2Block[] = [];
 
     // Iterate backwards through all blocks and filter by slot number
     // This is more efficient since we usually query for the most recent slot
@@ -513,9 +513,9 @@ export class BlockStore {
    * @param blockNumber - The block number to remove after.
    * @returns The removed blocks (for event emission).
    */
-  async unwindBlocksAfter(blockNumber: BlockNumber): Promise<L2BlockNew[]> {
+  async unwindBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
     return await this.db.transactionAsync(async () => {
-      const removedBlocks: L2BlockNew[] = [];
+      const removedBlocks: L2Block[] = [];
 
       // Get the latest block number to determine the range
       const latestBlockNumber = await this.getLatestBlockNumber();
@@ -637,7 +637,7 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async *getBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<L2BlockNew> {
+  async *getBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<L2Block> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
@@ -651,7 +651,7 @@ export class BlockStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlock(blockNumber: BlockNumber): Promise<L2BlockNew | undefined> {
+  async getBlock(blockNumber: BlockNumber): Promise<L2Block | undefined> {
     const blockStorage = await this.#blocks.getAsync(blockNumber);
     if (!blockStorage || !blockStorage.header) {
       return Promise.resolve(undefined);
@@ -664,7 +664,7 @@ export class BlockStore {
    * @param blockHash - The hash of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlockByHash(blockHash: L2BlockHash): Promise<L2BlockNew | undefined> {
+  async getBlockByHash(blockHash: L2BlockHash): Promise<L2Block | undefined> {
     const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
     if (blockNumber === undefined) {
       return undefined;
@@ -677,7 +677,7 @@ export class BlockStore {
    * @param archive - The archive root of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlockByArchive(archive: Fr): Promise<L2BlockNew | undefined> {
+  async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
     const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
     if (blockNumber === undefined) {
       return undefined;
@@ -753,7 +753,7 @@ export class BlockStore {
   private async getBlockFromBlockStorage(
     blockNumber: number,
     blockStorage: BlockStorage,
-  ): Promise<L2BlockNew | undefined> {
+  ): Promise<L2Block | undefined> {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
@@ -777,7 +777,7 @@ export class BlockStore {
       txEffects.push(deserializeIndexedTxEffect(txEffect).data);
     }
     const body = new Body(txEffects);
-    const block = new L2BlockNew(
+    const block = new L2Block(
       archive,
       header,
       body,

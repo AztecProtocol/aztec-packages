@@ -250,6 +250,37 @@ export function chunk<T>(items: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
+const UNINITIALIZED = Symbol('uninitialized');
+
+/**
+ * Splits the given iterable into chunks based on the key returned by the given function.
+ * Items must be contiguous to be included in the same chunk.
+ */
+export function chunkBy<T, U>(items: T[], fn: (item: T) => U): T[][] {
+  const chunks: T[][] = [];
+  let currentChunk: T[] = [];
+  let currentKey: U | typeof UNINITIALIZED = UNINITIALIZED;
+
+  for (const item of items) {
+    const key = fn(item);
+    if (currentKey === UNINITIALIZED || key !== currentKey) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+      }
+      currentChunk = [item];
+      currentKey = key;
+    } else {
+      currentChunk.push(item);
+    }
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks;
+}
+
 /** Partitions the given iterable into two arrays based on the predicate. */
 export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
   const pass: T[] = [];

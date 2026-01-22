@@ -2,7 +2,7 @@ import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
-import type { L2BlockNew } from '../l2_block_new.js';
+import type { L2Block } from '../l2_block.js';
 import {
   type CheckpointId,
   GENESIS_CHECKPOINT_HEADER_HASH,
@@ -109,7 +109,7 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
   }
 
   // Protected helper that subclasses can override for block hash computation
-  protected computeBlockHash(block: L2BlockNew): Promise<string> {
+  protected computeBlockHash(block: L2Block): Promise<string> {
     return block.hash().then(hash => hash.toString());
   }
 

@@ -1,7 +1,7 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { L2BlockNew } from '../block/l2_block_new.js';
+import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
@@ -31,7 +31,7 @@ export interface IBlockFactory extends ProcessedTxHandler {
   /**
    * Assembles the block and updates the archive tree.
    */
-  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2BlockNew>;
+  setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 }
 
 export interface PublicProcessorLimits {
@@ -63,7 +63,7 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
 
 /** Result of building a block within a checkpoint. */
 export interface BuildBlockInCheckpointResult {
-  block: L2BlockNew;
+  block: L2Block;
   publicGas: Gas;
   publicProcessorDuration: number;
   numTxs: number;

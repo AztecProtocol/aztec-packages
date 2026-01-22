@@ -19,13 +19,12 @@ export class L2BlockStream {
   constructor(
     private l2BlockSource: Pick<
       L2BlockSource,
-      'getL2BlocksNew' | 'getBlockHeader' | 'getL2Tips' | 'getPublishedCheckpoints' | 'getCheckpointedBlocks'
+      'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
     >,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
     private opts: {
-      proven?: boolean;
       pollIntervalMS?: number;
       batchSize?: number;
       startingBlock?: number;
@@ -129,7 +128,7 @@ export class L2BlockStream {
       if (!this.opts.ignoreCheckpoints) {
         let loop1Iterations = 0;
         while (nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number) {
-          const checkpoints = await this.l2BlockSource.getPublishedCheckpoints(nextCheckpointToEmit, 1);
+          const checkpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointToEmit, 1);
           if (checkpoints.length === 0) {
             break;
           }
@@ -174,7 +173,7 @@ export class L2BlockStream {
         // Refill the prefetch buffer when exhausted
         if (prefetchIdx >= prefetchedCheckpoints.length) {
           const prefetchLimit = this.opts.checkpointPrefetchLimit ?? CHECKPOINT_PREFETCH_LIMIT;
-          prefetchedCheckpoints = await this.l2BlockSource.getPublishedCheckpoints(nextCheckpointNumber, prefetchLimit);
+          prefetchedCheckpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointNumber, prefetchLimit);
           prefetchIdx = 0;
           if (prefetchedCheckpoints.length === 0) {
             break;
@@ -213,8 +212,8 @@ export class L2BlockStream {
       // Loop 3: Fetch any remaining uncheckpointed (proposed) blocks.
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
-        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getL2BlocksNew(BlockNumber(nextBlockNumber), limit, this.opts.proven);
+        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
+        const blocks = await this.l2BlockSource.getBlocks(BlockNumber(nextBlockNumber), BlockNumber(limit));
         if (blocks.length === 0) {
           break;
         }
