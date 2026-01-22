@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { BlockProposal, CheckpointProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 export abstract class ProposalValidator<TProposal extends BlockProposal | CheckpointProposal> {
@@ -8,10 +8,10 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
   protected logger: Logger;
   protected txsPermitted: boolean;
 
-  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }, loggerName: string) {
+  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }, logger: Logger) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
-    this.logger = createLogger(loggerName);
+    this.logger = logger;
   }
 
   public async validate(proposal: TProposal): Promise<PeerErrorSeverity | undefined> {

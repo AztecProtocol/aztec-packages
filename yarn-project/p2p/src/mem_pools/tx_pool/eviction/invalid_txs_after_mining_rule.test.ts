@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
@@ -11,10 +12,11 @@ import { InvalidTxsAfterMiningRule } from './invalid_txs_after_mining_rule.js';
 describe('InvalidTxsAfterMiningRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
   let rule: InvalidTxsAfterMiningRule;
+  const logger = createLogger('p2p:test:invalid-txs-after-mining');
 
   beforeEach(() => {
     txPool = mock<TxPoolOperations>();
-    rule = new InvalidTxsAfterMiningRule();
+    rule = new InvalidTxsAfterMiningRule(logger);
   });
 
   describe('evict method', () => {

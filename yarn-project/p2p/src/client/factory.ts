@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -27,7 +27,7 @@ export type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
   store?: AztecAsyncKVStore;
   attestationPool?: AttestationPool;
-  logger?: Logger;
+  loggerFactory: LoggerFactory;
   txCollectionNodeSources?: TxSource[];
   p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
 };
@@ -47,14 +47,14 @@ export async function createP2PClient<T extends P2PClientType>(
   packageVersion: string,
   dateProvider: DateProvider = new DateProvider(),
   telemetry: TelemetryClient = getTelemetryClient(),
-  deps: P2PClientDeps<T> = {},
+  deps: P2PClientDeps<T>,
 ) {
   const config = await configureP2PClientAddresses({
     ...inputConfig,
     dataStoreMapSizeKb: inputConfig.p2pStoreMapSizeKb ?? inputConfig.dataStoreMapSizeKb,
   });
 
-  const logger = deps.logger ?? createLogger('p2p');
+  const logger = deps.loggerFactory.createLogger('p2p');
 
   if (config.bootstrapNodes.length === 0) {
     logger.warn(
@@ -62,25 +62,27 @@ export async function createP2PClient<T extends P2PClientType>(
     );
   }
 
-  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, createLogger('p2p:lmdb-v2')));
-  const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, createLogger('p2p-archive:lmdb-v2'));
-  const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, createLogger('p2p-peer:lmdb-v2'));
+  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, logger.createChild('lmdb-v2')));
+  const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, logger.createChild('archive:lmdb-v2'));
+  const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, logger.createChild('peer:lmdb-v2'));
   const attestationStore = await createStore(
     P2P_ATTESTATION_STORE_NAME,
     1,
     config,
-    createLogger('p2p-attestation:lmdb-v2'),
+    logger.createChild('attestation:lmdb-v2'),
   );
   const l1Constants = await archiver.getL1Constants();
 
   const mempools: MemPools = {
     txPool:
       deps.txPool ??
-      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+      new AztecKVTxPool(store, archive, worldStateSynchronizer, logger.createChild('tx-pool'), telemetry, {
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
       }),
-    attestationPool: deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry),
+    attestationPool:
+      deps.attestationPool ??
+      new KvAttestationPool(attestationStore, logger.createChild('attestation-pool'), telemetry),
   };
 
   const p2pService = await createP2PService<T>(
@@ -100,7 +102,7 @@ export async function createP2PClient<T extends P2PClientType>(
   );
 
   const nodeSources = [
-    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config),
+    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config, logger.createChild('tx-source')),
     ...(deps.txCollectionNodeSources ?? []),
   ];
   if (nodeSources.length > 0) {
@@ -115,9 +117,9 @@ export async function createP2PClient<T extends P2PClientType>(
     l1Constants,
     mempools.txPool,
     config,
+    logger.createChild('tx-collection'),
     dateProvider,
     telemetry,
-    logger.createChild('tx-collection'),
   );
 
   return new P2PClient(
@@ -130,6 +132,7 @@ export async function createP2PClient<T extends P2PClientType>(
     config,
     dateProvider,
     telemetry,
+    logger,
   );
 }
 

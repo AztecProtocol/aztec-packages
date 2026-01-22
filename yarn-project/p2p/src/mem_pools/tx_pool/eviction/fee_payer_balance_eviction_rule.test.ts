@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -20,6 +21,7 @@ describe('FeePayerBalanceEvictionRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
   let worldState: MockProxy<MerkleTreeReadOperations>;
   let worldStateSynchronizer: MockProxy<WorldStateSynchronizer>;
+  const logger = createLogger('p2p:test:fee-payer-balance-eviction');
   let rule: FeePayerBalanceEvictionRule;
 
   const setFeePayerBalance = (balance: bigint) => {
@@ -78,7 +80,7 @@ describe('FeePayerBalanceEvictionRule', () => {
     worldStateSynchronizer.getSnapshot.mockReturnValue(worldState);
     worldStateSynchronizer.syncImmediate.mockResolvedValue(BlockNumber(1));
 
-    rule = new FeePayerBalanceEvictionRule(worldStateSynchronizer);
+    rule = new FeePayerBalanceEvictionRule(worldStateSynchronizer, logger);
   });
 
   describe('evict method', () => {

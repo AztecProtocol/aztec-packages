@@ -2,7 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerFactory, createLibp2pComponentLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -185,12 +185,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
-    logger: Logger = createLogger('p2p:libp2p_service'),
+    loggerFactory: LoggerFactory,
   ) {
     super(telemetry, 'LibP2PService');
     this.telemetry = telemetry;
 
     // Create child logger with fisherman prefix if in fisherman mode
+    const logger = loggerFactory.createLogger('p2p:libp2p_service');
     this.logger = config.fishermanMode ? logger.createChild('[FISHERMAN]') : logger;
 
     this.instrumentation = new P2PInstrumentation(telemetry, 'LibP2PService');
@@ -202,7 +203,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const versions = getVersions(config);
     this.protocolVersion = compressComponentVersions(versions);
-    logger.info(`Started libp2p service with protocol version ${this.protocolVersion}`);
+    this.logger.info(`Started libp2p service with protocol version ${this.protocolVersion}`);
 
     this.topicStrings[TopicType.tx] = createTopicString(TopicType.tx, this.protocolVersion);
     this.topicStrings[TopicType.block_proposal] = createTopicString(TopicType.block_proposal, this.protocolVersion);
@@ -215,13 +216,24 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.protocolVersion,
     );
 
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, { txsPermitted: !config.disableTransactions });
-    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, {
-      txsPermitted: !config.disableTransactions,
-    });
+    this.blockProposalValidator = new BlockProposalValidator(
+      epochCache,
+      { txsPermitted: !config.disableTransactions },
+      this.logger.createChild('block-proposal-validator'),
+    );
+    this.checkpointProposalValidator = new CheckpointProposalValidator(
+      epochCache,
+      { txsPermitted: !config.disableTransactions },
+      this.logger.createChild('checkpoint-proposal-validator'),
+    );
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
-      : new CheckpointAttestationValidator(epochCache);
+      ? new FishermanAttestationValidator(
+          epochCache,
+          mempools.attestationPool,
+          this.logger.createChild('checkpoint-attestation-validator'),
+          telemetry,
+        )
+      : new CheckpointAttestationValidator(epochCache, this.logger.createChild('checkpoint-attestation-validator'));
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -285,14 +297,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const datastore = new AztecDatastore(peerStore);
 
-    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+    const otelMetricsAdapter = new OtelMetricsAdapter(telemetry, logger.createChild('otel-adapter'));
 
     const peerDiscoveryService = new DiscV5Service(
       peerId,
       config,
       packageVersion,
       telemetry,
-      createLogger(`${logger.module}:discv5_service`),
+      logger.createChild('discv5_service'),
     );
 
     // Seed libp2p's bootstrap discovery with private and trusted peers
@@ -417,7 +429,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
-          dataTransform: new SnappyTransform(),
+          dataTransform: new SnappyTransform(logger.createChild('snappy')),
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(protocolVersion),
           asyncValidation: true,
@@ -456,15 +468,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       logger: createLibp2pComponentLogger(logger.module),
     });
 
-    const peerScoring = new PeerScoring(config, telemetry);
-    const reqresp = new ReqResp(config, node, peerScoring, createLogger(`${logger.module}:reqresp`));
+    const peerScoring = new PeerScoring(config, logger.createChild('peer_scoring'), telemetry);
+    const reqresp = new ReqResp(config, node, peerScoring, logger.createChild('reqresp'));
 
     const peerManager = new PeerManager(
       node,
       peerDiscoveryService,
       config,
+      logger.createChild('peer_manager'),
       telemetry,
-      createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       reqresp,
       worldStateSynchronizer,
@@ -1370,15 +1382,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   private createRequestedTxValidator(): TxValidator {
     return new AggregateTxValidator(
-      new DataTxValidator(),
-      new SizeTxValidator(),
-      new MetadataTxValidator({
-        l1ChainId: new Fr(this.config.l1ChainId),
-        rollupVersion: new Fr(this.config.rollupVersion),
-        protocolContractsHash,
-        vkTreeRoot: getVKTreeRoot(),
-      }),
-      new TxProofValidator(this.proofVerifier),
+      new DataTxValidator(this.logger.createChild('data-tx-validator')),
+      new SizeTxValidator(this.logger.createChild('size-tx-validator')),
+      new MetadataTxValidator(
+        {
+          l1ChainId: new Fr(this.config.l1ChainId),
+          rollupVersion: new Fr(this.config.rollupVersion),
+          protocolContractsHash,
+          vkTreeRoot: getVKTreeRoot(),
+        },
+        this.logger.createChild('metadata-tx-validator'),
+      ),
+      new TxProofValidator(this.proofVerifier, this.logger.createChild('tx-proof-validator')),
     );
   }
 
@@ -1493,6 +1508,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.archiver,
       this.proofVerifier,
       !this.config.disableTransactions,
+      this.logger.createChild('tx-validators'),
       allowedInSetup,
     );
   }
@@ -1547,15 +1563,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    const snapshotValidator = new DoubleSpendTxValidator({
-      nullifiersExist: async (nullifiers: Buffer[]) => {
-        const merkleTree = this.worldStateSynchronizer.getSnapshot(
-          BlockNumber(blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow),
-        );
-        const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-        return indices.map(index => index !== undefined);
+    const snapshotValidator = new DoubleSpendTxValidator(
+      {
+        nullifiersExist: async (nullifiers: Buffer[]) => {
+          const merkleTree = this.worldStateSynchronizer.getSnapshot(
+            BlockNumber(blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow),
+          );
+          const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+          return indices.map(index => index !== undefined);
+        },
       },
-    });
+      this.logger.createChild('double-spend-validator'),
+    );
 
     const validSnapshot = await snapshotValidator.validateTx(tx);
     if (validSnapshot.result !== 'valid') {

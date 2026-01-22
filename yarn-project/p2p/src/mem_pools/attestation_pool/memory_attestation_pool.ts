@@ -1,5 +1,5 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type {
   BlockProposal,
   CheckpointAttestation,
@@ -27,8 +27,8 @@ export class InMemoryAttestationPool implements AttestationPool {
   private checkpointProposals: Map<string, CheckpointProposalCore>;
 
   constructor(
+    private log: Logger,
     telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('p2p:attestation_pool'),
   ) {
     this.proposals = new Map();
     this.checkpointAttestations = new Map();

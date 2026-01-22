@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -13,6 +14,7 @@ describe('GasTxValidator', () => {
   let synchronizer: MockProxy<WorldStateSynchronizer>;
   let contractSource: MockProxy<ContractDataSource>;
   let proofVerifier: MockProxy<ClientProtocolCircuitVerifier>;
+  const logger = createLogger('p2p:test:factory');
 
   beforeEach(() => {
     synchronizer = mock<WorldStateSynchronizer>();
@@ -32,6 +34,7 @@ describe('GasTxValidator', () => {
       contractSource,
       proofVerifier,
       true,
+      logger,
     );
     expect(Object.keys(validators[0])).toEqual([
       'txsPermittedValidator',

@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { Logger } from '@aztec/foundation/log';
 import { type CheckpointAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 
@@ -19,10 +20,10 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
   constructor(
     epochCache: EpochCacheInterface,
     private attestationPool: AttestationPool,
+    logger: Logger,
     telemetryClient: TelemetryClient,
   ) {
-    super(epochCache);
-    this.logger = this.logger.createChild('[FISHERMAN]');
+    super(epochCache, logger.createChild('fisherman'));
 
     const meter = telemetryClient.getMeter('FishermanAttestationValidator');
     this.invalidAttestationCounter = meter.createUpDownCounter(Metrics.VALIDATOR_INVALID_ATTESTATION_RECEIVED_COUNT);

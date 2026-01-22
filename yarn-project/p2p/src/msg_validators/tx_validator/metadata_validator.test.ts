@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import {
@@ -19,18 +20,22 @@ describe('MetadataTxValidator', () => {
   let seed = 1;
 
   let validator: MetadataTxValidator<AnyTx>;
+  const logger = createLogger('p2p:test:metadata-validator');
 
   const setValidatorAtBlock = () => {
     chainId = new Fr(1);
     rollupVersion = new Fr(2);
     vkTreeRoot = new Fr(3);
     protocolContractsHash = new Fr(4);
-    validator = new MetadataTxValidator({
-      l1ChainId: chainId,
-      rollupVersion,
-      vkTreeRoot,
-      protocolContractsHash,
-    });
+    validator = new MetadataTxValidator(
+      {
+        l1ChainId: chainId,
+        rollupVersion,
+        vkTreeRoot,
+        protocolContractsHash,
+      },
+      logger,
+    );
   };
 
   beforeEach(() => {

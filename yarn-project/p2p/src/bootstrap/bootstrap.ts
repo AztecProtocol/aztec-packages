@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
@@ -18,12 +18,15 @@ import { convertToMultiaddr, getPeerIdPrivateKey, getPublicIp } from '../util.js
 export class BootstrapNode implements P2PBootstrapApi {
   private node?: Discv5EventEmitter = undefined;
   private peerId?: PeerId;
+  private logger: Logger;
 
   constructor(
     private store: AztecAsyncKVStore,
     private telemetry: TelemetryClient,
-    private logger = createLogger('p2p:bootstrap'),
-  ) {}
+    loggerFactory: LoggerFactory,
+  ) {
+    this.logger = loggerFactory.createLogger('p2p:bootstrap_node');
+  }
 
   /**
    * Starts the bootstrap node.
@@ -65,7 +68,7 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
-    const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
+    const metricsRegistry = new OtelMetricsAdapter(this.telemetry, this.logger.createChild('otel-adapter'));
     this.node = Discv5.create({
       enr: ourEnr,
       peerId,

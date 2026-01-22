@@ -3,11 +3,9 @@
 // 2. Parse all Received Tx logs, extracting the timestamp and peer ID
 // 3. Compute the delay for each peer relative to the timestamp of the sent message
 // 4. Print the delays
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import * as fs from 'fs';
-
-const logger = createLogger('parse_log_file');
 
 interface LogEvent {
   timestamp: number; // in milliseconds (from start of log)
@@ -40,7 +38,7 @@ function getTimestamp(line: string): number | null {
  * Parses a single log line. If the line contains an "Received tx" event,
  * it extracts the timestamp and the peer ID.
  */
-function parseReceivedTx(line: string): LogEvent | null {
+function parseReceivedTx(line: string, logger: Logger): LogEvent | null {
   if (!line.includes('Received tx')) {
     return null;
   }
@@ -67,7 +65,7 @@ function parseReceivedTx(line: string): LogEvent | null {
   };
 }
 
-function parseSentMessage(line: string): number | null {
+function parseSentMessage(line: string, logger: Logger): number | null {
   if (!line.includes('Sent message')) {
     return null;
   }
@@ -86,7 +84,7 @@ function parseSentMessage(line: string): number | null {
  * propagation delay for each peer relative to the earliest event, and prints
  * some benchmark statistics.
  */
-function processLogFile(logFilePath: string, outputJsonPath?: string) {
+function processLogFile(logFilePath: string, logger: Logger, outputJsonPath?: string) {
   const content = fs.readFileSync(logFilePath, 'utf-8');
   const lines = content.split('\n');
   const events: LogEvent[] = [];
@@ -98,14 +96,14 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
     // Look for Sent message log
     if (line.includes('Sent message')) {
       messageSent = true;
-      t0 = parseSentMessage(line)!;
+      t0 = parseSentMessage(line, logger)!;
     }
 
     if (!messageSent) {
       continue;
     }
     // Once we see the sent message log, we begin parsing Received tx logs
-    const event = parseReceivedTx(line);
+    const event = parseReceivedTx(line, logger);
     if (event) {
       events.push(event);
     }
@@ -166,10 +164,11 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
 }
 
 // Get the log file path and optional output JSON path from command-line arguments
+const logger = createLogger('parse_log_file');
 const [logFilePath, outputJsonPath] = process.argv.slice(2);
 if (!logFilePath) {
   logger.error('Usage: ts-node parse_log_file.ts <logFilePath> [outputJsonPath]');
   process.exit(1);
 }
 
-processLogFile(logFilePath, outputJsonPath);
+processLogFile(logFilePath, logger, outputJsonPath);

@@ -1,7 +1,7 @@
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -77,7 +77,7 @@ export class ReqResp implements ReqRespInterface {
     config: P2PReqRespConfig,
     private libp2p: Libp2p,
     private peerScoring: PeerScoring,
-    private logger = createLogger('p2p:reqresp'),
+    private logger: Logger,
     rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
@@ -89,11 +89,11 @@ export class ReqResp implements ReqRespInterface {
     this.connectionSampler = new ConnectionSampler(
       libp2p,
       new RandomSampler(),
-      createLogger(`${logger.module}:connection-sampler`),
+      logger.createChild('connection-sampler'),
       config,
     );
 
-    this.snappyTransform = new SnappyTransform();
+    this.snappyTransform = new SnappyTransform(logger.createChild('snappy'));
     this.metrics = new ReqRespMetrics(telemetryClient);
   }
 
@@ -222,8 +222,8 @@ export class ReqResp implements ReqRespInterface {
         this.connectionSampler,
         requests.length,
         maxPeers,
+        this.logger.createChild('batch-connection-sampler'),
         compactArray([pinnedPeer]), // Exclude pinned peer from sampling, we will forcefully send all requests to it
-        createLogger(`${this.logger.module}:batch-connection-sampler`),
       );
 
       if (batchSampler.activePeerCount === 0 && !pinnedPeer) {

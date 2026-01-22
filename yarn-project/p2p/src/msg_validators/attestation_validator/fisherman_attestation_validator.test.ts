@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -23,11 +24,12 @@ describe('FishermanAttestationValidator', () => {
   let validator: FishermanAttestationValidator;
   let proposer: Secp256k1Signer;
   let attester: Secp256k1Signer;
+  const logger = createLogger('p2p:test:fisherman-attestation-validator');
 
   beforeEach(() => {
     epochCache = mock<EpochCache>();
     attestationPool = mock<AttestationPool>();
-    validator = new FishermanAttestationValidator(epochCache, attestationPool, getTelemetryClient());
+    validator = new FishermanAttestationValidator(epochCache, attestationPool, logger, getTelemetryClient());
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });

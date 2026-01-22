@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ChainConfig } from '@aztec/stdlib/config';
@@ -17,8 +18,8 @@ export class NodeRpcTxSource implements TxSource {
     private readonly info: string,
   ) {}
 
-  public static fromUrl(nodeUrl: string, versions: ComponentsVersions): NodeRpcTxSource {
-    const client = createAztecNodeClient(nodeUrl, versions, makeTracedFetch([1, 2, 3], false));
+  public static fromUrl(nodeUrl: string, versions: ComponentsVersions, logger: Logger): NodeRpcTxSource {
+    const client = createAztecNodeClient(nodeUrl, versions, makeTracedFetch([1, 2, 3], false, logger));
     return new NodeRpcTxSource(client, nodeUrl);
   }
 
@@ -31,7 +32,7 @@ export class NodeRpcTxSource implements TxSource {
   }
 }
 
-export function createNodeRpcTxSources(urls: string[], chainConfig: ChainConfig) {
+export function createNodeRpcTxSources(urls: string[], chainConfig: ChainConfig, logger: Logger) {
   const versions = getComponentsVersionsFromConfig(chainConfig, protocolContractsHash, getVKTreeRoot());
-  return urls.map(url => NodeRpcTxSource.fromUrl(url, versions));
+  return urls.map(url => NodeRpcTxSource.fromUrl(url, versions, logger));
 }

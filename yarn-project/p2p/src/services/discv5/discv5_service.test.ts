@@ -1,4 +1,4 @@
-import { addLogNameHandler } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -50,14 +50,12 @@ describe('Discv5Service', () => {
     ...emptyChainConfig,
   };
 
-  beforeAll(() => {
-    addLogNameHandler(name => (name === 'p2p:discv5_service' ? `${name}:${basePort}` : name));
-  });
-
   beforeEach(async () => {
     const telemetryClient = getTelemetryClient();
-    store = await openTmpStore('test');
-    bootNode = new BootstrapNode(store, telemetryClient);
+    const logger = createLogger('p2p:test:discv5');
+    store = await openTmpStore('test', logger);
+    const bootNodeLogger = createLogger('p2p:test:bootstrap');
+    bootNode = new BootstrapNode(store, telemetryClient, bootNodeLogger);
     await bootNode.start(bootnodeConfig);
     bootNodePeerId = bootNode.getPeerId();
   });
@@ -368,6 +366,7 @@ describe('Discv5Service', () => {
       l2QueueSize: 100,
       ...overrides,
     };
-    return new DiscV5Service(peerId, config, testPackageVersion, undefined, undefined, overrides);
+    const logger = createLogger('p2p:test:discv5', { actor: `${port}` });
+    return new DiscV5Service(peerId, config, testPackageVersion, undefined, logger, overrides);
   };
 });

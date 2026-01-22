@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -43,6 +44,7 @@ export function createTxMessageValidators(
   contractDataSource: ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   txsPermitted: boolean,
+  logger: Logger,
   allowedInSetup: AllowedElement[] = [],
 ): Record<string, MessageValidator>[] {
   const merkleTree = worldStateSynchronizer.getCommitted();
@@ -50,37 +52,46 @@ export function createTxMessageValidators(
   return [
     {
       txsPermittedValidator: {
-        validator: new TxPermittedValidator(txsPermitted),
+        validator: new TxPermittedValidator(txsPermitted, logger.createChild('tx-permitted-validator')),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       dataValidator: {
-        validator: new DataTxValidator(),
+        validator: new DataTxValidator(logger.createChild('data-validator')),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       metadataValidator: {
-        validator: new MetadataTxValidator({
-          l1ChainId: new Fr(l1ChainId),
-          rollupVersion: new Fr(rollupVersion),
-          protocolContractsHash,
-          vkTreeRoot: getVKTreeRoot(),
-        }),
+        validator: new MetadataTxValidator(
+          {
+            l1ChainId: new Fr(l1ChainId),
+            rollupVersion: new Fr(rollupVersion),
+            protocolContractsHash,
+            vkTreeRoot: getVKTreeRoot(),
+          },
+          logger.createChild('metadata-validator'),
+        ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       timestampValidator: {
-        validator: new TimestampTxValidator<Tx>({
-          timestamp,
-          blockNumber,
-        }),
+        validator: new TimestampTxValidator<Tx>(
+          {
+            timestamp,
+            blockNumber,
+          },
+          logger.createChild('timestamp-validator'),
+        ),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       doubleSpendValidator: {
-        validator: new DoubleSpendTxValidator({
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
+        validator: new DoubleSpendTxValidator(
+          {
+            nullifiersExist: async (nullifiers: Buffer[]) => {
+              const merkleTree = worldStateSynchronizer.getCommitted();
+              const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+              return indices.map(index => index !== undefined);
+            },
           },
-        }),
+          logger.createChild('double-spend-validator'),
+        ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       gasValidator: {
@@ -88,21 +99,30 @@ export function createTxMessageValidators(
           new DatabasePublicStateSource(merkleTree),
           ProtocolContractAddress.FeeJuice,
           gasFees,
+          logger.createChild('gas-validator'),
         ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       phasesValidator: {
-        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp),
+        validator: new PhasesTxValidator(
+          contractDataSource,
+          allowedInSetup,
+          timestamp,
+          logger.createChild('phases-validator'),
+        ),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       blockHeaderValidator: {
-        validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree)),
+        validator: new BlockHeaderTxValidator(
+          new ArchiveCache(merkleTree),
+          logger.createChild('block-header-validator'),
+        ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
     },
     {
       proofValidator: {
-        validator: new TxProofValidator(proofVerifier),
+        validator: new TxProofValidator(proofVerifier, logger.createChild('proof-validator')),
         severity: PeerErrorSeverity.MidToleranceError,
       },
     },

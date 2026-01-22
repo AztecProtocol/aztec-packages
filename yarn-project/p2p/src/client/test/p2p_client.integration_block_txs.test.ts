@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -36,6 +36,7 @@ describe('p2p client integration block txs protocol ', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
 
   let logger: Logger;
+  let loggerFactory: LoggerFactory;
   let p2pBaseConfig: P2PConfig;
 
   let clients: P2PClient[] = [];
@@ -51,7 +52,8 @@ describe('p2p client integration block txs protocol ', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
 
-    logger = createLogger('p2p:test:integration');
+    loggerFactory = createLoggerFactory({ actor: 'p2p:test:block_txs' });
+    logger = loggerFactory.createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
@@ -90,6 +92,7 @@ describe('p2p client integration block txs protocol ', () => {
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
 

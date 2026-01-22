@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 import { P2PClient, type PeerId, type TxPool, TxProvider } from '@aztec/p2p';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
@@ -10,6 +11,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { TxCollection } from './tx_collection/tx_collection.js';
 import type { TxProviderInstrumentation } from './tx_provider_instrumentation.js';
+
+const logger = createLogger('p2p:test:tx-provider');
 
 type TxResults = { txs: Tx[]; missingTxs: TxHash[] };
 
@@ -101,7 +104,7 @@ describe('TxProvider', () => {
       return Promise.resolve(requestedP2PTxs);
     });
 
-    txProvider = new TestTxProvider(txCollection, txPool, txValidator);
+    txProvider = new TestTxProvider(txCollection, txPool, txValidator, logger);
   });
 
   it('can be created', () => {

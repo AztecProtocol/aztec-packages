@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -25,8 +25,8 @@ export class BatchConnectionSampler {
     private readonly connectionSampler: ConnectionSampler,
     batchSize: number,
     maxPeers: number,
+    private readonly logger: Logger,
     exclude?: PeerId[],
-    private readonly logger = createLogger('p2p:reqresp:batch-connection-sampler'),
   ) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');

@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { mockTxForRollup } from '@aztec/stdlib/testing';
 import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult } from '@aztec/stdlib/tx';
 
@@ -10,6 +11,7 @@ import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_valid
 describe('BlockHeaderTxValidator', () => {
   let txValidator: BlockHeaderTxValidator<AnyTx>;
   let archiveSource: MockProxy<ArchiveSource>;
+  const logger = createLogger('p2p:test:block-header-validator');
 
   beforeEach(() => {
     archiveSource = mock<ArchiveSource>({
@@ -17,7 +19,7 @@ describe('BlockHeaderTxValidator', () => {
         return Promise.resolve([undefined]);
       }),
     });
-    txValidator = new BlockHeaderTxValidator(archiveSource);
+    txValidator = new BlockHeaderTxValidator(archiveSource, logger);
   });
 
   it('rejects tx with invalid block header', async () => {

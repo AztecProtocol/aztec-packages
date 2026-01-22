@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { MakeCheckpointProposalOptions } from '@aztec/stdlib/testing';
 import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
@@ -11,6 +12,8 @@ import { mock } from 'jest-mock-extended';
 
 import { CheckpointProposalValidator } from './checkpoint_proposal_validator.js';
 import { sharedProposalValidatorTests } from './proposal_validator_test_suite.js';
+
+const logger = createLogger('p2p:test:checkpoint-proposal-validator');
 
 describe('CheckpointProposalValidator', () => {
   /**
@@ -50,7 +53,7 @@ describe('CheckpointProposalValidator', () => {
   };
 
   sharedProposalValidatorTests({
-    validatorFactory: (epochCache, opts) => new CheckpointProposalValidator(epochCache, opts),
+    validatorFactory: (epochCache, opts) => new CheckpointProposalValidator(epochCache, opts, logger),
     makeProposal: makeCheckpointProposalAdapter,
     makeHeader: (_epochNumber: number | bigint, slotNumber: number | bigint, _blockNumber: number | bigint) =>
       makeCheckpointHeader(0, { slotNumber: SlotNumber(Number(slotNumber)) }),

@@ -1,8 +1,11 @@
+import { createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType } from '@aztec/stdlib/p2p';
 
 import { compressSync, uncompressSync } from 'snappy';
 
 import { SnappyTransform, readSnappyPreamble } from './encoding.js';
+
+const logger = createLogger('p2p:test:encoding');
 
 describe('readSnappyPreamble', () => {
   describe('basic varint decoding', () => {
@@ -222,7 +225,7 @@ describe('SnappyTransform', () => {
       let transform: SnappyTransform;
 
       beforeEach(() => {
-        transform = new SnappyTransform();
+        transform = new SnappyTransform(logger);
       });
 
       it('should accept tx payload within size limit', () => {
@@ -319,7 +322,7 @@ describe('SnappyTransform', () => {
           [TopicType.block_proposal]: 500, // 500kb
           [TopicType.checkpoint_proposal]: 500, // 500kb
         };
-        const transform = new SnappyTransform(customMaxSizes);
+        const transform = new SnappyTransform(logger, customMaxSizes);
 
         // Test tx at boundary
         const txData = Buffer.alloc(90 * 1024, 'a'); // 90kb
@@ -342,7 +345,7 @@ describe('SnappyTransform', () => {
           [TopicType.checkpoint_proposal]: 500,
         };
         const customDefaultMaxSize = 200; // 200kb
-        const transform = new SnappyTransform(customMaxSizes, customDefaultMaxSize);
+        const transform = new SnappyTransform(logger, customMaxSizes, customDefaultMaxSize);
 
         // Test undefined topic with custom default
         const data = Buffer.alloc(150 * 1024, 'a'); // 150kb
@@ -362,7 +365,7 @@ describe('SnappyTransform', () => {
       let transform: SnappyTransform;
 
       beforeEach(() => {
-        transform = new SnappyTransform();
+        transform = new SnappyTransform(logger);
       });
 
       it('should accept payload at exact limit (512kb for tx)', () => {
@@ -399,7 +402,7 @@ describe('SnappyTransform', () => {
     let transform: SnappyTransform;
 
     beforeEach(() => {
-      transform = new SnappyTransform();
+      transform = new SnappyTransform(logger);
     });
 
     it('should compress and decompress data correctly', () => {
@@ -449,7 +452,7 @@ describe('SnappyTransform', () => {
     let transform: SnappyTransform;
 
     beforeEach(() => {
-      transform = new SnappyTransform();
+      transform = new SnappyTransform(logger);
     });
 
     it('should parse topic string and apply correct size limit', () => {
@@ -497,7 +500,7 @@ describe('SnappyTransform', () => {
     let transform: SnappyTransform;
 
     beforeEach(() => {
-      transform = new SnappyTransform();
+      transform = new SnappyTransform(logger);
     });
 
     it('should compress data via outboundTransform', () => {

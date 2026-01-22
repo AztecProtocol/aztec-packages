@@ -1,6 +1,7 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -111,7 +112,7 @@ describe('TxCollection', () => {
     txPool = mock<TxPool>();
     txPool.getTxsByHash.mockResolvedValue([]);
 
-    dateProvider = new TestDateProvider();
+    dateProvider = new TestDateProvider(createLogger('tx-collection:test'));
 
     constants = {
       ...EmptyL1RollupConstants,
@@ -132,7 +133,15 @@ describe('TxCollection', () => {
     block = await makeL2Block();
     deadline = new Date(dateProvider.now() + 60 * 60 * 1000);
 
-    txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+    txCollection = new TestTxCollection(
+      reqResp,
+      nodes,
+      constants,
+      txPool,
+      config,
+      createLogger('p2p:test:tx-collection'),
+      dateProvider,
+    );
   });
 
   afterEach(async () => {
@@ -222,7 +231,15 @@ describe('TxCollection', () => {
     });
 
     it('collects missing txs directly via reqresp if there are no nodes configured', async () => {
-      txCollection = new TestTxCollection(reqResp, [], constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(
+        reqResp,
+        [],
+        constants,
+        txPool,
+        config,
+        createLogger('p2p:test:tx-collection'),
+        dateProvider,
+      );
       txCollection.startCollecting(block, txHashes);
 
       setReqRespTxs([txs[0]]);
@@ -252,7 +269,15 @@ describe('TxCollection', () => {
 
     it('does not request missing txs being collected via fast collection', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: false };
-      txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(
+        reqResp,
+        nodes,
+        constants,
+        txPool,
+        config,
+        createLogger('p2p:test:tx-collection'),
+        dateProvider,
+      );
 
       const innerCollectFastPromise = promiseWithResolvers<void>();
       jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
@@ -272,7 +297,15 @@ describe('TxCollection', () => {
 
     it('pauses slow collection if fast collection is ongoing', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(
+        reqResp,
+        nodes,
+        constants,
+        txPool,
+        config,
+        createLogger('p2p:test:tx-collection'),
+        dateProvider,
+      );
 
       const innerCollectFastPromise = promiseWithResolvers<void>();
       jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
@@ -293,7 +326,15 @@ describe('TxCollection', () => {
 
     it('stops collecting a tx when found via fast collection', async () => {
       config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(reqResp, nodes, constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(
+        reqResp,
+        nodes,
+        constants,
+        txPool,
+        config,
+        createLogger('p2p:test:tx-collection'),
+        dateProvider,
+      );
 
       setNodeTxs(nodes[0], txs);
       txCollection.startCollecting(block, txHashes);
@@ -412,7 +453,15 @@ describe('TxCollection', () => {
     });
 
     it('collects via reqresp if no nodes are configured', async () => {
-      txCollection = new TestTxCollection(reqResp, [], constants, txPool, config, dateProvider);
+      txCollection = new TestTxCollection(
+        reqResp,
+        [],
+        constants,
+        txPool,
+        config,
+        createLogger('p2p:test:tx-collection'),
+        dateProvider,
+      );
       setReqRespTxs(txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expectReqRespToHaveBeenCalledWith(txHashes);

@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
@@ -13,10 +14,11 @@ describe('EvictionManager', () => {
   let evictionManager: EvictionManager;
   let mockRule1: MockProxy<EvictionRule>;
   let mockRule2: MockProxy<EvictionRule>;
+  const logger = createLogger('p2p:test:eviction-manager');
 
   beforeEach(() => {
     txPool = mock();
-    evictionManager = new EvictionManager(txPool);
+    evictionManager = new EvictionManager(txPool, logger);
     mockRule1 = mock<EvictionRule>({ name: 'rule1' });
     mockRule2 = mock<EvictionRule>({ name: 'rule2' });
   });

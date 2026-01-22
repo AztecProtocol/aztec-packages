@@ -4,6 +4,8 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import { GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockSource } from '@aztec/stdlib/block';
@@ -23,6 +25,8 @@ import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
 
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import type { TxPool } from './tx_pool.js';
+
+const logger = createLogger('p2p:test:tx-pool-bench');
 
 const TEST_TIMEOUT = 150_000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -147,12 +151,17 @@ describe('TxPool: Benchmarks', () => {
 
   beforeEach(async () => {
     dataDirectory = await mkdtemp(path.join(tmpdir(), 'tx-bench-'));
-    store = await createStore('tx', 1, {
-      dataDirectory,
-      dataStoreMapSizeKb: 10 * 1024 * 1024,
-    });
+    store = await createStore(
+      'tx',
+      1,
+      {
+        dataDirectory,
+        dataStoreMapSizeKb: 10 * 1024 * 1024,
+      },
+      logger,
+    );
 
-    ws = await NativeWorldStateService.tmp();
+    ws = await NativeWorldStateService.tmp(EthAddress.ZERO, true, [], logger);
     const l2 = mock<L2BlockSource & L1ToL2MessageSource>({
       syncImmediate: () => Promise.resolve(),
       getProvenBlockNumber: () => Promise.resolve(BlockNumber.ZERO),
@@ -170,9 +179,9 @@ describe('TxPool: Benchmarks', () => {
         });
       },
     });
-    wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings));
+    wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings), logger);
     await wsSync.start();
-    pool = new AztecKVTxPool(store, store, wsSync);
+    pool = new AztecKVTxPool(store, store, wsSync, logger);
   });
 
   afterEach(async () => {

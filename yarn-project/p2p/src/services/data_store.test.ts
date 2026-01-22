@@ -1,5 +1,6 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { all } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
@@ -20,12 +21,14 @@ import { AztecDatastore } from './data_store.js';
 
 const CLEANUP_TIMEOUT = 120_000;
 
+const logger = createLogger('p2p:test:data-store');
+
 describe('AztecDatastore with AztecLmdbStore', () => {
   let datastore: AztecDatastore;
   let aztecStore: AztecAsyncKVStore;
 
   beforeEach(async () => {
-    aztecStore = await openTmpStore('test');
+    aztecStore = await openTmpStore('test', logger);
     datastore = new AztecDatastore(aztecStore);
   });
 
@@ -137,7 +140,7 @@ describe('AztecDatastore with AztecLmdbStore', () => {
   describe('interface-datastore compliance tests', () => {
     interfaceDatastoreTests({
       async setup() {
-        const _aztecStore = await openTmpStore('test');
+        const _aztecStore = await openTmpStore('test', logger);
         const _datastore = new AztecDatastore(_aztecStore);
         return _datastore;
       },

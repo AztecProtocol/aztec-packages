@@ -1,6 +1,6 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
 import { sha256 } from '@aztec/foundation/crypto/sha256';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
@@ -67,9 +67,9 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
  */
 export class SnappyTransform implements DataTransform {
   constructor(
+    private logger: Logger,
     private maxSizesKb: Record<TopicType, number> = DefaultMaxSizesKb,
     private defaultMaxSizeKb: number = 10 * 1024,
-    private logger = createLogger('p2p:snappy-transform'),
   ) {}
 
   // Topic string included to satisfy DataTransform interface

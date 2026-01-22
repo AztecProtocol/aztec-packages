@@ -1,6 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
@@ -12,10 +13,11 @@ import { mockCheckpointAttestation } from './mocks.js';
 describe('KV Attestation Pool', () => {
   let kvAttestationPool: KvAttestationPool;
   let store: AztecAsyncKVStore;
+  const logger = createLogger('p2p:test:kv-attestation-pool');
 
   beforeEach(async () => {
-    store = await openTmpStore('test');
-    kvAttestationPool = new KvAttestationPool(store);
+    store = await openTmpStore('test', logger);
+    kvAttestationPool = new KvAttestationPool(store, logger);
   });
 
   afterEach(() => store.close());

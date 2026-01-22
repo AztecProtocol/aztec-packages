@@ -6,6 +6,7 @@ import {
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { LogHash, ScopedLogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
@@ -64,9 +65,10 @@ const mockTxsWithCCLog = (numTxs: number) =>
 
 describe('TxDataValidator', () => {
   let validator: DataTxValidator;
+  const logger = createLogger('p2p:test:data-validator');
 
   beforeEach(() => {
-    validator = new DataTxValidator();
+    validator = new DataTxValidator(logger);
   });
 
   const expectValid = async (txs: Tx[]) => {

@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { GasFees } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
@@ -12,6 +13,7 @@ import { NullifierConflictPreAddRule } from './nullifier_conflict_pre_add_rule.j
 describe('NullifierConflictPreAddRule', () => {
   let poolAccess: MockProxy<PreAddPoolAccess>;
   let rule: NullifierConflictPreAddRule;
+  const logger = createLogger('p2p:test:nullifier-conflict');
 
   // Tx type alias for cleaner type annotations
   type MockTx = Awaited<ReturnType<typeof mockTx>>;
@@ -55,7 +57,7 @@ describe('NullifierConflictPreAddRule', () => {
     poolAccess.getPendingTxByHash.mockResolvedValue(undefined);
     poolAccess.getTxPriority.mockImplementation((tx: Tx) => getPendingTxPriority(tx));
 
-    rule = new NullifierConflictPreAddRule();
+    rule = new NullifierConflictPreAddRule(logger);
   });
 
   describe('check method', () => {

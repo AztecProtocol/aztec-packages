@@ -1,6 +1,6 @@
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunk } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { boundInclusive } from '@aztec/foundation/number';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -33,8 +33,8 @@ export class SlowTxCollection {
     private fastCollection: Pick<FastTxCollection, 'getFastCollectionRequests'>,
     private constants: L1RollupConstants,
     private config: TxCollectionConfig,
+    private log: Logger,
     private dateProvider: DateProvider = new DateProvider(),
-    private log: Logger = createLogger('p2p:tx_collection_service'),
   ) {
     this.nodesSlowCollectionLoops = this.nodes.map(
       node =>

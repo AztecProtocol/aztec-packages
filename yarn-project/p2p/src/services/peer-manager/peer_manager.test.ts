@@ -2020,7 +2020,8 @@ describe('PeerManager', () => {
       preferredPeers: preferredPeers ? preferredPeers.map(peer => peer.encodeTxt()) : [],
       maxPeerCount: maxPeerCount,
     };
-    peerScoring = new PeerScoring(config);
+    const logger = createLogger(name);
+    peerScoring = new PeerScoring(config, logger);
     const mockWorldStateSynchronizer = {
       status: () =>
         Promise.resolve({
@@ -2038,8 +2039,8 @@ describe('PeerManager', () => {
       node,
       mockPeerDiscoveryService,
       config,
+      logger,
       getTelemetryClient(),
-      createLogger(name),
       peerScoring,
       mockReqResp,
       mockWorldStateSynchronizer as WorldStateSynchronizer,

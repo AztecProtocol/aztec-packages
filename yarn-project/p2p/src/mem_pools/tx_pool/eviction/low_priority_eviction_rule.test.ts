@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -10,6 +11,7 @@ describe('LowPriorityEvictionRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
   let rule: LowPriorityEvictionRule;
   let config: LowPriorityEvictionConfig;
+  const logger = createLogger('p2p:test:low-priority-eviction');
 
   beforeEach(() => {
     txPool = mock();
@@ -20,7 +22,7 @@ describe('LowPriorityEvictionRule', () => {
     config = {
       maxPoolSize: 100,
     };
-    rule = new LowPriorityEvictionRule(config);
+    rule = new LowPriorityEvictionRule(config, logger);
   });
 
   describe('constructor and configuration', () => {

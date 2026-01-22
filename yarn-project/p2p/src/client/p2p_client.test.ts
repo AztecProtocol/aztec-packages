@@ -2,6 +2,7 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -60,18 +61,31 @@ describe('P2P Client', () => {
     txCollection = mock<TxCollection>();
     txCollection.getConstants.mockReturnValue(l1Constants);
 
-    attestationPool = new InMemoryAttestationPool();
+    attestationPool = new InMemoryAttestationPool(logger);
 
     blockSource = new MockL2BlockSource();
     await blockSource.createBlocks(100);
 
     mempools = { txPool, attestationPool };
-    kvStore = await openTmpStore('test');
+    kvStore = await openTmpStore('test', logger);
     client = createClient();
   });
 
+  const logger = createLogger('p2p:test');
+
   const createClient = (config: Partial<P2PConfig> = {}) =>
-    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection, config);
+    new P2PClient(
+      P2PClientType.Full,
+      kvStore,
+      blockSource,
+      mempools,
+      p2pService,
+      txCollection,
+      config,
+      undefined,
+      undefined,
+      logger,
+    );
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -534,9 +548,10 @@ describe('P2P Client', () => {
       });
 
       const realTxPool = new AztecKVTxPool(
-        await openTmpStore('p2p'),
-        await openTmpStore('archive'),
+        await openTmpStore('p2p', logger),
+        await openTmpStore('archive', logger),
         worldState,
+        logger,
         undefined,
         { maxPendingTxCount: 3 },
       );
@@ -544,12 +559,15 @@ describe('P2P Client', () => {
       const realMempools = { txPool: realTxPool, attestationPool };
       const realClient = new P2PClient(
         P2PClientType.Full,
-        await openTmpStore('test-real'),
+        await openTmpStore('test-real', logger),
         blockSource,
         realMempools,
         p2pService,
         txCollection,
         {},
+        undefined,
+        undefined,
+        logger,
       );
 
       let nextTxSeed = 1;

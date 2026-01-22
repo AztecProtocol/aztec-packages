@@ -1,6 +1,6 @@
 import { findIndexInSortedArray, insertIntoSortedArray } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
@@ -24,9 +24,10 @@ import {
 export class InvalidTxsAfterReorgRule implements EvictionRule {
   public readonly name = 'InvalidTxsAfterReorg';
 
-  private log = createLogger('p2p:mempool:tx_pool:invalid_txs_after_reorg_rule');
-
-  public constructor(private worldState: WorldStateSynchronizer) {}
+  public constructor(
+    private worldState: WorldStateSynchronizer,
+    private log: Logger,
+  ) {}
 
   async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     if (context.event !== EvictionEvent.CHAIN_PRUNED) {

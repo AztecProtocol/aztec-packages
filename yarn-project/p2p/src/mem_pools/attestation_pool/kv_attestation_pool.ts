@@ -1,7 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import {
   BlockProposal,
@@ -34,8 +34,8 @@ export class KvAttestationPool implements AttestationPool {
 
   constructor(
     private store: AztecAsyncKVStore,
+    private log: Logger,
     telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('aztec:attestation_pool'),
   ) {
     this.proposals = store.openMap('proposals');
 

@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -49,7 +49,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private config: P2PConfig,
     private readonly packageVersion: string,
     telemetry: TelemetryClient = getTelemetryClient(),
-    private logger = createLogger('p2p:discv5_service'),
+    private logger: Logger,
     configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
@@ -87,7 +87,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       this.packageVersion,
     ));
 
-    const metricsRegistry = new OtelMetricsAdapter(telemetry);
+    const metricsRegistry = new OtelMetricsAdapter(telemetry, this.logger.createChild('otel-adapter'));
     this.discv5 = Discv5.create({
       enr: this.enr,
       peerId,

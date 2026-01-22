@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
@@ -9,13 +10,17 @@ describe('TimestampTxValidator', () => {
   let timestamp: bigint;
   let seed = 1;
   let validator: TimestampTxValidator<AnyTx>;
+  const logger = createLogger('p2p:test:timestamp-validator');
 
   const setValidatorAtBlock = (blockNumber: BlockNumber) => {
     timestamp = 10n;
-    validator = new TimestampTxValidator({
-      timestamp,
-      blockNumber,
-    });
+    validator = new TimestampTxValidator(
+      {
+        timestamp,
+        blockNumber,
+      },
+      logger,
+    );
   };
 
   beforeEach(() => {

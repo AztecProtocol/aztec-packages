@@ -7,7 +7,7 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
-import { createLogger } from '@aztec/foundation/log';
+import { type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -135,7 +135,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
-    logger = createLogger('p2p:test:libp2p_service'),
+    loggerFactory: LoggerFactory,
     disableTxValidation = true,
   ) {
     super(
@@ -151,7 +151,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       proofVerifier,
       worldStateSynchronizer,
       telemetry,
-      logger,
+      loggerFactory,
     );
     this.disableTxValidation = disableTxValidation;
   }
@@ -217,15 +217,15 @@ process.on('message', async msg => {
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
-      const kvStore = await openTmpStore(`test-${clientIndex}`);
-      const logger = createLogger(`p2p:${clientIndex}`);
+      const loggerFactory = createLoggerFactory({ actor: `bench-${clientIndex}` });
+      const kvStore = await openTmpStore(`test-${clientIndex}`, loggerFactory);
       const telemetry = getTelemetryClient();
 
       const deps = {
         txPool,
         attestationPool,
         store: kvStore,
-        logger,
+        loggerFactory,
       };
 
       const client = await createP2PClient(
@@ -256,7 +256,7 @@ process.on('message', async msg => {
         proofVerifier,
         worldState,
         telemetry,
-        logger,
+        loggerFactory,
         true, // disable validation
       );
 
@@ -265,9 +265,10 @@ process.on('message', async msg => {
 
       await client.start();
       // Wait until the client is ready
+      const logger = loggerFactory.createLogger(`p2p:testbench`);
       for (let i = 0; i < 100; i++) {
         const isReady = client.isReady();
-        logger.debug(`Client ${clientIndex} isReady: ${isReady}`);
+        logger.debug(`Client ${clientIndex} ${isReady ? 'is ready' : 'not ready yet'}`);
         if (isReady) {
           break;
         }

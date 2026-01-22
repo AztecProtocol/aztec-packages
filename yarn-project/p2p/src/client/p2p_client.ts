@@ -1,6 +1,6 @@
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -93,7 +93,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     config: Partial<P2PConfig> = {},
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
-    private log = createLogger('p2p'),
+    private log: Logger,
   ) {
     super(telemetry, 'P2PClient');
 
@@ -288,13 +288,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private initBlockStream(startingBlock?: BlockNumber) {
     if (!this.blockStream) {
       const { blockRequestBatchSize: batchSize, blockCheckIntervalMS: pollIntervalMS } = this.config;
-      this.blockStream = new L2BlockStream(
-        this.l2BlockSource,
-        this,
-        this,
-        createLogger(`${this.log.module}:l2-block-stream`),
-        { batchSize, pollIntervalMS, startingBlock },
-      );
+      this.blockStream = new L2BlockStream(this.l2BlockSource, this, this, this.log.createChild('l2-block-stream'), {
+        batchSize,
+        pollIntervalMS,
+        startingBlock,
+      });
     }
   }
 

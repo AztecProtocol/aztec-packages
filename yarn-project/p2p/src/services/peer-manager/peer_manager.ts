@@ -2,7 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -82,8 +82,8 @@ export class PeerManager implements PeerManagerInterface {
     private libP2PNode: FullLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
+    private logger: Logger,
     telemetryClient: TelemetryClient,
-    private logger = createLogger('p2p:peer-manager'),
     private peerScoring: PeerScoring,
     private reqresp: ReqResp,
     private readonly worldStateSynchronizer: WorldStateSynchronizer,

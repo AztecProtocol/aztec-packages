@@ -1,7 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -114,6 +114,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   epochCache: EpochCache,
   mempools: MemPools,
   telemetry: TelemetryClient,
+  loggerFactory: LoggerFactory,
   port: number = 0,
   peerId?: PeerId,
   chainConfig: ChainConfig = emptyChainConfig,
@@ -130,23 +131,25 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
-  const discoveryService = new DiscV5Service(peerId, config, 'test-reqresp-node', telemetry);
+  const discv5Logger = loggerFactory.createLogger('p2p:test:discv5');
+  const discoveryService = new DiscV5Service(peerId, config, 'test-reqresp-node', telemetry, discv5Logger);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
 
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
   // Duplicated setup code from Libp2pService.new
-  const peerScoring = new PeerScoring(config);
-  const reqresp = new ReqResp(config, p2pNode, peerScoring);
+  const peerScoring = new PeerScoring(config, loggerFactory.createLogger('p2p:test:peer_scoring'));
+  const reqrespLogger = loggerFactory.createLogger('p2p:test:reqresp');
+  const reqresp = new ReqResp(config, p2pNode, peerScoring, reqrespLogger);
   const versions = getVersions(config);
   const protocolVersion = compressComponentVersions(versions);
   const peerManager = new PeerManager(
     p2pNode,
     discoveryService,
     config,
+    loggerFactory.createLogger(`p2p:peer_manager`),
     telemetry,
-    createLogger(`p2p:peer_manager`),
     peerScoring,
     reqresp,
     worldStateSynchronizer,
@@ -158,6 +161,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
+  const libp2pLogger = loggerFactory.createLogger('p2p:test:libp2p_service');
   return new LibP2PService<T>(
     clientType,
     config,
@@ -171,6 +175,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     proofVerifier,
     worldStateSynchronizer,
     telemetry,
+    libp2pLogger,
   );
 }
 
@@ -213,9 +218,10 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
 export const createNodes = (
   peerScoring: PeerScoring,
   numberOfNodes: number,
+  logger: Logger,
   rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
 ): Promise<ReqRespNode[]> => {
-  return timesParallel(numberOfNodes, () => createReqResp(peerScoring, rateLimits));
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring, logger, rateLimits));
 };
 
 export const startNodes = async (
@@ -236,6 +242,7 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 // Create a req resp node, exposing the underlying p2p node
 export const createReqResp = async (
   peerScoring: PeerScoring,
+  logger: Logger,
   rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
 ): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
@@ -245,7 +252,7 @@ export const createReqResp = async (
     dialTimeoutMs: 1000,
     p2pOptimisticNegotiation: false,
   };
-  const req = new ReqResp(config, p2p, peerScoring, undefined, rateLimits);
+  const req = new ReqResp(config, p2p, peerScoring, logger, rateLimits);
   return { p2p, req };
 };
 
@@ -333,8 +340,9 @@ export async function createBootstrapNode(
 
 async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
   // Open an ephemeral store that will only exist in memory
-  const store = await openTmpStore('bootstrap-node', true);
-  const bootstrapNode = new BootstrapNode(store, telemetry);
+  const loggerFactory = createLoggerFactory({ actor: `bootstrap-node:${config.p2pPort}` });
+  const store = await openTmpStore('bootstrap-node', loggerFactory, true);
+  const bootstrapNode = new BootstrapNode(store, telemetry, loggerFactory);
   await bootstrapNode.start(config);
   return bootstrapNode;
 }

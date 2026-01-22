@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import type { L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
@@ -26,7 +26,7 @@ export class TxProvider implements ITxProvider {
     private txCollection: TxCollection,
     private txPool: TxPool,
     private txValidator: Pick<P2PClient, 'validate'>,
-    private log: Logger = createLogger('p2p:tx-collector'),
+    private log: Logger,
     client: TelemetryClient = getTelemetryClient(),
   ) {
     this.instrumentation = new TxProviderInstrumentation(client, 'TxProvider');

@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -42,6 +42,7 @@ describe('p2p client integration message propagation', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
 
   let logger: Logger;
+  let loggerFactory: LoggerFactory;
   let p2pBaseConfig: P2PConfig;
 
   let clients: P2PClient[] = [];
@@ -53,7 +54,8 @@ describe('p2p client integration message propagation', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
 
-    logger = createLogger('p2p:test:integration');
+    loggerFactory = createLoggerFactory({ actor: 'p2p:test:message_propagation' });
+    logger = loggerFactory.createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
@@ -249,7 +251,7 @@ describe('p2p client integration message propagation', () => {
     async () => {
       // Create a set of nodes, client 1 will send a messages to other peers
       const numberOfNodes = 3;
-      const mockGossipSubNetwork = new MockGossipSubNetwork();
+      const mockGossipSubNetwork = new MockGossipSubNetwork(logger);
       // We start at rollup version 1
       const testConfig: MakeTestP2PClientOptions = {
         p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1, p2pDisableStatusHandshake: true },
@@ -259,6 +261,7 @@ describe('p2p client integration message propagation', () => {
         mockWorldState: worldState,
         alwaysTrueVerifier: true,
         logger,
+        loggerFactory,
         mockGossipSubNetwork,
       };
 
@@ -289,12 +292,12 @@ describe('p2p client integration message propagation', () => {
       const newEnrs = [client1.enr, client2.enr, client3.enr];
       const newClient2 = await makeTestP2PClient(client2.peerPrivateKey, client2.port, newEnrs, {
         ...testConfig,
-        logger: createLogger(`p2p:new-client-2`),
+        logger: loggerFactory.createLogger(`p2p:new-client-2`),
       });
       const newClient3 = await makeTestP2PClient(client3.peerPrivateKey, client3.port, newEnrs, {
         ...testConfig,
         p2pBaseConfig: newP2PConfig,
-        logger: createLogger(`p2p:new-client-3`),
+        logger: loggerFactory.createLogger(`p2p:new-client-3`),
       });
 
       const clients = [newClient2, newClient3];
@@ -395,7 +398,7 @@ describe('p2p client integration message propagation', () => {
 
   it('propagates messages using mocked gossip sub network', async () => {
     const numberOfNodes = 3;
-    const mockGossipSubNetwork = new MockGossipSubNetwork();
+    const mockGossipSubNetwork = new MockGossipSubNetwork(logger);
 
     const testConfig = {
       p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
@@ -405,6 +408,7 @@ describe('p2p client integration message propagation', () => {
       mockWorldState: worldState,
       alwaysTrueVerifier: true,
       mockGossipSubNetwork,
+      loggerFactory,
     };
 
     const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);

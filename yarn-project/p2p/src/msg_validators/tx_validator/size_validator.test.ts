@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -10,7 +11,7 @@ describe('TxDataValidator', () => {
   let validator: SizeTxValidator;
 
   beforeEach(() => {
-    validator = new SizeTxValidator();
+    validator = new SizeTxValidator(createLogger('test:size-tx-validator'));
   });
 
   it('allows transactions within the size limit', async () => {

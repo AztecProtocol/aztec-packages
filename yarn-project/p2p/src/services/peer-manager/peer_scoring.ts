@@ -1,5 +1,5 @@
 import { median } from '@aztec/foundation/collection';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   Attributes,
@@ -30,7 +30,7 @@ const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;
 
 export class PeerScoring {
-  private logger = createLogger('p2p:peer-scoring');
+  private logger: Logger;
   private scores: Map<string, number> = new Map();
   private lastUpdateTime: Map<string, number> = new Map();
   private decayInterval = 1000 * 60; // 1 minute
@@ -39,7 +39,8 @@ export class PeerScoring {
 
   private peerStateCounter: UpDownCounter;
 
-  constructor(config: P2PConfig, telemetry: TelemetryClient = getTelemetryClient()) {
+  constructor(config: P2PConfig, logger: Logger, telemetry: TelemetryClient = getTelemetryClient()) {
+    this.logger = logger;
     const orderedValues = config.peerPenaltyValues?.sort((a, b) => a - b);
     this.peerPenalties = {
       [PeerErrorSeverity.HighToleranceError]:

@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { boundInclusive } from '@aztec/foundation/number';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -28,8 +28,8 @@ export class FastTxCollection {
     private nodes: TxSource[],
     private txCollectionSink: TxCollectionSink,
     private config: TxCollectionConfig,
+    private log: Logger,
     private dateProvider: DateProvider = new DateProvider(),
-    private log: Logger = createLogger('p2p:tx_collection_service'),
   ) {}
 
   public async stop() {

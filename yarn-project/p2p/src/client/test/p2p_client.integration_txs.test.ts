@@ -1,7 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -32,6 +32,7 @@ describe('p2p client integration', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
 
   let logger: Logger;
+  let loggerFactory: LoggerFactory;
   let p2pBaseConfig: P2PConfig;
 
   let clients: P2PClient[] = [];
@@ -43,7 +44,8 @@ describe('p2p client integration', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
 
-    logger = createLogger('p2p:test:integration');
+    loggerFactory = createLoggerFactory({ actor: 'p2p:test:integration' });
+    logger = loggerFactory.createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
@@ -105,6 +107,7 @@ describe('p2p client integration', () => {
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1] = clients;
@@ -130,6 +133,7 @@ describe('p2p client integration', () => {
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1] = clients;
@@ -165,6 +169,7 @@ describe('p2p client integration', () => {
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1] = clients;
@@ -220,6 +225,7 @@ describe('p2p client integration', () => {
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1] = clients;
@@ -278,6 +284,7 @@ describe('p2p client integration', () => {
         mockWorldState: worldState,
         alwaysTrueVerifier: false,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1, client2] = clients;
@@ -314,6 +321,7 @@ describe('p2p client integration', () => {
         mockWorldState: worldState,
         alwaysTrueVerifier: true,
         logger,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1, client2] = clients;

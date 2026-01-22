@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -50,7 +50,7 @@ export function getMockPubSubP2PServiceFactory<T extends P2PClientType>(
     },
   ) => {
     deps.logger.verbose('Creating mock PubSub service');
-    const libp2p = new MockPubSub(peerId, network);
+    const libp2p = new MockPubSub(peerId, network, deps.logger);
     const peerManager = new DummyPeerManager(peerId, network);
     const reqresp: ReqRespInterface = new DummyReqResp();
     const peerDiscoveryService = new DummyPeerDiscoveryService();
@@ -87,8 +87,9 @@ export class MockPubSub implements PubSubLibp2p {
   constructor(
     public peerId: PeerId,
     network: MockGossipSubNetwork,
+    logger: Logger,
   ) {
-    this.gossipSub = new MockGossipSubService(peerId, network);
+    this.gossipSub = new MockGossipSubService(peerId, network, logger);
   }
 
   get services() {
@@ -108,13 +109,13 @@ export class MockPubSub implements PubSubLibp2p {
 }
 
 class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements GossipSubService {
-  private logger = createLogger('p2p:test:mock-gossipsub');
   public subscribedTopics: Set<TopicStr> = new Set();
   public readonly direct = new Set<string>();
 
   constructor(
     public peerId: PeerId,
     private network: MockGossipSubNetwork,
+    private readonly logger: Logger,
   ) {
     super();
     network.registerPeer(this);
@@ -159,7 +160,7 @@ export class MockGossipSubNetwork {
   private peers: MockGossipSubService[] = [];
   private nextMsgId = 0;
 
-  private logger = createLogger('p2p:test:mock-gossipsub-network');
+  constructor(private readonly logger: Logger) {}
 
   public getPeers(): PeerId[] {
     return this.peers.map(peer => peer.peerId);

@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -6,6 +7,8 @@ import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ConnectionSampler, type RandomSampler } from './connection_sampler.js';
+
+const logger = createLogger('p2p:test:connection-sampler');
 
 describe('ConnectionSampler', () => {
   let sampler: TestConnectionSampler;
@@ -27,7 +30,7 @@ describe('ConnectionSampler', () => {
     mockRandomSampler = mock<RandomSampler>();
     mockRandomSampler.random.mockReturnValue(0);
 
-    sampler = new TestConnectionSampler(mockLibp2p, mockRandomSampler, undefined, { cleanupIntervalMs: 500 });
+    sampler = new TestConnectionSampler(mockLibp2p, mockRandomSampler, logger, { cleanupIntervalMs: 500 });
     excluding = new Map();
   });
 
@@ -206,7 +209,7 @@ describe('ConnectionSampler', () => {
 
       mockRandomSampler = mock<RandomSampler>();
       mockRandomSampler.random.mockReturnValue(0);
-      sampler = new TestConnectionSampler(mockLibp2p, mockRandomSampler, undefined, { cleanupIntervalMs: 1000 });
+      sampler = new TestConnectionSampler(mockLibp2p, mockRandomSampler, logger, { cleanupIntervalMs: 1000 });
     });
 
     it('should only return samples as many peers as available', () => {

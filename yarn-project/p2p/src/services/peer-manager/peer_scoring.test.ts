@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
@@ -8,12 +9,16 @@ import { PeerScoreState, PeerScoring } from './peer_scoring.js';
 describe('PeerScoring', () => {
   let peerScoring: PeerScoring;
   const testPeerId = 'testPeer123';
+  const logger = createLogger('p2p:test:peer-scoring');
 
   beforeEach(() => {
-    peerScoring = new PeerScoring({
-      ...getP2PDefaultConfig(),
-      peerPenaltyValues: [2, 10, 50],
-    });
+    peerScoring = new PeerScoring(
+      {
+        ...getP2PDefaultConfig(),
+        peerPenaltyValues: [2, 10, 50],
+      },
+      logger,
+    );
     jest.useFakeTimers();
   });
 
@@ -92,7 +97,7 @@ describe('PeerScoring', () => {
       peerPenaltyValues: [50, 2, 11],
     };
 
-    const peerScoring = new PeerScoring(testConfig);
+    const peerScoring = new PeerScoring(testConfig, logger);
 
     peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.HighToleranceError]);
     expect(peerScoring.getScore(testPeerId)).toBe(-2);

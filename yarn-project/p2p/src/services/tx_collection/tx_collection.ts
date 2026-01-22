@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2BlockInfo, L2BlockNew } from '@aztec/stdlib/block';
@@ -72,9 +72,9 @@ export class TxCollection {
     private readonly constants: L1RollupConstants,
     private readonly txPool: TxPool,
     private readonly config: TxCollectionConfig,
+    private readonly log: Logger,
     private readonly dateProvider: DateProvider = new DateProvider(),
     telemetryClient: TelemetryClient = getTelemetryClient(),
-    private readonly log: Logger = createLogger('p2p:tx_collection_service'),
   ) {
     this.txCollectionSink = new TxCollectionSink(this.txPool, telemetryClient, this.log);
 
@@ -83,8 +83,8 @@ export class TxCollection {
       this.nodes,
       this.txCollectionSink,
       this.config,
+      this.log.createChild('fast'),
       this.dateProvider,
-      this.log,
     );
 
     this.slowCollection = new SlowTxCollection(
@@ -94,8 +94,8 @@ export class TxCollection {
       this.fastCollection,
       constants,
       this.config,
+      this.log.createChild('slow'),
       this.dateProvider,
-      this.log,
     );
 
     this.reconcileFoundTxsLoop = new RunningPromise(

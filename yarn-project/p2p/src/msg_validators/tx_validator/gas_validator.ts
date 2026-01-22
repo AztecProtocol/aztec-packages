@@ -1,5 +1,5 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS, FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
@@ -17,15 +17,16 @@ import {
 import { getFeePayerClaimAmount, getTxFeeLimit } from './fee_payer_balance.js';
 
 export class GasTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_gas');
+  #log: Logger;
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
   #gasFees: GasFees;
 
-  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, gasFees: GasFees) {
+  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, gasFees: GasFees, log: Logger) {
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
     this.#gasFees = gasFees;
+    this.#log = log;
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {

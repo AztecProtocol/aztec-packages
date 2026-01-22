@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
@@ -14,15 +14,17 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_phases');
+  #log: Logger;
   private contractsDB: PublicContractsDB;
 
   constructor(
     contracts: ContractDataSource,
     private setupAllowList: AllowedElement[],
     private timestamp: UInt64,
+    log: Logger,
   ) {
-    this.contractsDB = new PublicContractsDB(contracts);
+    this.contractsDB = new PublicContractsDB(contracts, log);
+    this.#log = log;
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {

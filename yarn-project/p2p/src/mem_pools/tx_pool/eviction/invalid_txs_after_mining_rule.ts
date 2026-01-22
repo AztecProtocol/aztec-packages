@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import type { TxPoolOptions } from '../tx_pool.js';
@@ -21,7 +21,7 @@ import {
 export class InvalidTxsAfterMiningRule implements EvictionRule {
   public readonly name = 'InvalidTxsAfterMining';
 
-  private log = createLogger('p2p:mempool:tx_pool:invalid_txs_after_mining_rule');
+  constructor(private log: Logger) {}
 
   async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     if (context.event !== EvictionEvent.BLOCK_MINED) {

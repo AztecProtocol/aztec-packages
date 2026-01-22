@@ -1,7 +1,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { SecretValue } from '@aztec/foundation/config';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger, LoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -29,6 +29,7 @@ export interface MakeTestP2PClientOptions {
   p2pBaseConfig: P2PConfig;
   p2pConfigOverrides?: Partial<P2PConfig>;
   logger?: Logger;
+  loggerFactory: LoggerFactory;
   mockGossipSubNetwork?: MockGossipSubNetwork;
 }
 
@@ -73,7 +74,7 @@ export async function makeTestP2PClient(
     mockEpochCache,
     mockWorldState,
     mockGossipSubNetwork,
-    logger = createLogger('p2p-test-client'),
+    loggerFactory,
   }: MakeTestP2PClientOptions,
 ) {
   // Filter nodes so that we only dial active peers
@@ -95,7 +96,7 @@ export async function makeTestP2PClient(
   await l2BlockSource.createBlocks(100);
 
   const proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
-  const kvStore = await openTmpStore('test');
+  const kvStore = await openTmpStore('test', loggerFactory);
 
   const client = await createP2PClient(
     P2PClientType.Full,
@@ -111,7 +112,7 @@ export async function makeTestP2PClient(
       txPool: mockTxPool as unknown as TxPool,
       attestationPool: mockAttestationPool as unknown as AttestationPool,
       store: kvStore,
-      logger,
+      loggerFactory,
       p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork),
     },
   );
@@ -144,7 +145,7 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
   for (let i = 0; i < numberOfPeers; i++) {
     const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
       ...testConfig,
-      logger: createLogger(`p2p:${i}`),
+      logger: testConfig.loggerFactory.createLogger(`p2p:${i}`),
     });
     clients.push(client);
   }
@@ -191,7 +192,7 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
   for (let i = 0; i < numberOfPeers; i++) {
     const client = await makeTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
       ...testConfig,
-      logger: createLogger(`p2p:${i}`),
+      logger: testConfig.loggerFactory.createLogger(`p2p:${i}`),
     });
     clients.push(client);
   }

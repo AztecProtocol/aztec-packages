@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { createLogger } from '@aztec/foundation/log';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeCheckpointAttestation } from '@aztec/stdlib/testing';
@@ -15,10 +16,11 @@ describe('CheckpointAttestationValidator', () => {
   let validator: CheckpointAttestationValidator;
   let proposer: Secp256k1Signer;
   let attester: Secp256k1Signer;
+  const logger = createLogger('p2p:test:attestation-validator');
 
   beforeEach(() => {
     epochCache = mock<EpochCache>();
-    validator = new CheckpointAttestationValidator(epochCache);
+    validator = new CheckpointAttestationValidator(epochCache, logger);
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });

@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import type { TxPoolOptions } from '../tx_pool.js';
@@ -22,9 +22,10 @@ export interface LowPriorityEvictionConfig {
 export class LowPriorityEvictionRule implements EvictionRule {
   public readonly name = 'LowPriorityEviction';
 
-  private log = createLogger('p2p:mempool:tx_pool:low_priority_eviction_rule');
-
-  constructor(private config: LowPriorityEvictionConfig) {}
+  constructor(
+    private config: LowPriorityEvictionConfig,
+    private log: Logger,
+  ) {}
 
   public async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     if (context.event !== EvictionEvent.TXS_ADDED) {

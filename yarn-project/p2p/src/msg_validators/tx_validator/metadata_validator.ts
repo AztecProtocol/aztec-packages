@@ -1,5 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import {
   type AnyTx,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
@@ -11,7 +11,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
-  #log = createLogger('p2p:tx_validator:tx_metadata');
+  #log: Logger;
 
   constructor(
     private values: {
@@ -20,7 +20,10 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       vkTreeRoot: Fr;
       protocolContractsHash: Fr;
     },
-  ) {}
+    log: Logger,
+  ) {
+    this.#log = log;
+  }
 
   validateTx(tx: T): Promise<TxValidationResult> {
     const errors = [];

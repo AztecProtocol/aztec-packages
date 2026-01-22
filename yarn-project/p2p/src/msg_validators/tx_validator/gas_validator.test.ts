@@ -6,6 +6,7 @@ import {
   FIXED_L2_GAS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -59,8 +60,10 @@ describe('GasTxValidator', () => {
     );
   };
 
+  const logger = createLogger('p2p:test:gas-validator');
+
   const validateTx = async (tx: Tx) => {
-    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, gasFees);
+    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, gasFees, logger);
     return await validator.validateTx(tx);
   };
 

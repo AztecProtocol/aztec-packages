@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { L2BlockNew, type L2BlockSource } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -34,10 +35,12 @@ describe('ReqResp', () => {
   let peerManager: MockProxy<PeerManager>;
   let peerScoring: MockProxy<PeerScoring>;
   let nodes: ReqRespNode[];
+  let logger: Logger;
 
   beforeEach(() => {
     peerScoring = mock<PeerScoring>();
     peerManager = mock<PeerManager>();
+    logger = createLogger('p2p:test:reqresp');
   });
 
   afterEach(async () => {
@@ -49,7 +52,7 @@ describe('ReqResp', () => {
   it('should perform a ping request', async () => {
     // Create two nodes
     // They need to discover each other
-    nodes = await createNodes(peerScoring, 2);
+    nodes = await createNodes(peerScoring, 2, logger);
     const { req: pinger } = nodes[0];
     const { p2p: other } = nodes[1];
 
@@ -68,7 +71,7 @@ describe('ReqResp', () => {
   });
 
   it('should handle gracefully if a peer connected peer is offline', async () => {
-    nodes = await createNodes(peerScoring, 2);
+    nodes = await createNodes(peerScoring, 2, logger);
 
     const { req: pinger } = nodes[0];
     const { req: ponger, p2p: pongerNode } = nodes[1];
@@ -89,7 +92,7 @@ describe('ReqResp', () => {
   });
 
   it('should hit a rate limit if too many requests are made in quick succession', async () => {
-    nodes = await createNodes(peerScoring, 2);
+    nodes = await createNodes(peerScoring, 2, logger);
 
     await startNodes(nodes);
 
@@ -137,7 +140,7 @@ describe('ReqResp', () => {
         return Promise.resolve(Buffer.from(''));
       };
 
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -165,7 +168,7 @@ describe('ReqResp', () => {
         return Promise.resolve(toReturn.toBuffer());
       };
 
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -192,7 +195,7 @@ describe('ReqResp', () => {
         return Promise.resolve(Buffer.alloc(0));
       };
 
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -220,7 +223,7 @@ describe('ReqResp', () => {
         return Promise.resolve(new TxArray().toBuffer());
       };
 
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -247,7 +250,7 @@ describe('ReqResp', () => {
         return Promise.resolve(Buffer.alloc(0));
       };
 
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       const spySendRequestToPeer = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
 
@@ -264,7 +267,7 @@ describe('ReqResp', () => {
     });
 
     it('should hit individual timeout if nothing is returned over the stream', async () => {
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       await startNodes(nodes);
 
@@ -304,7 +307,7 @@ describe('ReqResp', () => {
 
   describe('Goodbye protocol', () => {
     it('should send a goodbye message to a peer', async () => {
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Req Goodbye Handler is defined in the reqresp.ts file
@@ -334,7 +337,7 @@ describe('ReqResp', () => {
     });
 
     it('should not yield any warnings when handling a goodbye message received from peer', async () => {
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
       const sendingNode = nodes[0];
       const receivingNode = nodes[1];
 
@@ -384,7 +387,7 @@ describe('ReqResp', () => {
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
 
-      nodes = await createNodes(peerScoring, 2);
+      nodes = await createNodes(peerScoring, 2, logger);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -406,7 +409,7 @@ describe('ReqResp', () => {
   describe('Batch requests', () => {
     it('should send a batch request between many peers', async () => {
       const batchSize = 9;
-      nodes = await createNodes(peerScoring, 3);
+      nodes = await createNodes(peerScoring, 3, logger);
 
       await startNodes(nodes);
       await sleep(500);
@@ -441,7 +444,7 @@ describe('ReqResp', () => {
 
     it('should send a batch request with a pinned peer', async () => {
       const batchSize = 9;
-      nodes = await createNodes(peerScoring, 4, {
+      nodes = await createNodes(peerScoring, 4, logger, {
         // Bump rate limits so the pinned peer can respond
         [ReqRespSubProtocol.PING]: {
           peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
@@ -487,7 +490,7 @@ describe('ReqResp', () => {
 
     it('should stop after max retry attempts', async () => {
       const batchSize = 12;
-      nodes = await createNodes(peerScoring, 3);
+      nodes = await createNodes(peerScoring, 3, logger);
 
       const requesterLoggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
 

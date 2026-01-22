@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -20,6 +21,7 @@ describe('InvalidTxsAfterReorgRule', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let rule: InvalidTxsAfterReorgRule;
+  const logger = createLogger('p2p:test:invalid-txs-after-reorg');
 
   beforeEach(() => {
     txPool = mock();
@@ -33,7 +35,7 @@ describe('InvalidTxsAfterReorgRule', () => {
     worldState.getSnapshot.mockReturnValue(db);
     worldState.syncImmediate.mockResolvedValue(BlockNumber(1));
 
-    rule = new InvalidTxsAfterReorgRule(worldState);
+    rule = new InvalidTxsAfterReorgRule(worldState, logger);
   });
 
   describe('evict method', () => {

@@ -1,7 +1,7 @@
 import { findIndexInSortedArray, insertIntoSortedArray } from '@aztec/foundation/array';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -24,7 +24,7 @@ export class EvictionManager {
 
   constructor(
     private txPool: TxPoolOperations,
-    private log = createLogger('p2p:mempool:tx_pool:eviction_manager'),
+    private log: Logger,
   ) {}
 
   public async evictAfterNewTxs(newTxs: TxHash[], feePayers: AztecAddress[]): Promise<void> {

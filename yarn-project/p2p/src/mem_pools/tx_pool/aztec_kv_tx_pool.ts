@@ -2,7 +2,7 @@ import { insertIntoSortedArray } from '@aztec/foundation/array';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -100,25 +100,33 @@ export class AztecKVTxPool
     store: AztecAsyncKVStore,
     archive: AztecAsyncKVStore,
     worldState: WorldStateSynchronizer,
+    log: Logger,
     telemetry: TelemetryClient = getTelemetryClient(),
     config: TxPoolOptions = {},
-    log = createLogger('p2p:tx_pool'),
   ) {
     super();
 
     this.#log = log;
 
-    this.#evictionManager = new EvictionManager(this);
-    this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule());
-    this.#evictionManager.registerRule(new InvalidTxsAfterReorgRule(worldState));
-    this.#evictionManager.registerRule(new FeePayerBalanceEvictionRule(worldState));
+    const evictionLog = log.createChild('eviction');
+    this.#evictionManager = new EvictionManager(this, evictionLog);
+    this.#evictionManager.registerRule(new InvalidTxsAfterMiningRule(evictionLog.createChild('after-mining')));
     this.#evictionManager.registerRule(
-      new LowPriorityEvictionRule({
-        //NOTE: 0 effectively disables low priority eviction
-        maxPoolSize: config.maxPendingTxCount ?? 0,
-      }),
+      new InvalidTxsAfterReorgRule(worldState, evictionLog.createChild('after-reorg')),
     );
-    this.#evictionManager.registerPreAddRule(new NullifierConflictPreAddRule());
+    this.#evictionManager.registerRule(
+      new FeePayerBalanceEvictionRule(worldState, evictionLog.createChild('fee-payer-balance')),
+    );
+    this.#evictionManager.registerRule(
+      new LowPriorityEvictionRule(
+        {
+          //NOTE: 0 effectively disables low priority eviction
+          maxPoolSize: config.maxPendingTxCount ?? 0,
+        },
+        evictionLog.createChild('low-priority'),
+      ),
+    );
+    this.#evictionManager.registerPreAddRule(new NullifierConflictPreAddRule(evictionLog.createChild('nullifier')));
 
     this.updateConfig(config);
 

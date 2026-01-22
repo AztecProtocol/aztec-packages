@@ -1,15 +1,15 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type CheckpointAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
 
-  constructor(epochCache: EpochCacheInterface) {
+  constructor(epochCache: EpochCacheInterface, logger: Logger) {
     this.epochCache = epochCache;
-    this.logger = createLogger('p2p:checkpoint-attestation-validator');
+    this.logger = logger;
   }
 
   async validate(message: CheckpointAttestation): Promise<PeerErrorSeverity | undefined> {

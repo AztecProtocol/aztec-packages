@@ -1,5 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import type { Libp2p, PeerId, Stream } from '@libp2p/interface';
 
@@ -32,7 +32,7 @@ export class ConnectionSampler {
   constructor(
     private readonly libp2p: Libp2p,
     private readonly sampler: RandomSampler,
-    private readonly logger = createLogger('p2p:reqresp:connection-sampler'),
+    private readonly logger: Logger,
     private readonly opts: { cleanupIntervalMs?: number; p2pOptimisticNegotiation?: boolean } = {},
   ) {
     this.cleanupInterval = setInterval(

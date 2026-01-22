@@ -1,6 +1,6 @@
 import { findIndexInSortedArray, insertIntoSortedArray } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PreAddEvictionResult, PreAddEvictionRule, PreAddPoolAccess } from './eviction_strategy.js';
@@ -20,7 +20,7 @@ const cmpTxHash = (a: TxHash, b: TxHash) => Fr.cmp(a.hash, b.hash);
 export class NullifierConflictPreAddRule implements PreAddEvictionRule {
   public readonly name = 'NullifierConflictPreAdd';
 
-  private log = createLogger('p2p:mempool:tx_pool:nullifier_conflict_pre_add_rule');
+  constructor(private log: Logger) {}
 
   /**
    * Check if the incoming transaction conflicts with existing transactions via nullifiers.

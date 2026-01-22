@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -20,9 +20,10 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
   public readonly name = 'FeePayerBalanceEviction';
   public readonly reason = 'fee_payer_balance';
 
-  private log = createLogger('p2p:mempool:tx_pool:fee_payer_balance_eviction_rule');
-
-  constructor(private worldState: WorldStateSynchronizer) {}
+  constructor(
+    private worldState: WorldStateSynchronizer,
+    private log: Logger,
+  ) {}
 
   async evict(context: EvictionContext, txPool: TxPoolOperations): Promise<EvictionResult> {
     try {

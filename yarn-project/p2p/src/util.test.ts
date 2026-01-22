@@ -1,5 +1,5 @@
 import { SecretValue } from '@aztec/foundation/config';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -13,9 +13,12 @@ import path from 'path';
 import type { P2PConfig } from './config.js';
 import { createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey, isValidIpAddress } from './util.js';
 
-const logger = createLogger('p2p-util-test');
-
 describe('p2p utils', () => {
+  let logger: Logger;
+
+  beforeAll(() => {
+    logger = createLogger('p2p-util-test');
+  });
   describe('createLibP2PPeerIdFromPrivateKey', () => {
     it('Can create a recovered libp2p peer id from a private key', async () => {
       const peerId = await createSecp256k1PeerId();
@@ -38,7 +41,7 @@ describe('p2p utils', () => {
     };
 
     beforeEach(async () => {
-      store = await openTmpStore('test');
+      store = await openTmpStore('test', logger);
       tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'p2p-util-'));
       await fs.access(tempDir);
     });

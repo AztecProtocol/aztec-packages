@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerFactory, createLoggerFactory } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
@@ -30,6 +30,7 @@ describe('p2p client integration status handshake', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
 
   let logger: Logger;
+  let loggerFactory: LoggerFactory;
   let p2pBaseConfig: P2PConfig;
 
   let clients: P2PClient[] = [];
@@ -41,7 +42,8 @@ describe('p2p client integration status handshake', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
 
-    logger = createLogger('p2p:test:integration');
+    loggerFactory = createLoggerFactory({ actor: 'p2p:test:status_handshake' });
+    logger = loggerFactory.createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
@@ -90,6 +92,7 @@ describe('p2p client integration status handshake', () => {
         mockTxPool: txPool,
         mockEpochCache: epochCache,
         mockWorldState: worldState,
+        loggerFactory,
       })
     ).map(x => x.client);
 
@@ -120,6 +123,7 @@ describe('p2p client integration status handshake', () => {
         mockTxPool: txPool,
         mockEpochCache: epochCache,
         mockWorldState: worldState,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [client1] = clients;
@@ -150,6 +154,7 @@ describe('p2p client integration status handshake', () => {
         mockTxPool: txPool,
         mockEpochCache: epochCache,
         mockWorldState: worldState,
+        loggerFactory,
       })
     ).map(x => x.client);
     const [_c0, c1, _c2] = clients;

@@ -2,6 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { map, sort, toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -28,6 +29,7 @@ describe('KV TX pool', () => {
   let db: MockProxy<MerkleTreeReadOperations>;
   let nextTxSeed: number;
   const mockFixedTxSize = 100;
+  const logger = createLogger('p2p:test:tx-pool');
 
   const block1Header = BlockHeader.empty({
     globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1), timestamp: 0n }),
@@ -64,7 +66,12 @@ describe('KV TX pool', () => {
       );
     });
 
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
+    txPool = new AztecKVTxPool(
+      await openTmpStore('p2p', logger),
+      await openTmpStore('archive', logger),
+      worldState,
+      logger,
+    );
   });
 
   afterEach(checkPendingTxConsistency);
@@ -79,9 +86,16 @@ describe('KV TX pool', () => {
 
   it('Returns archived txs and purges archived txs once the archived tx limit is reached', async () => {
     // set the archived tx limit to 2
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      archivedTxLimit: 2,
-    });
+    txPool = new AztecKVTxPool(
+      await openTmpStore('p2p', logger),
+      await openTmpStore('archive', logger),
+      worldState,
+      logger,
+      undefined,
+      {
+        archivedTxLimit: 2,
+      },
+    );
 
     const txs = await timesAsync(5, i => mockTx(i + 1));
     await txPool.addTxs(txs);
@@ -123,9 +137,16 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxPendingTxCount: 3,
-    });
+    txPool = new AztecKVTxPool(
+      await openTmpStore('p2p', logger),
+      await openTmpStore('archive', logger),
+      worldState,
+      logger,
+      undefined,
+      {
+        maxPendingTxCount: 3,
+      },
+    );
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
@@ -169,9 +190,16 @@ describe('KV TX pool', () => {
   });
 
   it('respects the maximum transaction count configured', async () => {
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxPendingTxCount: 10, // pool should contain no more than 10 txs
-    });
+    txPool = new AztecKVTxPool(
+      await openTmpStore('p2p', logger),
+      await openTmpStore('archive', logger),
+      worldState,
+      logger,
+      undefined,
+      {
+        maxPendingTxCount: 10, // pool should contain no more than 10 txs
+      },
+    );
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
 
@@ -202,9 +230,16 @@ describe('KV TX pool', () => {
   });
 
   it('evicts based on the updated size limit', async () => {
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxPendingTxCount: 10, // pool should contain no more than 10 mock txs
-    });
+    txPool = new AztecKVTxPool(
+      await openTmpStore('p2p', logger),
+      await openTmpStore('archive', logger),
+      worldState,
+      logger,
+      undefined,
+      {
+        maxPendingTxCount: 10, // pool should contain no more than 10 mock txs
+      },
+    );
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
 
@@ -370,9 +405,16 @@ describe('KV TX pool', () => {
   });
 
   it('Does not evict low priority txs marked as non-evictable', async () => {
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxPendingTxCount: 3,
-    });
+    txPool = new AztecKVTxPool(
+      await openTmpStore('p2p', logger),
+      await openTmpStore('archive', logger),
+      worldState,
+      logger,
+      undefined,
+      {
+        maxPendingTxCount: 3,
+      },
+    );
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
@@ -392,9 +434,16 @@ describe('KV TX pool', () => {
 
   describe('getLowestPriorityEvictable', () => {
     it('returns the lowest-priority evictable tx hashes up to limit', async () => {
-      txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-        maxPendingTxCount: 0,
-      });
+      txPool = new AztecKVTxPool(
+        await openTmpStore('p2p', logger),
+        await openTmpStore('archive', logger),
+        worldState,
+        logger,
+        undefined,
+        {
+          maxPendingTxCount: 0,
+        },
+      );
 
       const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
       const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
@@ -417,7 +466,12 @@ describe('KV TX pool', () => {
     });
 
     it('respects zero and all non-evictable cases', async () => {
-      txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
+      txPool = new AztecKVTxPool(
+        await openTmpStore('p2p', logger),
+        await openTmpStore('archive', logger),
+        worldState,
+        logger,
+      );
       const tx1 = await mockTx(10, { maxPriorityFeesPerGas: new GasFees(1, 1) });
       await txPool.addTxs([tx1]);
 

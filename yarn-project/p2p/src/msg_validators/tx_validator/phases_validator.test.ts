@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -12,6 +13,7 @@ import { patchNonRevertibleFn } from './test_utils.js';
 
 describe('PhasesTxValidator', () => {
   const timestamp = 27n;
+  const logger = createLogger('p2p:test:phases-validator');
   let contractDataSource: MockProxy<ContractDataSource>;
   let txValidator: PhasesTxValidator;
   let allowedContractClass: Fr;
@@ -66,6 +68,7 @@ describe('PhasesTxValidator', () => {
         },
       ],
       timestamp,
+      logger,
     );
   });
 

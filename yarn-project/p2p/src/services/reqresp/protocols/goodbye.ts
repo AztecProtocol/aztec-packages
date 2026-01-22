@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -66,9 +66,14 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
  * Handles a goodbye message request
  */
 export class GoodbyeProtocolHandler {
-  private logger = createLogger('p2p:goodbye-protocol');
+  private logger: Logger;
 
-  constructor(private reqresp: ReqResp) {}
+  constructor(
+    private reqresp: ReqResp,
+    logger: Logger,
+  ) {
+    this.logger = logger;
+  }
 
   public async sendGoodbye(peerId: PeerId, reason: GoodByeReason): Promise<void> {
     try {

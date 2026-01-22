@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -10,9 +10,8 @@ import { fileURLToPath } from 'url';
 import { WorkerClientManager, testChainConfig } from './worker_client_manager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const logger = createLogger('testbench');
 
-async function main() {
+async function main(logger: Logger) {
   try {
     // Read configuration file name from command line args
     const configFile = process.argv[2];
@@ -61,6 +60,7 @@ async function main() {
   }
 }
 
-main().catch(error => {
+const logger = createLogger('testbench');
+main(logger).catch(error => {
   logger.error('Unhandled error:', error);
 });

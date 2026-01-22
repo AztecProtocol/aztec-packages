@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -10,9 +11,11 @@ import { mock } from 'jest-mock-extended';
 import { BlockProposalValidator } from './block_proposal_validator.js';
 import { sharedProposalValidatorTests } from './proposal_validator_test_suite.js';
 
+const logger = createLogger('p2p:test:block-proposal-validator');
+
 describe('BlockProposalValidator', () => {
   sharedProposalValidatorTests({
-    validatorFactory: (epochCache, opts) => new BlockProposalValidator(epochCache, opts),
+    validatorFactory: (epochCache, opts) => new BlockProposalValidator(epochCache, opts, logger),
     makeProposal: makeBlockProposal,
     makeHeader: (epochNumber: number | bigint, slotNumber: number | bigint, blockNumber: number | bigint) =>
       makeBlockHeader(0, { blockNumber: BlockNumber(Number(blockNumber)), slotNumber: SlotNumber(Number(slotNumber)) }),

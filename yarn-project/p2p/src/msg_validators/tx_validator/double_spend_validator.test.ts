@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import { type AnyTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
@@ -9,6 +10,7 @@ import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_val
 describe('DoubleSpendTxValidator', () => {
   let txValidator: DoubleSpendTxValidator<AnyTx>;
   let nullifierSource: MockProxy<NullifierSource>;
+  const logger = createLogger('p2p:test:double-spend-validator');
 
   const expectValid = async (tx: AnyTx) => {
     await expect(txValidator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
@@ -20,7 +22,7 @@ describe('DoubleSpendTxValidator', () => {
   beforeEach(() => {
     nullifierSource = mock<NullifierSource>();
     nullifierSource.nullifiersExist.mockResolvedValue([]);
-    txValidator = new DoubleSpendTxValidator(nullifierSource);
+    txValidator = new DoubleSpendTxValidator(nullifierSource, logger);
   });
 
   it('rejects duplicates in non revertible data', async () => {
