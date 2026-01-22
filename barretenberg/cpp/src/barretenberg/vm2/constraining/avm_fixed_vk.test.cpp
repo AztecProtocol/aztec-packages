@@ -77,8 +77,8 @@ TEST(AvmFixedVKTests, FixedVKCommitments)
     }
 
     // Compare VK hashes
-    auto vk_computed_hash = compute_vk_hash(vk_computed_commitments);
-    auto fixed_vk_hash = AvmHardCodedVKAndHash::vk_hash();
+    FF vk_computed_hash = compute_vk_hash(vk_computed_commitments);
+    FF fixed_vk_hash = AvmHardCodedVKAndHash::vk_hash();
     EXPECT_EQ(vk_computed_hash, fixed_vk_hash)
         << "VK hash mismatch: computed " << vk_computed_hash << ", fixed " << fixed_vk_hash;
 

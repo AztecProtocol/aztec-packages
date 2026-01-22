@@ -96,7 +96,7 @@ class AvmRecursiveFlavor {
             Challenges challenges;
 
             auto native_vk = std::make_shared<NativeVerificationKey>();
-            auto native_vk_hash = native_vk->get_hash();
+            NativeFlavor::FF native_vk_hash = native_vk->get_hash();
             FF vk_hash = FF::from_witness(&builder, native_vk_hash);
             vk_hash.fix_witness();
 
