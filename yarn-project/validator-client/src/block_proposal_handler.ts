@@ -1,6 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { chunkBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
@@ -222,11 +223,12 @@ export class BlockProposalHandler {
       // TODO(leila/mbps): There can be a more efficient way to get the previous checkpoint out
       // hashes without having to fetch all the blocks.
       const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-      const previousCheckpointedBlocks = (await this.blockSource.getCheckpointedBlocksForEpoch(epoch))
+      const checkpointedBlocks = (await this.blockSource.getCheckpointedBlocksForEpoch(epoch))
         .filter(b => b.block.number < blockNumber)
         .sort((a, b) => a.block.number - b.block.number);
-      const previousCheckpointOutHashes = previousCheckpointedBlocks.map(b =>
-        computeCheckpointOutHash([b.block.body.txEffects.map(tx => tx.l2ToL1Msgs)]),
+      const blocksByCheckpoint = chunkBy(checkpointedBlocks, b => b.checkpointNumber);
+      const previousCheckpointOutHashes = blocksByCheckpoint.map(checkpointBlocks =>
+        computeCheckpointOutHash(checkpointBlocks.map(b => b.block.body.txEffects.map(tx => tx.l2ToL1Msgs))),
       );
 
       try {
