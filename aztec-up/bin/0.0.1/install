@@ -33,6 +33,12 @@ function echo_yellow {
 }
 
 function dump_fail {
+  if [[ ${VERBOSE:-0} -eq 1 ]]; then
+    echo
+    ($@)
+    return $?
+  fi
+
   output=$(mktemp)
 
   set +e
@@ -133,11 +139,11 @@ function install_foundry {
 
   # Install foundryup if not present or wrong version.
   if ! "$HOME/.foundry/bin/foundryup" --help 2>&1 | grep -q -- '-i, --install'; then
-    curl -L https://foundry.paradigm.xyz | bash
+    curl --max-time 30 -L https://foundry.paradigm.xyz | bash
   fi
 
   # Install foundry to temp location and move to version directory
-  FOUNDRY_DIR="$temp_foundry_dir" "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
+  FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
 
   # Move the foundry binaries to our version bin directory
   for binary in forge cast anvil chisel; do

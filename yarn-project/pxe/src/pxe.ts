@@ -138,7 +138,7 @@ export class PXE {
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
     const contractStore = new ContractStore(store);
-    const noteStore = await NoteStore.create(store);
+    const noteStore = new NoteStore(store);
     const anchorBlockStore = new AnchorBlockStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -158,7 +158,13 @@ export class PXE {
     );
 
     const jobCoordinator = new JobCoordinator(store);
-    jobCoordinator.registerStores([capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore]);
+    jobCoordinator.registerStores([
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+    ]);
 
     const debugUtils = new PXEDebugUtils(contractStore, noteStore);
 
@@ -428,7 +434,6 @@ export class PXE {
     }
 
     await this.addressStore.addCompleteAddress(accountCompleteAddress);
-    await this.noteStore.addScope(accountCompleteAddress.address);
     return accountCompleteAddress;
   }
 

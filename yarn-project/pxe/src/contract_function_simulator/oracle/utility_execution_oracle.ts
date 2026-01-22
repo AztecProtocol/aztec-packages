@@ -251,7 +251,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
@@ -350,7 +350,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.jobId,
     );
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
 
     // It is acceptable to run the following operations in parallel for several reasons:
     // 1. syncTaggedLogs does not write to the note store — it only stores the pending tagged logs in a capsule array,
@@ -392,7 +392,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
     ).map(EventValidationRequest.fromFields);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockStore, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
       noteService.storeNote(
         request.contractAddress,
