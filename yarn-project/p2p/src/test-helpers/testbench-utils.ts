@@ -1,6 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type {
