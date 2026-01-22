@@ -865,7 +865,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
 
         // returns the storage slot for modified key
-        const mapSlotNumber = results.output.read(0).toBigInt();
+        const mapSlotNumber = results.output.read(0)!.toBigInt();
         const mapSlot = new Fr(mapSlotNumber);
 
         expect(await context.persistableState.readStorage(address, mapSlot)).toEqual(value0);
@@ -884,7 +884,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
 
         // returns the storage slot for modified key
-        const mapSlotNumber = results.output.read(0).toBigInt();
+        const mapSlotNumber = results.output.read(0)!.toBigInt();
         const mapSlot = new Fr(mapSlotNumber);
 
         expect(await context.persistableState.readStorage(address, mapSlot)).toEqual(value0);

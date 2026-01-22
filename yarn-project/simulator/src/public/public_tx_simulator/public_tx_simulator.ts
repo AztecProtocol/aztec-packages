@@ -298,7 +298,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const contractAddress = callRequest.request.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.contractsDB, contractAddress, callRequest.calldata);
+    const fnName = await getPublicFunctionDebugName(
+      this.contractsDB,
+      contractAddress,
+      new CallDataArray(callRequest.calldata),
+    );
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 

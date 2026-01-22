@@ -230,7 +230,7 @@ describe('External Calls', () => {
 
       const retValues = context.machineState.nestedReturndata;
       expect(retValues.length()).toBe(1);
-      expect(retValues.read(0).toBigInt()).toBeLessThan(initialL2Gas);
+      expect(retValues.read(0)!.toBigInt()).toBeLessThan(initialL2Gas);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
       expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);

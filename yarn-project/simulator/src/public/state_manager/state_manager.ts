@@ -523,21 +523,13 @@ export class PublicPersistableStateManager {
   }
 
   public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
-    return await getPublicFunctionDebugName(
-      this.contractsDB,
-      avmEnvironment.address,
-      avmEnvironment.calldata.bestEffortReadAll(),
-    );
+    return await getPublicFunctionDebugName(this.contractsDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 
   public async getPublicFunctionSelectorAndName(
     avmEnvironment: AvmExecutionEnvironment,
   ): Promise<{ functionSelector?: FunctionSelector; functionName?: string }> {
-    return await getPublicFunctionSelectorAndName(
-      this.contractsDB,
-      avmEnvironment.address,
-      avmEnvironment.calldata.bestEffortReadAll(),
-    );
+    return await getPublicFunctionSelectorAndName(this.contractsDB, avmEnvironment.address, avmEnvironment.calldata);
   }
 
   public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {

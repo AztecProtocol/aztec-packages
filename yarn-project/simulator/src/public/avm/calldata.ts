@@ -8,7 +8,7 @@ const DEFAULT_BEST_EFFORT_READ_CAP = 10000;
 export interface LazyReader {
   bestEffortReadAll(readCap?: number): Fr[];
   readAll(): Fr[];
-  read(idx: number): Fr;
+  read(idx: number): Fr | undefined;
   slice(start: number, end: number): Fr[];
   length(): number;
 }
@@ -25,7 +25,10 @@ export class LazyReaderMemory implements LazyReader {
     return this.memory.getSlice(this.offset, size).map(word => word.toFr());
   }
 
-  public read(idx: number): Fr {
+  public read(idx: number): Fr | undefined {
+    if (idx >= this.size) {
+      return undefined;
+    }
     return this.memory.get(this.offset + idx).toFr();
   }
 
@@ -51,7 +54,7 @@ export class LazyReaderArray implements LazyReader {
     return this.array.slice(0, readCap);
   }
 
-  public read(idx: number): Fr {
+  public read(idx: number): Fr | undefined {
     return this.array[idx];
   }
 
