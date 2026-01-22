@@ -53,46 +53,50 @@ Watch for typos in: `a/b/c`, `op1/op2/op3`, `lo/hi/mid`, `start/end/current`, `r
 
 ## Workflow
 
-### Step 1: Match Constraint Names to Columns
+> **PERFORMANCE RULE**: Do NOT iterate per-constraint with individual greps. Use batch collection to gather all constraint names and column declarations first, then cross-reference in memory. Per-constraint iteration will exhaust the context window.
+
+### Phase 1: Batch Collection (3 parallel searches)
+
+**Search A — All constraint names and their expressions**:
 ```bash
 grep -rn "#\[.*\]" pil/vm2/ --include="*.pil"
+grep -A1 "#\[" pil/vm2/ --include="*.pil"
 ```
-For each constraint:
-1. Parse name hints (e.g., `CD_SIZE` implies calldata size)
-2. Verify actual constrained column matches the name
-3. Flag mismatches between name hint and column
 
-### Step 2: Cross-Reference Comments
+**Search B — All column declarations with similar-name groups**:
 ```bash
-grep -B1 "#\[" pil/vm2/<component>.pil | grep -v "^--$"
+grep -rn "pol commit" pil/vm2/ --include="*.pil"
 ```
-Check: Does comment describe what's actually constrained?
 
-### Step 3: Audit Similar Column Groups
+**Search C — All initialization and propagation constraints**:
 ```bash
-grep "pol commit\|pol " pil/vm2/<component>.pil | sed 's/.*pol \(commit \)\?//' | sort | uniq
+grep -rn "start\|first\|init\|' -\|')" pil/vm2/ --include="*.pil"
 ```
-For each group (e.g., `foo_addr`, `foo_size`):
-- Find all constraints involving any group member
-- Verify each targets the semantically correct column
 
-### Step 4: Check Initialization Constraints
-```bash
-grep -rn "start\|first\|init" pil/vm2/ --include="*.pil"
-```
-High-risk for typos. Verify ALL columns that need initialization have correct constraints.
+### Phase 2: Cross-Reference in Memory
 
-### Step 5: Check Propagation Constraints
-```bash
-grep -rn "' -\|')" pil/vm2/ --include="*.pil"
-```
-Verify propagation targets match semantic intent.
+From the batch results:
+1. Parse constraint name hints (e.g., `CD_SIZE` implies calldata size)
+2. Build groups of similar column names (e.g., `foo_addr`, `foo_size`, `foo_offset`)
+3. For each constraint, verify the actual constrained column matches the name hint
+4. Flag mismatches between name and column
 
-### Step 6: Cross-Reference with Tracegen
+### Phase 3: Deep Analysis (only on flagged constraints)
+
+For each suspicious constraint:
+1. Read the PIL file to verify context
+2. Cross-reference with comments
+3. Cross-reference with tracegen assignments
+
+### Phase 4: Completeness Check
+
+Verify coverage across all PIL files:
 ```bash
-grep -rn "column_name\s*=" src/barretenberg/vm2/tracegen/<component>*.cpp
+for f in pil/vm2/*.pil pil/vm2/**/*.pil; do
+  [ -f "$f" ] || continue
+  echo "$f: $(grep -c '#\[' "$f" 2>/dev/null || echo 0) constraints"
+done
 ```
-Verify tracegen sets values matching constraint expectations.
 
 ## Red Flags
 

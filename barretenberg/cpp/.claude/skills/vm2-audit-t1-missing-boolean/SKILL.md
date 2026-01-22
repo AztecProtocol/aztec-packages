@@ -93,55 +93,60 @@ count = sel_a + sel_b + sel_c;
 
 ## Workflow
 
-### Step 1: Find Boolean Columns
+> **PERFORMANCE RULE**: Do NOT iterate per-column with individual greps. Use the batch-first approach below. The codebase has ~1,730 committed columns across ~65 PIL files — per-column iteration will exhaust the context window.
+
+### Phase 1: Batch Collection (3 parallel searches)
+
+Run these three searches in parallel to collect the two sets needed for diffing:
+
+**Search A — All boolean-candidate columns** (columns that SHOULD be boolean):
 ```bash
-grep -rn "@boolean\|pol commit.*sel\|pol commit is_" pil/vm2/ --include="*.pil"
+grep -rn "pol commit.*sel_\|pol commit.*is_\|pol commit.*err_\|@boolean" pil/vm2/ --include="*.pil"
 ```
-Also review column usage - some booleans lack naming conventions.
 
-### Step 2: Verify Constraints Exist
-
-For each boolean column, verify one applies:
-1. **Explicit**: `col * (1 - col) = 0;`
-2. **Lookup to binary table**: Document with comment
-3. **Derived from booleans**: Prove derivation preserves boolean property
-
+**Search B — All existing boolean constraints** (columns that ARE constrained):
 ```bash
-grep -rn "my_selector.*1 - my_selector" pil/vm2/ --include="*.pil"
+grep -rn "(1 - " pil/vm2/ --include="*.pil"
+```
+This catches `col * (1 - col) = 0`, gated forms like `sel * col * (1 - col) = 0`, and loop-generated constraints.
+
+**Search C — All lookup-to-binary constraints**:
+```bash
+grep -rn "sel_binary\|binary_value" pil/vm2/ --include="*.pil"
 ```
 
-### Step 3: Check Gated Boolean Constraints
+### Phase 2: Set Difference (compute candidates)
 
-Gated constraints acceptable IF all uses also gated:
-```pil
-// OK: Gated constraint, gated uses
-sel * my_bool * (1 - my_bool) = 0;
-sel * (output - my_bool * value) = 0;
+From the batch results:
+1. Build set DECLARED = columns from Search A
+2. Build set CONSTRAINED = columns appearing in Search B + Search C
+3. CANDIDATES = DECLARED - CONSTRAINED (these are the columns to investigate)
 
-// VULNERABLE: Gated constraint, ungated use
-sel * my_bool * (1 - my_bool) = 0;
-other_expr + my_bool = 0;  // UNGATED - exploitable!
-```
+Typically yields **10-30 candidates**, not hundreds.
 
-### Step 4: Verify Exploitability Before Reporting
+### Phase 3: Deep Analysis (only on candidates)
 
-For each candidate finding, verify it's actually exploitable:
-
-1. **Check usage pattern**: Does the column appear in additive expressions?
-   ```bash
-   grep -n "column_name" pil/vm2/<file>.pil | grep -E "\+|\-"
-   ```
-
-2. **Check for lookup constraints**: Is it constrained via lookup when active?
-   ```bash
-   grep -n "column_name" pil/vm2/<file>.pil | grep -E "in |is "
-   ```
-
-3. **Check for gating**: Are all uses gated by the same selector?
+For each candidate from the diff, read the relevant file ONCE and check:
+1. Is it derived from `sel *` (inherently safe)?
+2. Does it appear in additive expressions (exploitable)?
+3. Are all uses gated by the same selector (safe)?
 
 **Only report if**: Column lacks boolean constraint AND (appears in additive expression OR used as ungated permutation selector).
 
-**Do NOT report if**: Column only appears in multiplicative constraints like `col * expr = 0`.
+### Phase 4: Completeness Reconciliation (catch naming gaps)
+
+The batch searches use naming conventions (sel_, is_, err_). To catch unconventionally-named booleans:
+
+```bash
+# Find ALL columns treated as boolean by usage pattern (1 - col_name), regardless of name
+grep -roPh "(1 - [a-z_][a-z_0-9]*)" pil/vm2/ --include="*.pil" | sort -u
+```
+
+Cross-check: any column name appearing here that wasn't in Search A is an unconventionally-named boolean. Add it to candidates and re-run Phase 3 for those.
+
+Also do a quick per-file scan: for each PIL file, count `pol commit` declarations and verify the file was covered by Phases 1-3. List any files with 0 candidates analyzed (they may still be fine, but flag for awareness in the report).
+
+**Expected result**: Phase 4 adds 0-5 extra candidates, confirming the batch approach was comprehensive.
 
 ## Patterns
 

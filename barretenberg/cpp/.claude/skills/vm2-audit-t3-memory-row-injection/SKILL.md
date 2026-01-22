@@ -57,46 +57,41 @@ Memory trace rows not accounted for by permutations allow injecting arbitrary st
 
 ## Workflow
 
-### Step 1: Find Memory Components
+> **PERFORMANCE RULE**: Use batch-first approach. Collect all memory-related components, selectors, and interactions in parallel searches, then cross-reference in memory. Do NOT iterate per-selector with individual greps.
+
+### Phase 1: Batch Collection (4 parallel searches)
+
+**Search A — All memory components and selectors**:
 ```bash
-ls barretenberg/cpp/pil/vm2/*mem*.pil
-grep -n "pol commit.*mem\|pol commit sel" barretenberg/cpp/pil/vm2/memory*.pil
-grep -rn "memory\." barretenberg/cpp/pil/vm2/ --include="*.pil"
+ls pil/vm2/*mem*.pil
+grep -rn "pol commit.*sel\|pol commit.*mem" pil/vm2/memory*.pil pil/vm2/*mem*.pil
 ```
 
-### Step 2: Verify Boolean Constraints
-Every memory selector needs `sel * (1 - sel) = 0`:
+**Search B — All memory interactions (lookups and permutations)**:
 ```bash
-grep -n "sel.*1 - sel\|sel.*(1 - sel)" barretenberg/cpp/pil/vm2/memory*.pil
+grep -rn "} in memory\.\|} is memory\." pil/vm2/ --include="*.pil"
 ```
 
-### Step 3: Check Interaction Types
-Memory ops MUST use permutations (`is`), not lookups (`in`):
+**Search C — All boolean and implication constraints on memory selectors**:
 ```bash
-# Should be empty (lookups are BAD):
-grep -rn "} in memory\." barretenberg/cpp/pil/vm2/ --include="*.pil"
-# Should have entries (permutations are GOOD):
-grep -rn "} is memory\." barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -rn "(1 - sel)\|sel.*(1 - " pil/vm2/memory*.pil pil/vm2/*mem*.pil
 ```
 
-### Step 4: Verify Row Accountability
-Every memory trace row must correspond to exactly one source operation via permutation (1:1 mapping). Check no orphan rows possible.
-
-### Step 5: Check Selector Implication
+**Search D — Memory ordering and context constraints**:
 ```bash
-grep -n "sel_mem\|sel.*read\|sel.*write" barretenberg/cpp/pil/vm2/memory*.pil
-grep -n "sel_.*\* (1 - sel)" barretenberg/cpp/pil/vm2/memory*.pil
+grep -rn "addr'\|same_addr\|ordering\|context\|space_id\|call_id" pil/vm2/memory*.pil
 ```
 
-### Step 6: Verify Memory Ordering
-```bash
-grep -n "addr'\|same_addr\|ordering" barretenberg/cpp/pil/vm2/memory*.pil
-```
+### Phase 2: Cross-Reference Analysis
 
-### Step 7: Check Context Isolation
-```bash
-grep -n "context\|space_id\|call_id" barretenberg/cpp/pil/vm2/memory*.pil
-```
+From the batch results, verify:
+
+1. **Boolean constraints**: Every memory selector has `sel * (1 - sel) = 0`
+2. **Interaction types**: Memory ops use permutations (`is`), NOT lookups (`in`) — lookups allow row injection
+3. **Row accountability**: Every memory trace row corresponds to exactly one source operation (1:1 mapping)
+4. **Selector implication**: Sub-selectors have `sub_sel * (1 - sel) = 0`
+5. **Memory ordering**: Proper address/clock ordering constraints exist
+6. **Context isolation**: Operations bound to context via `context_id`/`space_id`
 
 ## Secure Pattern
 ```pil

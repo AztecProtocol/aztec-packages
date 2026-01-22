@@ -51,6 +51,8 @@ A witness column is **bounded** if ONE applies:
 
 ## Workflow
 
+> **PERFORMANCE RULE**: Do NOT iterate per-column with individual greps. Use the batch-first approach below. The codebase has ~1,730 committed columns across ~65 PIL files — per-column iteration will exhaust the context window.
+
 ### Step 0: Categorize File Type
 ```bash
 # Crypto gadgets - likely bound by callers
@@ -60,59 +62,57 @@ CRYPTO_GADGETS="poseidon2_perm|keccakf1600|sha256|ecc|scalar_mul"
 ARITHMETIC="alu|ff_gt|gt|bitwise"
 ```
 
-### Step 1: Find Committed Columns
+### Phase 1: Batch Collection (4 parallel searches)
+
+**Search A — All committed columns** (the full set):
 ```bash
-grep -rn "pol commit" pil/vm2/<file>.pil
+grep -rn "pol commit" pil/vm2/ --include="*.pil"
 ```
 
-### Step 2: Check Direct Boundedness
+**Search B — All boundedness constraints** (boolean, range check, lookup):
 ```bash
-# Boolean constraint
-grep -n "col_name.*(1 - col_name)" pil/vm2/<file>.pil
-
-# Lookup/range check (column in tuple)
-grep -n "{ col_name" pil/vm2/<file>.pil | grep -E "in |is "
-
-# Equality constraint
-grep -n "col_name = \|col_name =" pil/vm2/<file>.pil
+grep -rn "(1 - \|in range_check\|in precomputed" pil/vm2/ --include="*.pil"
 ```
 
-### Step 3: Check Inverse Columns (Safe)
+**Search C — All incoming permutations** (cross-file bindings):
 ```bash
-# Naming pattern: *_inv, *_inverse
-grep -n "_inv\|inverse" pil/vm2/<file>.pil
-```
-Inverses are algebraically determined - not exploitable.
-
-### Step 4: Check Incoming Permutations (NEW - Critical for FP avoidance)
-```bash
-# Check if column is bound as permutation DESTINATION
-# For namespace.column, search OTHER files for references
-grep -rn "NAMESPACE\.COL_NAME" pil/vm2/ --include="*.pil" | grep -v "<file>.pil"
+grep -rn "} is " pil/vm2/ --include="*.pil"
 ```
 
-**Example for poseidon2_perm.a_0:**
+**Search D — All equation derivations** (equality constraints):
 ```bash
-grep -rn "poseidon2_perm\.a_0" pil/vm2/ --include="*.pil" | grep -v "poseidon2_perm.pil"
-# Expected: poseidon2_mem.pil:163 binds it as destination
+grep -rn "= 0;" pil/vm2/ --include="*.pil" | grep -v "pol \|//\|#"
 ```
 
-If column appears after `is NAMESPACE.` or in `NAMESPACE.sel { NAMESPACE.col }` → **transitively bounded by source**.
+### Phase 2: Set Difference (compute candidates)
 
-### Step 5: Check Equation Derivation (NEW)
-```bash
-# Column constrained by equation: sel * (COL - expr) = 0
-grep -n "COL_NAME\s*-" pil/vm2/<file>.pil | grep "= 0"
-```
-If gated by sel → column derived from expr, bounded if expr is bounded.
+From the batch results:
+1. ALL_COLUMNS = committed columns from Search A
+2. BOUNDED = columns appearing in Search B + C + D (boolean, lookup, range, permutation dest, equation)
+3. INVERSE_COLS = columns with names matching `_inv` (algebraically determined)
+4. CANDIDATES = ALL_COLUMNS - BOUNDED - INVERSE_COLS
 
-### Step 6: Check Conditional Boundedness
+Typically yields **15-40 candidates**, not hundreds.
+
+### Phase 3: Deep Analysis (only on candidates)
+
+For each candidate, read the relevant PIL file (group by file to minimize reads) and check:
+1. **Boolean**: `col * (1 - col) = 0`?
+2. **Lookup/range check**: `sel { col } in table { ... }`?
+3. **Equality derivation**: `col = expr` or `sel * (col - expr) = 0`?
+4. **Incoming permutation**: Column in DESTINATION tuple from another file?
+5. **Inverse column**: Name contains `_inv` (algebraically determined)?
+6. **Conditional range check**: Range check gated by specific selector? → MEDIUM
+
+### Phase 4: Completeness Check
+
+Verify coverage by counting `pol commit` per file and ensuring all files were analyzed:
 ```bash
-# Range check gated by specific selector
-grep -n "{ col_name" pil/vm2/<file>.pil | grep "in range_check"
-# Check what selector gates it - is it always active or conditional?
+for f in pil/vm2/*.pil pil/vm2/**/*.pil; do
+  [ -f "$f" ] || continue
+  echo "$f: $(grep -c 'pol commit' "$f" 2>/dev/null || echo 0) columns"
+done
 ```
-Mark as MEDIUM if range check exists but is conditional (e.g., `sel_mul_u128` only).
 
 ## False Positive Avoidance
 
