@@ -13,7 +13,7 @@ using namespace bb::avm2;
  * @brief Helper function to reconstruct the AVM verification key from the proving key
  *
  */
-AvmVerifier::VerificationKey from_proving_key_for_testing(const AvmProver::ProvingKey& proving_key)
+bb::avm2::AvmVerifier::VerificationKey from_proving_key_for_testing(const AvmProver::ProvingKey& proving_key)
 {
     AvmVerifier::VerificationKey vk;
     for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed(), vk.get_all())) {
