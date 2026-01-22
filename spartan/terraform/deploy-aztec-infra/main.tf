@@ -96,6 +96,7 @@ locals {
   common_settings = {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
+    "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
@@ -342,6 +343,12 @@ locals {
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
           "node.node.web3signerUrl" = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        } : {},
+        # Clear GKE-specific node selectors/affinity/tolerations for KIND
+        local.is_kind ? {
+          "agent.nodeSelector"  = null
+          "agent.affinity"      = null
+          "agent.tolerations"   = null
         } : {}
       )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"

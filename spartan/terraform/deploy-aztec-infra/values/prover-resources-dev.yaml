@@ -53,20 +53,6 @@ agent:
         cpu: "0.5"
         memory: "1Gi"
 
-  nodeSelector:
-    cores: "2"
-    pool: "spot"
-
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: cloud.google.com/gke-spot
-                operator: Exists
-
-  tolerations:
-    - key: "cloud.google.com/gke-spot"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+  # No GKE-specific nodeSelector/affinity/tolerations for dev profile
+  # This allows dev profile to work on KIND and other non-GKE clusters
+  # Use prover-resources-prod.yaml for GKE deployments with spot instances
