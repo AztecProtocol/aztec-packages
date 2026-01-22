@@ -3,6 +3,7 @@ import { SentTx } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { TxReceipt } from '@aztec/aztec.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
+import type { Logger } from '@aztec/foundation/log';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -27,8 +28,9 @@ export class AmmBot extends BaseBot {
     public readonly token0: TokenContract,
     public readonly token1: TokenContract,
     config: BotConfig,
+    log: Logger,
   ) {
-    super(node, wallet, defaultAccountAddress, config);
+    super(node, wallet, defaultAccountAddress, config, log);
   }
 
   static async create(
@@ -37,15 +39,17 @@ export class AmmBot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    log: Logger,
   ): Promise<AmmBot> {
     const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
       wallet,
       store,
       aztecNode,
+      log,
       aztecNodeAdmin,
     ).setupAmm();
-    return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
+    return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config, log);
   }
 
   protected async createAndSendTx(logCtx: object): Promise<SentTx> {

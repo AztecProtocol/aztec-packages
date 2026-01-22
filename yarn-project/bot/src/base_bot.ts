@@ -6,8 +6,8 @@ import {
   SentTx,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
-import { createLogger } from '@aztec/aztec.js/log';
 import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
+import type { Logger } from '@aztec/foundation/log';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet/server';
@@ -15,8 +15,6 @@ import type { TestWallet } from '@aztec/test-wallet/server';
 import type { BotConfig } from './config.js';
 
 export abstract class BaseBot {
-  protected log = createLogger('bot');
-
   protected attempts: number = 0;
   protected successes: number = 0;
 
@@ -25,6 +23,7 @@ export abstract class BaseBot {
     public readonly wallet: TestWallet,
     public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
+    protected readonly log: Logger,
   ) {}
 
   public async run(): Promise<TxReceipt | TxHash> {

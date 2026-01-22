@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 export interface BridgeClaimData {
@@ -19,7 +19,7 @@ export class BotStore {
 
   constructor(
     private readonly store: AztecAsyncKVStore,
-    private readonly log: Logger = createLogger('bot:store'),
+    private readonly log: Logger,
   ) {
     this.bridgeClaims = store.openMap<string, string>('bridge_claims');
   }

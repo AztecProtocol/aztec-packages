@@ -1,6 +1,6 @@
-import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { omit } from '@aztec/foundation/collection';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -14,7 +14,6 @@ import type { BotInfo, BotRunnerApi } from './interface.js';
 import { BotStore } from './store/index.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
-  private log = createLogger('bot');
   private bot?: Promise<BaseBot>;
   private runningPromise: RunningPromise;
   private consecutiveErrors = 0;
@@ -29,6 +28,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
     private readonly telemetry: TelemetryClient,
     private readonly aztecNodeAdmin: AztecNodeAdmin | undefined,
     private readonly store: BotStore,
+    private readonly log: Logger,
   ) {
     this.tracer = telemetry.getTracer('Bot');
 
@@ -147,8 +147,8 @@ export class BotRunner implements BotRunnerApi, Traceable {
   async #createBot() {
     try {
       this.bot = this.config.ammTxs
-        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store)
-        : Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store, this.log)
+        : Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store, this.log);
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);

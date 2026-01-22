@@ -12,11 +12,11 @@ import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { deriveKeys } from '@aztec/aztec.js/keys';
-import { createLogger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
@@ -35,13 +35,12 @@ const MINT_BALANCE = 1e12;
 const MIN_BALANCE = 1e3;
 
 export class BotFactory {
-  private log = createLogger('bot');
-
   constructor(
     private readonly config: BotConfig,
     private readonly wallet: TestWallet,
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
+    private readonly log: Logger,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
   ) {}
 
@@ -295,7 +294,7 @@ export class BotFactory {
         .getFunctionCall(),
     });
 
-    const mintTx = new BatchCall(this.wallet, [
+    const mintTx = new BatchCall(this.wallet, this.log, [
       token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
       token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
     ]).send({ from: liquidityProvider });
@@ -372,7 +371,7 @@ export class BotFactory {
       this.log.info(`Skipping minting as ${minter.toString()} has enough tokens`);
       return;
     }
-    const sentTx = new BatchCall(token.wallet, calls).send({ from: minter });
+    const sentTx = new BatchCall(token.wallet, this.log, calls).send({ from: minter });
     const txHash = await sentTx.getTxHash();
     this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
     await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));

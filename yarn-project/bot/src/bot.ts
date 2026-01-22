@@ -1,6 +1,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, SentTx } from '@aztec/aztec.js/contracts';
 import { times } from '@aztec/foundation/collection';
+import type { Logger } from '@aztec/foundation/log';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -22,8 +23,9 @@ export class Bot extends BaseBot {
     public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,
     config: BotConfig,
+    log: Logger,
   ) {
-    super(node, wallet, defaultAccountAddress, config);
+    super(node, wallet, defaultAccountAddress, config, log);
   }
 
   static async create(
@@ -32,15 +34,17 @@ export class Bot extends BaseBot {
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    log: Logger,
   ): Promise<Bot> {
     const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
       wallet,
       store,
       aztecNode,
+      log,
       aztecNodeAdmin,
     ).setup();
-    return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config);
+    return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config, log);
   }
 
   public updateConfig(config: Partial<BotConfig>) {
@@ -68,7 +72,7 @@ export class Bot extends BaseBot {
           token.methods.transfer(TRANSFER_AMOUNT, this.defaultAccountAddress, recipient),
         );
 
-    const batch = new BatchCall(wallet, calls);
+    const batch = new BatchCall(wallet, this.log, calls);
     const opts = await this.getSendMethodOpts(batch);
 
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);

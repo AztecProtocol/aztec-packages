@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
@@ -12,8 +13,8 @@ describe('BotStore', () => {
 
   beforeEach(async () => {
     // Create a temporary in-memory store for testing
-    tmpStore = await openTmpStore('bot-test', true);
-    store = new BotStore(tmpStore);
+    tmpStore = await openTmpStore('bot-test', createLogger('bot:test'), true);
+    store = new BotStore(tmpStore, createLogger('bot:store'));
   });
 
   afterEach(async () => {
