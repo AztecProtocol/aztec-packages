@@ -1150,6 +1150,8 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(false));
+
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
     EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
@@ -1175,6 +1177,8 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
     EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(false));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
 
@@ -1204,6 +1208,8 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
     EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(false));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 

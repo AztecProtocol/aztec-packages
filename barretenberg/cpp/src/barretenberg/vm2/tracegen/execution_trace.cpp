@@ -660,10 +660,16 @@ void ExecutionTraceBuilder::process(
                 uint32_t remaining_l2_to_l1_msgs =
                     MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.numL2ToL1Messages;
 
+                FF recipient = registers[0].as<FF>();
+                bool too_large_recipient_error =
+                    static_cast<uint256_t>(recipient) > static_cast<uint256_t>(MAX_ETH_ADDRESS_VALUE);
+
                 trace.set(row,
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
                                 remaining_l2_to_l1_msgs }, // Will be inverted in batch later.
+                              { C::execution_max_eth_address_value, FF(MAX_ETH_ADDRESS_VALUE) },
+                              { C::execution_too_large_recipient_error, too_large_recipient_error },
                               { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !is_discarding() },
                               {
                                   C::execution_public_inputs_index,
@@ -1181,6 +1187,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
             C::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
         // SendL2ToL1Msg
+        .add<lookup_send_l2_to_l1_msg_recipient_check_settings, InteractionType::LookupGeneric>()
         .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>()
         // Dispatching to other sub-traces
         .add<lookup_execution_dispatch_to_alu_settings, InteractionType::LookupGeneric>()

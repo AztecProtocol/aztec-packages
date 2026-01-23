@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_ETH_ADDRESS_VALUE: Field = 0xffffffffffffffffffffffffffffffffffffffff;
 pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 
@@ -78,10 +79,10 @@ pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8; // Leave at 8, because it results in sha256 hashing in the Tx Base Rollup
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u32 = 64;
+pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 // Key validation requests are not only for app-siloed _nullifier_ secret keys: app-siloed tagging shared secrets might require this mechanism,
 // hence why it's higher than you might expect (roughly (but not quite) enough for a tagging shared secret per private log + 1 nsk).
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = MAX_PRIVATE_LOGS_PER_TX;
-pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 
 // "PER CALL" CONSTANTS
@@ -92,8 +93,8 @@ pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = MAX_ENQUEUED_CALLS_PER_TX;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = MAX_L2_TO_L1_MSGS_PER_TX;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
-pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = MAX_NOTE_HASHES_PER_CALL;
+pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 // docs:end:constants
 
@@ -1256,7 +1257,7 @@ mod test {
     use crate::merkle_tree::root::compute_empty_sha_tree_root;
     use crate::traits::FromField;
     use super::{
-        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, MAX_ETH_ADDRESS_VALUE,
         NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
@@ -1351,6 +1352,16 @@ mod test {
     fn validate_empty_epoch_out_hash() {
         let empty_root = compute_empty_sha_tree_root::<OUT_HASH_TREE_HEIGHT>();
         assert_eq(empty_root, EMPTY_EPOCH_OUT_HASH);
+    }
+
+    #[test]
+    fn validate_max_eth_address_value() {
+        MAX_ETH_ADDRESS_VALUE.assert_max_bit_size::<160>();
+    }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn validate_max_eth_address_value_negative() {
+        (MAX_ETH_ADDRESS_VALUE + 1).assert_max_bit_size::<160>();
     }
 
 }

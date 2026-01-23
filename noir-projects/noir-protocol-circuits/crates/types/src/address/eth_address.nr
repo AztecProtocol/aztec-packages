@@ -28,6 +28,10 @@ impl EthAddress {
         Self { inner: field }
     }
 
+    pub fn validate(self) {
+        self.inner.assert_max_bit_size::<160>();
+    }
+
     pub fn is_zero(self) -> bool {
         self.inner == 0
     }
