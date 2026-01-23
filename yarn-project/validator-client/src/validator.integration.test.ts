@@ -166,6 +166,7 @@ describe('ValidatorClient Integration', () => {
         disabledValidators: [],
         validatorReexecute: true,
         slashBroadcastedInvalidBlockPenalty: 10n,
+        l1PublishingTime: 0,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,

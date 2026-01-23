@@ -13,6 +13,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
+import { DEFAULT_ATTESTATION_PROPAGATION_TIME_SECONDS } from '@aztec/stdlib/timetable/constants';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
 import {
@@ -25,7 +26,7 @@ import {
 export * from './publisher/config.js';
 export type { SequencerConfig };
 
-export const DEFAULT_ATTESTATION_PROPAGATION_TIME = 2;
+export const DEFAULT_ATTESTATION_PROPAGATION_TIME = DEFAULT_ATTESTATION_PROPAGATION_TIME_SECONDS;
 
 /**
  * Default values for SequencerConfig.

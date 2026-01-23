@@ -18,6 +18,7 @@ import {
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
+import { getCheckpointFinalizationTimeMs } from '@aztec/stdlib/timetable';
 import { BlockHeader, type CheckpointGlobalVariables, type FailedTx, type Tx } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
@@ -432,7 +433,14 @@ export class BlockProposalHandler {
 
   private getReexecutionDeadline(slot: SlotNumber, config: { l1GenesisTime: bigint; slotDuration: number }): Date {
     const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
-    return new Date(nextSlotTimestampSeconds * 1000);
+    const l1Constants = this.epochCache.getL1Constants();
+    const msNeededForPropagationAndPublishing = getCheckpointFinalizationTimeMs({
+      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
+      // default mirrors sequencer defaults
+      l1PublishingTime: this.config.l1PublishingTime,
+      p2pPropagationTime: this.config.attestationPropagationTime,
+    });
+    return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
   }
 
   private getReexecuteFailureReason(err: any) {

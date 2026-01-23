@@ -50,6 +50,8 @@
     "./interfaces/prover-config": "./dest/interfaces/prover-client.js",
     "./interfaces/api-limit": "./dest/interfaces/api_limit.js",
     "./epoch-helpers": "./dest/epoch-helpers/index.js",
+    "./timetable": "./dest/timetable/index.js",
+    "./timetable/constants": "./dest/timetable/constants.js",
     "./config": "./dest/config/index.js",
     "./testing/jest": "./dest/tests/jest.js",
     "./database-version": "./dest/database-version/index.js",

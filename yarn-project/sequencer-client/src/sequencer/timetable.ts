@@ -1,4 +1,10 @@
 import { createLogger } from '@aztec/aztec.js/log';
+import { getCheckpointFinalizationTimeSeconds } from '@aztec/stdlib/timetable';
+import {
+  DEFAULT_CHECKPOINT_ASSEMBLE_TIME_SECONDS,
+  TEST_CHECKPOINT_ASSEMBLE_TIME_SECONDS,
+  TEST_FAST_TIMING_ETHEREUM_SLOT_THRESHOLD_SECONDS,
+} from '@aztec/stdlib/timetable/constants';
 
 import { DEFAULT_ATTESTATION_PROPAGATION_TIME as DEFAULT_P2P_PROPAGATION_TIME } from '../config.js';
 import { SequencerTooSlowError } from './errors.js';
@@ -7,7 +13,7 @@ import { SequencerState } from './utils.js';
 
 export const MIN_EXECUTION_TIME = 2;
 export const CHECKPOINT_INITIALIZATION_TIME = 1;
-export const CHECKPOINT_ASSEMBLE_TIME = 1;
+export const CHECKPOINT_ASSEMBLE_TIME = DEFAULT_CHECKPOINT_ASSEMBLE_TIME_SECONDS;
 
 export class SequencerTimetable {
   /**
@@ -89,9 +95,9 @@ export class SequencerTimetable {
     this.enforce = opts.enforce;
 
     // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
-    if (this.ethereumSlotDuration < 8) {
+    if (this.ethereumSlotDuration < TEST_FAST_TIMING_ETHEREUM_SLOT_THRESHOLD_SECONDS) {
       this.p2pPropagationTime = 0;
-      this.checkpointAssembleTime = 0.5;
+      this.checkpointAssembleTime = TEST_CHECKPOINT_ASSEMBLE_TIME_SECONDS;
       this.checkpointInitializationTime = 0.5;
       this.minExecutionTime = 1;
     }
@@ -106,10 +112,11 @@ export class SequencerTimetable {
     this.initializationOffset = this.checkpointInitializationTime;
 
     // Calculate total checkpoint finalization time (assembly + attestations + L1 publishing)
-    this.checkpointFinalizationTime =
-      this.checkpointAssembleTime +
-      this.p2pPropagationTime * 2 + // Round-trip propagation
-      this.l1PublishingTime; // L1 publishing
+    this.checkpointFinalizationTime = getCheckpointFinalizationTimeSeconds({
+      ethereumSlotDuration: this.ethereumSlotDuration,
+      l1PublishingTime: this.l1PublishingTime,
+      p2pPropagationTime: this.p2pPropagationTime,
+    });
 
     // Calculate maximum number of blocks that fit in this slot
     if (!this.blockDuration) {

@@ -59,7 +59,10 @@ export type ValidatorClientConfig = ValidatorHASignerConfig & {
 };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal'> &
+  Pick<
+    SequencerConfig,
+    'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal' | 'attestationPropagationTime' | 'l1PublishingTime'
+  > &
   Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> & {
     /**
      * Whether transactions are disabled for this node
@@ -86,6 +89,8 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
   ValidatorClientConfigSchema.extend({
     txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
+    attestationPropagationTime: z.number().optional(),
+    l1PublishingTime: z.number().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
   }),

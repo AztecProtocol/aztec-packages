@@ -167,6 +167,12 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode: boolean;
+
+  /** One-way p2p propagation time (seconds). */
+  attestationPropagationTime?: number;
+
+  /** Time reserved for L1 publishing (seconds). */
+  l1PublishingTime?: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -430,6 +436,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
+  },
+  attestationPropagationTime: {
+    description: 'One-way p2p propagation time (seconds).',
+  },
+  l1PublishingTime: {
+    description: 'Time reserved for L1 publishing (seconds).',
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

@@ -22,6 +22,7 @@ import {
   type CheckpointProposal,
   type P2PClientType,
 } from '@aztec/stdlib/p2p';
+import { getCheckpointFinalizationTimeMs } from '@aztec/stdlib/timetable';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -116,10 +117,16 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // validator-client code into here so we can validate a proposal is reasonable.
     this.registerBlockProposalHandler(async (block, sender) => {
       this.log.debug(`Received block proposal from ${sender.toString()}`);
-      // TODO(palla/txs): Need to subtract validatorReexecuteDeadlineMs from this deadline (see ValidatorClient.getReexecutionDeadline)
       const constants = this.txCollection.getConstants();
       const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(block.slotNumber + 1), constants));
-      const deadline = new Date(nextSlotTimestampSeconds * 1000);
+      const deadline = new Date(
+        nextSlotTimestampSeconds * 1000 -
+          getCheckpointFinalizationTimeMs({
+            ethereumSlotDuration: constants.ethereumSlotDuration,
+            l1PublishingTime: this.config.l1PublishingTime,
+            p2pPropagationTime: this.config.attestationPropagationTime,
+          }),
+      );
       const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.blockHeader.lastArchive.root);
       if (!parentBlock) {
         this.log.debug(`Cannot collect txs for proposal as parent block not found`);
