@@ -78,6 +78,18 @@ class TranslatorFlavor {
 
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
+    // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
+    // to bring the degree of relations down, while extending the length.
+    static constexpr size_t DYADIC_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE;
+
+    // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
+    // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
+    // rows at a time. Note: NUM_MASKED_ROWS_END is defined below as it depends on CircuitBuilder.
+    static constexpr size_t DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING =
+        MINI_CIRCUIT_SIZE - (CircuitBuilder::NUM_RANDOM_OPS_END * 2);
+    static constexpr size_t DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING =
+        DYADIC_CIRCUIT_SIZE - ((CircuitBuilder::NUM_RANDOM_OPS_END * 2) * INTERLEAVING_GROUP_SIZE);
+
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
 

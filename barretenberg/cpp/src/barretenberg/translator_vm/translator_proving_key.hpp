@@ -10,7 +10,19 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1317)
+
+/**
+ * @brief The TranslatorProvingKey transforms a TranslatorCircuitBuilder into polynomial form suitable for proving.
+ *
+ * @details This class is responsible for:
+ * - Transferring wire values from the circuit builder into polynomials
+ * - Computing Lagrange selector polynomials
+ * - Computing interleaved and ordered range constraint polynomials
+ * - Distributing randomness for zero-knowledge
+ *
+ * Challenge values (batching_challenge_v, evaluation_input_x) are copied from the circuit
+ * as they're needed by the prover after circuit construction is complete.
+ */
 class TranslatorProvingKey {
   public:
     using Flavor = TranslatorFlavor;
@@ -22,21 +34,29 @@ class TranslatorProvingKey {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
-    static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
-    // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
-    // to bring the degree of relations down, while extending the length.
-    static constexpr size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    // Size constants (copied from Flavor for convenience)
+    static constexpr size_t MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
+    static constexpr size_t DYADIC_CIRCUIT_SIZE = Flavor::DYADIC_CIRCUIT_SIZE;
+    static constexpr size_t DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING = Flavor::DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING;
+    static constexpr size_t DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING = Flavor::DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING;
 
-    // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
-    // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
-    // rows at a time
-    static constexpr size_t dyadic_mini_circuit_size_without_masking =
-        mini_circuit_dyadic_size - Flavor::NUM_MASKED_ROWS_END;
-    static constexpr size_t dyadic_circuit_size_without_masking =
-        dyadic_circuit_size - Flavor::NUM_MASKED_ROWS_END * Flavor::INTERLEAVING_GROUP_SIZE;
+    // Static assertions to ensure circuit/flavor invariants are maintained
+    static_assert(Flavor::NUM_WIRES == Circuit::NUM_WIRES,
+                  "Wire count mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
+    static_assert(Flavor::RESULT_ROW == Circuit::RESULT_ROW,
+                  "Result row index mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
+    static_assert(Flavor::MICRO_LIMB_BITS == Circuit::MICRO_LIMB_BITS,
+                  "Micro limb bits mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
+    static_assert(Flavor::NUM_LIMB_BITS == Circuit::NUM_LIMB_BITS,
+                  "Limb bits mismatch between TranslatorFlavor and TranslatorCircuitBuilder");
+    static_assert(DYADIC_CIRCUIT_SIZE == MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE,
+                  "Dyadic circuit size must equal mini circuit size times interleaving group size");
+    static_assert(DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING < MINI_CIRCUIT_SIZE,
+                  "Mini circuit size without masking must be smaller than full mini circuit size");
 
     std::shared_ptr<ProvingKey> proving_key;
 
+    // Challenge values copied from circuit - needed by prover after circuit is consumed
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
 

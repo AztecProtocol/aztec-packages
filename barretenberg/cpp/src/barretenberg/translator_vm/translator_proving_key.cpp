@@ -87,7 +87,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
                                              proving_key->polynomials.ordered_range_constraints_1,
                                              proving_key->polynomials.ordered_range_constraints_2,
                                              proving_key->polynomials.ordered_range_constraints_3 };
-    std::vector<size_t> extra_denominator_uint(dyadic_circuit_size_without_masking);
+    std::vector<size_t> extra_denominator_uint(DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING);
 
     const auto sorted_elements = get_sorted_steps();
     auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
@@ -97,11 +97,11 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // Sorting is done by converting the elements to uint for efficiency.
     auto ordering_function = [&](size_t i) {
         const auto& group = to_be_interleaved_groups[i];
-        std::vector<uint32_t> ordered_vectors_uint(dyadic_circuit_size_without_masking);
+        std::vector<uint32_t> ordered_vectors_uint(DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING);
 
         // Calculate how much space there is for values from the group polynomials given we also need to append the
         // additional steps
-        auto free_space_before_runway = dyadic_circuit_size_without_masking - sorted_elements.size();
+        auto free_space_before_runway = DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING - sorted_elements.size();
 
         // Calculate the starting index of this group's overflowing elements in the extra denominator polynomial
         size_t extra_denominator_offset = i * sorted_elements.size();
@@ -110,8 +110,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * dyadic_mini_circuit_size_without_masking;
-            ;
+            auto current_offset = j * DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING;
             // For each element in the polynomial
             for (size_t k = group[j].start_index(); k < group[j].end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
 
@@ -138,7 +137,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
         // from Montgomery
         std::sort(ordered_vectors_uint.begin(), ordered_vectors_uint.end());
-        BB_ASSERT_EQ(ordered_vectors_uint.size(), dyadic_circuit_size_without_masking);
+        BB_ASSERT_EQ(ordered_vectors_uint.size(), DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING);
         // Copy the values into the actual polynomial
         ordered_constraint_polynomials[i].copy_vector(ordered_vectors_uint);
     };
@@ -199,18 +198,18 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
     parallel_for(Flavor::NUM_INTERLEAVED_WIRES, [&](size_t i) {
         size_t idx = i * num_random_values_per_interleaved;
         const auto& current_interleaved = interleaved[i];
-        for (size_t j = dyadic_circuit_size_without_masking; j < current_interleaved.end_index(); j++) {
+        for (size_t j = DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING; j < current_interleaved.end_index(); j++) {
             random_values[idx] = current_interleaved.at(j);
             idx++;
         }
     });
 
     // Split them across the ordered polynomials
-    size_t end = dyadic_circuit_size_without_masking + num_random_values_per_ordered;
+    size_t end = DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING + num_random_values_per_ordered;
     parallel_for(num_ordered_polynomials, [&](size_t i) {
         size_t index_into_random = i * num_random_values_per_ordered;
         auto& current_ordered = ordered[i];
-        for (size_t j = dyadic_circuit_size_without_masking; j < end; j++) {
+        for (size_t j = DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING; j < end; j++) {
             current_ordered.at(j) = random_values[index_into_random];
             index_into_random++;
         }
@@ -297,13 +296,12 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
  */
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
-
     proving_key->polynomials.lagrange_first.at(0) = 1;
-    proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
-    proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+    proving_key->polynomials.lagrange_real_last.at(DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING - 1) = 1;
+    proving_key->polynomials.lagrange_last.at(DYADIC_CIRCUIT_SIZE - 1) = 1;
 
     // Location of randomness for the polynomials defined within the large size
-    for (size_t i = dyadic_circuit_size_without_masking; i < dyadic_circuit_size; i++) {
+    for (size_t i = DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING; i < DYADIC_CIRCUIT_SIZE; i++) {
         proving_key->polynomials.lagrange_masking.at(i) = 1;
     }
 
@@ -312,7 +310,7 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     }
 
     // Location of randomness for wires defined within the mini circuit
-    for (size_t i = dyadic_mini_circuit_size_without_masking; i < mini_circuit_dyadic_size; i++) {
+    for (size_t i = DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING; i < MINI_CIRCUIT_SIZE; i++) {
         proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
     }
 
@@ -320,14 +318,14 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     // polynomials at even and odd indices, as such we need corresponding lagranges for determining whic relations
     // should trigger at odd indices and which at even. These polynomials need to only be active within the range of
     // Translator trace that processes actual ecc ops.
-    for (size_t i = Flavor::RESULT_ROW; i < dyadic_mini_circuit_size_without_masking; i += 2) {
+    for (size_t i = Flavor::RESULT_ROW; i < DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING; i += 2) {
         proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
 
     // Position of evaluation result
     proving_key->polynomials.lagrange_result_row.at(Flavor::RESULT_ROW) = 1;
-    proving_key->polynomials.lagrange_last_in_minicircuit.at(dyadic_mini_circuit_size_without_masking - 1) = 1;
+    proving_key->polynomials.lagrange_last_in_minicircuit.at(DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING - 1) = 1;
 }
 
 /**

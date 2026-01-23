@@ -34,7 +34,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
-    constexpr size_t mini_circuit_size_without_masking = TranslatorProvingKey::dyadic_mini_circuit_size_without_masking;
+    constexpr size_t mini_circuit_size_without_masking = TranslatorProvingKey::DYADIC_MINI_CIRCUIT_SIZE_WITHOUT_MASKING;
     // Fill in lagrange even polynomial
     for (size_t i = prover_polynomials.lagrange_even_in_minicircuit.start_index();
          i < prover_polynomials.lagrange_even_in_minicircuit.end_index();
@@ -639,13 +639,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t dyadic_circuit_size_without_masking = TranslatorProvingKey::dyadic_circuit_size_without_masking;
+    const size_t dyadic_circuit_size_without_masking = TranslatorProvingKey::DYADIC_CIRCUIT_SIZE_WITHOUT_MASKING;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
     prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
 
-    for (size_t i = dyadic_circuit_size_without_masking; i < key.dyadic_circuit_size; i++) {
+    for (size_t i = dyadic_circuit_size_without_masking; i < TranslatorProvingKey::DYADIC_CIRCUIT_SIZE; i++) {
         prover_polynomials.lagrange_masking.at(i) = 1;
     }
 
@@ -670,7 +670,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
 
     // Add masking values
-    for (size_t i = dyadic_circuit_size_without_masking; i < key.dyadic_circuit_size; i++) {
+    for (size_t i = dyadic_circuit_size_without_masking; i < TranslatorProvingKey::DYADIC_CIRCUIT_SIZE; i++) {
         vector_for_sorting.emplace_back(FF::random_element());
     }
 
