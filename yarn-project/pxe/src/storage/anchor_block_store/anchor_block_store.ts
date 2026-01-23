@@ -13,16 +13,19 @@ export class AnchorBlockStore {
   // validated by subsequent executions. If we only tracked per-block, subsequent jobs would skip sync and never
   // validate those pending items.
   //
-  // Example flow that breaks if we only track per-block:
-  // 1. Job A calls `process_message.simulate()` which runs `ensureContractSynced` → marks contract as synced
-  // 2. Inside `process_message`, an event/note is enqueued to the capsule store via `enqueue_event_for_validation`
-  // 3. Job A commits, the enqueued item is now in the committed capsule store awaiting validation
-  // 4. Job B calls `getPrivateEvents()` which runs `ensureContractSynced`
+  // Example flow that breaks if we only track per-block (e.g. e2e_blacklist_token_contract):
+  // 1. Job A executes a mint transaction:
+  //    - `ensureContractSynced` → `sync_private_state` runs BEFORE the tx executes → marks contract as synced
+  //    - The mint transaction then creates a new shield note (emits a tagged log to the chain)
+  //    - Note: the note is created AFTER the sync already ran, so it wasn't discovered
+  // 2. Job A commits, the note now exists on-chain as a tagged log
+  // 3. Job B executes a transaction that calls `redeem_shield` to spend the minted tokens
+  // 4. `ensureContractSynced` runs for the token contract
   // 5. If we only tracked per-block, Job B would see the contract is "synced" and skip `sync_private_state`
-  // 6. The enqueued item from Job A would never be validated because `validate_enqueued_notes_and_events` is only
-  //    called inside `sync_private_state` (via `discover_new_messages`)
+  // 6. The note from Job A is never fetched from the chain because `sync_private_state` wasn't called
+  // 7. `redeem_shield` fails with "note not found"
   //
-  // By tracking per-job, Job B will run its own sync, which validates the pending items from Job A.
+  // By tracking per-job, Job B will run its own sync, which fetches the note from the chain.
   #syncedContracts: Set<string> = new Set();
 
   constructor(store: AztecAsyncKVStore) {
