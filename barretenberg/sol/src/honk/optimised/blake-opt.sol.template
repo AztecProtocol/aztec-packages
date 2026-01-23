@@ -1932,7 +1932,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                   LOGUP WIDGET EVALUATION                  */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-                // Note: Using gamma powers instead of eta separates lookup encoding from memory encoding for soundness
                 {
                     let gamma := mload(GAMMA_CHALLENGE)
                     // Compute gamma powers inline (γ², γ³, γ⁴) for lookup encoding

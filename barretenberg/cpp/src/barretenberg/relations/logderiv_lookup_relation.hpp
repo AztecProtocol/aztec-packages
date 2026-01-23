@@ -28,8 +28,6 @@ namespace bb {
  * + table_index * \gamma^4, with derived_table_entry_i = w_i - col_step_size_i\cdot w_i_shift (read note for
  explanation).
  *
- * Note: Using powers of gamma (instead of eta) separates lookup encoding from memory encoding, which is
- * important for soundness since memory uses eta powers.
  * This expression is motivated by taking the derivative of the log of a more conventional grand product style set
  * equivalence argument (see e.g. https://eprint.iacr.org/2022/1530.pdf for details).
  *

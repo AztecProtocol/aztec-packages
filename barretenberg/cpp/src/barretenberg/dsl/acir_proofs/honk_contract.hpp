@@ -68,7 +68,7 @@ library FrLib {
             mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), v)
-            mstore(add(free, 0x80), sub(MODULUS, 2)) 
+            mstore(add(free, 0x80), sub(MODULUS, 2))
             mstore(add(free, 0xa0), MODULUS)
             let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
@@ -92,7 +92,7 @@ library FrLib {
             mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), b)
-            mstore(add(free, 0x80), v) 
+            mstore(add(free, 0x80), v)
             mstore(add(free, 0xa0), MODULUS)
             let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
@@ -779,7 +779,6 @@ library RelationsLib {
         Fr read_term;
 
         // Compute gamma powers inline (γ², γ³, γ⁴) for lookup encoding
-        // Note: Using gamma powers instead of eta separates lookup encoding from memory encoding for soundness
         Fr gamma_two = rp.gamma * rp.gamma;
         Fr gamma_three = gamma_two * rp.gamma;
         Fr gamma_four = gamma_three * rp.gamma;

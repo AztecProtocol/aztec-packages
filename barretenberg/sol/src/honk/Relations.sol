@@ -140,7 +140,6 @@ library RelationsLib {
         Fr read_term;
 
         // Compute gamma powers inline (γ², γ³, γ⁴) for lookup encoding
-        // Note: Using gamma powers instead of eta separates lookup encoding from memory encoding for soundness
         Fr gamma_two = rp.gamma * rp.gamma;
         Fr gamma_three = gamma_two * rp.gamma;
         Fr gamma_four = gamma_three * rp.gamma;
