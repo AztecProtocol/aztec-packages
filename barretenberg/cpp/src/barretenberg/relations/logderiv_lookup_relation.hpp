@@ -148,10 +148,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
-        // Compute gamma powers inline (γ², γ³, γ⁴)
-        const auto gamma_two = gamma * gamma;
-        const auto gamma_three = gamma_two * gamma;
-        const auto gamma_four = gamma_three * gamma;
+        const auto gamma_two = ParameterCoefficientAccumulator(params.gamma_two);
+        const auto gamma_three = ParameterCoefficientAccumulator(params.gamma_three);
+        const auto gamma_four = ParameterCoefficientAccumulator(params.gamma_four);
 
         auto table_1 = CoefficientAccumulator(in.table_1);
         auto table_2 = CoefficientAccumulator(in.table_2);
@@ -172,10 +171,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         const auto gamma = ParameterCoefficientAccumulator(params.gamma);
-        // Compute gamma powers inline (γ², γ³, γ⁴)
-        const auto gamma_two = gamma * gamma;
-        const auto gamma_three = gamma_two * gamma;
-        const auto gamma_four = gamma_three * gamma;
+        const auto gamma_two = ParameterCoefficientAccumulator(params.gamma_two);
+        const auto gamma_three = ParameterCoefficientAccumulator(params.gamma_three);
+        const auto gamma_four = ParameterCoefficientAccumulator(params.gamma_four);
 
         auto w_1 = CoefficientAccumulator(in.w_l);
         auto w_2 = CoefficientAccumulator(in.w_r);

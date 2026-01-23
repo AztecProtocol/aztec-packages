@@ -137,6 +137,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inv
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
+    relation_parameters.compute_gamma_powers();
 
     witness_comms.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);

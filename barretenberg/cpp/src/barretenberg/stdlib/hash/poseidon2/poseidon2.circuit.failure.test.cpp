@@ -94,9 +94,6 @@ class Poseidon2FailureTests : public ::testing::Test {
 
         RelationParameters relation_parameters;
 
-        for (auto& rel_param : relation_parameters.get_to_fold()) {
-            rel_param = FF::random_element();
-        }
         auto prover_transcript = std::make_shared<Transcript>();
 
         SumcheckProver sumcheck_prover(prover_instance->dyadic_size(),

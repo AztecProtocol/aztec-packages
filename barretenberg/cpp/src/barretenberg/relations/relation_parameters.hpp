@@ -27,6 +27,9 @@ template <typename T> struct RelationParameters {
     T eta_three{ 0 };          // Aux Memory (eta³)
     T beta{ 0 };               // Permutation + Lookup
     T gamma{ 0 };              // Permutation + Lookup
+    T gamma_two{ 0 };          // Lookup (γ²)
+    T gamma_three{ 0 };        // Lookup (γ³)
+    T gamma_four{ 0 };         // Lookup (γ⁴)
     T public_input_delta{ 0 }; // Permutation
     T beta_sqr{ 0 };
     T beta_cube{ 0 };
@@ -36,6 +39,14 @@ template <typename T> struct RelationParameters {
     {
         eta_two = eta * eta;
         eta_three = eta_two * eta;
+    }
+
+    // Compute gamma powers for lookup encoding
+    void compute_gamma_powers()
+    {
+        gamma_two = gamma * gamma;
+        gamma_three = gamma_two * gamma;
+        gamma_four = gamma_three * gamma;
     }
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
@@ -65,6 +76,7 @@ template <typename T> struct RelationParameters {
         result.beta_sqr = result.beta * result.beta;
         result.beta_cube = result.beta_sqr * result.beta;
         result.gamma = T::random_element();
+        result.compute_gamma_powers(); // gamma_two = γ², gamma_three = γ³, gamma_four = γ⁴
         result.public_input_delta = T::random_element();
         result.eccvm_set_permutation_delta = result.gamma * (result.gamma + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr) *
