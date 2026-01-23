@@ -13,23 +13,66 @@ using namespace numeric;
 #ifndef AZTEC_NO_ORIGIN_TAGS
 
 /**
+ * @brief Find the position of the highest set bit in a uint128_t
+ * @return -1 if no bits are set, otherwise the bit position (0-127)
+ */
+static inline int highest_set_bit_128(uint128_t value)
+{
+    if (value == 0) {
+        return -1;
+    }
+    // Check high 64 bits first
+    auto high = static_cast<uint64_t>(value >> 64);
+    if (high != 0) {
+        return 127 - __builtin_clzll(high);
+    }
+    // Check low 64 bits
+    auto low = static_cast<uint64_t>(value);
+    return 63 - __builtin_clzll(low);
+}
+
+/**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
  *
- * @details For now this detects that 2 elements from 2 different round can't mingle without a challenge in between
+ * @details Checks that submitted values from different rounds are properly bound by challenges.
+ * The key invariant: a challenge from round N binds all data from rounds 0..N (via Fiat-Shamir hash chain).
+ * Therefore, max(challenge_rounds) must be >= max(submitted_rounds).
  *
  * @param provenance_a Round provenance of first element
  * @param provenance_b Round provenance of second element
  */
 void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b)
 {
-    const uint128_t* challenges_a = (const uint128_t*)(&provenance_a.data[2]);
-    const uint128_t* challenges_b = (const uint128_t*)(&provenance_b.data[2]);
+    const auto challenges_a = *reinterpret_cast<const uint128_t*>(&provenance_a.data[2]);
+    const auto challenges_b = *reinterpret_cast<const uint128_t*>(&provenance_b.data[2]);
+    const auto submitted_a = *reinterpret_cast<const uint128_t*>(&provenance_a.data[0]);
+    const auto submitted_b = *reinterpret_cast<const uint128_t*>(&provenance_b.data[0]);
 
-    const uint128_t* submitted_a = (const uint128_t*)(&provenance_a.data[0]);
-    const uint128_t* submitted_b = (const uint128_t*)(&provenance_b.data[0]);
+    // If either has no submitted data, nothing to check
+    if (submitted_a == 0 || submitted_b == 0) {
+        return;
+    }
 
-    if (*challenges_a == 0 && *challenges_b == 0 && *submitted_a != 0 && *submitted_b != 0 &&
-        *submitted_a != *submitted_b) {
+    // If both have the exact same submitted pattern, they're from the same round(s) - OK to combine
+    // (This preserves the original behavior: two round-0 values can combine before any challenge)
+    if (submitted_a == submitted_b) {
+        return;
+    }
+
+    // Different submitted patterns - need challenge coverage
+    const uint128_t merged_challenges = challenges_a | challenges_b;
+    const uint128_t merged_submitted = submitted_a | submitted_b;
+
+    if (merged_challenges == 0) {
+        throw_or_abort("Submitted values from 2 different rounds are mixing without challenges");
+    }
+
+    const int max_submitted_round = highest_set_bit_128(merged_submitted);
+    const int max_challenge_round = highest_set_bit_128(merged_challenges);
+
+    // The highest challenge round must be >= the highest submitted round
+    // This ensures all submitted data is bound by a challenge from at least that round
+    if (max_challenge_round < max_submitted_round) {
         throw_or_abort("Submitted values from 2 different rounds are mixing without challenges");
     }
 }
