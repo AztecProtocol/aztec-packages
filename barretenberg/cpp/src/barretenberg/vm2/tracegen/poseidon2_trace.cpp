@@ -97,7 +97,7 @@ constexpr std::array<StateCols, Poseidon2Perm::NUM_ROUNDS> intermediate_round_co
 
 /**
  * @brief Processes the hash events for the Poseidon2 hash function. It populates the columns for the poseidon2_hash
- *        sub-trace.
+ *        sub-trace. It generates a row per permutation call, (ca. 1/3 of number of inputs to hash).
  *
  * @param hash_events The container of hash events to process.
  * @param trace The trace container.
@@ -164,7 +164,7 @@ void Poseidon2TraceBuilder::process_hash(
 
 /**
  * @brief Processes the permutation events for the Poseidon2 permutation function. It populates the columns for the
- *        poseidon2_perm sub-trace.
+ *        poseidon2_perm sub-trace. It generates exactly 1 row per invocation.
  *
  * @param perm_events The container of permutation events to process.
  * @param trace The trace container.
@@ -261,7 +261,7 @@ void Poseidon2TraceBuilder::process_permutation(
 
 /**
  * @brief Processes the events for the Poseidon2 memory-aware permutation function. It populates the columns
- *        for the poseidon2_perm_mem sub-trace.
+ *        for the poseidon2_perm_mem sub-trace. It generates exactly 1 row per invocation.
  *
  * @param perm_mem_events The container of the memory-aware permutation events to process.
  * @param trace The trace container.

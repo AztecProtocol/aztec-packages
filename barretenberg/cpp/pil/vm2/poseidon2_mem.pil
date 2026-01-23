@@ -22,6 +22,26 @@ include "gt.pil";
  * Note that the poseidon2_perm subtrace is also used extensively by other
  * subtraces internally (e.g. merkle check, bytecode/calldata hashing, etc).
  * This trace will be empty in those interactions.
+ *
+ * The only usage of this trace is to support the POSEIDON2PERM opcode. It is used by
+ * the execution dispatch #[DISPATCH_TO_POSEIDON2_PERM] in execution.pil.
+ *
+ *[DISPATCH_TO_POSEIDON2_PERM]
+ * sel_exec_dispatch_poseidon2_perm {
+ *         precomputed.clk,
+ *         context_id,
+ *         rop[0],
+ *         rop[1],
+ *         sel_opcode_error
+ * } is poseidon2_perm_mem.sel {
+ *         poseidon2_perm_mem.execution_clk,
+ *         poseidon2_perm_mem.space_id,
+ *         poseidon2_perm_mem.read_address[0],
+ *         poseidon2_perm_mem.write_address[0],
+ *         poseidon2_perm_mem.err
+ * };
+ *
+ * This sub-trace generates exactly 1 row per invocation.
  */
 
 namespace poseidon2_perm_mem;
@@ -135,6 +155,7 @@ namespace poseidon2_perm_mem;
     pol INPUT_TAG_DIFF_2 = input_tag[2] - constants.MEM_TAG_FF;
     pol INPUT_TAG_DIFF_3 = input_tag[3] - constants.MEM_TAG_FF;
 
+    // Warning: Underconstrained if `sel_should_read_mem == 0`.
     pol BATCHED_TAG_CHECK = 2**0 * INPUT_TAG_DIFF_0 + 2**3 * INPUT_TAG_DIFF_1
                           + 2**6 * INPUT_TAG_DIFF_2 + 2**9 * INPUT_TAG_DIFF_3;
 
@@ -144,7 +165,10 @@ namespace poseidon2_perm_mem;
     BATCHED_TAG_CHECK * ((1 - sel_invalid_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_tag_err = 0;
 
     // Consolidated error flag
-    pol commit err;
+    // On an active row (`sel == 1`), `sel_invalid_tag_err` is under-constrained if `sel_src_out_of_range_err == 1` or `sel_dst_out_of_range_err == 1`.
+    // This is because the BATCHED_TAG_CHECK is underconstrained on rows where `sel_should_read_mem == 0`. In this case,
+    // `err` value is toggled anyway so that it does not impact the overall error flag (`sel_invalid_tag_err` is boolean unconditionally).
+    pol commit err; // @boolean (only on active rows `sel == 1`)
     err = 1 - (1 - sel_src_out_of_range_err) * (1 - sel_dst_out_of_range_err) * (1 - sel_invalid_tag_err);
 
     ///////////////////////////////////////////////////////////////////////
@@ -154,7 +178,6 @@ namespace poseidon2_perm_mem;
     pol commit sel_should_exec; // @boolean
     sel_should_exec = sel * (1 - err);
 
-    // TODO: Rename a's and b's to use array notation in poseidon2_perm.pil
     #[INPUT_OUTPUT_POSEIDON2_PERM]
     sel_should_exec {
         input[0], input[1], input[2], input[3],
