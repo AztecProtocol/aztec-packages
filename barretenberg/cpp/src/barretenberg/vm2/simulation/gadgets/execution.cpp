@@ -2154,7 +2154,7 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
     [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
         // This helper handles operand conversion. In particular it converts enums to their underlying type first.
-        auto convert_operand = []<typename T>(const Operand& op) -> T {
+        [[maybe_unused]] auto convert_operand = []<typename T>(const Operand& op) -> T {
             if constexpr (std::is_enum_v<T>) {
                 return static_cast<T>(op.to<std::underlying_type_t<T>>());
             } else {

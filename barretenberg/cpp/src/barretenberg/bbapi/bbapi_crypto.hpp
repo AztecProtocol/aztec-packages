@@ -58,26 +58,6 @@ struct Poseidon2Permutation {
 };
 
 /**
- * @struct Poseidon2HashAccumulate
- * @brief Compute accumulated Poseidon2 hash
- */
-struct Poseidon2HashAccumulate {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2HashAccumulate";
-
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2HashAccumulateResponse";
-        fr hash;
-        MSGPACK_FIELDS(hash);
-        bool operator==(const Response&) const = default;
-    };
-
-    std::vector<fr> inputs;
-    Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(inputs);
-    bool operator==(const Poseidon2HashAccumulate&) const = default;
-};
-
-/**
  * @struct PedersenCommit
  * @brief Compute Pedersen commitment to field elements
  */

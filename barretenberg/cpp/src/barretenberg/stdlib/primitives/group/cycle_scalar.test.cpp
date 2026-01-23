@@ -142,7 +142,7 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
 
         // Construct cycle_scalar directly which will validate against Grumpkin scalar field
         // This should pass because value < BN254::fq modulus (Grumpkin scalar field)
-        auto scalar = cycle_scalar(lo, hi);
+        [[maybe_unused]] auto scalar = cycle_scalar(lo, hi);
 
         // The builder should NOT have failed
         EXPECT_FALSE(builder.failed());

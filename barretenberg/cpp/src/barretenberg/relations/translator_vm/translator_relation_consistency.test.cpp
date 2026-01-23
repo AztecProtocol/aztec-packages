@@ -147,13 +147,11 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
         const auto delta_4 = ordered_range_constraints_3_shift - ordered_range_constraints_3;
         const auto delta_5 = ordered_range_constraints_4_shift - ordered_range_constraints_4;
 
-        const auto not_real_last = lagrange_real_last + minus_one;
-        const auto not_masked = lagrange_masking + minus_one;
+        const auto not_real_last_or_masked = lagrange_real_last + lagrange_masking + minus_one;
 
         // Check the delta is {0,1,2,3}
         auto delta_in_range = [&](auto delta) {
-            return not_real_last * not_masked * delta * (delta + minus_one) * (delta + minus_two) *
-                   (delta + minus_three);
+            return not_real_last_or_masked * delta * (delta + minus_one) * (delta + minus_two) * (delta + minus_three);
         };
 
         // Check delta correctness

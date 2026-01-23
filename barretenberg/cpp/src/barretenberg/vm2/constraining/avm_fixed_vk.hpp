@@ -1,6 +1,7 @@
-#pragma once
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
-#include "barretenberg/vm2/constraining/flavor.hpp"
+#pragma once
 
 namespace bb::avm2::constraining {
 
@@ -10,12 +11,15 @@ namespace bb::avm2::constraining {
  * obtained from the test AvmFixedVKTests.FixedVKCommitments. If the NUM_PRECOMPUTED_COMMITMENTS changes, fill the extra
  * with Commitment::one() or trim the extra items, and run the test to get the new values.
  */
-class AvmFixedVKCommitments {
+class AvmHardCodedVKAndHash {
   public:
-    using VerificationKey = AvmFlavor::VerificationKey;
-    using Commitment = AvmFlavor::VerificationKey::Commitment;
+    using Commitment = bb::curve::BN254::AffineElement;
+    using FF = bb::curve::BN254::ScalarField;
 
-    static constexpr std::array<Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> get_all()
+    // Precomputed VK hash (hash of all commitments below).
+    static FF vk_hash() { return FF(uint256_t("0x2b1fc730f23ab1a3db0c967d92e6d5d7fb9be9aa8feee3fd3ecae2dee8637deb")); }
+
+    static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
         return {
             Commitment(

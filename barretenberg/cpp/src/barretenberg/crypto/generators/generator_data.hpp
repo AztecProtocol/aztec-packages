@@ -62,12 +62,24 @@ template <typename Curve> class generator_data {
     static constexpr std::span<const AffineElement> precomputed_generators =
         get_precomputed_generators<Group, "DEFAULT_DOMAIN_SEPARATOR", DEFAULT_NUM_GENERATORS, 0>();
 
+    /**
+     * @brief Return a view of `num_generators` generators for a given `domain_separator`, starting at generator index
+     * `generator_offset`.
+     *
+     * @param num_generators number of generators to return
+     * @param generator_offset starting index of the generators to return
+     * @param domain_separator domain separator string
+     * @return GeneratorView
+     */
     [[nodiscard]] inline GeneratorView get(const size_t num_generators,
                                            const size_t generator_offset = 0,
                                            const std::string_view domain_separator = DEFAULT_DOMAIN_SEPARATOR) const
     {
         const bool is_default_domain = domain_separator == DEFAULT_DOMAIN_SEPARATOR;
-        if (is_default_domain && (num_generators + generator_offset) < DEFAULT_NUM_GENERATORS) {
+
+        // Case 1: we want default generators (is_default_domain), and the requested slice is contained within the
+        // precomputed array (num_generators + generator_offset <= DEFAULT_NUM_GENERATORS)
+        if (is_default_domain && (num_generators + generator_offset <= DEFAULT_NUM_GENERATORS)) {
             return GeneratorView{ precomputed_generators.data() + generator_offset, num_generators };
         }
 
@@ -84,7 +96,7 @@ template <typename Curve> class generator_data {
             initialized_precomputed_generators = true;
         }
 
-        // if the generator map does not contain our desired generators, add entry into map
+        // Case 3: the requested domain is not contained in the generator map---add entry into map.
         if (!map.contains(std::string(domain_separator))) {
             map.insert({
                 std::string(domain_separator),
@@ -93,8 +105,8 @@ template <typename Curve> class generator_data {
         }
 
         GeneratorList& generators = map.at(std::string(domain_separator));
-
-        // If the current GeneratorList does not contain enough generators, extend it
+        // Case 4: the requested domain exists in the generator map but does not contain enough points to satisfy the
+        // request---extend the generator list.
         if (num_generators + generator_offset > generators.size()) {
             const size_t num_extra_generators = num_generators + generator_offset - generators.size();
             GeneratorList extended_generators =
@@ -121,7 +133,7 @@ template <typename Curve> class generator_data {
     // the external functionality of `generator_data`.
     // i.e. `generator_data.get` will return the same output regardless of the internal state of `generator_data`.
 
-    // bool that describes whether we've copied the precomputed enerators into `generator_map`. This cannot be done at
+    // bool that describes whether we've copied the precomputed generators into `generator_map`. This cannot be done at
     // compile-time because std::map is a dynamically sized object.
     mutable bool initialized_precomputed_generators = false;
 
