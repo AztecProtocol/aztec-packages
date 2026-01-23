@@ -24,4 +24,5 @@ environments/*
 !environments/testnet-canary.env
 !environments/testnet.env
 !environments/tps-scenario.env
+!environments/kind.env
 *.tfvars

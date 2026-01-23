@@ -19,7 +19,7 @@ import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/pr
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
-import { chainConfigMappings } from '@aztec/stdlib/config';
+import { chainConfigMappings, nodeRpcConfigMappings } from '@aztec/stdlib/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
 import { worldStateConfigMappings } from '@aztec/world-state/config';
 
@@ -142,6 +142,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
     },
+    configToFlag('--rpc-max-body-size', nodeRpcConfigMappings.rpcMaxBodySize),
+    configToFlag('--rpc-max-batch-size', nodeRpcConfigMappings.rpcMaxBatchSize),
     {
       flag: '--api-prefix <value>',
       description: 'Prefix for API routes on any service that is started',
