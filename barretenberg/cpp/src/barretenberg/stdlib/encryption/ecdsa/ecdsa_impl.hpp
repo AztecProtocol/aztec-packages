@@ -117,19 +117,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr u1 = z.div_without_denominator_check(s);
     Fr u2 = r.div_without_denominator_check(s);
 
-    std::cout << "[ECDSA] Step 6: Computing u1 = z/s, u2 = r/s" << std::endl;
-    std::cout << "[ECDSA] u1 value: " << u1.get_value() << std::endl;
-    std::cout << "[ECDSA] u2 value: " << u2.get_value() << std::endl;
-
     G1 result;
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-        std::cout << "[ECDSA] Using secp256k1_ecdsa_mul for scalar multiplication" << std::endl;
-        std::cout << "[ECDSA] About to call secp256k1_ecdsa_mul..." << std::endl;
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
-        std::cout << "[ECDSA] secp256k1_ecdsa_mul completed" << std::endl;
-        std::cout << "[ECDSA] Result X value: " << result.x().get_value() << std::endl;
-        std::cout << "[ECDSA] Result Y value: " << result.y().get_value() << std::endl;
-        std::cout << "[ECDSA] Result is_point_at_infinity: " << result.is_point_at_infinity().get_value() << std::endl;
     } else {
         // This error comes from the lookup tables used in batch_mul. We could get rid of it by setting with_edgecase =
         // true. However, this would increase the gate count, and it would handle a case that should not appear in
@@ -141,9 +131,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Step 7.
-    std::cout << "[ECDSA] Step 7: Checking if result is point at infinity" << std::endl;
     auto result_is_infinity = result.is_point_at_infinity();
-    std::cout << "[ECDSA] result.is_point_at_infinity() witness value: " << result_is_infinity.get_value() << std::endl;
     result_is_infinity.assert_equal(
         bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
 
@@ -163,13 +151,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Check result.x() = r mod n AND result is not point at infinity
-    std::cout << "[ECDSA] Step 8: Comparing result.x() with r" << std::endl;
-    std::cout << "[ECDSA] result_x_mod_r witness value: " << result_x_mod_r.get_value() << std::endl;
-    std::cout << "[ECDSA] r witness value: " << r.get_value() << std::endl;
     bool_t<Builder> x_matches = result_x_mod_r == r;
     bool_t<Builder> is_not_infinity = !result_is_infinity;
     bool_t<Builder> is_signature_valid = x_matches && is_not_infinity;
-    std::cout << "[ECDSA] is_signature_valid witness value: " << is_signature_valid.get_value() << std::endl;
 
     // Logging
     if (is_signature_valid.get_value()) {

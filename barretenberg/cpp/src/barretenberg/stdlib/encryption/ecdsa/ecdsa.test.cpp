@@ -470,7 +470,6 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
     using Curve = stdlib::secp256k1<UltraCircuitBuilder>;
 
     using FqNative = Curve::fq;
-    using FrNative = Curve::fr;
     using G1Native = Curve::g1;
 
     using Builder = Curve::Builder;
@@ -496,59 +495,16 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
                                               0x21, 0x5c, 0x9e, 0x0e, 0x7b, 0x55, 0x98, 0x0e, 0xf2, 0x02, 0x07,
                                               0xf7, 0xaa, 0x2a, 0xbb, 0x7a, 0x7e, 0xe9, 0x1b, 0xab, 0x1f };
 
-    bool native_verification, stdlib_verification;
-
     FqNative pub_x = FqNative::serialize_from_buffer(pub_x_bytes.data());
     FqNative pub_y = FqNative::serialize_from_buffer(pub_y_bytes.data());
     typename G1Native::affine_element public_key_native(pub_x, pub_y);
-
-    std::cout << "\n=== DEBUG: Native Verification ===" << std::endl;
-    std::cout << "Public key X: " << pub_x << std::endl;
-    std::cout << "Public key Y: " << pub_y << std::endl;
     ASSERT_TRUE(public_key_native.on_curve()) << "Public key must be on curve";
 
-    FrNative r_native = FrNative::serialize_from_buffer(r_bytes.data());
-    FrNative s_native = FrNative::serialize_from_buffer(s_bytes.data());
-    FrNative z_native = FrNative::serialize_from_buffer(z_bytes.data());
-
-    std::cout << "r: " << r_native << std::endl;
-    std::cout << "s: " << s_native << std::endl;
-    std::cout << "z (message hash): " << z_native << std::endl;
-
-    FrNative u1_native = z_native / s_native;
-    FrNative u2_native = r_native / s_native;
-    std::cout << "u1 = z/s: " << u1_native << std::endl;
-    std::cout << "u2 = r/s: " << u2_native << std::endl;
-
-    auto result_native = G1Native::one * u1_native + public_key_native * u2_native;
-    std::cout << "Result point at infinity? " << result_native.is_point_at_infinity() << std::endl;
-    if (!result_native.is_point_at_infinity()) {
-        auto result_affine = typename G1Native::affine_element(result_native);
-        std::cout << "Result X: " << result_affine.x << std::endl;
-        std::cout << "Result Y: " << result_affine.y << std::endl;
-    }
-
+    bool stdlib_verification;
     {
-        const std::string message_string(z_bytes.begin(), z_bytes.end());
-
-        ecdsa_signature sig;
-        sig.r = r_bytes;
-        sig.s = s_bytes;
-        sig.v = 27;
-
-        native_verification =
-            ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
-        std::cout << "Native verification result: " << native_verification << std::endl;
-    }
-
-    {
-        std::cout << "\n=== DEBUG: Stdlib Verification ===" << std::endl;
         Builder builder;
 
         const G1Stdlib public_key_ct = G1Stdlib::from_witness(&builder, public_key_native);
-        std::cout << "Public key circuit element created" << std::endl;
-        std::cout << "Public key X witness value: " << public_key_ct.x().get_value() << std::endl;
-        std::cout << "Public key Y witness value: " << public_key_ct.y().get_value() << std::endl;
 
         const std::vector<uint8_t> r_vec(r_bytes.begin(), r_bytes.end());
         const std::vector<uint8_t> s_vec(s_bytes.begin(), s_bytes.end());
@@ -558,20 +514,13 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
         const std::vector<uint8_t> z_vec(z_bytes.begin(), z_bytes.end());
         const stdlib::byte_array<Builder> hashed_message_ct(&builder, z_vec);
 
-        std::cout << "About to call ecdsa_verify_signature..." << std::endl;
-        std::cout << "Number of gates before verification: " << builder.num_gates() << std::endl;
-
         const stdlib::bool_t<Builder> signature_result =
             stdlib::ecdsa_verify_signature<Builder, Curve, FqStdlib, FrStdlib, G1Stdlib>(
                 hashed_message_ct, public_key_ct, sig_ct);
 
         stdlib_verification = signature_result.get_value();
-        std::cout << "Verification complete, result: " << stdlib_verification << std::endl;
-        std::cout << "Number of gates after verification: " << builder.num_gates() << std::endl;
 
-        std::cout << "\n=== Checking Circuit Validity ===" << std::endl;
         const bool circuit_valid = CircuitChecker::check(builder);
-        std::cout << "Circuit valid: " << circuit_valid << std::endl;
 
         // Circuit should fail because the result of the scalar multiplication is the point at infinity
         ASSERT_FALSE(circuit_valid);
@@ -611,99 +560,41 @@ TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancy)
                                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05 };
 
-    bool native_verification, stdlib_verification;
-
     const FqNative pub_x = FqNative::serialize_from_buffer(pub_x_bytes.data());
     const FqNative pub_y = FqNative::serialize_from_buffer(pub_y_bytes.data());
     const typename G1Native::affine_element public_key_native(pub_x, pub_y);
-
-    std::cout << "\n=== DEBUG: Secp256r1 Native Verification ===" << std::endl;
-    std::cout << "Public key X: " << pub_x << std::endl;
-    std::cout << "Public key Y: " << pub_y << std::endl;
     ASSERT_TRUE(public_key_native.on_curve()) << "Public key must be on curve";
 
-    FrNative r_native = FrNative::serialize_from_buffer(r_bytes.data());
-    FrNative s_native = FrNative::serialize_from_buffer(s_bytes.data());
-    FrNative z_native = FrNative::serialize_from_buffer(z_bytes.data());
+    // Native verification
+    const std::string message_string(z_bytes.begin(), z_bytes.end());
+    ecdsa_signature sig;
+    sig.r = r_bytes;
+    sig.s = s_bytes;
+    sig.v = 27;
+    bool native_verification =
+        ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
 
-    std::cout << "r: " << r_native << std::endl;
-    std::cout << "s: " << s_native << std::endl;
-    std::cout << "z (message hash): " << z_native << std::endl;
+    // Stdlib verification
+    Builder builder;
+    const G1Stdlib public_key_ct = G1Stdlib::from_witness(&builder, public_key_native);
 
-    FrNative u1_native = z_native / s_native;
-    FrNative u2_native = r_native / s_native;
-    std::cout << "u1 = z/s: " << u1_native << std::endl;
-    std::cout << "u2 = r/s: " << u2_native << std::endl;
+    const std::vector<uint8_t> r_vec(r_bytes.begin(), r_bytes.end());
+    const std::vector<uint8_t> s_vec(s_bytes.begin(), s_bytes.end());
+    const stdlib::ecdsa_signature<Builder> sig_ct{ stdlib::byte_array<Builder>(&builder, r_vec),
+                                                   stdlib::byte_array<Builder>(&builder, s_vec) };
 
-    auto result_native = G1Native::one * u1_native + public_key_native * u2_native;
-    std::cout << "Result point at infinity? " << result_native.is_point_at_infinity() << std::endl;
-    if (!result_native.is_point_at_infinity()) {
-        auto result_affine = typename G1Native::affine_element(result_native);
-        std::cout << "Result X: " << result_affine.x << std::endl;
-        std::cout << "Result Y: " << result_affine.y << std::endl;
-        // Convert r to Fq for comparison
-        FqNative r_as_fq = FqNative(uint256_t(r_native));
-        std::cout << "Result X == r (as Fq)? " << (result_affine.x == r_as_fq) << std::endl;
-    }
+    const std::vector<uint8_t> z_vec(z_bytes.begin(), z_bytes.end());
+    const stdlib::byte_array<Builder> hashed_message_ct(&builder, z_vec);
 
-    {
-        const std::string message_string(z_bytes.begin(), z_bytes.end());
+    const stdlib::bool_t<Builder> signature_result =
+        stdlib::ecdsa_verify_signature<Builder, Curve, FqStdlib, FrStdlib, G1Stdlib>(
+            hashed_message_ct, public_key_ct, sig_ct);
 
-        ecdsa_signature sig;
-        sig.r = r_bytes;
-        sig.s = s_bytes;
-        sig.v = 27;
+    bool stdlib_verification = signature_result.get_value();
 
-        native_verification =
-            ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
-        std::cout << "Native verification result: " << native_verification << std::endl;
-    }
+    const bool circuit_valid = CircuitChecker::check(builder);
+    ASSERT_TRUE(circuit_valid);
 
-    {
-        Builder builder;
-
-        std::cout << "\n=== DEBUG: Secp256r1 Stdlib Verification ===" << std::endl;
-
-        const G1Stdlib public_key_ct = G1Stdlib::from_witness(&builder, public_key_native);
-
-        const std::vector<uint8_t> r_vec(r_bytes.begin(), r_bytes.end());
-        const std::vector<uint8_t> s_vec(s_bytes.begin(), s_bytes.end());
-        const stdlib::ecdsa_signature<Builder> sig_ct{ stdlib::byte_array<Builder>(&builder, r_vec),
-                                                       stdlib::byte_array<Builder>(&builder, s_vec) };
-
-        const std::vector<uint8_t> z_vec(z_bytes.begin(), z_bytes.end());
-        const stdlib::byte_array<Builder> hashed_message_ct(&builder, z_vec);
-
-        std::cout << "About to call ecdsa_verify_signature..." << std::endl;
-        std::cout << "Number of gates before verification: " << builder.num_gates() << std::endl;
-
-        const stdlib::bool_t<Builder> signature_result =
-            stdlib::ecdsa_verify_signature<Builder, Curve, FqStdlib, FrStdlib, G1Stdlib>(
-                hashed_message_ct, public_key_ct, sig_ct);
-
-        stdlib_verification = signature_result.get_value();
-
-        std::cout << "ECDSA Stdlib Verification Result: " << stdlib_verification << std::endl;
-        std::cout << "ECDSA Native Verification Result: " << native_verification << std::endl;
-        std::cout << "Number of gates after verification: " << builder.num_gates() << std::endl;
-
-        std::cout << "\n=== Checking Circuit Validity ===" << std::endl;
-        const bool circuit_valid = CircuitChecker::check(builder);
-        std::cout << "Circuit valid: " << circuit_valid << std::endl;
-
-        if (!circuit_valid) {
-            std::cout << "\n=== CIRCUIT FAILED - Checking for failures ===" << std::endl;
-            std::cout << "Builder failed: " << builder.failed() << std::endl;
-            std::cout << "Failure message: " << builder.err() << std::endl;
-            std::cout << "Number of gates: " << builder.num_gates() << std::endl;
-        }
-
-        ASSERT_TRUE(circuit_valid);
-    }
-
-    std::cout << "\n=== Final Comparison ===" << std::endl;
-    std::cout << "Native verification: " << native_verification << std::endl;
-    std::cout << "Stdlib verification: " << stdlib_verification << std::endl;
     EXPECT_EQ(native_verification, stdlib_verification);
 }
 
@@ -712,7 +603,6 @@ TEST(EcdsaTests, Secp256r1StdlibPanic)
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
     using FqNative = Curve::fq;
-    using FrNative = Curve::fr;
     using G1Native = Curve::g1;
 
     using Builder = Curve::Builder;
@@ -739,87 +629,26 @@ TEST(EcdsaTests, Secp256r1StdlibPanic)
     const FqNative pub_x = FqNative::serialize_from_buffer(pub_x_bytes.data());
     const FqNative pub_y = FqNative::serialize_from_buffer(pub_y_bytes.data());
     const typename G1Native::affine_element public_key_native(pub_x, pub_y);
-
-    std::cout << "\n=== DEBUG: Secp256r1StdlibPanic Test ===" << std::endl;
-    std::cout << "Public key X: " << pub_x << std::endl;
-    std::cout << "Public key Y: " << pub_y << std::endl;
     ASSERT_TRUE(public_key_native.on_curve()) << "Public key must be on curve";
 
-    FrNative r_native = FrNative::serialize_from_buffer(r_bytes.data());
-    FrNative s_native = FrNative::serialize_from_buffer(s_bytes.data());
-    FrNative z_native = FrNative::serialize_from_buffer(z_bytes.data());
+    Builder builder;
+    const G1Stdlib public_key_ct = G1Stdlib::from_witness(&builder, public_key_native);
 
-    std::cout << "r: " << r_native << std::endl;
-    std::cout << "s: " << s_native << std::endl;
-    std::cout << "z (message hash): " << z_native << std::endl;
+    const std::vector<uint8_t> r_vec(r_bytes.begin(), r_bytes.end());
+    const std::vector<uint8_t> s_vec(s_bytes.begin(), s_bytes.end());
+    const stdlib::ecdsa_signature<Builder> sig_ct{ stdlib::byte_array<Builder>(&builder, r_vec),
+                                                   stdlib::byte_array<Builder>(&builder, s_vec) };
 
-    FrNative u1_native = z_native / s_native;
-    FrNative u2_native = r_native / s_native;
-    std::cout << "u1 = z/s: " << u1_native << std::endl;
-    std::cout << "u2 = r/s: " << u2_native << std::endl;
+    const std::vector<uint8_t> z_vec(z_bytes.begin(), z_bytes.end());
+    const stdlib::byte_array<Builder> hashed_message_ct(&builder, z_vec);
 
-    auto result_native = G1Native::one * u1_native + public_key_native * u2_native;
-    std::cout << "Result point at infinity? " << result_native.is_point_at_infinity() << std::endl;
-    if (!result_native.is_point_at_infinity()) {
-        auto result_affine = typename G1Native::affine_element(result_native);
-        std::cout << "Result X: " << result_affine.x << std::endl;
-        std::cout << "Result Y: " << result_affine.y << std::endl;
-        // Convert r to Fq for comparison
-        FqNative r_as_fq = FqNative(uint256_t(r_native));
-        std::cout << "Result X == r (as Fq)? " << (result_affine.x == r_as_fq) << std::endl;
-    }
+    const stdlib::bool_t<Builder> signature_result =
+        stdlib::ecdsa_verify_signature<Builder, Curve, FqStdlib, FrStdlib, G1Stdlib>(
+            hashed_message_ct, public_key_ct, sig_ct);
 
-    {
-        const std::string message_string(z_bytes.begin(), z_bytes.end());
+    // Verification should succeed for this valid signature
+    EXPECT_TRUE(signature_result.get_value());
 
-        ecdsa_signature sig;
-        sig.r = r_bytes;
-        sig.s = s_bytes;
-        sig.v = 27;
-
-        bool native_verification =
-            ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
-        std::cout << "Native verification result: " << native_verification << std::endl;
-    }
-
-    {
-        Builder builder;
-
-        std::cout << "\n=== DEBUG: Stdlib Verification ===" << std::endl;
-
-        const G1Stdlib public_key_ct = G1Stdlib::from_witness(&builder, public_key_native);
-
-        const std::vector<uint8_t> r_vec(r_bytes.begin(), r_bytes.end());
-        const std::vector<uint8_t> s_vec(s_bytes.begin(), s_bytes.end());
-        const stdlib::ecdsa_signature<Builder> sig_ct{ stdlib::byte_array<Builder>(&builder, r_vec),
-                                                       stdlib::byte_array<Builder>(&builder, s_vec) };
-
-        const std::vector<uint8_t> z_vec(z_bytes.begin(), z_bytes.end());
-        const stdlib::byte_array<Builder> hashed_message_ct(&builder, z_vec);
-
-        std::cout << "About to call ecdsa_verify_signature..." << std::endl;
-        std::cout << "Number of gates before verification: " << builder.num_gates() << std::endl;
-
-        const stdlib::bool_t<Builder> signature_result =
-            stdlib::ecdsa_verify_signature<Builder, Curve, FqStdlib, FrStdlib, G1Stdlib>(
-                hashed_message_ct, public_key_ct, sig_ct);
-
-        signature_result.get_value();
-
-        std::cout << "ECDSA Stdlib Verification Result: " << signature_result.get_value() << std::endl;
-        std::cout << "Number of gates after verification: " << builder.num_gates() << std::endl;
-
-        std::cout << "\n=== Checking Circuit Validity ===" << std::endl;
-        const bool circuit_valid = CircuitChecker::check(builder);
-        std::cout << "Circuit valid: " << circuit_valid << std::endl;
-
-        if (!circuit_valid) {
-            std::cout << "\n=== CIRCUIT FAILED - Checking for failures ===" << std::endl;
-            std::cout << "Builder failed: " << builder.failed() << std::endl;
-            std::cout << "Failure message: " << builder.err() << std::endl;
-            std::cout << "Number of gates: " << builder.num_gates() << std::endl;
-        }
-
-        ASSERT_TRUE(circuit_valid);
-    }
+    const bool circuit_valid = CircuitChecker::check(builder);
+    ASSERT_TRUE(circuit_valid);
 }
