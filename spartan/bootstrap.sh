@@ -88,6 +88,7 @@ function network_test_cmds {
   echo $prefix $run_test_script simple src/spartan/validator_nuke_and_suppression.test.ts
   echo $prefix $run_test_script simple src/spartan/reorg.test.ts #runs >~5 epochs
   echo $prefix $run_test_script simple src/spartan/upgrade_rollup_version.test.ts
+  echo $prefix $run_test_script simple src/spartan/validator_ha.test.ts
 }
 
 function single_test {
@@ -118,7 +119,17 @@ function network_tests {
 }
 
 function network_bench_cmds {
-  echo "$hash:TIMEOUT=7200 BENCH_OUTPUT=bench-out/n_tps.bench.json LOW_VALUE_TPS=0.2 HIGH_VALUE_TPS=0.1 TEST_DURATION=600 $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  local high_value_tps=0.1
+  local low_value_tps_list=(0.1 0.2 0.5 1 2)
+
+  for low_value_tps in "${low_value_tps_list[@]}"; do
+    local low_label=${low_value_tps/./_}
+    local high_label=${high_value_tps/./_}
+    local scenario="low_${low_label}_high_${high_label}"
+    local test_duration=600 #10 mins
+    local timeout=3600 #1 hour
+    echo "$hash:TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  done
 }
 
 function network_bench {

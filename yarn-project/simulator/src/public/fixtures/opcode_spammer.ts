@@ -966,34 +966,63 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
   [Opcode.SLOAD]: [
     {
       label: 'Cold read (slot not written)',
-      setup: [{ offset: 0, value: new Field(Fr.random()) }], // random slot
-      targetInstructions: () => [new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
+      setup: [
+        { offset: 0, value: new Field(Fr.random()) }, // random slot
+        () => [
+          // Get current contract address into offset 1
+          new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*varEnum=*/ 0).as(
+            Opcode.GETENVVAR_16,
+            GetEnvVar.wireFormat16,
+          ),
+        ],
+      ],
+      targetInstructions: () => [
+        new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*contractAddressOffset=*/ 1, /*dstOffset=*/ 2),
+      ],
     },
     {
       label: 'Warm read (from tree)',
       // Uses pre-inserted storage from insertWarmTreeEntries() which is called after contract deployment
-      setup: [{ offset: 0, value: new Field(WARM_STORAGE_SLOT) }], // pre-inserted slot
-      targetInstructions: () => [new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 1)],
+      setup: [
+        { offset: 0, value: new Field(WARM_STORAGE_SLOT) }, // pre-inserted slot
+        () => [
+          // Get current contract address into offset 1
+          new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, /*varEnum=*/ 0).as(
+            Opcode.GETENVVAR_16,
+            GetEnvVar.wireFormat16,
+          ),
+        ],
+      ],
+      targetInstructions: () => [
+        new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*contractAddressOffset=*/ 1, /*dstOffset=*/ 2),
+      ],
     },
     {
       label: 'Warm read (SSTORE first, unique slot per SLOAD)',
-      // Memory layout: slot (incremented), value, constant 1, revertSize, loaded value
+      // Memory layout: slot (incremented), value, constant 1, contract address (from GETENVVAR), revertSize, loaded value
       setup: [
         { offset: 0, value: new Field(Fr.random()) }, // slot (will be incremented)
         { offset: 1, value: new Field(Fr.random()) }, // value to store
         { offset: 2, value: new Field(1n) }, // constant 1 for ADD
-        { offset: 3, value: new Uint32(0n) }, // revertSize
+        () => [
+          // Get current contract address into offset 3
+          new GetEnvVar(/*addressing_mode=*/ 0, /*dstOffset=*/ 3, /*varEnum=*/ 0).as(
+            Opcode.GETENVVAR_16,
+            GetEnvVar.wireFormat16,
+          ),
+        ],
+        { offset: 4, value: new Uint32(0n) }, // revertSize
       ],
       targetInstructions: () => [
         new SStore(/*addressing_mode=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0),
-        new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*dstOffset=*/ 4),
+        new SLoad(/*addressing_mode=*/ 0, /*slotOffset=*/ 0, /*contractAddressOffset=*/ 3, /*dstOffset=*/ 5),
         new Add(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 0).as(
           Opcode.ADD_8,
           Add.wireFormat8,
         ), // slot++
       ],
       cleanupInstructions: () => [
-        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 3, /*returnOffset=*/ 0).as(
+        new Revert(/*addressing_mode=*/ 0, /*retSizeOffset=*/ 4, /*returnOffset=*/ 0).as(
           Opcode.REVERT_8,
           Revert.wireFormat8,
         ),

@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockNew } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   MerkleTreeId,
@@ -101,8 +101,8 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     ]);
   }
 
-  async avmOpcodeStorageRead(slot: Fr): Promise<Fr> {
-    const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
+  async avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr> {
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
 
     const lowLeafResult = await this.forkedWorldTrees.getPreviousValueIndex(
       MerkleTreeId.PUBLIC_DATA_TREE,
@@ -119,12 +119,12 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
             )) as PublicDataTreeLeafPreimage
           ).leaf.value;
 
-    this.logger.debug('AVM storage read', { slot, value });
+    this.logger.debug('AVM storage read', { slot, contractAddress, value });
 
     return value;
   }
 
-  async close(): Promise<L2BlockNew> {
+  async close(): Promise<L2Block> {
     this.logger.debug('Exiting Public Context, building block with collected side effects', {
       blockNumber: this.globalVariables.blockNumber,
     });

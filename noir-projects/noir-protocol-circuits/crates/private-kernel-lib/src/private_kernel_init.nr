@@ -1,7 +1,6 @@
 use crate::components::{
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
-    private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
 };
 use dep::types::abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -48,22 +47,6 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     pub revertible_counter_hint: u32,
 }
 
-unconstrained fn generate_output(
-    inputs: PrivateKernelInitCircuitPrivateInputs,
-) -> PrivateKernelCircuitPublicInputs {
-    PrivateKernelCircuitOutputComposer::new_from_tx_request(
-        inputs.tx_request,
-        inputs.private_call.public_inputs,
-        inputs.vk_tree_root,
-        inputs.protocol_contracts,
-        inputs.is_private_only,
-        inputs.first_nullifier_hint,
-        inputs.revertible_counter_hint,
-    )
-        .with_private_call(inputs.private_call)
-        .finish()
-}
-
 /// The Private Kernel Init circuit is the entry point for executing a private transaction.
 /// It processes the first private function call in a transaction and initializes the kernel state.
 ///
@@ -87,25 +70,10 @@ pub fn execute(inputs: PrivateKernelInitCircuitPrivateInputs) -> PrivateKernelCi
     PrivateCallDataValidator::new(inputs.private_call).validate_as_first_call(
         inputs.tx_request,
         inputs.protocol_contracts,
+        inputs.first_nullifier_hint,
         inputs.revertible_counter_hint,
     );
 
     // Generate output.
-    // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
-    let output = unsafe { generate_output(inputs) };
-
-    // Validate output.
-    if dep::types::validate::should_validate_output() {
-        PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
-            inputs.tx_request,
-            inputs.private_call,
-            inputs.vk_tree_root,
-            inputs.protocol_contracts,
-            inputs.is_private_only,
-            inputs.first_nullifier_hint,
-            inputs.revertible_counter_hint,
-        );
-    }
-
-    output
+    PrivateKernelCircuitOutputComposer::compose_output_for_init(inputs)
 }

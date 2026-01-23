@@ -12,7 +12,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockNew, type L2BlockSource } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -23,10 +23,14 @@ import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@a
 import {
   BlockHeader,
   GlobalVariables,
+  HashedValues,
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
+  TX_ERROR_SIZE_ABOVE_LIMIT,
+  Tx,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -239,6 +243,23 @@ describe('aztec node', () => {
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
     });
 
+    it('tests that the node correctly validates oversized transactions', async () => {
+      const originalTx = await mockTxForRollup(0x10000);
+      const newPublicFunctionCalldata = [new HashedValues(Array(100000).fill(Fr.random()), Fr.random())];
+      const tx = new Tx(
+        originalTx.txHash,
+        originalTx.data,
+        originalTx.chonkProof,
+        originalTx.contractClassLogFields,
+        newPublicFunctionCalldata,
+      );
+      await tx.recomputeHash();
+      expect(await node.isValidTx(tx)).toEqual({
+        result: 'invalid',
+        reason: [TX_ERROR_SIZE_ABOVE_LIMIT, TX_ERROR_CALLDATA_COUNT_MISMATCH],
+      });
+    });
+
     it('tests that the node correctly validates expiration timestamps', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
       const invalidIncludeByTimestampMetadata = txs[0];
@@ -332,32 +353,32 @@ describe('aztec node', () => {
     });
 
     describe('getBlock', () => {
-      let block1: L2BlockNew;
-      let block2: L2BlockNew;
+      let block1: L2Block;
+      let block2: L2Block;
 
       beforeEach(() => {
-        block1 = L2BlockNew.empty();
-        block2 = L2BlockNew.empty();
+        block1 = L2Block.empty();
+        block2 = L2Block.empty();
 
         l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
       it('returns requested block number', async () => {
-        l2BlockSource.getL2BlockNew.mockResolvedValue(block1);
+        l2BlockSource.getL2Block.mockResolvedValue(block1);
         expect(await node.getBlock(BlockNumber(1))).toEqual(block1);
-        expect(l2BlockSource.getL2BlockNew).toHaveBeenCalledWith(BlockNumber(1));
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(BlockNumber(1));
       });
 
       it('returns latest block', async () => {
-        l2BlockSource.getL2BlockNew.mockResolvedValue(block2);
+        l2BlockSource.getL2Block.mockResolvedValue(block2);
         expect(await node.getBlock('latest')).toEqual(block2);
-        expect(l2BlockSource.getL2BlockNew).toHaveBeenCalledWith(2);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(2);
       });
 
       it('returns undefined for non-existent block', async () => {
-        l2BlockSource.getL2BlockNew.mockResolvedValue(undefined);
+        l2BlockSource.getL2Block.mockResolvedValue(undefined);
         expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
-        expect(l2BlockSource.getL2BlockNew).toHaveBeenCalledWith(3);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(3);
       });
     });
   });

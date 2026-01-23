@@ -10,9 +10,9 @@ pub contract PrivateToken {
         state_vars::{Owned, SinglePrivateMutable},
     };
 
-    use address_note::address_note::AddressNote;
+    use address_note::AddressNote;
     use balance_set::BalanceSet;
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[storage]
     struct Storage<Context> {

@@ -71,9 +71,9 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 /// are automatically made to check that this nullifier exists, ensuring initialization.
 ///
 /// For private non-initializer functions, the cost of this check is equivalent to that of a call to
-/// [PrivateContext::assert_nullifier_exists](crate::context::private_context::PrivateContext::assert_nullifier_exists).
+/// [PrivateContext::assert_nullifier_exists](crate::context::PrivateContext::assert_nullifier_exists).
 /// For public ones, it is equivalent to a call to
-/// [PublicContext::nullifier_exists_unsafe](crate::context::public_context::PublicContext::nullifier_exists_unsafe).
+/// [PublicContext::nullifier_exists_unsafe](crate::context::PublicContext::nullifier_exists_unsafe).
 ///
 /// The [noinitcheck] attribute can be used to skip the initialization nullifer checks.
 pub comptime fn initializer(f: FunctionDefinition) {

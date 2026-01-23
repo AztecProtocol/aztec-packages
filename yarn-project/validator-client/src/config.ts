@@ -70,10 +70,9 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Skip checkpoint proposal validation and always attest (default: true)',
     defaultValue: true,
   },
-  // TODO(palla/mbps): Change default to false once block sync is stable
   skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing re-executed blocks to archiver (default: true)',
-    defaultValue: true,
+    description: 'Skip pushing re-executed blocks to archiver (default: false)',
+    defaultValue: false,
   },
   ...validatorHASignerConfigMappings,
 };

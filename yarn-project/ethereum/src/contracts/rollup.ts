@@ -108,7 +108,7 @@ export enum AttesterStatus {
 export type FeeHeader = {
   excessMana: bigint;
   manaUsed: bigint;
-  feeAssetPriceNumerator: bigint;
+  ethPerFeeAsset: bigint;
   congestionCost: bigint;
   proverCost: bigint;
 };
@@ -515,8 +515,8 @@ export class RollupContract {
     };
   }
 
-  getFeeAssetPerEth(): Promise<bigint> {
-    return this.rollup.read.getFeeAssetPerEth();
+  getEthPerFeeAsset(): Promise<bigint> {
+    return this.rollup.read.getEthPerFeeAsset();
   }
 
   async getCommitteeAt(timestamp: bigint): Promise<EthAddress[] | undefined> {
@@ -601,7 +601,7 @@ export class RollupContract {
       feeHeader: {
         excessMana: result.feeHeader.excessMana,
         manaUsed: result.feeHeader.manaUsed,
-        feeAssetPriceNumerator: result.feeHeader.feeAssetPriceNumerator,
+        ethPerFeeAsset: result.feeHeader.ethPerFeeAsset,
         congestionCost: result.feeHeader.congestionCost,
         proverCost: result.feeHeader.proverCost,
       },

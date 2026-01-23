@@ -37,7 +37,7 @@ mod test {
     use crate::{
         hash::hash_args,
         oracle::execution_cache,
-        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
+        test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
     };
     use super::ReturnsHash;
     use protocol_types::traits::Serialize;

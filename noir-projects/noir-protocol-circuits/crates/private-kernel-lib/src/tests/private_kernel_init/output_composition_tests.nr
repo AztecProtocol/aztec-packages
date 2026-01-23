@@ -1,6 +1,7 @@
 use super::TestBuilder;
 use dep::types::{
     address::AztecAddress,
+    constants::DEFAULT_UPDATE_DELAY,
     hash::{create_protocol_nullifier, silo_nullifier},
     tests::utils::assert_claimed_length_array_eq,
     traits::Empty,
@@ -10,6 +11,7 @@ use dep::types::{
 fn with_everything_empty_except_for_first_nullifier_hint() {
     let mut builder = TestBuilder::new();
 
+    builder.private_call.include_by_timestamp = 0;
     builder.first_nullifier_hint = 1234;
 
     let pi = builder.execute();
@@ -17,6 +19,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
 
     assert_eq(pi.min_revertible_side_effect_counter, 0);
     assert_eq(pi.fee_payer, AztecAddress::empty());
+    assert_eq(pi.include_by_timestamp, 0);
     assert_eq(pi.is_private_only, false);
     assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 0);
@@ -39,7 +42,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
 }
 
 #[test]
-fn with_everything_empty_and_protocol_nullifier_injected() {
+fn with_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
     let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
@@ -77,6 +80,24 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
         pi.end.nullifiers,
         [scoped_protocol_nullifier, private_call_nullifiers[0]],
     );
+}
+
+#[test]
+fn include_by_timestamp_constrained_by_contract_updates() {
+    let mut builder = TestBuilder::new();
+
+    // Set the private call's include_by_timestamp to a large value
+    // that exceeds the contract update time horizon
+    let anchor_timestamp = builder.private_call.anchor_block_header.global_variables.timestamp;
+    let contract_update_horizon = anchor_timestamp + DEFAULT_UPDATE_DELAY;
+
+    // Set include_by_timestamp larger than the contract update horizon
+    builder.private_call.include_by_timestamp = contract_update_horizon + 1000;
+
+    let pi = builder.execute();
+
+    // Verify the output uses the smaller contract update timestamp, not the private call's value
+    assert_eq(pi.include_by_timestamp, contract_update_horizon);
 }
 
 #[test]

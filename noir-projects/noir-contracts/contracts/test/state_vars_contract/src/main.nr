@@ -12,7 +12,7 @@ pub contract StateVars {
         },
     };
 
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[derive(Deserialize, Eq, Packable, Serialize)]
     pub struct MockStruct {

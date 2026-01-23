@@ -149,9 +149,9 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 /// @param ws_mgr The world state manager (should already be forked)
 /// @param contract_db The contract database
 /// @param tx_data The transaction data
-/// @returns 0 on success
+/// @returns the simulation result
 /// @throws An exception if simulation results differ or check_circuit fails
-int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
+TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
     ProtocolContracts& protocol_contracts = tx_data.protocol_contracts;
     WorldState& ws = ws_mgr.get_world_state();
@@ -187,7 +187,7 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
     } catch (const std::exception& e) {
         ws_mgr.revert();
         fuzz_info("simulate_fast_with_existing_ws threw an exception: ", e.what());
-        return 0;
+        return {};
     }
 
     // 2. Run simulate_for_hint_collection
@@ -232,7 +232,7 @@ int fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, 
     tracegen_helper.fill_trace_columns(trace, std::move(events), hint_result.public_inputs.value());
 #endif
 
-    return 0;
+    return fast_result;
 }
 
 // Initialize FuzzerTxData with sensible defaults

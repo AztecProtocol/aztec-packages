@@ -11,6 +11,8 @@ export {
   type Wallet,
   type PrivateEvent,
   type PrivateEventFilter,
+  type ContractMetadata,
+  type ContractClassMetadata,
   FunctionCallSchema,
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
@@ -23,6 +25,8 @@ export {
   EventMetadataDefinitionSchema,
   PrivateEventSchema,
   PrivateEventFilterSchema,
+  ContractClassMetadataSchema,
+  ContractMetadataSchema,
   WalletSchema,
 } from '../wallet/wallet.js';
 

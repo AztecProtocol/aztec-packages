@@ -24,7 +24,7 @@ template <class Curve> class UnivariateClaimData {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
-    using OpeningPair = OpeningPair<Curve>;
+    using OpeningPair = bb::OpeningPair<Curve>;
 
   public:
     Polynomial poly;

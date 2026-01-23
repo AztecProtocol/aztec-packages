@@ -6,7 +6,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2BlockHash, L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
   ContractClassLog,
@@ -58,7 +59,7 @@ export class LogStore {
    * @param block - The L2 block to extract logs from.
    * @returns An object containing the private and public tagged logs for the block.
    */
-  #extractTaggedLogsFromBlock(block: L2BlockNew) {
+  #extractTaggedLogsFromBlock(block: L2Block) {
     // SiloedTag (as string) -> array of log buffers.
     const privateTaggedLogs = new Map<string, Buffer[]>();
     // "{contractAddress}_{tag}" (as string) -> array of log buffers.
@@ -119,7 +120,7 @@ export class LogStore {
    * @returns A map from tag (as string) to an array of serialized private logs belonging to that tag, and a map from
    * "{contractAddress}_{tag}" (as string) to an array of serialized public logs belonging to that key.
    */
-  #extractTaggedLogs(blocks: L2BlockNew[]): {
+  #extractTaggedLogs(blocks: L2Block[]): {
     privateTaggedLogs: Map<string, Buffer[]>;
     publicTaggedLogs: Map<string, Buffer[]>;
   } {
@@ -145,7 +146,7 @@ export class LogStore {
     return { privateTaggedLogs, publicTaggedLogs };
   }
 
-  async #addPrivateLogs(blocks: L2BlockNew[]): Promise<void> {
+  async #addPrivateLogs(blocks: L2Block[]): Promise<void> {
     const newBlocks = await filterAsync(
       blocks,
       async block => !(await this.#privateLogKeysByBlock.hasAsync(block.number)),
@@ -180,7 +181,7 @@ export class LogStore {
     }
   }
 
-  async #addPublicLogs(blocks: L2BlockNew[]): Promise<void> {
+  async #addPublicLogs(blocks: L2Block[]): Promise<void> {
     const newBlocks = await filterAsync(
       blocks,
       async block => !(await this.#publicLogKeysByBlock.hasAsync(block.number)),
@@ -228,7 +229,7 @@ export class LogStore {
     }
   }
 
-  async #addContractClassLogs(blocks: L2BlockNew[]): Promise<void> {
+  async #addContractClassLogs(blocks: L2Block[]): Promise<void> {
     const newBlocks = await filterAsync(
       blocks,
       async block => !(await this.#contractClassLogsByBlock.hasAsync(block.number)),
@@ -259,7 +260,7 @@ export class LogStore {
    * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       await Promise.all([
         this.#addPrivateLogs(blocks),
@@ -284,7 +285,7 @@ export class LogStore {
     return L2BlockHash.fromField(blockHash);
   }
 
-  deleteLogs(blocks: L2BlockNew[]): Promise<boolean> {
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       await Promise.all(
         blocks.map(async block => {
@@ -314,27 +315,49 @@ export class LogStore {
   }
 
   /**
-   * Gets all private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
+   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
    * array implies no logs match that tag.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most MAX_LOGS_PER_TAG logs per tag per page. If
+   * MAX_LOGS_PER_TAG logs are returned for a tag, the caller should fetch the next page to check for more logs.
    */
-  async getPrivateLogsByTags(tags: SiloedTag[]): Promise<TxScopedL2Log[][]> {
+  async getPrivateLogsByTags(tags: SiloedTag[], page: number = 0): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(tags.map(tag => this.#privateLogsByTag.getAsync(tag.toString())));
+    const start = page * MAX_LOGS_PER_TAG;
+    const end = start + MAX_LOGS_PER_TAG;
 
-    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
+    return logs.map(
+      logBuffers => logBuffers?.slice(start, end).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
+    );
   }
 
   /**
-   * Gets all public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
+   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
    * logs is returned. An empty array implies no logs match that tag.
+   * @param contractAddress - The contract address to search logs for.
+   * @param tags - The tags to search for.
+   * @param page - The page number (0-indexed) for pagination.
+   * @returns An array of log arrays, one per tag. Returns at most MAX_LOGS_PER_TAG logs per tag per page. If
+   * MAX_LOGS_PER_TAG logs are returned for a tag, the caller should fetch the next page to check for more logs.
    */
-  async getPublicLogsByTagsFromContract(contractAddress: AztecAddress, tags: Tag[]): Promise<TxScopedL2Log[][]> {
+  async getPublicLogsByTagsFromContract(
+    contractAddress: AztecAddress,
+    tags: Tag[],
+    page: number = 0,
+  ): Promise<TxScopedL2Log[][]> {
     const logs = await Promise.all(
       tags.map(tag => {
         const key = `${contractAddress.toString()}_${tag.value.toString()}`;
         return this.#publicLogsByContractAndTag.getAsync(key);
       }),
     );
-    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
+    const start = page * MAX_LOGS_PER_TAG;
+    const end = start + MAX_LOGS_PER_TAG;
+
+    return logs.map(
+      logBuffers => logBuffers?.slice(start, end).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
+    );
   }
 
   /**

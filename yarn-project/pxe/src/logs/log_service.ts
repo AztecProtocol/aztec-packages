@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -13,7 +14,11 @@ import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_sto
 import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
-import { loadPrivateLogsForSenderRecipientPair } from '../tagging/index.js';
+import {
+  getAllPrivateLogsByTags,
+  getAllPublicLogsByTagsFromContract,
+  loadPrivateLogsForSenderRecipientPair,
+} from '../tagging/index.js';
 
 export class LogService {
   private log = createLogger('log_service');
@@ -49,10 +54,17 @@ export class LogService {
   }
 
   async #getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<LogRetrievalResponse | null> {
-    const logs = await this.aztecNode.getPublicLogsByTagsFromContract(contractAddress, [tag]);
-    const logsForTag = logs[0];
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
+    const allLogsPerTag = await getAllPublicLogsByTagsFromContract(
+      this.aztecNode,
+      contractAddress,
+      [tag],
+      anchorBlockHash,
+    );
+    const logsForTag = allLogsPerTag[0];
 
-    if (logsForTag.length == 0) {
+    if (logsForTag.length === 0) {
       return null;
     } else if (logsForTag.length > 1) {
       // TODO(#11627): handle this case
@@ -72,10 +84,12 @@ export class LogService {
   }
 
   async #getPrivateLogByTag(siloedTag: SiloedTag): Promise<LogRetrievalResponse | null> {
-    const logs = await this.aztecNode.getPrivateLogsByTags([siloedTag]);
-    const logsForTag = logs[0];
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
+    const allLogsPerTag = await getAllPrivateLogsByTags(this.aztecNode, [siloedTag], anchorBlockHash);
+    const logsForTag = allLogsPerTag[0];
 
-    if (logsForTag.length == 0) {
+    if (logsForTag.length === 0) {
       return null;
     } else if (logsForTag.length > 1) {
       // TODO(#11627): handle this case
@@ -102,7 +116,9 @@ export class LogService {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     // We only load logs from block up to and including the anchor block number
-    const anchorBlockNumber = (await this.anchorBlockStore.getBlockHeader()).getBlockNumber();
+    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+    const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
+    const anchorBlockHash = L2BlockHash.fromField(await anchorBlockHeader.hash());
 
     // Determine recipients: use scopes if provided, otherwise get all accounts
     const recipients = scopes && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
@@ -123,6 +139,7 @@ export class LogService {
               this.aztecNode,
               this.recipientTaggingStore,
               anchorBlockNumber,
+              anchorBlockHash,
               this.jobId,
             ),
           ),

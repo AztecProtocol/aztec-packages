@@ -123,9 +123,10 @@ SimulatorResult CppSimulator::simulate(
     if (result.public_inputs.has_value()) {
         return { .reverted = reverted,
                  .output = values,
-                 .end_tree_snapshots = result.public_inputs->end_tree_snapshots };
+                 .end_tree_snapshots = result.public_inputs->end_tree_snapshots,
+                 .public_tx_effect = result.public_tx_effect };
     }
-    return { .reverted = reverted, .output = values };
+    return { .reverted = reverted, .output = values, .public_tx_effect = result.public_tx_effect };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;
@@ -193,8 +194,19 @@ bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result
         result2.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
     }
 
+    // TODO(avm):
+    // https://linear.app/aztec-labs/issue/AVM-209/l2l1msgs-possible-completeness-issue-with-recipient-20-bytes
+    for (auto& l2_to_l1_msg : result1.public_tx_effect.l2_to_l1_msgs) {
+        l2_to_l1_msg.message.recipient = FF(static_cast<uint256_t>(l2_to_l1_msg.message.recipient).slice(0, 20));
+    }
+
+    for (auto& l2_to_l1_msg : result2.public_tx_effect.l2_to_l1_msgs) {
+        l2_to_l1_msg.message.recipient = FF(static_cast<uint256_t>(l2_to_l1_msg.message.recipient).slice(0, 20));
+    }
+
     return result1.reverted == result2.reverted && result1.output == result2.output &&
-           result1.end_tree_snapshots == result2.end_tree_snapshots;
+           result1.end_tree_snapshots == result2.end_tree_snapshots &&
+           result1.public_tx_effect == result2.public_tx_effect;
 }
 
 // Creates a default transaction that the single app logic enqueued call can be inserted into

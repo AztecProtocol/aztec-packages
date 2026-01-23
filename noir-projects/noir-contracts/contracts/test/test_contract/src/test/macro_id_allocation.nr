@@ -1,7 +1,7 @@
 use crate::{Test, test_note::TestNote};
-use address_note::address_note::AddressNote;
+use address_note::AddressNote;
 use aztec::note::note_interface::NoteType;
-use uint_note::uint_note::UintNote;
+use uint_note::UintNote;
 
 #[test]
 unconstrained fn note_type_id_allocation() {

@@ -1,9 +1,9 @@
 use crate::{
     context::PrivateContext,
     note::{
-        confirmed_note::ConfirmedNote,
+        ConfirmedNote,
         note_interface::{NoteHash, NoteType},
-        note_message::NoteMessage,
+        NoteMessage,
         utils::compute_confirmed_note_hash_for_nullification,
     },
     oracle::{notes::notify_created_note, random::random},

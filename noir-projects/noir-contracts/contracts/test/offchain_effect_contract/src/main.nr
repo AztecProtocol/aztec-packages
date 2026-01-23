@@ -11,7 +11,7 @@ contract OffchainEffect {
         protocol_types::{address::AztecAddress, traits::Serialize},
         state_vars::{Owned, PrivateSet},
     };
-    use uint_note::uint_note::UintNote;
+    use uint_note::UintNote;
 
     #[event]
     struct TestEvent {

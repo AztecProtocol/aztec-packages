@@ -202,7 +202,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-                            aztec::note::hinted_note::HintedNote{
+                            aztec::note::HintedNote{
                                 note,
                                 contract_address,
                                 owner,
@@ -287,7 +287,7 @@ comptime fn generate_sync_private_state() -> Quoted {
 
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn sync_private_state() {
-            let address = aztec::context::utility_context::UtilityContext::new().this_address();
+            let address = aztec::context::UtilityContext::new().this_address();
             
             aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);
         }
@@ -298,7 +298,7 @@ comptime fn generate_process_message() -> Quoted {
     quote {
         pub struct process_message_parameters {
             pub message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            pub message_context: aztec::messages::processing::message_context::MessageContext,
+            pub message_context: aztec::messages::processing::MessageContext,
         }
 
         #[abi(functions)]
@@ -309,11 +309,10 @@ comptime fn generate_process_message() -> Quoted {
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn process_message(
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            message_context: aztec::messages::processing::message_context::MessageContext,
+            message_context: aztec::messages::processing::MessageContext,
         ) {
-            let address = aztec::context::utility_context::UtilityContext::new().this_address();
+            let address = aztec::context::UtilityContext::new().this_address();
 
-            aztec::messages::discovery::discover_new_messages(address, _compute_note_hash_and_nullifier);     
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
                 _compute_note_hash_and_nullifier,

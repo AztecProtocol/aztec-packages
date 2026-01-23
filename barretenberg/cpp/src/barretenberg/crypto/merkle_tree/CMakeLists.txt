@@ -3,6 +3,8 @@ barretenberg_module(
     crypto_merkle_tree
     lmdblib
 )
+# Need -fPIC because it's linked into the nodejs_module shared library
+set_target_properties(crypto_merkle_tree_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (NOT FUZZING)
     # but the tests use poseidon

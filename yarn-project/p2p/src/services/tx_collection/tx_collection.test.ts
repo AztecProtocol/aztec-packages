@@ -4,7 +4,7 @@ import { getDefaultConfig } from '@aztec/foundation/config';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { L2BlockNew } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
@@ -36,7 +36,7 @@ describe('TxCollection', () => {
   let deadline: Date;
   let txs: Tx[];
   let txHashes: TxHash[];
-  let block: L2BlockNew;
+  let block: L2Block;
 
   const makeNode = (name: string) => {
     const node = mock<TxSource>();
@@ -52,7 +52,7 @@ describe('TxCollection', () => {
   };
 
   const makeL2Block = (blockNumber = 1, slotNumber?: number) =>
-    L2BlockNew.random(BlockNumber(blockNumber), {
+    L2Block.random(BlockNumber(blockNumber), {
       txsPerBlock: 4,
       txOptions: {
         numPublicCallsPerTx: 3,

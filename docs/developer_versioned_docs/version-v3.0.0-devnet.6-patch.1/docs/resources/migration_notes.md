@@ -5,7 +5,7 @@ keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
 tags: [migration, updating, sandbox, local network]
 ---
 
-Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous releases. This page documents common errors and challenges you might encounter when upgrading, along with guidance on how to resolve them.
 
 ## TBD
 
@@ -181,7 +181,7 @@ This function made it annoying to deal with invalid addresses in circuits. If yo
 
 ### [Aztec.nr] Note owner is now enshrined
 
-It turns out that in all the cases a note always have a logical owner.
+It turns out that in all cases a note always has a logical owner.
 For this reason we have decided to enshrine the concept of a note owner and you should drop the field from your note:
 
 ```diff
@@ -1211,7 +1211,7 @@ add_private_authwit_from_call_interface(
 ### Historical block renamed as anchor block
 
 A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
-This name is ambiguous and for this reason we've introduce "anchor block".
+This name is ambiguous and for this reason we've introduced "anchor block".
 This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
 
 ```diff
@@ -1240,7 +1240,7 @@ Updating a note used to require reading it first (via `get_note`, which nullifie
 **Key points:**
 
 1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
-2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current note, or `none` if uninitialized.
 3. Previous note is automatically nullified before the new note is inserted.
 4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
 
@@ -1468,7 +1468,7 @@ emit_event_in_private_log(
 This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
 Drop the `from` argument when calling these.
 
-Example n TypeScript test:
+Example in TypeScript test:
 
 ```diff
 - await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
@@ -1808,7 +1808,7 @@ This means that if your portal were hard-coding `1` it will now fail when insert
 Instead you can get the real version (which don't change for a deployment) by reading the `VERSION` on inbox and outbox, or using `getVersion()` on the rollup.
 
 New Deployments of the protocol do not preserve former state/across each other.
-This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existant contracts.
+This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existent contracts.
 To solve, the portal should be linked to a specific deployment, e.g., a specific inbox.
 This can be done by storing the inbox/outbox/version at the time of deployment or initialize and not update them.
 
@@ -1822,7 +1822,7 @@ It's common that we need block metadata of a block in which leaves where inserte
 For this reason we now return that information along with the indexes.
 This allows us to reduce the number of individual AztecNode queries.
 
-Along this change `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions wer removed as all its uses can now be replaced with the newly modified `findLeavesIndexes` function.
+Along with this change, `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions were removed as all their uses can now be replaced with the newly modified `findLeavesIndexes` function.
 
 ### [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
 
@@ -3200,7 +3200,7 @@ Extended syntax for more use cases:
 
 ```rust
 // The contract we're testing
-env.deploy_self("ContractName"); // We have to provide ContractName since nargo it's ready to support multi-contract files
+env.deploy_self("ContractName"); // We have to provide ContractName since nargo isn't ready to support multi-contract files
 
 // A contract in a workspace
 env.deploy("../path/to/workspace@package_name", "ContractName"); // This format allows locating the artifact in the root workspace target folder, regardless of internal code organization

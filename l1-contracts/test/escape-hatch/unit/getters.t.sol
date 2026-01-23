@@ -67,8 +67,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     assertEq(escapeHatch.getDesignatedProposer(Hatch.wrap(1)), address(0), "Should be zero without selection");
 
     _joinCandidateSetWithConfig(CANDIDATE1);
-    _warpToSafeEpoch();
-    _warpForwardEpochs(3);
+    _warpForwardEpochs(config.frequency);
 
     escapeHatch.selectCandidates();
 
@@ -134,8 +133,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     assertEq(info.exitableAt, 0, "exitableAt should be 0 for ACTIVE");
 
     // PROPOSING: after selection
-    _warpToSafeEpoch();
-    _warpForwardEpochs(3);
+    _warpForwardEpochs(config.frequency);
     escapeHatch.selectCandidates();
 
     // Record which hatch the candidate was selected for (currentHatch + lagInHatches)
@@ -187,17 +185,15 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     // Bound future time jump to reasonable range (1 second to 10 years)
     _futureTimeJump = bound(_futureTimeJump, 1, 365 days * 10);
 
-    // ============ PART 1: DETERMINISM AT EXACT FREEZE TIMESTAMP ============
-    // Join one candidate early (at timestamp ~1)
+    // Join candidates at safe epoch
     _joinCandidateSetWithConfig(CANDIDATE1);
 
-    // Calculate a valid targetHatch that won't underflow:
-    // - targetHatch >= lagInHatches (so samplingHatch doesn't underflow)
-    // - samplingHatch's firstEpoch >= LAG_IN_EPOCHS_FOR_SET_SIZE (so freezeEpoch doesn't underflow)
-    uint256 lagInEpochs = escapeHatch.LAG_IN_EPOCHS_FOR_SET_SIZE();
-    uint256 minSamplingHatch = (lagInEpochs / config.frequency) + 1;
-    uint256 minTargetHatch = config.lagInHatches + minSamplingHatch;
-    Hatch targetHatch = Hatch.wrap(minTargetHatch);
+    // Warp forward so candidates are in snapshot for next hatch
+    _warpForwardEpochs(config.frequency);
+
+    // Calculate target hatch based on current position
+    Hatch currentHatch = escapeHatch.getCurrentHatch();
+    Hatch targetHatch = currentHatch + Hatch.wrap(config.lagInHatches);
     uint256 freezeTs = escapeHatch.getSetTimestamp(targetHatch);
 
     // Warp to EXACTLY the freeze timestamp
@@ -232,7 +228,7 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
     uint256 snapshotCountAfterAdd = escapeHatch.getCandidateCountForHatch(targetHatch);
     assertEq(snapshotCountAfterAdd, 2, "Snapshot count should still be 2 after adding CANDIDATE3");
 
-    // ============ PART 3: FUZZED TIME JUMP ============
+    // ============ PART 3: FUZZED TIME JUMP - IMMUTABILITY ============
     // Jump arbitrarily far into the future - snapshot must remain immutable
     vm.warp(block.timestamp + _futureTimeJump);
 
@@ -280,15 +276,16 @@ contract EscapeHatchGettersTest is EscapeHatchBase {
   {
     // it should return the candidate address from the snapshot at the given index
 
-    // Join candidates at different times
+    // Join candidates at safe epoch
     _joinCandidateSetWithConfig(CANDIDATE1);
     _joinCandidateSetWithConfig(CANDIDATE2);
 
-    // Calculate a valid targetHatch
-    uint256 lagInEpochs = escapeHatch.LAG_IN_EPOCHS_FOR_SET_SIZE();
-    uint256 minSamplingHatch = (lagInEpochs / config.frequency) + 1;
-    uint256 minTargetHatch = config.lagInHatches + minSamplingHatch;
-    Hatch targetHatch = Hatch.wrap(minTargetHatch);
+    // Warp forward to ensure candidates are in snapshot for next hatch
+    _warpForwardEpochs(config.frequency);
+
+    // Calculate target hatch based on current position
+    Hatch currentHatch = escapeHatch.getCurrentHatch();
+    Hatch targetHatch = currentHatch + Hatch.wrap(config.lagInHatches);
     uint256 freezeTs = escapeHatch.getSetTimestamp(targetHatch);
 
     // Warp past freeze timestamp

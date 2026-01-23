@@ -362,7 +362,7 @@ describe('e2e_synching', () => {
       }
 
       const blockNumber = await aztecNode.getBlockNumber();
-      const publishedCheckpoints = await aztecNode.getPublishedCheckpoints(CheckpointNumber(1), blockNumber);
+      const publishedCheckpoints = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber);
       const checkpoints = publishedCheckpoints.map(pc => pc.checkpoint);
 
       await variant.writeCheckpoints(checkpoints);
@@ -466,7 +466,7 @@ describe('e2e_synching', () => {
       // If it breaks here, first place you should look is the pruning.
       await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
-      await cheatCodes.rollup.markAsProven(provenThrough);
+      await cheatCodes.rollup.markAsProven(CheckpointNumber.fromBlockNumber(BlockNumber(provenThrough)));
     }
 
     await alternativeSync(
@@ -579,8 +579,8 @@ describe('e2e_synching', () => {
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
-          const provenThrough = pendingBlockNumber - 2n;
-          await opts.cheatCodes!.rollup.markAsProven(provenThrough);
+          const provenThrough = BlockNumber.fromBigInt(pendingBlockNumber - 2n);
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber.fromBlockNumber(provenThrough));
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);
@@ -661,8 +661,9 @@ describe('e2e_synching', () => {
             client: opts.deployL1ContractsValues!.l1Client,
           });
 
-          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
-          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
+          const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
+          const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
@@ -726,8 +727,9 @@ describe('e2e_synching', () => {
             client: opts.deployL1ContractsValues!.l1Client,
           });
 
-          const pendingBlockNumber = await rollup.read.getPendingCheckpointNumber();
-          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
+          const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
+          const offset = CheckpointNumber.fromBlockNumber(BlockNumber(variant.blockCount / 2));
+          await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getCheckpoint([(await rollup.read.getProvenCheckpointNumber()) + 1n]);

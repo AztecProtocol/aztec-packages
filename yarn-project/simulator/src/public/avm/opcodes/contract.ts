@@ -67,9 +67,6 @@ export class GetContractInstance extends Instruction {
       }
     }
 
-    const existsOffset = dstOffset;
-    const memberValueOffset = dstOffset + 1;
-    memory.set(existsOffset, new Uint1(exists ? 1 : 0));
-    memory.set(memberValueOffset, memberValue);
+    memory.setSlice(dstOffset, [new Uint1(exists ? 1 : 0), memberValue]);
   }
 }

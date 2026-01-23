@@ -11,7 +11,7 @@ pub contract NoConstructor {
         state_vars::{Owned, PrivateMutable},
     };
 
-    use field_note::field_note::FieldNote;
+    use field_note::FieldNote;
 
     #[storage]
     struct Storage<Context> {

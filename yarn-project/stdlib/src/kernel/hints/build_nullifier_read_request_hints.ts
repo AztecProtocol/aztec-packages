@@ -6,7 +6,6 @@ import {
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
-import { siloNullifier } from '../../hash/hash.js';
 import type { NullifierLeafPreimage } from '../../trees/nullifier_leaf.js';
 import type { ClaimedLengthArray } from '../claimed_length_array.js';
 import type { ScopedNullifier } from '../nullifier.js';
@@ -74,7 +73,6 @@ export async function buildNullifierReadRequestHintsFromResetActions<PENDING ext
   resetActions: ReadRequestResetActions<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
-  siloed = false,
 ) {
   const builder = new NullifierReadRequestHintsBuilder(maxPending, maxSettled);
 
@@ -90,12 +88,7 @@ export async function buildNullifierReadRequestHintsFromResetActions<PENDING ext
     }
   }
 
-  // Compute siloed values in parallel (if not already siloed)
-  const siloedValues = siloed
-    ? settledRequests.map(({ readRequest }) => readRequest.value)
-    : await Promise.all(
-        settledRequests.map(({ readRequest }) => siloNullifier(readRequest.contractAddress, readRequest.value)),
-      );
+  const siloedValues = settledRequests.map(({ readRequest }) => readRequest.value);
 
   // Fetch all membership witnesses in parallel
   const membershipWitnesses = await Promise.all(siloedValues.map(value => oracle.getNullifierMembershipWitness(value)));
@@ -121,7 +114,6 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
   futureNullifiers: ScopedNullifier[],
   maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
-  siloed = false,
 ) {
   const resetActions = getNullifierReadRequestResetActions(nullifierReadRequests, nullifiers, futureNullifiers);
   return await buildNullifierReadRequestHintsFromResetActions(
@@ -130,6 +122,5 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
     resetActions,
     maxPending,
     maxSettled,
-    siloed,
   );
 }

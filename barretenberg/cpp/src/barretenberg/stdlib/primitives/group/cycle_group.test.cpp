@@ -92,8 +92,12 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     auto is_infinity_normal = bool_ct(witness_ct(&builder, TestFixture::generators[1].is_point_at_infinity()));
 
     x_death.set_origin_tag(instant_death_tag);
+    // Set constant tags on the other elements so they can be merged with instant_death_tag
+    y_normal.set_origin_tag(constant_tag);
+    is_infinity_normal.set_origin_tag(constant_tag);
 
-    cycle_group_ct b(x_death, y_normal, is_infinity_normal, /*assert_on_curve=*/true);
+    // Use assert_on_curve=false to avoid triggering instant_death during validate_on_curve()
+    cycle_group_ct b(x_death, y_normal, is_infinity_normal, /*assert_on_curve=*/false);
     // Even requesting the tag of the whole structure can cause instant death
     EXPECT_THROW(b.get_origin_tag(), std::runtime_error);
 #endif
@@ -1394,7 +1398,7 @@ TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)
  */
 template <typename T1, typename T2> auto assign_and_merge_tags(T1& points, T2& scalars)
 {
-    OriginTag merged_tag;
+    OriginTag merged_tag = OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
     for (size_t i = 0; i < points.size(); i++) {
         const auto point_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/true);
         const auto scalar_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/false);

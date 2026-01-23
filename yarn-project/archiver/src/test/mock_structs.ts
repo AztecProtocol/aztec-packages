@@ -12,7 +12,7 @@ import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer'
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, L2BlockNew } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -268,8 +268,8 @@ export async function makeCheckpointWithLogs(
 ): Promise<PublishedCheckpoint> {
   const { previousArchive, numTxsPerBlock = 4, privateLogs, publicLogs } = options;
 
-  const block = await L2BlockNew.random(BlockNumber(blockNumber), {
-    checkpointNumber: CheckpointNumber(blockNumber),
+  const block = await L2Block.random(BlockNumber(blockNumber), {
+    checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
     indexWithinCheckpoint: IndexWithinCheckpoint(0),
     state: makeStateForBlock(blockNumber, numTxsPerBlock),
     ...(previousArchive ? { lastArchive: previousArchive } : {}),
@@ -289,7 +289,7 @@ export async function makeCheckpointWithLogs(
     AppendOnlyTreeSnapshot.random(),
     CheckpointHeader.random(),
     [block],
-    CheckpointNumber(blockNumber),
+    CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
   );
   return makePublishedCheckpoint(checkpoint, blockNumber);
 }

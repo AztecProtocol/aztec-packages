@@ -27,7 +27,7 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
     vm.prank(CANDIDATE1);
     escapeHatch.leaveCandidateSet();
 
-    _warpToSafeEpoch();
+    _warpForwardEpochs(config.frequency);
 
     escapeHatch.selectCandidates();
     vm.expectRevert(
@@ -189,9 +189,11 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
 
     _deployWithFakeRollup();
 
-    _joinCandidateSetWithConfig(CANDIDATE1);
+    // Warp to safe epoch using FakeRollup timing (after deploying FakeRollup)
     _warpToSafeEpoch();
-    _warpForwardEpochs(3);
+
+    _joinCandidateSetWithConfig(CANDIDATE1);
+    _warpForwardEpochs(config.frequency);
     escapeHatch.selectCandidates();
 
     Epoch currentEpoch = _getCurrentEpoch();

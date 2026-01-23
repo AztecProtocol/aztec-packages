@@ -3,6 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   AvmCircuitPublicInputs,
   type AvmTxHint,
+  PublicTxEffect,
   deserializeFromMessagePack,
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
@@ -58,7 +59,13 @@ async function simulateWithFuzzer(
   rawPublicDataWrites: any[], // Public data tree writes to apply before simulation
   rawNoteHashes: any[], // Note hashes to apply before simulation
   protocolContracts: ProtocolContracts, // Protocol contracts mapping from C++
-): Promise<{ reverted: boolean; output: Fr[]; revertReason?: string; publicInputs: AvmCircuitPublicInputs }> {
+): Promise<{
+  reverted: boolean;
+  output: Fr[];
+  revertReason?: string;
+  publicInputs: AvmCircuitPublicInputs;
+  publicTxEffect: PublicTxEffect;
+}> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
 
   const simulator = await AvmFuzzerSimulator.create(worldStateService, globals, protocolContracts);
@@ -90,6 +97,7 @@ async function simulateWithFuzzer(
     output,
     revertReason: result.findRevertReason()?.message,
     publicInputs: result.publicInputs!,
+    publicTxEffect: result.publicTxEffect,
   };
 }
 
@@ -119,6 +127,7 @@ async function execute(base64Line: string): Promise<void> {
       output: result.output,
       revertReason: result.revertReason ?? '',
       endTreeSnapshots: result.publicInputs.endTreeSnapshots,
+      publicTxEffect: result.publicTxEffect,
     });
     const base64Response = resultBuffer.toString('base64') + '\n';
     await writeOutput(base64Response);
@@ -129,6 +138,7 @@ async function execute(base64Line: string): Promise<void> {
       output: [] as Fr[],
       revertReason: `Unexpected Error ${error.message}`,
       endTreeSnapshots: TreeSnapshots.empty(),
+      publicTxEffect: PublicTxEffect.empty(),
     });
     await writeOutput(errorResult.toString('base64') + '\n');
   }

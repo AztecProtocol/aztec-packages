@@ -27,7 +27,7 @@ case $cmd in
     trap 'kill $server_pid &>/dev/null || true' EXIT
     while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
     export NARGO_FOREIGN_CALL_TIMEOUT=300000
-    nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 "$@"
+    nargo test --silence-warnings  --oracle-resolver http://127.0.0.1:8081 "$@"
     ;;
   start)
     if [ "${1:-}" == "--local-network" ]; then

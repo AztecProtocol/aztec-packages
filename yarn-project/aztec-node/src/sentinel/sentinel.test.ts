@@ -9,7 +9,7 @@ import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/s
 import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   CommitteeAttestation,
-  L2BlockNew,
+  L2Block,
   type L2BlockSource,
   type L2BlockStream,
   type L2BlockStreamEvent,
@@ -90,7 +90,7 @@ describe('sentinel', () => {
   describe('getSlotActivity', () => {
     let signers: Secp256k1Signer[];
     let validators: EthAddress[];
-    let block: L2BlockNew;
+    let block: L2Block;
     let publishedCheckpoint: PublishedCheckpoint;
     let attestations: CheckpointAttestation[];
     let proposer: EthAddress;
@@ -108,7 +108,7 @@ describe('sentinel', () => {
     beforeEach(async () => {
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
-      block = await L2BlockNew.random(BlockNumber(1), { slotNumber: slot });
+      block = await L2Block.random(BlockNumber(1), { slotNumber: slot });
       attestations = signers.map(signer => makeCheckpointAttestation({ signer, archive: block.archive.root }));
       proposer = validators[0];
       committee = [...validators];
@@ -554,7 +554,7 @@ describe('sentinel', () => {
     it('calls inactivity watcher with performance data', async () => {
       const blockNumber = BlockNumber(15);
       const blockHash = '0xblockhash';
-      const mockBlock = await L2BlockNew.random(blockNumber);
+      const mockBlock = await L2Block.random(blockNumber);
       const slot = mockBlock.header.getSlot();
       const epochNumber = getEpochAtSlot(slot, l1Constants);
       const validator1 = EthAddress.random();
@@ -568,7 +568,7 @@ describe('sentinel', () => {
         ts,
         now: ts,
       });
-      archiver.getL2BlockNew.calledWith(blockNumber).mockResolvedValue(mockBlock);
+      archiver.getL2Block.calledWith(blockNumber).mockResolvedValue(mockBlock);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 

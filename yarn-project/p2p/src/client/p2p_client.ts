@@ -6,7 +6,7 @@ import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
   type EthAddress,
-  type L2BlockNew,
+  type L2Block,
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -659,7 +659,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private async markTxsAsMinedFromBlocks(blocks: L2BlockNew[]): Promise<void> {
+  private async markTxsAsMinedFromBlocks(blocks: L2Block[]): Promise<void> {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
       await this.txPool.markAsMined(txHashes, block.header);
@@ -671,7 +671,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private async handleLatestL2Blocks(blocks: L2BlockNew[]): Promise<void> {
+  private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
     if (!blocks.length) {
       return Promise.resolve();
     }
@@ -686,7 +686,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
-  private async startCollectingMissingTxs(blocks: L2BlockNew[]): Promise<void> {
+  private async startCollectingMissingTxs(blocks: L2Block[]): Promise<void> {
     try {
       // TODO(#15435): If the archiver has lagged behind L1, the reported proven block number may
       // be much lower than the actual one, and it does not update until the pending chain is
@@ -719,7 +719,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of finalized L2 blocks.
    * @returns Empty promise.
    */
-  private async handleFinalizedL2Blocks(blocks: L2BlockNew[]): Promise<void> {
+  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
     if (!blocks.length) {
       return Promise.resolve();
     }

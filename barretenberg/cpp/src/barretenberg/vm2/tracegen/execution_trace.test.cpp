@@ -846,19 +846,26 @@ TEST(ExecutionTraceGenTest, SLoad)
     ExecutionTraceBuilder builder;
 
     uint16_t slot_offset = 1234;
+    uint16_t contract_address_offset = 2345;
     uint16_t dst_offset = 4567;
 
     FF slot = 42;
+    FF contract_address = 0xdeadbeef;
     FF dst_value = 27;
 
-    const auto instr =
-        InstructionBuilder(WireOpCode::SLOAD).operand<uint16_t>(slot_offset).operand<uint16_t>(dst_offset).build();
+    const auto instr = InstructionBuilder(WireOpCode::SLOAD)
+                           .operand<uint16_t>(slot_offset)
+                           .operand<uint16_t>(contract_address_offset)
+                           .operand<uint16_t>(dst_offset)
+                           .build();
 
     ExecutionEvent ex_event = {
         .wire_instruction = instr,
-        .inputs = { MemoryValue::from<FF>(slot) },
+        .inputs = { MemoryValue::from<FF>(slot), MemoryValue::from<FF>(contract_address) },
         .output = MemoryValue::from<FF>(dst_value),
         .addressing_event = { .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
+                                                   { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(contract_address_offset) },
                                                    { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
     };
 
@@ -871,11 +878,14 @@ TEST(ExecutionTraceGenTest, SLoad)
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_execute_sload, 1),
                           ROW_FIELD_EQ(execution_rop_0_, slot_offset),
-                          ROW_FIELD_EQ(execution_rop_1_, dst_offset),
+                          ROW_FIELD_EQ(execution_rop_1_, contract_address_offset),
+                          ROW_FIELD_EQ(execution_rop_2_, dst_offset),
                           ROW_FIELD_EQ(execution_register_0_, slot),
-                          ROW_FIELD_EQ(execution_register_1_, dst_value),
+                          ROW_FIELD_EQ(execution_register_1_, contract_address),
+                          ROW_FIELD_EQ(execution_register_2_, dst_value),
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF), // Memory tag for slot
-                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF), // Memory tag for dst
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF), // Memory tag for contract_address
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_FF), // Memory tag for dst
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD))));
 }
 

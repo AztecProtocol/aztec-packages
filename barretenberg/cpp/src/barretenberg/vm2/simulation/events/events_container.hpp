@@ -28,7 +28,6 @@
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/retrieved_bytecodes_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
@@ -48,7 +47,6 @@ struct EventsContainer {
     EventEmitterInterface<InstructionFetchingEvent>::Container instruction_fetching;
     EventEmitterInterface<AddressDerivationEvent>::Container address_derivation;
     EventEmitterInterface<ClassIdDerivationEvent>::Container class_id_derivation;
-    EventEmitterInterface<SiloingEvent>::Container siloing;
     EventEmitterInterface<Sha256CompressionEvent>::Container sha256_compression;
     EventEmitterInterface<EccAddEvent>::Container ecc_add;
     EventEmitterInterface<ScalarMulEvent>::Container scalar_mul;

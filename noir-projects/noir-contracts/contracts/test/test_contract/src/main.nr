@@ -19,8 +19,8 @@ pub contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::{NoteGetterOptions, NoteStatus},
             note_viewer_options::NoteViewerOptions,
-            confirmed_note::ConfirmedNote,
-            hinted_note::HintedNote,
+            ConfirmedNote,
+            HintedNote,
         },
         // State variable types
         state_vars::{
@@ -36,8 +36,6 @@ pub contract Test {
         },
         // Event related
         messages::message_delivery::MessageDelivery,
-        // Hashing
-        hash::pedersen_hash,
         // History and inclusion proofs
         history::note_inclusion::ProveNoteInclusion,
         // Key management
@@ -51,13 +49,14 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
+    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
-    use address_note::address_note::AddressNote;
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use address_note::AddressNote;
+    use uint_note::{PartialUintNote, UintNote};
 
     #[event]
     struct ExampleEvent {
@@ -262,7 +261,7 @@ pub contract Test {
         };
 
         let header = self.context.get_anchor_block_header();
-        header.prove_note_inclusion(hinted_note);
+        let _ = header.prove_note_inclusion(hinted_note);
     }
 
     #[external("private")]
@@ -427,7 +426,7 @@ pub contract Test {
         }
 
         fn get_commitment(self) -> Field {
-            pedersen_hash([self.amount, self.secret_hash], 0)
+            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
         }
     }
 

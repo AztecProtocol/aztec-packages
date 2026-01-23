@@ -8,7 +8,7 @@ import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { EthAddress, L2BlockNew, L2BlockSource } from '@aztec/stdlib/block';
+import type { EthAddress, L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -66,6 +66,7 @@ import {
   CheckpointAttestationValidator,
   CheckpointProposalValidator,
   FishermanAttestationValidator,
+  SizeTxValidator,
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
@@ -1336,7 +1337,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }))
   private async validateRequestedBlock(
     requestedBlockNumber: Fr,
-    responseBlock: L2BlockNew,
+    responseBlock: L2Block,
     peerId: PeerId,
   ): Promise<boolean> {
     try {
@@ -1370,6 +1371,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private createRequestedTxValidator(): TxValidator {
     return new AggregateTxValidator(
       new DataTxValidator(),
+      new SizeTxValidator(),
       new MetadataTxValidator({
         l1ChainId: new Fr(this.config.l1ChainId),
         rollupVersion: new Fr(this.config.rollupVersion),

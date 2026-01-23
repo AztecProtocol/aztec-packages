@@ -7,15 +7,10 @@ use dep::protocol_types::{
         DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__SECRET_HASH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
     },
     hash::{poseidon2_hash_subarray, poseidon2_hash_with_separator, sha256_to_field},
-    point::Point,
     traits::ToField,
 };
 
-pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
-
-pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
-    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
-}
+pub use dep::protocol_types::hash::compute_siloed_nullifier;
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     poseidon2_hash_with_separator([secret], DOM_SEP__SECRET_HASH)

@@ -5,8 +5,9 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract CardGame {
-    use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
     use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol_types::hash::poseidon2_hash;
+    use dep::aztec::state_vars::{Map, PublicMutable};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -103,7 +104,7 @@ pub contract CardGame {
 
         let mut collection = self.storage.collections;
         let _inserted_cards = collection.add_cards(cards, player);
-        self.enqueue_self.on_cards_claimed(game, player, pedersen_hash(cards_fields, 0));
+        self.enqueue_self.on_cards_claimed(game, player, poseidon2_hash(cards_fields));
     }
 
     #[external("public")]
@@ -117,7 +118,7 @@ pub contract CardGame {
 
         assert_eq(
             cards_hash,
-            pedersen_hash(game_data.rounds_cards.map(|card: Card| card.to_field()), 0),
+            poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())),
         );
 
         let winner = game_data.winner();

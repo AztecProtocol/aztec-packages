@@ -218,12 +218,6 @@ pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-// TODO: remove this. The protocol doesn't need it.
-#[inline_always]
-pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
-    std::hash::pedersen_hash_with_separator(inputs, hash_index)
-}
-
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     poseidon::poseidon2::Poseidon2::hash(inputs, N)
 }
