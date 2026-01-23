@@ -346,6 +346,14 @@ export class Oracle {
     return [];
   }
 
+  async privateIsNullifierPending([innerNullifier]: ACVMField[], [contractAddress]: ACVMField[]): Promise<ACVMField[]> {
+    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(
+      Fr.fromString(innerNullifier),
+      AztecAddress.fromString(contractAddress),
+    );
+    return [toACVMField(isPending)];
+  }
+
   async utilityCheckNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
     const exists = await this.handlerAsUtility().utilityCheckNullifierExists(Fr.fromString(innerNullifier));
     return [toACVMField(exists)];

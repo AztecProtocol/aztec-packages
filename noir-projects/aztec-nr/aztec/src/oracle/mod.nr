@@ -23,6 +23,7 @@ pub mod key_validation_request;
 pub mod logs;
 pub mod message_processing;
 pub mod notes;
+pub mod nullifiers;
 pub mod offchain_effect;
 pub mod version;
 pub mod random;

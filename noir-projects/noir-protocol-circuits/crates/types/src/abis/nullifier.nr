@@ -27,17 +27,8 @@ impl Scoped<Counted<Nullifier>> {
     }
 }
 
-impl Readable for Scoped<Counted<Nullifier>> {
-    fn assert_match_read_request(self, read_request: Scoped<Counted<Field>>) {
-        assert_eq(
-            self.innermost().value,
-            read_request.innermost(),
-            "Value of the nullifier does not match read request",
-        );
-        assert_eq(
-            self.contract_address,
-            read_request.contract_address,
-            "Contract address of the nullifier does not match read request",
-        );
+impl Readable for Nullifier {
+    fn assert_match_read_request(self, read_request: Field) {
+        assert_eq(self.value, read_request, "Value of the nullifier does not match read request");
     }
 }

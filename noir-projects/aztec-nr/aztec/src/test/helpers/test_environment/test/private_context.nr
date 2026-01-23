@@ -1,4 +1,4 @@
-use crate::oracle::notes::check_nullifier_exists;
+use crate::oracle::nullifiers::check_nullifier_exists;
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 use protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField,

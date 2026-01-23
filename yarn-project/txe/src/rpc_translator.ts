@@ -512,6 +512,15 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  async privateIsNullifierPending(foreignInnerNullifier: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
+    const innerNullifier = fromSingle(foreignInnerNullifier);
+    const contractAddress = addressFromSingle(foreignContractAddress);
+
+    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(innerNullifier, contractAddress);
+
+    return toForeignCallResult([toSingle(new Fr(isPending))]);
+  }
+
   async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
     const innerNullifier = fromSingle(foreignInnerNullifier);
 

@@ -6,7 +6,8 @@ use dep::protocol_types::{
 use crate::{
     context::{PrivateContext, UtilityContext},
     keys::getters::{get_nsk_app, get_public_keys},
-    oracle::notes::check_nullifier_exists,
+    nullifier::utils::compute_nullifier_existence_request,
+    oracle::nullifiers::check_nullifier_exists,
     state_vars::owned_state_variable::OwnedStateVariable,
 };
 
@@ -124,7 +125,9 @@ impl SingleUseClaim<&mut PrivateContext> {
         let has_been_claimed = unsafe { check_nullifier_exists(nullifier) };
         assert(has_been_claimed, "cannot prove claim exists");
 
-        self.context.assert_nullifier_exists(nullifier, self.context.this_address())
+        let nullifier_existence_request =
+            compute_nullifier_existence_request(nullifier, self.context.this_address());
+        self.context.assert_nullifier_exists(nullifier_existence_request)
     }
 }
 
