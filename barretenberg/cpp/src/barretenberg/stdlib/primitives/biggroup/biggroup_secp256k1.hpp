@@ -18,12 +18,6 @@ template <typename C, class Fq, class Fr, class G>
 template <typename, typename>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2)
 {
-    std::cout << "\n[secp256k1_ecdsa_mul] === START ===" << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u1 value: " << u1.get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u2 value: " << u2.get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] pubkey X: " << pubkey.x().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] pubkey Y: " << pubkey.y().get_value() << std::endl;
-
     /**
      * Compute `out = u1.[1] + u2.[pubkey]
      *
@@ -53,10 +47,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * We do NOT range constrain the wNAF entries, because we will use them to lookup in a ROM/regular table.
      * The ROM/regular table lookup implicitly enforces the range constraint
      */
-    std::cout << "[secp256k1_ecdsa_mul] Computing wNAFs..." << std::endl;
     const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1, false);
     const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2, false);
-    std::cout << "[secp256k1_ecdsa_mul] wNAFs computed" << std::endl;
 
     /**
      * Construct our 4-bit variable-base and 8-bit fixed base lookup tables
@@ -68,15 +60,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
     const auto endoP1_table =
         element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::SECP256K1, true);
     const auto [P2_table, endoP2_table] = create_endo_pair_four_bit_table_plookup(P2);
-    std::cout << "[secp256k1_ecdsa_mul] Lookup tables created" << std::endl;
 
     // Initialize our accumulator
     auto accumulator = P2_table[u2_lo_wnaf.wnaf[0]];
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator initialized with u2_lo_wnaf[0]" << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Initial accumulator X: " << accumulator.x().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Initial accumulator Y: " << accumulator.y().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Initial accumulator is_point_at_infinity: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
 
     /**
      * main double-and-add loop
@@ -97,17 +83,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * This is because we offset our wNAFs to take advantage of the montgomery ladder, but this means we
      * have doubled our accumulator AFTER adding our final wnaf contributions from u2_hi, u1_lo and u1_hi
      **/
-    std::cout << "[secp256k1_ecdsa_mul] Starting main loop (16 iterations)..." << std::endl;
     for (size_t i = 0; i < 16; ++i) {
-        std::cout << "\n[secp256k1_ecdsa_mul] === Iteration " << i << " ===" << std::endl;
-
         accumulator = accumulator.dbl();
-        std::cout << "[secp256k1_ecdsa_mul] After 1st dbl, is_inf: " << accumulator.is_point_at_infinity().get_value()
-                  << std::endl;
-
         accumulator = accumulator.dbl();
-        std::cout << "[secp256k1_ecdsa_mul] After 2nd dbl, is_inf: " << accumulator.is_point_at_infinity().get_value()
-                  << std::endl;
 
         // u2_hi_wnaf.wnaf[2 * i] is a field_t element (as are the other wnafs).
         // See `stdlib/memory/rom_table.hpp` for how indirect array accesses are implemented in Ultra
@@ -121,44 +99,21 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
         accumulator = accumulator.multiple_montgomery_ladder({ element::chain_add_accumulator(add_1),
                                                                element::chain_add_accumulator(add_2),
                                                                element::chain_add_accumulator(add_3) });
-        std::cout << "[secp256k1_ecdsa_mul] After 1st montgomery_ladder (add_1, add_2, add_3), is_inf: "
-                  << accumulator.is_point_at_infinity().get_value() << std::endl;
 
         accumulator = accumulator.multiple_montgomery_ladder({ element::chain_add_accumulator(add_4),
                                                                element::chain_add_accumulator(add_5),
                                                                element::chain_add_accumulator(add_6) });
-        std::cout << "[secp256k1_ecdsa_mul] After 2nd montgomery_ladder (add_4, add_5, add_6), is_inf: "
-                  << accumulator.is_point_at_infinity().get_value() << std::endl;
-
-        if (accumulator.is_point_at_infinity().get_value()) {
-            std::cout << "[secp256k1_ecdsa_mul] *** POINT AT INFINITY DETECTED AT ITERATION " << i << " ***"
-                      << std::endl;
-        }
     }
-
-    std::cout << "\n[secp256k1_ecdsa_mul] Main loop completed" << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator after loop is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
 
     /**
      * Add the final contributions from `u2_hi, u1_lo, u1_hi`
      **/
-    std::cout << "\n[secp256k1_ecdsa_mul] Adding stagger fragments..." << std::endl;
     const auto& add_1 = endoP1_table[u1_hi_wnaf.least_significant_wnaf_fragment];
     const auto& add_2 = endoP2_table[u2_hi_wnaf.least_significant_wnaf_fragment];
     const auto& add_3 = P1_table[u1_lo_wnaf.least_significant_wnaf_fragment];
-
     accumulator += add_1;
-    std::cout << "[secp256k1_ecdsa_mul] After adding u1_hi stagger, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-
     accumulator += add_2;
-    std::cout << "[secp256k1_ecdsa_mul] After adding u2_hi stagger, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-
     accumulator += add_3;
-    std::cout << "[secp256k1_ecdsa_mul] After adding u1_lo stagger, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
 
     /**
      * Handle wNAF skew.
@@ -166,16 +121,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * scalars represented via the non-adjacent form can only be odd. If our scalars are even, we must either
      * add or subtract the relevant base point into the accumulator
      **/
-    std::cout << "\n[secp256k1_ecdsa_mul] Handling skew corrections..." << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u1_lo positive_skew: " << u1_lo_wnaf.positive_skew.get_value()
-              << ", negative_skew: " << u1_lo_wnaf.negative_skew.get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u1_hi positive_skew: " << u1_hi_wnaf.positive_skew.get_value()
-              << ", negative_skew: " << u1_hi_wnaf.negative_skew.get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u2_lo positive_skew: " << u2_lo_wnaf.positive_skew.get_value()
-              << ", negative_skew: " << u2_lo_wnaf.negative_skew.get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u2_hi positive_skew: " << u2_hi_wnaf.positive_skew.get_value()
-              << ", negative_skew: " << u2_hi_wnaf.negative_skew.get_value() << std::endl;
-
     const auto conditional_add = [](const element& accumulator,
                                     const element& base_point,
                                     const bool_ct& positive_skew,
@@ -191,46 +136,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
     };
 
     accumulator = conditional_add(accumulator, P1, u1_lo_wnaf.positive_skew, u1_lo_wnaf.negative_skew);
-    std::cout << "[secp256k1_ecdsa_mul] After u1_lo skew correction, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-
-    std::cout << "\n[secp256k1_ecdsa_mul] === BEFORE u1_hi skew correction ===" << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator X: " << accumulator.x().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator Y: " << accumulator.y().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator is_inf: " << accumulator.is_point_at_infinity().get_value()
-              << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u1_hi skew correction point (endoP1_table[128]) X: "
-              << endoP1_table[128].x().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u1_hi skew correction point Y: " << endoP1_table[128].y().get_value()
-              << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] u1_hi negative_skew (will negate Y): " << u1_hi_wnaf.negative_skew.get_value()
-              << std::endl;
-    if (u1_hi_wnaf.negative_skew.get_value()) {
-        std::cout << "[secp256k1_ecdsa_mul] After negating Y for subtraction: -" << endoP1_table[128].y().get_value()
-                  << std::endl;
-    }
-
     accumulator = conditional_add(accumulator, endoP1_table[128], u1_hi_wnaf.positive_skew, u1_hi_wnaf.negative_skew);
-    std::cout << "\n[secp256k1_ecdsa_mul] === AFTER u1_hi skew correction ===" << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator X: " << accumulator.x().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Accumulator Y: " << accumulator.y().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] After u1_hi skew correction, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-
     accumulator = conditional_add(accumulator, P2, u2_lo_wnaf.positive_skew, u2_lo_wnaf.negative_skew);
-    std::cout << "[secp256k1_ecdsa_mul] After u2_lo skew correction, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-
     accumulator = conditional_add(accumulator, endoP2_table[8], u2_hi_wnaf.positive_skew, u2_hi_wnaf.negative_skew);
-    std::cout << "[secp256k1_ecdsa_mul] After u2_hi skew correction, is_inf: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-
-    std::cout << "\n[secp256k1_ecdsa_mul] === FINAL RESULT ===" << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Final accumulator X: " << accumulator.x().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Final accumulator Y: " << accumulator.y().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] Final accumulator is_point_at_infinity: "
-              << accumulator.is_point_at_infinity().get_value() << std::endl;
-    std::cout << "[secp256k1_ecdsa_mul] === END ===" << std::endl;
 
     return accumulator;
 }

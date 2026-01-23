@@ -470,6 +470,7 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
     using Curve = stdlib::secp256k1<UltraCircuitBuilder>;
 
     using FqNative = Curve::fq;
+    using FrNative = Curve::fr;
     using G1Native = Curve::g1;
 
     using Builder = Curve::Builder;
@@ -500,6 +501,15 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
     typename G1Native::affine_element public_key_native(pub_x, pub_y);
     ASSERT_TRUE(public_key_native.on_curve()) << "Public key must be on curve";
 
+    // Native verification
+    const std::string message_string(z_bytes.begin(), z_bytes.end());
+    ecdsa_signature sig;
+    sig.r = r_bytes;
+    sig.s = s_bytes;
+    sig.v = 27;
+    bool native_verification =
+        ecdsa_verify_signature<NullHasher, FqNative, FrNative, G1Native>(message_string, public_key_native, sig);
+
     bool stdlib_verification;
     {
         Builder builder;
@@ -528,7 +538,9 @@ TEST(EcdsaTests, Secp256k1NativeStdlibDiscrepancy)
     }
 
     // Both native and stdlib should reject this invalid signature
+    EXPECT_FALSE(native_verification);
     EXPECT_FALSE(stdlib_verification);
+    EXPECT_EQ(native_verification, stdlib_verification);
 }
 
 TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancy)
