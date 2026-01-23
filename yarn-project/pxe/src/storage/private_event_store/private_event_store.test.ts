@@ -278,6 +278,51 @@ describe('PrivateEventStore', () => {
     expect(events).toEqual([expectedEvent]);
   });
 
+  it('finds event under each scope it was stored with', async () => {
+    const scope1 = await AztecAddress.random();
+    const scope2 = await AztecAddress.random();
+    const eventCommitment = Fr.random();
+
+    const event = {
+      contractAddress,
+      scope: scope1,
+      txHash,
+      l2BlockNumber,
+      l2BlockHash,
+      txIndexInBlock: 0,
+      eventIndexInTx: 0,
+    };
+
+    await privateEventStore.storePrivateEventLog(eventSelector, randomness, msgContent, eventCommitment, event, 'test');
+    await privateEventStore.storePrivateEventLog(
+      eventSelector,
+      randomness,
+      msgContent,
+      eventCommitment,
+      { ...event, scope: scope2 },
+      'test',
+    );
+
+    await privateEventStore.commit('test');
+
+    const filter = { contractAddress, fromBlock: l2BlockNumber, toBlock: l2BlockNumber + 1 };
+
+    const eventsScope1 = await privateEventStore.getPrivateEvents(eventSelector, { ...filter, scopes: [scope1] });
+    expect(eventsScope1).toHaveLength(1);
+    expect(eventsScope1[0].packedEvent).toEqual(msgContent);
+
+    const eventsScope2 = await privateEventStore.getPrivateEvents(eventSelector, { ...filter, scopes: [scope2] });
+    expect(eventsScope2).toHaveLength(1);
+    expect(eventsScope2[0].packedEvent).toEqual(msgContent);
+
+    // Querying with both scopes returns the event once
+    const eventsBoth = await privateEventStore.getPrivateEvents(eventSelector, {
+      ...filter,
+      scopes: [scope1, scope2],
+    });
+    expect(eventsBoth).toHaveLength(1);
+  });
+
   it('returns empty array when no events match criteria', async () => {
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
