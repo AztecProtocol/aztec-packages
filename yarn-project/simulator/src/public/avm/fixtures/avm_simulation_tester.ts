@@ -13,6 +13,7 @@ import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_so
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmSimulator } from '../avm_simulator.js';
+import { CallDataArray } from '../calldata.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 import { initContext, initExecutionEnvironment } from './initializers.js';
 import {
@@ -89,7 +90,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       collectCallMetadata: true,
     });
     const environment = initExecutionEnvironment({
-      calldata,
+      calldata: new CallDataArray(calldata),
       globals,
       address,
       sender,
@@ -105,7 +106,12 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     if (result.reverted) {
       this.logger.error(`Error in ${fnName}:`);
       this.logger.error(
-        resolveContractAssertionMessage(fnName, result.revertReason!, result.output, contractArtifact)!,
+        resolveContractAssertionMessage(
+          fnName,
+          result.revertReason!,
+          result.output.bestEffortReadAll(),
+          contractArtifact,
+        )!,
       );
     } else {
       this.logger.info(`Simulation of function ${fnName} succeeded!`);
