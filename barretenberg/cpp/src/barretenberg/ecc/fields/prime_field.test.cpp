@@ -28,6 +28,25 @@ using namespace bb;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
+
+// Helper to create a field element whose internal (Montgomery) representation has exactly
+// the given limbs. This is done by constructing from the value and then calling
+// from_montgomery_form() to make the limbs directly represent the desired pattern.
+// Also verifies that the internal representation matches the expected limbs.
+template <typename F> F create_element_with_limbs(uint64_t l0, uint64_t l1, uint64_t l2, uint64_t l3)
+{
+    uint256_t val{ l0, l1, l2, l3 };
+    F result(val);
+    result.self_from_montgomery_form();
+
+    // Verify the internal representation matches expected limbs
+    EXPECT_EQ(result.data[0], l0);
+    EXPECT_EQ(result.data[1], l1);
+    EXPECT_EQ(result.data[2], l2);
+    EXPECT_EQ(result.data[3], l3);
+
+    return result;
+}
 } // namespace
 
 // Type-parameterized test fixture for prime fields
@@ -395,78 +414,201 @@ TYPED_TEST(PrimeFieldTwoFiftySixTest, AddYieldsLimbsBiggerThanModulus)
 {
     using F = TypeParam;
 
-    // Only test for "big" fields (those with modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD)
-    if constexpr (F::Params::modulus_3 >= 0x4000000000000000ULL) {
-        auto small_number = 10;
-        F small_field_elt = F(small_number).from_montgomery_form();
-        uint256_t small_number_from_limbs(
-            small_field_elt.data[0], small_field_elt.data[1], small_field_elt.data[2], small_field_elt.data[3]);
-        uint256_t big_number = uint256_t(F::modulus) - 1;
-        F big_field_elt = F(big_number).from_montgomery_form();
-        uint256_t big_number_from_limbs(
-            big_field_elt.data[0], big_field_elt.data[1], big_field_elt.data[2], big_field_elt.data[3]);
+    auto small_number = 10;
+    F small_field_elt = F(small_number).from_montgomery_form();
+    uint256_t small_number_from_limbs(
+        small_field_elt.data[0], small_field_elt.data[1], small_field_elt.data[2], small_field_elt.data[3]);
+    uint256_t big_number = uint256_t(F::modulus) - 1;
+    F big_field_elt = F(big_number).from_montgomery_form();
+    uint256_t big_number_from_limbs(
+        big_field_elt.data[0], big_field_elt.data[1], big_field_elt.data[2], big_field_elt.data[3]);
 
-        // make sure that the limbs combine to the number. (this is not immediate because we internall represent via
-        // Montgomery form. Here, it is guaranteed because we call `.from_montgomery_form()`).
-        EXPECT_EQ(small_number_from_limbs, small_number);
-        EXPECT_EQ(big_number, big_number_from_limbs);
+    // make sure that the limbs combine to the number. (this is not immediate because we internall represent via
+    // Montgomery form. Here, it is guaranteed because we call `.from_montgomery_form()`).
+    EXPECT_EQ(small_number_from_limbs, small_number);
+    EXPECT_EQ(big_number, big_number_from_limbs);
 
-        F result = small_field_elt + big_field_elt;
+    F result = small_field_elt + big_field_elt;
 
-        // Extract the raw limbs from result
-        uint256_t result_from_limbs(result.data[0], result.data[1], result.data[2], result.data[3]);
+    // Extract the raw limbs from result
+    uint256_t result_from_limbs(result.data[0], result.data[1], result.data[2], result.data[3]);
 
-        // Check if the uint256_t from limbs is >= p
-        bool is_gte_modulus = result_from_limbs >= F::modulus;
-        EXPECT_EQ(is_gte_modulus, true);
-    }
+    // Check if the uint256_t from limbs is >= p
+    bool is_gte_modulus = result_from_limbs >= F::modulus;
+    EXPECT_EQ(is_gte_modulus, true);
 }
-// Test "edge case" for Montgomery Multiplication for 256 bit fields.
-// Explanation: the internal representation of a 256-bit field has no size bounds; the limbs can correspond to any
-// 256-bit number (in particular, greater than p). This test checks that there are no carry issues caused by this.
-TYPED_TEST(PrimeFieldTwoFiftySixTest, BigMultiplication)
+
+// ================================
+// Single Non-Zero Limb Edge Cases
+// ================================
+// These tests verify correctness when the internal Montgomery representation has only one
+// non-zero limb, which can expose carry propagation bugs in Montgomery multiplication and
+// other operations.
+
+TYPED_TEST(PrimeFieldTest, SingleLimbArithmetic)
 {
     using F = TypeParam;
 
-    // To perform this test, we must use `add` to construct elements of type `F` whose limbs are larger than p
-    // To do this, we must use the `add` method, as construction from uint256_t automatically reduces. As the internal
-    // representation, through limbs, is in Montgomery form, we call the `from_montgomery_form()` method.
+    // Test values for each limb position (only one limb non-zero at a time)
+    // For limb 3, use modulus.data[3] / 2 to stay below modulus
+    constexpr std::array<uint64_t, 4> limb_values = {
+        0xDEADBEEFCAFEBABEULL, 0xFEDCBA9876543210ULL, 0x123456789ABCDEF0ULL, F::modulus.data[3] / 2
+    };
 
-    // Construct (p - 1) and (2^256 - p)
-    uint256_t modulus = F::modulus;
-    F modulus_minus_one(modulus - 1);
-    modulus_minus_one.self_from_montgomery_form();
+    for (size_t limb_idx = 0; limb_idx < 4; ++limb_idx) {
+        std::array<uint64_t, 4> limbs = { 0, 0, 0, 0 };
+        limbs[limb_idx] = limb_values[limb_idx];
 
-    // 2^256 - p can be computed as the complement
-    uint256_t two_256_minus_modulus = uint256_t(0) - modulus;
-    F two_256_minus_p(two_256_minus_modulus);
-    two_256_minus_p.self_from_montgomery_form();
+        F a = create_element_with_limbs<F>(limbs[0], limbs[1], limbs[2], limbs[3]);
+        F b = F::random_element();
+        uint256_t a_val = uint256_t(a);
+        uint256_t b_val = uint256_t(b);
 
-    // a is the element whose Montgomery form (and internal representation) is (p - 1) + (2^256 - p) = 2^256 - 1
-    F a = modulus_minus_one + two_256_minus_p;
+        // Test add
+        F sum = a + b;
+        uint512_t expected_sum = (uint512_t(a_val) + uint512_t(b_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(sum), expected_sum.lo) << "Add failed for limb " << limb_idx;
 
-    // b is the element whose Montgomery form (and internal representation) is (p - 1) + (2^256 - p) = 2^256 - 1
-    F b = modulus_minus_one + two_256_minus_p;
+        // Test sub
+        F diff = a - b;
+        uint512_t expected_diff = (uint512_t(a_val) + uint512_t(F::modulus) - uint512_t(b_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(diff), expected_diff.lo) << "Sub failed for limb " << limb_idx;
 
-    // Verify that a and b have internal Montgomery representation of 2^256 - 1
-    for (size_t i = 0; i < 4; ++i) {
-        EXPECT_EQ(a.data[i], 0xFFFFFFFFFFFFFFFFULL);
-        EXPECT_EQ(b.data[i], 0xFFFFFFFFFFFFFFFFULL);
+        // Test mul
+        F prod = a * b;
+        uint512_t expected_prod = (uint512_t(a_val) * uint512_t(b_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(prod), expected_prod.lo) << "Mul failed for limb " << limb_idx;
+
+        // Test sqr
+        F sq = a.sqr();
+        uint512_t expected_sq = (uint512_t(a_val) * uint512_t(a_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(sq), expected_sq.lo) << "Sqr failed for limb " << limb_idx;
     }
-    F result = a * b;
-
-    // Differential testing: verify a * b ≡ result (mod p) using uint512_t arithmetic
-    uint256_t a_256 = a;
-    uint256_t b_256 = b;
-    uint256_t result_256 = result;
-
-    uint512_t product = uint512_t(a_256) * uint512_t(b_256);
-    uint512_t p_512 = uint512_t(modulus);
-    uint512_t expected_512 = product % p_512;
-    uint256_t expected = uint256_t(expected_512.lo);
-
-    EXPECT_EQ(result_256, expected);
 }
+
+// Test multiplication of two single-limb values (different limbs)
+TYPED_TEST(PrimeFieldTest, CrossLimbMultiplication)
+{
+    using F = TypeParam;
+
+    // Create elements with single non-zero limbs at different positions
+    // For limb 3, use modulus.data[3] / 2 to stay below modulus
+    constexpr std::array<std::array<uint64_t, 4>, 4> limb_patterns = { { { { 0xABCDEF0123456789ULL, 0, 0, 0 } },
+                                                                         { { 0, 0x9876543210FEDCBAULL, 0, 0 } },
+                                                                         { { 0, 0, 0x1111222233334444ULL, 0 } },
+                                                                         { { 0, 0, 0, F::modulus.data[3] / 2 } } } };
+
+    // Build field elements and their uint256_t values
+    std::array<F, 4> elems;
+    std::array<uint256_t, 4> vals;
+    for (size_t i = 0; i < 4; ++i) {
+        elems[i] = create_element_with_limbs<F>(
+            limb_patterns[i][0], limb_patterns[i][1], limb_patterns[i][2], limb_patterns[i][3]);
+        vals[i] = uint256_t(elems[i]);
+    }
+
+    // Test all pairwise multiplications
+    for (size_t i = 0; i < 4; ++i) {
+        for (size_t j = 0; j < 4; ++j) {
+            F prod = elems[i] * elems[j];
+            uint512_t expected_prod = (uint512_t(vals[i]) * uint512_t(vals[j])) % uint512_t(F::modulus);
+            EXPECT_EQ(uint256_t(prod), expected_prod.lo) << "Failed for limb " << i << " * limb " << j;
+        }
+    }
+}
+
+// ================================
+// Edge Cases Near Modulus Boundary
+// ================================
+
+// Test multiplication and squaring of values near the modulus
+TYPED_TEST(PrimeFieldTest, NearModulusMultiplication)
+{
+    using F = TypeParam;
+
+    for (uint64_t offset = 1; offset <= 10; ++offset) {
+        uint256_t val = F::modulus - offset;
+        F a(val);
+        uint256_t a_val = uint256_t(a);
+
+        // Test squaring
+        F sq = a.sqr();
+        uint512_t expected_sq = (uint512_t(a_val) * uint512_t(a_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(sq), expected_sq.lo) << "Sqr failed for (p - " << offset << ")^2";
+
+        // Test a * (a + 1)
+        F a_plus_one = a + F(1);
+        uint256_t a_plus_one_val = uint256_t(a_plus_one);
+        F prod = a * a_plus_one;
+        uint512_t expected_prod = (uint512_t(a_val) * uint512_t(a_plus_one_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(prod), expected_prod.lo)
+            << "Mul failed for (p - " << offset << ") * (p - " << offset << " + 1)";
+    }
+}
+
+// ================================
+// Boundary Tests
+// ================================
+// Test arithmetic with internal representations near the representation boundary.
+// - 254-bit fields (modulus.data[3] < MODULUS_TOP_LIMB_LARGE_THRESHOLD): boundary is 2p
+// - 256-bit fields (modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD): boundary is 2^256 - 1
+
+TYPED_TEST(PrimeFieldTest, BoundaryArithmetic)
+{
+    using F = TypeParam;
+    constexpr std::array<uint64_t, 3> offsets = { 1, 2, 3 };
+
+    for (uint64_t offset : offsets) {
+        F a;
+        if constexpr (F::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            // 256-bit fields: construct element with internal representation near 2^256 - offset.
+            // (p - offset) + (2^256 - p) = 2^256 - offset, which has field value -offset.
+            uint256_t two_256_minus_p = uint256_t(0) - F::modulus;
+            F two_256_minus_p_elt(two_256_minus_p);
+            two_256_minus_p_elt.self_from_montgomery_form();
+            F p_minus_offset(F::modulus - offset);
+            p_minus_offset.self_from_montgomery_form();
+            a = p_minus_offset + two_256_minus_p_elt;
+
+            // Verify internal representation is 2^256 - offset
+            if (offset == 1) {
+                for (size_t i = 0; i < 4; ++i) {
+                    EXPECT_EQ(a.data[i], 0xFFFFFFFFFFFFFFFFULL);
+                }
+            }
+        } else {
+            // 254-bit fields: construct element with internal representation near 2p - (offset + 1).
+            // (p - 1) + (p - offset) = 2p - (offset + 1), which has field value -(offset + 1).
+            F p_minus_one(F::modulus - 1);
+            p_minus_one.self_from_montgomery_form();
+            F p_minus_offset(F::modulus - offset);
+            p_minus_offset.self_from_montgomery_form();
+            a = p_minus_one + p_minus_offset;
+        }
+
+        uint256_t a_val = uint256_t(a);
+        F b = F::random_element();
+
+        // Test all operations
+        F sum = a + b;
+        uint512_t expected_sum = (uint512_t(a_val) + uint512_t(uint256_t(b))) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(sum), expected_sum.lo) << "Add failed for offset " << offset;
+
+        F diff = a - b;
+        uint512_t expected_diff =
+            (uint512_t(a_val) + uint512_t(F::modulus) - uint512_t(uint256_t(b))) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(diff), expected_diff.lo) << "Sub failed for offset " << offset;
+
+        F prod = a * b;
+        uint512_t expected_prod = (uint512_t(a_val) * uint512_t(uint256_t(b))) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(prod), expected_prod.lo) << "Mul failed for offset " << offset;
+
+        F sq = a.sqr();
+        uint512_t expected_sq = (uint512_t(a_val) * uint512_t(a_val)) % uint512_t(F::modulus);
+        EXPECT_EQ(uint256_t(sq), expected_sq.lo) << "Sqr failed for offset " << offset;
+    }
+}
+
 // ================================
 // Serialization
 // ================================
