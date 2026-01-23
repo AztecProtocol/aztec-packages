@@ -24,6 +24,8 @@ export interface KernelProverConfig {
 export interface BlockSynchronizerConfig {
   /** Maximum amount of blocks to pull from the stream in one request when synchronizing */
   l2BlockBatchSize: number;
+  /** Which chain tip to sync to (proposed, checkpointed, proven, finalized) */
+  syncChainTip?: 'proposed' | 'checkpointed' | 'proven' | 'finalized';
 }
 
 export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig;
@@ -52,6 +54,18 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
     ...booleanConfigHelper(true),
+  },
+  syncChainTip: {
+    env: 'PXE_SYNC_CHAIN_TIP',
+    description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
+    defaultValue: 'proposed',
+    parseEnv: (val: string) => {
+      const allowedValues = ['proposed', 'checkpointed', 'proven', 'finalized'];
+      if (allowedValues.includes(val)) {
+        return val;
+      }
+      throw new Error(`Invalid value for PXE_SYNC_CHAIN_TIP: ${val}. Allowed values are: ${allowedValues.join(', ')}`);
+    },
   },
 };
 
