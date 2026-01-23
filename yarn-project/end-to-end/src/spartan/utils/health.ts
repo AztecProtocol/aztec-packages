@@ -5,10 +5,9 @@ import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 
-import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';
 
-import { startPortForwardForEthereum, startPortForwardForRPC } from './k8s.js';
+import { type ServiceEndpoint, getEthereumEndpoint, getRPCEndpoint } from './k8s.js';
 
 /**
  * Snapshot of chain state captured during setup for comparison in teardown.
@@ -63,18 +62,18 @@ export class ChainHealth {
    * @throws Error if any health check fails
    */
   async setup(): Promise<void> {
-    const processes: ChildProcess[] = [];
+    const endpoints: ServiceEndpoint[] = [];
 
     try {
-      // Establish temporary connections
-      const { process: rpcProcess, port: rpcPort } = await startPortForwardForRPC(this.namespace);
-      processes.push(rpcProcess);
+      // Establish connections (LB or port-forward)
+      const rpcEndpoint = await getRPCEndpoint(this.namespace);
+      endpoints.push(rpcEndpoint);
 
-      const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(this.namespace);
-      processes.push(ethProcess);
+      const ethEndpoint = await getEthereumEndpoint(this.namespace);
+      endpoints.push(ethEndpoint);
 
-      const nodeUrl = `http://127.0.0.1:${rpcPort}`;
-      const ethereumUrl = `http://127.0.0.1:${ethPort}`;
+      const nodeUrl = rpcEndpoint.url;
+      const ethereumUrl = ethEndpoint.url;
 
       // Create clients
       const node = createAztecNodeClient(nodeUrl);
@@ -159,7 +158,7 @@ export class ChainHealth {
 
       this.logger.info('Pre-flight health check passed');
     } finally {
-      processes.forEach(p => p.kill());
+      endpoints.forEach(e => e.process?.kill());
     }
   }
 
@@ -180,7 +179,7 @@ export class ChainHealth {
       return;
     }
 
-    const processes: ChildProcess[] = [];
+    const endpoints: ServiceEndpoint[] = [];
     // Minimum test duration to check chain progression
     const PROGRESS_CHECK_THRESHOLD_SECONDS = 120;
 
@@ -193,14 +192,14 @@ export class ChainHealth {
         return;
       }
 
-      const { process: rpcProcess, port: rpcPort } = await startPortForwardForRPC(this.namespace);
-      processes.push(rpcProcess);
+      const rpcEndpoint = await getRPCEndpoint(this.namespace);
+      endpoints.push(rpcEndpoint);
 
-      const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(this.namespace);
-      processes.push(ethProcess);
+      const ethEndpoint = await getEthereumEndpoint(this.namespace);
+      endpoints.push(ethEndpoint);
 
-      const nodeUrl = `http://127.0.0.1:${rpcPort}`;
-      const ethereumUrl = `http://127.0.0.1:${ethPort}`;
+      const nodeUrl = rpcEndpoint.url;
+      const ethereumUrl = ethEndpoint.url;
       const node = createAztecNodeClient(nodeUrl);
 
       // Check that block number increased
@@ -249,7 +248,7 @@ export class ChainHealth {
 
       this.logger.info('Post-flight health check passed');
     } finally {
-      processes.forEach(p => p.kill());
+      endpoints.forEach(e => e.process?.kill());
       this.snapshot = undefined;
     }
   }
