@@ -8,7 +8,9 @@
 #include <utility>
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_witness_data.hpp"
 namespace bb {
 
 /**
@@ -56,7 +58,10 @@ class TranslatorProvingKey {
 
     std::shared_ptr<ProvingKey> proving_key;
 
-    // Challenge values copied from circuit - needed by prover after circuit is consumed
+    // Challenge values from ECCVM, copied from the circuit builder during proving key construction.
+    // These must be stored here because the circuit builder goes out of scope after the proving key
+    // is created (see Goblin::prove_translator), but the prover needs them later in
+    // execute_grand_product_computation_round() to set up relation parameters.
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
 
@@ -114,6 +119,66 @@ class TranslatorProvingKey {
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum difference between two consecutive values in the ordered range
         // constraint).
+        compute_translator_range_constraint_ordered_polynomials();
+    };
+
+    /**
+     * @brief Construct a TranslatorProvingKey directly from an op queue and challenges.
+     *
+     * @details This is the preferred constructor that bypasses the TranslatorCircuitBuilder intermediate
+     * representation. It directly computes witness values and stores them in polynomials.
+     *
+     * @param batching_challenge_v The batching challenge from ECCVM
+     * @param evaluation_input_x The evaluation challenge from ECCVM
+     * @param op_queue The ECC operation queue
+     * @param commitment_key The commitment key (optional)
+     * @param avm_mode Whether to use AVM mode (optional, default false)
+     */
+    TranslatorProvingKey(BF batching_challenge_v_,
+                         BF evaluation_input_x_,
+                         const std::shared_ptr<ECCOpQueue>& op_queue,
+                         const CommitmentKey& commitment_key = CommitmentKey(),
+                         bool avm_mode = false)
+        : batching_challenge_v(batching_challenge_v_)
+        , evaluation_input_x(evaluation_input_x_)
+    {
+        BB_BENCH_NAME("TranslatorProvingKey(op_queue)");
+
+        // Generate witness data directly from op queue
+        TranslatorWitnessData witness_data(batching_challenge_v_, evaluation_input_x_, op_queue, avm_mode);
+
+        vinfo("Translator circuit size: ", witness_data.num_rows());
+        BB_ASSERT_LTE(witness_data.num_rows(),
+                      Flavor::MINI_CIRCUIT_SIZE,
+                      "The Translator circuit size has exceeded the fixed upper bound");
+
+        proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
+        auto wires = proving_key->polynomials.get_wires();
+
+        // Copy wire values directly from witness data to polynomials
+        parallel_for(wires.size(), [&](size_t wire_idx) {
+            auto& wire_poly = wires[wire_idx];
+            const auto& wire_values = witness_data.wire_values[wire_idx];
+            for (size_t i = 0; i < witness_data.num_rows(); i++) {
+                if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
+                    wire_poly.at(i) = wire_values[i];
+                } else {
+                    BB_ASSERT_EQ(wire_values[i], FF(0));
+                }
+            }
+        });
+
+        // Add random values at the end for zero-knowledge (except for op queue wires)
+        for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
+            auto& wire = wires[idx];
+            for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
+                wire.at(i) = FF::random_element();
+            }
+        }
+
+        compute_lagrange_polynomials();
+        compute_extra_range_constraint_numerator();
+        compute_interleaved_polynomials();
         compute_translator_range_constraint_ordered_polynomials();
     };
 
