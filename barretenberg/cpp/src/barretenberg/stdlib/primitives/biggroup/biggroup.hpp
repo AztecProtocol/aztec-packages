@@ -68,13 +68,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @param input
      * @return element
      * @warning Use this carefully, as its creating free witnesses.
+     * @note Point at infinity is rejected - use point_at_infinity() instead.
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        // Handle point at infinity using the canonical representation
-        if (input.is_point_at_infinity()) {
-            return point_at_infinity(ctx);
-        }
+        // Reject point at infinity - use point_at_infinity() instead.
+        // from_witness() creates circuit witnesses, but infinity is a known constant value.
+        // Creating witnesses for a known constant is semantically incorrect.
+        BB_ASSERT(!input.is_point_at_infinity(),
+                  "biggroup::from_witness: Cannot create witness from point at infinity. "
+                  "Use point_at_infinity() for infinity points.");
 
         Fq x = Fq::from_witness(ctx, input.x);
         Fq y = Fq::from_witness(ctx, input.y);

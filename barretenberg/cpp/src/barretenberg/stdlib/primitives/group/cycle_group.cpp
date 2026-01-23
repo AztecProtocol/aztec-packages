@@ -212,17 +212,17 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::constant_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const AffineElement& _in)
 {
-    cycle_group result(_context);
+    // Reject point at infinity - use constant_infinity() instead.
+    // from_witness() creates circuit witnesses, but infinity is a known constant value.
+    // Creating witnesses for a known constant is semantically incorrect.
+    BB_ASSERT(!_in.is_point_at_infinity(),
+              "cycle_group::from_witness: Cannot create witness from point at infinity. "
+              "Use constant_infinity() for infinity points.");
 
-    // Use constant (0, 0) coordinates for infinity points (canonical representation).
-    if (_in.is_point_at_infinity()) {
-        result._x = field_t(_context, bb::fr::zero());
-        result._y = field_t(_context, bb::fr::zero());
-    } else {
-        result._x = field_t::from_witness(_context, _in.x);
-        result._y = field_t::from_witness(_context, _in.y);
-    }
-    result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
+    cycle_group result(_context);
+    result._x = field_t::from_witness(_context, _in.x);
+    result._y = field_t::from_witness(_context, _in.y);
+    result._is_infinity = bool_t(_context, false); // Always false - infinity is rejected above
     result.validate_on_curve();
     result.set_free_witness_tag();
     return result;

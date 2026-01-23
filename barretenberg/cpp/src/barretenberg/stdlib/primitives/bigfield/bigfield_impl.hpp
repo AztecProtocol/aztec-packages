@@ -24,17 +24,22 @@ namespace bb::stdlib {
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)), Limb(bb::fr(0)) }
+    , binary_basis_limbs{ Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(0))) }
     , prime_basis_limb(context, 0)
 {}
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context, const uint256_t& value)
     : context(parent_context)
-    , binary_basis_limbs{ Limb(bb::fr(value.slice(0, NUM_LIMB_BITS))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3))),
-                          Limb(bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4))) }
+    , binary_basis_limbs{ Limb(field_t<Builder>(parent_context, bb::fr(value.slice(0, NUM_LIMB_BITS)))),
+                          Limb(field_t<Builder>(parent_context, bb::fr(value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2)))),
+                          Limb(field_t<Builder>(parent_context,
+                                                bb::fr(value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3)))),
+                          Limb(field_t<Builder>(parent_context,
+                                                bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4)))) }
     , prime_basis_limb(context, value)
 {
     BB_ASSERT_LT(value, modulus);

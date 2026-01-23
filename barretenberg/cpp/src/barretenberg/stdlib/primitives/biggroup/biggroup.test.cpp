@@ -1378,7 +1378,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalar_raw = scalar_raw >> (256 - max_num_bits);
             fr scalar = fr(scalar_raw);
 
-            element_ct P = element_ct::from_witness(&builder, point);
+            // Use point_at_infinity() for infinity points, from_witness() for regular points
+            element_ct P = point.is_point_at_infinity() ? element_ct::point_at_infinity(&builder)
+                                                        : element_ct::from_witness(&builder, point);
             scalar_ct x = scalar_ct::from_witness(&builder, scalar);
 
             // Set input tags
@@ -1892,7 +1894,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             OriginTag tag_union =
                 OriginTag::constant(); // Initialize as CONSTANT so merging with input tags works correctly
             for (size_t i = 0; i < num_points; ++i) {
-                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+                // Use point_at_infinity() for infinity points, from_witness() for regular points
+                if (points[i].is_point_at_infinity()) {
+                    circuit_points.push_back(element_ct::point_at_infinity(&builder));
+                } else {
+                    circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+                }
 
                 // Set tag to submitted value tag at round i
                 circuit_points[i].set_origin_tag(
@@ -1978,19 +1985,18 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_batch_mul_all_infinity()
     {
         Builder builder;
-        std::vector<affine_element> points;
         std::vector<fr> scalars;
 
         for (size_t i = 0; i < 5; ++i) {
-            points.push_back(affine_element::infinity());
             scalars.push_back(fr::random_element());
         }
 
         std::vector<element_ct> circuit_points;
         std::vector<scalar_ct> circuit_scalars;
 
-        for (size_t i = 0; i < points.size(); ++i) {
-            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+        for (size_t i = 0; i < scalars.size(); ++i) {
+            // All points are at infinity - use point_at_infinity()
+            circuit_points.push_back(element_ct::point_at_infinity(&builder));
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
 
@@ -2084,7 +2090,12 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         std::vector<scalar_ct> circuit_scalars;
 
         for (size_t i = 0; i < points.size(); ++i) {
-            circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            // Use point_at_infinity() for infinity points, from_witness() for regular points
+            if (points[i].is_point_at_infinity()) {
+                circuit_points.push_back(element_ct::point_at_infinity(&builder));
+            } else {
+                circuit_points.push_back(element_ct::from_witness(&builder, points[i]));
+            }
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
 

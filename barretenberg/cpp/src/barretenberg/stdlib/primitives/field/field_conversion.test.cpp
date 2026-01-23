@@ -151,8 +151,8 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
-        bn254_element<Builder> group_element =
-            bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
+        // Use point_at_infinity() for infinity points (from_witness rejects infinity)
+        bn254_element<Builder> group_element = bn254_element<Builder>::point_at_infinity(&builder);
         // Point at infinity is now consistently represented as (0, 0) across all builders
         this->check_conversion(group_element);
     }
@@ -211,8 +211,8 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
-        grumpkin_element<Builder> group_element =
-            grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
+        // Use constant_infinity() for infinity points (from_witness rejects infinity)
+        grumpkin_element<Builder> group_element = grumpkin_element<Builder>::constant_infinity(&builder);
         this->check_conversion(group_element);
     }
 }
@@ -376,7 +376,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
     using Builder = TypeParam;
     // Ultra: full bigfield construction + on-curve validation + assert_is_in_field for x and y
     // Mega: only is_infinity check, range constraint and on_curve validation deferred to ECCVM and Translator
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3850 : 5;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3922 : 5;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected);
 }
@@ -388,7 +388,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
     using Builder = TypeParam;
 
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5601 : 50;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 6331 : 50;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
 }
@@ -400,7 +400,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 TYPED_TEST(stdlib_field_conversion, GateCountGrumpkinPointDeserialization)
 {
     this->template check_deserialization_gate_count<grumpkin_element<TypeParam>>(
-        [] { return curve::Grumpkin::AffineElement::random_element(); }, 10);
+        [] { return curve::Grumpkin::AffineElement::random_element(); }, 14);
 }
 
 /**
