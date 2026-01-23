@@ -738,13 +738,14 @@ std::vector<FuzzInstruction> InstructionMutator::generate_sload_instruction(std:
         // Random mode: requires at least one prior SSTORE to have been processed
         return { SLOAD_Instruction{ .slot_index = generate_random_uint16(rng),
                                     .slot_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                    .contract_address_address = generate_variable_ref(rng),
                                     .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     }
 
     // Backfill mode: generate SSTORE first to ensure storage_addresses is non-empty
     // This guarantees SLOAD will find a valid slot (get_slot uses modulo on non-empty vector)
     std::vector<FuzzInstruction> instructions;
-    instructions.reserve(3);
+    instructions.reserve(4);
 
     AddressRef sstore_src = generate_address_ref(rng, MAX_16BIT_OPERAND);
 
@@ -757,9 +758,15 @@ std::vector<FuzzInstruction> InstructionMutator::generate_sload_instruction(std:
                                                .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
                                                .slot = generate_random_field(rng) });
 
+    // Now set our own contract address
+    AddressRef contract_address_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    instructions.push_back(
+        GETENVVAR_Instruction{ .result_address = contract_address_address, /* contract address */ .type = 0 });
+
     // SLOAD - now guaranteed to succeed (storage_addresses not empty, get_slot uses modulo)
     instructions.push_back(SLOAD_Instruction{ .slot_index = generate_random_uint16(rng),
                                               .slot_address = generate_address_ref(rng, MAX_16BIT_OPERAND),
+                                              .contract_address_address = contract_address_address,
                                               .result_address = generate_address_ref(rng, MAX_16BIT_OPERAND) });
 
     return instructions;
@@ -1231,6 +1238,9 @@ void InstructionMutator::mutate_sload_instruction(SLOAD_Instruction& instruction
         break;
     case SLoadMutationOptions::slot_address:
         mutate_address_ref(instruction.slot_address, rng, MAX_16BIT_OPERAND);
+        break;
+    case SLoadMutationOptions::contract_address_address:
+        mutate_param_ref(instruction.contract_address_address, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case SLoadMutationOptions::result_address:
         mutate_address_ref(instruction.result_address, rng, MAX_16BIT_OPERAND);
