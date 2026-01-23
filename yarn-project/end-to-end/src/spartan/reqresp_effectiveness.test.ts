@@ -6,12 +6,17 @@ import { sleep } from '@aztec/foundation/sleep';
 import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
-import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { createWalletAndAztecNodeClient, deploySponsoredTestAccountsWithTokens } from './setup_test_wallets.js';
 import type { TestAccounts } from './setup_test_wallets.js';
-import { type TestConfig, setValidatorTxDrop, setupEnvironment, startPortForwardForRPC } from './utils.js';
+import {
+  type ServiceEndpoint,
+  type TestConfig,
+  getRPCEndpoint,
+  setValidatorTxDrop,
+  setupEnvironment,
+} from './utils.js';
 
 describe('reqresp effectiveness under tx drop', () => {
   jest.setTimeout(60 * 60 * 1000);
@@ -29,7 +34,7 @@ describe('reqresp effectiveness under tx drop', () => {
   let cleanup: undefined | (() => Promise<void>);
   let testAccounts: TestAccounts;
   let recipient: any;
-  const forwardProcesses: ChildProcess[] = [];
+  const endpoints: ServiceEndpoint[] = [];
 
   afterAll(async () => {
     // Reset validators to default (no tx drop)
@@ -44,14 +49,14 @@ describe('reqresp effectiveness under tx drop', () => {
       logger.warn(`Failed to reset validator tx drop flags: ${String(e)}`);
     }
     await cleanup?.();
-    forwardProcesses.forEach(p => p.kill());
+    endpoints.forEach(e => e.process?.kill());
   });
 
   beforeAll(async () => {
-    logger.info('Starting port forward for PXE');
-    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
-    forwardProcesses.push(aztecRpcProcess);
-    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    logger.info('Connecting to RPC node');
+    const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
+    endpoints.push(rpcEndpoint);
+    const rpcUrl = rpcEndpoint.url;
 
     const {
       wallet: _wallet,
