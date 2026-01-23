@@ -745,9 +745,14 @@ async function getUpgradeProgress(namespace: string): Promise<UpgradeProgress | 
     }
   }
 
-  // Get current slot from validator status
+  // Get current slot from validator status (try multiple formats)
   for (const line of validatorLogs.split('\n').reverse()) {
-    const slotMatch = line.match(/"slotNumber":(\d+)/);
+    // Try JSON format first
+    let slotMatch = line.match(/"slotNumber":(\d+)/);
+    if (!slotMatch) {
+      // Try message format "L2 slot 67"
+      slotMatch = line.match(/L2 slot (\d+)/);
+    }
     if (slotMatch) {
       progress.currentSlot = parseInt(slotMatch[1]);
       break;
@@ -1038,10 +1043,38 @@ function printDiagnostics(diag: NetworkDiagnostics): void {
       }
     }
 
-    // Current slot for context
+    // Current slot and epoch info for context
     if (up.currentSlot !== null) {
+      const slotsPerEpoch = 32;
+      const currentEpoch = Math.floor(up.currentSlot / slotsPerEpoch);
+      const slotInEpoch = up.currentSlot % slotsPerEpoch;
+      const remainingSlotsInEpoch = slotsPerEpoch - slotInEpoch;
+
       console.log();
-      console.log(`    Current Slot:  ${up.currentSlot}`);
+      console.log(`    Current Slot:  ${up.currentSlot} (Epoch ${currentEpoch}, slot ${slotInEpoch}/${slotsPerEpoch})`);
+
+      // If waiting for committee, show when it will form
+      if (up.phase === 'complete' && up.governanceProposalState?.includes('Waiting for committee')) {
+        // Committee forms 2 epochs after the upgrade
+        // Since we're in the "complete" phase, the upgrade just executed
+        const targetEpoch = currentEpoch + 2;
+        const targetSlot = targetEpoch * slotsPerEpoch;
+        const slotsUntilCommittee = targetSlot - up.currentSlot;
+        const slotDuration = 24; // seconds
+        const estimatedMinutes = Math.ceil((slotsUntilCommittee * slotDuration) / 60);
+
+        console.log(`    Committee at:  Epoch ${targetEpoch} (slot ${targetSlot})`);
+        console.log(
+          `    Slots to wait: ${colorize(`~${slotsUntilCommittee} slots`, 'yellow')} (~${estimatedMinutes} min)`,
+        );
+
+        // Progress bar toward committee formation
+        const totalSlotsToWait = 2 * slotsPerEpoch; // 2 epochs = 64 slots
+        const slotsPassed = totalSlotsToWait - slotsUntilCommittee;
+        const progress = Math.max(0, Math.min(1, slotsPassed / totalSlotsToWait));
+        const progressBar = '█'.repeat(Math.floor(progress * 20)).padEnd(20, '░');
+        console.log(`    Progress:      [${colorize(progressBar, 'cyan')}] ${Math.floor(progress * 100)}%`);
+      }
     }
 
     console.log();
@@ -1314,11 +1347,22 @@ function printDiagnostics(diag: NetworkDiagnostics): void {
   console.log(colorize('└─────────────────────────────────────────────────────────────────────────────┘', 'cyan'));
   console.log();
 
+  // Check if committee issue is expected (post-upgrade waiting period)
+  const isPostUpgradeWaiting =
+    diag.upgradeProgress?.phase === 'complete' &&
+    diag.upgradeProgress?.governanceProposalState?.includes('Waiting for committee');
+
   if (hasPayloadError) {
     console.log('  Fix the prover broker body size limit:');
     console.log(colorize('    1. Add to prover-broker deployment: RPC_MAX_BODY_SIZE=10485760', 'cyan'));
     console.log(colorize('    2. Or update Helm values: prover.broker.env.RPC_MAX_BODY_SIZE=10485760', 'cyan'));
     console.log(colorize('    3. Then restart the prover-broker pod', 'cyan'));
+  } else if (hasCommitteeIssue && isPostUpgradeWaiting) {
+    console.log(colorize('  ✓ Upgrade executed successfully!', 'green'));
+    console.log('  Waiting for validator committee to form on new rollup...');
+    console.log(colorize('    → This takes 2 epochs (AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET)', 'cyan'));
+    console.log(colorize('    → Once the lag period passes, blocks will be produced on the new rollup', 'cyan'));
+    console.log(colorize('    → No action needed - just wait', 'cyan'));
   } else if (hasCommitteeIssue) {
     console.log('  The network needs to be redeployed. Run:');
     console.log(colorize(`    cd spartan/terraform/deploy-aztec-infra/state/${diag.namespace}`, 'cyan'));
