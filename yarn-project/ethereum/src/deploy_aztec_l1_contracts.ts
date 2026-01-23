@@ -30,6 +30,14 @@ const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
 
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
+/** Batch size of 8 prevents forge from hanging during broadcast (forge bug with large RPC batches). */
+const MAGIC_BATCH_SIZE = 8;
+
+/** Returns forge broadcast timeout in seconds. Mainnet/sepolia get 5 minutes, everything else gets 50 seconds. */
+function getForgeBroadcastTimeout(chainId: number): number {
+  return chainId === mainnet.id || chainId === sepolia.id ? 300 : 50;
+}
+
 /**
  * Runs a process with the given command, arguments, and environment.
  * If the process outputs a line starting with JSON_DEPLOY_RESULT_PREFIX,
@@ -75,6 +83,27 @@ function runProcess<T>(
   });
 
   return promise;
+}
+
+/**
+ * Runs a forge script with retry on timeout. Forge can hang during broadcast due to a bug with
+ * large RPC batches. On timeout, retries once with --resume to pick up where it left off.
+ */
+async function runForgeScript<T>(
+  forgeArgs: string[],
+  forgeEnv: Record<string, string | undefined>,
+  cwd: string,
+): Promise<T | undefined> {
+  try {
+    return await runProcess<T>('forge', forgeArgs, forgeEnv, cwd);
+  } catch (e: any) {
+    const isTimeout = /timed? ?out/i.test(e.message);
+    if (isTimeout) {
+      logger.warn(`Forge script timed out: ${e.message}. Retrying with --resume...`);
+      return await runProcess<T>('forge', [...forgeArgs, '--resume'], forgeEnv, cwd);
+    }
+    throw e;
+  }
 }
 
 // Covers an edge where where we may have a cached BlobLib that is not meant for production.
@@ -321,9 +350,6 @@ export async function deployAztecL1Contracts(
     );
   }
 
-  // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 8;
-  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
   const forgeArgs = [
     'script',
     FORGE_SCRIPT,
@@ -335,7 +361,9 @@ export async function deployAztecL1Contracts(
     rpcUrl,
     '--broadcast',
     '--batch-size',
-    MAGIC_ANVIL_BATCH_SIZE.toString(),
+    MAGIC_BATCH_SIZE.toString(),
+    '--timeout',
+    getForgeBroadcastTimeout(chainId).toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
@@ -344,7 +372,7 @@ export async function deployAztecL1Contracts(
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     ...getDeployAztecL1ContractsEnvVars(args),
   };
-  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runForgeScript<ForgeL1ContractsDeployResult>(forgeArgs, forgeEnv, l1ContractsPath);
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -597,6 +625,10 @@ export const deployRollupForUpgrade = async (
     '--rpc-url',
     rpcUrl,
     '--broadcast',
+    '--batch-size',
+    MAGIC_BATCH_SIZE.toString(),
+    '--timeout',
+    getForgeBroadcastTimeout(chainId).toString(),
   ];
   const forgeEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
@@ -606,7 +638,7 @@ export const deployRollupForUpgrade = async (
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runForgeScript<ForgeRollupUpgradeResult>(forgeArgs, forgeEnv, l1ContractsPath);
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
