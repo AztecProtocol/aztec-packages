@@ -1,4 +1,5 @@
 #include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
 
@@ -198,13 +199,13 @@ TEST_F(FieldConversionTest, RejectPointNotOnCurve)
     // Test for BN254: (1, 4) is not on the curve
     {
         std::vector<bb::fr> fr_vec = { bb::fr(1), bb::fr(0), bb::fr(4), bb::fr(0) };
-        EXPECT_THROW(FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(fr_vec), std::runtime_error);
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<curve::BN254::AffineElement>(fr_vec), "on_curve");
     }
 
     // Test for Grumpkin: (12, 100) is not on the curve
     {
         std::vector<bb::fr> fr_vec = { bb::fr(12), bb::fr(100) };
-        EXPECT_THROW(FrCodec::deserialize_from_fields<curve::Grumpkin::AffineElement>(fr_vec), std::runtime_error);
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<curve::Grumpkin::AffineElement>(fr_vec), "on_curve");
     }
 }
 
