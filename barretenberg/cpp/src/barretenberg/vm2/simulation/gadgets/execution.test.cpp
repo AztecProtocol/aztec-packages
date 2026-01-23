@@ -1161,6 +1161,29 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
     execution.send_l2_to_l1_msg(context, recipient_addr, content_addr);
 }
 
+TEST_F(ExecutionSimulationTest, SendL2ToL1MsgTooLargeRecipient)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(FF(MAX_ETH_ADDRESS_VALUE) + 1);
+    auto content = MemoryValue::from<FF>(27);
+
+    TrackedSideEffects side_effects_states;
+
+    EXPECT_CALL(context, get_memory());
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(recipient, MemoryValue::from(FF(MAX_ETH_ADDRESS_VALUE)))).WillOnce(Return(true));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
+                              "SENDL2TOL1MSG: Recipient address is too large");
+}
+
 TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
 {
     MemoryAddress recipient_addr = 10;

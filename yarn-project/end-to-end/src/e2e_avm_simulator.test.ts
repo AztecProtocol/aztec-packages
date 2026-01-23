@@ -192,6 +192,18 @@ describe('e2e_avm_simulator', () => {
       });
     });
 
+    describe('L2 to L1 messages', () => {
+      it('Should fail if emitting to an invalid ethereum address', async () => {
+        const recipient = Fr.MAX_FIELD_VALUE;
+        await expect(
+          avmContract.methods
+            .raw_l2_to_l1_msg({ address: recipient }, new Fr(1))
+            .send({ from: defaultAccountAddress })
+            .wait(),
+        ).rejects.toThrow();
+      });
+    });
+
     describe('Nested calls', () => {
       it('Nested call to non-existent contract reverts & rethrows by default', async () => {
         // The nested call reverts and by default caller rethrows
