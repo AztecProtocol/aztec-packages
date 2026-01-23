@@ -340,9 +340,16 @@ async function getCriticalEvents(namespace: string): Promise<{
   };
 
   result.reorgEvents = extractMessages(nodeLogs, /reorg|Unwound/i);
-  result.committeeIssues = extractMessages(validatorLogs, /committee/i).filter(m => !m.includes('"severity":"INFO"'));
+  // Only show committee issues that are actual problems (not normal attestation/validation messages)
+  result.committeeIssues = extractMessages(
+    validatorLogs,
+    /committee.*does not exist|committee.*not found|committee.*error/i,
+  );
   result.slashingEvents = extractMessages(validatorLogs, /slash/i);
-  result.connectionErrors = extractMessages(validatorLogs, /connection refused|ECONNREFUSED|timeout/i);
+  // Filter out L1 transaction sends from connection errors (they're not errors)
+  result.connectionErrors = extractMessages(validatorLogs, /connection refused|ECONNREFUSED|timeout/i).filter(
+    m => !m.includes('Sent L1 transaction'),
+  );
 
   return result;
 }
@@ -437,13 +444,28 @@ async function getProverHistory(namespace: string): Promise<ProverHistory> {
       }
     }
 
-    // Look for 500 errors from broker
-    if (line.includes('500') || line.includes('Error')) {
+    // Look for 500 errors from broker (exclude metrics collector errors)
+    if (
+      (line.includes('500') || (line.includes('Error') && line.includes('"severity":"ERROR"'))) &&
+      !line.includes('metrics-opentelemetry') &&
+      !line.includes('getaddrinfo ENOTFOUND')
+    ) {
       history.proverNodeEvents.push({
         timestamp: parsed.timestamp,
         type: 'broker_error',
         message: parsed.message.slice(0, 80),
         severity: 'error',
+      });
+    }
+
+    // Look for checkpoint downloads as positive events
+    if (line.includes('Downloaded checkpoint')) {
+      const checkpointMatch = line.match(/checkpoint\s+(\d+)/i);
+      history.proverNodeEvents.push({
+        timestamp: parsed.timestamp,
+        type: 'proof_claim',
+        message: checkpointMatch ? `Synced checkpoint ${checkpointMatch[1]}` : parsed.message.slice(0, 80),
+        severity: 'info',
       });
     }
   }
@@ -1074,6 +1096,18 @@ function printDiagnostics(diag: NetworkDiagnostics): void {
         const progress = Math.max(0, Math.min(1, slotsPassed / totalSlotsToWait));
         const progressBar = '█'.repeat(Math.floor(progress * 20)).padEnd(20, '░');
         console.log(`    Progress:      [${colorize(progressBar, 'cyan')}] ${Math.floor(progress * 100)}%`);
+      } else if (up.phase === 'complete' && up.governanceProposalState?.includes('producing blocks')) {
+        // New rollup is producing blocks, waiting for epoch to complete for proving
+        const slotDuration = 24; // seconds
+        const remainingMinutes = Math.ceil((remainingSlotsInEpoch * slotDuration) / 60);
+
+        console.log(`    Epoch ends at: Slot ${(currentEpoch + 1) * slotsPerEpoch} (~${remainingMinutes} min)`);
+        console.log(`    Next phase:    ${colorize('Epoch proving', 'cyan')} (after epoch ${currentEpoch} ends)`);
+
+        // Progress bar toward epoch end
+        const progress = slotInEpoch / slotsPerEpoch;
+        const progressBar = '█'.repeat(Math.floor(progress * 20)).padEnd(20, '░');
+        console.log(`    Epoch ${currentEpoch}:     [${colorize(progressBar, 'cyan')}] ${Math.floor(progress * 100)}%`);
       }
     }
 
