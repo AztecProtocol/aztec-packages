@@ -126,8 +126,7 @@ class AvmRecursiveFlavor {
                 transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
             for (const auto& derived_label : challenges.get_derived_labels()) {
-                [[maybe_unused]] auto _ =
-                    transcript->template receive_from_prover<GoblinStdlibProofCommitment>(derived_label);
+                [[maybe_unused]] auto _ = transcript->template receive_from_prover<StdlibCommitment>(derived_label);
             }
 
             [[maybe_unused]] const FF _alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
