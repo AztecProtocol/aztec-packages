@@ -121,30 +121,35 @@ export class EpochsTestContext {
 
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
-    const context = await setup(opts.numberOfAccounts ?? 0, {
-      automineL1Setup: true,
-      checkIntervalMs: 50,
-      archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
-      worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
-      aztecEpochDuration,
-      aztecSlotDuration,
-      ethereumSlotDuration,
-      aztecProofSubmissionEpochs,
-      aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
-      minTxsPerBlock: 0,
-      realProofs: false,
-      startProverNode: true,
-      proverTestDelayMs: opts.proverTestDelayMs ?? 0,
-      // We use numeric incremental prover ids for simplicity, but we can switch to
-      // using the prover's eth address if the proverId is used for something in the rollup contract
-      // Use numeric EthAddress for deterministic prover id
-      proverId: EthAddress.fromNumber(1),
-      worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
-      exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-      slasherFlavor: 'none',
-      l1PublishingTime,
-      ...opts,
-    });
+    const context = await setup(
+      opts.numberOfAccounts ?? 0,
+      {
+        automineL1Setup: true,
+        checkIntervalMs: 50,
+        archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
+        worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
+        aztecEpochDuration,
+        aztecSlotDuration,
+        ethereumSlotDuration,
+        aztecProofSubmissionEpochs,
+        aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
+        minTxsPerBlock: 0,
+        realProofs: false,
+        startProverNode: true,
+        proverTestDelayMs: opts.proverTestDelayMs ?? 0,
+        // We use numeric incremental prover ids for simplicity, but we can switch to
+        // using the prover's eth address if the proverId is used for something in the rollup contract
+        // Use numeric EthAddress for deterministic prover id
+        proverId: EthAddress.fromNumber(1),
+        worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+        exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+        slasherFlavor: 'none',
+        l1PublishingTime,
+        ...opts,
+      },
+      // Use checkpointed chain tip for PXE to avoid issues with blocks being dropped due to pruned anchor blocks.
+      { syncChainTip: 'checkpointed' },
+    );
 
     this.context = context;
     this.proverNodes = context.proverNode ? [context.proverNode] : [];

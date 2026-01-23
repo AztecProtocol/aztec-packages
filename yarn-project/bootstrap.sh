@@ -53,7 +53,7 @@ function format {
   # Build the paths array to search
   local paths=()
   if [ ${#packages[@]} -eq 0 ]; then
-    paths=("./*/src")
+    paths=(./*/src)
   else
     for pkg in "${packages[@]}"; do
       if [ ! -d "./$pkg/src" ]; then
