@@ -55,7 +55,7 @@ template <class T> constexpr field<T>& field<T>::operator*=(const field& other) 
         if (std::is_constant_evaluated()) {
             *this = operator*(other);
         } else {
-            asm_self_mul_with_coarse_reduction(*this, other); // asm_self_mul(*this, other);
+            asm_self_mul_with_coarse_reduction(*this, other);
         }
     }
     return *this;
@@ -75,7 +75,7 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
         if (std::is_constant_evaluated()) {
             return montgomery_square();
         }
-        return asm_sqr_with_coarse_reduction(*this); // asm_sqr(*this);
+        return asm_sqr_with_coarse_reduction(*this);
     }
 }
 
@@ -107,7 +107,7 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
         if (std::is_constant_evaluated()) {
             return add(other);
         }
-        return asm_add_with_coarse_reduction(*this, other); // asm_add_without_reduction(*this, other);
+        return asm_add_with_coarse_reduction(*this, other);
     }
 }
 
@@ -120,7 +120,7 @@ template <class T> constexpr field<T>& field<T>::operator+=(const field& other) 
         if (std::is_constant_evaluated()) {
             (*this) = operator+(other);
         } else {
-            asm_self_add_with_coarse_reduction(*this, other); // asm_self_add(*this, other);
+            asm_self_add_with_coarse_reduction(*this, other);
         }
     }
     return *this;
@@ -148,12 +148,12 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        return subtract(other); // modulus - *this;
+        return subtract(other);
     } else {
         if (std::is_constant_evaluated()) {
-            return subtract(other); // subtract(other);
+            return subtract(other);
         }
-        return asm_sub_with_coarse_reduction(*this, other); // asm_sub(*this, other);
+        return asm_sub_with_coarse_reduction(*this, other);
     }
 }
 
@@ -162,7 +162,7 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
     if constexpr ((T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         constexpr field p{ modulus.data[0], modulus.data[1], modulus.data[2], modulus.data[3] };
-        return p - *this; // modulus - *this;
+        return p - *this;
     }
 
     // TODO(@zac-williamson): there are 3 ways we can make this more efficient
@@ -182,19 +182,19 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
     // *this`! If *this = 0 then we exceed this bound hence the need for the extra reduction step. HOWEVER, we also know
     // that 2p - *this won't underflow so we could skip the underflow check present in the assembly code
     constexpr field p{ twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3] };
-    return (p - *this).reduce_once(); // modulus - *this;
+    return (p - *this).reduce_once();
 }
 
 template <class T> constexpr field<T>& field<T>::operator-=(const field& other) & noexcept
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
-        *this = subtract(other); // subtract(other);
+        *this = subtract(other);
     } else {
         if (std::is_constant_evaluated()) {
-            *this = subtract(other); // subtract(other);
+            *this = subtract(other);
         } else {
-            asm_self_sub_with_coarse_reduction(*this, other); // asm_self_sub(*this, other);
+            asm_self_sub_with_coarse_reduction(*this, other);
         }
     }
     return *this;
